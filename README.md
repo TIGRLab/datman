@@ -4,9 +4,9 @@ The development branch of a python project containing useful functions for manag
 
 Depends on :
 
-[NiNet](https://github.com/josephdviviano/ninet) for some NIFTI-handling functionsi and analysis.
-[SciPy, NumPy, Matplotlib](http://www.scipy.org/stackspec.html) for general analysis.
-[NiBabel](For NIFTI reading/writing.)
++ [NiNet](https://github.com/josephdviviano/ninet) for some NIFTI-handling functionsi and analysis.
++ [SciPy, NumPy, Matplotlib](http://www.scipy.org/stackspec.html) for general analysis.
++ [NiBabel](For NIFTI reading/writing.)
 
 modules
 -------
