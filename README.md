@@ -1,6 +1,35 @@
 datman
 ------
-A python project containing useful functions for managing imaging data from collection through analysis.
+The development branch of a python project containing useful functions for managing imaging data from collection through analysis.
+
+Depends on :
+
+[NiNet](https://github.com/josephdviviano/ninet) for some NIFTI-handling functionsi and analysis.
+[SciPy, NumPy, Matplotlib](http://www.scipy.org/stackspec.html) for general analysis.
+[NiBabel](For NIFTI reading/writing.)
+
+modules
+-------
+
+**utils**
+
+General file-handling utilities.
+
+**web**
+
+An interface between our data and gh-pages to create online data reports.
+
+**module**
+
+A set of commands for interacting with GNU module.
+
+**img**
+
+A set of commands for handling imaging data.
+
+**behav**
+
+A set of commands for handling behavioural data. 
 
 --- 
 
