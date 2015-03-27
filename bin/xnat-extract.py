@@ -9,7 +9,7 @@ Arguments:
     <archivedir>            Path to scan folder within the XNAT archive
 
 Options: 
-    --targetdir DIR         Parent folder to extract to [default: ./data]
+    --datadir DIR           Parent folder to extract to [default: ./data]
     --exportinfo FILE       Table listing acquisitions to export by format
                             [default: ./metadata/protocols.csv]
     --verbose               Verbose logging
@@ -36,7 +36,7 @@ INPUT FOLDERS
 
 OUTPUT FOLDERS
     Each dicom series will be converted and placed into a subfolder of the
-    --targetdir named according to the converted filetype and subject ID, e.g. 
+    --datadir named according to the converted filetype and subject ID, e.g. 
 
         data/
             nifti/
@@ -71,25 +71,25 @@ EXPORT TABLE FORMAT
 
     For example:
 
-       studycode  series_pattern  tag     export_mnc  export_nifti  export_nrrd
-       DTIG1MR    Localiser       LOC     no          no            no
-       DTIG1MR    Calibration     CAL     no          no            no
-       DTIG1MR    Aniso           ANI     no          no            no
-       DTIG1MR    HOS             HOS     no          no            no
-       DTIG1MR    T1              T1      yes         yes           yes
-       DTIG1MR    T2              T2      yes         yes           yes
-       DTIG1MR    FLAIR           FLAIR   yes         yes           yes
-       DTIG1MR    Resting         RES     no          yes           no
-       DTIG1MR    Observe         OBS     no          yes           no
-       DTIG1MR    Imitate         IMI     no          yes           no
-       DTIG1MR    DTI-60          DTI-60  no          yes           yes
-       DTIG1MR    DTI-33-b4500    b4500   no          yes           yes
-       DTIG1MR    DTI-33-b3000    b3000   no          yes           yes
-       DTIG1MR    DTI-33-b1000    b1000   no          yes           yes
+    studycode  pattern       tag     export_mnc  export_nii  export_nrrd  count
+    DTIG1MR    Localiser     LOC     no          no          no           1
+    DTIG1MR    Calibration   CAL     no          no          no           1
+    DTIG1MR    Aniso         ANI     no          no          no           1
+    DTIG1MR    HOS           HOS     no          no          no           1
+    DTIG1MR    T1            T1      yes         yes         yes          1
+    DTIG1MR    T2            T2      yes         yes         yes          1
+    DTIG1MR    FLAIR         FLAIR   yes         yes         yes          1
+    DTIG1MR    Resting       RES     no          yes         no           1
+    DTIG1MR    Observe       OBS     no          yes         no           1
+    DTIG1MR    Imitate       IMI     no          yes         no           1
+    DTIG1MR    DTI-60        DTI-60  no          yes         yes          3
+    DTIG1MR    DTI-33-b4500  b4500   no          yes         yes          1
+    DTIG1MR    DTI-33-b3000  b3000   no          yes         yes          1
+    DTIG1MR    DTI-33-b1000  b1000   no          yes         yes          1
 
 NON-DICOM DATA
     XNAT puts "other" (i.e. non-DICOM data) into the RESOURCES folder. This
-    data will be copied to a subfolder of the target directory named
+    data will be copied to a subfolder of the data directory named
     resources/<scanid>, for example: 
 
         resources/SPN01_CMH_0001_01_01/
@@ -108,3 +108,7 @@ EXAMPLES
     xnat-extract.py /xnat/spred/archive/SPINS/arc001/SPN01_CMH_0001_01_01
 
 """
+from docopt import docopt
+
+if __name__ == '__main__':
+    arguments = docopt(__doc__)
