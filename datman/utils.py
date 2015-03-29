@@ -8,65 +8,55 @@ import zipfile
 import tarfile
 import io
 
-# A dictionary that maps the series kinds to possible regexs of dicom
-# description headers used in the MR Unit. 
-#
-# A series kind is a short, one word indication of the type of acquisition (e.g.
-# T1, T2, etc..)
-#
-# This dictionary is formatted like so: 
-#    kind -> list of description regex 
-#
-SERIES_KINDS_MAP = {
+SERIES_TAGS_MAP = {
     "T1"           : "T1",
-    "T2"           : "T2 DE",
-    "DTI-60"       : "DTI 60",
-    "DTI-33-b1000" : r"DTI 33\+2 b1000",
-    "DTI-33-b3000" : r"DTI 33\+2 b3000",
-    "DTI-33-b4500" : r"DTI 33\+2 b4500",
-    "N-BACK"       : "N Back",
-    "REST"         : "RestingState",
+    "T2"           : "T2",
+    "DTI"          : "DTI",
+    "NBACK"        : "N Back",
+    "REST"         : "Resting",
     "FLAIR"        : "FLAIR",
-    "IMITATE"      : "Imitate",
-    "OBSERVE"      : "Observe",
+    "IMI"          : "Imitate",
+    "OBS"          : "Observe",
     "EA"           : "EA Task",
     "MRS-sgACC"    : "MRS sgACC",
     "MRS-DLPFC"    : "MRS DLPFC",
     "TE6.5"        : r"TE6\.5",  
     "TE8.5"        : r"TE8\.5",  
-    "Aniso"        : "Fractional Aniso",  
-    "Calibration"  : "Calibration",  
-    "Localizer"    : "3Plane Loc SSFSE",  
+    "ANI"          : "Fractional",  
+    "CAL"          : "Calibration",  
+    "LOC"          : "Loc",  
 } 
 
-def guess_kind(description, kindmap = None): 
+def guess_tag(description, tagmap = None): 
     """
-    Given a series description return a list of series kinds this might be.
+    Given a series description return a list of series tags this might be.
     
-    By "series kind" we mean a short code like T1, DTI, etc.. that indicates
-    more generally what the data is.
+    By "series tag" we mean a short code like T1, DTI, etc.. that indicates
+    more generally what the data is (usually the DICOM header
+    SeriesDescription).
 
-    <kindmap> is a dictionary that maps a series kind to a regex that match the
+    <tagmap> is a dictionary that maps a series tag to a regex that match the
     series description dicom header. If not specified this modules
-    SERIES_KINDS_MAP is used. 
+    SERIES_TAGS_MAP is used. 
     """
 
-    if not kindmap: kindmap = SERIES_KINDS_MAP 
-
-    # lookup matching kind based on description
-    return [kind for kind,regex in kindmap.iteritems() if
-            re.search(regex,description)]
+    if not tagmap: tagmap = SERIES_TAGS_MAP 
+    matches = [tag for tag,regex in tagmap.iteritems() if
+                       re.search(regex,description)]
+    if len(matches) == 0: return None
+    if len(matches) == 1: return matches[0]
+    return matches
 
 def mangle(string): 
     """Mangles a string to conform with the naming scheme.
 
     Mangling is roughly: convert runs of non-alphanumeric characters to a dash.
     """
-
     return re.sub(r"[^a-zA-Z0-9.+]+","-",string)
 
 def get_extension(path): 
-    """Get the filename extension on this path. 
+    """
+    Get the filename extension on this path. 
 
     This is a slightly more sophisticated version of os.path.splitext in that
     this will correctly return the extension for '.tar.gz' files, for example. :D
@@ -78,33 +68,33 @@ def get_extension(path):
     else:
         return os.path.splitext(path)[1]
 
-def get_archive_headers(path, complete = False): 
+def get_archive_headers(path, stop_after_first = False): 
     """
     Get dicom headers from a scan archive.
 
     Path can be a path to a tarball or zip of dicom folders, or a folder. It is
     assumed that this archive contains the dicoms from a single exam, organized
     into folders for each series.
+
+    The entire archive is scanned and dicom headers from a single file in each
+    folder are returned as a dictionary that maps path->headers.
     
-    If complete = True, the entire archive is scanned and dicom headers from
-    each folder are returned, otherwise only a single set of dicom headers are
-    returned (useful if you only care about the exam details).
-
-    Returns a dictionary that maps the folder within the archive to dicom
-    headers for a file in that folder.
+    If stop_after_first == True only a single set of dicom headers are
+    returned for the entire archive, which is useful if you only care about the
+    exam details.
     """
-    if zipfile.is_zipfile(path):
-        return get_zipfile_headers(path, complete)
-    if os.path.isfile(path) and path.endswith('.tar.gz'):
-        return get_tarfile_headers(path, complete)
-    elif os.path.isdir(path): 
-        return get_folder_headers(path, complete)
+    if os.path.isdir(path): 
+        return get_folder_headers(path, stop_after_first)
+    elif zipfile.is_zipfile(path):
+        return get_zipfile_headers(path, stop_after_first)
+    elif os.path.isfile(path) and path.endswith('.tar.gz'):
+        return get_tarfile_headers(path, stop_after_first)
     else: 
-        raise Exception("{} must be a file or folder.".format(exam))
+	raise Exception("{} must be a file (zip/tar) or folder.".format(exam))
 
-def get_tarfile_headers(path, complete = False): 
+def get_tarfile_headers(path, stop_after_first = False): 
     """
-    Get headers for a dicom file within a tarball
+    Get headers for dicom files within a tarball
     """
     tar = tarfile.open(path)
     members = tar.getmembers()
@@ -117,12 +107,12 @@ def get_tarfile_headers(path, complete = False):
         if dirname in manifest: continue
         try:
             manifest[dirname] = dcm.read_file(tar.extractfile(f))
-            if not complete: break
+            if stop_after_first: break
         except dcm.filereader.InvalidDicomError, e:
             continue
     return manifest 
 
-def get_zipfile_headers(path, complete = False): 
+def get_zipfile_headers(path, stop_after_first = False): 
     """
     Get headers for a dicom file within a zipfile
     """
@@ -134,12 +124,12 @@ def get_zipfile_headers(path, complete = False):
         if dirname in manifest: continue
         try:
             manifest[dirname] = dcm.read_file(io.BytesIO(zf.read(f)))
-            if not complete: break
+            if stop_after_first: break
         except dcm.filereader.InvalidDicomError, e:
             continue
     return manifest 
 
-def get_folder_headers(path, complete = False): 
+def get_folder_headers(path, stop_after_first = False): 
     """
     Generate a dictionary of subfolders and dicom headers.
     """
@@ -156,5 +146,35 @@ def get_folder_headers(path, complete = False):
                 break
             except dcm.filereader.InvalidDicomError, e:
                 continue
-        if not complete and manifest: break
+        if stop_after_first and manifest: break
     return manifest
+
+def get_all_headers_in_folder(path, recurse = False): 
+    """
+    Get DICOM headers for all files in the given path. 
+
+    Returns a dictionary mapping path->headers for *all* files (headers == None
+    for files that are not dicoms).
+    """
+
+    manifest = {}
+    for dirname, dirnames, filenames in os.walk(path):
+        for filename in filenames:
+            filepath = os.path.join(dirname,filename)
+            headers = None
+            try:
+                headers = dcm.read_file(filepath)
+            except dcm.filereader.InvalidDicomError, e:
+                continue
+            manifest[filepath] = headers 
+        if not recurse: break
+    return manifest
+
+def col(arr, colname):
+    """
+    Return the named column of an ndarray. 
+
+    Column names are given by the first row in the ndarray
+    """
+    idx = np.where(arr[0,] == colname)[0]
+    return arr[1:,idx][:,0]
