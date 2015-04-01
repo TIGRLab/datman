@@ -264,7 +264,8 @@ def export_resources(archivepath, exportdir, scanid):
     sourcedir = os.path.join(archivepath, "RESOURCES")
 
     if not os.path.isdir(sourcedir):
-        debug("{} isn't a directory, so won't export resources")
+        debug("{} isn't a directory, so won't export resources".format(
+            sourcedir))
         return
 
     log("Exporting non-dicom stuff from {}".format(archivepath))
