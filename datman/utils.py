@@ -7,27 +7,28 @@ import dicom as dcm
 import zipfile
 import tarfile
 import io
+import glob
 
 SERIES_TAGS_MAP = {
-    "T1"           : "T1",
-    "T2"           : "T2",
-    "DTI"          : "DTI",
-    "NBACK"        : "N Back",
-    "REST"         : "Resting",
-    "FLAIR"        : "FLAIR",
-    "IMI"          : "Imitate",
-    "OBS"          : "Observe",
-    "EA"           : "EA Task",
-    "MRS-sgACC"    : "MRS sgACC",
-    "MRS-DLPFC"    : "MRS DLPFC",
-    "TE6.5"        : r"TE6\.5",  
-    "TE8.5"        : r"TE8\.5",  
-    "ANI"          : "Fractional",  
-    "CAL"          : "Calibration",  
-    "LOC"          : "Loc",  
+"T1"         :  "T1",
+"T2"         :  "T2",
+"DTI"        :  "DTI",
+"Back"       :  "NBACK",
+"Rest"       :  "REST",
+"FLAIR"      :  "FLAIR",
+"Imitat"     :  "IMI",
+"Observ"     :  "OBS",
+"EA.Task"    :  "EA",
+"MRS.sgACC"  :  "MRS-sgACC",
+"MRS.DLPFC"  :  "MRS-DLPFC",
+"TE6.5"      :  "TE6.5",
+"TE8.5"      :  "TE8.5",
+"Frac"       :  "ANI",
+"Cal"        :  "CAL",
+"Loc"        :  "LOC",
 } 
 
-def guess_tag(description, tagmap = None): 
+def guess_tag(description, tagmap = SERIES_TAGS_MAP): 
     """
     Given a series description return a list of series tags this might be.
     
@@ -35,14 +36,11 @@ def guess_tag(description, tagmap = None):
     more generally what the data is (usually the DICOM header
     SeriesDescription).
 
-    <tagmap> is a dictionary that maps a series tag to a regex that match the
-    series description dicom header. If not specified this modules
+    <tagmap> is a dictionary that maps a regex to a series tag, where the regex
+    matches the series description dicom header. If not specified this modules
     SERIES_TAGS_MAP is used. 
     """
-
-    if not tagmap: tagmap = SERIES_TAGS_MAP 
-    matches = [tag for tag,regex in tagmap.iteritems() if
-                       re.search(regex,description)]
+    matches = [tag for p,tag in tagmap.iteritems() if re.search(p,description)]
     if len(matches) == 0: return None
     if len(matches) == 1: return matches[0]
     return matches
@@ -59,7 +57,8 @@ def get_extension(path):
     Get the filename extension on this path. 
 
     This is a slightly more sophisticated version of os.path.splitext in that
-    this will correctly return the extension for '.tar.gz' files, for example. :D
+    this will correctly return the extension for '.tar.gz' files, for example.
+    :D
     """
     if path.endswith('.tar.gz'): 
         return '.tar.gz'
@@ -138,15 +137,23 @@ def get_folder_headers(path, stop_after_first = False):
 
     # for each dir, we want to inspect files inside of it until we find a dicom
     # file that has header information 
-    for dirname, dirnames, filenames in os.walk(path):
-        for filename in filenames:
-            filepath = os.path.join(dirname,filename)
-            try:
-                manifest[dirname] = dcm.read_file(filepath)
-                break
-            except dcm.filereader.InvalidDicomError, e:
+    subdirs = []
+    for filename in os.listdir(path):
+        filepath = os.path.join(path,filename)
+        try:
+            if os.path.isdir(filepath): 
+                subdirs.append(filepath)
                 continue
-        if stop_after_first and manifest: break
+            manifest[path] = dcm.read_file(filepath)
+            break
+        except dcm.filereader.InvalidDicomError, e:
+            pass
+
+    if stop_after_first: return manifest
+
+    # recurse
+    for subdir in subdirs: 
+        manifest.update(get_folder_headers(subdir, stop_after_first))
     return manifest
 
 def get_all_headers_in_folder(path, recurse = False): 
