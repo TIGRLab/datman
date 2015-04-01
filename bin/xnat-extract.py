@@ -158,7 +158,7 @@ def main():
         extract_archive(exportinfo, archivepath, datadir)
 
 
-def extract_archive(exportinfo, archivepath, exportpath):
+def extract_archive(exportinfo, archivepath, exportdir):
     """
     Exports an XNAT archive to various file formats.
 
@@ -191,22 +191,25 @@ def extract_archive(exportinfo, archivepath, exportpath):
 
     # get export info for the exam study code 
     study_headers = headers.values()[0]                     # arbitrary header
-    formats       = get_formats_from_exportinfo(exportinfo)
-    unknown_fmts  = [fmt for fmt in formats if fmt not in exporters]
+    fmts          = get_formats_from_exportinfo(exportinfo)
+    unknown_fmts  = [fmt for fmt in fmts if fmt not in exporters]
 
     if len(unknown_fmts) > 0: 
         error("Unknown formats requested for export of {}: {}. " \
               "Skipping.".format(archivepath, ",".join(unknown_fmts)))
         return
 
+    subject = "_".join([scanid.study,scanid.site,scanid.subject])
+    stem  = str(scanid)
+
     # export each series
     log("Exporting series from {}".format(archivepath))
-    for path, header in headers.iteritems():
-        export_series(exportinfo, path, header, formats, scanid, exportpath)
+    for src, header in headers.iteritems():
+        export_series(exportinfo, src, header, fmts, subject, stem, exportdir)
 
-    export_resources(archivepath, exportpath, scanid)
+    export_resources(archivepath, exportdir, scanid)
 
-def export_series(exportinfo, seriesdir, header, formats, scanid, exportpath):
+def export_series(exportinfo, src, header, formats, subject, stem, exportdir):
     """
     Exports the given DICOM folder into the given formats.
     """
@@ -218,28 +221,28 @@ def export_series(exportinfo, seriesdir, header, formats, scanid, exportpath):
     tag           = dm.utils.guess_tag(mangled_descr, tagmap)
 
     debug("{}: description = {}, series = {}, tag = {}".format(
-        seriesdir, description, series, tag))
+        src, description, series, tag))
 
     if not tag or type(tag) is list: 
         error("{}: Unknown series tag for description: {}, tag = {}".format(
-            seriesdir, description, tag))
+            src, description, tag))
         return
 
     tag_exportinfo = exportinfo[exportinfo['tag'] == tag]
-    subjectid = "_".join([scanid.study,scanid.site,scanid.subject])
-    filestem  = "_".join([str(scanid),tag,series,mangled_descr]) 
+
+    # update the filestem with _tag_series_description
+    stem  += "_".join([tag,series,mangled_descr]) 
 
     for fmt in formats:
         if all(tag_exportinfo['export_'+fmt] == 'no'):
             debug("{}: export_{} set to 'no' for tag {} so skipping".format(
-                seriesdir, fmt, tag))
+                src, fmt, tag))
             continue
 
-        outputdir  = os.path.join(exportpath,fmt,subjectid)
+        outputdir  = os.path.join(exportdir,fmt,subject)
         if not os.path.exists(outputdir): makedirs(outputdir)
 
-        exporters[fmt](seriesdir,outputdir,filestem)
-
+        exporters[fmt](src,outputdir,stem)
 
 def get_formats_from_exportinfo(dataframe):
     """
@@ -253,21 +256,21 @@ def get_formats_from_exportinfo(dataframe):
     formats = [c.split("_")[1] for c in columns if c.startswith("export_")]
     return formats
 
-def export_resources(archivepath, exportpath, scanid):
+def export_resources(archivepath, exportdir, scanid):
     """
     Exports all the non-dicom resources for an exam archive.
     """
     log("Exporting non-dicom stuff from {}".format(archivepath))
     sourcedir = os.path.join(archivepath, "RESOURCES")
-    outputdir = os.path.join(exportpath,"RESOURCES",str(scanid))
+    outputdir = os.path.join(exportdir,"RESOURCES",str(scanid))
     if not os.path.exists(outputdir): makedirs(outputdir)
     system("rsync -a {}/ {}/".format(sourcedir, outputdir))
 
-def export_mnc_command(seriesdir,outputdir,filestem):
+def export_mnc_command(seriesdir,outputdir,stem):
     """
     Returns a commandline to convert a DICOM series to MINC format
     """
-    outputfile = os.path.join(outputdir,filestem) + ".mnc"
+    outputfile = os.path.join(outputdir,stem) + ".mnc"
 
     if os.path.exists(outputfile):
         debug("{}: output {} exists. skipping.".format(
@@ -276,14 +279,14 @@ def export_mnc_command(seriesdir,outputdir,filestem):
 
     debug("{}: exporting to {}".format(seriesdir, outputfile))
     cmd = 'dcm2mnc -fname {} -dname "" {}/* {}'.format(
-            filestem,seriesdir,outputdir)
+            stem,seriesdir,outputdir)
     system(cmd)
 
-def export_nii_command(seriesdir,outputdir,filestem):
+def export_nii_command(seriesdir,outputdir,stem):
     """
     Returns a commandline to convert a DICOM series to NifTi format
     """
-    outputfile = os.path.join(outputdir,filestem) + ".nii.gz"
+    outputfile = os.path.join(outputdir,stem) + ".nii.gz"
 
     if os.path.exists(outputfile):
         debug("{}: output {} exists. skipping.".format(
@@ -301,13 +304,13 @@ def export_nii_command(seriesdir,outputdir,filestem):
         bn = os.path.basename(f)
         ext = dm.utils.get_extension(f)
         if bn.startswith("o") or bn.startswith("co"): continue
-        system("mv {} {}/{}{}".format(f, outputdir, filestem, ext))
+        system("mv {} {}/{}{}".format(f, outputdir, stem, ext))
 
-def export_nrrd_command(seriesdir,outputdir,filestem):
+def export_nrrd_command(seriesdir,outputdir,stem):
     """
     Returns a commandline to convert a DICOM series to NRRD format
     """
-    outputfile = os.path.join(outputdir,filestem) + ".nrrd"
+    outputfile = os.path.join(outputdir,stem) + ".nrrd"
 
     if os.path.exists(outputfile):
         debug("{}: output {} exists. skipping.".format(
@@ -317,7 +320,7 @@ def export_nrrd_command(seriesdir,outputdir,filestem):
     debug("{}: exporting to {}".format(seriesdir, outputfile))
 
     cmd = 'DWIConvert -i {} --conversionMode DicomToNrrd -o {}.nrrd ' \
-          '--outputDirectory {}'.format(seriesdir,filestem,outputdir)
+          '--outputDirectory {}'.format(seriesdir,stem,outputdir)
 
     system(cmd)
 
