@@ -37,4 +37,16 @@ def test_is_scanid_extra_fields():
 def test_is_scanid_good():
     ok_(scanid.is_scanid("SPN01_CMH_0002_01_01"))
 
+def test_get_full_subjectid():
+    ident = scanid.parse("DTI_CMH_H001_01_02")
+    eq_(ident.get_full_subjectid(), "DTI_CMH_H001")
+
+def test_parse_PHA_scanid():
+    ident = scanid.parse("DTI_CMH_PHA_ADN0001")
+    eq_(ident.study, "DTI")
+    eq_(ident.site, "CMH")
+    eq_(ident.subject,"PHA_ADN0001")
+    eq_(ident.timepoint, None)
+    eq_(ident.session, None)
+
 # vim: ts=4 sw=4:
