@@ -232,7 +232,7 @@ def export_series(exportinfo, src, header, formats, subject, stem, exportdir):
     tag_exportinfo = exportinfo[exportinfo['tag'] == tag]
 
     # update the filestem with _tag_series_description
-    stem  += "_".join([tag,series,mangled_descr]) 
+    stem  += "_" + "_".join([tag,series,mangled_descr]) 
 
     for fmt in formats:
         if all(tag_exportinfo['export_'+fmt] == 'no'):
