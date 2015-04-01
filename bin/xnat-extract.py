@@ -172,7 +172,8 @@ def extract_archive(exportinfo, archivepath, exportdir):
     """
 
     # get basic exam info
-    basename = os.path.basename(archivepath)
+    archivepath = os.path.normpath(archivepath)
+    basename    = os.path.basename(archivepath)
 
     if not datman.scanid.is_scanid(basename):
         error("{} folder is not named according to the data naming policy. " \
@@ -260,8 +261,13 @@ def export_resources(archivepath, exportdir, scanid):
     """
     Exports all the non-dicom resources for an exam archive.
     """
-    log("Exporting non-dicom stuff from {}".format(archivepath))
     sourcedir = os.path.join(archivepath, "RESOURCES")
+
+    if not os.path.isdir(sourcedir):
+        debug("{} isn't a directory, so won't export resources")
+        return
+
+    log("Exporting non-dicom stuff from {}".format(archivepath))
     outputdir = os.path.join(exportdir,"RESOURCES",str(scanid))
     if not os.path.exists(outputdir): makedirs(outputdir)
     system("rsync -a {}/ {}/".format(sourcedir, outputdir))
