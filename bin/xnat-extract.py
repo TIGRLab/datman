@@ -11,7 +11,8 @@ Arguments:
 Options: 
     --datadir DIR           Parent folder to extract to [default: ./data]
     --exportinfo FILE       Table listing acquisitions to export by format
-                            [default: ./metadata/protocols.csv]
+                            [default: ./metadata/exportinfo.csv]
+    -v, --verbose           Show intermediate steps
     --debug                 Show debug messages
     -n, --dry-run           Do nothing
 
@@ -121,19 +122,23 @@ import tempfile
 import glob
 
 DEBUG  = False
+VERBOSE= False
 DRYRUN = False
-def error(message): 
-    print "ERROR:", message
-    sys.stdout.flush()
 
 def log(message): 
     print message
     sys.stdout.flush()
 
+def error(message): 
+    log("ERROR: " + message)
+
+def verbose(message): 
+    if not(VERBOSE or DEBUG): return
+    log(message)
+
 def debug(message): 
     if not DEBUG: return
-    print "DEBUG:",message
-    sys.stdout.flush()
+    log("DEBUG: " + message)
 
 def makedirs(path):
     debug("makedirs: {}".format(path))
@@ -156,10 +161,12 @@ def run(cmd):
 def main():
     global DEBUG 
     global DRYRUN
+    global VERBOSE
     arguments = docopt(__doc__)
     archives       = arguments['<archivedir>']
     exportinfofile = arguments['--exportinfo']
     datadir        = arguments['--datadir']
+    VERBOSE        = arguments['--verbose']
     DEBUG          = arguments['--debug']
     DRYRUN         = arguments['--dry-run']
 
@@ -208,8 +215,6 @@ def extract_archive(exportinfo, archivepath, exportdir):
         return
 
     # export each series to datadir/fmt/subject/
-    debug("Exporting series from {}".format(archivepath))
-
     subject = "_".join([scanid.study,scanid.site,scanid.subject])
     stem  = str(scanid)
     for src, header in dm.utils.get_archive_headers(archivepath).items():
@@ -292,7 +297,7 @@ def export_mnc_command(seriesdir,outputdir,stem):
             seriesdir, outputfile))
         return
 
-    debug("{}: exporting to {}".format(seriesdir, outputfile))
+    verbose("Exporting series {} to {}".format(seriesdir, outputfile))
     cmd = 'dcm2mnc -fname {} -dname "" {}/* {}'.format(
             stem,seriesdir,outputdir)
     run(cmd)
@@ -308,7 +313,7 @@ def export_nii_command(seriesdir,outputdir,stem):
             seriesdir, outputfile))
         return
 
-    debug("{}: exporting to {}".format(seriesdir, outputfile))
+    verbose("Exporting series {} to {}".format(seriesdir, outputfile))
 
     # convert into tempdir
     tmpdir = tempfile.mkdtemp()
@@ -332,7 +337,7 @@ def export_nrrd_command(seriesdir,outputdir,stem):
             seriesdir, outputfile))
         return
 
-    debug("{}: exporting to {}".format(seriesdir, outputfile))
+    verbose("Exporting series {} to {}".format(seriesdir, outputfile))
 
     cmd = 'DWIConvert -i {} --conversionMode DicomToNrrd -o {}.nrrd ' \
           '--outputDirectory {}'.format(seriesdir,stem,outputdir)
