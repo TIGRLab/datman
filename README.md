@@ -8,6 +8,11 @@ Depends on :
 + [SciPy, NumPy, Matplotlib](http://www.scipy.org/stackspec.html) for general analysis.
 + [NiBabel](For NIFTI reading/writing.)
 
+setup
+-----
+
+For interfacing with xnat, datman requires that each project's `Define Prearchive Settings` under `Manage` be set to 'All image data will be placed into the archive automatically and will overwrite existing files. Data which doesn't match a pre-existing project will be placed in an 'Unassigned' project.'
+
 modules
 -------
 
