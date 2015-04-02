@@ -1,5 +1,6 @@
 datman
 ------
+<<<<<<< HEAD
 A python project containing useful functions for managing imaging data from
 collection through analysis.
 
@@ -14,6 +15,43 @@ collection through analysis.
    other kinds in a study. For instance, T1, DTI, REST. These type tags are
    used in the file naming and follow-on processing scripts to identify
    acquisitions without having to parse their headers/description/etc... 
+=======
+The development branch of a python project containing useful functions for managing imaging data from collection through analysis.
+
+Depends on :
+
++ [NiNet](https://github.com/josephdviviano/ninet) for some NIFTI-handling functionsi and analysis.
++ [SciPy, NumPy, Matplotlib](http://www.scipy.org/stackspec.html) for general analysis.
++ [NiBabel](For NIFTI reading/writing.)
+
+setup
+-----
+
+For interfacing with xnat, datman requires that each project's `Define Prearchive Settings` under `Manage` be set to 'All image data will be placed into the archive automatically and will overwrite existing files. Data which doesn't match a pre-existing project will be placed in an 'Unassigned' project.'
+
+modules
+-------
+
+**utils**
+
+General file-handling utilities.
+
+**web**
+
+An interface between our data and gh-pages to create online data reports.
+
+**module**
+
+A set of commands for interacting with GNU module.
+
+**img**
+
+A set of commands for handling imaging data.
+
+**behav**
+
+A set of commands for handling behavioural data. 
+>>>>>>> dev
 
 --- 
 
