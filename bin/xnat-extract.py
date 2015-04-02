@@ -116,6 +116,7 @@ import datman.utils
 import datman.scanid
 import os.path
 import sys
+import subprocess as proc
 import tempfile
 import glob
 
@@ -138,9 +139,19 @@ def makedirs(path):
     debug("makedirs: {}".format(path))
     if not DRYRUN: os.makedirs(path)
 
-def system(cmd):
+def run(cmd):
     debug("exec: {}".format(cmd))
-    if not DRYRUN: os.system(cmd)
+    if not DRYRUN: 
+        p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
+        out, err = p.communicate() 
+        if p.returncode != 0: 
+            log("Error {} while executing: {}".format(p.returncode, cmd))
+            out and log("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
+            err and log("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
+        else:
+            debug("rtnval: {}".format(p.returncode))
+            out and debug("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
+            err and debug("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
 
 def main():
     global DEBUG 
@@ -155,6 +166,7 @@ def main():
     exportinfo = pd.read_table(exportinfofile, sep='\s*', engine="python")
 
     for archivepath in archives:
+        log("Exporting {}".format(archivepath))
         extract_archive(exportinfo, archivepath, datadir)
 
 
@@ -168,19 +180,18 @@ def extract_archive(exportinfo, archivepath, exportdir):
 
     This function searches through the SCANS subfolder (archivepath) for series
     and converts each series, placing them in an appropriately named folder
-    under export_path. 
+    under exportdir. 
     """
 
-    # get basic exam info
     archivepath = os.path.normpath(archivepath)
     basename    = os.path.basename(archivepath)
 
-    if not datman.scanid.is_scanid(basename):
+    try:
+        scanid = datman.scanid.parse(basename)
+    except datman.scanid.ParseException, e:
         error("{} folder is not named according to the data naming policy. " \
               "Skipping".format(archivepath))
         return
-
-    scanid    = datman.scanid.parse(basename)
 
     scanspath = os.path.join(archivepath,'SCANS')
     if not os.path.isdir(scanspath):
@@ -188,26 +199,23 @@ def extract_archive(exportinfo, archivepath, exportdir):
               "Skipping.".format(scanspath))
         return
 
-    headers = dm.utils.get_archive_headers(archivepath)
-
-    # get export info for the exam study code 
-    study_headers = headers.values()[0]                     # arbitrary header
-    fmts          = get_formats_from_exportinfo(exportinfo)
-    unknown_fmts  = [fmt for fmt in fmts if fmt not in exporters]
+    fmts         = get_formats_from_exportinfo(exportinfo)
+    unknown_fmts = [fmt for fmt in fmts if fmt not in exporters]
 
     if len(unknown_fmts) > 0: 
         error("Unknown formats requested for export of {}: {}. " \
               "Skipping.".format(archivepath, ",".join(unknown_fmts)))
         return
 
+    # export each series to datadir/fmt/subject/
+    debug("Exporting series from {}".format(archivepath))
+
     subject = "_".join([scanid.study,scanid.site,scanid.subject])
     stem  = str(scanid)
-
-    # export each series
-    log("Exporting series from {}".format(archivepath))
-    for src, header in headers.iteritems():
+    for src, header in dm.utils.get_archive_headers(archivepath).items():
         export_series(exportinfo, src, header, fmts, subject, stem, exportdir)
 
+    # export non dicom resources
     export_resources(archivepath, exportdir, scanid)
 
 def export_series(exportinfo, src, header, formats, subject, stem, exportdir):
@@ -268,14 +276,14 @@ def export_resources(archivepath, exportdir, scanid):
             sourcedir))
         return
 
-    log("Exporting non-dicom stuff from {}".format(archivepath))
+    debug("Exporting non-dicom stuff from {}".format(archivepath))
     outputdir = os.path.join(exportdir,"RESOURCES",str(scanid))
     if not os.path.exists(outputdir): makedirs(outputdir)
-    system("rsync -a {}/ {}/".format(sourcedir, outputdir))
+    run("rsync -a {}/ {}/".format(sourcedir, outputdir))
 
 def export_mnc_command(seriesdir,outputdir,stem):
     """
-    Returns a commandline to convert a DICOM series to MINC format
+    Converts a DICOM series to MINC format
     """
     outputfile = os.path.join(outputdir,stem) + ".mnc"
 
@@ -287,11 +295,11 @@ def export_mnc_command(seriesdir,outputdir,stem):
     debug("{}: exporting to {}".format(seriesdir, outputfile))
     cmd = 'dcm2mnc -fname {} -dname "" {}/* {}'.format(
             stem,seriesdir,outputdir)
-    system(cmd)
+    run(cmd)
 
 def export_nii_command(seriesdir,outputdir,stem):
     """
-    Returns a commandline to convert a DICOM series to NifTi format
+    Converts a DICOM series to NifTi format
     """
     outputfile = os.path.join(outputdir,stem) + ".nii.gz"
 
@@ -304,18 +312,18 @@ def export_nii_command(seriesdir,outputdir,stem):
 
     # convert into tempdir
     tmpdir = tempfile.mkdtemp()
-    system('dcm2nii -x n -g y  -o {} {}'.format(tmpdir,seriesdir))
+    run('dcm2nii -x n -g y  -o {} {}'.format(tmpdir,seriesdir))
 
     # move nii in tempdir to it's proper location
     for f in glob.glob("{}/*".format(tmpdir)):
         bn = os.path.basename(f)
         ext = dm.utils.get_extension(f)
         if bn.startswith("o") or bn.startswith("co"): continue
-        system("mv {} {}/{}{}".format(f, outputdir, stem, ext))
+        run("mv {} {}/{}{}".format(f, outputdir, stem, ext))
 
 def export_nrrd_command(seriesdir,outputdir,stem):
     """
-    Returns a commandline to convert a DICOM series to NRRD format
+    Converts a DICOM series to NRRD format
     """
     outputfile = os.path.join(outputdir,stem) + ".nrrd"
 
@@ -329,7 +337,7 @@ def export_nrrd_command(seriesdir,outputdir,stem):
     cmd = 'DWIConvert -i {} --conversionMode DicomToNrrd -o {}.nrrd ' \
           '--outputDirectory {}'.format(seriesdir,stem,outputdir)
 
-    system(cmd)
+    run(cmd)
 
 exporters = {
     "mnc" : export_mnc_command,
