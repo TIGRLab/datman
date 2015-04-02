@@ -120,6 +120,7 @@ import sys
 import subprocess as proc
 import tempfile
 import glob
+import shutil
 
 DEBUG  = False
 VERBOSE= False
@@ -319,12 +320,15 @@ def export_nii_command(seriesdir,outputdir,stem):
     tmpdir = tempfile.mkdtemp()
     run('dcm2nii -x n -g y  -o {} {}'.format(tmpdir,seriesdir))
 
-    # move nii in tempdir to it's proper location
+    # move nii in tempdir to proper location
     for f in glob.glob("{}/*".format(tmpdir)):
         bn = os.path.basename(f)
         ext = dm.utils.get_extension(f)
-        if bn.startswith("o") or bn.startswith("co"): continue
-        run("mv {} {}/{}{}".format(f, outputdir, stem, ext))
+        if bn.startswith("o") or bn.startswith("co"): 
+            continue
+        else:
+            run("mv {} {}/{}{}".format(f, outputdir, stem, ext))
+    shutil.rmtree(tmpdir)
 
 def export_nrrd_command(seriesdir,outputdir,stem):
     """
