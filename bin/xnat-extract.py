@@ -42,8 +42,8 @@ OUTPUT FOLDERS
 
         data/
             nifti/
-                SPN01_CMH_0001/
-                    (all nifti acquisitions for this subject)
+                SPN01_CMH_0001_01/
+                    (all nifti acquisitions for this subject-timepoint)
     
 OUTPUT FILE NAMING
     Each dicom series will be and named according to the following schema: 
@@ -216,15 +216,16 @@ def extract_archive(exportinfo, archivepath, exportdir):
         return
 
     # export each series to datadir/fmt/subject/
-    subject = "_".join([scanid.study,scanid.site,scanid.subject])
+    timepoint = "_".join([scanid.study,scanid.site,scanid.subject,
+                            scanid.timepoint])
     stem  = str(scanid)
     for src, header in dm.utils.get_archive_headers(archivepath).items():
-        export_series(exportinfo, src, header, fmts, subject, stem, exportdir)
+        export_series(exportinfo, src, header, fmts, timepoint, stem, exportdir)
 
     # export non dicom resources
     export_resources(archivepath, exportdir, scanid)
 
-def export_series(exportinfo, src, header, formats, subject, stem, exportdir):
+def export_series(exportinfo, src, header, formats, timepoint, stem, exportdir):
     """
     Exports the given DICOM folder into the given formats.
     """
@@ -254,7 +255,7 @@ def export_series(exportinfo, src, header, formats, subject, stem, exportdir):
                 src, fmt, tag))
             continue
 
-        outputdir  = os.path.join(exportdir,fmt,subject)
+        outputdir  = os.path.join(exportdir,fmt,timepoint)
         if not os.path.exists(outputdir): makedirs(outputdir)
 
         exporters[fmt](src,outputdir,stem)
