@@ -32,7 +32,7 @@ def test_is_scanid_subjectid_only():
     ok_(not scanid.is_scanid("DTI_CMH_H001"))
 
 def test_is_scanid_extra_fields():
-    ok_(not scanid.is_scanid("DTI_CMH_H001_01_01_01_01_01_01"))
+    eq_(scanid.is_scanid("DTI_CMH_H001_01_01_01_01_01_01"), False)
 
 def test_is_scanid_good():
     ok_(scanid.is_scanid("SPN01_CMH_0002_01_01"))
@@ -46,7 +46,28 @@ def test_parse_PHA_scanid():
     eq_(ident.study, "DTI")
     eq_(ident.site, "CMH")
     eq_(ident.subject,"PHA_ADN0001")
-    eq_(ident.timepoint, None)
-    eq_(ident.session, None)
+    eq_(ident.timepoint, "")
+    eq_(ident.session, "")
+
+def test_parse_filename():
+    ident, tag, description = scanid.parse_filename(
+            'DTI_CMH_H001_01_01_T1_description.nii.gz')
+    eq_(str(ident), 'DTI_CMH_H001_01_01')
+    eq_(tag, 'T1')
+    eq_(description, 'description')
+
+def test_parse_filename_PHA():
+    ident, tag, description = scanid.parse_filename(
+            'DTI_CMH_PHA_ADN0001_T1_description.nii.gz')
+    eq_(str(ident), 'DTI_CMH_PHA_ADN0001')
+    eq_(tag, 'T1')
+    eq_(description, 'description')
+
+def test_parse_filename_with_path():
+    ident, tag, description = scanid.parse_filename(
+            '/data/DTI_CMH_H001_01_01_T1_description.nii.gz')
+    eq_(str(ident), 'DTI_CMH_H001_01_01')
+    eq_(tag, 'T1')
+    eq_(description, 'description')
 
 # vim: ts=4 sw=4:
