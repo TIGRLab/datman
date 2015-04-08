@@ -40,7 +40,9 @@ def guess_tag(description, tagmap = SERIES_TAGS_MAP):
     matches the series description dicom header. If not specified this modules
     SERIES_TAGS_MAP is used. 
     """
-    matches = [tag for p,tag in tagmap.iteritems() if re.search(p,description)]
+    matches = list(set(
+        [tag for p,tag in tagmap.iteritems() if re.search(p,description)]
+        ))
     if len(matches) == 0: return None
     if len(matches) == 1: return matches[0]
     return matches
