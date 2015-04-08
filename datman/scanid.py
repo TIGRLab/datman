@@ -45,6 +45,12 @@ class Identifier:
     def get_full_subjectid(self):
         return "_".join([self.study, self.site, self.subject])
 
+    def get_full_subjectid_with_timepoint(self):
+        ident = self.get_full_subjectid()
+        if self.timepoint:
+            ident += "_"+self.timepoint
+        return ident 
+
     def __str__(self):
         if self.timepoint:
             return "_".join([self.study, 

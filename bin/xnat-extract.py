@@ -216,8 +216,8 @@ def extract_archive(exportinfo, archivepath, exportdir):
         return
 
     # export each series to datadir/fmt/subject/
-    timepoint = "_".join([scanid.study,scanid.site,scanid.subject,
-                            scanid.timepoint])
+    timepoint = scanid.get_full_subjectid_with_timepoint()
+
     stem  = str(scanid)
     for src, header in dm.utils.get_archive_headers(archivepath).items():
         export_series(exportinfo, src, header, fmts, timepoint, stem, exportdir)

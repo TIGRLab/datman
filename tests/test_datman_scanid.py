@@ -48,6 +48,15 @@ def test_parse_PHA_scanid():
     eq_(ident.subject,"PHA_ADN0001")
     eq_(ident.timepoint, "")
     eq_(ident.session, "")
+    eq_(str(ident),"DTI_CMH_PHA_ADN0001")
+
+def test_subject_id_with_timepoint():
+    ident = scanid.parse("DTI_CMH_H001_01_02")
+    eq_(ident.get_full_subjectid_with_timepoint(), 'DTI_CMH_H001_01')
+
+def test_PHA_timepoint():
+    ident = scanid.parse("DTI_CMH_PHA_ADN0001")
+    eq_(ident.get_full_subjectid_with_timepoint(), 'DTI_CMH_PHA_ADN0001')
 
 def test_parse_filename():
     ident, tag, description = scanid.parse_filename(
