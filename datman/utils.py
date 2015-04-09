@@ -255,3 +255,28 @@ def has_permissions(directory):
         flag = False
 
     return flag
+
+def make_epitome_folders(path, n_runs):
+    """
+    Makes an epitome-compatible folder structure with functional data FUNC of n
+    runs, and a single T1.
+
+    This works assuming we've run everything through freesurfer.
+
+    If we need multisession, it might make sense to run this multiple times
+    (once per session).
+    """
+    os.system('mkdir -p ' + path + '/TEMP/SUBJ/T1/SESS01/RUN01')
+    for run in np.arange(n_runs)+1:
+        num = "{:0>2}".format(str(run))
+        os.system('mkdir -p ' + path + '/TEMP/SUBJ/FUNC/SESS01/RUN' + num)
+
+def run_dummy_q(list_of_names):
+    """
+    This holds the script until all of the queued items are done.
+    """
+    print('Holding for remaining processes.')
+    cmd = ('echo sleep 30 | qsub -sync y -q main.q '   
+                              + '-hold_jid ' + ",".join(list_of_names))
+    os.system(cmd)
+    print('... Done.')

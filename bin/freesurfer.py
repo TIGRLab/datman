@@ -21,7 +21,7 @@ import StringIO as io
 import matplotlib.pyplot as plt
 import datman as dm
 
-def process_data(sub, data_path, code_path):
+def proc_data(sub, data_path):
     # copy functional data into epitome-compatible structure
     try:
         niftis = filter(lambda x: 'nii.gz' in x, 
@@ -50,7 +50,7 @@ def process_data(sub, data_path, code_path):
     uid = ''.join(choice(ascii_uppercase + digits) for _ in range(6))
 
     # submit to queue
-    name = 'spins_fs_{sub}_{uid}'.format(sub=sub, uid=uid)
+    name = 'datman_fs_{sub}_{uid}'.format(sub=sub, uid=uid)
     log = os.path.join(data_path, 'logs/freesurfer')
 
     # log file can be a folder, will have job name.log
@@ -72,7 +72,7 @@ def run_dummy_q(list_of_names):
     os.system(cmd)
     print('... Done.')
 
-def export_freesurfer_volumes(sub, data_path):
+def export_data(sub, data_path):
     """
     Copies the deskulled T1 and masks to the t1/ directory.
     """
@@ -129,7 +129,6 @@ def main(base_path):
     """
     # sets up relative paths
     data_path = dm.utils.define_folder(os.path.join(base_path, 'data'))
-    code_path = dm.utils.define_folder(os.path.join(base_path, 'code'))
     nii_path = dm.utils.define_folder(os.path.join(data_path, 'nii'))
     t1_path = dm.utils.define_folder(os.path.join(data_path, 't1'))
     fs_path = dm.utils.define_folder(os.path.join(data_path, 'freesurfer'))
@@ -138,11 +137,8 @@ def main(base_path):
 
     os.environ['SUBJECTS_DIR'] = fs_path
 
-    # get list of subjects
-    subjects = dm.utils.get_subjects(nii_path)
-
     list_of_names = []
-    # loop through subjects
+    subjects = dm.utils.get_subjects(nii_path)
     for sub in subjects:
 
         if dm.utils.subject_type(sub) == 'phantom':
@@ -154,14 +150,14 @@ def main(base_path):
 
         try:
             # run through freesurfer
-            name = process_data(sub, data_path, code_path)
+            name = proc_data(sub, data_path)
             list_of_names.append(name)
 
         except ValueError as ve:
             print('ERROR: ' + str(sub) + ' !!!')
 
     # wait for fresurfer to complete
-    run_dummy_q(list_of_names)
+    dm.utils.run_dummy_q(list_of_names)
 
     # copy anatomicals, masks to t1 folder
     for sub in subjects:
@@ -169,7 +165,7 @@ def main(base_path):
             continue
     
         if os.path.isfile(os.path.join(t1_path, sub + '_T1.nii.gz')) == False:
-            export_freesurfer_volumes(sub, data_path)
+            export_data(sub, data_path)
 
 if __name__ == "__main__":
     if len(sys.argv) == 2:

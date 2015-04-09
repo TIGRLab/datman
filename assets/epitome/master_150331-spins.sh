@@ -36,11 +36,11 @@ McRetroTS='/home/jdv/epitome/150331-spins/bin/run_McRetroTS.sh /opt/quarantine/m
 EOF
 
 . ${DIR_PIPE}/epitome/modules/pre/init_epi high 0 on alt+z scale loose >> ${DIR_DATA}/${DIR_EXPT}/${SUB}/${CMD}
-. ${DIR_PIPE}/epitome/modules/pre/linreg_calc_fsl high corratio 12 >> ${DIR_DATA}/${DIR_EXPT}/${SUB}/${CMD}
+. ${DIR_PIPE}/epitome/modules/pre/linreg_calc_fsl high corratio 6 >> ${DIR_DATA}/${DIR_EXPT}/${SUB}/${CMD}
 . ${DIR_PIPE}/epitome/modules/pre/nonlinreg_calc_fsl >> ${DIR_DATA}/${DIR_EXPT}/${SUB}/${CMD}
 . ${DIR_PIPE}/epitome/modules/pre/linreg_fs2epi_fsl >> ${DIR_DATA}/${DIR_EXPT}/${SUB}/${CMD}
 . ${DIR_PIPE}/epitome/modules/pre/filter scaled 4 on off off on 5 off >> ${DIR_DATA}/${DIR_EXPT}/${SUB}/${CMD}
-. ${DIR_PIPE}/epitome/modules/pre/volsmooth filtered EPI_mask 6.0 normal >> ${DIR_DATA}/${DIR_EXPT}/${SUB}/${CMD}
+. ${DIR_PIPE}/epitome/modules/pre/volsmooth filtered EPI_mask 8.0 normal >> ${DIR_DATA}/${DIR_EXPT}/${SUB}/${CMD}
 . ${DIR_PIPE}/epitome/modules/pre/nonlinreg_epi2mni_fsl volsmooth 3.0 >> ${DIR_DATA}/${DIR_EXPT}/${SUB}/${CMD}
 
 chmod 750 ${DIR_DATA}/${DIR_EXPT}/${SUB}/${CMD}

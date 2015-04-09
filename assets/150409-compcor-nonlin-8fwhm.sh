@@ -2,7 +2,7 @@
 #
 # This is a slightly-modified epitome script.
 # More on epitome here: https://github.com/josephdviviano/epitome
-# script generated on 2015-03-31
+# script generated on 2015-04-09
 
 # -----
 # init EPI
@@ -24,7 +24,7 @@ python/2.7.9-anaconda-2.1.0-150119
 module load python-extras/2.7.8
 
 export DIR_PIPE=/projects/spins/code/epitome/150331-spins
-export DIR_DATA=/tmp/epitome/
+export DIR_DATA=${1}
 export DIR_AFNI=/opt/quarantine/AFNI/2014.12.16/build
 export DIR_EXPT=TEMP
 export DATA_TYPE=FUNC
@@ -40,7 +40,6 @@ export DESPIKE=on
 export TPATTERN=alt+z
 export NORMALIZE=scale
 export MASKING=loose
-
 
 echo '************************************************************************'
 echo '                  General pre-processing for all fMRI data'
@@ -370,8 +369,7 @@ cd ${DIR_PIPE}
 
 export DATA_QUALITY=high
 export COST=corratio
-export REG_DOF=12
-
+export REG_DOF=6
 
 echo '************************************************************************'
 echo '               FSL: Linear registration pathway calculator'
@@ -956,7 +954,6 @@ for SESS in ${DIR_SESS}; do
                 -c ${SESS}/func_mean.${ID}.${NUM}.nii.gz \
                 -expr 'a-b+c' \
                 -prefix ${SESS}/func_filtered.${ID}.${NUM}.nii.gz
-
         fi
 
     done
@@ -966,9 +963,8 @@ cd ${DIR_PIPE}
 
 export INPUT=func_filtered
 export MASK=anat_EPI_mask
-export FWHM=6.0
+export FWHM=8.0
 export MODE=normal
-
 
 echo '************************************************************************'
 echo '                        Spatially smooth data.'
@@ -1054,7 +1050,6 @@ cd ${DIR_PIPE}
 
 export INPUT=func_volsmooth
 export DIMS=3.0
-
 
 echo '************************************************************************'
 echo '                       FSL MNI-transform data'
