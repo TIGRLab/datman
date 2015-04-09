@@ -1,95 +1,134 @@
 #!/usr/bin/env python
 """
-header-compare.py <goldstd.dcm> <compare.dcm>
+Diffs the relevant fields of the header to determine if anything has changed in
+the protocol.
 
-Diffs the relevant fields of the header to determine if anything 
-has changed in the protocol.
+Usage: 
+    header-compare.py file <goldstandard.dcm> <compare.dcm>
+    header-compare.py exam <goldstandards/> <exam/>
+
+Arguments: 
+    <goldstandard.dcm>      Dicom file to compare against
+
+    <compare.dcm>           Dicom file to compare
+
+    <goldstandards/>        Folder with gold standard dicom files.
+
+    <exam/>                 Folder with exam series data. A single dicom from 
+                            each series is compared against the gold standard 
+                            with the matching description.
 """
 import sys
-import numpy as np
+from docopt import docopt
 import dicom as dcm
+import datman as dm
+import datman.utils
 
-def main(goldstd, compare):
+ignored_headers = set([
+    'AcquisitionDate',
+    'AcquisitionTime',
+    'ContentDate',
+    'ContentTime',
+    'FrameOfReferenceUID',
+    'ImagePositionPatient',
+    'InstanceNumber',
+    'LargestImagePixelValue',
+    'PatientID',
+    'PixelData',
+    'RefdImageSequence',
+    'RefdPerformedProcedureStepSequence',
+    'ReferencedImageSequence',
+    'ReferencedPerformedProcedureStepSequence',
+    'PatientName',
+    'PatientWeight',
+    'PerformedProcedureStepID',
+    'PerformedProcedureStepStartDate',
+    'PerformedProcedureStepStartTime',
+    'SAR',
+    'SOPInstanceUID',
+    'SoftwareVersions',
+    'SeriesNumber',
+    'SeriesDate',
+    'SeriesInstanceUID',
+    'SeriesTime',
+    'SliceLocation',
+    'StudyDate',
+    'StudyID',
+    'StudyInstanceUID',
+    'StudyTime',
+    'WindowCenter',
+    'WindowWidth',
+])
+
+def compare_headers(goldstd, compare):
     """
-    Accepts two dicom objects (from pydicom). This removes a bunch of
-    uninteresting dicom fields and compares the rest. Differences are 
-    printed to STDOUT. This could be redirected to a file for QC purposes.
-    """
-
-    goldstd = dcm.read_file(goldstd)
-    compare = dcm.read_file(compare)
-
-    # get all the possible entries
-    traits = goldstd.trait_names()
-    header = []
-
-    for trait in traits:
-        if trait[0].isupper() == True:
-            header.append(trait)
-
-    # remove things we don't need
-    header.remove('AcquisitionDate')
-    header.remove('AcquisitionTime')
-    header.remove('ContentDate')
-    header.remove('ContentTime')
-    header.remove('FrameOfReferenceUID')
-    header.remove('ImagePositionPatient')
-    header.remove('InstanceNumber')
-    header.remove('LargestImagePixelValue')
-    header.remove('PatientID')
-    header.remove('PixelData')
+    Accepts two pydicom objects and prints out header value differences. 
     
-    try:
-        header.remove('RefdImageSequence')
-    except:
-        pass
+    Headers in the ignore_header set are ignored.
+    """
+    goldstd_headers = set(goldstd.dir()).difference(ignored_headers)
+    compare_headers = set(compare.dir()).difference(ignored_headers)
 
-    header.remove('RefdPerformedProcedureStepSequence')
+    only_goldstd = goldstd_headers.difference(compare_headers)
+    only_compare = compare_headers.difference(goldstd_headers)
+    both_headers = goldstd_headers.intersection(compare_headers)
+  
+    if only_goldstd: 
+        print "The following headers appear only in the Gold standard:",
+        print ", ".join(only_goldstd)
+        different = True
 
-    try:
-        header.remove('ReferencedImageSequence')
-    except:
-        pass
+    if only_compare:
+        print "The following headers appear only in the Comparison:",
+        print ", ".join(only_compare)
+    
+    for header in both_headers:
+        if str(goldstd.get(header)) != str(compare.get(header)):
+            print("Header '{}' differs. Gold = '{}', Compare = '{}'".format(
+                header, goldstd.get(header), compare.get(header)))
+            different = True
 
-    header.remove('ReferencedPerformedProcedureStepSequence')
-    header.remove('PatientName')
-    header.remove('PatientWeight')
-    header.remove('PerformedProcedureStepID')
-    header.remove('PerformedProcedureStepStartDate')
-    header.remove('PerformedProcedureStepStartTime')
-    header.remove('SAR')
-    header.remove('SOPInstanceUID')
-    header.remove('SoftwareVersions')
-    header.remove('SeriesNumber')
-    header.remove('SeriesDate')
-    header.remove('SeriesInstanceUID')
-    header.remove('SeriesTime')
-    header.remove('SliceLocation')
-    header.remove('StudyDate')
-    header.remove('StudyID')
-    header.remove('StudyInstanceUID')
-    header.remove('StudyTime')
-    header.remove('WindowCenter')
-    header.remove('WindowWidth')
+def compare_exam_headers(standarddir, examdir):
+    """
+    Compares headers for each series in an exam against gold standards
+    """
+    std_headers  = dm.utils.get_all_headers_in_folder(standarddir,recurse=True)
+    std_headers  = {v.get("SeriesDescription") : (k,v) for (k,v) in \
+            std_headers.items()}
+    exam_headers = dm.utils.get_archive_headers(examdir)
 
-    # now find the differences
-    for item in header:
-        goldstdcmd = 'goldstd.' + item
-        comparecmd = 'compare.' + item
+    for path, header in exam_headers.iteritems():
+        description = header.get("SeriesDescription")
 
-        try:
-            if eval(goldstdcmd) != eval(comparecmd):
-                print(str(item) + ' differs: ')
-                print('    GOLD:' + str(eval(goldstdcmd)))
-                print('    COMP:' + str(eval(comparecmd)) + '\n')
+        if description not in std_headers:
+            print("ERROR: {}: No matching standard for series '{}'".format(
+                path, description))
+            continue
 
-        except:
-            print(str(item) + """ isn't a valid property!""")
+        std_path, std_header = std_headers[description]
 
-if __name__ == '__main__': 
+        print("Comparing {} against gold standard {}".format(
+            path, std_path))
 
-    if len(sys.argv) == 2:
+        compare_headers(std_header, header)
+        print
+
+def main():
+    arguments = docopt(__doc__)
+
+    if arguments['<goldstandard.dcm>']:
+        goldfile = arguments['<goldstandard.dcm>']
+        compfile = arguments['<compare.dcm>']
+
+        goldstd = dcm.read_file(goldfile)
+        compare = dcm.read_file(compfile)
+
         compare_headers(goldstd, compare)
     else:
-        print(__doc__)
+        standarddir = arguments['<goldstandards/>']
+        examdir     = arguments['<exam/>']
 
+        compare_exam_headers(standarddir, examdir)
+        
+if __name__ == '__main__': 
+    main()
