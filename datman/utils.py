@@ -1,6 +1,7 @@
 """
 A collection of utilities for generally munging imaging data. 
 """
+import os, sys
 import os.path
 import re
 import dicom as dcm
@@ -8,6 +9,8 @@ import zipfile
 import tarfile
 import io
 import glob
+import numpy as np
+
 
 SERIES_TAGS_MAP = {
 "T1"         :  "T1",
@@ -187,3 +190,68 @@ def col(arr, colname):
     """
     idx = np.where(arr[0,] == colname)[0]
     return arr[1:,idx][:,0]
+
+def subject_type(subject):
+    """
+    Uses subject naming to determine what kind of files we are looking at. If
+    we find a strangely-named subject, we return None.
+    """
+    try:
+        subject = subject.split('_')
+
+        if subject[2] == 'PHA':
+            return 'phantom'
+        
+        elif subject[2] != 'PHA' and subject[2][0] == 'P':
+            return 'humanphantom'
+        
+        elif str.isdigit(subject[2]) == True and len(subject[2]) == 4:
+            return 'subject'
+        
+        else:
+            return None
+
+    except:
+        return None
+
+def get_subjects(path):
+    """
+    Finds all of the subject folders in the supplied directory. Assumes this
+    is represenative (it is basically -- hard do to the analysis without them).
+    """
+    idx = np.array(map(lambda x: 
+             os.path.isdir(os.path.join(path, x)), os.listdir(path)))
+    subjects = np.array(os.listdir(path))[idx]
+    subjects.sort()
+
+    return subjects
+
+def define_folder(path):
+    """
+    Sets a variable to be the path to a folder. Also, if the folder does not 
+    exist, this makes it so, unless we lack the permissions to do so, which
+    leads to a graceful exit.
+    """
+    if os.path.isdir(path) == False:
+        try:
+            os.mkdir(path)
+        except:
+            if has_permissions(directory) == False:
+                sys.exit()
+
+    if has_permissions(path) == False:
+        sys.exit()
+
+    return path
+
+def has_permissions(directory):
+    """
+    Checks for write access to submitted directory.
+    """
+    if os.access(directory, 7) == True:
+        flag = True
+    else:
+        print('\nYou do not have write access to directory ' + str(directory))
+        flag = False
+
+    return flag
