@@ -1,0 +1,45 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT1=`echo 'func_'${1}`
+export INPUT2=`echo 'func_'${2}`
+
+EOF
+
+cat<<"EOF"
+
+echo '************************************************************************'
+echo '         Combines two functional files into one (via addition).'
+echo '   Generally used to combine volume-smoothed and surface-smoothed data 
+echo '                            in volume space.'
+echo ''
+echo '************************************************************************'
+
+cd /tmp
+
+# Loop through sessions, runs
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+    SESS=`basename ${SESS}`        
+    DIR=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/${SESS}`
+    
+    if [ ! -f ${DIR}/func_volsmooth.${ID}.${NUM}.nii.gz ]; then
+
+        3dcalc \
+            -prefix ${DIR}/func_volsmooth.${ID}.${NUM}.nii.gz \
+            -master ${DIR}/${INPUT}.${ID}.${NUM}.nii.gz \
+            -rmode NN \
+            -inset ${DIR}/${MASK}.nii.gz
+
+        3dBlurInMask \
+            -prefix ${DIR}/proc/func_volsmooth.${ID}.${NUM}.nii.gz \
+            -Mmask ${DIR}/anat_tmp_smoothmask.${ID}.${NUM}.nii.gz \
+            -FWHM ${FWHM} \
+            -input ${DIR}/${INPUT}.${ID}.${NUM}.nii.gz
+
+    fi
+done
+
+cd ${DIR_PIPE}
+
+EOF

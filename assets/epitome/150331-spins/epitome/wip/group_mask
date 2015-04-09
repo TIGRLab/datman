@@ -1,0 +1,13 @@
+#!/bin/bash
+
+cat <<"EOF"
+cd /tmp
+
+3dmask_tool \
+    -input ${DIR_DATA}/${DIR_EXPT}/*/${DATA_TYPE}/*/anat_EPI_mask_MNI.nii.gz \
+    -prefix ${DIR_DATA}/${DIR_EXPT}/mask_group_MNI.nii.gz \
+    -frac 1.0
+
+cd ${DATA_DIR}
+EOF
+

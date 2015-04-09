@@ -1,0 +1,51 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT=$(echo 'func_'${1})
+export HEAD=$(echo ${2})
+export FD=$(echo ${3})
+export DV=$(echo ${4})
+export MODE=$(echo ${5})
+
+EOF
+
+cat <<"EOF"
+
+echo '************************************************************************'
+echo '                        Motion Scrubbing Module'
+echo ''
+echo '   - Computes framewise displacement and DVARS measure (Power 2012),'
+echo '   - Removes TRs from each run corrupted by instantaneous displacement,'
+echo '     over '${FD}' mm / TR, and/or '${DV}' % signal change / TR.'
+echo '   - Calculations are preformed assuming a head size of '${HEAD}' mm.'
+echo '   - We also remove TRs 1 back and 2 forward from the disturbance to'
+echo '     control for spin-echo effects (appropriate according to Dr. Power).'
+echo ''
+echo '************************************************************************'
+
+cd /tmp
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+
+        if [ ! -f ${SESS}/func_scrubbed.${ID}.${NUM}.nii.gz ]; then
+            epi-trscrub \
+                ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz \
+                ${SESS}/func_scrubbed.${ID}.${NUM}.nii.gz \
+                ${SESS}/PARAMS/motion.${ID}.${NUM}.1D \
+                ${SESS}/PARAMS/DVARS.${ID}.${NUM}.1D \
+                ${SESS}/PARAMS/retained_TRs.${ID}.${NUM}.1D \
+                ${HEAD} \
+                ${FD} \
+                ${DV} \
+                ${MODE}
+        fi
+    done
+done
+
+cd ${DIR_PIPE}
+
+EOF

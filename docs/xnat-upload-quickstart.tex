@@ -1,0 +1,375 @@
+\documentclass[a4paper,11pt,oneside]{book}
+\usepackage[top=0.35in, bottom=0.35in, left=0.5in, right=0.5in]{geometry} % margins
+\usepackage{scrextend} % indenting blocks of text
+\usepackage{multicol}           % column formatting
+\usepackage{xcolor}             % for colors
+\usepackage{graphicx}           % background image
+\usepackage{tikz}               % watermark
+\usepackage{transparent}        % watermark
+
+\usepackage{datetime}
+
+\definecolor{bg}{rgb}{0.98,0.98,0.98}
+
+\usepackage{enumitem} % for bullets
+\usepackage{mathcomp} % for bullets
+\usepackage{hyperref} % for links
+
+% Open Font
+\usepackage[default,osfigures,scale=0.95]{opensans} %% Alternatively
+%% use the option 'defaultsans' instead of 'default' to replace the
+%% sans serif font only.
+\usepackage[T1]{fontenc}
+
+\usepackage{eso-pic}
+
+
+% a set of functions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+% formatting for headings
+\newcommand\headings{
+\noindent
+\large
+\leftskip=0.15in
+\textbf
+}
+
+\newcommand\headingshack{
+\noindent
+\large
+\leftskip=0in
+\textbf
+}
+
+% formatting for titles
+\newcommand\titlesL{%
+    \noindent
+    \small
+    \leftskip=0in
+    \textbf
+}
+
+\newcommand\titlesR{%
+    \noindent
+    \small
+    \leftskip=0.15in
+    \textbf
+}
+
+% modify spacing
+\newcommand\spacing{
+    \vspace{0.1in}
+}
+
+%formatting for steps
+\newcommand\stepsL{
+    \noindent
+    \leftskip=0.15in
+    \small
+}
+
+\newcommand\stepsR{
+    \noindent
+    \leftskip=0.3in
+    \small
+}
+
+%formatting for naming
+\newcommand\namingR{
+    \small
+    \noindent
+    \leftskip=0.15in
+    \textbf
+}
+
+%formatting for naming
+\newcommand\namingL{
+    \small
+    \noindent
+    \leftskip=0in
+    \textbf
+}
+
+%formatting for namingexample
+\newcommand\namingexampleR{
+	\noindent
+	\leftskip=0.3in
+	\small
+}
+
+%formatting for namingexample
+\newcommand\namingexampleL{
+    \noindent
+    \leftskip=0.15in
+    \small
+}
+	
+%% some preable stuff
+\pagenumbering{gobble}  % rm pg. #, reset to 1
+\setlist[1]{noitemsep} % sets the itemsep and parsep for lists to 0 
+\begin{document}
+%\AddToShipoutPicture*{\BackgroundPic} % add graphic
+
+
+% header
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\fboxsep0pt
+\noindent
+%\colorbox{bg}{
+\begin{minipage}{\textwidth}
+
+    \vspace{0.1in} 
+    \begin{multicols}{2}
+        
+		\topskip0pt
+		\vspace*{\fill}
+		\large\textbf{XNAT Quickstart Guide}
+		\vspace*{\fill}
+
+        \columnbreak
+        \normalsize
+
+        \hfill joseph@viviano.ca | joseph.viviano@camh.ca
+
+        \hfill Center for Addiction and Mental Health, Toronto\
+        
+        \hfill \url{https://github.com/tigrlab}\
+
+    \end{multicols}
+    \vspace{0in}
+\end{minipage}
+%}
+
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\vspace{0.1in}
+\begin{multicols}{2}
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\noindent\leftskip=0in\large\textbf{ACCESSING DATABASE}\\
+
+\titlesL{\url{http://da55.pet.utoronto.ca:5004/spred}} \\
+
+\stepsL{Log in using your site's username and password.} \\
+
+\stepsL{This guide is a hyper-condensed version of a more explicit guide written for the \href{https://github.com/TIGRLab/SPINS/blob/master/docs/guides/spred-upload-tutorial-v1.5.pdf?raw=true}{SPReD databse, available on out GitHub page}. \\
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\noindent\leftskip=0in\large\textbf{UPLOADING DATA}\\
+
+\titlesL{DICOM Header Requirements} \\
+
+\stepsL{The XNAT database requires some information in the DICOM header to be intact.} \\
+
+\stepsL{\begin{itemize}  
+            \item{Intact date information.}  
+            \item{(0010,0010) -- Patient Name (e.g., SPN01\_CMH\_0021\_01\_01).}  
+            \item{(0010,0020) -- Patient ID (e.g., SPN01\_CMH\_0021\_01\_01).} 
+            \begin{itemize}
+                \item{This is because Name \& ID become Subject \& Session, respectively, and in the SPINS projects these are identical.}
+            \end{itemize}
+        \end{itemize}
+        }
+
+\titlesL{Upload Overview} \\
+
+\stepsL{Ensure your raw DICOM scans for a given participant are in each in their own appropriately named folder (e.g., T1; RSFMRI).} \\
+
+\stepsL{\textbf{Do not} include NIFTI or otherwise converted files in this package, but do include `.bvec' and `.bval' data.} \\
+
+\stepsL{\textbf{Do not} include any pre-processed data from the scanner (e.g., motion corrected data, FA maps, etc.) These pollute the database and we can generate better images in post-processing.} \\
+
+\stepsL{Package your raw DICOM folders into a appropriately named session ZIP file (.e.g., SPN01\_CMH\_0032\_01\_01).} \\
+
+\stepsL{Upload your ZIP file to the SPINS database using the browser-based GUI.} \\
+
+\titlesL{Create New Subject} \\
+
+\stepsL{Subject IDs must be assigned by your study coordinator.} \\
+
+\stepsL{From top of Project page, `New' $\rightarrow$ `Subject'.} \\
+
+% \stepsL{Subject ID is mandatory, Age and Gender strongly recommended.} \\
+
+\titlesL{Upload DICOM Images as .zip} \\
+
+\stepsL{From top of Subject page: `Upload' $\rightarrow$ `Images'.} \\ 
+
+% \stepsR{Use the Uploader Applet for automatic upload \textbf{(Not working yet!)}.} \\
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\columnbreak
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\stepsR{For manual upload:}
+\stepsR{\begin{itemize}  
+            \item{Select `Click Here' (near bottom) $\rightarrow$ `Compressed Upload' with SPINS project and destination `Prearchive'.}  
+            \item{Choose a DICOM zip file, then `Begin Upload' (and wait for upload).}  
+            \item{`Upload' $\rightarrow$ `Go to prearchive'. Select uploaded session, then `Archive'.}  
+            \item{Check/correct subject ID, make session ID identical to subject ID, review other fields, then `Submit'.}
+            \item{NB: Because each subject has exactly one session, the session should be identical to the subject name used for the .zip file.}
+        \end{itemize}
+        }
+
+\stepsR{A note about manual uploads: The precise naming of the submitted zip files and contained DICOM headers will automate most of the session and scan generation process, making your life rather easy. Please see below for a naming guide.}\\
+
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\titlesR{Upload Non-Image Data (`Behavioural Data \& Tech Notes')} \\
+
+\stepsR{Every subject \textbf{must} include the behavioural data collected during the fMRI scans. These must be added after the DICOM files have been uploaded. By convention, thses uploads should include the full subject name of the DICOM upload (e.g, `SPN01\_CMH\_0023\_01\_01)') with an appended `\_BEHAV', or `SPN01\_CMH\_0023\_01\_01\_BEHAV.zip'.}\\
+
+\stepsR{Additionally, non-image uploads could also be technologist notes or QC .pdf files. These should be kept seperate from the behavioual data uploads.}\\
+
+\stepsR{\begin{itemize}
+
+    \item{From Session page, click `MR Session' $\rightarrow$ `Manage Files'. You should see a list of the DICOM scans.}\\
+
+    \item{Click `Add Folder'. Set `Level' to `resouces' and `folder' to `behav'. Click create.}\\
+
+    \item{Click `Upload Files', `Level' == `resources', `Folder' == `behav'. Click `Browse' and attach the SUBJNAME\_BEHAV.zip file. Click `Upload'.}\\
+    
+    \end{itemize}
+}
+
+\stepsR{Ensure the uploaded behavioural data is all present in the tree (e.g., all 3 log files for the empathic accuracy task).}\\
+
+\stepsR{Now, the data will be included alongside the DICOM images in future downloads. For examples, please look at the human phantom data (though note that the CMH site's behavioural data is incomplete).}\\
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\columnbreak
+
+\headings{GLOSSARY} \\
+
+\stepsL{Sites:}
+\stepsL{\begin{itemize}  
+            \item{CMH - CAMH}  
+            \item{ZHH - Hillside}  
+            \item{MRC - Maryland}  
+        \end{itemize}
+        }
+
+
+\stepsL{Phantoms:}
+\stepsL{\begin{itemize}  
+            \item{FBN - fBIRN phantom} 
+            \item{ADN - ADNI Magphan phantom}
+        \end{itemize}
+        } \
+
+
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\headings{NAMING CONVENTIONS \& SPECIFICS}\\
+
+\stepsL{Each subject's data is to be submitted via an appropriately named .zip file, containing a set of appropriately named folders (detailed below). These folders should each (only) contain a set of DICOM images from a single scan. The naming conventions detailed here are adopted from the OBI conventions.} \\
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\namingL{Participants} \\
+\namingexampleL{SPN01\_CMH\_0009\_01\_01}\\
+\namingexampleL{[Study]\_[Site]\_[Subject]\_[Session]\_[Repeat]}\\
+
+\stepsL{Note: For SPINS, Session will always be `01'. This is to maintain compatibility with potential future multi-session studies. Repeat will typically be `01'. In the case that the participant needs to leave the scanner and return at a later time/date under a second session, repeat will be `02'.}\\
+
+\stepsL{Each contains folders: T1, FMAP1, FMAP2, RSFMRI, IMITATE, OBSERVE, EA1, EA2, EA3, FMAP3, FMAP4, DTI, DUALECHO, FLAIR.}\\
+
+\stepsL{There should be exactly one submission per subject.}\\
+
+% %
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \columnbreak
+
+%% NB: I changed the conventions here -- more logical given our needs.
+
+\namingL{Human Phantoms} \\
+%\namingexample{SPNP1\_CMH01\_HUM0009\_0001}\\
+\namingexampleL{SPN01\_CMH\_P009}\\
+\namingexampleL{[Study]\_[Site]\_[Subject]}\\
+
+\stepsL{Each contains folders: T1, FMAP1, FMAP2, RSFMRI, IMITATE, OBSERVE, EA1, EA2, EA3, FMAP3, FMAP4, DTI, DUALECHO, FLAIR.}\\
+
+\stepsL{The human phantoms can be considered a extra `group', so we treat them identially to the experimental data.}\\
+
+\namingL{Non-Human Phantoms: ADNI/fBIRN}\\ 
+%\namingexample{SPN01\_QC\_PHA\_ADN0001\_0002}\\
+%\namingexample{SPN01\_CMH\_PHA\_ADN0001\_0002}\\
+%\namingexample{[Study]\_[Site]\_PHA\_[Phantom]\_[Visit]}\\
+\namingexampleL{SPN01\_CMH\_PHA\_ADN0001}\\
+\namingexampleL{[Study]\_[Site]\_PHA\_[Phantom]}\\
+
+\stepsL{ADNI contains: T1.} \
+
+\stepsL{fBIRN contains: FMRI, NOASSET, ASSET.} \\
+
+\stepsL{This naming convention closely mirrors the OBI convention, but we have removed visit numbering and merged it with the phantom number (as we assume one ADNI / fBIRN phantom per site). Therefore, each weekly scan of the phantom should be entered as a new subject with sequential numbering.}\\
+
+\stepsL{\textbf{The weekly scanning began on Oct 20th, 2014}. The phantom data from that week should be considered `...PHA\_0001'. Two phantom uploads should be done per week (one for each phantom type) with the appropriate numbering.}
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\columnbreak
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\headingshack{APPENDIX}\\
+
+\stepsL{These steps might be required if the automatic .zip upload does not function proplerly.} \\
+
+
+\titlesL{Create New Session/Experiment} \\
+
+\stepsL{Session IDs should be alpha-numeric starting with the participant code (`H', `S', or `P'), and a three-digit number denoting participant number (`001').} \\
+
+\stepsL{\textbf{A session is automatically created when a DICOM zip file is loaded, so one can normally skip this step!}} \\
+
+\stepsR{To manually create a session (e.g. MR):}
+
+\stepsR{\begin{itemize}
+            \item{From Subject page `Actions' menu $\rightarrow$ `Add Experiment'.}
+            \item{Select `MR Session'.}
+            \item{Enter Session Name (and optional details).}
+            \item{Delete unused scan rows (scissors).}
+            \item{Enter scan number(s), type (MR), quality (usable).}
+            \item{`Submit'.}
+            \end{itemize}
+        } \
+
+
+\titlesR{Create New Scans} \\
+
+\stepsR{\textbf{Scan(s) automatically created when a DICOM zip file is loaded, so one can normally skip this step!}} \\
+
+\stepsR{To manually create a scan:}
+\stepsR{\begin{itemize}    
+            \item{From Session page `Actions' menu $\rightarrow$ `Edit' $\rightarrow$ `Add Scan'.}
+            \item{Enter scan number(s), type, quality $\rightarrow$ `Submit'.}
+            \item{It is not possible to delete a scan, though its contents can be deleted.}
+        \end{itemize}
+        } \
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\headings{MORE HELP}\\
+
+\small{More information is available on our public GitHub page \url{https://github.com/TIGRLab/SPINS}. Here, you can file issues directly with us, view our wiki, and see all of the collected documentation (including this document) under /docs.}\\
+
+\small{\textbf{Please remember that this is a public website -- do not put any identifying patient information here!}}
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\end{multicols}
+
+\center\footnotesize 
+Compiled on \usdate\today. Check periodically for updates.
+
+\end{document}

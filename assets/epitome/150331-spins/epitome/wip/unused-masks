@@ -1,0 +1,54 @@
+    # make frontal vs temporal mask
+    if [ ! -f ${DIR}/anat_temporal_vs_frontal.nii.gz ]; then
+        3dcalc \
+            -a ${DIR}/anat_aparc_reg.nii.gz \
+            -short \
+            -expr "1 * equals(a,18) + \
+                   2 * equals(a,17) + \
+                   5 * equals(a,54) + \
+                   6 * equals(a,53) + \
+                   3 *(equals(a,1001) + \
+                       equals(a,1006) + \
+                       equals(a,1007) + \
+                       equals(a,1009) + \
+                       equals(a,1015) + \
+                       equals(a,1016) + \
+                       equals(a,1030) + \
+                       equals(a,1033) + \
+                       equals(a,1034))+ \
+                   4 *(equals(a,1002) + \
+                       equals(a,1003) + \
+                       equals(a,1012) + \
+                       equals(a,1014) + \
+                       equals(a,1018) + \
+                       equals(a,1019) + \
+                       equals(a,1020) + \
+                       equals(a,1024) + \
+                       equals(a,1026) + \
+                       equals(a,1027) + \
+                       equals(a,1028) + \
+                       equals(a,1032))+ \
+                   7 *(equals(a,2001) + \
+                       equals(a,2006) + \
+                       equals(a,2007) + \
+                       equals(a,2009) + \
+                       equals(a,2015) + \
+                       equals(a,2016) + \
+                       equals(a,2030) + \
+                       equals(a,2033) + \
+                       equals(a,2034))+ \
+                   8 *(equals(a,2002) + \
+                       equals(a,2003) + \
+                       equals(a,2012) + \
+                       equals(a,2014) + \
+                       equals(a,2018) + \
+                       equals(a,2019) + \
+                       equals(a,2020) + \
+                       equals(a,2024) + \
+                       equals(a,2026) + \
+                       equals(a,2027) + \
+                       equals(a,2028) + \
+                       equals(a,2032))" \
+            -prefix ${DIR}/anat_temporal_vs_frontal.nii.gz
+    fi
+
