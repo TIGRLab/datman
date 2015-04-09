@@ -59,24 +59,40 @@ def test_PHA_timepoint():
     eq_(ident.get_full_subjectid_with_timepoint(), 'DTI_CMH_PHA_ADN0001')
 
 def test_parse_filename():
-    ident, tag, description = scanid.parse_filename(
-            'DTI_CMH_H001_01_01_T1_description.nii.gz')
+    ident, tag, series, description = scanid.parse_filename(
+            'DTI_CMH_H001_01_01_T1_03_description.nii.gz')
     eq_(str(ident), 'DTI_CMH_H001_01_01')
     eq_(tag, 'T1')
+    eq_(series,'03')
     eq_(description, 'description')
 
 def test_parse_filename_PHA():
-    ident, tag, description = scanid.parse_filename(
-            'DTI_CMH_PHA_ADN0001_T1_description.nii.gz')
+    ident, tag, series, description = scanid.parse_filename(
+            'DTI_CMH_PHA_ADN0001_T1_02_description.nii.gz')
     eq_(str(ident), 'DTI_CMH_PHA_ADN0001')
     eq_(tag, 'T1')
+    eq_(series,'02')
     eq_(description, 'description')
 
+def test_parse_filename_PHA_2():
+    ident, tag, series, description = scanid.parse_filename(
+            'SPN01_MRC_PHA_FBN0013_RST_04_EPI-3x3x4xTR2.nii.gz')
+    eq_(ident.study,'SPN01')
+    eq_(ident.site,'MRC')
+    eq_(ident.subject,'PHA_FBN0013')
+    eq_(ident.timepoint,'')
+    eq_(ident.session,'')
+    eq_(str(ident),'SPN01_MRC_PHA_FBN0013')
+    eq_(tag,'RST')
+    eq_(series,'04') 
+    eq_(description,'EPI-3x3x4xTR2')
+
 def test_parse_filename_with_path():
-    ident, tag, description = scanid.parse_filename(
-            '/data/DTI_CMH_H001_01_01_T1_description.nii.gz')
+    ident, tag, series, description = scanid.parse_filename(
+            '/data/DTI_CMH_H001_01_01_T1_02_description.nii.gz')
     eq_(str(ident), 'DTI_CMH_H001_01_01')
     eq_(tag, 'T1')
+    eq_(series, '02')
     eq_(description, 'description')
 
 # vim: ts=4 sw=4:

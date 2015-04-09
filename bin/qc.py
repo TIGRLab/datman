@@ -100,7 +100,7 @@ def qc_folder(scanpath, prefix, outputdir, handlers):
    
     for fname in glob.glob(scanpath + '/*.nii.gz'):
         verbose("QC scan {}".format(fname))
-        ident, tag, description = dm.scanid.parse_filename(fname)
+        ident, tag, series, description = dm.scanid.parse_filename(fname)
         if tag not in qc_handlers:
             log("QC hanlder for scan {} (tag {}) not found. Skipping.".format(
                 fname, tag))

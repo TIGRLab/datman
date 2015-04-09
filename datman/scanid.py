@@ -13,16 +13,17 @@ SCANID_RE = '(?P<study>[^_]+)_' \
 SCANID_PHA_RE = '(?P<study>[^_]+)_' \
                 '(?P<site>[^_]+)_' \
                 '(?P<subject>PHA_[^_]+)' \
-                '(?P<timepoint>)' \
-                '(?P<session>)'
+                '(?P<timepoint>)(?P<session>)'  # empty
 
 FILENAME_RE = SCANID_RE + '_' + \
               r'(?P<tag>[^_]+)_' + \
+              r'(?P<series>\d+)_' + \
               r'(?P<description>[^\.]*)' + \
               r'(?P<ext>\..*)?'
 
 FILENAME_PHA_RE = SCANID_PHA_RE + '_' + \
               r'(?P<tag>[^_]+)_' + \
+              r'(?P<series>\d+)_' + \
               r'(?P<description>[^\.]*)' + \
               r'(?P<ext>\..*)?'
 
@@ -78,8 +79,8 @@ def parse(identifier):
 
 def parse_filename(path):
     fname = os.path.basename(path)
-    match = FILENAME_PATTERN.match(fname)
-    if not match: match = FILENAME_PHA_PATTERN.match(fname)
+    match = FILENAME_PHA_PATTERN.match(fname)  # check PHA first
+    if not match: match = FILENAME_PATTERN.match(fname)
     if not match: raise ParseException()
 
     ident = Identifier(study    = match.group("study"), 
@@ -89,8 +90,9 @@ def parse_filename(path):
                        session  = match.group("session"))
 
     tag = match.group("tag")
+    series = match.group("series")
     description = match.group("description")
-    return ident, tag, description
+    return ident, tag, series, description
 
 def is_scanid(identifier):
     try: 
