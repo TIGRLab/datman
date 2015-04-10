@@ -28,7 +28,8 @@ bval=${dwidir}/${stem}.bval
 
 # output files
 eddy=${outputdir}/${stem}_eddy_correct
-bet=${eddy}_bet
+b0=${eddy}_b0
+bet=${b0}_bet
 mask=${bet}_mask
 dtifit=${eddy}_dtifit
 
@@ -36,8 +37,12 @@ if [ ! -e ${eddy}.nii.gz ]; then
   eddy_correct ${dwifile} ${eddy} ${ref_vol}
 fi
 
+if [ ! -e ${b0}.nii.gz ]; then
+  fslroi ${eddy} ${b0} ${ref_vol} 1
+fi 
+
 if [ ! -e ${bet}.nii.gz ]; then
-  bet ${eddy} ${bet} -m -f ${fa_thresh}
+  bet ${b0} ${bet} -m -f ${fa_thresh} -R
 fi 
 
 if [ ! -e ${dtifit}.nii.gz ]; then
