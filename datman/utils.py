@@ -12,6 +12,7 @@ import glob
 import numpy as np
 import logging
 import subprocess as proc
+import scanid
 
 SERIES_TAGS_MAP = {
 "T1"         :  "T1",
@@ -286,20 +287,45 @@ def run_dummy_q(list_of_names):
 
 
 def run(cmd, dryrun = False):
-    logging.debug("exec: {}".format(cmd))
-    if dryrun: return
+    """
+    Runs a command in the default shell (so beware!)
 
+    Returns the return code, stdout and stderr.
+    """
+    if dryrun: 
+        return 0, "", ""
     p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
     out, err = p.communicate() 
-    out_indent = out.replace('\n','\n>\t')   
-    err_indent = err.replace('\n','\n>\t')   
-    if p.returncode != 0: 
-        logging.error("Error {} while executing: {}".format(p.returncode, cmd))
-        out and logging.error("stdout: \n>\t{}".format(out_indent))
-        err and logging.error("stderr: \n>\t{}".format(err_indent))
-    else:
-        logging.debug("rtnval: {}".format(p.returncode))
-        out and logging.debug("stdout: \n>\t{}".format(out_indent))
-        err and logging.debug("stderr: \n>\t{}".format(err_indent))
+    return p.returncode, out, err
 
-# vim: ts=4 sw=4:
+def get_files_with_tag(parentdir, tag, fuzzy = False):
+    """
+    Returns a list of files that have the specified tag. 
+
+    Filenames must conform to the datman naming convention (see
+    scanid.parse_filename) in order to be considered. 
+
+    If fuzzy == True, then filenames are matched if the given tag is found
+    within the filename's tag. 
+    """
+
+    print parentdir
+    files = []
+    for f in os.listdir(parentdir): 
+        try:
+            _, filetag, _, _ = scanid.parse_filename(f)
+            if tag == filetag or (fuzzy and tag in filetag): 
+                files.append(os.path.join(parentdir,f))
+        except scanid.ParseException:
+            continue
+            
+    return files
+
+def makedirs(path): 
+    """
+    Make the directory (including parent directories) if they don't exist
+    """
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+# vim: ts=4 sw=4 sts=4:
