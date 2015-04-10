@@ -81,47 +81,47 @@ def export_data(sub, data_path):
            {data_path}/t1/{sub}_T1_TMP.nii.gz'.format(
                                                data_path=data_path, 
                                                sub=sub)
-    os.system(cmd)
+    dm.utils.run(cmd)
 
     cmd = '3daxialize \
            -prefix {data_path}/t1/{sub}_T1.nii.gz \
            -axial {data_path}/t1/{sub}_T1_TMP.nii.gz'.format(
                                                   data_path=data_path, 
                                                   sub=sub)
-    os.system(cmd)
+    dm.utils.run(cmd)
 
     cmd = 'mri_convert -it mgz -ot nii \
            {data_path}/freesurfer/{sub}/mri/aparc+aseg.mgz \
            {data_path}/t1/{sub}_APARC_TMP.nii.gz'.format(
                                                   data_path=data_path, 
                                                   sub=sub)
-    os.system(cmd)
+    dm.utils.run(cmd)
 
     cmd = '3daxialize \
            -prefix {data_path}/t1/{sub}_APARC.nii.gz \
            -axial {data_path}/t1/{sub}_APARC_TMP.nii.gz'.format(
                                                      data_path=data_path, 
                                                      sub=sub)
-    os.system(cmd)
+    dm.utils.run(cmd)
 
     cmd = 'mri_convert -it mgz -ot nii \
            {data_path}/freesurfer/{sub}/mri/aparc.a2009s+aseg.mgz \
            {data_path}/t1/{sub}_APARC2009_TMP.nii.gz'.format(
                                                       data_path=data_path, 
                                                       sub=sub)
-    os.system(cmd)
+    dm.utils.run(cmd)
 
     cmd = '3daxialize \
            -prefix {data_path}/t1/{sub}_APARC2009.nii.gz \
            -axial {data_path}/t1/{sub}_APARC2009_TMP.nii.gz'.format(
                                                          data_path=data_path, 
                                                          sub=sub)
-    os.system(cmd)
+    dm.utils.run(cmd)
 
     cmd = 'rm {data_path}/t1/{sub}*_TMP.nii.gz'.format(
                                                 data_path=data_path, 
                                                 sub=sub)
-    os.system(cmd)
+    dm.utils.run(cmd)
 
 def main(base_path):
     """
@@ -141,12 +141,8 @@ def main(base_path):
     subjects = dm.utils.get_subjects(nii_path)
     for sub in subjects:
 
-        if dm.utils.subject_type(sub) == 'phantom':
-            continue
-
-        # check if output already exists
-        if os.path.isdir(os.path.join(fs_path, sub)) == True:
-            continue
+        if dm.scanid.is_phantom(sub) == True: continue
+        if os.path.isdir(os.path.join(fs_path, sub)) == True: continue
 
         try:
             # run through freesurfer
@@ -161,8 +157,7 @@ def main(base_path):
 
     # copy anatomicals, masks to t1 folder
     for sub in subjects:
-        if dm.utils.subject_type(sub) == 'phantom':
-            continue
+        if dm.scanid.is_phantom(sub) == True: continue
     
         if os.path.isfile(os.path.join(t1_path, sub + '_T1.nii.gz')) == False:
             export_data(sub, data_path)

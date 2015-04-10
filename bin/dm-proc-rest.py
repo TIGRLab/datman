@@ -169,10 +169,7 @@ def main(base_path, script):
     # loop through subjects
     for sub in subjects:
 
-        if spn.utils.subject_type(sub) == 'phantom':
-            continue
-    
-        # check if output already exists
+        if dm.scanid.is_phantom(sub) == True: continue
         if os.path.isfile(os.path.join(
                           rest_path,  sub + '_complete.log')) == True:
             continue
@@ -191,9 +188,7 @@ def main(base_path, script):
 
     # copy functionals, registrations, motion parameters to rest folder.
     for sub in subjects:
-        if dm.utils.subject_type(sub) == 'phantom':
-            continue
-    
+        if dm.scanid.is_phantom(sub) == True: continue
         if os.path.isfile(os.path.join(
                           rest_path,  sub + '_complete.log')) == False:
             export_data(sub, tmpdict[sub], rest_path)
