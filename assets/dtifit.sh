@@ -32,8 +32,22 @@ bet=${eddy}_bet
 mask=${bet}_mask
 dtifit=${eddy}_dtifit
 
-eddy_correct ${dwifile} ${eddy} ${ref_vol}
-bet ${eddy} ${bet} -m -f ${fa_thresh}
-dtifit -k ${eddy} -m ${mask} -r ${bvec} -b ${bval} --save_tensor -o ${dtifit}
-cp ${bvec} ${eddy}.bvec
-cp ${bval} ${eddy}.bval
+if [ ! -e ${eddy}.nii.gz ]; then
+  eddy_correct ${dwifile} ${eddy} ${ref_vol}
+fi
+
+if [ ! -e ${bet}.nii.gz ]; then
+  bet ${eddy} ${bet} -m -f ${fa_thresh}
+fi 
+
+if [ ! -e ${dtifit}.nii.gz ]; then
+  dtifit -k ${eddy} -m ${mask} -r ${bvec} -b ${bval} --save_tensor -o ${dtifit}
+fi
+
+if [ ! -e ${eddy}.bvec ]; then
+  cp ${bvec} ${eddy}.bvec
+fi 
+
+if [ ! -e ${eddy}.bval ]; then
+  cp ${bval} ${eddy}.bval
+fi 
