@@ -195,6 +195,8 @@ def subject_type(subject):
     """
     Uses subject naming to determine what kind of files we are looking at. If
     we find a strangely-named subject, we return None.
+
+    TO DEPRICATE.
     """
     try:
         subject = subject.split('_')

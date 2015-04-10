@@ -100,5 +100,17 @@ def is_scanid(identifier):
         return True
     except ParseException:
         return False
-    
+  
+def is_phantom(identifier):
+    try:
+        x = parse(identifier)
+        if x.subject[0:3] == 'PHA':
+            return True
+        else:
+            return False
+    except ParseExcepion:
+        return False
+
+
+
 # vim: ts=4 sw=4:
