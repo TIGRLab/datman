@@ -32,6 +32,23 @@ SERIES_TAGS_MAP = {
 "Loc"        :  "LOC",
 } 
 
+def run(cmd, dryrun = False):
+    logging.debug("exec: {}".format(cmd))
+    if dryrun: return
+
+    p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
+    out, err = p.communicate() 
+    out_indent = out.replace('\n','\n>\t')   
+    err_indent = err.replace('\n','\n>\t')   
+    if p.returncode != 0: 
+        logging.error("Error {} while executing: {}".format(p.returncode, cmd))
+        out and logging.error("stdout: \n>\t{}".format(out_indent))
+        err and logging.error("stderr: \n>\t{}".format(err_indent))
+    else:
+        logging.debug("rtnval: {}".format(p.returncode))
+        out and logging.debug("stdout: \n>\t{}".format(out_indent))
+        err and logging.debug("stderr: \n>\t{}".format(err_indent))
+
 def guess_tag(description, tagmap = SERIES_TAGS_MAP): 
     """
     Given a series description return a list of series tags this might be.
@@ -219,12 +236,12 @@ def subject_type(subject):
 
 def get_subjects(path):
     """
-    Finds all of the subject folders in the supplied directory. Assumes this
-    is represenative (it is basically -- hard do to the analysis without them).
+    Finds all of the subject folders in the supplied directory, and returns
+    their basenames.
     """
-    idx = np.array(map(lambda x: 
-             os.path.isdir(os.path.join(path, x)), os.listdir(path)))
-    subjects = np.array(os.listdir(path))[idx]
+    subjects = filter(os.path.isdir, glob.glob(os.path.join(path, '*')))
+    for i, subj in enumerate(subjects):
+        subjects[i] = os.path.basename(subj)
     subjects.sort()
 
     return subjects
@@ -269,10 +286,10 @@ def make_epitome_folders(path, n_runs):
     If we need multisession, it might make sense to run this multiple times
     (once per session).
     """
-    os.system('mkdir -p ' + path + '/TEMP/SUBJ/T1/SESS01/RUN01')
-    for run in np.arange(n_runs)+1:
-        num = "{:0>2}".format(str(run))
-        os.system('mkdir -p ' + path + '/TEMP/SUBJ/FUNC/SESS01/RUN' + num)
+    run('mkdir -p ' + path + '/TEMP/SUBJ/T1/SESS01/RUN01')
+    for r in np.arange(n_runs)+1:
+        num = "{:0>2}".format(str(r))
+        run('mkdir -p ' + path + '/TEMP/SUBJ/FUNC/SESS01/RUN' + num)
 
 def run_dummy_q(list_of_names):
     """
@@ -281,25 +298,7 @@ def run_dummy_q(list_of_names):
     print('Holding for remaining processes.')
     cmd = ('echo sleep 30 | qsub -sync y -q main.q '   
                               + '-hold_jid ' + ",".join(list_of_names))
-    os.system(cmd)
+    run(cmd)
     print('... Done.')
-
-
-def run(cmd, dryrun = False):
-    logging.debug("exec: {}".format(cmd))
-    if dryrun: return
-
-    p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
-    out, err = p.communicate() 
-    out_indent = out.replace('\n','\n>\t')   
-    err_indent = err.replace('\n','\n>\t')   
-    if p.returncode != 0: 
-        logging.error("Error {} while executing: {}".format(p.returncode, cmd))
-        out and logging.error("stdout: \n>\t{}".format(out_indent))
-        err and logging.error("stderr: \n>\t{}".format(err_indent))
-    else:
-        logging.debug("rtnval: {}".format(p.returncode))
-        out and logging.debug("stdout: \n>\t{}".format(out_indent))
-        err and logging.debug("stderr: \n>\t{}".format(err_indent))
 
 # vim: ts=4 sw=4:

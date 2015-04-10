@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-rest.py <experiment-directory> <script>
+dm-proc-rest.py <experiment-directory> <scratch-directory> <script>
 
 Runs the defined epitome script on the resting-state data.
 
@@ -13,6 +13,9 @@ logs in data_path/logs/rest.
 
 import os, sys
 import copy
+from random import choice
+from glob import glob
+from string import ascii_uppercase, digits
 import numpy as np
 import nibabel as nib
 import StringIO as io
@@ -20,12 +23,16 @@ import matplotlib.pyplot as plt
 import datman as dm
 import tempfile as tmp
 
-def proc_data(sub, nii_path, t1_path, rest_path, tmp_path, script):
+def proc_data(sub, data_path, tmp_path, tmpdict, script):
     """
     Copies functional data into epitome-compatible structure, then runs the
     associated epitome script on the data. Finally, we copy the outputs into
     the 'rest' directory.
     """
+
+    nii_path = os.path.join(data_path, 'nii')
+    t1_path = os.path.join(data_path, 't1')
+    rest_path = os.path.join(data_path, 'rest')
     
     # find the freesurfer outputs for the T1 data
     try:
@@ -90,13 +97,16 @@ def proc_data(sub, nii_path, t1_path, rest_path, tmp_path, script):
     tmpfolder = tmp.mkdtemp(prefix='rest-', dir=tmp_path)
     tmpdict[sub] = tmpfolder
 
+    print(tmpfolder)
+
     dm.utils.make_epitome_folders(tmpfolder, 1)
     dm.utils.run('cp {t1_path}/{t1_data} {tmpfolder}/TEMP/SUBJ/T1/SESS01/anat_T1_brain.nii.gz'.format(t1_path=t1_path, t1_data=t1_data, tmpfolder=tmpfolder))
     dm.utils.run('cp {t1_path}/{aparc} {tmpfolder}/TEMP/SUBJ/T1/SESS01/anat_aparc_brain.nii.gz'.format(t1_path=t1_path, aparc=aparc, tmpfolder=tmpfolder))
-    dm.utils.run('cp {t1_path}/{aparc2009} {tmpfolder}/TEMP/SUBJ/T1/SESS01/anat_aparc2009_brain.nii.gz'.format(t1_path=t1_path, aparc=aparc2009, tmpfolder=tmpfolder))
+    dm.utils.run('cp {t1_path}/{aparc2009} {tmpfolder}/TEMP/SUBJ/T1/SESS01/anat_aparc2009_brain.nii.gz'.format(t1_path=t1_path, aparc2009=aparc2009, tmpfolder=tmpfolder))
     dm.utils.run('cp {nii_path}/{sub}/{rest_data} {tmpfolder}/TEMP/SUBJ/FUNC/SESS01/RUN01/FUNC01.nii.gz'.format(nii_path=nii_path, sub=sub, rest_data=rest_data, tmpfolder=tmpfolder))
 
     # submit to queue
+    uid = ''.join(choice(ascii_uppercase + digits) for _ in range(6))
     cmd = 'bash ' + script + ' ' + tmpfolder
     name = 'datman_rest_{sub}_{uid}'.format(sub=sub, uid=uid)
     log = os.path.join(data_path, 'logs/rest')
@@ -111,7 +121,7 @@ def export_data(sub, folder, rest_path):
     dm.utils.run('cp {folder}/TEMP/SUBJ/FUNC/SESS01/anat_EPI_mask_MNI-nonlin.nii.gz {rest_path}/{sub}_anat_EPI_mask_MNI.nii.gz'.format(folder=folder, rest_path=rest_path, sub=sub))
     dm.utils.run('cp {folder}/TEMP/SUBJ/FUNC/SESS01/reg_T1_to_TAL.nii.gz {rest_path}/{sub}_reg_T1_to_MNI-lin.nii.gz'.format(folder=folder, rest_path=rest_path, sub=sub))
     dm.utils.run('cp {folder}/TEMP/SUBJ/FUNC/SESS01/reg_nlin_TAL.nii.gz {rest_path}/{sub}_reg_nlin_MNI.nii.gz'.format(folder=folder, rest_path=rest_path, sub=sub))
-    dm.utils.run('cat {folder}/TEMP/SUBJ/FUNC/SESS01/PARAMS/motion.DATMAN.01.1D > {rest_path}{sub}_motion.1D'.format(folder=folder, rest_path=rest_path, sub=sub))
+    dm.utils.run('cat {folder}/TEMP/SUBJ/FUNC/SESS01/PARAMS/motion.DATMAN.01.1D > {rest_path}/{sub}_motion.1D'.format(folder=folder, rest_path=rest_path, sub=sub))
 
     # TODO
     #
@@ -143,7 +153,7 @@ def generate_analysis_script(sub, data_path, code_path):
 
     print('lol')
 
-def main(base_path, script):
+def main(base_path, tmp_path, script):
     """
     Essentially, analyzes the resting-state data.
 
@@ -158,13 +168,13 @@ def main(base_path, script):
     nii_path = dm.utils.define_folder(os.path.join(data_path, 'nii'))
     t1_path = dm.utils.define_folder(os.path.join(data_path, 't1'))
     rest_path = dm.utils.define_folder(os.path.join(data_path, 'rest'))
-    tmp_path = dm.utils.define_folder(os.path.join(data_path, 'tmp'))
+    tmp_path = dm.utils.define_folder(tmp_path)
     _ = dm.utils.define_folder(os.path.join(data_path, 'logs'))
     _ = dm.utils.define_folder(os.path.join(data_path, 'logs/rest'))
 
     list_of_names = []
     tmpdict = {}
-    subjects = spn.utils.get_subjects(data_path)
+    subjects = dm.utils.get_subjects(nii_path)
 
     # loop through subjects
     for sub in subjects:
@@ -173,28 +183,30 @@ def main(base_path, script):
         if os.path.isfile(os.path.join(
                           rest_path,  sub + '_complete.log')) == True:
             continue
-    
+
         try:
             # pre-process the data
-            name = proc_data(sub, nii_path, t1_path, rest_path, tmp_path, 
-                                                                  script)
+            name, tmpdict = proc_data(sub, data_path, tmp_path, tmpdict, script)
+            list_of_names.append(name)
 
         except ValueError as ve:
             print('ERROR: ' + str(sub) + ' !!!')
 
-    # wait for fresurfer to complete
+    if list_of_names == []:
+        sys.exit()
+
+    # wait for queued items to complete
     dm.utils.run_dummy_q(list_of_names)
-    list_of_names.append(name)
 
     # copy functionals, registrations, motion parameters to rest folder.
     for sub in subjects:
         if dm.scanid.is_phantom(sub) == True: continue
         if os.path.isfile(os.path.join(
                           rest_path,  sub + '_complete.log')) == False:
-            export_data(sub, tmpdict[sub], rest_path)
+            export_data(sub, os.path.join(tmp_path, tmpdict[sub]), rest_path)
 
 if __name__ == "__main__":
-    if len(sys.argv) == 3:
-        main(sys.argv[1], sys.argv[2])
+    if len(sys.argv) == 4:
+        main(sys.argv[1], sys.argv[2], sys.argv[3])
     else:
         print(__doc__)

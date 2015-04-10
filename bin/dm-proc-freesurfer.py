@@ -46,18 +46,13 @@ def proc_data(sub, data_path):
     cmd = 'recon-all -all -notal-check -cw256 -subjid ' +  sub
     cmd = cmd + inputs + ' -qcache'
 
-    # generate a unique ID for this queue submission
-    uid = ''.join(choice(ascii_uppercase + digits) for _ in range(6))
-
     # submit to queue
+    uid = ''.join(choice(ascii_uppercase + digits) for _ in range(6))
     name = 'datman_fs_{sub}_{uid}'.format(sub=sub, uid=uid)
     log = os.path.join(data_path, 'logs/freesurfer')
-
-    # log file can be a folder, will have job name.log
     cmd = """echo {cmd} | qsub -o {log} -S /bin/bash -V -q main.q -cwd \
              -N {name} -l mem_free=6G,virtual_free=6G -j y \
           """.format(cmd=cmd, log=log, name=name)
-
     dm.utils.run(cmd)
 
     return name

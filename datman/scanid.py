@@ -108,7 +108,7 @@ def is_phantom(identifier):
             return True
         else:
             return False
-    except ParseExcepion:
+    except ParseException:
         return False
 
 
