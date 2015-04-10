@@ -91,40 +91,40 @@ def proc_data(sub, nii_path, t1_path, rest_path, tmp_path, script):
     tmpdict[sub] = tmpfolder
 
     dm.utils.make_epitome_folders(tmpfolder, 1)
-    os.system('cp {t1_path}/{t1_data} {tmpfolder}/TEMP/SUBJ/T1/SESS01/anat_T1_brain.nii.gz'.format(t1_path=t1_path, t1_data=t1_data, tmpfolder=tmpfolder))
-    os.system('cp {t1_path}/{aparc} {tmpfolder}/TEMP/SUBJ/T1/SESS01/anat_aparc_brain.nii.gz'.format(t1_path=t1_path, aparc=aparc, tmpfolder=tmpfolder))
-    os.system('cp {t1_path}/{aparc2009} {tmpfolder}/TEMP/SUBJ/T1/SESS01/anat_aparc2009_brain.nii.gz'.format(t1_path=t1_path, aparc=aparc2009, tmpfolder=tmpfolder))
-    os.system('cp {nii_path}/{sub}/{rest_data} {tmpfolder}/TEMP/SUBJ/FUNC/SESS01/RUN01/FUNC01.nii.gz'.format(nii_path=nii_path, sub=sub, rest_data=rest_data, tmpfolder=tmpfolder))
+    dm.utils.run('cp {t1_path}/{t1_data} {tmpfolder}/TEMP/SUBJ/T1/SESS01/anat_T1_brain.nii.gz'.format(t1_path=t1_path, t1_data=t1_data, tmpfolder=tmpfolder))
+    dm.utils.run('cp {t1_path}/{aparc} {tmpfolder}/TEMP/SUBJ/T1/SESS01/anat_aparc_brain.nii.gz'.format(t1_path=t1_path, aparc=aparc, tmpfolder=tmpfolder))
+    dm.utils.run('cp {t1_path}/{aparc2009} {tmpfolder}/TEMP/SUBJ/T1/SESS01/anat_aparc2009_brain.nii.gz'.format(t1_path=t1_path, aparc=aparc2009, tmpfolder=tmpfolder))
+    dm.utils.run('cp {nii_path}/{sub}/{rest_data} {tmpfolder}/TEMP/SUBJ/FUNC/SESS01/RUN01/FUNC01.nii.gz'.format(nii_path=nii_path, sub=sub, rest_data=rest_data, tmpfolder=tmpfolder))
 
     # submit to queue
     cmd = 'bash ' + script + ' ' + tmpfolder
     name = 'datman_rest_{sub}_{uid}'.format(sub=sub, uid=uid)
     log = os.path.join(data_path, 'logs/rest')
     cmd = 'echo {cmd} | qsub -o {log} -S /bin/bash -V -q main.q -cwd -N {name} -l mem_free=3G,virtual_free=3G -j y'.format(cmd=cmd, log=log, name=name)
-    os.system(cmd)
+    dm.utils.run(cmd)
 
     return name, tmpdict
 
 def export_data(sub, folder, rest_path):
 
-    os.system('cp {folder}/TEMP/SUBJ/FUNC/SESS01/func_MNI-nonlin.REST.01.nii.gz {rest_path}/{sub}_func_MNI-nonlin.01.nii.gz'.format(folder=folder, rest_path=rest_path, sub=sub))
-    os.system('cp {folder}/TEMP/SUBJ/FUNC/SESS01/anat_EPI_mask_MNI-nonlin.nii.gz {rest_path}/{sub}_anat_EPI_mask_MNI.nii.gz'.format(folder=folder, rest_path=rest_path, sub=sub))
-    os.system('cp {folder}/TEMP/SUBJ/FUNC/SESS01/reg_T1_to_TAL.nii.gz {rest_path}/{sub}_reg_T1_to_MNI-lin.nii.gz'.format(folder=folder, rest_path=rest_path, sub=sub))
-    os.system('cp {folder}/TEMP/SUBJ/FUNC/SESS01/reg_nlin_TAL.nii.gz {rest_path}/{sub}_reg_nlin_MNI.nii.gz'.format(folder=folder, rest_path=rest_path, sub=sub))
-    os.system('cat {folder}/TEMP/SUBJ/FUNC/SESS01/PARAMS/motion.REST.01.1D > {rest_path}{sub}_motion.1D'.format(folder=folder, rest_path=rest_path, sub=sub))
+    dm.utils.run('cp {folder}/TEMP/SUBJ/FUNC/SESS01/func_MNI-nonlin.DATMAN.01.nii.gz {rest_path}/{sub}_func_MNI-nonlin.01.nii.gz'.format(folder=folder, rest_path=rest_path, sub=sub))
+    dm.utils.run('cp {folder}/TEMP/SUBJ/FUNC/SESS01/anat_EPI_mask_MNI-nonlin.nii.gz {rest_path}/{sub}_anat_EPI_mask_MNI.nii.gz'.format(folder=folder, rest_path=rest_path, sub=sub))
+    dm.utils.run('cp {folder}/TEMP/SUBJ/FUNC/SESS01/reg_T1_to_TAL.nii.gz {rest_path}/{sub}_reg_T1_to_MNI-lin.nii.gz'.format(folder=folder, rest_path=rest_path, sub=sub))
+    dm.utils.run('cp {folder}/TEMP/SUBJ/FUNC/SESS01/reg_nlin_TAL.nii.gz {rest_path}/{sub}_reg_nlin_MNI.nii.gz'.format(folder=folder, rest_path=rest_path, sub=sub))
+    dm.utils.run('cat {folder}/TEMP/SUBJ/FUNC/SESS01/PARAMS/motion.DATMAN.01.1D > {rest_path}{sub}_motion.1D'.format(folder=folder, rest_path=rest_path, sub=sub))
 
     # TODO
     #
     # # copy out QC images of registration
-    # os.system('cp {folder}/TEMP/SUBJ/FUNC/SESS01/'
+    # dm.utils.run('cp {folder}/TEMP/SUBJ/FUNC/SESS01/'
     #                         + 'qc_reg_EPI_to_T1.pdf ' +
     #               data_path + '/rest/' + sub + '_qc_reg_EPI_to_T1.pdf')
-    # os.system('cp {folder}/TEMP/SUBJ/FUNC/SESS01/'
+    # dm.utils.run('cp {folder}/TEMP/SUBJ/FUNC/SESS01/'
     #                         + 'qc_reg_T1_to_MNI.pdf ' +
     #               data_path + '/rest/' + sub + '_qc_reg_T1_to_MNI.pdf')
 
-    os.system('touch {rest_path}/{sub}_complete.log'.format(rest_path=rest_path, sub=sub))
-    os.system('rm -r ' + folder)
+    dm.utils.run('touch {rest_path}/{sub}_complete.log'.format(rest_path=rest_path, sub=sub))
+    dm.utils.run('rm -r ' + folder)
 
 def generate_analysis_script(sub, data_path, code_path):
     """

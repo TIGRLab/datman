@@ -58,7 +58,7 @@ def proc_data(sub, data_path):
              -N {name} -l mem_free=6G,virtual_free=6G -j y \
           """.format(cmd=cmd, log=log, name=name)
 
-    os.system(cmd)
+    dm.utils.run(cmd)
 
     return name
 
@@ -69,7 +69,7 @@ def run_dummy_q(list_of_names):
     print('Holding for remaining freesurfer processes.')
     cmd = ('echo sleep 30 | qsub -sync y -q main.q '   
                               + '-hold_jid ' + ",".join(list_of_names))
-    os.system(cmd)
+    dm.utils.run(cmd)
     print('... Done.')
 
 def export_data(sub, data_path):

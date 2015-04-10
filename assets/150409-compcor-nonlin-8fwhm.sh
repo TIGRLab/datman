@@ -23,14 +23,16 @@ module load freesurfer/5.3.0
 python/2.7.9-anaconda-2.1.0-150119
 module load python-extras/2.7.8
 
-export DIR_PIPE=/projects/spins/code/epitome/150331-spins
 export DIR_DATA=${1}
+
+SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+export DIR_PIPE=${SCRIPTDIR}/epitome/150331-spins
 export DIR_AFNI=/opt/quarantine/AFNI/2014.12.16/build
 export DIR_EXPT=TEMP
 export DATA_TYPE=FUNC
-export ID=SPINS
+export ID=DATMAN
 export SUB=SUBJ
-McRetroTS='/home/jdv/epitome/150331-spins/bin/run_McRetroTS.sh /opt/quarantine/matlab/matlab_concurrent_all/MATLAB_R2013b'
+McRetroTS=${SCRIPTDIR}'/epitome/150331-spins/bin/run_McRetroTS.sh /opt/quarantine/matlab/matlab_concurrent_all/MATLAB_R2013b'
 
 ###############################################################################
 
