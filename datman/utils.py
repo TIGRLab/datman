@@ -309,7 +309,6 @@ def get_files_with_tag(parentdir, tag, fuzzy = False):
     within the filename's tag. 
     """
 
-    print parentdir
     files = []
     for f in os.listdir(parentdir): 
         try:
