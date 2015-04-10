@@ -12,6 +12,7 @@ import glob
 import numpy as np
 import logging
 import subprocess as proc
+import scanid
 
 SERIES_TAGS_MAP = {
 "T1"         :  "T1",
@@ -301,4 +302,50 @@ def run_dummy_q(list_of_names):
     run(cmd)
     print('... Done.')
 
+<<<<<<< HEAD
 # vim: ts=4 sw=4:
+=======
+
+def run(cmd, dryrun = False):
+    """
+    Runs a command in the default shell (so beware!)
+
+    Returns the return code, stdout and stderr.
+    """
+    if dryrun: 
+        return 0, "", ""
+    p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
+    out, err = p.communicate() 
+    return p.returncode, out, err
+
+def get_files_with_tag(parentdir, tag, fuzzy = False):
+    """
+    Returns a list of files that have the specified tag. 
+
+    Filenames must conform to the datman naming convention (see
+    scanid.parse_filename) in order to be considered. 
+
+    If fuzzy == True, then filenames are matched if the given tag is found
+    within the filename's tag. 
+    """
+
+    files = []
+    for f in os.listdir(parentdir): 
+        try:
+            _, filetag, _, _ = scanid.parse_filename(f)
+            if tag == filetag or (fuzzy and tag in filetag): 
+                files.append(os.path.join(parentdir,f))
+        except scanid.ParseException:
+            continue
+            
+    return files
+
+def makedirs(path): 
+    """
+    Make the directory (including parent directories) if they don't exist
+    """
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+# vim: ts=4 sw=4 sts=4:
+>>>>>>> 849771c4f1d28691e81a4a3686ef498e3f0faa37
