@@ -33,23 +33,6 @@ SERIES_TAGS_MAP = {
 "Loc"        :  "LOC",
 } 
 
-def run(cmd, dryrun = False):
-    logging.debug("exec: {}".format(cmd))
-    if dryrun: return
-
-    p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
-    out, err = p.communicate() 
-    out_indent = out.replace('\n','\n>\t')   
-    err_indent = err.replace('\n','\n>\t')   
-    if p.returncode != 0: 
-        logging.error("Error {} while executing: {}".format(p.returncode, cmd))
-        out and logging.error("stdout: \n>\t{}".format(out_indent))
-        err and logging.error("stderr: \n>\t{}".format(err_indent))
-    else:
-        logging.debug("rtnval: {}".format(p.returncode))
-        out and logging.debug("stdout: \n>\t{}".format(out_indent))
-        err and logging.debug("stderr: \n>\t{}".format(err_indent))
-
 def guess_tag(description, tagmap = SERIES_TAGS_MAP): 
     """
     Given a series description return a list of series tags this might be.
@@ -302,10 +285,6 @@ def run_dummy_q(list_of_names):
     run(cmd)
     print('... Done.')
 
-<<<<<<< HEAD
-# vim: ts=4 sw=4:
-=======
-
 def run(cmd, dryrun = False):
     """
     Runs a command in the default shell (so beware!)
@@ -348,4 +327,3 @@ def makedirs(path):
         os.makedirs(path)
 
 # vim: ts=4 sw=4 sts=4:
->>>>>>> 849771c4f1d28691e81a4a3686ef498e3f0faa37
