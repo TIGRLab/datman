@@ -92,7 +92,7 @@ This uses the fBIRN pipeline to define % signal fluctuation, linear drift, signa
 
 --- 
 
-[Who's dat?](https://www.youtube.com/watch?v=OIjsSu_I4So) 
+[Who dat](https://www.youtube.com/watch?v=OIjsSu_I4So) 
 [Who dat](https://www.youtube.com/watch?v=5X0uSltBHhs)
 [Who dat](https://www.youtube.com/watch?v=6o9dXLNuXic)
 [Who dat](https://www.youtube.com/watch?v=7flZvy0uRV0)
