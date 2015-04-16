@@ -38,7 +38,7 @@ def diff_files(sub, nii_path, gold_path):
     for b in bvals:
         tag = dm.scanid.parse_filename(os.path.basename(b))[1]
         test = glob.glob(os.path.join(gold_path, tag) + '/*.bval')
-         if len(test) > 1:
+        if len(test) > 1:
             print('ERROR: more than one gold standard BVAL file!')
             raise ValueError
         else:
