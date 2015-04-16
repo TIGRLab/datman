@@ -91,6 +91,7 @@ def qc_folder(scanpath, prefix, outputdir, handlers):
     prefix.
     """
 
+    outputdir = dm.utils.define_folder(outputdir)
     pdffile = os.path.join(outputdir, 'qc_' + prefix + '.pdf')
     if os.path.exists(pdffile):
         debug("{} pdf exists, skipping.".format(pdffile))
