@@ -71,9 +71,6 @@ def main(base_path, gold_path):
         except ValueError as ve:
             print('ERROR: ' + str(sub) + ' !!!')
 
-    if list_of_names == []:
-        sys.exit()
-
     if __name__ == "__main__":
         if len(sys.argv) == 4:
             main(sys.argv[1], sys.argv[2], sys.argv[3])
