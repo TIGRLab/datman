@@ -28,15 +28,6 @@ DETAILS
     formatted scan names (see datman.scanid). Two approaches are used to find
     this name: 
 
-    ### Scan ID in the dicom header (--scanid_field)
-
-    Some scans may have the scan ID embedded in a dicom header field.
-    
-    The --scanid_field specifies a dicom header field to check for a
-    well-formatted exam name. If it isn't well formatted, then we the lookup
-    table is consulted. 
-
-
     ### Scan ID in a lookup table (--lookup)
 
     The lookup table should have atleast two columns: source_name, and
@@ -48,6 +39,16 @@ DETAILS
     The source_name column is matched against the archive filename (so the
     entry above applies to 2014_0126_FB001.zip). The target_name column
     specifies the proper name for the exam. 
+
+    If the archive is not found in the lookup table, the dicom header is
+    consulted: 
+
+    ### Scan ID in the dicom header (--scanid_field)
+
+    Some scans may have the scan ID embedded in a dicom header field.
+    
+    The --scanid_field specifies a dicom header field to check for a
+    well-formatted exam name. 
 
 
 ADDITIONAL MATCH CONDITIONS
@@ -108,43 +109,20 @@ def main():
     targetdir = os.path.normpath(targetdir)
 
     for archivepath in archives: 
-        basename    = os.path.basename(os.path.normpath(archivepath))
 
         # get some DICOM headers from the archive
         header = dm.utils.get_archive_headers(archivepath, 
                 stop_after_first=True).values()[0]
 
-        if scanid_field not in header:
-            error("{} field is not in {} dicom headers".format(
-                scanid_field, archivepath))
+        # search the lookup and the headers for a valid scan ID 
+        scanid = get_scanid_from_lookup_table(archivepath, header, lookup)
+        if scanid is None:
+            scanid = get_scanid_from_header(archivepath, header, scanid_field) 
+        if scanid is None: 
+            error("{}: Cannot find scan id. Skipping".format(archivepath))
             continue
 
-        # check header field for scan id
-        scanid = str(header.get(scanid_field))
-
-        if dm.scanid.is_scanid(scanid):
-            debug("{}: Using scan ID from dicom field {} = {}.".format(
-                    archivepath, scanid_field, scanid))
-        else:
-            # try the lookup table
-            debug("Dicom field {} = {} is not a valid scan id.".format(
-                    scanid_field, scanid))
-            debug("Trying lookup table...")
-
-            source_name = basename[:-len('.zip')]
-            lookupinfo  = lookup[ lookup['source_name'] == source_name ]
-
-            if len(lookupinfo) == 0:
-                error("{} not found in source_name column. Skipping.".format(
-                    source_name))
-                continue
-
-            scanid = lookupinfo['target_name'].tolist()[0]
-            debug("Found scan ID '{}' in lookup table".format(scanid))
-
-            if not validate(header, lookupinfo):
-                continue
-
+        # do the linking 
         target = os.path.join(targetdir,scanid)+'.zip'
         if os.path.exists(target): 
             verbose("{} already exists for archive {}. Skipping.".format(
@@ -155,6 +133,54 @@ def main():
         log("linking {} to {}".format(relpath, target))
         if not DRYRUN:
             os.symlink(relpath, target)
+
+def get_scanid_from_lookup_table(archivepath, header, lookup):
+    """
+    Gets the scanid from the lookup table (pandas dataframe)
+
+    Returns None if a match can't be found, or additional dicom fields don't
+    match. 
+    """
+    basename    = os.path.basename(os.path.normpath(archivepath))
+    source_name = basename[:-len('.zip')]
+    lookupinfo  = lookup[ lookup['source_name'] == source_name ]
+
+    if len(lookupinfo) == 0:
+        debug("{} not found in source_name column.".format(source_name))
+        return None
+    else: 
+        scanid = lookupinfo['target_name'].tolist()[0]
+        debug("Found scan ID '{}' in lookup table".format(scanid))
+        if not validate(header, lookupinfo):
+            return None
+        else:
+            return scanid
+
+def get_scanid_from_header(archivepath, header, scanid_field):
+    """
+    Gets the scanid from the dicom header object. 
+
+    Returns None if the header field isn't present or the value isn't a proper
+    scan ID.
+    """
+
+    if scanid_field not in header:
+        error("{} field is not in {} dicom headers".format(
+            scanid_field, archivepath))
+        return None
+
+    scanid = str(header.get(scanid_field))
+
+    if dm.scanid.is_scanid(scanid):
+        debug("{}: Using scan ID from dicom field {} = {}.".format(
+                archivepath, scanid_field, scanid))
+        return scanid 
+
+    else: 
+        error("{}: {} (header {}) not valid scan ID".format(
+            archivepath, scanid, scanid_field))
+        return None
+
 
 def validate(header, lookupinfo):
     """
