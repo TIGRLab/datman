@@ -13,30 +13,55 @@ Arguments:
     <archive>                Path to MR Unit archive zip
                              
 Options:                     
-    --lookup FILE            Path to scan id lookup table [default: metadata/scans.csv]
+    --lookup FILE            Path to scan id lookup table 
+                                [default: metadata/scans.csv]
     --scanid_field STR       Dicom field to match target_name with 
                              [default: PatientName]
     -v,--verbose             Verbose logging
+    --debug                  Debug logging
     -n,--dry-run             Dry run
 
 
 DETAILS
 
-The lookup table should have atleast two columns: original_name, and
-target_name.  For example: 
+    This program is used to rename an exam archive with their properly
+    formatted scan names (see datman.scanid). Two approaches are used to find
+    this name: 
 
-    source_name      target_name
-    2014_0126_FB001  ASDD_CMH_FB001_01_01
+    ### Scan ID in the dicom header (--scanid_field)
 
-Additional columns can be specified to ensure that the DICOM headers of the file
-match. These column names should start with dicom_. For example, 
+    Some scans may have the scan ID embedded in a dicom header field.
+    
+    The --scanid_field specifies a dicom header field to check for a
+    well-formatted exam name. If it isn't well formatted, then we the lookup
+    table is consulted. 
 
-    source_name      target_name            dicom_StudyID
-    2014_0126_FB001  ASDD_CMH_FB001_01_01   512
 
-In the example above, this script would check that the StudyID field of an
-arbitrary dicom file in the archive contains the value "512". If not, an error
-is thrown. 
+    ### Scan ID in a lookup table (--lookup)
+
+    The lookup table should have atleast two columns: source_name, and
+    target_name.  For example: 
+
+        source_name      target_name
+        2014_0126_FB001  ASDD_CMH_FB001_01_01
+
+    The source_name column is matched against the archive filename (so the
+    entry above applies to 2014_0126_FB001.zip). The target_name column
+    specifies the proper name for the exam. 
+
+
+ADDITIONAL MATCH CONDITIONS
+
+    Additional columns in the lookup table can be specified to ensure that the
+    DICOM headers of the file match what is expected. These column names should
+    start with dicom_. For example, 
+
+        source_name      target_name            dicom_StudyID
+        2014_0126_FB001  ASDD_CMH_FB001_01_01   512
+
+    In the example above, this script would check that the StudyID field of an
+    arbitrary dicom file in the archive contains the value "512". If not, an
+    error is thrown. 
 """
 
 from docopt import docopt
@@ -69,12 +94,14 @@ def debug(message):
 def main():
     global VERBOSE 
     global DRYRUN
+    global DEBUG
     arguments    = docopt(__doc__)
     archives     = arguments['<archive>']
     targetdir    = arguments['<targetdir>']
     lookup_table = arguments['--lookup']
     scanid_field = arguments['--scanid_field']
     VERBOSE      = arguments['--verbose']
+    DEBUG        = arguments['--debug']
     DRYRUN       = arguments['--dry-run']
 
     lookup = pd.read_table(lookup_table, sep='\s+', dtype=str)
@@ -82,21 +109,43 @@ def main():
 
     for archivepath in archives: 
         basename    = os.path.basename(os.path.normpath(archivepath))
-        source_name = basename[:-len('.zip')]
 
-        lookupinfo  = lookup[ lookup['source_name'] == source_name ]
+        # get some DICOM headers from the archive
+        header = dm.utils.get_archive_headers(archivepath, 
+                stop_after_first=True).values()[0]
 
-        if len(lookupinfo) == 0:
-            error("{} not found in source_name column of lookup table. Skipping.".format(
-                archivepath))
+        if scanid_field not in header:
+            error("{} field is not in {} dicom headers".format(
+                scanid_field, archivepath))
             continue
 
-        target_name = lookupinfo['target_name'].tolist()[0]
+        # check header field for scan id
+        scanid = str(header.get(scanid_field))
 
-        if not validate(archivepath, lookupinfo, scanid_field, source_name, target_name):
-            continue
+        if dm.scanid.is_scanid(scanid):
+            debug("{}: Using scan ID from dicom field {} = {}.".format(
+                    archivepath, scanid_field, scanid))
+        else:
+            # try the lookup table
+            debug("Dicom field {} = {} is not a valid scan id.".format(
+                    scanid_field, scanid))
+            debug("Trying lookup table...")
 
-        target = os.path.join(targetdir,target_name)+'.zip'
+            source_name = basename[:-len('.zip')]
+            lookupinfo  = lookup[ lookup['source_name'] == source_name ]
+
+            if len(lookupinfo) == 0:
+                error("{} not found in source_name column. Skipping.".format(
+                    source_name))
+                continue
+
+            scanid = lookupinfo['target_name'].tolist()[0]
+            debug("Found scan ID '{}' in lookup table".format(scanid))
+
+            if not validate(header, lookupinfo):
+                continue
+
+        target = os.path.join(targetdir,scanid)+'.zip'
         if os.path.exists(target): 
             verbose("{} already exists for archive {}. Skipping.".format(
                 target,archivepath))
@@ -107,27 +156,12 @@ def main():
         if not DRYRUN:
             os.symlink(relpath, target)
 
-def validate(archivepath, lookupinfo, scanid_field, source_name, target_name):
+def validate(header, lookupinfo):
     """
     Validates an exam archive against the lookup table
 
-    Checks that: 
-    1. The target_name == dicom header field <dcm_field>
-        OR
-    2. All dicom_* dicom header fields match the lookup table
+    Checks that all dicom_* dicom header fields match the lookup table
     """
-    header = dm.utils.get_archive_headers(archivepath, stop_after_first=True).values()[0]
-
-    if scanid_field not in header:
-        error("{} field is not in {} dicom headers".format(
-            scanid_field, archivepath))
-        return False
-
-    if header.get(scanid_field) == target_name:
-        verbose("{}: target_name {} matches {} dicom field".format(
-            archivepath, target_name, scanid_field))
-        return True
-    
     columns    = lookupinfo.columns.values.tolist()
     dicom_cols = [c for c in columns if c.startswith('dicom_')]
 
@@ -146,7 +180,6 @@ def validate(archivepath, lookupinfo, scanid_field, source_name, target_name):
             error("{}: dicom field '{}' = '{}', expected '{}'".format(
                 archivepath, f, actual, expected))
             return False
-
     return True
 
 if __name__ == '__main__': 

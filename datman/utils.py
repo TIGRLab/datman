@@ -96,7 +96,7 @@ def get_archive_headers(path, stop_after_first = False):
     elif os.path.isfile(path) and path.endswith('.tar.gz'):
         return get_tarfile_headers(path, stop_after_first)
     else: 
-	raise Exception("{} must be a file (zip/tar) or folder.".format(exam))
+	raise Exception("{} must be a file (zip/tar) or folder.".format(path))
 
 def get_tarfile_headers(path, stop_after_first = False): 
     """
