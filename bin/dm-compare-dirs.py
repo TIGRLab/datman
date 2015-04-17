@@ -13,27 +13,38 @@ import numpy as np
 from subprocess import Popen, PIPE
 import os, sys
 import glob
+import datetime
+import logging
 
-def diff_files(sub, nii_path, gold_path):
+def diff_files(sub, nii_path, gold_path, log_path):
     """
     Diffs .bvec and .bvals.
     """
+    # make a kewl log
+    date = datetime.date.today()
+    log = '{log_path}/{strfdate}.log'.format(log_path=log_path,
+                                             strfdate=date.strftime('%y%m%d'))
+    logging.basicConfig(filename=log,level=logging.DEBUG)
+      
     # get list of .becs
-    bvecs = glob.glob(os.path.join(nii_path, sub + '/*.bvec'))
-    bvals = glob.glob(os.path.join(nii_path, sub + '/*.bval')) 
-
+    bvecs = glob.glob(os.path.join(nii_path, sub) + '/*.bvec')
+    bvals = glob.glob(os.path.join(nii_path, sub) + '/*.bval') 
     for b in bvecs:
         tag = dm.scanid.parse_filename(os.path.basename(b))[1]
         test = glob.glob(os.path.join(gold_path, tag) + '/*.bvec')
         if len(test) > 1:
             print('ERROR: more than one gold standard BVEC file!')
             raise ValueError
+        if len(test) == 0:
+            continue
         else:
             p = Popen(['diff', b, test[0]], stdout=PIPE, stderr=PIPE)
             out, err = p.communicate()
         if len(out) > 0:
             print(sub + ': TAG = ' + tag + ' BVEC DIFF: \n')
             print(out)
+            logging.warning(sub + ': TAG = ' + tag + ', BVEC DIFF:')
+            logging.warning(out)
 
     for b in bvals:
         tag = dm.scanid.parse_filename(os.path.basename(b))[1]
@@ -41,12 +52,16 @@ def diff_files(sub, nii_path, gold_path):
         if len(test) > 1:
             print('ERROR: more than one gold standard BVAL file!')
             raise ValueError
+        if len(test) == 0:
+            continue
         else:
             p = Popen(['diff', b, test[0]], stdout=PIPE, stderr=PIPE)
             out, err = p.communicate()
         if len(out) > 0:
             print(sub + ': TAG = ' + tag + ', BVAL DIFF: \n')
             print(out)
+            logging.warning(sub + ': TAG = ' + tag + ', BVAL DIFF:')
+            logging.warning(out)
 
 def main(base_path, gold_path):
     """
@@ -56,24 +71,23 @@ def main(base_path, gold_path):
     data_path = dm.utils.define_folder(os.path.join(base_path, 'data'))
     nii_path = dm.utils.define_folder(os.path.join(data_path, 'nii'))
     _ = dm.utils.define_folder(os.path.join(data_path, 'logs'))
-    _ = dm.utils.define_folder(os.path.join(data_path, 'logs/goldstd'))
+    log_path = dm.utils.define_folder(os.path.join(data_path, 'logs/goldstd'))
 
     subjects = dm.utils.get_subjects(nii_path)
 
     # loop through subjects
     for sub in subjects:
-
         if dm.scanid.is_phantom(sub) == True: continue
         try:
             # pre-process the data
-            diff_files(sub, data_path, gold_path)
+            diff_files(sub, nii_path, gold_path, log_path)
 
         except ValueError as ve:
             print('ERROR: ' + str(sub) + ' !!!')
 
-    if __name__ == "__main__":
-        if len(sys.argv) == 3:
-            main(sys.argv[1], sys.argv[2])
-        else:
-            print(__doc__)
+if __name__ == '__main__':
+    if len(sys.argv) == 3:
+        main(sys.argv[1], sys.argv[2])
+    else:
+        print(__doc__)
 
