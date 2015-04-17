@@ -26,9 +26,8 @@ def diff_files(sub, nii_path, gold_path, log_path):
                                              strfdate=date.strftime('%y%m%d'))
     logging.basicConfig(filename=log,level=logging.DEBUG)
       
-    # get list of .becs
+    # get list of .bvecs
     bvecs = glob.glob(os.path.join(nii_path, sub) + '/*.bvec')
-    bvals = glob.glob(os.path.join(nii_path, sub) + '/*.bval') 
     for b in bvecs:
         tag = dm.scanid.parse_filename(os.path.basename(b))[1]
         test = glob.glob(os.path.join(gold_path, tag) + '/*.bvec')
@@ -41,11 +40,12 @@ def diff_files(sub, nii_path, gold_path, log_path):
             p = Popen(['diff', b, test[0]], stdout=PIPE, stderr=PIPE)
             out, err = p.communicate()
         if len(out) > 0:
-            print(sub + ': TAG = ' + tag + ' BVEC DIFF: \n')
-            print(out)
-            logging.warning(sub + ': TAG = ' + tag + ', BVEC DIFF:')
+            print(os.path.basename(b) + ': TAG = ' + tag + ' BVEC DIFF.\n')
+            logging.warning(os.path.basename(b) + ': TAG = ' + tag + ', BVEC DIFF:')
             logging.warning(out)
 
+    # get a list of .bvals
+    bvals = glob.glob(os.path.join(nii_path, sub) + '/*.bval') 
     for b in bvals:
         tag = dm.scanid.parse_filename(os.path.basename(b))[1]
         test = glob.glob(os.path.join(gold_path, tag) + '/*.bval')
@@ -58,9 +58,8 @@ def diff_files(sub, nii_path, gold_path, log_path):
             p = Popen(['diff', b, test[0]], stdout=PIPE, stderr=PIPE)
             out, err = p.communicate()
         if len(out) > 0:
-            print(sub + ': TAG = ' + tag + ', BVAL DIFF: \n')
-            print(out)
-            logging.warning(sub + ': TAG = ' + tag + ', BVAL DIFF:')
+            print(os.path.basename(b) + ': TAG = ' + tag + ', BVAL DIFF.\n')
+            logging.warning(os.path.basename(b) + ': TAG = ' + tag + ', BVAL DIFF:')
             logging.warning(out)
 
 def main(base_path, gold_path):
