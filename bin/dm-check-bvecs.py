@@ -40,7 +40,7 @@ def diff_files(sub, nii_path, gold_path, log_path):
             p = Popen(['diff', b, test[0]], stdout=PIPE, stderr=PIPE)
             out, err = p.communicate()
         if len(out) > 0:
-            print(os.path.basename(b) + ': TAG = ' + tag + ' BVEC DIFF.\n')
+            print(os.path.basename(b) + ': TAG = ' + tag + ' BVEC DIFF.')
             logging.warning(os.path.basename(b) + ': TAG = ' + tag + ', BVEC DIFF:')
             logging.warning(out)
 
@@ -58,7 +58,7 @@ def diff_files(sub, nii_path, gold_path, log_path):
             p = Popen(['diff', b, test[0]], stdout=PIPE, stderr=PIPE)
             out, err = p.communicate()
         if len(out) > 0:
-            print(os.path.basename(b) + ': TAG = ' + tag + ', BVAL DIFF.\n')
+            print(os.path.basename(b) + ': TAG = ' + tag + ', BVAL DIFF.')
             logging.warning(os.path.basename(b) + ': TAG = ' + tag + ', BVAL DIFF:')
             logging.warning(out)
 
