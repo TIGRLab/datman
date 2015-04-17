@@ -72,8 +72,8 @@ def main(base_path, gold_path):
             print('ERROR: ' + str(sub) + ' !!!')
 
     if __name__ == "__main__":
-        if len(sys.argv) == 4:
-            main(sys.argv[1], sys.argv[2], sys.argv[3])
+        if len(sys.argv) == 3:
+            main(sys.argv[1], sys.argv[2])
         else:
             print(__doc__)
 
