@@ -77,7 +77,7 @@ def main():
     VERBOSE      = arguments['--verbose']
     DRYRUN       = arguments['--dry-run']
 
-    lookup = pd.read_table(lookup_table, sep='\s*', engine="python")
+    lookup = pd.read_table(lookup_table, sep='\s+', dtype=str)
     targetdir = os.path.normpath(targetdir)
 
     for archivepath in archives: 
