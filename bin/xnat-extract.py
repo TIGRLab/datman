@@ -174,7 +174,7 @@ def main():
     exportinfo = pd.read_table(exportinfofile, sep='\s*', engine="python")
 
     for archivepath in archives:
-        log("Exporting {}".format(archivepath))
+        verbose("Exporting {}".format(archivepath))
         extract_archive(exportinfo, archivepath, datadir)
 
 
