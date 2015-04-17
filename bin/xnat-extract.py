@@ -286,7 +286,7 @@ def export_resources(archivepath, exportdir, scanid):
     debug("Exporting non-dicom stuff from {}".format(archivepath))
     outputdir = os.path.join(exportdir,"RESOURCES",str(scanid))
     if not os.path.exists(outputdir): makedirs(outputdir)
-    run("rsync -a {}/ {}/".format(sourcedir, outputdir))
+    run("rsync -r {}/ {}/".format(sourcedir, outputdir))
 
 def export_mnc_command(seriesdir,outputdir,stem):
     """
