@@ -105,7 +105,7 @@ def main():
     DEBUG        = arguments['--debug']
     DRYRUN       = arguments['--dry-run']
 
-    lookup = pd.read_table(lookup_table, sep='\s+', dtype=str)
+    lookup = pd.read_table(lookup_table, sep='\s+', dtype=str, comment='#')
     targetdir = os.path.normpath(targetdir)
 
     for archivepath in archives: 
