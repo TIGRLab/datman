@@ -151,7 +151,7 @@ def get_scanid_from_lookup_table(archivepath, header, lookup):
     else: 
         scanid = lookupinfo['target_name'].tolist()[0]
         debug("Found scan ID '{}' in lookup table".format(scanid))
-        if not validate(header, lookupinfo):
+        if not validate(archivepath, header, lookupinfo):
             return None
         else:
             return scanid
@@ -182,7 +182,7 @@ def get_scanid_from_header(archivepath, header, scanid_field):
         return None
 
 
-def validate(header, lookupinfo):
+def validate(archivepath, header, lookupinfo):
     """
     Validates an exam archive against the lookup table
 
