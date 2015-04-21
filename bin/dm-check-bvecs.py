@@ -93,7 +93,7 @@ def main(base_path, gold_path, site=None):
         try:
             print(sub)
             # pre-process the data
-            diff_files(sub, nii_path, gold_path, log_path site)
+            diff_files(sub, nii_path, gold_path, log_path)
 
         except ValueError as ve:
             print('ERROR: ' + str(sub) + ' !!!')
