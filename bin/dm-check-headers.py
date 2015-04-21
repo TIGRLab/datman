@@ -4,35 +4,47 @@ Diffs the relevant fields of the header to determine if anything has changed in
 the protocol.
 
 Usage: 
-    header-compare.py file <goldstandard.dcm> <compare.dcm>
-    header-compare.py exam <goldstandards/> <exam/>
+    dm-check-header.py [options] <standards> <exam>...
 
 Arguments: 
-    <goldstandard.dcm>      Dicom file to compare against
+    <standards/>            Folder with subfolders named by tag. Each subfolder
+                            has a sample gold standard dicom file for that tag.
 
-    <compare.dcm>           Dicom file to compare
+    <exam/>                 Folder with one dicom file sample from each series
+                            to check
 
-    <goldstandards/>        Folder with gold standard dicom files.
+Options: 
+    --quiet                 Don't print warnings
 
-    <exam/>                 Folder with exam series data. A single dicom from 
-                            each series is compared against the gold standard 
-                            with the matching description.
+DETAILS
+    
+    Output looks like: 
+
+    /path/to/exam/dicom.dcm: headers not in standard: list,... 
+    /path/to/exam/dicom.dcm: headers not in series: list,... 
+    /path/to/exam/dicom.dcm: header {}: expected = {}, actual = {} [tolerance = {}]
+
+
 """
 import sys
 from docopt import docopt
 import dicom as dcm
 import datman as dm
 import datman.utils
+import os.path
 
 ignored_headers = set([
     'AcquisitionDate',
     'AcquisitionTime',
     'ContentDate',
     'ContentTime',
+    'DeidentificationMethodCodeSequence',
     'FrameOfReferenceUID',
     'ImagePositionPatient',
+    'InStackPositionNumber',
     'InstanceNumber',
     'LargestImagePixelValue',
+    'OperatorsName',
     'PatientID',
     'PixelData',
     'RefdImageSequence',
@@ -60,75 +72,94 @@ ignored_headers = set([
     'WindowWidth',
 ])
 
-def compare_headers(goldstd, compare):
+decimal_tolerances = {
+        # field           : digits after decimal point
+        'ImagingFrequency': 3, 
+        }
+
+QUIET = False
+
+def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore=ignored_headers):
     """
     Accepts two pydicom objects and prints out header value differences. 
     
-    Headers in the ignore_header set are ignored.
+    Headers in ignore set are ignored.
     """
-    goldstd_headers = set(goldstd.dir()).difference(ignored_headers)
-    compare_headers = set(compare.dir()).difference(ignored_headers)
 
-    only_goldstd = goldstd_headers.difference(compare_headers)
-    only_compare = compare_headers.difference(goldstd_headers)
-    both_headers = goldstd_headers.intersection(compare_headers)
+    # get the unignored headers
+    stdhdr_ = set(stdhdr.dir()).difference(ignore)
+    cmphdr_ = set(cmphdr.dir()).difference(ignore)
+
+    only_stdhdr = stdhdr_.difference(cmphdr_)
+    only_cmphdr = cmphdr_.difference(stdhdr_)
+    both_hdr    = stdhdr_.intersection(cmphdr_)
   
-    if only_goldstd: 
-        print "The following headers appear only in the Gold standard:",
-        print ", ".join(only_goldstd)
-        different = True
+    if only_stdhdr:
+        print("{cmppath}: headers in series, not in standard: {list}".format(
+            cmppath=cmppath, list=", ".join(only_stdhdr)))
 
-    if only_compare:
-        print "The following headers appear only in the Comparison:",
-        print ", ".join(only_compare)
+    if only_cmphdr:
+        print("{cmppath}: headers in standard, not in series: {list}".format(
+            cmppath=cmppath, list=", ".join(only_cmphdr)))
     
-    for header in both_headers:
-        if str(goldstd.get(header)) != str(compare.get(header)):
-            print("Header '{}' differs. Gold = '{}', Compare = '{}'".format(
-                header, goldstd.get(header), compare.get(header)))
-            different = True
+    for header in both_hdr:
+        stdval = stdhdr.get(header)
+        cmpval = cmphdr.get(header)
 
-def compare_exam_headers(standarddir, examdir):
+        # compare within tolerance
+        if header in decimal_tolerances:
+            n = decimal_tolerances[header]
+
+            stdval_rounded = round(float(stdval), n)
+            cmpval_rounded = round(float(cmpval), n)
+
+            if stdval_rounded != cmpval_rounded:
+                msg = "{}: header {}, expected = {}, actual = {} [tolerance = {}]"
+                print(msg.format(cmppath, header, stdval_rounded, cmpval_rounded, n))
+
+        elif str(cmpval) != str(cmpval):
+            print("{}: header {}, expected = {}, actual = {}".format(
+                    cmppath, header, stdval_rounded, cmpval_rounded))
+
+
+def compare_exam_headers(std_headers, examdir):
     """
     Compares headers for each series in an exam against gold standards
+
+    <std_headers> is a map from description -> (path, headers) of all of the
+    standard headers to compare against. 
     """
-    std_headers  = dm.utils.get_all_headers_in_folder(standarddir,recurse=True)
-    std_headers  = {v.get("SeriesDescription") : (k,v) for (k,v) in \
-            std_headers.items()}
-    exam_headers = dm.utils.get_archive_headers(examdir)
+    exam_headers = dm.utils.get_all_headers_in_folder(examdir)
 
     for path, header in exam_headers.iteritems():
-        description = header.get("SeriesDescription")
+        ident, tag, series, description = dm.scanid.parse_filename(path)
 
-        if description not in std_headers:
-            print("ERROR: {}: No matching standard for series '{}'".format(
-                path, description))
+        if tag not in std_headers:
+            if not QUIET: 
+                print("WARNING: {}: No matching standard for tag '{}'".format(
+                path, tag))
             continue
 
-        std_path, std_header = std_headers[description]
+        std_path, std_header = std_headers[tag]
 
-        print("Comparing {} against gold standard {}".format(
-            path, std_path))
-
-        compare_headers(std_header, header)
-        print
+        compare_headers(std_path, std_header, path, header)
 
 def main():
+    global QUIET
     arguments = docopt(__doc__)
 
-    if arguments['<goldstandard.dcm>']:
-        goldfile = arguments['<goldstandard.dcm>']
-        compfile = arguments['<compare.dcm>']
+    QUIET = arguments['--quiet']
 
-        goldstd = dcm.read_file(goldfile)
-        compare = dcm.read_file(compfile)
+    standardsdir = arguments['<standards>']
+    examdirs     = arguments['<exam>']
 
-        compare_headers(goldstd, compare)
-    else:
-        standarddir = arguments['<goldstandards/>']
-        examdir     = arguments['<exam/>']
+    manifest = dm.utils.get_all_headers_in_folder(standardsdir,recurse=True)
+   
+    # map tag name to headers 
+    stdmap = { os.path.basename(os.path.dirname(k)):(k,v) for (k,v) in manifest.items()}
 
-        compare_exam_headers(standarddir, examdir)
+    for examdir in examdirs:
+        compare_exam_headers(stdmap, examdir)
         
 if __name__ == '__main__': 
     main()

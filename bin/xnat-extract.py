@@ -349,10 +349,36 @@ def export_nrrd_command(seriesdir,outputdir,stem):
 
     run(cmd)
 
+def export_dcm_command(seriesdir,outputdir,stem):
+    """
+    Copies a single DICOM from the series.
+    """
+    outputfile = os.path.join(outputdir,stem) + ".dcm"
+    if os.path.exists(outputfile):
+        debug("{}: output {} exists. skipping.".format(
+            seriesdir, outputfile))
+        return
+
+    import dicom
+    dcmfile = None
+    for path in glob.glob(seriesdir + '/*'):
+        try:
+            dicom.read_file(path)
+            dcmfile = path            
+            break
+        except dicom.filereader.InvalidDicomError, e:
+            pass
+    
+    assert dcmfile is not None, "No dicom files found in {}".format(seriesdir)
+    verbose("Exporting a dcm file from {} to {}".format(seriesdir, outputfile))
+    cmd = 'cp {} {}'.format(dcmfile, outputfile)
+    run(cmd)
+
 exporters = {
     "mnc" : export_mnc_command,
     "nii" : export_nii_command,
     "nrrd": export_nrrd_command,
+    "dcm" : export_dcm_command,
 }
 
 if __name__ == '__main__':
