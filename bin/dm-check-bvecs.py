@@ -38,14 +38,14 @@ def diff_files(sub, nii_path, gold_path, log_path):
             print('ERROR: more than one gold standard BVEC file!')
             raise ValueError
         if len(test) == 0:
-            print('ERROR: No goldSTD found for ' + tag)
+            print('ERROR: No goldSTD found for ' + tag + ', SUBJ= ' + sub)
             continue
         else:
             p = Popen(['diff', b, test[0]], stdout=PIPE, stderr=PIPE)
             out, err = p.communicate()
         if len(out) > 0:
-            print(os.path.basename(b) + ': TAG = ' + tag + ' BVEC DIFF.')
-            logging.warning(os.path.basename(b) + ': TAG = ' + tag + ' BVEC DIFF:')
+            print(b + ': TAG = ' + tag + ' BVEC DIFF.')
+            logging.warning(b + ': TAG = ' + tag + ' BVEC DIFF:')
             logging.warning(out)
 
     # get a list of .bvals
@@ -62,8 +62,8 @@ def diff_files(sub, nii_path, gold_path, log_path):
             p = Popen(['diff', b, test[0]], stdout=PIPE, stderr=PIPE)
             out, err = p.communicate()
         if len(out) > 0:
-            print(os.path.basename(b) + ': TAG = ' + tag + ' BVAL DIFF.')
-            logging.warning(os.path.basename(b) + ': TAG = ' + tag + ' BVAL DIFF:')
+            print(b + ': TAG = ' + tag + ' BVAL DIFF.')
+            logging.warning(b + ': TAG = ' + tag + ' BVAL DIFF:')
             logging.warning(out)
 
 def main(base_path, gold_path, site=None):
