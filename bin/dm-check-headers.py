@@ -137,7 +137,7 @@ def compare_exam_headers(std_headers, examdir):
         if tag not in std_headers:
             if not QUIET: 
                 print("WARNING: {}: No matching standard for tag '{}'".format(
-                path, description))
+                path, tag))
             continue
 
         std_path, std_header = std_headers[tag]
