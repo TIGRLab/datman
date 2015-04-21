@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 """
-dm-compare-dirs.py <experiment-directory> <gold-directory>
+dm-check-bvecs.py <experiment-directory> <gold-directory> <site>
 
 For each subject, ensures the dicom data's headers in the xnat database
 are similar to those in the supplied gold-standard folder.
+
+If 'site' is supplied, this will only check files that match the supplied
+site code (e.g., 'CMH', 'MRC', etc.)
 
 logs in <data_path>/logs/goldstd.
 """
@@ -35,6 +38,7 @@ def diff_files(sub, nii_path, gold_path, log_path):
             print('ERROR: more than one gold standard BVEC file!')
             raise ValueError
         if len(test) == 0:
+            print('ERROR: No goldSTD found for ' + tag)
             continue
         else:
             p = Popen(['diff', b, test[0]], stdout=PIPE, stderr=PIPE)
@@ -62,7 +66,7 @@ def diff_files(sub, nii_path, gold_path, log_path):
             logging.warning(os.path.basename(b) + ': TAG = ' + tag + ' BVAL DIFF:')
             logging.warning(out)
 
-def main(base_path, gold_path):
+def main(base_path, gold_path, site=None):
     """
     Iterates through subjects, finds DTI data, and compares with gold-stds.
     """
@@ -76,17 +80,31 @@ def main(base_path, gold_path):
 
     # loop through subjects
     for sub in subjects:
-        if dm.scanid.is_phantom(sub) == True: continue
+        
+        # skip phantoms
+        if dm.scanid.is_phantom(sub) == True: 
+            continue
+        
+        # if a site is supplied, only look at those subjects
+        test = dm.scanid.parse(sub + '_01')
+        if site != None and test.site != site: 
+            continue
+        
         try:
+            print(sub)
             # pre-process the data
-            diff_files(sub, nii_path, gold_path, log_path)
+            diff_files(sub, nii_path, gold_path, log_path site)
 
         except ValueError as ve:
             print('ERROR: ' + str(sub) + ' !!!')
 
 if __name__ == '__main__':
     if len(sys.argv) == 3:
+        # no site supplied
         main(sys.argv[1], sys.argv[2])
+    elif len(sys.argv) == 4:
+        # site supplied
+        main(sys.argv[1], sys.argv[2], sys.argv[3])
     else:
         print(__doc__)
 
