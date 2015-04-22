@@ -45,7 +45,7 @@ if [ ! -e ${bet}.nii.gz ]; then
   bet ${b0} ${bet} -m -f ${fa_thresh} -R
 fi 
 
-if [ ! -e ${dtifit}.nii.gz ]; then
+if [ ! -e ${dtifit}_FA.nii.gz ]; then
   dtifit -k ${eddy} -m ${mask} -r ${bvec} -b ${bval} --save_tensor -o ${dtifit}
 fi
 
