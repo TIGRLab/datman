@@ -73,8 +73,8 @@ def main(base_path, gold_path, site=None):
     # sets up paths
     data_path = dm.utils.define_folder(os.path.join(base_path, 'data'))
     nii_path = dm.utils.define_folder(os.path.join(data_path, 'nii'))
-    _ = dm.utils.define_folder(os.path.join(data_path, 'logs'))
-    log_path = dm.utils.define_folder(os.path.join(data_path, 'logs/goldstd'))
+    _ = dm.utils.define_folder(os.path.join(base_path, 'logs'))
+    log_path = dm.utils.define_folder(os.path.join(base_path, 'logs/goldstd'))
 
     subjects = dm.utils.get_subjects(nii_path)
 

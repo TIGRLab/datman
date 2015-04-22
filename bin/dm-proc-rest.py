@@ -169,8 +169,8 @@ def main(base_path, tmp_path, script):
     t1_path = dm.utils.define_folder(os.path.join(data_path, 't1'))
     rest_path = dm.utils.define_folder(os.path.join(data_path, 'rest'))
     tmp_path = dm.utils.define_folder(tmp_path)
-    _ = dm.utils.define_folder(os.path.join(data_path, 'logs'))
-    _ = dm.utils.define_folder(os.path.join(data_path, 'logs/rest'))
+    _ = dm.utils.define_folder(os.path.join(base_path, 'logs'))
+    log_path = dm.utils.define_folder(os.path.join(base_path, 'logs/rest'))
 
     list_of_names = []
     tmpdict = {}
@@ -210,3 +210,4 @@ if __name__ == "__main__":
         main(sys.argv[1], sys.argv[2], sys.argv[3])
     else:
         print(__doc__)
+

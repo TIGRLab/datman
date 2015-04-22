@@ -127,11 +127,10 @@ def main(base_path):
     nii_path = dm.utils.define_folder(os.path.join(data_path, 'nii'))
     t1_path = dm.utils.define_folder(os.path.join(data_path, 't1'))
     fs_path = dm.utils.define_folder(os.path.join(data_path, 'freesurfer'))
-    _ = dm.utils.define_folder(os.path.join(data_path, 'logs'))
-    _ = dm.utils.define_folder(os.path.join(data_path, 'logs/freesurfer'))
+    _ = dm.utils.define_folder(os.path.join(base_path, 'logs'))
+    log_path = dm.utils.define_folder(os.path.join(base_path, 'logs/freesurfer'))
 
     # configure the freesurfer environment
-    dm.module.load_freesurfer()
     os.environ['SUBJECTS_DIR'] = fs_path
 
     list_of_names = []
