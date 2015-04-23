@@ -64,16 +64,22 @@ def main():
         dm.utils.makedirs(outputpath)
 
         for dwi in dwifiles:
-            cmd = "qsub -cwd -o {logdir} -j y -V -b y -N dtifit " \
-                  "{script} {dwi} {outputdir} {ref} {thresh}".format(
-                    logdir = logdir,
-                    script = script,
-                    dwi = dwi, 
-                    outputdir= outputpath, 
-                    ref = ref_vol, 
-                    thresh = fa_thresh)
-            log.debug("exec: {}".format(cmd))
-            dm.utils.run(cmd, dryrun=DRYRUN)
+            stem = os.path.basename(dwi).replace('.nii','').replace('.gz','')
+
+            dtifit_output = outputpath+'/'+stem+'_eddy_correct_dtifit_FA.nii.gz'
+            if os.path.exists(dtifit_output):
+                log.debug("{} exists. Skipping.".format(dtifit_output))
+            else:
+                cmd = "qsub -cwd -o {logdir} -j y -V -b y -N dtifit " \
+                    "{script} {dwi} {outputdir} {ref} {thresh}".format(
+                        logdir = logdir,
+                        script = script,
+                        dwi = dwi, 
+                        outputdir= outputpath, 
+                        ref = ref_vol, 
+                        thresh = fa_thresh)
+                log.debug("exec: {}".format(cmd))
+                dm.utils.run(cmd, dryrun=DRYRUN)
             
 if __name__ == '__main__':
     main()
