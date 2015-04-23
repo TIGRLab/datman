@@ -109,10 +109,14 @@ def main():
     targetdir = os.path.normpath(targetdir)
 
     for archivepath in archives: 
-
+        
         # get some DICOM headers from the archive
-        header = dm.utils.get_archive_headers(archivepath, 
-                stop_after_first=True).values()[0]
+        try:
+            header = dm.utils.get_archive_headers(
+                                archivepath, stop_after_first=True).values()[0]
+        except:
+            error("{}: Contains no DICOMs. Skipping.".format(archivepath))
+            continue
 
         # search the lookup and the headers for a valid scan ID 
         scanid = get_scanid_from_lookup_table(archivepath, header, lookup)
