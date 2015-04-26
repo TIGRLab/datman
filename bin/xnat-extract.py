@@ -12,6 +12,7 @@ Options:
     --datadir DIR           Parent folder to extract to [default: ./data]
     --exportinfo FILE       Table listing acquisitions to export by format
                             [default: ./metadata/exportinfo.csv]
+    --blacklist FILE        Table listing series to ignore
     -v, --verbose           Show intermediate steps
     --debug                 Show debug messages
     -n, --dry-run           Do nothing
@@ -167,18 +168,23 @@ def main():
     archives       = arguments['<archivedir>']
     exportinfofile = arguments['--exportinfo']
     datadir        = arguments['--datadir']
+    blacklist      = arguments['--blacklist'] or []
     VERBOSE        = arguments['--verbose']
     DEBUG          = arguments['--debug']
     DRYRUN         = arguments['--dry-run']
 
     exportinfo = pd.read_table(exportinfofile, sep='\s*', engine="python")
 
+    if blacklist: 
+        bl = pd.read_table(blacklist, sep='\s*', engine="python")
+        blacklist = bl["series"].tolist()
+
     for archivepath in archives:
         verbose("Exporting {}".format(archivepath))
-        extract_archive(exportinfo, archivepath, datadir)
+        extract_archive(exportinfo, archivepath, datadir, blacklist)
 
 
-def extract_archive(exportinfo, archivepath, exportdir):
+def extract_archive(exportinfo, archivepath, exportdir, blacklist):
     """
     Exports an XNAT archive to various file formats.
 
@@ -220,12 +226,14 @@ def extract_archive(exportinfo, archivepath, exportdir):
 
     stem  = str(scanid)
     for src, header in dm.utils.get_archive_headers(archivepath).items():
-        export_series(exportinfo, src, header, fmts, timepoint, stem, exportdir)
+        export_series(exportinfo, src, header, fmts, timepoint, stem, 
+                exportdir, blacklist)
 
     # export non dicom resources
     export_resources(archivepath, exportdir, scanid)
 
-def export_series(exportinfo, src, header, formats, timepoint, stem, exportdir):
+def export_series(exportinfo, src, header, formats, timepoint, stem, 
+        exportdir, blacklist):
     """
     Exports the given DICOM folder into the given formats.
     """
@@ -248,6 +256,10 @@ def export_series(exportinfo, src, header, formats, timepoint, stem, exportdir):
 
     # update the filestem with _tag_series_description
     stem  += "_" + "_".join([tag,series,mangled_descr]) 
+
+    if blacklist and stem in blacklist:
+        debug("{} in blacklist. Skipping.".format(stem))
+        return 
 
     for fmt in formats:
         if all(tag_exportinfo['export_'+fmt] == 'no'):
