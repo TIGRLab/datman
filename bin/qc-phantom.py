@@ -676,7 +676,7 @@ def main():
     arguments = docopt(__doc__)
     sites     = arguments['<sites>']
     ntp       = arguments['<ntp>']
-    project   = arguements['<project>']
+    project   = arguments['<project>']
     VERBOSE   = arguments['--verbose']
     DEBUG     = arguments['--debug']
 
