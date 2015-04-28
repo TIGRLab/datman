@@ -5,7 +5,7 @@ you to specify plotting of all sites concurrently or a single site. If a
 number of time-points is specified, we submit those to each function.
 
 Usage:
-    qc-phantom.py [options] <sites>... <ntp> 
+    qc-phantom.py [options] <sites>... <ntp> <project>
 
 Arguments: 
     <sites>             List of sites to plot.
