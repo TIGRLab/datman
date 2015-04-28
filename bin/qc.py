@@ -114,6 +114,9 @@ def qc_folder(scanpath, prefix, outputdir, handlers):
     d['ModDate'] = datetime.datetime.today()
     pdf.close()
 
+def ignore(fpath, outputdir, pdf):
+    pass
+
 def fmri_qc(fpath, outputdir, pdf):
     """
     This takes an input image, motion corrects, and generates a brain mask. 
@@ -178,15 +181,20 @@ def fmri_qc(fpath, outputdir, pdf):
 
     return pdf
 
-def t1_qc(fpath, outputdir, pdf):
+def intensity_volume_qc(fpath, outputdir, pdf, name):
     """
-    This prints a montage of the raw T1 image, for great justice.
+    This prints a montage of the intensity volume
     """
     filename = os.path.basename(fpath)
-
-    pdf = montage(fpath, 'T1-contrast', 'gray', None, 0.5, filename, pdf)
-
+    pdf = montage(fpath, name, 'gray', None, 0.5, filename, pdf)
     return pdf
+
+def t1_qc(fpath, outputdir, pdf):
+    intensity_volume_qc(fpath, outputdir, pdf, 'T1-contrast')
+def pd_qc(fpath, outputdir, pdf):
+    intensity_volume_qc(fpath, outputdir, pdf, 'PD-contrast')
+def t2_qc(fpath, outputdir, pdf):
+    intensity_volume_qc(fpath, outputdir, pdf, 'T2-contrast')
 
 def dti_qc(fpath, outputdir, pdf, subject_type='human'):
     """
@@ -829,6 +837,9 @@ def check_n_trs(fpath):
 
 qc_handlers = {   # map from tag to QC function 
         "T1"         : t1_qc,
+        "T2"         : t2_qc,
+        "PD"         : pd_qc,
+        "PDT2"       : ignore,
         "RST"        : fmri_qc, 
         "OBS"        : fmri_qc, 
         "IMI"        : fmri_qc, 

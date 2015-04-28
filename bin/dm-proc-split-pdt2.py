@@ -47,7 +47,12 @@ def split(image):
     dm.utils.run("fslsplit {} {}/".format(image, tempdir)) 
 
     vols = glob.glob('{}/*.nii.gz'.format(tempdir))
-    assert len(vols) == 2, "Expected exactly 2 volumes."
+    if len(vols) != 2: 
+        print "{}: Expected exactly 2 volumes, got: {}".format(
+                image, ", ".join(vols))
+        print tempdir
+        #shutil.rmtree(tempdir) 
+        return
 
     vol0_mean = np.mean(nib.load(vols[0]).get_data())
     vol1_mean = np.mean(nib.load(vols[1]).get_data())
