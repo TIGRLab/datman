@@ -567,10 +567,16 @@ def main_fmri(project, sites, tp):
     # set paths, datatype
     data_path = os.path.join(project, 'data')
     dtype = 'FBN'
-    subjects = dm.utils.get_phantoms(data_path)
+    subjects = dm.utils.get_phantoms(os.path.join(data_path, 'nii'))
 
     # get the timepoint arrays for each site, and the x-values for the plots
+    print(sites)
+    print(dtype)
+    print(subjects)
+    print(data_path)
+    print(tp)
     timearray = get_time_array(sites, dtype, subjects, data_path, tp)
+    print(timearray)
     l = get_scan_range(timearray)
     n_sites = len(sites)
     cmap, norm, bounds = get_discrete_colormap(plt.cm.jet, n_sites)
@@ -681,7 +687,7 @@ def main():
     DEBUG     = arguments['--debug']
 
     #main_adni(project, sites, tp)
-    main_fmri(project, sites, tp)
+    main_fmri(project, sites, int(ntp))
 
 if __name__ == '__main__':
     main()

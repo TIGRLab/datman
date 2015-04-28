@@ -238,12 +238,11 @@ def get_phantoms(path):
     phantoms = []
     subjects = get_subjects(path)
     for subject in subjects:
-        subjtype = dm.utils.subject_type(subject)
+        subjtype = subject_type(subject)
         if subjtype == 'phantom':
             phantoms.append(subject)
 
     return phantoms
-
 
 def define_folder(path):
     """
