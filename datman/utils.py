@@ -230,6 +230,21 @@ def get_subjects(path):
 
     return subjects
 
+def get_phantoms(path):
+    """
+    Finds all of the phantom folders in the supplied directory, and returns
+    their basenames.
+    """
+    phantoms = []
+    subjects = get_subjects(path)
+    for subject in subjects:
+        subjtype = dm.utils.subject_type(subject)
+        if subjtype == 'phantom':
+            phantoms.append(subject)
+
+    return phantoms
+
+
 def define_folder(path):
     """
     Sets a variable to be the path to a folder. Also, if the folder does not 

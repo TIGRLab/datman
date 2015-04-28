@@ -30,6 +30,13 @@ Introduction
 
 For interfacing with xnat, datman requires that each project's `Define Prearchive Settings` under `Manage` be set to 'All image data will be placed into the archive automatically and will overwrite existing files. Data which doesn't match a pre-existing project will be placed in an 'Unassigned' project.'
 
+Your environment needs to be set up as so:
+
++ Add datman to your `PYTHONPATH`.
++ Add datman/bin to your `PATH`.
++ Add datman/assets to your `PATH`, `PYTHONPATH`, & `MATLABPATH`.
++ Set `DATMAN_ASSETS` to point to datman/assets.
+
 modules
 -------
 
