@@ -483,7 +483,7 @@ def main_adni(project, sites, tp):
               'S2/S1 Ratio', 'S3/S1 Ratio', 'S4/S1 Ratio', 'S5/S1 Ratio']
 
     for i,  plot in enumerate(array):
-        plt.subplot(2, 4, i+1)
+        plt.subplot(4, 2, i+1)
 
         if len(sites) > 1:
             x = get_scatter_x(tp, l, timearray[0])
@@ -579,7 +579,7 @@ def main_fmri(project, sites, tp):
     for i, plot in enumerate(array):
 
         # generate the scatterplot
-        plt.subplot(2, 5, i+1)
+        plt.subplot(5, 2, i+1)
         for s in np.arange(n_sites):
             x = get_scatter_x(tp, l, timearray[s])
             plt.scatter(x, plot[s], c=cmap[s], marker="o")
