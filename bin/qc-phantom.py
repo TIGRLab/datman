@@ -88,20 +88,19 @@ def get_discrete_colormap(n, cmap):
                                         format='%1i')
     """
 
-    # extract all colors from the submitted colormap
+    # extract all colors from colormap, set first color to be black
     cmaplist = [cmap(i) for i in range(cmap.N)]
-
-    # force the first color entry to be black
     cmaplist[0] = (0, 0, 0, 1.0)
 
-    # create the new map
-    cmap = cmap.from_list('discrete-cmap', cmaplist, cmap.N)
+    # create the new map witn n bins
+    cmap = cmap.from_list('discrete-cmap', cmaplist, n)
+    cmap = [cmap(i) for i in range(cmap.N)]
 
     # define bins and normalize
-    bounds = np.linspace(0, n, n+1)
-    norm = matplotlib.colors.BoundaryNorm(bounds, cmap.N)
+    # bounds = np.linspace(0, n, n+1)
+    # norm = matplotlib.colors.BoundaryNorm(bounds, cmap.N)
 
-    return cmap, norm, bounds
+    return cmap #, norm, bounds
 
 def remove_region(data, i):
     """
@@ -529,7 +528,7 @@ def main_fmri(project, sites, tp):
     timearray = get_time_array(sites, dtype, subjects, data_path, tp)
     l = get_scan_range(timearray)
     n_sites = len(sites)
-    cmap, norm, bounds = get_discrete_colormap(n_sites, plt.cm.jet)
+    cmap = get_discrete_colormap(n_sites, plt.cm.jet)
 
     # for each site, for each subject, for each week, get the ADNI measurements
     # and store them in a 9 x site x timepoint array:
