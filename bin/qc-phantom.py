@@ -350,17 +350,30 @@ def get_scan_week(data_path, subject):
     """
     dcm_path = os.path.join(data_path, 'dcm', subject)
     dicoms = os.listdir(dcm_path)
+    trys = ['imageactualdate', 'seriesdate']
     for dicom in dicoms:
-        try: 
-            d = dcm.read_file(os.path.join(dcm_path, dicom))
-            imgdate = d['0009','1027'].value
-            imgdate = datetime.datetime.fromtimestamp(
-                               float(imgdate)).strftime("%U")
-            return int(imgdate)
+        # read in the dicom header
+        d = dcm.read_file(os.path.join(dcm_path, dicom))
+        
+        for t in trys:
+            if t == 'imageactualdate':
+                try: 
+                    imgdate = d['0009','1027'].value
+                    imgdate = datetime.datetime.fromtimestamp(
+                                       float(imgdate)).strftime("%U")
+                    return int(imgdate)
+                except:
+                    pass
 
-        except:
-            continue
-
+            if t == 'seriesdate':
+                try:
+                    imgdate = d['(0008','0021'].value
+                    imgdate = datetime.datetime.strptime(
+                                       imgdate, '%Y%m%d').strftime("%U")
+                    return int(imgdate)
+                except:
+                    pass
+                    
     # if we don't find a date, return -1. This won't break the code, but
     # will raise the alarm that somthing is wrong.
     print("ERROR: No DICOMs with imageactualdate found for {} !".format(subject))
