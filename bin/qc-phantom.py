@@ -546,7 +546,7 @@ def main_fmri(project, sites, tp):
 
             candidates = find_fmri_niftis(os.path.join(data_path, 'nii', subj))
             phantom = candidates[-1] # for upper bound of time range
-            fbirn = find_fbirn_fmri_vals(base_path, subj, phantom)
+            fbirn = find_fbirn_fmri_vals(project, subj, phantom)
             array[:, i, j] = fbirn
 
     # now plot these values in 6 subplots, respecting upload week
