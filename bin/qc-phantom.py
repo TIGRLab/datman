@@ -571,7 +571,7 @@ def main_fmri(project, sites, tp):
 
     # now plot these values in 6 subplots, respecting upload week
     h, w = plt.figaspect(3/3)
-    plt.figure(figsize=(w*2, h*2))
+    plt.figure(figsize=(w*2.5, h*2.5))
 
     titles = [r'$\bar{x}$', r'$\sigma$', '% fluctuation', 
                            'Drift', 'SNR', 'SFNR', 'RDC']
@@ -579,7 +579,7 @@ def main_fmri(project, sites, tp):
     for i, plot in enumerate(array):
 
         # generate the scatterplot
-        plt.subplot(3, 3, i+1)
+        plt.subplot(2, 5, i+1)
         for s in np.arange(n_sites):
             x = get_scatter_x(tp, l, timearray[s])
             plt.scatter(x, plot[s], c=cmap[s], marker="o")
