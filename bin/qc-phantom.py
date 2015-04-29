@@ -30,6 +30,11 @@ DETAILS
     outputs do not already exist. Finally, this compiles results of the last 
     n weeks into a plot that summarizes the data from the submitted sites.
 
+DEPENDENCIES
+
+    + matlab
+    + 
+
     This message is printed with the -h, --help flags.
 """
 
@@ -276,7 +281,7 @@ def find_adni_t1_vals(data, erosion=13):
 
     return adni
 
-def find_fbirn_fmri_vals(data_path, subj, phantom):
+def find_fbirn_fmri_vals(base_path, subj, phantom):
     """
     This runs the spins_fbirn matlab code if required, and returns the output
     as a vector.
@@ -284,14 +289,14 @@ def find_fbirn_fmri_vals(data_path, subj, phantom):
 
     assets = os.getenv('DATMAN_ASSETS')
 
-    if os.path.isfile(os.path.join(data_path, 'qc/phantom/fmri/', 
+    if os.path.isfile(os.path.join(base_path, 'qc/phantom/fmri/', 
                                                    subj + '.csv')) == False:
         cmd = (r"addpath(genpath('{}')); compute_fbirn('{}','{}','{}')".format(
-                                              assets, data_path, subj, phantom)) 
+                                              assets, base_path, subj, phantom)) 
         os.system('matlab -nodisplay -nosplash -r "' + cmd + '"')
 
     fbirn = np.genfromtxt(os.path.join(
-                          data_path, 'qc/phantom/fmri/', subj + '.csv'), 
+                          base_path, 'qc/phantom/fmri/', subj + '.csv'), 
                            delimiter=',',dtype=np.float, skip_header=1)
     fbirn = fbirn[1:]
 
@@ -541,7 +546,7 @@ def main_fmri(project, sites, tp):
 
             candidates = find_fmri_niftis(os.path.join(data_path, 'nii', subj))
             phantom = candidates[-1] # for upper bound of time range
-            fbirn = find_fbirn_fmri_vals(data_path, subj, phantom)
+            fbirn = find_fbirn_fmri_vals(base_path, subj, phantom)
             array[:, i, j] = fbirn
 
     # now plot these values in 6 subplots, respecting upload week

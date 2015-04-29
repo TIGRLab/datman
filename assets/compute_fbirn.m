@@ -14,17 +14,17 @@
 %% adapted to SPINS by Sofia Chavez, Sep.2014
 %% modified to fit SPINS pipeline by Joseph Viviano, Jan.2015
 
-function spins_fbirn(datapath, subj, data)
+function spins_fbirn(basepath, subj, data)
     
     % datapath = '/projects/spins/data/';
     % addpath('/projects/spins/code/nifti-tools')
     % subj = 'SPN01_ZHH_PHA_FBN0005';
     % data = 'SPN01_ZHH_PHA_FBN0005_03_Resting_State_212_1.nii.gz';
 
-    qcpath = strcat(datapath, '/qc/phantom/fmri/');
+    qcpath = strcat(basepath, '/qc/phantom/fmri/');
 
     % load in the data as I4d LOL (untouched prevents scaling)
-    I4d = load_untouch_nii([datapath '/nii/' subj '/' data]);
+    I4d = load_untouch_nii([basepath '/data/nii/' subj '/' data]);
     I4d = I4d.img;
 
     % update user about subject
@@ -288,3 +288,4 @@ function spins_fbirn(datapath, subj, data)
 
 exit
 end
+
