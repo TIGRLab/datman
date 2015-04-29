@@ -33,7 +33,7 @@ DETAILS
 DEPENDENCIES
 
     + matlab
-    + 
+    + afni
 
     This message is printed with the -h, --help flags.
 """
@@ -44,6 +44,7 @@ import time, datetime
 import datman as dm
 import dicom as dcm
 from docopt import docopt
+import tempfile
 
 import numpy as np
 import nibabel as nib
@@ -208,7 +209,14 @@ def find_adni_t1_vals(project, data, erosion=13):
 
     title = copy(data) # QC
 
-    data = nib.load(data).get_data() # import
+    # convert data to LPI orientation
+    tmpdir = tempfile.mkdtemp(prefix='adni-')
+    os.system('3daxialize -prefix {}/adni-lpi.nii.gz -orient LPI {}'.format(
+                                                               tmpdir, data))
+
+    data = nib.load(os.path.join(tmpdir, 'adni-lpi.nii.gz')).get_data() # import
+    os.system('rm -r {}'.format(tmpdir))
+
     data = data[:, :, data.shape[2]/2] # take central axial slice
     data = np.fliplr(np.rot90(data)) # rotate 90 deg --> flip l-r
 
