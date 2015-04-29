@@ -24,7 +24,7 @@ function spins_fbirn(datapath, subj, data)
     qcpath = strcat(datapath, '/qc/phantom/fmri/');
 
     % load in the data as I4d LOL (untouched prevents scaling)
-    I4d = load_untouch_nii([datapath '/nifti/' subj '/' data]);
+    I4d = load_untouch_nii([datapath '/nii/' subj '/' data]);
     I4d = I4d.img;
 
     % update user about subject
