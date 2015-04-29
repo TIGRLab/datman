@@ -465,15 +465,18 @@ def main_adni(project, sites, tp):
         for j, subj in enumerate(sitesubj):
 
             candidates = find_adni_niftis(os.path.join(data_path, 'nii', subj))
-            # the last candidate will be the final phantom scanned, and the
-            # reoriented output from dcm2nii ('_3')
             phantom = candidates[-1]
-            adni = find_adni_t1_vals(project, 
-                       os.path.join(data_path, 'nii', subj, phantom),erosion=13)
-            # write csv file header='s1,s2,s3,s4,s5,s2/s1,s3/s1,s4/s1,s5/s1')
-            np.savetxt(os.path.join(
-                       project, 'qc/phantom/adni', subj + '.csv'), adni.T,
-                       delimiter=',', newline=',', comments='')
+            if os.path.isfile(os.path.join(project, 'qc/phantom/adni', subj + '.csv')) == False:
+                adni = find_adni_t1_vals(project, 
+                           os.path.join(data_path, 'nii', subj, phantom),erosion=13)
+                # write csv file header='s1,s2,s3,s4,s5,s2/s1,s3/s1,s4/s1,s5/s1')
+                np.savetxt(os.path.join(
+                           project, 'qc/phantom/adni', subj + '.csv'), adni.T,
+                                      delimiter=',', newline=',', comments='')
+            else:
+                adni = np.genfromtxt(os.path.join(project, 'qc/phantom/adni', subj + '.csv'))
+                adni = adni.T
+
             array[:, i, j] = adni
 
     # now plot these values in 9 subplots, respecting upload week
@@ -487,7 +490,7 @@ def main_adni(project, sites, tp):
     for i, plot in enumerate(array):
         
         # generate the scatterplot
-        plt.subplot(4, 2, i+1)
+        plt.subplot(5, 2, i+1)
         for s in np.arange(len(sites)):
             x = get_scatter_x(tp, l, timearray[s])
             plt.scatter(x, plot[s], c=cmap[s], marker="o")
