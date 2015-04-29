@@ -367,13 +367,13 @@ def get_scan_week(data_path, subject):
 
             if t == 'seriesdate':
                 try:
-                    imgdate = d['(0008','0021'].value
+                    imgdate = d['0008','0021'].value
                     imgdate = datetime.datetime.strptime(
                                        imgdate, '%Y%m%d').strftime("%U")
                     return int(imgdate)
                 except:
                     pass
-                    
+
     # if we don't find a date, return -1. This won't break the code, but
     # will raise the alarm that somthing is wrong.
     print("ERROR: No DICOMs with imageactualdate found for {} !".format(subject))
