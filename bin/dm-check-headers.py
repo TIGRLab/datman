@@ -15,6 +15,7 @@ Arguments:
 
 Options: 
     --quiet                 Don't print warnings
+    --ignore-headers LIST   Comma delimited list of headers to ignore
 
 DETAILS
     
@@ -122,14 +123,18 @@ def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore=ignored_headers):
                     cmppath, header, stdval_rounded, cmpval_rounded))
 
 
-def compare_exam_headers(std_headers, examdir):
+def compare_exam_headers(std_headers, examdir, ignorelist):
     """
     Compares headers for each series in an exam against gold standards
 
     <std_headers> is a map from description -> (path, headers) of all of the
     standard headers to compare against. 
+
+    <ignorelist> is a list of headers, in addition to the defaults, to ignore. 
     """
     exam_headers = dm.utils.get_all_headers_in_folder(examdir)
+
+    ignore = ignored_headers.union(ignorelist)
 
     for path, header in exam_headers.iteritems():
         ident, tag, series, description = dm.scanid.parse_filename(path)
@@ -142,7 +147,7 @@ def compare_exam_headers(std_headers, examdir):
 
         std_path, std_header = std_headers[tag]
 
-        compare_headers(std_path, std_header, path, header)
+        compare_headers(std_path, std_header, path, header, ignore)
 
 def main():
     global QUIET
@@ -152,6 +157,12 @@ def main():
 
     standardsdir = arguments['<standards>']
     examdirs     = arguments['<exam>']
+    ignorelist   = arguments['--ignore-headers']
+    
+    if ignorelist:
+        ignorelist = ignorelist.split(",")
+    else:
+        ignorelist = []
 
     manifest = dm.utils.get_all_headers_in_folder(standardsdir,recurse=True)
    
@@ -159,7 +170,7 @@ def main():
     stdmap = { os.path.basename(os.path.dirname(k)):(k,v) for (k,v) in manifest.items()}
 
     for examdir in examdirs:
-        compare_exam_headers(stdmap, examdir)
+        compare_exam_headers(stdmap, examdir, ignorelist)
         
 if __name__ == '__main__': 
     main()
