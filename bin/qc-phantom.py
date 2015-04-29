@@ -30,6 +30,9 @@ DETAILS
     outputs do not already exist. Finally, this compiles results of the last 
     n weeks into a plot that summarizes the data from the submitted sites.
 
+    Often, you will want to plot all sites together, and then each site one 
+    by one, if the scales are substantially different across sites.
+
 DEPENDENCIES
 
     + matlab
@@ -383,7 +386,7 @@ def get_scan_week(data_path, subject):
 
     # if we don't find a date, return -1. This won't break the code, but
     # will raise the alarm that somthing is wrong.
-    print("ERROR: No DICOMs with imageactualdate found for {} !".format(subject))
+    print("ERROR: No DICOMs with valid date field found for {} !".format(subject))
     return -1
 
 def get_time_array(sites, dtype, subjects, data_path, tp):
@@ -477,7 +480,6 @@ def main_adni(project, sites, tp):
                 adni = np.genfromtxt(os.path.join(
                                      project, 'qc/phantom/adni', subj + '.csv'), delimiter=',')
                 adni = adni[0:-1].T
-
 
             array[:, i, j] = adni
 
@@ -588,8 +590,9 @@ def main_fmri(project, sites, tp):
         if len(sites) > 1:
             plt.legend(sites, loc='right', fontsize=8)
 
-        # figure-specific titles
-
+        # set figure-dependent elements
+        plt.ylabel(titles[i], fontsize=10)
+        plt.title(titles[i], size=10)
 
     # finish up
     plt.tight_layout() # do most of the formatting for us automatically
