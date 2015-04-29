@@ -331,6 +331,9 @@ def get_scatter_x(tp, l, timevector):
     """
     x = np.zeros(tp)
     for j, t in enumerate(timevector):
+        print(l)
+        print(t)
+        print(np.where(l == t)[0])
         x[j] = np.where(l == t)[0]
     
     return x
