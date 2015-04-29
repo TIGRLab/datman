@@ -524,7 +524,7 @@ def main_fmri(project, sites, tp):
     timearray = get_time_array(sites, dtype, subjects, data_path, tp)
     l = get_scan_range(timearray)
     n_sites = len(sites)
-    cmap, norm, bounds = get_discrete_colormap(plt.cm.jet, n_sites)
+    cmap, norm, bounds = get_discrete_colormap(n_sites, plt.cm.jet)
 
     # for each site, for each subject, for each week, get the ADNI measurements
     # and store them in a 9 x site x timepoint array:
