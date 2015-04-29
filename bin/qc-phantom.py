@@ -328,13 +328,21 @@ def get_scatter_x(tp, l, timevector):
     """
     Determines the location of the datapoints on the x-axis across all sites
     with the timevector passed to it (timevector comes from timearray).
+
+    In the case that we get a bad timepoint from the headers, we just copy
+    the previous week's number.
     """
     x = np.zeros(tp)
     for j, t in enumerate(timevector):
         print(l)
         print(t)
         print(np.where(l == t)[0])
-        x[j] = np.where(l == t)[0]
+        try:
+            x[j] = np.where(l == t)[0]
+        # if we don't get a valid timestamp from some data,
+        # we use the previous week.
+        except:
+            x[j] = x[j-1]
     
     return x
 
