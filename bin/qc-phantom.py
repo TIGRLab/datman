@@ -563,25 +563,15 @@ def main_fmri(project, sites, tp):
     h, w = plt.figaspect(3/3)
     plt.figure(figsize=(w*2, h*2))
 
-    titles = ['Mean +/- SD', '% fluctuation', 'Drift', 'SNR', 'SFNR', 'RDC']
+    titles = [r'$\bar{x}$', r'$\sigma$', '% fluctuation', 
+                           'Drift', 'SNR', 'SFNR', 'RDC']
 
     for i, plot in enumerate(array):
 
         # keep track of subplots in the all case
         if i == 0:
-            plt.subplot(3, 2, i+1)
+            plt.subplot(3, 3, i+1)
             errors = array[1, :, :]
-
-            for s in np.arange(n_sites):
-                x = get_scatter_x(tp, l, timearray[s])
-                plt.errorbar(x, plot[s], yerr=errors[s], c=cmap[s], marker="o")
-
-        # skip the SD plot (merge with mean)
-        if i == 1:
-            continue
-
-        elif i > 0 and len(sites) > 1:
-            plt.subplot(3, 2, i)
 
             for s in np.arange(n_sites):
                 x = get_scatter_x(tp, l, timearray[s])
@@ -594,24 +584,10 @@ def main_fmri(project, sites, tp):
         if len(sites) > 1:
             plt.legend(sites, loc='right', fontsize=8)
 
-        # set figure-dependent elements
-        if i == 0:
-            plt.ylabel(r'$\bar{x}$ and $\pm \sigma$', fontsize=10)
-        elif i == 2:
-            plt.ylabel('% fluctuation', fontsize=10)
-        elif i == 3:
-            plt.ylabel('drift', fontsize=10)
-        elif i == 4:
-            plt.ylabel('SNR', fontsize=10)
-        elif i == 5:
-            plt.ylabel('SFNR', fontsize=10)
-        elif i == 6:
-            plt.ylabel('rdc', fontsize=10)
+        # figure-specific titles
+        plt.ylabel(titles[i], fontsize=10)
+        plt.title(titles[i], size=10)
 
-        if i == 0:
-            plt.title(titles[i], size=10)
-        else:
-            plt.title(titles[i-1], size=10)
 
     # finish up
     plt.tight_layout() # do most of the formatting for us automatically
