@@ -474,8 +474,10 @@ def main_adni(project, sites, tp):
                            project, 'qc/phantom/adni', subj + '.csv'), adni.T,
                                       delimiter=',', newline=',', comments='')
             else:
-                adni = np.genfromtxt(os.path.join(project, 'qc/phantom/adni', subj + '.csv'))
-                adni = adni.T
+                adni = np.genfromtxt(os.path.join(
+                                     project, 'qc/phantom/adni', subj + '.csv'), delimiter=',')
+                adni = adni[0:-1].T
+
 
             array[:, i, j] = adni
 
