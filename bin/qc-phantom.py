@@ -37,6 +37,7 @@ import os, sys
 import time, datetime
 
 import datman as dm
+import dicom as dcm
 from docopt import docopt
 
 import numpy as np
