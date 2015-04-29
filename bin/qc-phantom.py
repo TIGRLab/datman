@@ -334,9 +334,6 @@ def get_scatter_x(tp, l, timevector):
     """
     x = np.zeros(tp)
     for j, t in enumerate(timevector):
-        print(l)
-        print(t)
-        print(np.where(l == t)[0])
         try:
             x[j] = np.where(l == t)[0]
         # if we don't get a valid timestamp from some data,
@@ -568,14 +565,11 @@ def main_fmri(project, sites, tp):
 
     for i, plot in enumerate(array):
 
-        # keep track of subplots in the all case
-        if i == 0:
-            plt.subplot(3, 3, i+1)
-            errors = array[1, :, :]
-
-            for s in np.arange(n_sites):
-                x = get_scatter_x(tp, l, timearray[s])
-                plt.scatter(x, plot[s], c=cmap[s], marker="o")
+        # generate the scatterplot
+        plt.subplot(3, 3, i+1)
+        for s in np.arange(n_sites):
+            x = get_scatter_x(tp, l, timearray[s])
+            plt.scatter(x, plot[s], c=cmap[s], marker="o")
         
         # set common elements
         plt.xticks(np.arange(len(l)), l.astype(np.int))
@@ -587,7 +581,6 @@ def main_fmri(project, sites, tp):
         # figure-specific titles
         plt.ylabel(titles[i], fontsize=10)
         plt.title(titles[i], size=10)
-
 
     # finish up
     plt.tight_layout() # do most of the formatting for us automatically
