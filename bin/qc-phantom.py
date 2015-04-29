@@ -65,7 +65,7 @@ def debug(message):
     if not DEBUG: return
     log("DEBUG: " + message)
 
-def make_discrete_colormap(n, cmap):
+def get_discrete_colormap(n, cmap):
     """
     Returns the submitted colormap and normalizer. Use like this...
 
@@ -521,13 +521,7 @@ def main_fmri(project, sites, tp):
     subjects = dm.utils.get_phantoms(os.path.join(data_path, 'nii'))
 
     # get the timepoint arrays for each site, and the x-values for the plots
-    print(sites)
-    print(dtype)
-    print(subjects)
-    print(data_path)
-    print(tp)
     timearray = get_time_array(sites, dtype, subjects, data_path, tp)
-    print(timearray)
     l = get_scan_range(timearray)
     n_sites = len(sites)
     cmap, norm, bounds = get_discrete_colormap(plt.cm.jet, n_sites)
