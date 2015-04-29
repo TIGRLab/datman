@@ -166,28 +166,25 @@ def sample_centroids(data, radius=5):
 
     return data
 
-def print_adni_qc(data, title):
+def print_adni_qc(project, data, title):
     """
     Prints out the supplied ADNI phantom (masked?) to a QC folder for eyeballs.
     """
-    # extract path for QC saving
-    path = title.split('nifti')[0]
     # extract filename for title
     title = os.path.basename(title)
 
     maximum = np.max(data)
-
     plt.imshow(data, cmap=plt.cm.jet, interpolation='nearest',
-                                         vmin=0.15*maximum, vmax=0.75*maximum)
+                                      vmin=0.15*maximum, vmax=0.75*maximum)
     plt.colorbar()
     plt.title(os.path.basename(title), fontsize=8)
     plt.xticks([])
     plt.yticks([])
     plt.tight_layout()
-    plt.savefig(path + '/qc/phantom/adni/' + title + '.jpg')
+    plt.savefig(os.pain.join(project, 'qc/phantom/adni/{}.jpg'.format(title)))
     plt.close()
 
-def find_adni_t1_vals(data, erosion=13):
+def find_adni_t1_vals(project, data, erosion=13):
     """
     Find the 5 ROIs of interest using the random walker algorithm [1]. Uses the
     image mean as the lower threshold, and 2x the mean as an upper threshold.
@@ -229,7 +226,7 @@ def find_adni_t1_vals(data, erosion=13):
     mask = np.where(labels == 0)
     plot = copy(data)
     plot[mask] = 0
-    print_adni_qc(plot, title)
+    print_adni_qc(project, plot, title)
     
     # find the central roi
     center = np.max(retain_n_segments(copy(labels), 1))
@@ -461,9 +458,8 @@ def main_adni(project, sites, tp):
             # the last candidate will be the final phantom scanned, and the
             # reoriented output from dcm2nii ('_3')
             phantom = candidates[-1]
-            adni = find_adni_t1_vals(os.path.join(
-                                         data_path, 'nii', subj, phantom),
-                                                                 erosion=13)
+            adni = find_adni_t1_vals(project, 
+                       os.path.join(data_path, 'nii', subj, phantom),erosion=13)
             # write csv file header='s1,s2,s3,s4,s5,s2/s1,s3/s1,s4/s1,s5/s1')
             np.savetxt(os.path.join(
                        project, 'qc/phantom/adni', subj + '.csv'), adni.T,
