@@ -339,6 +339,7 @@ def get_scan_week(data_path, subject):
     dicoms = os.listdir(dcm_path)
     for dicom in dicoms:
         try: 
+            print(dicom)
             d = dcm.read_file(os.path.join(dcm_path, dicom))
             imgdate = d['0009','1027'].value
             imgdate = datetime.datetime.fromtimestamp(
@@ -350,7 +351,7 @@ def get_scan_week(data_path, subject):
 
     # if we don't find a date, return -1. This won't break the code, but
     # will raise the alarm that somthing is wrong.
-    print("ERROR: No DICOMs with imageactualdate found!")
+    print("ERROR: No DICOMs with imageactualdate found for {} !".format(subject))
     return -1
 
 def get_time_array(sites, dtype, subjects, data_path, tp):
