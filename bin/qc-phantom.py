@@ -296,52 +296,6 @@ def find_fbirn_fmri_vals(data_path, subj, phantom):
 
     return fbirn
 
-def get_xnat_catalog(data_path, subject):
-    """
-    For a given subject, finds and returns all of the xml files as full
-    paths. In almost all cases, this will be a single catalog.
-    """
-    dicoms = os.listdir(os.path.join(data_path, 'dicom'))
-    subjects = filter(lambda x: subject in x, dicoms)
-
-    catalogs = []
-
-    for subject in subjects:
-        folders = os.listdir(os.path.join(data_path, 'dicom', subject))
-        folders.sort()
-        files = os.listdir(os.path.join(data_path, 'dicom', subject, 
-                                                            folders[0]))
-        files = filter(lambda x: '.xml' in x, files)
-
-        catalogs.append(os.path.join(data_path, 'dicom', subject, 
-                                                         folders[0],
-                                                         files[0]))
-
-    catalogs.sort()
-
-    return catalogs
-
-def month_str_to_int(month):
-    """
-    Converts 3-letter string month to int representation (1-12).
-    """
-    month = month.lower()
-    
-    months = {'jan': 1, 
-              'feb': 2,
-              'mar': 3,
-              'apr': 4,
-              'may': 5,
-              'jun': 6,
-              'jul': 7,
-              'aug': 8,
-              'sep': 9,
-              'oct': 10,
-              'nov': 11,
-              'dec': 12}
-
-    return months[month]
-
 def get_scan_range(timearray):
     """
     Takes the week indicies from a time array and returns the total extent
@@ -378,30 +332,26 @@ def get_scatter_x(tp, l, timevector):
 
 def get_scan_week(data_path, subject):
     """
-    This parses the metadata of a submitted xml file and determines the data
-    of upload to xnat.
+    This finds the 'imageactualdate' field and converts it to week number.
+    If we don't find this date, we return -1.
     """
-    from xml.dom import minidom
+    dcm_path = os.path.join(data_path, 'dcm', subject)
+    dicoms = os.listdir(dcm_path)
+    for dicom in dicoms:
+        try: 
+            d = dcm.read_file(os.path.join(dcm_path, dicom))
+            imgdate = d['0009','1027'].value
+            imgdate = datetime.datetime.fromtimestamp(
+                               float(imgdate)).strftime("%U")
+            return date
 
-    catalog = get_xnat_catalog(data_path, subject)
-    
-    # parse the first file in the list .. in the rare case of multiple phantom
-    # uploads, they should all take part in the same week.
-    catalog = minidom.parse(catalog[0])
-    data = catalog.getElementsByTagName('cat:metaField')[0]
-    data = data.firstChild.data.encode('utf8')
-    data = data.split(' ')
+        except:
+            continue
 
-    # now grab the day, month, and year.
-    day = data[2]
-    month = month_str_to_int(data[1])
-    year = data[5][0:4]
-
-    # convert into week number
-    date = datetime.date(int(year), int(month), int(day))
-    date = int(date.strftime("%U"))
-
-    return date
+    # if we don't find a date, return -1. This won't break the code, but
+    # will raise the alarm that somthing is wrong.
+    print("ERROR: No DICOMs with imageactualdate found!")
+    return -1
 
 def get_time_array(sites, dtype, subjects, data_path, tp):
     """

@@ -244,6 +244,34 @@ def get_phantoms(path):
 
     return phantoms
 
+def get_xnat_catalog(data_path, subject):
+    """
+    For a given subject, finds and returns all of the xml files as full
+    paths. In almost all cases, this will be a single catalog.
+    
+
+    THIS IS BROKEN.
+    """
+    dicoms = os.listdir(os.path.join(data_path, 'dicom'))
+    subjects = filter(lambda x: subject in x, dicoms)
+
+    catalogs = []
+
+    for subject in subjects:
+        folders = os.listdir(os.path.join(data_path, 'dicom', subject))
+        folders.sort()
+        files = os.listdir(os.path.join(data_path, 'dicom', subject, 
+                                                            folders[0]))
+        files = filter(lambda x: '.xml' in x, files)
+
+        catalogs.append(os.path.join(data_path, 'dicom', subject, 
+                                                         folders[0],
+                                                         files[0]))
+
+    catalogs.sort()
+
+    return catalogs
+
 def define_folder(path):
     """
     Sets a variable to be the path to a folder. Also, if the folder does not 
