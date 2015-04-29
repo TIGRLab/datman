@@ -344,7 +344,7 @@ def get_scan_week(data_path, subject):
             imgdate = d['0009','1027'].value
             imgdate = datetime.datetime.fromtimestamp(
                                float(imgdate)).strftime("%U")
-            return date
+            return imgdate
 
         except:
             continue
