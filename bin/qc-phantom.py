@@ -181,7 +181,7 @@ def print_adni_qc(project, data, title):
     plt.xticks([])
     plt.yticks([])
     plt.tight_layout()
-    plt.savefig(os.pain.join(project, 'qc/phantom/adni/{}.jpg'.format(title)))
+    plt.savefig(os.path.join(project, 'qc/phantom/adni/{}.jpg'.format(title)))
     plt.close()
 
 def find_adni_t1_vals(project, data, erosion=13):
