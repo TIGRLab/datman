@@ -484,11 +484,11 @@ def main_adni(project, sites, tp):
               'S4 T1 Contrast', 'S5 T1 Contrast',
               'S2/S1 Ratio', 'S3/S1 Ratio', 'S4/S1 Ratio', 'S5/S1 Ratio']
 
-    for i,  plot in enumerate(array):
+    for i, plot in enumerate(array):
         
         # generate the scatterplot
         plt.subplot(4, 2, i+1)
-        for s in nparange(len(sites)):
+        for s in np.arange(len(sites)):
             x = get_scatter_x(tp, l, timearray[s])
             plt.scatter(x, plot[s], c=cmap[s], marker="o")
         
