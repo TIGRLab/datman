@@ -94,7 +94,7 @@ def get_discrete_colormap(n, cmap):
 
     # define bins and normalize
     bounds = np.linspace(0, n, n+1)
-    norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+    norm = matplotlib.colors.BoundaryNorm(bounds, cmap.N)
 
     return cmap, norm, bounds
 
