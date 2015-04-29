@@ -476,14 +476,14 @@ def main_adni(project, sites, tp):
 
     # now plot these values in 9 subplots, respecting upload week
     h, w = plt.figaspect(3/3)
-    plt.figure(figsize=(w*2, h*2))
+    plt.figure(figsize=(w*2.5, h*2.5))
 
     titles = ['S1 T1 Contrast', 'S2 T1 Contrast', 'S3 T1 Contrast',
               'S4 T1 Contrast', 'S5 T1 Contrast',
               'S2/S1 Ratio', 'S3/S1 Ratio', 'S4/S1 Ratio', 'S5/S1 Ratio']
 
     for i,  plot in enumerate(array):
-        plt.subplot(3, 3, i+1)
+        plt.subplot(2, 4, i+1)
 
         if len(sites) > 1:
             x = get_scatter_x(tp, l, timearray[0])
