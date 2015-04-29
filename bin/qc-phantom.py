@@ -340,15 +340,11 @@ def get_scan_week(data_path, subject):
     dicoms = os.listdir(dcm_path)
     for dicom in dicoms:
         try: 
-            print(dicom)
             d = dcm.read_file(os.path.join(dcm_path, dicom))
-            print(d)
             imgdate = d['0009','1027'].value
-            print(imgdate)
             imgdate = datetime.datetime.fromtimestamp(
                                float(imgdate)).strftime("%U")
-            print(imgdate)
-            return imgdate
+            return int(imgdate)
 
         except:
             continue
