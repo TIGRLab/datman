@@ -437,11 +437,12 @@ def main_adni(project, sites, tp):
     # set paths, datatype
     data_path = os.path.join(project, 'data')
     dtype = 'ADN'
-    subjects = dm.utils.get_phantoms(data_path)
+    subjects = dm.utils.get_phantoms(os.path.join(data_path, 'nii'))
 
     # get the timepoint arrays for each site, and the x-values for the plots
     timearray = get_time_array(sites, dtype, subjects, data_path, tp)
     l = get_scan_range(timearray)
+    cmap = get_discrete_colormap(len(sites), plt.cm.rainbow)
 
     # for each site, for each subject, for each week, get the ADNI measurements
     # and store them in a 9 x site x timepoint array:
@@ -456,22 +457,17 @@ def main_adni(project, sites, tp):
 
         for j, subj in enumerate(sitesubj):
 
-            candidates = find_adni_niftis(os.path.join(
-                                              data_path, 'nifti', subj))
+            candidates = find_adni_niftis(os.path.join(data_path, 'nii', subj))
             # the last candidate will be the final phantom scanned, and the
             # reoriented output from dcm2nii ('_3')
             phantom = candidates[-1]
-
             adni = find_adni_t1_vals(os.path.join(
-                                         data_path, 'nifti', subj, phantom),
+                                         data_path, 'nii', subj, phantom),
                                                                  erosion=13)
-            # write csv file
+            # write csv file header='s1,s2,s3,s4,s5,s2/s1,s3/s1,s4/s1,s5/s1')
             np.savetxt(os.path.join(
-                       data_path, 'qc/phantom/adni', subj + '.csv'), adni.T,
-                       delimiter=',', newline=',', comments='')#,
-                       #header='s1,s2,s3,s4,s5,s2/s1,s3/s1,s4/s1,s5/s1')
-
-            #print('site ' + str(site) + '; subj ' + str(subj))
+                       project, 'qc/phantom/adni', subj + '.csv'), adni.T,
+                       delimiter=',', newline=',', comments='')
             array[:, i, j] = adni
 
     # now plot these values in 9 subplots, respecting upload week
@@ -483,52 +479,43 @@ def main_adni(project, sites, tp):
               'S2/S1 Ratio', 'S3/S1 Ratio', 'S4/S1 Ratio', 'S5/S1 Ratio']
 
     for i,  plot in enumerate(array):
+        
+        # generate the scatterplot
         plt.subplot(4, 2, i+1)
-
-        if len(sites) > 1:
-            x = get_scatter_x(tp, l, timearray[0])
-            plt.scatter(x, plot[0], c='black', marker="o")
-            x = get_scatter_x(tp, l, timearray[1])
-            plt.scatter(x, plot[1], c='red', marker="1")
-            x = get_scatter_x(tp, l, timearray[2])
-            plt.scatter(x, plot[2], c='green', marker="s")
-
-        else:
-            x = get_scatter_x(tp, l, timearray[0])
-            plt.scatter(x, plot[0], c='black', marker="o")
+        for s in nparange(len(sites)):
+            x = get_scatter_x(tp, l, timearray[s])
+            plt.scatter(x, plot[s], c=cmap[s], marker="o")
         
         # set common elements
         plt.xticks(np.arange(len(l)), l.astype(np.int))
         plt.xlabel('Week Number', size=10)
+
         if len(sites) > 1:
             plt.legend(sites, loc='right', fontsize=8)
 
         # set figure-dependent elements
-        if i < 6:
-            plt.ylabel('T1 Constrast', size=10)
-        else:
-            plt.ylabel('T1 Ratio', size=10)
-
+        plt.ylabel(titles[i], fontsize=10)
         plt.title(titles[i], size=10)
 
     # finish up
     plt.tight_layout() # do most of the formatting for us automatically
-
     if len(sites) == 1:
-        plt.suptitle(sites[0] + ' ADNI phantoms: ' + time.strftime("%x") 
-                              + ', ' + str(tp) + ' timepoints \n\n')
+        title = '{} ADNI phantoms: {}, {} timepoints \n\n'.format(
+                                site, time.strftime("%x"), str(tp))
+
     else:
-        plt.suptitle('ADNI phantoms: ' + time.strftime("%x") 
-                                + ', ' + str(tp) + ' timepoints \n\n')
+        title = 'ADNI phantoms: {}, {} timepoints \n\n'.format(
+                                      time.strftime("%x"), str(tp))
+    plt.suptitle(title)
     plt.subplots_adjust(top=0.9) # give our title some breathing room
 
     if len(sites) == 1:
-        filename = (data_path + '/qc/phantom/adni/' + time.strftime("%y-%m-%d")
-                              + '_ADNI_QC_' + sites[0] + '.pdf')
-    elif len(sites) > 1:
-        filename = (data_path + '/qc/phantom/adni/' + time.strftime("%y-%m-%d") 
-                              + '_ADNI_QC.pdf')
-    
+        filename = '{}/qc/phantom/adni/{}_ADNI_QC_{}.pdf'.format(
+                                project, time.strftime("%y-%m-%d"), sites[0]) 
+    else:
+        filename = '{}/qc/phantom/adni/{}_ADNI_QC.pdf'.format(
+                                project, time.strftime("%y-%m-%d")) 
+
     plt.savefig(filename)
     print('Successfully exported ' + filename)
     plt.close()
@@ -548,12 +535,11 @@ def main_fmri(project, sites, tp):
     # get the timepoint arrays for each site, and the x-values for the plots
     timearray = get_time_array(sites, dtype, subjects, data_path, tp)
     l = get_scan_range(timearray)
-    n_sites = len(sites)
-    cmap = get_discrete_colormap(n_sites, plt.cm.rainbow)
+    cmap = get_discrete_colormap(len(sites), plt.cm.rainbow)
 
     # for each site, for each subject, for each week, get the ADNI measurements
     # and store them in a 9 x site x timepoint array:
-    array = np.zeros((7, n_sites, tp))
+    array = np.zeros((7, len(sites), tp))
 
     for i, site in enumerate(sites):
 
@@ -569,7 +555,7 @@ def main_fmri(project, sites, tp):
             fbirn = find_fbirn_fmri_vals(project, subj, phantom)
             array[:, i, j] = fbirn
 
-    # now plot these values in 6 subplots, respecting upload week
+    # now plot these values in 7 subplots, respecting upload week
     h, w = plt.figaspect(3/3)
     plt.figure(figsize=(w*2.5, h*2.5))
 
@@ -579,8 +565,8 @@ def main_fmri(project, sites, tp):
     for i, plot in enumerate(array):
 
         # generate the scatterplot
-        plt.subplot(5, 2, i+1)
-        for s in np.arange(n_sites):
+        plt.subplot(4, 2, i+1)
+        for s in np.arange(len(sites)):
             x = get_scatter_x(tp, l, timearray[s])
             plt.scatter(x, plot[s], c=cmap[s], marker="o")
         
@@ -592,8 +578,7 @@ def main_fmri(project, sites, tp):
             plt.legend(sites, loc='right', fontsize=8)
 
         # figure-specific titles
-        plt.ylabel(titles[i], fontsize=10)
-        plt.title(titles[i], size=10)
+
 
     # finish up
     plt.tight_layout() # do most of the formatting for us automatically
@@ -628,7 +613,7 @@ def main():
     VERBOSE   = arguments['--verbose']
     DEBUG     = arguments['--debug']
 
-    #main_adni(project, sites, tp)
+    main_adni(project, sites, int(ntp))
     main_fmri(project, sites, int(ntp))
 
 if __name__ == '__main__':
