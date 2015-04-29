@@ -204,6 +204,8 @@ def find_adni_t1_vals(project, data, erosion=13):
     from skimage.measure import label
     from skimage.segmentation import random_walker
 
+    print(data)
+
     title = copy(data) # QC
 
     data = nib.load(data).get_data() # import
