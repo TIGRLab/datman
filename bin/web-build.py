@@ -208,25 +208,25 @@ def main():
     DEBUG     = arguments['--debug']
 
     # finds all of the dates we've already posted
-    dates = get_posted_dates(base_path)
+    dates = get_posted_dates(project)
 
     # gets a list of all the unposted pdfs
-    adni, fmri, dti = get_new_files(base_path, dates)
+    adni, fmri, dti = get_new_files(project, dates)
 
     # converts uncopied pdfs to website, converts to .png, generates markdown
     if adni:
         print('converting ADNI')
-        adni = convert_to_web(base_path, adni)
-        create_posts(base_path, adni)
+        adni = convert_to_web(project, adni)
+        create_posts(project, adni)
 
     if fmri:
         print('converting fMRI')
-        fmri = convert_to_web(base_path, fmri)
-        create_posts(base_path, fmri)
+        fmri = convert_to_web(project, fmri)
+        create_posts(project, fmri)
 
     if dti:
-        dti = convert_to_web(base_path, dti)
-        create_posts(base_path, dti)
+        dti = convert_to_web(project, dti)
+        create_posts(project, dti)
 
 if __name__ == '__main__':
     main()
