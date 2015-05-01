@@ -193,8 +193,8 @@ def create_posts(base_path, files):
         # write header, loop through files, write body for each
         f = open(post_name, 'wb')
         f.write(header.format(imagetype=imagetype, date=date))
-        print(body.format(proj=proj, imagetype=imagetype, fname=fname))
         for fname in current_files:
+             print(body.format(proj=proj, imagetype=imagetype, fname=fname))
              f.write(body.format(proj=proj, imagetype=imagetype, fname=fname))
         f.close()
 
