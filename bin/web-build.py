@@ -175,8 +175,9 @@ def create_posts(base_path, files):
     </figure>
 
     """
-
+    print(base_path)
     proj = os.path.basename(base_path).lower()
+    print(proj)
     imagetype = get_imagetype_from_filename(files[0])
     dates = get_unique_dates(files, 0, 8)
 
@@ -194,7 +195,6 @@ def create_posts(base_path, files):
         f = open(post_name, 'wb')
         f.write(header.format(imagetype=imagetype, date=date))
         for fname in current_files:
-             print(body.format(proj=proj, imagetype=imagetype, fname=fname))
              f.write(body.format(proj=proj, imagetype=imagetype, fname=fname))
         f.close()
 
