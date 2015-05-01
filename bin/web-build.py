@@ -200,7 +200,7 @@ def create_posts(base_path, files):
 
         print('Wrote page for ' + imagetype + ' ' + date + '.')
 
-def main(base_path):
+def main():
 
     arguments = docopt(__doc__)
     project   = arguments['<project>']
