@@ -175,9 +175,12 @@ def create_posts(base_path, files):
     </figure>
 
     """
-    print(base_path)
-    proj = os.path.basename(base_path).lower()
-    print(proj)
+    # strip off final slash to get the appropriate basename if nessicary
+    if base_path[-1] == '/':
+        proj = os.path.basename(base_path[0:-1]).lower()
+    else:
+        proj = os.path.basename(base_path).lower()
+
     imagetype = get_imagetype_from_filename(files[0])
     dates = get_unique_dates(files, 0, 8)
 
