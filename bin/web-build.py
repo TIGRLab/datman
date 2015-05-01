@@ -160,7 +160,7 @@ def create_posts(base_path, files):
     """
 
     # template text used to generate each post note Y2K+100 BUG!
-    HEADER = """\
+    header = """\
     ---
     category: {imagetype}
     title: {imagetype} 20{date}
@@ -168,7 +168,7 @@ def create_posts(base_path, files):
     ---
     """
 
-    BODY = """\
+    body = """\
     <figure>
         <a href="{{{{ production_url }}}}/{proj}/assets/images/{imagetype}/{fname}">\
     <img src="{{{{ production_url }}}}/{proj}/assets/images/{imagetype}/{fname}"></a>
@@ -176,7 +176,7 @@ def create_posts(base_path, files):
 
     """
 
-    proj = os.path.basename(base_path)
+    proj = os.path.basename(base_path).lower()
     imagetype = get_imagetype_from_filename(files[0])
     dates = get_unique_dates(files, 0, 8)
 
@@ -192,10 +192,10 @@ def create_posts(base_path, files):
         
         # write header, loop through files, write body for each
         f = open(post_name, 'wb')
-        f.write(HEADER.format(imagetype=imagetype, date=date))
+        f.write(header.format(imagetype=imagetype, date=date))
+        print(body.format(proj=proj, imagetype=imagetype, fname=fname))
         for fname in current_files:
-             f.write(BODY.format(proj=proj.lower(), imagetype=imagetype, 
-                                                            fname=fname))
+             f.write(body.format(proj=proj, imagetype=imagetype, fname=fname))
         f.close()
 
         print('Wrote page for ' + imagetype + ' ' + date + '.')
