@@ -42,6 +42,24 @@ VERBOSE = False
 DRYRUN  = False
 DEBUG   = False
 
+# template text used to generate each post note Y2K+100 BUG!
+HEADER = """\
+---
+category: {imagetype}
+title: {imagetype} 20{date}
+tags: [{imagetype}]
+---
+"""
+
+BODY = """\
+<figure>
+    <a href="{{{{ production_url }}}}/{proj}/assets/images/{imagetype}/{fname}">\
+<img src="{{{{ production_url }}}}/{proj}/assets/images/{imagetype}/{fname}"></a>
+</figure>
+
+"""
+
+
 def filter_posted(files, dates):
     """
     This removes files containing any of the dates supplied in the filename.
@@ -72,7 +90,9 @@ def get_posted_dates(base_path):
         posts = get_unique_dates(posts, 2, 10)
 
     except:
-        print("""Bro, you don't even have a website.""")
+        print("""Bro, you don't even have a website."""
+              """Clone one into website/ from"""
+              """https://github.com/TIGRLab/data-website""")
         sys.exit()
 
     return posts
@@ -159,22 +179,6 @@ def create_posts(base_path, files):
     all of the images from that date.
     """
 
-    # template text used to generate each post note Y2K+100 BUG!
-    header = """\
-    ---
-    category: {imagetype}
-    title: {imagetype} 20{date}
-    tags: [{imagetype}]
-    ---
-    """
-
-    body = """\
-    <figure>
-        <a href="{{{{ production_url }}}}/{proj}/assets/images/{imagetype}/{fname}">\
-    <img src="{{{{ production_url }}}}/{proj}/assets/images/{imagetype}/{fname}"></a>
-    </figure>
-
-    """
     # strip off final slash to get the appropriate basename if nessicary
     if base_path[-1] == '/':
         proj = os.path.basename(base_path[0:-1]).lower()
@@ -196,9 +200,9 @@ def create_posts(base_path, files):
         
         # write header, loop through files, write body for each
         f = open(post_name, 'wb')
-        f.write(header.format(imagetype=imagetype, date=date))
+        f.write(HEADER.format(imagetype=imagetype, date=date))
         for fname in current_files:
-             f.write(body.format(proj=proj, imagetype=imagetype, fname=fname))
+             f.write(BODY.format(proj=proj, imagetype=imagetype, fname=fname))
         f.close()
 
         print('Wrote page for ' + imagetype + ' ' + date + '.')
