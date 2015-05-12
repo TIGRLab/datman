@@ -52,6 +52,17 @@ def guess_tag(description, tagmap = SERIES_TAGS_MAP):
     if len(matches) == 1: return matches[0]
     return matches
 
+def mangle_basename(base_path):
+    """
+    strip off final slash to get the appropriate basename if nessicary.
+    """
+    if base_path[-1] == '/':
+        base = os.path.basename(base_path[0:-1]).lower()
+    else:
+        base = os.path.basename(base_path).lower()
+
+    return base
+
 def mangle(string): 
     """Mangles a string to conform with the naming scheme.
 

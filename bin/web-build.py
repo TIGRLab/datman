@@ -179,12 +179,7 @@ def create_posts(base_path, files):
     all of the images from that date.
     """
 
-    # strip off final slash to get the appropriate basename if nessicary
-    if base_path[-1] == '/':
-        proj = os.path.basename(base_path[0:-1]).lower()
-    else:
-        proj = os.path.basename(base_path).lower()
-
+    proj = dm.utils.mangle_basename(base_path)
     imagetype = get_imagetype_from_filename(files[0])
     dates = get_unique_dates(files, 0, 8)
 
