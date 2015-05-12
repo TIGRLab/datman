@@ -62,7 +62,10 @@ def parse_checklist(base_path, checklist):
         for line in f:
             line = line.strip('\n')
             scans.append(line.split(' ')[0])
-    scans.remove('')
+    try:
+        scans.remove('')
+    except:
+        pass
 
     return scans
 
