@@ -36,7 +36,7 @@ DEPENDENCIES
 import sys, os
 from copy import copy
 from docopt import docopt
-
+import datman as dm
 
 VERBOSE = False
 DRYRUN  = False
