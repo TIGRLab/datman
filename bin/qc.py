@@ -24,7 +24,6 @@ DETAILS
         <datadir>/nifti/<timepoint>
 
 """
-
 import os
 import sys
 import datetime
@@ -191,8 +190,10 @@ def intensity_volume_qc(fpath, outputdir, pdf, name):
 
 def t1_qc(fpath, outputdir, pdf):
     intensity_volume_qc(fpath, outputdir, pdf, 'T1-contrast')
+
 def pd_qc(fpath, outputdir, pdf):
     intensity_volume_qc(fpath, outputdir, pdf, 'PD-contrast')
+
 def t2_qc(fpath, outputdir, pdf):
     intensity_volume_qc(fpath, outputdir, pdf, 'T2-contrast')
 
@@ -200,7 +201,6 @@ def dti_qc(fpath, outputdir, pdf, subject_type='human'):
     """
     This prints a montage of the raw T1 image, for great justice.
     """
-
     filename = os.path.basename(fpath)
  
     # print coverage
@@ -871,9 +871,13 @@ def main():
 
     for path in glob.glob(timepoint_glob): 
         timepoint = os.path.basename(path)
-        verbose("QCing folder {}".format(path))
-        qc_folder(path, timepoint, qcdir, qc_handlers) 
 
+        # skip phantoms
+        if 'PHA' in timepoint:
+            pass
+        else:
+            verbose("QCing folder {}".format(path))
+            qc_folder(path, timepoint, qcdir, qc_handlers) 
 
 if __name__ == "__main__":
     main()
