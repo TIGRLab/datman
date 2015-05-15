@@ -31,7 +31,12 @@ def main():
         split(image)
 
 def split(image):
-    ident, tag, series, description = dm.scanid.parse_filename(image)
+    try: 
+        ident, tag, series, description = dm.scanid.parse_filename(image)
+    except dm.scanid.ParseException: 
+        print "{}: not a properly formatted filename".format( image)
+        return 
+
     ext = dm.utils.get_extension(image)
     
     pd_path = os.path.join(os.path.dirname(image),
