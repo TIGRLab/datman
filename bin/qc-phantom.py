@@ -43,6 +43,7 @@ DEPENDENCIES
 
 import os, sys
 import time, datetime
+import csv
 
 import datman as dm
 import dicom as dcm
@@ -353,7 +354,7 @@ def get_scatter_x(tp, l, timevector):
     
     return x
 
-def get_scan_week(data_path, subject):
+def get_scan_date(data_path, subject):
     """
     This finds the 'imageactualdate' field and converts it to week number.
     If we don't find this date, we return -1.
@@ -367,41 +368,49 @@ def get_scan_week(data_path, subject):
         
         for t in trys:
             if t == 'imageactualdate':
-                try: 
+                try:
                     imgdate = d['0009','1027'].value
+                    disc = datetime.datetime.fromtimestamp(
+                                       float(imgdate)).strftime("%Y %B %d")
                     imgdate = datetime.datetime.fromtimestamp(
                                        float(imgdate)).strftime("%U")
-                    return int(imgdate)
+                    return int(imgdate), disc
                 except:
                     pass
 
             if t == 'seriesdate':
                 try:
                     imgdate = d['0008','0021'].value
+                    disc = datetime.datetime.strptime(
+                                       imgdate, '%Y%m%d').strftime("%Y %B %d")
                     imgdate = datetime.datetime.strptime(
                                        imgdate, '%Y%m%d').strftime("%U")
-                    return int(imgdate)
+                    return int(imgdate), disc
                 except:
                     pass
 
     # if we don't find a date, return -1. This won't break the code, but
     # will raise the alarm that somthing is wrong.
     print("ERROR: No DICOMs with valid date field found for {} !".format(subject))
-    return -1
+    return -1, 'NA'
 
 def get_time_array(sites, dtype, subjects, data_path, tp):
     """
     Returns an array of the scan weeks for each site (a list), for a given
-    datatype. In spins it is pretty safe to assume that FBN and ADN were 
-    acquired at the same time, so we only check ADN.
+    datatype. In the multiphantom case we assume all phantoms were collected
+    at the same time.
+
+    Also returns a list of datetime strings for humans to read.
     """
 
     # init array
     timearray = []
+    discarray = []
     for site in sites:
         
         # init vector
         timepoints = []
+        timediscription = []
 
         # filter by site, then datatype
         sitesubj = filter(lambda x: site in x, subjects)
@@ -409,17 +418,20 @@ def get_time_array(sites, dtype, subjects, data_path, tp):
 
         # now grab the weeks
         for ss in sitesubj:
-            week = get_scan_week(data_path, ss)
+            week, fulldate = get_scan_date(data_path, ss)
             timepoints.append(week)
+            timediscription.append(fulldate)
 
         # keep only the last n timepoints, append to array
         timepoints = timepoints[-tp:]
+        timediscription = timediscription[-tp:] 
         timearray.append(timepoints)
+        discarray.append(timediscription)
 
     # convert to numpy array
     timearray = np.array(timearray)
 
-    return timearray
+    return timearray, discarray
 
 def find_adni_niftis(subject_folder):
     """
@@ -450,9 +462,9 @@ def main_adni(project, sites, tp):
     subjects = dm.utils.get_phantoms(os.path.join(data_path, 'nii'))
 
     # get the timepoint arrays for each site, and the x-values for the plots
-    timearray = get_time_array(sites, dtype, subjects, data_path, tp)
+    timearray, discarray = get_time_array(sites, dtype, subjects, data_path, tp)
     l = get_scan_range(timearray)
-    cmap = get_discrete_colormap(len(sites), plt.cm.rainbow)
+    #cmap = get_discrete_colormap(len(sites), plt.cm.rainbow)
 
     # for each site, for each subject, for each week, get the ADNI measurements
     # and store them in a 9 x site x timepoint array:
@@ -483,55 +495,101 @@ def main_adni(project, sites, tp):
 
             array[:, i, j] = adni
 
-    # now plot these values in 9 subplots, respecting upload week
-    h, w = plt.figaspect(3/3)
-    plt.figure(figsize=(w*2.5, h*2.5))
+    ## static plotting removed, replaced with web-generated plotting
+    ## therefore generates a csv same length as the scan window with 
+    ## NaNs in missed weeks.
 
-    titles = ['S1 T1 Contrast', 'S2 T1 Contrast', 'S3 T1 Contrast',
-              'S4 T1 Contrast', 'S5 T1 Contrast',
-              'S2/S1 Ratio', 'S3/S1 Ratio', 'S4/S1 Ratio', 'S5/S1 Ratio']
+    # # now plot these values in 9 subplots, respecting upload week
+    # h, w = plt.figaspect(3/3)
+    # plt.figure(figsize=(w*2.5, h*2.5))
 
-    for i, plot in enumerate(array):
+    # titles = ['S1 T1 Contrast', 'S2 T1 Contrast', 'S3 T1 Contrast',
+    #           'S4 T1 Contrast', 'S5 T1 Contrast',
+    #           'S2/S1 Ratio', 'S3/S1 Ratio', 'S4/S1 Ratio', 'S5/S1 Ratio']
+
+    for plotnum, plot in enumerate(array):
+
+        output = []
+
+        # construct header
+        o = []
+        o.append('x')
+        #o.append('date')
+        for s in sites:
+            o.append(str(s))
+        output.append(o)
+
+        # construct string dict
+        datedict = {}
+        for row in np.arange(len(l)):
+            weeknum = l[row]
+            for s in np.arange(len(sites)):
+                for i, week in enumerate(timearray[s]):
+                    if weeknum == week:
+                        datedict[week] = discarray[s][i]
+
+        # now add the data
+        for row in np.arange(len(l)):
+            o = []
+            o.append(row)
+
+            # append the string discription for the first site that matches
+            weeknum = l[row]
+            # o.append(datedict[weeknum])
+
+            for s in np.arange(len(sites)):
+                tmp = list(timearray[s])
+                try:
+                    idx = tmp.index(weeknum)
+                    o.append(plot[s][idx])
+                except:
+                    o.append('')
+            output.append(o)
+
+        fname = '{}/qc/phantom/adni/{}_adni_{}.csv'.format(
+                              project, time.strftime("%y-%m-%d"), str(plotnum))
+        with open(fname, 'wb') as csvfile:
+            writer = csv.writer(csvfile, delimiter=',',
+                            quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            for row in output:
+                writer.writerow(row)
+
+    # x = get_scatter_x(tp, l, timearray[s])
+    #         plt.scatter(x, plot[s], c=cmap[s], marker="o")
         
-        # generate the scatterplot
-        plt.subplot(5, 2, i+1)
-        for s in np.arange(len(sites)):
-            x = get_scatter_x(tp, l, timearray[s])
-            plt.scatter(x, plot[s], c=cmap[s], marker="o")
-        
-        # set common elements
-        plt.xticks(np.arange(len(l)), l.astype(np.int))
-        plt.xlabel('Week Number', size=10)
+    #     # set common elements
+    #     plt.xticks(np.arange(len(l)), l.astype(np.int))
+    #     plt.xlabel('Week Number', size=10)
 
-        if len(sites) > 1:
-            plt.legend(sites, loc='right', fontsize=8)
+    #     if len(sites) > 1:
+    #         plt.legend(sites, loc='right', fontsize=8)
 
-        # set figure-dependent elements
-        plt.ylabel(titles[i], fontsize=10)
-        plt.title(titles[i], size=10)
+    #     # set figure-dependent elements
+    #     plt.ylabel(titles[i], fontsize=10)
+    #     plt.title(titles[i], size=10)
 
     # finish up
-    plt.tight_layout() # do most of the formatting for us automatically
-    if len(sites) == 1:
-        title = '{} ADNI phantoms: {}, {} timepoints \n\n'.format(
-                                site, time.strftime("%x"), str(tp))
+    # plt.tight_layout() # do most of the formatting for us automatically
+    # if len(sites) == 1:
+    #     title = '{} ADNI phantoms: {}, {} timepoints \n\n'.format(
+    #                             site, time.strftime("%x"), str(tp))
 
-    else:
-        title = 'ADNI phantoms: {}, {} timepoints \n\n'.format(
-                                      time.strftime("%x"), str(tp))
-    plt.suptitle(title)
-    plt.subplots_adjust(top=0.9) # give our title some breathing room
+    # else:
+    #     title = 'ADNI phantoms: {}, {} timepoints \n\n'.format(
+    #                                   time.strftime("%x"), str(tp))
+    # plt.suptitle(title)
+    # plt.subplots_adjust(top=0.9) # give our title some breathing room
 
-    if len(sites) == 1:
-        filename = '{}/qc/phantom/adni/{}_ADNI_QC_{}.pdf'.format(
-                                project, time.strftime("%y-%m-%d"), sites[0]) 
-    else:
-        filename = '{}/qc/phantom/adni/{}_ADNI_QC.pdf'.format(
-                                project, time.strftime("%y-%m-%d")) 
+    # if len(sites) == 1:
+    #     filename = '{}/qc/phantom/adni/{}_ADNI_QC_{}.pdf'.format(
+    #                             project, time.strftime("%y-%m-%d"), sites[0]) 
+    # else:
+    #     filename = '{}/qc/phantom/adni/{}_ADNI_QC.pdf'.format(
+    #                             project, time.strftime("%y-%m-%d")) 
 
-    plt.savefig(filename)
-    print('Successfully exported ' + filename)
-    plt.close()
+    # plt.savefig(filename)
+    # print('Successfully exported ' + filename)
+    # plt.close()
 
 def main_fmri(project, sites, tp):
     """
@@ -546,7 +604,7 @@ def main_fmri(project, sites, tp):
     subjects = dm.utils.get_phantoms(os.path.join(data_path, 'nii'))
 
     # get the timepoint arrays for each site, and the x-values for the plots
-    timearray = get_time_array(sites, dtype, subjects, data_path, tp)
+    timearray, discarray = get_time_array(sites, dtype, subjects, data_path, tp)
     l = get_scan_range(timearray)
     cmap = get_discrete_colormap(len(sites), plt.cm.rainbow)
 
@@ -569,53 +627,98 @@ def main_fmri(project, sites, tp):
             array[:, i, j] = fbirn
 
     # now plot these values in 7 subplots, respecting upload week
-    h, w = plt.figaspect(3/3)
-    plt.figure(figsize=(w*2.5, h*2.5))
+    # h, w = plt.figaspect(3/3)
+    # plt.figure(figsize=(w*2.5, h*2.5))
 
-    titles = [r'$\bar{x}$', r'$\sigma$', '% fluctuation', 
-                           'Drift', 'SNR', 'SFNR', 'RDC']
+    # titles = [r'$\bar{x}$', r'$\sigma$', '% fluctuation', 
+    #                        'Drift', 'SNR', 'SFNR', 'RDC']
 
-    for i, plot in enumerate(array):
+    for plotnum, plot in enumerate(array):
 
-        # generate the scatterplot
-        plt.subplot(4, 2, i+1)
-        for s in np.arange(len(sites)):
-            x = get_scatter_x(tp, l, timearray[s])
-            plt.scatter(x, plot[s], c=cmap[s], marker="o")
+        output = []
+
+        # construct header
+        o = []
+        o.append('x')
+        #o.append('date')
+        for s in sites:
+            o.append(str(s))
+        output.append(o)
+
+        # construct string dict
+        datedict = {}
+        for row in np.arange(len(l)):
+            weeknum = l[row]
+            for s in np.arange(len(sites)):
+                for i, week in enumerate(timearray[s]):
+                    if weeknum == week:
+                        datedict[week] = discarray[s][i]
+
+        # now add the data
+        for row in np.arange(len(l)):
+            o = []
+            o.append(row)
+
+            # append the string discription for the first site that matches
+            weeknum = l[row]
+            # o.append(datedict[weeknum])
+
+            for s in np.arange(len(sites)):
+                tmp = list(timearray[s])
+                try:
+                    idx = tmp.index(weeknum)
+                    o.append(plot[s][idx])
+                except:
+                    o.append('')
+            output.append(o)
+
+        fname = '{}/qc/phantom/fmri/{}_fmri_{}.csv'.format(
+                              project, time.strftime("%y-%m-%d"), str(plotnum))
+        with open(fname, 'wb') as csvfile:
+            writer = csv.writer(csvfile, delimiter=',',
+                            quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            for row in output:
+                writer.writerow(row)
+
+    #     # generate the scatterplot
+    #     plt.subplot(4, 2, i+1)
+    #     for s in np.arange(len(sites)):
+    #         x = get_scatter_x(tp, l, timearray[s])
+    #         plt.scatter(x, plot[s], c=cmap[s], marker="o")
         
-        # set common elements
-        plt.xticks(np.arange(len(l)), l.astype(np.int))
-        plt.xlabel('Week Number', size=10)
+    #     # set common elements
+    #     plt.xticks(np.arange(len(l)), l.astype(np.int))
+    #     plt.xlabel('Week Number', size=10)
 
-        if len(sites) > 1:
-            plt.legend(sites, loc='right', fontsize=8)
+    #     if len(sites) > 1:
+    #         plt.legend(sites, loc='right', fontsize=8)
 
-        # set figure-dependent elements
-        plt.ylabel(titles[i], fontsize=10)
-        plt.title(titles[i], size=10)
+    #     # set figure-dependent elements
+    #     plt.ylabel(titles[i], fontsize=10)
+    #     plt.title(titles[i], size=10)
 
-    # finish up
-    plt.tight_layout() # do most of the formatting for us automatically
-    if len(sites) == 1:
-        title = '{} fMRI fBIRN phantoms: {}, {} timepoints \n\n'.format(
-                                site, time.strftime("%x"), str(tp))
+    # # finish up
+    # plt.tight_layout() # do most of the formatting for us automatically
+    # if len(sites) == 1:
+    #     title = '{} fMRI fBIRN phantoms: {}, {} timepoints \n\n'.format(
+    #                             site, time.strftime("%x"), str(tp))
 
-    else:
-        title = 'fMRI fBIRN phantoms: {}, {} timepoints \n\n'.format(
-                                      time.strftime("%x"), str(tp))
-    plt.suptitle(title)
-    plt.subplots_adjust(top=0.9) # give our title some breathing room
+    # else:
+    #     title = 'fMRI fBIRN phantoms: {}, {} timepoints \n\n'.format(
+    #                                   time.strftime("%x"), str(tp))
+    # plt.suptitle(title)
+    # plt.subplots_adjust(top=0.9) # give our title some breathing room
 
-    if len(sites) == 1:
-        filename = '{}/qc/phantom/fmri/{}_fMRI_QC_{}.pdf'.format(
-                                project, time.strftime("%y-%m-%d"), sites[0]) 
-    else:
-        filename = '{}/qc/phantom/fmri/{}_fMRI_QC.pdf'.format(
-                                project, time.strftime("%y-%m-%d")) 
+    # if len(sites) == 1:
+    #     filename = '{}/qc/phantom/fmri/{}_fMRI_QC_{}.pdf'.format(
+    #                             project, time.strftime("%y-%m-%d"), sites[0]) 
+    # else:
+    #     filename = '{}/qc/phantom/fmri/{}_fMRI_QC.pdf'.format(
+    #                             project, time.strftime("%y-%m-%d")) 
 
-    plt.savefig(filename)
-    print('Successfully exported ' + filename)
-    plt.close()
+    # plt.savefig(filename)
+    # print('Successfully exported ' + filename)
+    # plt.close()
 
 def main():
     global VERBOSE 
