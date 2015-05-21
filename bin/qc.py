@@ -49,6 +49,28 @@ DEBUG  = False
 VERBOSE= False
 DRYRUN = False
 
+QC_HANDLERS = {   # map from tag to QC function 
+        "T1"          : t1_qc,
+        "T2"          : t2_qc,
+        "PD"          : pd_qc,
+        "PDT2"        : ignore,
+        "RST"         : fmri_qc, 
+        "OBS"         : fmri_qc, 
+        "IMI"         : fmri_qc, 
+        "NBK"         : fmri_qc, 
+        "EMP"         : fmri_qc, 
+        "DTI"         : dti_qc, 
+        "DTI60-1000"  : dti_qc, 
+        "DTI60-b1000" : dti_qc, 
+        "DTI33-1000"  : dti_qc, 
+        "DTI33-b1000" : dti_qc, 
+        "DTI33-3000"  : dti_qc, 
+        "DTI33-b3000" : dti_qc, 
+        "DTI33-4500"  : dti_qc, 
+        "DTI33-b4500" : dti_qc, 
+}
+
+
 def log(message): 
     print message
     sys.stdout.flush()
@@ -106,11 +128,11 @@ def qc_folder(scanpath, prefix, outputdir, handlers):
     for fname in found_files:
         verbose("QC scan {}".format(fname))
         ident, tag, series, description = dm.scanid.parse_filename(fname)
-        if tag not in qc_handlers:
+        if tag not in QC_HANDLERS:
             log("QC hanlder for scan {} (tag {}) not found. Skipping.".format(
                 fname, tag))
             continue
-        qc_handlers[tag](fname, outputdir, pdf)
+        QC_HANDLERS[tag](fname, outputdir, pdf)
 
     # finally, close the pdf
     d = pdf.infodict()
@@ -207,16 +229,23 @@ def dti_qc(fpath, outputdir, pdf, subject_type='human'):
     This prints a montage of the raw T1 image, for great justice.
     """
     filename = os.path.basename(fpath)
+    directory = os.path.dirname(fpath)
+
+    # load in bval file
+    bval = filename.split('.')
+    try:
+        bval.remove('gz')
+    except:
+        pass
+    try:
+        bval.remove('nii')
+    except:
+        pass
+    bval = np.genfromtxt(os.path.join(directory, ".".join(bval) + '.bval'))
  
-    # print coverage
-    pdf = montage(fpath, 'B0 Contrast', 
-                         'gray', None, 0.5, filename, pdf)
-
-    # print all directions
+    pdf = montage(fpath, 'B0 Contrast', 'gray', None, 0.5, filename, pdf)
     pdf = montage_dti(fpath, filename, pdf, subject_type)
-
-    # print all slice-wise spike artifacts
-    pdf = find_dti_spikes(fpath, filename, pdf, subject_type, 5)
+    pdf = find_dti_spikes(fpath, filename, pdf, subject_type, bval)
 
     return pdf
 
@@ -469,7 +498,7 @@ def montage_dti(image, filename, pdf, subject_type):
 
     return pdf
 
-def find_dti_spikes(image, filename, pdf, subject_type, n_b0):
+def find_dti_spikes(image, filename, pdf, subject_type, bval):
 
     """
     Plots, for each axial slice, the mean instensity over all encoding
@@ -483,7 +512,7 @@ def find_dti_spikes(image, filename, pdf, subject_type, n_b0):
         filename -- qc image file name  
         pdf      -- PDF object to save the figure to
         subject_type -- 'human' or 'phantom'
-        n_b0     -- number of b0 images at beginning.
+        bval     -- numpy array of bvecs (for finding B0s)
 
     """
 
@@ -518,9 +547,6 @@ def find_dti_spikes(image, filename, pdf, subject_type, n_b0):
     x = image.shape[1]
     y = image.shape[2]
 
-    # cmap = plt.cm.gray
-    # cmap.set_bad('g', 0)  # value for transparent pixels in the overlay 
-
     # init the figure, looping through each step
     if subject_type == 'human':
         fig, axes = plt.subplots(nrows=8, ncols=9, facecolor='white')
@@ -542,35 +568,20 @@ def find_dti_spikes(image, filename, pdf, subject_type, n_b0):
                 sample = image[i, np.round(x*0.25):np.round(x*0.75), 
                                   np.round(y*0.25):np.round(y*0.75), j]
 
-                # this is if we want to use the whole image
-                # sample = image[i, :, :, j] 
-
                 mean = np.mean(sample)
-                std = np.std(sample)
 
                 if j == 0:
                     vector_mean = copy(mean)
-                    vector_std = copy(std)
                 else:
                     vector_mean = np.hstack((vector_mean, mean))
-                    vector_std = np.hstack((vector_std, std))
 
-                # #ax.set_title(str(int(i+1)))
+            # crop out b0 images, find absoloute derivative
+            idx = np.where(vector_mean > 0)[0]
+            vector_mean = vector_mean[idx]
+            vector_mean = np.abs(np.diff(vector_mean))
 
-            # crop out b0 images
-            vector_mean = vector_mean[n_b0:]
-            vector_std = vector_std[n_b0:]
-
-            #fig.subplots_adjust(right=0.8)
-            #cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-            #cb = fig.colorbar(im, cax=cbar_ax)
-            #cb.set_label('Anisotropy', labelpad=0, y=0.5)
+            # plot
             ax.plot(vector_mean, color='black')
-            ax.fill_between(np.arange(len(vector_std)), 
-                             vector_mean-vector_std, 
-                             vector_mean+vector_std, alpha=0.5, 
-                                                     color='black')
-
             ax.set_frame_on(False)  # clean up unnecessary detail
             ax.axes.get_xaxis().set_visible(False)
             ax.axes.get_yaxis().set_visible(False)
@@ -840,27 +851,6 @@ def check_n_trs(fpath):
 
     return ntrs
 
-qc_handlers = {   # map from tag to QC function 
-        "T1"          : t1_qc,
-        "T2"          : t2_qc,
-        "PD"          : pd_qc,
-        "PDT2"        : ignore,
-        "RST"         : fmri_qc, 
-        "OBS"         : fmri_qc, 
-        "IMI"         : fmri_qc, 
-        "NBK"         : fmri_qc, 
-        "EMP"         : fmri_qc, 
-        "DTI"         : dti_qc, 
-        "DTI60-1000"  : dti_qc, 
-        "DTI60-b1000" : dti_qc, 
-	"DTI33-1000"  : dti_qc, 
-	"DTI33-b1000" : dti_qc, 
-        "DTI33-3000"  : dti_qc, 
-        "DTI33-b3000" : dti_qc, 
-        "DTI33-4500"  : dti_qc, 
-        "DTI33-b4500" : dti_qc, 
-}
-
 def main():
     """
     This spits out our QCed data
@@ -886,7 +876,7 @@ def main():
             pass
         else:
             verbose("QCing folder {}".format(path))
-            qc_folder(path, timepoint, qcdir, qc_handlers) 
+            qc_folder(path, timepoint, qcdir, QC_HANDLERS) 
 
 if __name__ == "__main__":
     main()
