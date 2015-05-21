@@ -547,6 +547,7 @@ def find_dti_spikes(image, filename, pdf, subject_type, bval):
                                   np.round(y*0.25):np.round(y*0.75), j]
 
                 mean = np.mean(sample)
+                std = np.std(sample)
 
                 if j == 0:
                     vector_mean = copy(mean)
