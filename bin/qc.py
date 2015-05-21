@@ -82,7 +82,7 @@ def run(cmd):
             out and debug("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
             err and debug("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
 
-def qc_folder(scanpath, prefix, outputdir, handlers):
+def qc_folder(scanpath, prefix, outputdir, QC_HANDLERS):
     """
     QC all the images in a folder (scanpath).
 
