@@ -556,12 +556,12 @@ def find_dti_spikes(image, filename, pdf, subject_type, bval):
             # crop out b0 images, find absoloute derivative
             idx = np.where(bval > 0)[0]
             vector_mean = vector_mean[idx]
-            vector_mean = np.abs(np.diff(vector_mean))
+            #vector_mean = np.abs(np.diff(vector_mean))
 
             # plot
             ax.plot(vector_mean, color='black')
             ax.set_frame_on(False)  # clean up unnecessary detail
-            #ax.axes.get_xaxis().set_visible(False)
+            ax.axes.get_xaxis().set_visible(False)
             ax.axes.get_yaxis().set_visible(False)
             ax.set_title('slice: ' + str(i+1), size=8)
         else:
