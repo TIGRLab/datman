@@ -98,7 +98,12 @@ def qc_folder(scanpath, prefix, outputdir, handlers):
 
     pdf = PdfPages(pdffile)
    
-    for fname in glob.glob(scanpath + '/*.nii.gz'):
+    filetypes = ('*.nii.gz', '*.nii')
+    found_files = []
+    for filetype in filetypes:
+        found_files.extend(glob.glob(scanpath + '/' + filetype))
+
+    for fname in found_files:
         verbose("QC scan {}".format(fname))
         ident, tag, series, description = dm.scanid.parse_filename(fname)
         if tag not in qc_handlers:
