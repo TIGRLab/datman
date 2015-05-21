@@ -836,20 +836,24 @@ def check_n_trs(fpath):
     return ntrs
 
 qc_handlers = {   # map from tag to QC function 
-        "T1"         : t1_qc,
-        "T2"         : t2_qc,
-        "PD"         : pd_qc,
-        "PDT2"       : ignore,
-        "RST"        : fmri_qc, 
-        "OBS"        : fmri_qc, 
-        "IMI"        : fmri_qc, 
-        "NBK"        : fmri_qc, 
-        "EMP"        : fmri_qc, 
-        "DTI"        : dti_qc, 
-        "DTI60-1000" : dti_qc, 
-        "DTI33-1000" : dti_qc, 
-        "DTI33-3000" : dti_qc, 
-        "DTI33-4500" : dti_qc, 
+        "T1"          : t1_qc,
+        "T2"          : t2_qc,
+        "PD"          : pd_qc,
+        "PDT2"        : ignore,
+        "RST"         : fmri_qc, 
+        "OBS"         : fmri_qc, 
+        "IMI"         : fmri_qc, 
+        "NBK"         : fmri_qc, 
+        "EMP"         : fmri_qc, 
+        "DTI"         : dti_qc, 
+        "DTI60-1000"  : dti_qc, 
+        "DTI60-b1000" : dti_qc, 
+	"DTI33-1000"  : dti_qc, 
+	"DTI33-b1000" : dti_qc, 
+        "DTI33-3000"  : dti_qc, 
+        "DTI33-b3000" : dti_qc, 
+        "DTI33-4500"  : dti_qc, 
+        "DTI33-b4500" : dti_qc, 
 }
 
 def main():
