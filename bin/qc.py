@@ -554,7 +554,7 @@ def find_dti_spikes(image, filename, pdf, subject_type, bval):
                     vector_mean = np.hstack((vector_mean, mean))
 
             # crop out b0 images, find absoloute derivative
-            idx = np.where(vector_mean > 0)[0]
+            idx = np.where(bval > 0)[0]
             vector_mean = vector_mean[idx]
             vector_mean = np.abs(np.diff(vector_mean))
 
