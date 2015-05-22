@@ -225,6 +225,9 @@ def pd_qc(fpath, outputdir, pdf):
 def t2_qc(fpath, outputdir, pdf):
     intensity_volume_qc(fpath, outputdir, pdf, 'T2-contrast')
 
+def flair_qc(fpath, outputdir, pdf):
+    intensity_volume_qc(fpath, outputdir, pdf, 'FLAIR-contrast')
+
 def dti_qc(fpath, outputdir, pdf, subject_type='human'):
     """
     This prints a montage of the raw T1 image, for great justice.
@@ -766,6 +769,10 @@ def main():
             "T2"          : t2_qc,
             "PD"          : pd_qc,
             "PDT2"        : ignore,
+            "FLAIR"       : flair_qc,
+            "FMAP"        : ignore,
+            "FMAP-6.5"    : ignore,
+            "FMAP-8.5"    : ignore,
             "RST"         : fmri_qc, 
             "OBS"         : fmri_qc, 
             "IMI"         : fmri_qc, 
