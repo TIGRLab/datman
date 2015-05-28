@@ -23,7 +23,6 @@ Options:
 
 
 DETAILS
-
     This program is used to rename an exam archive with their properly
     formatted scan names (see datman.scanid). Two approaches are used to find
     this name: 
@@ -52,7 +51,6 @@ DETAILS
 
 
 ADDITIONAL MATCH CONDITIONS
-
     Additional columns in the lookup table can be specified to ensure that the
     DICOM headers of the file match what is expected. These column names should
     start with dicom_. For example, 
@@ -63,6 +61,12 @@ ADDITIONAL MATCH CONDITIONS
     In the example above, this script would check that the StudyID field of an
     arbitrary dicom file in the archive contains the value "512". If not, an
     error is thrown. 
+
+IGNORING EXAM ARCHIVES
+    Exam archives can be ignored by placing an entry into the lookup table with
+    the target_name of '<ignore>', for example: 
+        source_name      target_name            dicom_StudyID
+        2014_0126_FB001  <ignore>
 """
 
 from docopt import docopt
@@ -120,6 +124,9 @@ def main():
 
         # search the lookup and the headers for a valid scan ID 
         scanid = get_scanid_from_lookup_table(archivepath, header, lookup)
+        if scanid == '<ignore>': 
+            verbose("Ignoring {}".format(archivepath))
+            continue
         if scanid is None:
             scanid = get_scanid_from_header(archivepath, header, scanid_field) 
         if scanid is None: 
