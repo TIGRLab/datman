@@ -554,6 +554,7 @@ def find_epi_spikes(image, filename, pdf, bval=None):
     y = image.shape[2]
 
     # find the most square set of factors for n_subj
+    flag = 0
     while flag == 0:
         
         # get all candidate factors for the current number of subjects
