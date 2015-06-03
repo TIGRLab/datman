@@ -82,6 +82,512 @@ def run(cmd):
             out and debug("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
             err and debug("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
 
+def ignore(fpath, outputdir, pdf):
+    pass
+
+def factors(n):    
+    """
+    Returns all factors of n.
+    """    
+    return set(reduce(list.__add__, 
+                ([i, n//i] for i in range(1, int(n**0.5) + 1) if n % i == 0)))
+
+def square_factors(fac, num):
+    """
+    Finds the two most square factors of a number from a list of factors.
+    Factors returned with the smallest first.
+    """
+    candidates = []
+    for x in fac:
+        for y in fac:
+            if x*y == num:
+                candidates.append(abs(x-y))
+    most_square = np.min(candidates)
+    for x in fac:
+        for y in fac:
+            if x*y == num:
+                if x-y == most_square:
+                    factor = [x, y]
+    if factor[0] > factor[1]:
+        factor = factor[::-1]
+    
+    return factor
+
+def load_masked_data(func, mask):
+    """
+    Accepts 'functional.nii.gz' and 'mask.nii.gz', and returns a voxels x
+    timepoints matrix of the functional data in non-zero mask locations. 
+    """
+    func = nib.load(func).get_data()
+    mask = nib.load(mask).get_data()
+
+    mask = mask.reshape(mask.shape[0]*mask.shape[1]*mask.shape[2])
+    func = func.reshape(func.shape[0]*func.shape[1]*func.shape[2],
+                                                    func.shape[3])
+
+    # find within-brain timeseries
+    idx = np.where(mask > 0)[0]
+    func = func[idx, :]
+
+    return func
+
+def check_n_trs(fpath):
+    """
+    Returns the number of TRs for an input file. If the file is 3D, we also
+    return 1.
+    """
+    data = nib.load(fpath)
+
+    try:
+        ntrs = data.shape[3]
+    except:
+        ntrs = 1
+
+    return ntrs
+
+def bounding_box(filename):
+    """
+    Finds a box that only includes all nonzero voxels in a 3D image. Output box
+    is represented as 3 x 2 numpy array with rows denoting x, y, z, and columns
+    denoting stand and end slices.
+
+    Usage:
+        box = bounding_box(filename)
+    """
+
+    # find 3D bounding box
+    box = np.zeros((3,2))  # init bounding box
+    flag = 0  # ascending
+
+    for i, dim in enumerate(filename.shape): # loop through (x, y, z)
+
+        # ascending search
+        while flag == 0:
+            for dim_test in np.arange(dim):
+
+                # get sum of all values in each slice
+                if i == 0:   test = np.sum(filename[dim_test, :, :])
+                elif i == 1: test = np.sum(filename[:, dim_test, :])
+                elif i == 2: test = np.sum(filename[:, :, dim_test])
+
+                # if slice is nonzero, set starting bound, switch to descending
+                if test >= 1:
+                    box[i, 0] = dim_test
+                    flag = 1
+                    break
+
+        # descending search
+        while flag == 1:
+            for dim_test in np.arange(dim):
+                
+                dim_test = dim-dim_test - 1  # we have to reverse things
+
+                # get sum of all values in each slice
+                if i == 0:   test = np.sum(filename[dim_test, :, :])
+                elif i == 1: test = np.sum(filename[:, dim_test, :])
+                elif i == 2: test = np.sum(filename[:, :, dim_test])
+
+                # if slice is nonzero, set ending bound, switch to ascending
+                if test >= 1:
+                    box[i, 1] = dim_test
+                    flag = 0
+                    break
+
+    return box
+
+def reorient_4d_image(image):
+    """
+    Reorients the data to radiological, one TR at a time
+    """
+    for i in np.arange(image.shape[3]):
+
+        if i == 0:
+            newimage = np.transpose(image[:, :, :, i], (2,0,1))
+            newimage = np.rot90(newimage, 2)
+
+        elif i == 1:
+            tmpimage = np.transpose(image[:, :, :, i], (2,0,1))
+            tmpimage = np.rot90(tmpimage, 2)
+            newimage = np.concatenate((newimage[...,np.newaxis], 
+                                       tmpimage[...,np.newaxis]), axis=3)
+        
+        else:
+            tmpimage = np.transpose(image[:, :, :, i], (2,0,1))
+            tmpimage = np.rot90(tmpimage, 2)
+            newimage = np.concatenate((newimage, 
+                                       tmpimage[...,np.newaxis]), axis=3)
+
+    image = copy(newimage)
+
+    return image
+
+def montage(image, name, filename, pdf, cmaptype='grey', mode='3d', minval=None, maxval=None, box=None):
+    """
+    Creates a montage of images displaying a image set on top of a grayscale 
+    image.
+
+    Generally, this will be used to plot an image (of type 'name') that was
+    generated from the original file 'filename'. So if we had an SNR map
+    'SNR.nii.gz' from 'fMRI.nii.gz', we would submit everything to montage
+    as so:
+
+        montage('SNR.nii.gz', 'SNR', 'EPI.nii.gz', pdf)
+
+    Usage:
+        montage(image, name, filename, pdf)
+
+        image    -- submitted image file name
+        name     -- name of the printout (e.g, SNR map, t-stats, etc.)
+        cmaptype -- 'redblue', 'hot', or 'gray'.
+        minval   -- colormap minimum value as a % (None == 'auto')
+        maxval   -- colormap maximum value as a % (None == 'auto')
+        mode     -- '3d' (prints through space) or '4d' (prints through time)
+        filename -- qc image file name  
+        pdf      -- PDF object to save the figure to
+        box      -- a (3,2) tuple that describes the start and end voxel 
+                    for x, y, and z, respectively. If None, we find it ourselves.
+    """
+    image = str(image) # input checks
+    opath = os.path.dirname(image) # grab the image folder
+    output = str(image)
+    image = nib.load(image).get_data() # load in the daterbytes
+
+    if mode == '3d':  
+        if len(image.shape) > 3: # if image is 4D, only keep the first time-point
+            image = image[:, :, :, 0]
+
+        image = np.transpose(image, (2,0,1))
+        image = np.rot90(image, 2)
+        steps = np.round(np.linspace(0,np.shape(image)[0]-2, 36)) # coronal plane
+        factor = 6
+
+        # use bounding box (submitted or found) to crop extra-brain regions
+        if box == None:
+            box = bounding_box(image) # get the image bounds
+        elif box.shape != (3,2): # if we did, ensure it is the right shape
+            error('ERROR: Bounding box should have shape = (3,2).')
+            raise ValueError
+        image = image[box[0,0]:box[0,1], box[1,0]:box[1,1], box[2,0]:box[2,1]]
+
+    if mode == '4d':
+        image = reorient_4d_image(image)
+        midslice = np.floor((image.shape[2]-1)/2) # print a single plane across all slices 
+        factor = np.ceil(np.sqrt(image.shape[3])) # print all timepoints
+        factor = factor.astype(int)
+
+    # colormapping -- set value
+    if cmaptype == 'redblue': cmap = plt.cm.RdBu_r 
+    elif cmaptype == 'hot': cmap = plt.cm.OrRd
+    elif cmaptype == 'gray': cmap = plt.cm.gray
+    else:
+        debug('No valid colormap supplied, default = greyscale.')
+        cmap = plt.cm.gray
+
+    # colormapping -- set range
+    if minval == None:
+        minval = np.min(image)
+    else:
+        minval = np.min(image) + ((np.max(image) - np.min(image)) * minval)
+
+    if maxval == None:
+        maxval = np.max(image)
+    else:
+        maxval = np.max(image) * maxval
+
+    cmap.set_bad('g', 0)  # value for transparent pixels in the overlay 
+
+    fig, axes = plt.subplots(nrows=factor, ncols=factor, facecolor='white')
+    for i, ax in enumerate(axes.flat):
+
+        if mode == '3d':
+            im = ax.imshow(image[steps[i], :, :], cmap=cmap, interpolation='nearest', vmin=minval, vmax=maxval)
+            ax.set_frame_on(False) 
+            ax.axes.get_xaxis().set_visible(False)
+            ax.axes.get_yaxis().set_visible(False)
+
+        elif mode == '4d' and i < image.shape[3]:
+            im = ax.imshow(image[:, :, midslice, i], cmap=cmap, interpolation='nearest')
+            ax.set_frame_on(False) 
+            ax.axes.get_xaxis().set_visible(False)
+            ax.axes.get_yaxis().set_visible(False)
+
+        elif mode == '4d' and i >= image.shape[3]:
+            ax.set_axis_off() # removes extra axes from plot
+
+    fig.subplots_adjust(right=0.8)
+    cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+    cb = fig.colorbar(im, cax=cbar_ax)
+    #cb.set_label(name, labelpad=0, y=0.5)
+    fig.suptitle(filename + '\n' + name, size=10)
+
+    fig.savefig(pdf, format='pdf')
+    plt.close()
+
+    return pdf
+
+def find_epi_spikes(image, filename, pdf, bvec=None):
+
+    """
+    Plots, for each axial slice, the mean instensity over all TRs. 
+    Strong deviations are an indication of the presence of spike
+    noise.
+
+    If bvec is supplied, we remove all time points that are 0 in the bvec
+    vector.
+
+    Usage:
+        find_epi_spikes(image, filename, pdf)
+
+        image    -- submitted image file name
+        filename -- qc image file name  
+        pdf      -- PDF object to save the figure to
+        bvec     -- numpy array of bvecs (for finding direction = 0)
+
+    """
+
+    image = str(image)             # input checks
+    opath = os.path.dirname(image) # grab the image folder
+
+    # load in the daterbytes
+    output = str(image)
+    image = nib.load(image).get_data()
+    image = reorient_4d_image(image)
+
+    x = image.shape[1]
+    y = image.shape[2]
+    z = image.shape[0]
+    t = image.shape[3]
+
+    # find the most square set of factors for n_trs
+    factor = np.ceil(np.sqrt(z))
+    factor = factor.astype(int)
+
+    # flag = 0
+    # while flag == 0:
+        
+    #     # get all candidate factors for the current number of subjects
+    #     f_trs = factors(image.shape[0])
+    #     factor = square_factors(f_trs, n)
+        
+    #     # check if solution is 'square enough'
+    #     if float(factor[1]) / float(factor[0]) <= 1.5:
+    #         flag = 1
+       
+    #     # if not, try again with a larger number
+    #     else:
+    #         n_slices = n_slices + 1
+
+    fig, axes = plt.subplots(nrows=factor, ncols=factor, facecolor='white')
+
+    # sets the bounds of the image
+    c1 = np.round(x*0.25)
+    c2 = np.round(x*0.75)
+
+    # for each axial slice
+    for i, ax in enumerate(axes.flat):
+        if i < z:
+
+            v_mean = np.array([])
+            v_sd = np.array([])
+
+            # find the mean, STD, of each dir and concatenate w. vector
+            for j in np.arange(t):
+
+                # gives us a subset of the image
+                sample = image[i, c1:c2, c1:c2, j]
+                mean = np.mean(sample)
+                sd = np.std(sample)
+
+                if j == 0:
+                    v_mean = copy(mean)
+                    v_sd = copy(sd)
+                else:
+                    v_mean = np.hstack((v_mean, mean))
+                    v_sd = np.hstack((v_sd, sd))
+
+            # crop out b0 images
+            if bvec != None:
+                idx = np.where(bvec != 0)[0]
+                v_mean = v_mean[idx]
+                v_sd = v_sd[idx]
+                v_t = np.arange(len(idx))
+            else:
+                v_t = np.arange(t)
+
+            ax.plot(v_mean, color='black')
+            ax.fill_between(v_t, v_mean-v_sd, v_mean+v_sd, alpha=0.5, color='black')
+            ax.set_frame_on(False)
+            ax.axes.get_xaxis().set_visible(False)
+            ax.axes.get_yaxis().set_visible(False)
+        else:
+            ax.set_axis_off()
+
+    plt.suptitle(filename + '\n' + 'DTI Slice/TR Wise Abnormalities', size=10)
+    plt.savefig(pdf, format='pdf')
+    plt.close()
+
+    return pdf
+
+def fmri_plots(func, mask, f, filename, pdf):
+    """
+    Calculates and plots:
+         + Mean and SD of normalized spectra across brain.
+         + Framewise displacement (mm/TR) of head motion.
+         + Mean correlation from 10% of the in-brain voxels.
+         + EMPTY ADD KEWL PLOT HERE PLZ.
+
+    """
+    ##############################################################################
+    # spectra
+    plt.subplot(2,2,1)
+    func = load_masked_data(func, mask)
+    spec = sig.detrend(func, type='linear')
+    spec = sig.periodogram(spec, fs=0.5, return_onesided=True, scaling='density')
+    freq = spec[0]
+    spec = spec[1]
+    sd = np.nanstd(spec, axis=0)
+    mean = np.nanmean(spec, axis=0)
+
+    plt.plot(freq, mean, color='black', linewidth=2)
+    plt.plot(freq, mean + sd, color='black', linestyle='-.', linewidth=0.5)
+    plt.plot(freq, mean - sd, color='black', linestyle='-.', linewidth=0.5)
+    plt.title('Whole-brain spectra mean, SD', size=6)
+    plt.xticks(size=6)
+    plt.yticks(size=6)
+    plt.xlabel('Frequency (Hz)', size=6)
+    plt.ylabel('Power', size=6)
+    plt.xticks([])
+
+    ##############################################################################
+    # framewise displacement
+    plt.subplot(2,2,2)
+    f = np.genfromtxt(f)
+    f[:,0] = np.radians(f[:,0]) * 50 # 50 = head radius, need not be constant.
+    f[:,1] = np.radians(f[:,1]) * 50 # 50 = head radius, need not be constant.
+    f[:,2] = np.radians(f[:,2]) * 50 # 50 = head radius, need not be constant.
+    f = np.abs(np.diff(f, n=1, axis=0))
+    f = np.sum(f, axis=1)
+    t = np.arange(len(f))
+
+    plt.plot(t, f.T, lw=1, color='black')
+    plt.axhline(y=0.5, xmin=0, xmax=len(t), color='r')
+    plt.xlim((-3, len(t) + 3)) # this is in TRs
+    plt.ylim(0, 2) # this is in mm/TRs
+    plt.xticks(size=6)
+    plt.yticks(size=6)
+    plt.xlabel('TR', size=6)
+    plt.ylabel('Framewise displacement (mm/TR)', size=6)
+    plt.title('Head motion', size=6)
+
+    ##############################################################################
+    # whole brain correlation
+    plt.subplot(2,2,3)
+    idx = np.random.choice(func.shape[0], func.shape[0]/10, replace=False)
+    corr = func[idx, :]
+    corr = sp.corrcoef(corr, rowvar=1)
+    mean = np.mean(corr, axis=None)
+    std = np.std(corr, axis=None)
+
+    im = plt.imshow(corr, cmap=plt.cm.RdBu_r, interpolation='nearest', vmin=-1, vmax=1)
+    plt.xlabel('Voxel', size=6)
+    plt.ylabel('Voxel', size=6)
+    plt.xticks([])
+    plt.yticks([])
+    cb = plt.colorbar(im)
+    cb.set_label('Correlation (r)', labelpad=0, y=0.5, size=6)
+    for tick in cb.ax.get_yticklabels():
+        tick.set_fontsize(6)
+    plt.title('Whole-brain r mean={}, SD={}'.format(str(mean), str(std)), size=6)
+
+    ##############################################################################
+    # add a final plot?
+    plt.suptitle(filename)
+    plt.savefig(pdf, format='pdf')
+    plt.close()
+
+    return pdf
+
+def fmri_qc(fpath, outputdir, pdf):
+    """
+    This takes an input image, motion corrects, and generates a brain mask. 
+    It then calculates a signal to noise ratio map and framewise displacement
+    plot for the file.
+    """
+    # if the number of TRs is too little, we skip the pipeline
+    ntrs = check_n_trs(fpath)
+
+    if ntrs < 20:
+        return pdf
+
+    opath = outputdir
+    filename = os.path.basename(fpath)
+
+    # FIXME: use a proper tempdir 
+
+    # motion correct + calculate motion paramaters
+    run('3dvolreg -prefix ' + opath + '/tmp_mcorr.nii.gz -twopass -twoblur 3 -Fourier -1Dfile ' + opath + '/tmp_motion.1D ' + fpath)
+    run('3dTstat -prefix ' + opath + '/tmp_mean.nii.gz ' + opath + '/tmp_mcorr.nii.gz')
+    run('3dAutomask -prefix ' + opath +  '/tmp_mask.nii.gz -clfrac 0.5 -peels 3 ' + opath + '/tmp_mean.nii.gz')
+    run('3dTstat -prefix ' + opath + '/tmp_std.nii.gz  -stdev ' + opath + '/tmp_mcorr.nii.gz')
+    run('3dcalc -prefix ' + opath + '/tmp_sfnr.nii.gz -a ' + opath + '/tmp_mean.nii.gz -b ' + opath + """/tmp_std.nii.gz -expr 'a/b'""")
+
+    # print QC
+    pdf = montage(fpath, 'BOLD-contrast', filename, pdf, maxval=0.75)
+    pdf = fmri_plots(opath + '/tmp_mcorr.nii.gz', opath + '/tmp_mask.nii.gz', opath + '/tmp_motion.1D', filename, pdf)
+    pdf = montage(opath + '/tmp_sfnr.nii.gz', 'SFNR', filename, pdf, cmaptype='hot', maxval=0.75)
+    pdf = find_epi_spikes(fpath, filename, pdf)
+
+    # clean up all temporary files
+    run('rm ' + opath + '/tmp*')
+
+    return pdf
+
+def t1_qc(fpath, outputdir, pdf):
+    pdf = montage(fpath, 'T1-contrast', os.path.basename(fpath), pdf, maxval=0.25)
+    return pdf
+
+def pd_qc(fpath, outputdir, pdf):
+    pdf = montage(fpath, 'PD-contrast', os.path.basename(fpath), pdf, maxval=0.4)
+    return pdf
+
+def t2_qc(fpath, outputdir, pdf):
+    pdf = montage(fpath, 'T2-contrast', os.path.basename(fpath), pdf, maxval=0.5)
+    return pdf
+
+def flair_qc(fpath, outputdir, pdf):
+    pdf = montage(fpath, 'FLAIR-contrast', os.path.basename(fpath), pdf, maxval=0.3)
+    return pdf
+
+def dti_qc(fpath, outputdir, pdf):
+    """
+    Runs the QC pipeline on the DTI inputs. We use the BVEC (not BVAL)
+    file to find B0 images (in some scans, mid-sequence B0s are coded
+    as non-B0s for some reason, so the 0-direction locations in BVEC
+    seem to be the safer choice).
+    """
+    filename = os.path.basename(fpath)
+    directory = os.path.dirname(fpath)
+
+    # load in bvec file
+    bvec = filename.split('.')
+    try:
+        bvec.remove('gz')
+    except:
+        pass
+    try:
+        bvec.remove('nii')
+    except:
+        pass
+
+    bvec = np.genfromtxt(os.path.join(directory, ".".join(bvec) + '.bvec'))
+    bvec = np.sum(bvec, axis=0)
+
+    pdf = montage(fpath, 'B0-contrast', filename, pdf, maxval=0.25)
+    pdf = montage(fpath, 'DTI Directions', filename, pdf, mode='4d', maxval=0.25)
+    pdf = find_epi_spikes(fpath, filename, pdf, bvec)
+
+    return pdf
+
 def qc_folder(scanpath, prefix, outputdir, QC_HANDLERS):
     """
     QC all the images in a folder (scanpath).
@@ -107,8 +613,7 @@ def qc_folder(scanpath, prefix, outputdir, QC_HANDLERS):
         verbose("QC scan {}".format(fname))
         ident, tag, series, description = dm.scanid.parse_filename(fname)
         if tag not in QC_HANDLERS:
-            log("QC hanlder for scan {} (tag {}) not found. Skipping.".format(
-                fname, tag))
+            log("QC hanlder for scan {} (tag {}) not found. Skipping.".format(fname, tag))
             continue
         QC_HANDLERS[tag](fname, outputdir, pdf)
 
@@ -117,645 +622,6 @@ def qc_folder(scanpath, prefix, outputdir, QC_HANDLERS):
     d['CreationDate'] = datetime.datetime.today()
     d['ModDate'] = datetime.datetime.today()
     pdf.close()
-
-def ignore(fpath, outputdir, pdf):
-    pass
-
-def factors(n):    
-    """
-    Returns all factors of n.
-    """
-    
-    return set(reduce(list.__add__, 
-                ([i, n//i] for i in range(1, int(n**0.5) + 1) if n % i == 0)))
-
-def square_factors(fac, num):
-    """
-    Finds the two most square factors of a number from a list of factors.
-    Factors returned with the smallest first.
-    """
-    candidates = []
-    for x in fac:
-        for y in fac:
-            if x*y == num:
-                candidates.append(abs(x-y))
-    most_square = np.min(candidates)
-    for x in fac:
-        for y in fac:
-            if x*y == num:
-                if x-y == most_square:
-                    factor = [x, y]
-    if factor[0] > factor[1]:
-        factor = factor[::-1]
-    
-    return factor
-
-def check_n_trs(fpath):
-    """
-    Returns the number of TRs for an input file. If the file is 3D, we also
-    return 1.
-    """
-    data = nib.load(fpath)
-
-    try:
-        ntrs = data.shape[3]
-    except:
-        ntrs = 1
-
-    return ntrs
-
-def fmri_qc(fpath, outputdir, pdf):
-    """
-    This takes an input image, motion corrects, and generates a brain mask. 
-    It then calculates a signal to noise ratio map and framewise displacement
-    plot for the file.
-    """
-    # if the number of TRs is too little, we skip the pipeline
-    ntrs = check_n_trs(fpath)
-
-    if ntrs < 3:
-        return pdf
-
-    opath = outputdir
-    filename = os.path.basename(fpath)
-
-    # FIXME: use a proper tempdir 
-
-    # motion correct + calculate motion paramaters
-    run('3dvolreg -prefix ' + opath + '/tmp_mcorr.nii.gz -twopass -twoblur 3 -Fourier -1Dfile ' + opath + '/tmp_motion.1D ' + fpath)
-    run('3dTstat -prefix ' + opath + '/tmp_mean.nii.gz ' + opath + '/tmp_mcorr.nii.gz')
-    run(' 3dAutomask -prefix ' + opath +  '/tmp_mask.nii.gz -clfrac 0.5 -peels 3 ' + opath + '/tmp_mean.nii.gz')
-    run('3dTstat -prefix ' + opath + '/tmp_std.nii.gz  -stdev ' + opath + '/tmp_mcorr.nii.gz')
-    run('3dcalc -prefix ' + opath + '/tmp_sfnr.nii.gz -a ' + opath + '/tmp_mean.nii.gz -b ' + opath + """/tmp_std.nii.gz -expr 'a/b'""")
-
-    # print raw data
-    pdf = montage(fpath, 'BOLD contrast', 'gray', None, 0.75, filename, pdf)
-    pdf = compute_FD(opath + '/tmp_motion.1D', filename, pdf, 50)
-    pdf = montage(opath + '/tmp_sfnr.nii.gz', 'SFNR',
-                                              'hot', None, 0.75, filename, pdf)
-    # plot spectra
-    # pdf = mean_PSD(opath + '/tmp_mcorr.nii.gz', 
-    #                opath + '/tmp_mask.nii.gz', filename, pdf)
-
-    # plot correlation statistics
-    # pdf = mean_correlation(opath + '/tmp_mcorr.nii.gz', 
-    #                        opath + '/tmp_mask.nii.gz', filename, pdf)
-
-    pdf = find_epi_spikes(fpath, filename, pdf)
-
-    # clean up all temporary files
-    run('rm ' + opath + '/tmp*')
-
-    return pdf
-
-def intensity_volume_qc(fpath, outputdir, pdf, name):
-    """
-    This prints a montage of the intensity volume
-    """
-    filename = os.path.basename(fpath)
-    pdf = montage(fpath, name, 'gray', None, 0.5, filename, pdf)
-    return pdf
-
-def t1_qc(fpath, outputdir, pdf):
-    intensity_volume_qc(fpath, outputdir, pdf, 'T1-contrast')
-
-def pd_qc(fpath, outputdir, pdf):
-    intensity_volume_qc(fpath, outputdir, pdf, 'PD-contrast')
-
-def t2_qc(fpath, outputdir, pdf):
-    intensity_volume_qc(fpath, outputdir, pdf, 'T2-contrast')
-
-def flair_qc(fpath, outputdir, pdf):
-    intensity_volume_qc(fpath, outputdir, pdf, 'FLAIR-contrast')
-
-def dti_qc(fpath, outputdir, pdf, subject_type='human'):
-    """
-    This prints a montage of the raw T1 image, for great justice.
-    """
-    filename = os.path.basename(fpath)
-    directory = os.path.dirname(fpath)
-
-    # load in bval file
-    bval = filename.split('.')
-    try:
-        bval.remove('gz')
-    except:
-        pass
-    try:
-        bval.remove('nii')
-    except:
-        pass
-    bval = np.genfromtxt(os.path.join(directory, ".".join(bval) + '.bval'))
- 
-    pdf = montage(fpath, 'B0 Contrast', 'gray', None, 0.5, filename, pdf)
-    pdf = montage_dti(fpath, filename, pdf, subject_type)
-    pdf = find_epi_spikes(fpath, filename, pdf, bval)
-
-    return pdf
-
-def bounding_box(filename):
-    """
-    Finds a box that only includes all nonzero voxels in a 3D image. Output box
-    is represented as 3 x 2 numpy array with rows denoting x, y, z, and columns
-    denoting stand and end slices.
-
-    Usage:
-        box = bounding_box(filename)
-    """
-
-    # find 3D bounding box
-    box = np.zeros((3,2))  # init bounding box
-    flag = 0  # switch to ascending
-
-    for i, dim in enumerate(filename.shape): # loop through (x, y, z)
-
-        # ascending search
-        while flag == 0:
-            for dim_test in np.arange(dim):
-
-                # get sum of all values in each slice
-                if i == 0:
-                    test = np.sum(filename[dim_test, :, :])
-                elif i == 1:
-                    test = np.sum(filename[:, dim_test, :])
-                elif i == 2:
-                    test = np.sum(filename[:, :, dim_test])
-
-                if test >= 1:  # if slice is nonzero, set starting bound
-                    box[i, 0] = dim_test
-                    flag = 1  # switch to descending
-                    break  # get us out of this nested nonsense
-
-        # descending search
-        while flag == 1:
-            for dim_test in np.arange(dim):
-                
-                dim_test = dim-dim_test - 1  # we have to reverse things
-
-                # get sum of all values in each slice
-                if i == 0:
-                    test = np.sum(filename[dim_test, :, :])
-                elif i == 1:
-                    test = np.sum(filename[:, dim_test, :])
-                elif i == 2:
-                    test = np.sum(filename[:, :, dim_test])
-
-                if test >= 1:  # if slice is nonzero, set ending bound
-                    box[i, 1] = dim_test
-                    flag = 0  # switch to ascending 
-                    break  # get us out of this nested nonsense
-
-    return box
-
-def montage(image, name, cmaptype, minval, maxval, filename, pdf):
-    """
-    Creates a montage of images displaying a image set on top of a grayscale 
-    image.
-
-    Generally, this will be used to plot an image (of type 'name') that was
-    generated from the original file 'filename'. So if we had an SNR map
-    'SNR.nii.gz' from 'fMRI.nii.gz', we would submit everything to montage
-    as so:
-
-        montage('SNR.nii.gz', 'SNR', 'EPI.nii.gz', pdf)
-
-    Usage:
-        montage(image, name, filename, pdf)
-
-        image    -- submitted image file name
-        name     -- name of the printout (e.g, SNR map, t-stats, etc.)
-        cmaptype -- 'redblue', 'hot', or 'gray'.
-        minval   -- colormap minimum value as a % (None == 'auto')
-        maxval   -- colormap maximum value as a % (None == 'auto')
-        filename -- qc image file name  
-        pdf      -- PDF object to save the figure to
-    """
-
-    # hard coded
-    steps = 25
-    box = None
-
-    # input checks
-    image = str(image)
-
-    # grab the image folder
-    opath = os.path.dirname(image)
-
-    # load in the daterbytes
-    output = str(image)
-    image = nib.load(image).get_data()
-
-    # if image is 4D, only keep the first time-point
-    if len(image.shape) > 3:
-        image = image[:, :, :, 0]
-
-    # reorient the data to radiological (does this generalize?)
-    image = np.transpose(image, (2,0,1))
-    image = np.rot90(image, 2)
-
-    if box == None: # if we didn't get a submitted bounding box
-        box = bounding_box(image) # get the image bounds
-    elif box.shape != (3,2): # if we did, ensure it is the right shape
-        error('*** Submitted bounding box is not the correct shape! ***')
-        error('***     It should be (3,2).                          ***')
-        raise ValueError
-
-    # crop data to bounded size
-    image = image[box[0,0]:box[0,1], box[1,0]:box[1,1], box[2,0]:box[2,1]]
-
-    # colormapping -- set value
-    if cmaptype == 'redblue':
-        cmap = plt.cm.RdBu_r 
-    elif cmaptype == 'hot':
-        cmap = plt.cm.OrRd
-    elif cmaptype == 'gray':
-        cmap = plt.cm.gray
-    else:
-        debug('No colormap supplied, default = greyscale.')
-        cmap = plt.cm.gray
-
-    # colormapping -- set range
-    if minval == None:
-        minval = np.min(image)
-    else:
-        minval = np.min(image) + ((np.max(image) - np.min(image)) * minval)
-
-    if maxval == None:
-        maxval = np.max(image)
-    else:
-        maxval = np.max(image) * maxval
-
-    cmap.set_bad('g', 0)  # value for transparent pixels in the overlay 
-
-    # I changed this to always work in the coronal plane...
-    steps = np.round(np.linspace(0,np.shape(image)[0]-1,25))
-
-    # init the figure, looping through each step
-    fig, axes = plt.subplots(nrows=5, ncols=5, facecolor='white')
-    for i, ax in enumerate(axes.flat):
-        im = ax.imshow(image[steps[i], :, :], cmap=cmap, 
-                                interpolation='nearest', 
-                                vmin=minval, vmax=maxval)
-        ax.set_frame_on(False)  # clean up unnecessary detail
-        ax.axes.get_xaxis().set_visible(False)
-        ax.axes.get_yaxis().set_visible(False)
-        #ax.set_title(str(int(steps[i])))
-        # step = step + stepsize  # iterate through the steps
-
-    fig.subplots_adjust(right=0.8)
-    cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-    cb = fig.colorbar(im, cax=cbar_ax)
-    cb.set_label(name, labelpad=0, y=0.5)
-    fig.suptitle(filename + '\n' + name, size=10)
-
-    fig.savefig(pdf, format='pdf')
-    plt.close()
-
-    return pdf
-
-def montage_dti(image, filename, pdf, subject_type):
-
-    """
-    Creates a montage of images displaying each DTI acquisition direction from
-    a single central slice.
-
-    For simplicity, most options from 'montage' are hard-coded here.
-
-    Usage:
-        montage(image, name, filename, pdf)
-
-        image    -- submitted image file name
-        name     -- name of the printout (e.g, SNR map, t-stats, etc.)
-        filename -- qc image file name  
-        pdf      -- PDF object to save the figure to
-        subject_type -- 'human' or 'phantom'
-
-    """
-
-    image = str(image)             # input checks
-    opath = os.path.dirname(image) # grab the image folder
-
-    # load in the daterbytes
-    output = str(image)
-    image = nib.load(image).get_data()
-
-    # reorient the data to radiological, one TR at a time
-    for i in np.arange(image.shape[3]):
-
-        if i == 0:
-            newimage = np.transpose(image[:, :, :, i], (2,0,1))
-            newimage = np.rot90(newimage, 2)
-
-        elif i == 1:
-            tmpimage = np.transpose(image[:, :, :, i], (2,0,1))
-            tmpimage = np.rot90(tmpimage, 2)
-            newimage = np.concatenate((newimage[...,np.newaxis], 
-                                       tmpimage[...,np.newaxis]), axis=3)
-        
-        else:
-            tmpimage = np.transpose(image[:, :, :, i], (2,0,1))
-            tmpimage = np.rot90(tmpimage, 2)
-            newimage = np.concatenate((newimage, 
-                                       tmpimage[...,np.newaxis]), axis=3)
-
-    image = copy(newimage)
-
-    cmap = plt.cm.gray
-    cmap.set_bad('g', 0)  # value for transparent pixels in the overlay 
-
-    # find the middle slice
-    if subject_type == 'human':
-        midslice = np.floor((image.shape[2]-1)/2)
-    elif subject_type == 'phantom':
-        midslice = np.floor((image.shape[0]-1)/2)
-
-    # init the figure, looping through each step
-    fig, axes = plt.subplots(nrows=8, ncols=9, facecolor='white')
-    for i, ax in enumerate(axes.flat):
-
-        if i < image.shape[3]:
-
-            if subject_type == 'human':
-                im = ax.imshow(image[:, :, midslice, i], cmap=cmap, 
-                                           interpolation='nearest')
-            elif subject_type == 'phantom':
-                im = ax.imshow(image[midslice, :, :, i], cmap=cmap, 
-                                           interpolation='nearest')
-
-            ax.set_frame_on(False)  # clean up unnecessary detail
-            ax.axes.get_xaxis().set_visible(False)
-            ax.axes.get_yaxis().set_visible(False)
-            #ax.set_title(str(int(i+1)))
-
-        # removes extra axes from plot
-        else:
-            ax.set_axis_off()
-
-    fig.subplots_adjust(right=0.8)
-    cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-    cb = fig.colorbar(im, cax=cbar_ax)
-    cb.set_label('Anisotropy', labelpad=0, y=0.5)
-    fig.suptitle(filename + '\n' + 'DTI', size=10)
-
-    fig.savefig(pdf, format='pdf')
-    plt.close()
-
-    return pdf
-
-def find_epi_spikes(image, filename, pdf, bval=None):
-
-    """
-    Plots, for each axial slice, the mean instensity over all TRs. 
-    Strong deviations are an indication of the presence of spike
-    noise.
-
-    If bval is supplied, we remove all time points that are 0 in the bval
-    vector.
-
-    Usage:
-        find_epi_spikes(image, filename, pdf)
-
-        image    -- submitted image file name
-        filename -- qc image file name  
-        pdf      -- PDF object to save the figure to
-        bval     -- numpy array of bvecs (for finding B0s)
-
-    """
-
-    image = str(image)             # input checks
-    opath = os.path.dirname(image) # grab the image folder
-
-    # load in the daterbytes
-    output = str(image)
-    image = nib.load(image).get_data()
-
-    # reorient the data to radiological, one TR at a time
-    for i in np.arange(image.shape[3]):
-
-        if i == 0:
-            newimage = np.transpose(image[:, :, :, i], (2,0,1))
-            newimage = np.rot90(newimage, 2)
-
-        elif i == 1:
-            tmpimage = np.transpose(image[:, :, :, i], (2,0,1))
-            tmpimage = np.rot90(tmpimage, 2)
-            newimage = np.concatenate((newimage[...,np.newaxis], 
-                                       tmpimage[...,np.newaxis]), axis=3)
-        
-        else:
-            tmpimage = np.transpose(image[:, :, :, i], (2,0,1))
-            tmpimage = np.rot90(tmpimage, 2)
-            newimage = np.concatenate((newimage, 
-                                       tmpimage[...,np.newaxis]), axis=3)
-
-    image = copy(newimage)
-
-    x = image.shape[1]
-    y = image.shape[2]
-
-    # find the most square set of factors for n_subj
-    flag = 0
-    while flag == 0:
-        
-        # get all candidate factors for the current number of subjects
-        f_trs = factors(shape[0])
-        factor = square_factors(f_trs, shape[0])
-        
-        # check if solution is 'square enough'
-        if float(factor[1]) / float(factor[0]) <= 1.5:
-            flag = 1
-       
-        # if not, try again with a larger number
-        else:
-            n_subj = n_subj + 1
-
-    fig, axes = plt.subplots(nrows=factor[0], 
-                             ncols=factor[1], facecolor='white')
-
-    # for each axial slice
-    for i, ax in enumerate(axes.flat):
-        if i < image.shape[0]:
-
-            vector_mean = np.array([])
-            vector_std = np.array([])
-
-            # find the mean, STD, of each dir and concatenate w. vector
-            for j in np.arange(image.shape[3]):
-
-                # this is if we want a subset of the image
-                sample = image[i, np.round(x*0.25):np.round(x*0.75), 
-                                  np.round(y*0.25):np.round(y*0.75), j]
-
-                mean = np.mean(sample)
-                std = np.std(sample)
-
-                if j == 0:
-                    vector_mean = copy(mean)
-                    vector_std = copy(std)
-                else:
-                    vector_mean = np.hstack((vector_mean, mean))
-                    vector_std = np.hstack((vector_std, std))
-
-            # crop out b0 images, find absoloute derivative
-            if bval != None:
-                idx = np.where(bval > 0)[0]
-                vector_mean = vector_mean[idx]
-                vector_std = vector_std[idx]
-
-            # plot
-            ax.plot(vector_mean, color='black')
-            ax.fill_between(np.arange(len(vector_std)), 
-                             vector_mean-vector_std, 
-                             vector_mean+vector_std, alpha=0.5, 
-                                                     color='black')
-            ax.set_frame_on(False)  # clean up unnecessary detail
-            ax.axes.get_xaxis().set_visible(False)
-            ax.axes.get_yaxis().set_visible(False)
-            ax.set_title('slice: ' + str(i+1), size=8)
-        else:
-            ax.set_axis_off()
-
-    plt.suptitle(filename + '\n' + 'DTI Slice/TR Wise Abnormalities', size=10)
-    plt.savefig(pdf, format='pdf')
-    plt.close()
-
-    return pdf
-
-def load_masked_data(func, mask):
-    """
-    Accepts 'functional.nii.gz' and 'mask.nii.gz', and returns a voxels x
-    timepoints matrix of the functional data in non-zero mask locations. 
-    """
-    func = nib.load(func).get_data()
-    mask = nib.load(mask).get_data()
-
-    mask = mask.reshape(mask.shape[0]*mask.shape[1]*mask.shape[2])
-    func = func.reshape(func.shape[0]*func.shape[1]*func.shape[2],
-                                                    func.shape[3])
-
-    # find within-brain timeseries
-    idx = np.where(mask > 0)[0]
-    func = func[idx, :]
-
-    return func
-
-# def mean_correlation(func, mask, filename, pdf):
-#     """
-#     Calculates a correlation matrix of all timeseries within the submitted 
-#     mask, along with the mean correlation value, and plots this information in
-#     the submitted pdf.
-#     """
-#     # load data
-#     func = load_masked_data(func, mask)
-
-#     # take a random 10% of the data
-#     idx = np.random.choice(func.shape[0], func.shape[0]/10, replace=False)
-#     func = func[idx, :]
-
-#     # find correlation matrix
-#     func = sp.corrcoef(func, rowvar=1)
-
-#     # mean, standard deviation of flattened array
-#     mean = np.mean(func, axis=None)
-#     std = np.std(func, axis=None)
-
-#     # plot correlation matrix
-#     im = plt.imshow(func, cmap=plt.cm.RdBu_r, interpolation='nearest', 
-#                                                       vmin=-1, vmax=1)
-#     # clean up unnecessary detail
-#     #plt.set_frame_on(False)
-#     #plt.axes.get_xaxis().set_visible(False)
-#     #plt.axes.get_yaxis().set_visible(False)
-
-#     plt.xlabel('Voxel')
-#     plt.ylabel('Voxel')
-
-#     # add stats
-#     cb = plt.colorbar(im)
-#     cb.set_label('Correlation (r)', labelpad=0, y=0.5)
-#     plt.title(filename + '\nWhole-Brain Correlaion (r)\n' +
-#                          ' Mean = ' + str(mean) + ' SD = ' + str(std), size=10)
-
-#     # print to pdf
-#     plt.savefig(pdf, format='pdf')
-#     plt.close()
-
-#     return pdf
-
-# def mean_PSD(func, mask, filename, pdf):
-#     """
-#     Calculates the mean normalized spectra across the entire brain 
-#     and plots them in the submitted pdf.
-#     """
-#     func = load_masked_data(func, mask)
-
-#     # find peridogram
-#     func = sig.detrend(func, type='linear')
-#     func = sig.periodogram(func, fs=0.5, return_onesided=True, 
-#                                             scaling='density')
-
-#     freq = func[0]
-#     func = func[1]
-
-#     # compute std, sem, mean.
-#     std = np.nanstd(func, axis=0)
-#     #sem = std / np.repeat(np.sqrt(func.shape[0]), func.shape[1])
-#     mean = np.nanmean(func, axis=0)
-
-#     # plot
-#     plt.plot(freq, mean, color='black', linewidth=2)
-#     #plt.loglog(freq, -mean, color='black', linewidth=2)
-#     plt.fill_between(freq, mean + std, mean, color='black', alpha=0.5)
-#     plt.fill_between(freq, mean - std, mean, color='black', alpha=0.5)
-#     # plt.plot(freq, mean + sem, color='black', linestyle='-.', 
-#     #                                             linewidth=0.5)
-#     #plt.plot(freq, mean - sem, color='black', linestyle='-.', linewidth=0.5)
-#     plt.title(filename + '\nWhole-Brain Spectra Mean, SD (shaded)', size=10)
-#     plt.xlabel('Frequency (Hz)')
-#     plt.ylabel('Power')
-
-#     plt.ylim(0, max(std))   
-#     plt.savefig(pdf, format='pdf')
-#     plt.close()
-
-#     return pdf
-
-def compute_FD(f, filename, pdf, head_radius=50):
-    """
-    Computes FD vector from AFNI 3dVolreg 6-param .1D file read using
-    numpy's genfromtxt.
-
-        f is a string pointing to the .1D file.
-        head_radius is an integer in mm.
-
-    1) Convert degrees (roll, pitch, yaw) to mm using head radius
-    2) Takes the same of the absoloute first difference
-    Returns a vector of mm/TR.
-    """
-    
-    # framewise displacement
-    f = np.genfromtxt(f)
-    f[:,0] = np.radians(f[:,0]) * head_radius
-    f[:,1] = np.radians(f[:,1]) * head_radius
-    f[:,2] = np.radians(f[:,2]) * head_radius
-    f = np.abs(np.diff(f, n=1, axis=0))
-    f = np.sum(f, axis=1)
-    
-    # time axis
-    t = np.arange(len(f))
-
-    # plot
-    plt.plot(t, f.T, lw=1, color='black')
-    plt.axhline(y=0.5, xmin=0, xmax=len(t), color='r')
-    plt.xlim((-3, len(t) + 3)) # this is in TRs
-    plt.ylim(0, 2) # this is in mm/TRs
-    plt.xlabel('TR')
-    plt.ylabel('Framewise Displacement (mm/TR)')
-    plt.title(filename + '\nHead Motion', size=10)
-    plt.savefig(pdf, format='pdf')
-    plt.close()
-
-    return pdf
 
 def main():
     """
