@@ -438,9 +438,7 @@ def find_adni_niftis(subject_folder):
     Returns all of the candidate ADNI phantom files in a subject folder.
     """
     candidates = filter(lambda x: '.nii.gz' in x, os.listdir(subject_folder))
-    candidates = filter(lambda x: 'bravo' in x.lower() 
-                               or 'mprage' in x.lower() 
-                               or 'fspgr' in x.lower(), candidates)
+    candidates = filter(lambda x: 't1' in x.lower(), candidates)
     candidates.sort()
 
     return candidates
