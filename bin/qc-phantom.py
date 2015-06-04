@@ -732,8 +732,6 @@ def main():
     adni      = arguments['--adni']
     fmri      = arguments['--fmri']
 
-    print(adni)
-    print(fmri)
     if adni:
         main_adni(project, sites, int(ntp))
 
