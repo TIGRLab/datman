@@ -15,6 +15,8 @@ Arguments:
 Options:
     -v,--verbose             Verbose logging
     --debug                  Debug logging
+    --adni                   Run on ADNI phantom data
+    --fmri                   Run on fBIRN fMRI phantom data
 
 DETAILS
 
@@ -22,9 +24,9 @@ DETAILS
     and calcuates relevant statistics on them.
 
     This expects properly-formatted phantom tags:
-        ADNI       -- PHA-ADN
-        fBIRN fMRI -- PHA-fMR
-        fBIRN DIT  -- PHA-DTI
+        ADNI       -- T1
+        fBIRN fMRI -- RST
+        fBIRN DIT  -- DTI
 
     Each file is then sent through the appropriate analysis pipeline, if the
     outputs do not already exist. Finally, this compiles results of the last 
@@ -727,9 +729,16 @@ def main():
     project   = arguments['<project>']
     VERBOSE   = arguments['--verbose']
     DEBUG     = arguments['--debug']
+    adni      = arguments['--adni']
+    fmri      = arguments['--fmri']
 
-    main_adni(project, sites, int(ntp))
-    main_fmri(project, sites, int(ntp))
+    print(adni)
+    print(fmri)
+    if adni:
+        main_adni(project, sites, int(ntp))
+
+    if fmri:
+        main_fmri(project, sites, int(ntp))
 
 if __name__ == '__main__':
     main()
