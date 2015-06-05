@@ -191,14 +191,13 @@ def print_adni_qc(project, data, title):
     plt.savefig(os.path.join(project, 'qc/phantom/adni/{}.jpg'.format(title)))
     plt.close()
 
-def find_adni_t1_vals(project, data, erosion=13):
+def find_adni_t1_vals(project, data):
     """
     Find the 5 ROIs of interest using the random walker algorithm [1]. Uses the
     image mean as the lower threshold, and 2x the mean as an upper threshold.
 
-    Further, we find the 5 largest connected components, and erode these masks
-    by `erosion` voxels. The mean of these eroded masks are used as our ADNI 
-    samples and passed along for plotting.
+    Further, we find the 5 largest connected components. The mean of these 
+    masks are used as our ADNI samples and passed along for plotting.
 
     This also calculates the relevant T1 ratios: s2/s1, s3/s1, s4/s1, s5/s1.
 
@@ -483,7 +482,7 @@ def main_adni(project, sites, tp):
             phantom = candidates[-1]
             if os.path.isfile(os.path.join(project, 'qc/phantom/adni', subj + '.csv')) == False:
                 adni = find_adni_t1_vals(project, 
-                           os.path.join(data_path, 'nii', subj, phantom),erosion=13)
+                           os.path.join(data_path, 'nii', subj, phantom))
                 # write csv file header='s1,s2,s3,s4,s5,s2/s1,s3/s1,s4/s1,s5/s1')
                 np.savetxt(os.path.join(
                            project, 'qc/phantom/adni', subj + '.csv'), adni.T,

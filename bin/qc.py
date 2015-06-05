@@ -39,6 +39,7 @@ import datman.scanid
 import subprocess as proc
 from copy import copy
 from docopt import docopt
+import tempfile
 
 import matplotlib
 matplotlib.use('Agg')   # Force matplotlib to not use any Xwindows backend
@@ -82,7 +83,7 @@ def run(cmd):
             out and debug("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
             err and debug("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
 
-def ignore(fpath, outputdir, pdf):
+def ignore(fpath, pdf):
     pass
 
 def factors(n):    
@@ -362,21 +363,6 @@ def find_epi_spikes(image, filename, pdf, bvec=None):
     factor = np.ceil(np.sqrt(z))
     factor = factor.astype(int)
 
-    # flag = 0
-    # while flag == 0:
-        
-    #     # get all candidate factors for the current number of subjects
-    #     f_trs = factors(image.shape[0])
-    #     factor = square_factors(f_trs, n)
-        
-    #     # check if solution is 'square enough'
-    #     if float(factor[1]) / float(factor[0]) <= 1.5:
-    #         flag = 1
-       
-    #     # if not, try again with a larger number
-    #     else:
-    #         n_slices = n_slices + 1
-
     fig, axes = plt.subplots(nrows=factor, ncols=factor, facecolor='white')
 
     # sets the bounds of the image
@@ -507,7 +493,7 @@ def fmri_plots(func, mask, f, filename, pdf):
 
     return pdf
 
-def fmri_qc(fpath, outputdir, pdf):
+def fmri_qc(fpath, pdf):
     """
     This takes an input image, motion corrects, and generates a brain mask. 
     It then calculates a signal to noise ratio map and framewise displacement
@@ -519,46 +505,41 @@ def fmri_qc(fpath, outputdir, pdf):
     if ntrs < 20:
         return pdf
 
-    opath = outputdir
     filename = os.path.basename(fpath)
+    tmpdir = tempfile.mkdtemp(prefix='qc-')
 
-    # FIXME: use a proper tempdir 
+    run('3dvolreg -prefix {t}/mcorr.nii.gz -twopass -twoblur 3 -Fourier -1Dfile {t}/motion.1D {}'.format(t=tmpdir, fpath))
+    run('3dTstat -prefix {t}/mean.nii.gz {t}/mcorr.nii.gz'.format(t=tmpdir))
+    run('3dAutomask -prefix {t}/mask.nii.gz -clfrac 0.5 -peels 3 {t}/mean.nii.gz'.format(t=tmpdir))
+    run('3dTstat -prefix {t}/std.nii.gz  -stdev {t}/mcorr.nii.gz'.format(t=tmpdir))
+    run("""3dcalc -prefix {t}/sfnr.nii.gz -a {t}/mean.nii.gz -b {t}/std.nii.gz -expr 'a/b'""".format(t=tmpdir))
 
-    # motion correct + calculate motion paramaters
-    run('3dvolreg -prefix ' + opath + '/tmp_mcorr.nii.gz -twopass -twoblur 3 -Fourier -1Dfile ' + opath + '/tmp_motion.1D ' + fpath)
-    run('3dTstat -prefix ' + opath + '/tmp_mean.nii.gz ' + opath + '/tmp_mcorr.nii.gz')
-    run('3dAutomask -prefix ' + opath +  '/tmp_mask.nii.gz -clfrac 0.5 -peels 3 ' + opath + '/tmp_mean.nii.gz')
-    run('3dTstat -prefix ' + opath + '/tmp_std.nii.gz  -stdev ' + opath + '/tmp_mcorr.nii.gz')
-    run('3dcalc -prefix ' + opath + '/tmp_sfnr.nii.gz -a ' + opath + '/tmp_mean.nii.gz -b ' + opath + """/tmp_std.nii.gz -expr 'a/b'""")
-
-    # print QC
     pdf = montage(fpath, 'BOLD-contrast', filename, pdf, maxval=0.75)
-    pdf = fmri_plots(opath + '/tmp_mcorr.nii.gz', opath + '/tmp_mask.nii.gz', opath + '/tmp_motion.1D', filename, pdf)
-    pdf = montage(opath + '/tmp_sfnr.nii.gz', 'SFNR', filename, pdf, cmaptype='hot', maxval=0.75)
+    pdf = fmri_plots('{t}/mcorr.nii.gz'.format(t=tmpdir), '{t}/mask.nii.gz'.format(t=tmpdir), '{t}/motion.1D'.format(t=tmpdir), filename, pdf)
+    pdf = montage('{t}/sfnr.nii.gz'.format(t=tmpdir), 'SFNR', filename, pdf, cmaptype='hot', maxval=0.75)
     pdf = find_epi_spikes(fpath, filename, pdf)
 
-    # clean up all temporary files
-    run('rm ' + opath + '/tmp*')
+    run('rm r {}'.format(tmpdir))
 
     return pdf
 
-def t1_qc(fpath, outputdir, pdf):
+def t1_qc(fpath, pdf):
     pdf = montage(fpath, 'T1-contrast', os.path.basename(fpath), pdf, maxval=0.25)
     return pdf
 
-def pd_qc(fpath, outputdir, pdf):
+def pd_qc(fpath, pdf):
     pdf = montage(fpath, 'PD-contrast', os.path.basename(fpath), pdf, maxval=0.4)
     return pdf
 
-def t2_qc(fpath, outputdir, pdf):
+def t2_qc(fpath, pdf):
     pdf = montage(fpath, 'T2-contrast', os.path.basename(fpath), pdf, maxval=0.5)
     return pdf
 
-def flair_qc(fpath, outputdir, pdf):
+def flair_qc(fpath, pdf):
     pdf = montage(fpath, 'FLAIR-contrast', os.path.basename(fpath), pdf, maxval=0.3)
     return pdf
 
-def dti_qc(fpath, outputdir, pdf):
+def dti_qc(fpath, pdf):
     """
     Runs the QC pipeline on the DTI inputs. We use the BVEC (not BVAL)
     file to find B0 images (in some scans, mid-sequence B0s are coded
@@ -588,7 +569,7 @@ def dti_qc(fpath, outputdir, pdf):
 
     return pdf
 
-def qc_folder(scanpath, prefix, outputdir, QC_HANDLERS):
+def qc_folder(scanpath, prefix, qcdir, QC_HANDLERS):
     """
     QC all the images in a folder (scanpath).
 
@@ -596,8 +577,8 @@ def qc_folder(scanpath, prefix, outputdir, QC_HANDLERS):
     prefix.
     """
 
-    outputdir = dm.utils.define_folder(outputdir)
-    pdffile = os.path.join(outputdir, 'qc_' + prefix + '.pdf')
+    qcdir = dm.utils.define_folder(qcdir)
+    pdffile = os.path.join(qcdir, 'qc_' + prefix + '.pdf')
     if os.path.exists(pdffile):
         debug("{} pdf exists, skipping.".format(pdffile))
         return 
@@ -615,7 +596,7 @@ def qc_folder(scanpath, prefix, outputdir, QC_HANDLERS):
         if tag not in QC_HANDLERS:
             log("QC hanlder for scan {} (tag {}) not found. Skipping.".format(fname, tag))
             continue
-        QC_HANDLERS[tag](fname, outputdir, pdf)
+        QC_HANDLERS[tag](fname, pdf)
 
     # finally, close the pdf
     d = pdf.infodict()
