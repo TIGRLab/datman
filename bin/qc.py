@@ -508,7 +508,7 @@ def fmri_qc(fpath, pdf):
     filename = os.path.basename(fpath)
     tmpdir = tempfile.mkdtemp(prefix='qc-')
 
-    run('3dvolreg -prefix {t}/mcorr.nii.gz -twopass -twoblur 3 -Fourier -1Dfile {t}/motion.1D {}'.format(t=tmpdir, fpath))
+    run('3dvolreg -prefix {t}/mcorr.nii.gz -twopass -twoblur 3 -Fourier -1Dfile {t}/motion.1D {f}'.format(t=tmpdir, f=fpath))
     run('3dTstat -prefix {t}/mean.nii.gz {t}/mcorr.nii.gz'.format(t=tmpdir))
     run('3dAutomask -prefix {t}/mask.nii.gz -clfrac 0.5 -peels 3 {t}/mean.nii.gz'.format(t=tmpdir))
     run('3dTstat -prefix {t}/std.nii.gz  -stdev {t}/mcorr.nii.gz'.format(t=tmpdir))
