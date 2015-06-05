@@ -519,7 +519,7 @@ def fmri_qc(fpath, pdf):
     pdf = montage('{t}/sfnr.nii.gz'.format(t=tmpdir), 'SFNR', filename, pdf, cmaptype='hot', maxval=0.75)
     pdf = find_epi_spikes(fpath, filename, pdf)
 
-    run('rm r {}'.format(tmpdir))
+    run('rm -r {}'.format(tmpdir))
 
     return pdf
 
