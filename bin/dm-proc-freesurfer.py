@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-freesurfer.py <experiment-directory>
+dm-proc-freesurfer.py <experiment-directory>
 
 This runs freesurfer on the input T1 data.
 
@@ -16,9 +16,6 @@ from random import choice
 from glob import glob
 from string import ascii_uppercase, digits
 import numpy as np
-import nibabel as nib
-import StringIO as io
-import matplotlib.pyplot as plt
 import datman as dm
 
 def proc_data(sub, data_path):
