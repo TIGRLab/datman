@@ -18,7 +18,7 @@ from string import ascii_uppercase, digits
 import numpy as np
 import datman as dm
 
-def proc_data(sub, data_path):
+def proc_data(sub, data_path, log_path):
     # copy functional data into epitome-compatible structure
     try:
         niftis = filter(lambda x: 'nii.gz' in x, 
@@ -46,10 +46,9 @@ def proc_data(sub, data_path):
     # submit to queue
     uid = ''.join(choice(ascii_uppercase + digits) for _ in range(6))
     name = 'datman_fs_{sub}_{uid}'.format(sub=sub, uid=uid)
-    log = os.path.join(data_path, 'logs/freesurfer')
     cmd = """echo {cmd} | qsub -o {log} -S /bin/bash -V -q main.q -cwd \
              -N {name} -l mem_free=6G,virtual_free=6G -j y \
-          """.format(cmd=cmd, log=log, name=name)
+          """.format(cmd=cmd, log=log_path, name=name)
     dm.utils.run(cmd)
 
     return name
@@ -139,7 +138,7 @@ def main(base_path):
 
         try:
             # run through freesurfer
-            name = proc_data(sub, data_path)
+            name = proc_data(sub, data_path, log_path)
             list_of_names.append(name)
 
         except ValueError as ve:
@@ -160,3 +159,4 @@ if __name__ == "__main__":
         main(sys.argv[1])
     else:
         print(__doc__)
+
