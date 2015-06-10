@@ -11,6 +11,7 @@ Arguments:
 Options: 
     --datadir DIR      Parent folder holding exported data [default: data]
     --qcdir DIR        Folder for QC reports [default: qc]
+    --dbdir DIR        Folder for the database [default: qc]
     --verbose          Be chatty
     --debug            Be extra chatty
     --dry-run          Don't actually do any work
@@ -23,11 +24,15 @@ DETAILS
 
         <datadir>/nifti/<timepoint>
 
+    The database stores some of the numbers plotted here, and is used by web-
+    build to generate interactive charts detailing the acquisitions over time.
+
 """
 import os
 import sys
-import datetime
 import glob
+import sqlite3
+import datetime
 import numpy as np
 import scipy as sp
 import scipy.signal as sig
@@ -49,6 +54,9 @@ from matplotlib.backends.backend_pdf import PdfPages
 DEBUG  = False
 VERBOSE= False
 DRYRUN = False
+
+###############################################################################
+# HELPERS
 
 def log(message): 
     print message
@@ -83,8 +91,38 @@ def run(cmd):
             out and debug("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
             err and debug("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
 
-def ignore(fpath, pdf):
-    pass
+def create_db(cur):
+    cur.execute('CREATE TABLE fmri (subj TEXT)')
+    cur.execute('CREATE TABLE dti (subj TEXT)')
+    cur.execute('CREATE TABLE t1 (subj TEXT)')
+
+def insert_value(cur, table, subj, colname, value):
+
+    # check if column exits, add if it does not
+    cur.execute('PRAGMA table_info({})'.format(table))
+    d = cur.fetchall()
+
+    cols = []
+    for col in d:
+        cols.append(str(col[1]))
+
+    if colname not in cols:
+        cur.execute('ALTER TABLE {table} ADD COLUMN {colname} FLOAT DEFAULT null'.format(
+                           table=table, colname=colname))
+
+    # check if subject exists
+    cur.execute("""SELECT * FROM {table} WHERE subj='{subj}'""".format(
+                       table=table, subj=subj))
+    d = cur.fetchall()
+
+    # if subject does not exist, insert row
+    if len(d) == 0:
+        cur.execute("""INSERT INTO {table}(subj, {colname}) VALUES('{subj}', {value})""".format(
+                       table=table, subj=subj, colname=colname, value=value))
+    # otherwise, update row
+    else:
+        cur.execute("""UPDATE {table} SET {colname} = {value} WHERE subj='{subj}'""".format(
+                       table=table, subj=subj, colname=colname, value=value))
 
 def factors(n):    
     """
@@ -222,6 +260,9 @@ def reorient_4d_image(image):
 
     return image
 
+###############################################################################
+# PLOTTERS / CALCULATORS
+
 def montage(image, name, filename, pdf, cmaptype='grey', mode='3d', minval=None, maxval=None, box=None):
     """
     Creates a montage of images displaying a image set on top of a grayscale 
@@ -326,7 +367,7 @@ def montage(image, name, filename, pdf, cmaptype='grey', mode='3d', minval=None,
 
     return pdf
 
-def find_epi_spikes(image, filename, pdf, bvec=None):
+def find_epi_spikes(image, filename, pdf, ftype, cur=None, bvec=None):
 
     """
     Plots, for each axial slice, the mean instensity over all TRs. 
@@ -342,6 +383,8 @@ def find_epi_spikes(image, filename, pdf, bvec=None):
         image    -- submitted image file name
         filename -- qc image file name  
         pdf      -- PDF object to save the figure to
+        ftype     -- 'fmri' or 'dti'
+        cur      -- cursor object for subject qc database (if None, don't use)
         bvec     -- numpy array of bvecs (for finding direction = 0)
 
     """
@@ -358,6 +401,9 @@ def find_epi_spikes(image, filename, pdf, bvec=None):
     y = image.shape[2]
     z = image.shape[0]
     t = image.shape[3]
+
+    # initialize the spikecount
+    spikecount = 0
 
     # find the most square set of factors for n_trs
     factor = np.ceil(np.sqrt(z))
@@ -392,13 +438,17 @@ def find_epi_spikes(image, filename, pdf, bvec=None):
                     v_sd = np.hstack((v_sd, sd))
 
             # crop out b0 images
-            if bvec != None:
+            if bvec:
                 idx = np.where(bvec != 0)[0]
                 v_mean = v_mean[idx]
                 v_sd = v_sd[idx]
                 v_t = np.arange(len(idx))
             else:
                 v_t = np.arange(t)
+
+            # keep track of spikes
+            v_spikes = np.where(v_mean > np.mean(v_mean)+np.mean(v_sd))[0]
+            spikecount = spikecount + len(v_spikes)
 
             ax.plot(v_mean, color='black')
             ax.fill_between(v_t, v_mean-v_sd, v_mean+v_sd, alpha=0.5, color='black')
@@ -408,13 +458,19 @@ def find_epi_spikes(image, filename, pdf, bvec=None):
         else:
             ax.set_axis_off()
 
+    if cur:
+        subj = filename.split('_')[0:5]
+        subj = '_'.join(subj)
+
+        insert_value(cur, ftype, subj, 'spikecount', spikecount)
+
     plt.suptitle(filename + '\n' + 'DTI Slice/TR Wise Abnormalities', size=10)
     plt.savefig(pdf, format='pdf')
     plt.close()
 
     return pdf
 
-def fmri_plots(func, mask, f, filename, pdf):
+def fmri_plots(func, mask, f, filename, pdf, cur=None):
     """
     Calculates and plots:
          + Mean and SD of normalized spectra across brain.
@@ -447,6 +503,7 @@ def fmri_plots(func, mask, f, filename, pdf):
     ##############################################################################
     # framewise displacement
     plt.subplot(2,2,2)
+    fd_thresh = 0.5
     f = np.genfromtxt(f)
     f[:,0] = np.radians(f[:,0]) * 50 # 50 = head radius, need not be constant.
     f[:,1] = np.radians(f[:,1]) * 50 # 50 = head radius, need not be constant.
@@ -456,7 +513,7 @@ def fmri_plots(func, mask, f, filename, pdf):
     t = np.arange(len(f))
 
     plt.plot(t, f.T, lw=1, color='black')
-    plt.axhline(y=0.5, xmin=0, xmax=len(t), color='r')
+    plt.axhline(y=fd_thresh, xmin=0, xmax=len(t), color='r')
     plt.xlim((-3, len(t) + 3)) # this is in TRs
     plt.ylim(0, 2) # this is in mm/TRs
     plt.xticks(size=6)
@@ -464,6 +521,16 @@ def fmri_plots(func, mask, f, filename, pdf):
     plt.xlabel('TR', size=6)
     plt.ylabel('Framewise displacement (mm/TR)', size=6)
     plt.title('Head motion', size=6)
+
+    if cur:
+        fdtot = np.sum(f) # total framewise displacement
+        fdnum = len(np.where(f > fd_thresh)[0]) # number of TRs above 0.5 mm FD
+
+        subj = filename.split('_')[0:5]
+        subj = '_'.join(subj)
+
+        insert_value(cur, 'fmri', subj, 'fdtot', fdtot)
+        insert_value(cur, 'fmri', subj, 'fdnum', fdnum)
 
     ##############################################################################
     # whole brain correlation
@@ -485,6 +552,13 @@ def fmri_plots(func, mask, f, filename, pdf):
         tick.set_fontsize(6)
     plt.title('Whole-brain r mean={}, SD={}'.format(str(mean), str(std)), size=6)
 
+    if cur:
+        subj = filename.split('_')[0:5]
+        subj = '_'.join(subj)
+
+        insert_value(cur, 'fmri', subj, 'corrmean', mean)
+        insert_value(cur, 'fmri', subj, 'corrsd', std)
+
     ##############################################################################
     # add a final plot?
     plt.suptitle(filename)
@@ -493,7 +567,56 @@ def fmri_plots(func, mask, f, filename, pdf):
 
     return pdf
 
-def fmri_qc(fpath, pdf):
+###############################################################################
+# PIPELINES
+
+def ignore(fpath, pdf, cur):
+    pass
+
+def rest_qc(fpath, pdf, cur):
+    """
+    This takes an input image, motion corrects, and generates a brain mask. 
+    It then calculates a signal to noise ratio map and framewise displacement
+    plot for the file.
+
+    At the moment, the only difference between this and fmri_qc is that this
+    also adds some stats to the subject-qc database.
+    """
+    # if the number of TRs is too little, we skip the pipeline
+    ntrs = check_n_trs(fpath)
+
+    if ntrs < 20:
+        return pdf
+
+    filename = os.path.basename(fpath)
+    tmpdir = tempfile.mkdtemp(prefix='qc-')
+
+    run('3dvolreg \
+         -prefix {t}/mcorr.nii.gz \
+         -twopass -twoblur 3 -Fourier \
+         -1Dfile {t}/motion.1D {f}'.format(t=tmpdir, f=fpath))
+    run('3dTstat -prefix {t}/mean.nii.gz {t}/mcorr.nii.gz'.format(t=tmpdir))
+    run('3dAutomask \
+         -prefix {t}/mask.nii.gz \
+         -clfrac 0.5 -peels 3 {t}/mean.nii.gz'.format(t=tmpdir))
+    run('3dTstat -prefix {t}/std.nii.gz  -stdev {t}/mcorr.nii.gz'.format(t=tmpdir))
+    run("""3dcalc \
+           -prefix {t}/sfnr.nii.gz \
+           -a {t}/mean.nii.gz -b {t}/std.nii.gz -expr 'a/b'""".format(t=tmpdir))
+
+    pdf = montage(fpath, 'BOLD-contrast', filename, pdf, maxval=0.75)
+    pdf = fmri_plots('{t}/mcorr.nii.gz'.format(t=tmpdir), 
+                     '{t}/mask.nii.gz'.format(t=tmpdir), 
+                     '{t}/motion.1D'.format(t=tmpdir), filename, pdf, cur)
+    pdf = montage('{t}/sfnr.nii.gz'.format(t=tmpdir), 
+                  'SFNR', filename, pdf, cmaptype='hot', maxval=0.75)
+    pdf = find_epi_spikes(fpath, filename, pdf, 'fmri', cur=cur)
+
+    run('rm -r {}'.format(tmpdir))
+
+    return pdf
+
+def fmri_qc(fpath, pdf, cur):
     """
     This takes an input image, motion corrects, and generates a brain mask. 
     It then calculates a signal to noise ratio map and framewise displacement
@@ -508,38 +631,48 @@ def fmri_qc(fpath, pdf):
     filename = os.path.basename(fpath)
     tmpdir = tempfile.mkdtemp(prefix='qc-')
 
-    run('3dvolreg -prefix {t}/mcorr.nii.gz -twopass -twoblur 3 -Fourier -1Dfile {t}/motion.1D {f}'.format(t=tmpdir, f=fpath))
+    run('3dvolreg \
+         -prefix {t}/mcorr.nii.gz \
+         -twopass -twoblur 3 -Fourier \
+         -1Dfile {t}/motion.1D {f}'.format(t=tmpdir, f=fpath))
     run('3dTstat -prefix {t}/mean.nii.gz {t}/mcorr.nii.gz'.format(t=tmpdir))
-    run('3dAutomask -prefix {t}/mask.nii.gz -clfrac 0.5 -peels 3 {t}/mean.nii.gz'.format(t=tmpdir))
+    run('3dAutomask \
+         -prefix {t}/mask.nii.gz \
+         -clfrac 0.5 -peels 3 {t}/mean.nii.gz'.format(t=tmpdir))
     run('3dTstat -prefix {t}/std.nii.gz  -stdev {t}/mcorr.nii.gz'.format(t=tmpdir))
-    run("""3dcalc -prefix {t}/sfnr.nii.gz -a {t}/mean.nii.gz -b {t}/std.nii.gz -expr 'a/b'""".format(t=tmpdir))
+    run("""3dcalc \
+           -prefix {t}/sfnr.nii.gz \
+           -a {t}/mean.nii.gz -b {t}/std.nii.gz -expr 'a/b'""".format(t=tmpdir))
 
     pdf = montage(fpath, 'BOLD-contrast', filename, pdf, maxval=0.75)
-    pdf = fmri_plots('{t}/mcorr.nii.gz'.format(t=tmpdir), '{t}/mask.nii.gz'.format(t=tmpdir), '{t}/motion.1D'.format(t=tmpdir), filename, pdf)
-    pdf = montage('{t}/sfnr.nii.gz'.format(t=tmpdir), 'SFNR', filename, pdf, cmaptype='hot', maxval=0.75)
-    pdf = find_epi_spikes(fpath, filename, pdf)
+    pdf = fmri_plots('{t}/mcorr.nii.gz'.format(t=tmpdir), 
+                     '{t}/mask.nii.gz'.format(t=tmpdir), 
+                     '{t}/motion.1D'.format(t=tmpdir), filename, pdf)
+    pdf = montage('{t}/sfnr.nii.gz'.format(t=tmpdir), 
+                  'SFNR', filename, pdf, cmaptype='hot', maxval=0.75)
+    pdf = find_epi_spikes(fpath, filename, pdf, 'fmri')
 
     run('rm -r {}'.format(tmpdir))
 
     return pdf
 
-def t1_qc(fpath, pdf):
+def t1_qc(fpath, pdf, cur):
     pdf = montage(fpath, 'T1-contrast', os.path.basename(fpath), pdf, maxval=0.25)
     return pdf
 
-def pd_qc(fpath, pdf):
+def pd_qc(fpath, pdf, cur):
     pdf = montage(fpath, 'PD-contrast', os.path.basename(fpath), pdf, maxval=0.4)
     return pdf
 
-def t2_qc(fpath, pdf):
+def t2_qc(fpath, pdf, cur):
     pdf = montage(fpath, 'T2-contrast', os.path.basename(fpath), pdf, maxval=0.5)
     return pdf
 
-def flair_qc(fpath, pdf):
+def flair_qc(fpath, pdf, cur):
     pdf = montage(fpath, 'FLAIR-contrast', os.path.basename(fpath), pdf, maxval=0.3)
     return pdf
 
-def dti_qc(fpath, pdf):
+def dti_qc(fpath, pdf, cur):
     """
     Runs the QC pipeline on the DTI inputs. We use the BVEC (not BVAL)
     file to find B0 images (in some scans, mid-sequence B0s are coded
@@ -565,16 +698,21 @@ def dti_qc(fpath, pdf):
 
     pdf = montage(fpath, 'B0-contrast', filename, pdf, maxval=0.25)
     pdf = montage(fpath, 'DTI Directions', filename, pdf, mode='4d', maxval=0.25)
-    pdf = find_epi_spikes(fpath, filename, pdf, bvec)
+    pdf = find_epi_spikes(fpath, filename, pdf, 'dti', cur=cur, bvec=bvec)
 
     return pdf
 
-def qc_folder(scanpath, prefix, qcdir, QC_HANDLERS):
+###############################################################################
+# MAIN
+
+def qc_folder(scanpath, prefix, qcdir, cur, QC_HANDLERS):
     """
     QC all the images in a folder (scanpath).
 
     Outputs PDF and other files to outputdir. All files named startng with
     prefix.
+
+    'cur' is a cursor pointing to the QC database.
     """
 
     qcdir = dm.utils.define_folder(qcdir)
@@ -596,7 +734,7 @@ def qc_folder(scanpath, prefix, qcdir, QC_HANDLERS):
         if tag not in QC_HANDLERS:
             log("QC hanlder for scan {} (tag {}) not found. Skipping.".format(fname, tag))
             continue
-        QC_HANDLERS[tag](fname, pdf)
+        QC_HANDLERS[tag](fname, pdf, cur)
 
     # finally, close the pdf
     d = pdf.infodict()
@@ -621,7 +759,7 @@ def main():
             "FMAP"        : ignore,
             "FMAP-6.5"    : ignore,
             "FMAP-8.5"    : ignore,
-            "RST"         : fmri_qc, 
+            "RST"         : rest_qc, 
             "OBS"         : fmri_qc, 
             "IMI"         : fmri_qc, 
             "NBK"         : fmri_qc, 
@@ -639,11 +777,26 @@ def main():
     arguments = docopt(__doc__)
     datadir   = arguments['--datadir']
     qcdir     = arguments['--qcdir']
+    dbdir     = arguments['--dbdir']
     VERBOSE   = arguments['--verbose']
     DEBUG     = arguments['--debug']
     DRYRUN    = arguments['--dry-run']
 
     timepoint_glob = '{datadir}/nii/*'.format(datadir=datadir)
+
+    db_filename = '{dbdir}/subject-qc.db'.format(dbdir=dbdir)
+    db_is_new = not os.path.exists(db_filename)
+    
+    try:
+        db = sqlite3.connect(db_filename)
+    except: 
+        print('ERROR: invalid database path, or permissions issue.')
+        sys.exit()
+    cur = db.cursor()
+
+    # initialize the tables if the database does not yet exist
+    if db_is_new == True:
+        create_db(cur)
 
     for path in glob.glob(timepoint_glob): 
         timepoint = os.path.basename(path)
@@ -653,7 +806,11 @@ def main():
             pass
         else:
             verbose("QCing folder {}".format(path))
-            qc_folder(path, timepoint, qcdir, QC_HANDLERS) 
+            qc_folder(path, timepoint, qcdir, cur, QC_HANDLERS)
+
+    # close database properly
+    cur.close()
+    db.close()
 
 if __name__ == "__main__":
     main()
