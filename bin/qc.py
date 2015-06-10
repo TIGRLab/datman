@@ -438,13 +438,13 @@ def find_epi_spikes(image, filename, pdf, ftype, cur=None, bvec=None):
                     v_sd = np.hstack((v_sd, sd))
 
             # crop out b0 images
-            if bvec:
+            if bvec == None:
+                v_t = np.arange(t)
+            else:
                 idx = np.where(bvec != 0)[0]
                 v_mean = v_mean[idx]
                 v_sd = v_sd[idx]
                 v_t = np.arange(len(idx))
-            else:
-                v_t = np.arange(t)
 
             # keep track of spikes
             v_spikes = np.where(v_mean > np.mean(v_mean)+np.mean(v_sd))[0]
