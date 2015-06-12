@@ -28,64 +28,11 @@ import sys, os
 from copy import copy
 from docopt import docopt
 import datman as dm
+import sqlite3
 
 VERBOSE = False
 DRYRUN  = False
 DEBUG   = False
-
-# # template text used to generate each post note Y2K+100 BUG!
-# HEADER = """\
-# ---
-# category: {imagetype}
-# title: {imagetype} 20{date}
-# tags: [{imagetype}]
-# ---
-# """
-
-# BODY = """\
-# <figure>
-#     <a href="{{{{ production_url }}}}/{proj}/assets/images/{imagetype}/{fname}">\
-# <img src="{{{{ production_url }}}}/{proj}/assets/images/{imagetype}/{fname}"></a>
-# </figure>
-
-# """
-
-# def filter_posted(files, dates):
-#     """
-#     This removes files containing any of the dates supplied in the filename.
-#     """
-#     for date in dates:
-#         files = filter(lambda x: date not in x, files)
-
-#     return files
-
-# def get_unique_dates(files, begin=2, end=10):
-#     """
-#     Gets all the unique dates in a list of input files. Defined as a region 
-#     of the input file that begins at 'begin' and ends and 'end.'
-#     """
-#     dates = copy(files)
-#     for i, f in enumerate(files):
-#         dates[i] = f[begin:end]
-#     dates = list(set(dates))
-
-#     return dates
-
-# def get_posted_dates(base_path):
-#     """
-#     This gets all of the currently posted dates from the website.
-#     """
-#     try:
-#         posts = os.listdir('{}/website/_posts/'.format(base_path))
-#         posts = get_unique_dates(posts, 2, 10)
-
-#     except:
-#         print("""Bro, you don't even have a website."""
-#               """Clone one into website/ from"""
-#               """https://github.com/TIGRLab/data-website""")
-#         sys.exit()
-
-#     return posts
 
 def get_latest_files(base_path):
     """
@@ -149,34 +96,122 @@ def convert_to_web(base_path, files):
                     f=f, output=f[9:]))
         os.system(cmd)
 
-# def create_posts(base_path, files):
-#     """
-#     Loops through unique dates, and generates a jekyll post for each one using
-#     all of the images from that date.
-#     """
+def parse_db_cols(cur, table):
+    """
+    Get the column names from the database.
+    """
+    cur.execute('PRAGMA table_info({})'.format(table))
+    d = cur.fetchall()
 
-#     proj = dm.utils.mangle_basename(base_path)
-#     imagetype = get_imagetype_from_filename(files[0])
-#     dates = get_unique_dates(files, 0, 8)
+    cols = []
+    for col in d:
+        cols.append(str(col[1]))
 
-#     for date in dates:
-        
-#         current_files = filter(lambda x: date in x, files)
+    return cols
 
-#         # NB: Y2K+100 BUG
-#         post_name = '{base_path}/website/_posts/{date}-{imagetype}.md'.format(
-#                         base_path=base_path, 
-#                         date='20' + date, 
-#                         imagetype=imagetype)
-        
-#         # write header, loop through files, write body for each
-#         f = open(post_name, 'wb')
-#         f.write(HEADER.format(imagetype=imagetype, date=date))
-#         for fname in current_files:
-#              f.write(BODY.format(proj=proj, imagetype=imagetype, fname=fname))
-#         f.close()
+def get_subjects(cur, table):
+    """
+    Get all of the subjects from the specified table in the database.
+    """
+    cur.execute('SELECT subj FROM {}'.format(table))
+    d = cur.fetchall()
 
-#         print('Wrote page for ' + imagetype + ' ' + date + '.')
+    subj = []
+    for sub in d:
+        subj.append(str(sub[0]))
+    subj.sort()
+
+    return subj
+
+def get_sites(subj):
+    """
+    From a list of subjects, return the unique sites.
+    """
+    sites = []
+    for sub in subj:
+        sites.append(sub.split('_')[1])
+    sites = list(set(sites))
+    sites.sort()
+
+    return sites
+
+def get_data(cur, table, col):
+    """
+    Get all of the data from a specified table in the database.
+    """
+    cur.execute('SELECT {} FROM {}'.format(col, table))
+    d = cur.fetchall()
+
+    data = []
+    for dat in d:
+        data.append(dat[0])
+
+    return data
+
+
+def read_subj_qc_database(base_path):
+    """
+    """
+    db = sqlite3.connect('{}/qc/subject-qc.db'.format(base_path))
+    cur = db.cursor()
+
+    fmri_cols = parse_db_cols(cur, 'fmri')
+    dti_cols = parse_db_cols(cur, 'dti')
+
+    fmri_subj = get_subjects(cur, 'fmri')
+    dti_subj = get_subjects(cur, 'dti')
+    subj = list(set().union(fmri_subj + dti_subj))
+    subj.sort()
+
+    sites = get_sites(subj)
+
+    output = []
+    # construct header
+    o = []
+    o.append('x')
+    #o.append('date')
+    for s in sites:
+        o.append(str(s))
+        o.append(str(s)+'_names')
+    output.append(o)
+
+    subjdata = []
+    for i, site in enumerate(sites):
+        sitesubj = filter(lambda x: site in x, subj)
+        subjdata[i] = sitesubj
+
+        for j, subj in enumerate(sitesubj):
+
+
+
+    for plotnum, plot in enumerate(array):
+
+        # construct string dict
+        datedict = {}
+        for row in np.arange(len(l)):
+            weeknum = l[row]
+            for s in np.arange(len(sites)):
+                for i, week in enumerate(timearray[s]):
+                    if weeknum == week:
+                        datedict[week] = discarray[s][i]
+
+        # now add the data
+        for row in np.arange(len(l)):
+            o = []
+            o.append(row)
+
+            # append the string discription for the first site that matches
+            weeknum = l[row]
+            # o.append(datedict[weeknum])
+
+            for s in np.arange(len(sites)):
+                tmp = list(timearray[s])
+                try:
+                    idx = tmp.index(weeknum)
+                    o.append(plot[s][idx])
+                except:
+                    o.append('')
+            output.append(o)
 
 def main():
 
@@ -185,24 +220,26 @@ def main():
     VERBOSE   = arguments['--verbose']
     DEBUG     = arguments['--debug']
 
-    # finds all of the dates we've already posted
-    # dates = get_posted_dates(project)
-
     # gets a list of all the unposted pdfs
     adni, fmri, dti = get_latest_files(project)
 
-    # syncs latest csv files to website
+    # syncs latest csv files (from qc-phantom.py) to website
     if adni:
-        print('converting ADNI')
+        print('convertin ADNI')
         convert_to_web(project, adni)
         
     if fmri:
-        print('converting fMRI')
+        print('updating fMRI')
         convert_to_web(project, fmri)
         
     if dti:
-        print('converting DTI')
+        print('updating DTI')
         convert_to_web(project, dti)
+
+    # # update subject data directly from subject-qc.db
+    # if subj:
+    #     print('updating SUBJ')
+    #     subj = read_subj_qc_database(project)
 
 if __name__ == '__main__':
     main()

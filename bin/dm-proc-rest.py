@@ -203,11 +203,13 @@ def main(base_path, tmp_path, script):
         if dm.scanid.is_phantom(sub) == True: continue
         if os.path.isfile(os.path.join(
                           rest_path,  sub + '_complete.log')) == False:
-            export_data(sub, os.path.join(tmp_path, tmpdict[sub]), rest_path)
+            try:
+                export_data(sub, os.path.join(tmp_path, tmpdict[sub]), rest_path)
+            except:
+                continue
 
 if __name__ == "__main__":
     if len(sys.argv) == 4:
         main(sys.argv[1], sys.argv[2], sys.argv[3])
     else:
         print(__doc__)
-

@@ -92,11 +92,14 @@ def run(cmd):
             err and debug("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
 
 def create_db(cur):
-    cur.execute('CREATE TABLE fmri (subj TEXT)')
-    cur.execute('CREATE TABLE dti (subj TEXT)')
-    cur.execute('CREATE TABLE t1 (subj TEXT)')
+    cur.execute('CREATE TABLE fmri (subj TEXT, site TEXT)')
+    cur.execute('CREATE TABLE dti (subj TEXT, site TEXT)')
+    cur.execute('CREATE TABLE t1 (subj TEXT, site TEXT)')
 
 def insert_value(cur, table, subj, colname, value):
+    """
+    Insets values into the database (differently for numeric and string data).
+    """
 
     # check if column exits, add if it does not
     cur.execute('PRAGMA table_info({})'.format(table))
@@ -117,12 +120,20 @@ def insert_value(cur, table, subj, colname, value):
 
     # if subject does not exist, insert row
     if len(d) == 0:
-        cur.execute("""INSERT INTO {table}(subj, {colname}) VALUES('{subj}', {value})""".format(
-                       table=table, subj=subj, colname=colname, value=value))
+        if type(value) == str:
+            cur.execute("""INSERT INTO {table}(subj, {colname}) VALUES('{subj}', '{value}')""".format(
+                           table=table, subj=subj, colname=colname, value=value))
+        else:
+            cur.execute("""INSERT INTO {table}(subj, {colname}) VALUES('{subj}', {value})""".format(
+                           table=table, subj=subj, colname=colname, value=value))
     # otherwise, update row
     else:
-        cur.execute("""UPDATE {table} SET {colname} = {value} WHERE subj='{subj}'""".format(
-                       table=table, subj=subj, colname=colname, value=value))
+        if type(value) == str:
+            cur.execute("""UPDATE {table} SET {colname} = '{value}' WHERE subj='{subj}'""".format(
+                           table=table, subj=subj, colname=colname, value=value))
+        else:
+            cur.execute("""UPDATE {table} SET {colname} = {value} WHERE subj='{subj}'""".format(
+                           table=table, subj=subj, colname=colname, value=value))
 
 def factors(n):    
     """
@@ -459,7 +470,7 @@ def find_epi_spikes(image, filename, pdf, ftype, cur=None, bvec=None):
             ax.set_axis_off()
 
     if cur:
-        subj = filename.split('_')[0:5]
+        subj = filename.split('_')[0:4]
         subj = '_'.join(subj)
 
         insert_value(cur, ftype, subj, 'spikecount', spikecount)
@@ -526,7 +537,7 @@ def fmri_plots(func, mask, f, filename, pdf, cur=None):
         fdtot = np.sum(f) # total framewise displacement
         fdnum = len(np.where(f > fd_thresh)[0]) # number of TRs above 0.5 mm FD
 
-        subj = filename.split('_')[0:5]
+        subj = filename.split('_')[0:4]
         subj = '_'.join(subj)
 
         insert_value(cur, 'fmri', subj, 'fdtot', fdtot)
@@ -553,7 +564,7 @@ def fmri_plots(func, mask, f, filename, pdf, cur=None):
     plt.title('Whole-brain r mean={}, SD={}'.format(str(mean), str(std)), size=6)
 
     if cur:
-        subj = filename.split('_')[0:5]
+        subj = filename.split('_')[0:4]
         subj = '_'.join(subj)
 
         insert_value(cur, 'fmri', subj, 'corrmean', mean)
@@ -705,28 +716,35 @@ def dti_qc(fpath, pdf, cur):
 ###############################################################################
 # MAIN
 
-def qc_folder(scanpath, prefix, qcdir, cur, QC_HANDLERS):
+def qc_folder(scanpath, subject, qcdir, cur, QC_HANDLERS):
     """
     QC all the images in a folder (scanpath).
 
     Outputs PDF and other files to outputdir. All files named startng with
-    prefix.
+    subject.
 
     'cur' is a cursor pointing to the QC database.
     """
 
     qcdir = dm.utils.define_folder(qcdir)
-    pdffile = os.path.join(qcdir, 'qc_' + prefix + '.pdf')
+    pdffile = os.path.join(qcdir, 'qc_' + subject + '.pdf')
     if os.path.exists(pdffile):
         debug("{} pdf exists, skipping.".format(pdffile))
         return 
 
     pdf = PdfPages(pdffile)
-   
+
+    # add in sites to the database
+    insert_value(cur, 'fmri', subject, 'site', subject.split('_')[1])
+    insert_value(cur, 'dti', subject, 'site', subject.split('_')[1])
+    insert_value(cur, 't1', subject, 'site', subject.split('_')[1])
+
+    # loop through files, running PDF and databasing as needed on particular file types.
     filetypes = ('*.nii.gz', '*.nii')
     found_files = []
     for filetype in filetypes:
         found_files.extend(glob.glob(scanpath + '/' + filetype))
+    found_files.sort()
 
     for fname in found_files:
         verbose("QC scan {}".format(fname))
@@ -799,14 +817,14 @@ def main():
         create_db(cur)
 
     for path in glob.glob(timepoint_glob): 
-        timepoint = os.path.basename(path)
+        subject = os.path.basename(path)
 
         # skip phantoms
-        if 'PHA' in timepoint:
+        if 'PHA' in subject:
             pass
         else:
             verbose("QCing folder {}".format(path))
-            qc_folder(path, timepoint, qcdir, cur, QC_HANDLERS)
+            qc_folder(path, subject, qcdir, cur, QC_HANDLERS)
 
     # close database properly
     cur.close()
