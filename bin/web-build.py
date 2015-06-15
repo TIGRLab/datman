@@ -149,69 +149,69 @@ def get_data(cur, table, col):
     return data
 
 
-def read_subj_qc_database(base_path):
-    """
-    """
-    db = sqlite3.connect('{}/qc/subject-qc.db'.format(base_path))
-    cur = db.cursor()
+# def read_subj_qc_database(base_path):
+#     """
+#     """
+#     db = sqlite3.connect('{}/qc/subject-qc.db'.format(base_path))
+#     cur = db.cursor()
 
-    fmri_cols = parse_db_cols(cur, 'fmri')
-    dti_cols = parse_db_cols(cur, 'dti')
+#     fmri_cols = parse_db_cols(cur, 'fmri')
+#     dti_cols = parse_db_cols(cur, 'dti')
 
-    fmri_subj = get_subjects(cur, 'fmri')
-    dti_subj = get_subjects(cur, 'dti')
-    subj = list(set().union(fmri_subj + dti_subj))
-    subj.sort()
+#     fmri_subj = get_subjects(cur, 'fmri')
+#     dti_subj = get_subjects(cur, 'dti')
+#     subj = list(set().union(fmri_subj + dti_subj))
+#     subj.sort()
 
-    sites = get_sites(subj)
+#     sites = get_sites(subj)
 
-    output = []
-    # construct header
-    o = []
-    o.append('x')
-    #o.append('date')
-    for s in sites:
-        o.append(str(s))
-        o.append(str(s)+'_names')
-    output.append(o)
+#     output = []
+#     # construct header
+#     o = []
+#     o.append('x')
+#     #o.append('date')
+#     for s in sites:
+#         o.append(str(s))
+#         o.append(str(s)+'_names')
+#     output.append(o)
 
-    subjdata = []
-    for i, site in enumerate(sites):
-        sitesubj = filter(lambda x: site in x, subj)
-        subjdata[i] = sitesubj
+#     subjdata = []
+#     for i, site in enumerate(sites):
+#         sitesubj = filter(lambda x: site in x, subj)
+#         subjdata[i] = sitesubj
 
-        for j, subj in enumerate(sitesubj):
+#         for j, subj in enumerate(sitesubj):
 
 
 
-    for plotnum, plot in enumerate(array):
+#     for plotnum, plot in enumerate(array):
 
-        # construct string dict
-        datedict = {}
-        for row in np.arange(len(l)):
-            weeknum = l[row]
-            for s in np.arange(len(sites)):
-                for i, week in enumerate(timearray[s]):
-                    if weeknum == week:
-                        datedict[week] = discarray[s][i]
+#         # construct string dict
+#         datedict = {}
+#         for row in np.arange(len(l)):
+#             weeknum = l[row]
+#             for s in np.arange(len(sites)):
+#                 for i, week in enumerate(timearray[s]):
+#                     if weeknum == week:
+#                         datedict[week] = discarray[s][i]
 
-        # now add the data
-        for row in np.arange(len(l)):
-            o = []
-            o.append(row)
+#         # now add the data
+#         for row in np.arange(len(l)):
+#             o = []
+#             o.append(row)
 
-            # append the string discription for the first site that matches
-            weeknum = l[row]
-            # o.append(datedict[weeknum])
+#             # append the string discription for the first site that matches
+#             weeknum = l[row]
+#             # o.append(datedict[weeknum])
 
-            for s in np.arange(len(sites)):
-                tmp = list(timearray[s])
-                try:
-                    idx = tmp.index(weeknum)
-                    o.append(plot[s][idx])
-                except:
-                    o.append('')
-            output.append(o)
+#             for s in np.arange(len(sites)):
+#                 tmp = list(timearray[s])
+#                 try:
+#                     idx = tmp.index(weeknum)
+#                     o.append(plot[s][idx])
+#                 except:
+#                     o.append('')
+#             output.append(o)
 
 def main():
 

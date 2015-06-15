@@ -293,7 +293,7 @@ def define_folder(path):
         try:
             os.mkdir(path)
         except:
-            if has_permissions(directory) == False:
+            if has_permissions(path) == False:
                 sys.exit()
 
     if has_permissions(path) == False:
@@ -301,14 +301,14 @@ def define_folder(path):
 
     return path
 
-def has_permissions(directory):
+def has_permissions(path):
     """
-    Checks for write access to submitted directory.
+    Checks for write access to submitted path.
     """
-    if os.access(directory, 7) == True:
+    if os.access(path, 7) == True:
         flag = True
     else:
-        print('\nYou do not have write access to directory ' + str(directory))
+        print('\nYou do not have write access to path ' + str(path))
         flag = False
 
     return flag
