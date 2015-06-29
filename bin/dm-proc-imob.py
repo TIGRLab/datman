@@ -1,10 +1,35 @@
 #!/usr/bin/env python
 """
-This auto-grad student analyzes the imitate observe task for the 
-SPINS grant:
-1) Preprocesses MRI data.
-2) Parses the supplied e-prime file and returns an AFNI-compatible GLM file. 
-3) Runs the GLM analysis at the single-subject level.
+This analyzes imitate observe behavioural data.It could be generalized
+to analyze any rapid event-related design experiment fairly easily.
+
+Usage:
+    dm-proc-imob.py [options] <project> <scratch> <script> <assets>
+
+Arguments: 
+    <project>           Full path to the project directory containing data/.
+    <scratch>           Full path to a scratch directory (for temporary files).
+    <script>            Full path to an epitome-style script.
+    <assets>            Full path to an assets folder containing EA-timing.csv, EA-vid-lengths.csv.
+
+Options:
+    -v,--verbose             Verbose logging
+    --debug                  Debug logging
+
+DETAILS
+
+    1) Preprocesses MRI data.
+    2) Parses the supplied e-prime file and returns an AFNI-compatible GLM file. 
+    3) Runs the GLM analysis at the single-subject level.
+
+    Each subject is run through this pipeline if the outputs do not already exist.
+
+DEPENDENCIES
+
+    + matlab
+    + afni
+
+This message is printed with the -h, --help flags.
 """
 
 import os, sys
@@ -14,6 +39,10 @@ import nibabel as nib
 import StringIO as io
 import matplotlib.pyplot as plt
 import datman.spins as spn
+import datman as dm
+
+from docopt import docopt
+
 
 def process_functional_data(sub, data_path, code_path):
     # copy functional data into epitome-compatible structure
@@ -29,9 +58,7 @@ def process_functional_data(sub, data_path, code_path):
 
     # find T1s
     try:
-        T1_data = filter(lambda x: 'T1' in x or 
-                                   'MPRAGE' in x or 
-                                   'FSPGR' in x, niftis)
+        T1_data = filter(lambda x: 'T1' in x or 'MPRAGE' in x or 'FSPGR' in x, niftis)
         T1_data.sort()
         T1_data = T1_data[1]
     
@@ -41,39 +68,35 @@ def process_functional_data(sub, data_path, code_path):
 
     # find EA task
     try:
-        IM_data = filter(lambda x: 'Imitation' in x or
-                                   'Imitate' in x, niftis)
+        IM_data = filter(lambda x: 'Imitation' in x or 'Imitate' in x, niftis)
         
         if len(IM_data) == 1:
             IM_data = IM_data[0]
-    
         else:
-            print('Found multiple IM data, using newest' + str(len(IM_data)))
+            print('Found multiple IM data, using newest: {}'.format(str(len(IM_data))))
             IM_data = IM_data[-1]
             #raise ValueError
 
     except:
-        print('No IMITATE data found for ' + str(sub) + ', aborting!')
+        print('No IMITATE data found for {}, aborting!'.format(sub))
         raise ValueError
 
     try:
-        OB_data = filter(lambda x: 'Observation' in x or
-                                   'Observe' in x, niftis)
+        OB_data = filter(lambda x: 'Observation' in x or 'Observe' in x, niftis)
         
         if len(OB_data) == 1:
             OB_data = OB_data[0]
-    
         else:
-            print('Found multiple OB data, using newest ' + str(len(OB_data)))
+            print('Found multiple OB data, using newest: {}'.format(str(len(OB_data))))
             OB_data = OB_data[-1]
 
     except:
-        print('No OBSERVE data found for ' + str(sub) + ', aborting!')
+        print('No OBSERVE data found for {}, aborting!'.format(sub))
         raise ValueError
 
     # check if output already exists
-    if os.path.isfile(data_path + '/imob/' + sub + '_complete.log') == True:
-        print('Subject ' + sub + ' has already been pre-processed, skipping')
+    if os.path.isfile('{}/imob/{}_complete.log'.format(data_path, sub)) == True:
+        print('Subject {} has already been pre-processed, skipping'.format(sub))
         raise ValueError
 
     # MKTMP! os.path.mktmp?
@@ -81,65 +104,27 @@ def process_functional_data(sub, data_path, code_path):
     # copy data into temporary epitome structure
     # cleanup!
     spn.utils.make_epitome_folders('/tmp/epitome', 2)
-    os.system('cp ' + data_path + '/nifti/' + sub + '/' + str(T1_data) + 
-                  ' /tmp/epitome/TEMP/SUBJ/T1/SESS01/RUN01/T1.nii.gz')
-    os.system('cp ' + data_path + '/nifti/' + sub + '/' + str(IM_data) + 
-                  ' /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/RUN01/FUNC01.nii.gz')
-    os.system('cp ' + data_path + '/nifti/' + sub + '/' + str(OB_data) + 
-                  ' /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/RUN02/FUNC02.nii.gz')
+    os.system('cp {}/nifti/{}/{} /tmp/epitome/TEMP/SUBJ/T1/SESS01/RUN01/T1.nii.gz'.format(data_path, sub, T1_data))
+    os.system('cp {}/nifti/{}/{} /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/RUN01/FUNC01.nii.gz'.format(data_path, sub, IM_data))
+    os.system('cp {}/nifti/{}/{} /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/RUN01/FUNC02.nii.gz'.format(data_path, sub, OB_data))
 
     # run preprocessing pipeline (shared with EA)
-    os.system('bash ' + code_path + '/ea-preproc-fsl.sh')
+    os.system('bash {}/ea-preproc-fsl.sh'.format(code_path))
 
     # copy outputs into data folder
-    if os.path.isdir(data_path + '/imob') == False:
-        os.system('mkdir ' + data_path + '/imob' )
+    if os.path.isdir('{}/imob'.format(data_path)) == False:
+        os.system('mkdir {}/imob'.format(data_path))
 
-    # functional data
-    os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/'
-                            + 'func_MNI-nonlin.EA.01.nii.gz ' +
-                  data_path + '/imob/' + sub + '_func_MNI-nonlin.im.01.nii.gz')
-    os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/'
-                            + 'func_MNI-nonlin.EA.02.nii.gz ' +
-                  data_path + '/imob/' + sub + '_func_MNI-nonlin.ob.02.nii.gz')
-
-    # MNI space EPI mask
-    os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/'
-                            + 'anat_EPI_mask_MNI-nonlin.nii.gz ' 
-                            + data_path + '/imob/' + sub 
-                            + '_anat_EPI_mask_MNI.nii.gz')
-
-    # MNI space single-subject T1
-    os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/'
-                            + 'reg_T1_to_TAL.nii.gz '
-                            + data_path + '/imob/' + sub 
-                            + '_reg_T1_to_MNI-lin.nii.gz')
-
-    # MNI space single-subject T1
-    os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/'
-                            + 'reg_nlin_TAL.nii.gz '
-                            + data_path + '/imob/' + sub 
-                            + '_reg_nlin_MNI.nii.gz')
-
-    # motion paramaters
-    os.system('cat /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/PARAMS/'
-                            + 'motion.EA.01.1D > ' +
-                  data_path + '/imob/' + sub + '_motion.1D')
-    os.system('cat /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/PARAMS/'
-                            + 'motion.EA.02.1D >> ' +
-                  data_path + '/imob/' + sub + '_motion.1D')
-
-    # copy out QC images of registration
-    os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/'
-                            + 'qc_reg_EPI_to_T1.pdf ' +
-                  data_path + '/imob/' + sub + '_qc_reg_EPI_to_T1.pdf')
-    os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/'
-                            + 'qc_reg_T1_to_MNI.pdf ' +
-                  data_path + '/imob/' + sub + '_qc_reg_T1_to_MNI.pdf')
-
-    # this file denotes participants who are finished
-    os.system('touch ' + data_path + '/imob/' + sub + '_complete.log')
-
+    os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/func_MNI-nonlin.EA.01.nii.gz {}/imob/{}_func_MNI-nonlin.im.01.nii.gz'.format(data_path, sub))
+    os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/func_MNI-nonlin.EA.02.nii.gz {}/imob/{}_func_MNI-nonlin.ob.02.nii.gz'.format(data_path, sub))
+    os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/anat_EPI_mask_MNI-nonlin.nii.gz {}/imob/{}_anat_EPI_mask_MNI.nii.gz'.format(data_path, sub))
+    os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/reg_T1_to_TAL.nii.gz {}/imob/{}_reg_T1_to_MNI-lin.nii.gz'.format(data_path, sub))
+    os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/reg_nlin_TAL.nii.gz {}/imob/{}_reg_nlin_MNI.nii.gz'.format(data_path, sub))
+    os.system('cat /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/PARAMS/motion.EA.01.1D > {}/imob/{}_motion.1D'.format(data_path, sub))
+    os.system('cat /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/PARAMS/motion.EA.02.1D >> {}/imob/{}_motion.1D'.format(data_path, sub))
+    os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/qc_reg_EPI_to_T1.pdf {}/imob/{}_qc_reg_EPI_to_T1.pdf'.format(data_path, sub))
+    os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/qc_reg_T1_to_MNI.pdf {}/imob/{}_qc_reg_T1_to_MNI.pdf'.format(data_path, sub))
+    os.system('touch {}/imob/{}_complete.log')
     os.system('rm -r /tmp/epitome')
 
 def generate_analysis_script(sub, data_path, code_path):
@@ -210,66 +195,40 @@ def generate_analysis_script(sub, data_path, code_path):
 """.format(input_data=input_data,data_path=data_path,sub=sub))
     f.close()
 
-def main():
+def main(base_path, tmp_path, script):
     """
-    Essentially, analyzes the imitate observe data.
-
-    1) Runs functional data through a custom epitome script.
-    2) Extracts block onsets, durations, and parametric modulators from
-       behavioual log files collected at the scanner.
-    3) Writes out AFNI-formatted timing files as well as a GLM script per
-       subject.
-    4) Executes this script, producing beta-weights for each subject.
-    5) ???
-    6) Profit! 
+    Loops through subjects, preprocessing using the supplied script and running a
+    first-level GLM using AFNI (tent functions, standard 15 s window) on all subjects.
     """
-    # sets up relative paths (should be moved to a config.py file?)
-    # removes /bin
-    base_path = os.path.dirname(os.path.realpath(sys.argv[0]))[:-4]
-    #base_path = '/projects/spins'
-    assets_path = base_path + '/assets'
-    data_path = base_path + '/data'
-    code_path = base_path + '/code'
 
-    # get list of subjects
-    subjects = spn.utils.get_subjects(data_path)
+    global VERBOSE 
+    global DEBUG
+    arguments   = docopt(__doc__)
+    base_path   = arguments['<project>']
+    scratch     = arguments['<scratch>']
+    script      = arguments['<script>']
+    assets_path = arguments['<assets>']
+
+    data_path = os.path.join(base_path, 'data')
+    code_path = os.path.join(base_path, 'code')
+    subjects = dm.utils.get_subjects(data_path)
 
     # loop through subjects
     for sub in subjects:
-
         if spn.utils.subject_type(sub) == 'phantom':
             continue
     
         # check if output already exists
-        if os.path.isfile(data_path + '/imob/' + sub 
-                                               + '_complete.log') == True:
+        if os.path.isfile('{}/imob/{}_complete.log'.format(data_path, sub)) == True:
             continue
     
         try:
-            # pre-process the data
             process_functional_data(sub, data_path, code_path)
-            
-            # generate & run a first-level GLM script
             generate_analysis_script(sub, data_path, code_path)
-            os.system('bash ' + data_path + '/imob/' + sub + '_glm_1stlevel_cmd.sh')
+            os.system('bash {}/imob/{}_glm_1stlevel_cmd.sh'.format(data_path, sub))
 
         except ValueError as ve:
-            print('*** Skipping subject: ' + str(sub) + ' !!! ***')
+            pass
 
 if __name__ == "__main__":
     main()
-
-    print(':D')
-
-    #log = '444_SPN01_ZHH_P002-UCLAEmpAcc_part1.log'
-
-    # find all subjects
-
-    #fig.subplots_adjust(top=0.25)
-
-    # extract ratings vector for actor
-    # # find the timestamp in the response file -- [0][4] gets the column
-    # timestamp = [0][4]
-    # timestamp = timestamp - start
-
-    #/projects/jdv/data/spins/behavioural
