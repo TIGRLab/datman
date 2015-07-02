@@ -1,27 +1,49 @@
 #!/usr/bin/env python
 """
-dm-proc-ea.py <experiment-directory> <scratch-directory> <script> <assets>
+This analyzes empathic accuracy behavioural data.It could be generalized
+to analyze any rapid event-related design experiment fairly easily.
 
-experiment-directory -- top level of the DATMAN project
-scratch-directory -- a place to store temporary files
-script -- a epitome pre-processing script that analyzes the fMRI data.
-assets -- a folder containing: EA-timing.csv, EA-vid-lengths.csv
+Usage:
+    dm-proc-ea.py [options] <project> <script> <assets>
 
-This auto-grad student fully analyzes the empathic accuracy task behavioural data.
+Arguments: 
+    <project>           Full path to the project directory containing data/.
+    <script>            Full path to an epitome-style script.
+    <assets>            Full path to an assets folder containing 
+                                              EA-timing.csv, EA-vid-lengths.csv.
 
-1) Preprocesses MRI data.
-2) Parses the supplied e-prime file and returns an AFNI-compatible GLM file. 
-3) Runs the GLM analysis at the single-subject level.
+Options:
+    -v,--verbose             Verbose logging
+    --debug                  Debug logging
+
+DETAILS
+
+    1) Preprocesses MRI data.
+    2) Produces an AFNI-compatible GLM file with the event timing. 
+    3) Runs the GLM analysis at the single-subject level.
+
+    Each subject is run through this pipeline if the outputs do not already exist.
+
+DEPENDENCIES
+
+    + matlab
+    + afni
+
+This message is printed with the -h, --help flags.
 """
 
 import os, sys
+import glob
 import copy
+import tempfile
 import numpy as np
 import scipy.interpolate as interpolate
 import nibabel as nib
 import StringIO as io
 import matplotlib.pyplot as plt
 import datman.spins as spn
+import datman as dm
+from docopt import docopt
 
 def log_parser(log):
     """
@@ -87,7 +109,7 @@ def log_parser(log):
 
     # ensure our inputs contain a 'MRI_start' string.
     if pic[0][3] != 'MRI_start':
-        print('ERROR: log ' + logname + ' doesnt contain an MRI_start entry!' )
+        print('ERROR: log {} does not contain an MRI_start entry!'.format(logname))
         raise ValueError
     else:
         # this is the start of the fMRI run, all times are relative to this.
@@ -290,7 +312,7 @@ def match_lengths(a, b):
 
     return b
 
-def process_behav_data(log, assets_path, data_path, sub, trial_type):
+def process_behav_data(log, assets, datadir, sub, trial_type):
     """
     This parses the behavioural log files for a given trial type (either 
     'vid' for the empathic-accuracy videos, or 'cvid' for the circles task.
@@ -325,7 +347,7 @@ def process_behav_data(log, assets_path, data_path, sub, trial_type):
         raise ValueError
 
     pic, res, vid, mri_start = log_parser(
-                               os.path.join(data_path, 'behav', sub, log))
+                               os.path.join(datadir, 'behav', sub, log))
     blocks, onsets = find_blocks(vid, mri_start)
     
     durations = []
@@ -356,9 +378,9 @@ def process_behav_data(log, assets_path, data_path, sub, trial_type):
                                                      blk_end, mri_start,
                                                      blk_start_time)
         # = get_subj_ratings(ratings)
-        gold_rate = find_column_data(blk_name, os.path.join(assets_path, 
+        gold_rate = find_column_data(blk_name, os.path.join(assets, 
                                                          'EA-timing.csv'))
-        duration = find_column_data(blk_name, os.path.join(assets_path, 
+        duration = find_column_data(blk_name, os.path.join(assets, 
                                                          'EA-vid-lengths.csv'))
         
         # interpolate the shorter sample to match the longer sample
@@ -419,162 +441,94 @@ def process_behav_data(log, assets_path, data_path, sub, trial_type):
 
     fig.suptitle(log, size=10)
     fig.set_tight_layout(True)
-    fig.savefig(data_path + '/ea/' + sub + '_' + log[:-4] + '.pdf')
+    fig.savefig('{}/ea/{}_{}.pdf'.format(datadir, sub, os.path.basename(log)[:-4]))
 
     # this is this failing??
-    print('onsets_used: ' + str(onsets_used) + ' ' + str(type(onsets_used)))
-    print('durations: ' + str(durations) + ' ' + str(type(durations)))
-    print('correlations: ' + str(correlations) + ' ' + str(type(correlations)))
-    print('button_pushes: ' + str(button_pushes) + ' ' + str(type(button_pushes)))
+    # print('onsets_used: ' + str(onsets_used) + ' ' + str(type(onsets_used)))
+    # print('durations: ' + str(durations) + ' ' + str(type(durations)))
+    # print('correlations: ' + str(correlations) + ' ' + str(type(correlations)))
+    # print('button_pushes: ' + str(button_pushes) + ' ' + str(type(button_pushes)))
 
     return onsets_used, durations, correlations, button_pushes
 
-def process_functional_data(sub, data_path, code_path):
+def process_functional_data(sub, datadir, script):
     # copy functional data into epitome-compatible structure
     try:
         niftis = filter(lambda x: 'nii.gz' in x, 
-                            os.listdir(os.path.join(data_path, 'nifti', sub)))            
+                            os.listdir(os.path.join(datadir, 'nii', sub)))            
     
     except:
-        print('ERROR: No NIFTI folder found for ' + str(sub))
-        raise ValueError
-
-    try:
-        behavs = filter(lambda x: 'UCLAEmpAcc' in x, 
-                            os.listdir(os.path.join(data_path, 'behav', sub)))
-        if len(behavs) != 3:
-            print('ERROR: Not enough BEHAV data for ' + sub)
-            raise ValueError
-    
-    except:
-        print('ERROR: No BEHAV data for ' + sub)
+        print('ERROR: No "nii" folder found for ' + str(sub))
         raise ValueError
 
     # find T1s
     if os.path.isfile(os.path.join(
-                      data_path, 'freesurfer', sub, 'mri/brain.mgz')) == False:
+                      datadir, 'freesurfer', sub, 'mri/brain.mgz')) == False:
         print('ERROR: No Freesurfered T1s found for ' + str(sub))
         raise ValueError
 
     # find EA task
     try:
-        EA_data = filter(lambda x: 'EA' in x or
-                                   'Emp_Acc' in x, niftis)
+        EA_data = filter(lambda x: 'EMP' == dm.utils.guess_tag(x), niftis)
         EA_data.sort()
 
         # remove truncated runs
         for d in EA_data:
-            nifti = nib.load(os.path.join(data_path, 'nifti', sub, d))
+            nifti = nib.load(os.path.join(datadir, 'nii', sub, d))
             if nifti.shape[-1] != 277:
                 EA_data.remove(d)
+        EA_data = EA_data[-3:]         # take the last three
 
-        # take the last three
-        EA_data = EA_data[-3:]
     
     except:
         print('ERROR: No/not enough EA data found for ' + str(sub))
         raise ValueError
 
     # check if output already exists
-    if os.path.isfile(data_path + '/ea/.' + sub + '_complete') == True:
+    if os.path.isfile('{}/ea/{}_complete'.format(datadir, sub)) == True:
         raise ValueError
 
-    # MKTMP! os.path.mktmp?
-
-    # copy data into temporary epitome structure
-    # cleanup!
-    
-    spn.utils.make_epitome_folders('/tmp/epitome', 3)
+    tmpdir = tempfile.mkdtemp(dir='/tmp')
+    dm.utils.make_epitome_folders(os.path.join(tmpdir, 'epitome'), 3)
+    epidir = os.path.join(tmpdir, 'epitome/TEMP/SUBJ')
+    dir_i = os.path.join(os.environ['SUBJECTS_DIR'], sub, 'mri')
     
     # T1: freesurfer data
-    dir_i = os.path.join(os.environ['SUBJECTS_DIR'], sub, 'mri')
-    os.system('mri_convert --in_type mgz --out_type nii -odt float -rt nearest '
-                          '--input_volume ' + dir_i + '/brain.mgz '
-                          '--output_volume /tmp/epitome/TEMP/SUBJ/T1/SESS01/anat_T1_fs.nii.gz')
-    os.system('3daxialize -prefix /tmp/epitome/TEMP/SUBJ/T1/SESS01/anat_T1_brain.nii.gz '
-                         '-axial /tmp/epitome/TEMP/SUBJ/T1/SESS01/anat_T1_fs.nii.gz')
+    os.system('mri_convert --in_type mgz --out_type nii -odt float -rt nearest --input_volume {}/brain.mgz --output_volume {}/T1/SESS01/anat_T1_fs.nii.gz'.format(dir_i, epidir))
+    os.system('3daxialize -prefix {epidir}/T1/SESS01/anat_T1_brain.nii.gz -axial {epidir}/T1/SESS01/anat_T1_fs.nii.gz'.format(epidir=epidir))
     
-    os.system('mri_convert --in_type mgz --out_type nii -odt float -rt nearest ' 
-                          '--input_volume ' + dir_i + '/aparc+aseg.mgz ' 
-                          '--output_volume /tmp/epitome/TEMP/SUBJ/T1/SESS01/anat_aparc_fs.nii.gz')
-    os.system('3daxialize -prefix /tmp/epitome/TEMP/SUBJ/T1/SESS01/anat_aparc_brain.nii.gz ' 
-                         '-axial /tmp/epitome/TEMP/SUBJ/T1/SESS01/anat_aparc_fs.nii.gz')
+    os.system('mri_convert --in_type mgz --out_type nii -odt float -rt nearest --input_volume {}/aparc+aseg.mgz --output_volume {}/T1/SESS01/anat_aparc_fs.nii.gz'.format(dir_i, epidir))
+    os.system('3daxialize -prefix {epidir}/T1/SESS01/anat_aparc_brain.nii.gz -axial {epidir}/T1/SESS01/anat_aparc_fs.nii.gz'.format(epidir=epidir))
     
-    os.system('mri_convert --in_type mgz --out_type nii -odt float -rt nearest ' 
-                          '--input_volume ' + dir_i + '/aparc.a2009s+aseg.mgz ' 
-                          '--output_volume /tmp/epitome/TEMP/SUBJ/T1/SESS01/anat_aparc2009_fs.nii.gz')
-    os.system('3daxialize -prefix /tmp/epitome/TEMP/SUBJ/T1/SESS01/anat_aparc2009_brain.nii.gz ' 
-                         '-axial /tmp/epitome/TEMP/SUBJ/T1/SESS01/anat_aparc2009_fs.nii.gz')
+    os.system('mri_convert --in_type mgz --out_type nii -odt float -rt nearest --input_volume {}/aparc.a2009s+aseg.mgz --output_volume {}/T1/SESS01/anat_aparc2009_fs.nii.gz'.format(dir_i, epidir))
+    os.system('3daxialize -prefix {epidir}/T1/SESS01/anat_aparc2009_brain.nii.gz -axial {epidir}/T1/SESS01/anat_aparc2009_fs.nii.gz'.format(epidir=epidir))
 
     # functional data
-    os.system('cp ' + data_path + '/nifti/' + sub + '/' + str(EA_data[0]) + 
-                  ' /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/RUN01/FUNC01.nii.gz')
-    os.system('cp ' + data_path + '/nifti/' + sub + '/' + str(EA_data[1]) + 
-                  ' /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/RUN02/FUNC02.nii.gz')
-    os.system('cp ' + data_path + '/nifti/' + sub + '/' + str(EA_data[2]) + 
-                  ' /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/RUN03/FUNC03.nii.gz')
-    
+    os.system('cp {}/nii/{}/{} {}/FUNC/SESS01/RUN01/FUNC01.nii.gz'.format(datadir, sub, str(EA_data[0]), epidir))
+    os.system('cp {}/nii/{}/{} {}/FUNC/SESS01/RUN02/FUNC02.nii.gz'.format(datadir, sub, str(EA_data[1]), epidir))
+    os.system('cp {}/nii/{}/{} {}/FUNC/SESS01/RUN03/FUNC03.nii.gz'.format(datadir, sub, str(EA_data[2]), epidir))
+        
     # run preprocessing pipeline
-    os.system('bash ' + code_path + '/spins-preproc-task.sh')
+    os.system('bash {} {}'.format(script, os.path.join(tmpdir, 'epitome')))
 
     # copy outputs into data folder
-    if os.path.isdir(data_path + '/ea') == False:
-        os.system('mkdir ' + data_path + '/ea' )
+    if os.path.isdir(datadir + '/ea') == False:
+        os.system('mkdir ' + datadir + '/ea' )
 
     # functional data
-    os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/'
-                            + 'func_MNI-nonlin.SPINS.01.nii.gz ' +
-                  data_path + '/ea/' + sub + '_func_MNI-nonlin.EA.01.nii.gz')
-    os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/'
-                            + 'func_MNI-nonlin.SPINS.02.nii.gz ' +
-                  data_path + '/ea/' + sub + '_func_MNI-nonlin.EA.02.nii.gz')
-    os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/'
-                            + 'func_MNI-nonlin.SPINS.03.nii.gz ' +
-                  data_path + '/ea/' + sub + '_func_MNI-nonlin.EA.03.nii.gz')
+    os.system('cp {}/FUNC/SESS01/func_MNI-nonlin.DATMAN.01.nii.gz {}/ea/{}_func_MNI-nonlin.EA.01.nii.gz'.format(epidir, datadir, sub))
+    os.system('cp {}/FUNC/SESS01/func_MNI-nonlin.DATMAN.02.nii.gz {}/ea/{}_func_MNI-nonlin.EA.02.nii.gz'.format(epidir, datadir, sub))
+    os.system('cp {}/FUNC/SESS01/func_MNI-nonlin.DATMAN.03.nii.gz {}/ea/{}_func_MNI-nonlin.EA.03.nii.gz'.format(epidir, datadir, sub))
+    os.system('cp {}/FUNC/SESS01/anat_EPI_mask_MNI-nonlin.nii.gz {}/ea/{}_anat_EPI_mask_MNI.nii.gz'.format(epidir, datadir, sub))
+    os.system('cp {}/FUNC/SESS01/reg_T1_to_TAL.nii.gz {}/ea/{}_reg_T1_to_MNI-lin.nii.gz'.format(epidir, datadir, sub))
+    os.system('cp {}/FUNC/SESS01/reg_nlin_TAL.nii.gz {}/ea/{}_reg_nlin_MNI.nii.gz'.format(epidir, datadir, sub))
+    os.system('cat {}/FUNC/SESS01/PARAMS/motion.DATMAN.01.1D > {}/ea/{}_motion.1D'.format(epidir, datadir, sub))
+    os.system('cat {}/FUNC/SESS01/PARAMS/motion.DATMAN.02.1D >> {}/ea/{}_motion.1D'.format(epidir, datadir, sub))
+    os.system('cat {}/FUNC/SESS01/PARAMS/motion.DATMAN.03.1D >> {}/ea/{}_motion.1D'.format(epidir, datadir, sub))
+    os.system('touch {}/ea/{}_complete.log'.format(datadir, sub))
+    os.system('rm -r {}'.format(tmpdir))
 
-    # MNI space EPI mask
-    os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/'
-                            + 'anat_EPI_mask_MNI-nonlin.nii.gz ' 
-                            + data_path + '/ea/' + sub 
-                            + '_anat_EPI_mask_MNI.nii.gz')
-
-    # MNI space single-subject T1
-    os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/'
-                            + 'reg_T1_to_TAL.nii.gz '
-                            + data_path + '/ea/' + sub 
-                            + '_reg_T1_to_MNI-lin.nii.gz')
-
-    # MNI space single-subject T1
-    os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/'
-                            + 'reg_nlin_TAL.nii.gz '
-                            + data_path + '/ea/' + sub 
-                            + '_reg_nlin_MNI.nii.gz')
-
-    # motion paramaters
-    os.system('cat /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/PARAMS/'
-                            + 'motion.SPINS.01.1D > ' +
-                  data_path + '/ea/' + sub + '_motion.1D')
-    os.system('cat /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/PARAMS/'
-                            + 'motion.SPINS.02.1D >> ' +
-                  data_path + '/ea/' + sub + '_motion.1D')
-    os.system('cat /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/PARAMS/'
-                            + 'motion.SPINS.03.1D >> ' +
-                  data_path + '/ea/' + sub + '_motion.1D')
-
-    # copy out QC images of registration
-    #os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/'
-    #                        + 'qc_reg_EPI_to_T1.pdf ' +
-    #              data_path + '/ea/' + sub + '_qc_reg_EPI_to_T1.pdf')
-    #os.system('cp /tmp/epitome/TEMP/SUBJ/FUNC/SESS01/'
-    #                        + 'qc_reg_T1_to_MNI.pdf ' +
-    #              data_path + '/ea/' + sub + '_qc_reg_T1_to_MNI.pdf')
-
-    # this file denotes participants who are finished
-    os.system('touch ' + data_path + '/ea/' + sub + '_complete.log')
-
-    os.system('rm -r /tmp/epitome')
-
-def generate_analysis_script(sub, data_path, code_path):
+def generate_analysis_script(sub, datadir):
     """
     This writes the analysis script to replicate the methods in Harvey et al
     2013 Schizophrenia Bulletin. It expects timing files to exist (those are
@@ -599,125 +553,116 @@ def generate_analysis_script(sub, data_path, code_path):
     """
     # first, determine input functional files
     niftis = filter(lambda x: 'nii.gz' in x and sub + '_func' in x, 
-                    os.listdir(os.path.join(data_path, 'ea')))
+                    os.listdir(os.path.join(datadir, 'ea')))
     niftis.sort()
 
     input_data = ''
 
     for nifti in niftis:
-        input_data = input_data + data_path + '/ea/' + nifti + ' '
+        input_data = input_data + datadir + '/ea/' + nifti + ' '
 
     # open up the master script, write common variables
-    f = open(data_path + '/ea/' + sub + '_glm_1stlevel_cmd.sh', 'wb')
+    f = open('{}/ea/{}_glm_1stlevel_cmd.sh'.format(datadir, sub), 'wb')
     f.write("""#!/bin/bash
 
 # Empathic accuracy GLM for {sub}.
 3dDeconvolve \\
     -input {input_data} \\
-    -mask {data_path}/ea/{sub}_anat_EPI_mask_MNI.nii.gz \\
-    -ortvec {data_path}/ea/{sub}_motion.1D motion_paramaters \\
+    -mask {datadir}/ea/{sub}_anat_EPI_mask_MNI.nii.gz \\
+    -ortvec {datadir}/ea/{sub}_motion.1D motion_paramaters \\
     -polort 4 \\
     -num_stimts 1 \\
     -local_times \\
     -jobs 8 \\
-    -x1D {data_path}/ea/{sub}_glm_1stlevel_design.mat \\
-    -stim_times_AM2 1 {data_path}/ea/{sub}_block-times_ea.1D \'dmBLOCK\' \\
+    -x1D {datadir}/ea/{sub}_glm_1stlevel_design.mat \\
+    -stim_times_AM2 1 {datadir}/ea/{sub}_block-times_ea.1D \'dmBLOCK\' \\
     -stim_label 1 empathic_accuracy \\
-    -fitts {data_path}/ea/{sub}_glm_1stlevel_explained.nii.gz \\
-    -bucket {data_path}/ea/{sub}_glm_1stlevel.nii.gz \\
-    -cbucket {data_path}/ea/{sub}_glm_1stlevel_coeffs.nii.gz \\
+    -fitts {datadir}/ea/{sub}_glm_1stlevel_explained.nii.gz \\
+    -bucket {datadir}/ea/{sub}_glm_1stlevel.nii.gz \\
+    -cbucket {datadir}/ea/{sub}_glm_1stlevel_coeffs.nii.gz \\
     -fout \\
     -tout \\
-    -xjpeg {data_path}/ea/{sub}_glm_1stlevel_matrix.jpg
-""".format(input_data=input_data,data_path=data_path,sub=sub))
+    -xjpeg {datadir}/ea/{sub}_glm_1stlevel_matrix.jpg
+""".format(input_data=input_data,datadir=datadir,sub=sub))
     f.close()
 
-def main(base_path, tmp_path, script):
+def main():
     """
-    Essentially, does empathic accuracy up in this glitch.
-
     1) Runs functional data through a custom epitome script.
     2) Extracts block onsets, durations, and parametric modulators from
-       behavioual log files collected at the scanner.
+       behavioual log files collected at the scanner (and stored in RESOURCES).
     3) Writes out AFNI-formatted timing files as well as a GLM script per
        subject.
     4) Executes this script, producing beta-weights for each subject.
     """
-    # sets up relative paths (should be moved to a config.py file?)
-    assets_path = base_path + '/assets'
-    data_path = base_path + '/data'
-    code_path = base_path + '/code'
 
-    # get list of subjects
-    subjects = spn.utils.get_subjects(data_path)
+    global VERBOSE 
+    global DEBUG
+    arguments  = docopt(__doc__)
+    project    = arguments['<project>']
+    script     = arguments['<script>']
+    assets     = arguments['<assets>']
 
-    # loop through subjects
+    datadir = os.path.join(project, 'data')
+
+    try:
+        subjects = dm.utils.get_subjects(os.path.join(datadir, 'nii'))
+    except:
+        print('ERROR: No "nii" folder found for {}.'.format(project))
+        sys.exit()
+
     for sub in subjects:
-
         if spn.utils.subject_type(sub) == 'phantom':
             continue
-
-        # check if output already exists
-        if os.path.isfile(data_path + '/ea/' 
-                                    + sub + '_complete.log') == True:
+        if os.path.isfile('{}/ea/{}_complete.log'.format(datadir, sub)) == True:
             continue
-        
         try:
-            process_functional_data(sub, data_path, code_path)
-
+            process_functional_data(sub, datadir, script)
         except ValueError as ve:
             continue
 
         # get all the log files for a subject
         try:
-            logs = filter(lambda x: '.log' in x and 'UCLAEmpAcc' in x, 
-                                os.listdir(os.path.join(data_path, 'behav', 
-                                                                    sub)))
+            resdirs = glob.glob(os.path.join(datadir, 'RESOURCES', sub + '_??'))
+            resources = []
+            for resdir in resdirs:
+                resfiles = [os.path.join(dp, f) for 
+                                      dp, dn, fn in os.walk(resdir) for f in fn]
+                resources.extend(resfiles)
+
+            logs = filter(lambda x: '.log' in x and 'UCLAEmpAcc' in x, resources)
             logs.sort()
-        
+
         except:
-            print('ERROR: No BEHAV data for ' + sub)
+            print('ERROR: No BEHAV data for {}.'.format(sub))
             continue
 
         # analyze each log file
         if len(logs) > 0:
             
             # open a stimulus timing file, if there are any log files
-            f1 = open(data_path + '/ea/' + sub + '_block-times_ea.1D', 'wb')
+            f1 = open('{}/ea/{}_block-times_ea.1D'.format(datadir, sub), 'wb')
             
             # record the r value and number of pushes per minute
-            f2 = open(data_path + '/ea/' + sub + '_corr_push.csv', 'wb')
+            f2 = open('{}/ea/{}_corr_push.csv'.format(datadir, sub), 'wb')
             f2.write('correlation,n-pushes-per-minute\n')
 
         for log in logs:
-            on, dur, corr, push = process_behav_data(log, assets_path, 
-                                                          data_path, 
-                                                          sub, 
-                                                          'vid')
+            on, dur, corr, push = process_behav_data(log, assets, 
+                                                            datadir, sub, 'vid')
             # write each stimulus time:
             #         [start_time]*[amplitude],[buttonpushes]:[block_length]
             #         30*5,0.002:12
             for i in range(len(on)):
-                f1.write('{o:.2f}*{r:.2f},{p}:{d:.2f} '.format(o=on[i],
-                                                              r=corr[i],
-                                                              p=push[i],
-                                                              d=dur[i]))
+                f1.write('{o:.2f}*{r:.2f},{p}:{d:.2f} '.format(
+                                       o=on[i], r=corr[i], p=push[i], d=dur[i]))
                 f2.write('{r:.2f},{p}\n'.format(r=corr[i], p=push[i]))
-
             f1.write('\n') # add newline at the end of each run (up to 3 runs.)
-
         f1.close()
         f2.close()
 
-        # now generate the GLM script
-        generate_analysis_script(sub, data_path, code_path)
-
-        # run each GLM script
-        os.system('bash ' + data_path + '/ea/' + sub + '_glm_1stlevel_cmd.sh')
+        generate_analysis_script(sub, datadir)
+        os.system('bash {}/ea/{}_glm_1stlevel_cmd.sh'.format(datadir, sub))
 
 if __name__ == "__main__":
-    if len(sys.argv) == 5:
-        main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
-    else:
-        print(__doc__)
-
+    main()

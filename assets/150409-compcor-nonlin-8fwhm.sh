@@ -262,7 +262,7 @@ for SESS in ${DIR_SESS}; do
         # create mean over all runs
         3dMean \
             -prefix ${SESS}/anat_EPI_tmp_mean.nii.gz \
-            ${SESS}/anat_EPI_tmp_ts_mean.${ID}.*
+            ${SESS}/anat_EPI_tmp_ts_mean.${ID}.*.nii.gz
         
         3dTstat \
             -prefix ${SESS}/anat_EPI_tmp_vol.nii.gz \

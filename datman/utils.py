@@ -23,7 +23,7 @@ SERIES_TAGS_MAP = {
 "FLAIR"      :  "FLAIR",
 "Imitat"     :  "IMI",
 "Observ"     :  "OBS",
-"EA.Task"    :  "EA",
+"EA.Task"    :  "EMP",
 "MRS.sgACC"  :  "MRS-sgACC",
 "MRS.DLPFC"  :  "MRS-DLPFC",
 "TE6.5"      :  "TE6.5",
