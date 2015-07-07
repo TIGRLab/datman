@@ -346,8 +346,12 @@ def process_behav_data(log, assets, datadir, sub, trial_type):
         print('    valid: vid or cvid.')
         raise ValueError
 
-    pic, res, vid, mri_start = log_parser(
-                               os.path.join(datadir, 'behav', sub, log))
+    try:
+        pic, res, vid, mri_start = log_parser(
+                                   os.path.join(datadir, 'behav', sub, log))
+    except:
+        raise ValueError
+
     blocks, onsets = find_blocks(vid, mri_start)
     
     durations = []
@@ -482,6 +486,10 @@ def process_functional_data(sub, datadir, script):
     
     except:
         print('ERROR: No/not enough EA data found for ' + str(sub))
+        raise ValueError
+
+    if len(EA_data) != 3:
+        print('ERROR: Did not find all 3 EA files for ' + str(sub))
         raise ValueError
 
     # check if output already exists
@@ -647,22 +655,30 @@ def main():
             f2 = open('{}/ea/{}_corr_push.csv'.format(datadir, sub), 'wb')
             f2.write('correlation,n-pushes-per-minute\n')
 
-        for log in logs:
-            on, dur, corr, push = process_behav_data(log, assets, 
-                                                            datadir, sub, 'vid')
-            # write each stimulus time:
-            #         [start_time]*[amplitude],[buttonpushes]:[block_length]
-            #         30*5,0.002:12
-            for i in range(len(on)):
-                f1.write('{o:.2f}*{r:.2f},{p}:{d:.2f} '.format(
-                                       o=on[i], r=corr[i], p=push[i], d=dur[i]))
-                f2.write('{r:.2f},{p}\n'.format(r=corr[i], p=push[i]))
-            f1.write('\n') # add newline at the end of each run (up to 3 runs.)
-        f1.close()
-        f2.close()
+        try:
+            for log in logs:
+                on, dur, corr, push = process_behav_data(log, assets, 
+                                                              datadir, sub, 'vid')
+                # write each stimulus time:
+                #         [start_time]*[amplitude],[buttonpushes]:[block_length]
+                #         30*5,0.002:12
+                for i in range(len(on)):
+                    f1.write('{o:.2f}*{r:.2f},{p}:{d:.2f} '.format(
+                                           o=on[i], r=corr[i], p=push[i], d=dur[i]))
+                    f2.write('{r:.2f},{p}\n'.format(r=corr[i], p=push[i]))
+                f1.write('\n') # add newline at the end of each run (up to 3 runs.)
+            
+            f1.close()
+            f2.close()
 
-        generate_analysis_script(sub, datadir)
-        os.system('bash {}/ea/{}_glm_1stlevel_cmd.sh'.format(datadir, sub))
+            generate_analysis_script(sub, datadir)
+            os.system('bash {}/ea/{}_glm_1stlevel_cmd.sh'.format(datadir, sub))
+
+        except:
+            print('ERROR: Failed to process logs. Skipping analysis for {}.'.format(sub))
+            f1.close()
+            f2.close()
+            pass
 
 if __name__ == "__main__":
     main()

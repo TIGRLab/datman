@@ -5,12 +5,13 @@ you to specify plotting of all sites concurrently or a single site. If a
 number of time-points is specified, we submit those to each function.
 
 Usage:
-    qc-phantom.py [options] <project> <ntp> <sites>...
+    qc-phantom.py [options] <project> <ntp> <assets> <sites>...
 
 Arguments: 
     <sites>             List of sites to plot.
     <ntp>               Number of previous time points to plot. 
     <project>           Full path to the project directory containing data/.
+    <assets>            Full path to folder containing adni-template.nii.gz
 
 Options:
     -v,--verbose             Verbose logging
@@ -39,6 +40,7 @@ DEPENDENCIES
 
     + matlab
     + afni
+    + fsl
 
     This message is printed with the -h, --help flags.
 """
@@ -191,7 +193,7 @@ def print_adni_qc(project, data, title):
     plt.savefig(os.path.join(project, 'qc/phantom/adni/{}.jpg'.format(title)))
     plt.close()
 
-def find_adni_t1_vals(project, data):
+def find_adni_t1_vals(project, data, assets):
     """
     Find the 5 ROIs of interest using the random walker algorithm [1]. Uses the
     image mean as the lower threshold, and 2x the mean as an upper threshold.
@@ -210,16 +212,17 @@ def find_adni_t1_vals(project, data):
     from skimage.measure import label
     from skimage.segmentation import random_walker
 
-    print(data)
-
+    # print(data)
     title = copy(data) # QC
 
     # convert data to LPI orientation
     tmpdir = tempfile.mkdtemp(prefix='adni-')
     os.system('3daxialize -prefix {}/adni-lpi.nii.gz -orient LPI {}'.format(
                                                                tmpdir, data))
+    os.system('flirt -in {tmpdir}/adni-lpi.nii.gz -ref {assets}/adni-template.nii.gz -out {tmpdir}/adni-lpi-reg.nii.gz'.format(
+                                                                tmpdir=tmpdir, assets=assets))
 
-    data = nib.load(os.path.join(tmpdir, 'adni-lpi.nii.gz')).get_data() # import
+    data = nib.load(os.path.join(tmpdir, 'adni-lpi-reg.nii.gz')).get_data() # import
     os.system('rm -r {}'.format(tmpdir))
 
     data = data[:, :, data.shape[2]/2] # take central axial slice
@@ -454,7 +457,7 @@ def find_fmri_niftis(subject_folder):
 
     return candidates
 
-def main_adni(project, sites, tp):
+def main_adni(project, sites, tp, assets):
     # set paths, datatype
     data_path = os.path.join(project, 'data')
     dtype = 'ADN'
@@ -482,7 +485,7 @@ def main_adni(project, sites, tp):
             phantom = candidates[-1]
             if os.path.isfile(os.path.join(project, 'qc/phantom/adni', subj + '.csv')) == False:
                 adni = find_adni_t1_vals(project, 
-                           os.path.join(data_path, 'nii', subj, phantom))
+                           os.path.join(data_path, 'nii', subj, phantom), assets)
                 # write csv file header='s1,s2,s3,s4,s5,s2/s1,s3/s1,s4/s1,s5/s1')
                 np.savetxt(os.path.join(
                            project, 'qc/phantom/adni', subj + '.csv'), adni.T,
@@ -726,13 +729,14 @@ def main():
     sites     = arguments['<sites>']
     ntp       = arguments['<ntp>']
     project   = arguments['<project>']
+    assets    = arguments['<assets>']
     VERBOSE   = arguments['--verbose']
     DEBUG     = arguments['--debug']
     adni      = arguments['--adni']
     fmri      = arguments['--fmri']
 
     if adni:
-        main_adni(project, sites, int(ntp))
+        main_adni(project, sites, int(ntp), assets)
 
     if fmri:
         main_fmri(project, sites, int(ntp))
