@@ -79,8 +79,6 @@ def log_parser(log):
                                     ('pairindex', 'i32')])
 
     # code 104 == 'mri trigger'
-    # 
-    # 
     res = np.genfromtxt(io.StringIO(''.join(res)), delimiter='\t',
                              dtype=[('subject', '|S64'), 
                                     ('trial', 'i32'),
@@ -161,16 +159,15 @@ def find_ratings(res, pic, blk_start, blk_end, mri_start, blk_start_time):
         # just use the beginning of the next block as our end.
         trial_list = np.linspace(blk_start, blk_end-1, blk_end-blk_start)
 
-    # further refine our trial list to include only the first, last, and button
-    # presses
+    # refine trial list to include only the first, last, and button presses
     response_list = np.array(filter(lambda s: s[1] in trial_list, res))
+    
     # if the participant dosen't respond at all, freak out.
     if len(response_list) == 0:
         ratings = np.array([5])
         return ratings, 0
 
-    #response_first = response_list[0]
-    #response_last = response_list[-1,...]
+    #response_first = response_list[0], response_last = response_list[-1,...]
     button_pushes = np.array(filter(lambda s: '103' in s[3] or 
                                               '102' in s[3], response_list))
     response_list = np.hstack((
@@ -211,9 +208,7 @@ def find_ratings(res, pic, blk_start, blk_end, mri_start, blk_start_time):
         except:
             # use the final value
             rating = picture_list[-1][3] 
-            # fill in the missing numbers with the last good recorded one
-            #rating = previous_rating
-
+    
         # determine the number of ratings to add (using delta time)
         n_events = 1 # default
 
@@ -447,12 +442,6 @@ def process_behav_data(log, assets, datadir, sub, trial_type):
     fig.set_tight_layout(True)
     fig.savefig('{}/ea/{}_{}.pdf'.format(datadir, sub, os.path.basename(log)[:-4]))
 
-    # this is this failing??
-    # print('onsets_used: ' + str(onsets_used) + ' ' + str(type(onsets_used)))
-    # print('durations: ' + str(durations) + ' ' + str(type(durations)))
-    # print('correlations: ' + str(correlations) + ' ' + str(type(correlations)))
-    # print('button_pushes: ' + str(button_pushes) + ' ' + str(type(button_pushes)))
-
     return onsets_used, durations, correlations, button_pushes
 
 def process_functional_data(sub, datadir, script):
@@ -473,7 +462,7 @@ def process_functional_data(sub, datadir, script):
 
     # find EA task
     try:
-        EA_data = filter(lambda x: 'EMP' == dm.utils.guess_tag(x), niftis)
+        EA_data = filter(lambda x: 'EMP' == dm.utils.scanid.parse_filename(x)[1], niftis)
         EA_data.sort()
 
         # remove truncated runs
@@ -583,9 +572,10 @@ def generate_analysis_script(sub, datadir):
     -local_times \\
     -jobs 8 \\
     -x1D {datadir}/ea/{sub}_glm_1stlevel_design.mat \\
-    -stim_times_AM2 1 {datadir}/ea/{sub}_block-times_ea.1D \'dmBLOCK\' \\
+    -stim_times_AM2 1 {datadir}/ea/{sub}_block-times_ea.1D \'dmBLOCK(1)\' \\
     -stim_label 1 empathic_accuracy \\
     -fitts {datadir}/ea/{sub}_glm_1stlevel_explained.nii.gz \\
+    -errts {datadir}/ea/{sub}_glm_1stlevel_residuals.nii.gz \\
     -bucket {datadir}/ea/{sub}_glm_1stlevel.nii.gz \\
     -cbucket {datadir}/ea/{sub}_glm_1stlevel_coeffs.nii.gz \\
     -fout \\
