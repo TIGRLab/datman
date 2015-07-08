@@ -337,14 +337,14 @@ def process_behav_data(log, assets, datadir, sub, trial_type):
 
     # make sure our trial type inputs are valid
     if trial_type not in ['vid', 'cvid']:
-        print('trial_type input ' + str(trial_type) + ' is incorrect.')
-        print('    valid: vid or cvid.')
+        print('ERROR: trial_type input {} is incorrect.'.format(trial_type))
+        print('VALID: vid or cvid.')
         raise ValueError
 
     try:
-        pic, res, vid, mri_start = log_parser(
-                                   os.path.join(datadir, 'behav', sub, log))
+        pic, res, vid, mri_start = log_parser(log)
     except:
+        print('ERROR: Failed to parse log file: {}'.format(log))
         raise ValueError
 
     blocks, onsets = find_blocks(vid, mri_start)
@@ -436,7 +436,7 @@ def process_behav_data(log, assets, datadir, sub, trial_type):
             else:
                 correlations.append(corr.tolist())
             # button pushes / minute
-            button_pushes.append(n_pushes / duration.tolist()[0] / 60.0)
+            button_pushes.append(n_pushes / (duration.tolist()[0] / 60.0))
 
     fig.suptitle(log, size=10)
     fig.set_tight_layout(True)
