@@ -124,11 +124,13 @@ def main():
 
         # search the lookup and the headers for a valid scan ID 
         scanid = get_scanid_from_lookup_table(archivepath, header, lookup)
+        debug("Found {} as scanid from lookup table {}".format(scanid, lookup_table))
         if scanid == '<ignore>': 
             verbose("Ignoring {}".format(archivepath))
             continue
         if scanid is None:
             scanid = get_scanid_from_header(archivepath, header, scanid_field) 
+            debug("Found {} as scanid from header.".format(scanid))
         if scanid is None: 
             error("{}: Cannot find scan id. Skipping".format(archivepath))
             continue
