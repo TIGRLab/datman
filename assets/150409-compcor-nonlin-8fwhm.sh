@@ -367,7 +367,6 @@ for SESS in ${DIR_SESS}; do
     rm ${SESS}/func_tmp*.nii.gz >& /dev/null
     rm ${SESS}/PARAMS/tmp*.1D >& /dev/null
 done
-cd ${DIR_PIPE}
 
 export DATA_QUALITY=high
 export COST=corratio
@@ -485,7 +484,6 @@ for SESS in `basename ${DIR_SESS}`; do
     rm template*
     rm pre.*
 done
-cd ${DIR_PIPE}
 
 
 echo '************************************************************************'
@@ -533,7 +531,6 @@ for SESS in `basename ${DIR_SESS}`; do
     rm template*
     rm pre.*
 done
-cd ${DIR_PIPE}
 
 
 echo '************************************************************************'
@@ -567,7 +564,6 @@ for SESS in `basename ${DIR_SESS}`; do
     fi
 done
 
-cd ${DIR_PIPE}
 
 export INPUT=func_scaled
 export POLORT=1
@@ -961,7 +957,6 @@ for SESS in ${DIR_SESS}; do
     done
     rm ${SESS}/func_tmp_*
 done
-cd ${DIR_PIPE}
 
 export INPUT=func_filtered
 export MASK=anat_EPI_mask
@@ -1048,7 +1043,6 @@ for SESS in ${DIR_SESS}; do
     done
 done
 
-cd ${DIR_PIPE}
 
 export INPUT=func_volsmooth
 export DIMS=3.0
@@ -1116,5 +1110,4 @@ for SESS in `basename ${DIR_SESS}`; do
     fi
 done
 
-cd ${DIR_PIPE}
 
