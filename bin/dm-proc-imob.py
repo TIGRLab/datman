@@ -95,15 +95,12 @@ def process_functional_data(sub, datadir, script):
     dm.utils.make_epitome_folders(os.path.join(tmpdir, 'epitome'), 2)
     epidir = os.path.join(tmpdir, 'epitome/TEMP/SUBJ')
 
-    os.system('cp {}/nii/{}/{} {}/T1/SESS01/RUN01/T1.nii.gz'.format(
-                                               datadir, sub, T1_data, epidir))
-    os.system('cp {}/nii/{}/{} {}/FUNC/SESS01/RUN01/FUNC01.nii.gz'.format(
-                                               datadir, sub, IM_data, epidir))
-    os.system('cp {}/nii/{}/{} {}/FUNC/SESS01/RUN02/FUNC02.nii.gz'.format(
-                                               datadir, sub, OB_data, epidir))
+    os.system('cp {}/nii/{}/{} {}/T1/SESS01/RUN01/T1.nii.gz'.format(datadir, sub, T1_data, epidir))
+    os.system('cp {}/nii/{}/{} {}/FUNC/SESS01/RUN01/FUNC01.nii.gz'.format(datadir, sub, IM_data, epidir))
+    os.system('cp {}/nii/{}/{} {}/FUNC/SESS01/RUN02/FUNC02.nii.gz'.format(datadir, sub, OB_data, epidir))
 
-    # run preprocessing pipeline (shared with EA)
-    os.system('bash {} {}'.format(script, os.path.join(tmpdir, 'epitome')))
+    # run preprocessing pipeline
+    os.system('bash {} {} 4'.format(script, os.path.join(tmpdir, 'epitome')))
 
     # copy outputs into data folder
     if os.path.isdir('{}/imob'.format(datadir)) == False:

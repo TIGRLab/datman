@@ -24,6 +24,7 @@ python/2.7.9-anaconda-2.1.0-150119
 module load python-extras/2.7.8
 
 export DIR_DATA=${1}
+export DELTR=${2}
 
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 export DIR_PIPE=${SCRIPTDIR}/epitome/150331-spins
@@ -37,7 +38,6 @@ McRetroTS=${SCRIPTDIR}'/epitome/150331-spins/bin/run_McRetroTS.sh /opt/quarantin
 ###############################################################################
 
 export DATA_QUALITY=high
-export DELTR=4
 export DESPIKE=on
 export TPATTERN=alt+z
 export NORMALIZE=scale
@@ -570,7 +570,7 @@ done
 cd ${DIR_PIPE}
 
 export INPUT=func_scaled
-export POLORT=4
+export POLORT=1
 export STD=on
 export GM=off
 export ANATICOR=off

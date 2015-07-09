@@ -27,6 +27,7 @@ module load python/2.7.8-anaconda-2.1.0
 module load python-extras/2.7.8
 
 export DIR_DATA=${1}
+export DELTR=${2}
 
 export DIR_EPITOME=/projects/jdv/code/epitome
 export DIR_AFNI=/opt/quarantine/AFNI/2014.12.16/build
@@ -74,7 +75,6 @@ for SESS in ${DIR_SESS}; do
 done
 
 export DATA_QUALITY=high
-export DELTR=0
 export TPATTERN=alt+z
 export NORMALIZE=scale
 export MASKING=loose
@@ -425,7 +425,7 @@ cd ${DIR_PIPE}
 
 export DATA_QUALITY=high
 export COST=corratio
-export REG_DOF=12
+export REG_DOF=6
 
 
 echo '************************************************************************'
@@ -696,4 +696,3 @@ for SESS in `basename ${DIR_SESS}`; do
 done
 
 cd ${DIR_PIPE}
-

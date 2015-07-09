@@ -435,7 +435,7 @@ def process_behav_data(log, assets, datadir, sub, trial_type):
                 correlations.append(corr)
             else:
                 correlations.append(corr.tolist())
-            # button pushes / minute
+            # button pushes per minute (duration is in seconds)
             button_pushes.append(n_pushes / (duration.tolist()[0] / 60.0))
 
     fig.suptitle(log, size=10)
@@ -506,7 +506,7 @@ def process_functional_data(sub, datadir, script):
     os.system('cp {}/nii/{}/{} {}/FUNC/SESS01/RUN03/FUNC03.nii.gz'.format(datadir, sub, str(EA_data[2]), epidir))
         
     # run preprocessing pipeline
-    os.system('bash {} {}'.format(script, os.path.join(tmpdir, 'epitome')))
+    os.system('bash {} {} 4'.format(script, os.path.join(tmpdir, 'epitome')))
 
     # copy outputs into data folder
     if os.path.isdir(datadir + '/ea') == False:
