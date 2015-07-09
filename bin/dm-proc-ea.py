@@ -41,7 +41,6 @@ import scipy.interpolate as interpolate
 import nibabel as nib
 import StringIO as io
 import matplotlib.pyplot as plt
-import datman.spins as spn
 import datman as dm
 from docopt import docopt
 
@@ -637,10 +636,9 @@ def main():
 
         # analyze each log file
         if len(logs) > 0:
-            
+
             # open a stimulus timing file, if there are any log files
             f1 = open('{}/ea/{}_block-times_ea.1D'.format(datadir, sub), 'wb')
-            
             # record the r value and number of pushes per minute
             f2 = open('{}/ea/{}_corr_push.csv'.format(datadir, sub), 'wb')
             f2.write('correlation,n-pushes-per-minute\n')
@@ -653,22 +651,20 @@ def main():
                 #         [start_time]*[amplitude],[buttonpushes]:[block_length]
                 #         30*5,0.002:12
                 for i in range(len(on)):
-                    f1.write('{o:.2f}*{r:.2f},{p}:{d:.2f} '.format(
-                                           o=on[i], r=corr[i], p=push[i], d=dur[i]))
+                    f1.write('{o:.2f}*{r:.2f},{p}:{d:.2f} '.format(o=on[i], r=corr[i], p=push[i], d=dur[i]))
                     f2.write('{r:.2f},{p}\n'.format(r=corr[i], p=push[i]))
                 f1.write('\n') # add newline at the end of each run (up to 3 runs.)
-            
+
+        except:
+            print('ERROR: Failed to process logs. Skipping analysis for {}.'.format(sub))
+            pass
+
+        finally:
             f1.close()
             f2.close()
 
             generate_analysis_script(sub, datadir)
             os.system('bash {}/ea/{}_glm_1stlevel_cmd.sh'.format(datadir, sub))
-
-        except:
-            print('ERROR: Failed to process logs. Skipping analysis for {}.'.format(sub))
-            f1.close()
-            f2.close()
-            pass
 
 if __name__ == "__main__":
     main()

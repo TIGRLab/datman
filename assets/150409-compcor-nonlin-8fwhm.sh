@@ -26,11 +26,12 @@ module load python-extras/2.7.8
 export DIR_DATA=${1}
 export DELTR=${2}
 
-SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-export DIR_PIPE=${SCRIPTDIR}/epitome/150331-spins
+export DIR_PIPE='/archive/data-2.0/code/datman/assets/epitome/150331-spins'
 
-# adds compcor program to path
+# adds epitome and ninet to path
 export PATH=${DIR_PIPE}'/bin':$PATH
+export PATH=/archive/data-2.0/code/datman/assets/ninet/bin:$PATH
+export PYTHONPATH=/archive/data-2.0/code/datman/assets/ninet:$PYTHONPATH
 
 export DIR_AFNI=/opt/quarantine/AFNI/2014.12.16/build
 export DIR_EXPT=TEMP
@@ -39,8 +40,7 @@ export ID=DATMAN
 export SUB=SUBJ
 McRetroTS=${SCRIPTDIR}'/epitome/150331-spins/bin/run_McRetroTS.sh /opt/quarantine/matlab/matlab_concurrent_all/MATLAB_R2013b'
 
-###############################################################################
-
+##############################################################################
 export DATA_QUALITY=high
 export DESPIKE=on
 export TPATTERN=alt+z
@@ -896,6 +896,10 @@ for SESS in ${DIR_SESS}; do
             fi
 
             if [ `echo ${COMPCOR}` = 'on' ]; then
+                
+                echo ''
+                echo $PATH
+                echo ''
 
                 # aCompcor regressors for WM and ventricles
                 if [ ! -f ${SESS}/PARAMS/vent_pc.${ID}.${NUM}.1D ]; then
