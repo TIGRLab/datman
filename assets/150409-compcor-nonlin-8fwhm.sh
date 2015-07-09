@@ -20,7 +20,7 @@ module load R/3.1.1
 module load R-extras/3.1.1
 module load AFNI/2014.12.16
 module load freesurfer/5.3.0
-python/2.7.9-anaconda-2.1.0-150119
+module load python/2.7.9-anaconda-2.1.0-150119
 module load python-extras/2.7.8
 
 export DIR_DATA=${1}
@@ -28,6 +28,10 @@ export DELTR=${2}
 
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 export DIR_PIPE=${SCRIPTDIR}/epitome/150331-spins
+
+# adds compcor program to path
+export PATH=${DIR_PIPE}'/bin':$PATH
+
 export DIR_AFNI=/opt/quarantine/AFNI/2014.12.16/build
 export DIR_EXPT=TEMP
 export DATA_TYPE=FUNC
