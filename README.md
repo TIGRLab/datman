@@ -5,6 +5,9 @@ collection through analysis.
 
 + [Introduction](#introduction)
 + [Quality Control](#quality-control)
++ [CAMH XNAT Documentation](http://imaging-genetics.camh.ca/programs/xnat/)
+
+For instructions on how to use the CAMH XNAT server, our file naming convetions, etc., please see CAMH XNAT Documentation. DATMAN relies on these conventions being followed.
 
 Introduction
 ------------
@@ -59,7 +62,6 @@ A set of commands for handling imaging data.
 **behav**
 
 A set of commands for handling behavioural data. 
->>>>>>> dev
 
 Quality Control
 ---------------

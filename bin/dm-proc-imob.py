@@ -39,7 +39,6 @@ import numpy as np
 import nibabel as nib
 import StringIO as io
 import matplotlib.pyplot as plt
-import datman.spins as spn
 import datman as dm
 
 from docopt import docopt
@@ -211,7 +210,7 @@ def main():
 
     # loop through subjects
     for sub in subjects:
-        if spn.utils.subject_type(sub) == 'phantom':
+        if dm.utils.subject_type(sub) == 'phantom':
             continue
     
         # check if output already exists
