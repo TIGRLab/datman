@@ -609,7 +609,7 @@ def main():
         sys.exit()
 
     for sub in subjects:
-        if spn.utils.subject_type(sub) == 'phantom':
+        if dm.utils.subject_type(sub) == 'phantom':
             continue
         if os.path.isfile('{}/ea/{}_complete.log'.format(datadir, sub)) == True:
             continue
