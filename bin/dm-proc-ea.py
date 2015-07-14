@@ -520,7 +520,7 @@ def main():
             f1 = open('{}/ea/{}_block-times_ea.1D'.format(datadir, sub), 'wb') # stim timing file
             f2 = open('{}/ea/{}_corr_push.csv'.format(datadir, sub), 'wb') # r values and num pushes / minute
             f2.write('correlation,n-pushes-per-minute\n')
-        except:
+        else:
             print('ERROR: Need exactly 3 log files for {}'.format(sub))
             continue
 
