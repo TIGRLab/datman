@@ -141,13 +141,14 @@ def find_ratings(pic, blk_start, blk_end, blk_start_time, duration):
 
     # refine trial list to include only the first, last, and button presses
     responses = np.array(filter(lambda s: s[1] in trial_list, pic))
+    responses = np.array(filter(lambda s: 'rating' in s[3], responses))
     
     # if the participant dosen't respond at all, freak out.
     if len(responses) == 0:
         ratings = np.array([5])
         return ratings, 0
 
-    button_pushes = len(responses)
+    n_pushes = len(responses)
 
     for response in responses:
         ratings.append((int(response[3][-1]), response[4]))
@@ -164,7 +165,7 @@ def find_ratings(pic, blk_start, blk_end, blk_start_time, duration):
         last = idx         # keep track of the last button push
     r[last:] = val         # fill in the tail end of the vector with the last recorded value
 
-    return r, button_pushes
+    return r, n_pushes
 
 def find_column_data(blk_name, rating_file):
     """
@@ -240,7 +241,7 @@ def process_behav_data(log, assets, datadir, sub, trial_type):
         raise ValueError
 
     try:
-        pic, res, vid, mri_start = log_parser(log)
+        pic, vid, mri_start = log_parser(log)
     except:
         print('ERROR: Failed to parse log file: {}'.format(log))
         raise ValueError
@@ -315,7 +316,7 @@ def process_behav_data(log, assets, datadir, sub, trial_type):
             else:
                 correlations.append(corr.tolist())
             # button pushes per minute (duration is in seconds)
-            button_pushes.append(n_pushes / (duration.tolist()[0] / 60.0))
+            button_pushes.append(n_pushes / (duration.tolist() / 60.0))
 
     fig.suptitle(log, size=10)
     fig.set_tight_layout(True)
