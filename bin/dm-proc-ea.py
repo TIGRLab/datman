@@ -40,7 +40,11 @@ import numpy as np
 import scipy.interpolate as interpolate
 import nibabel as nib
 import StringIO as io
+
+import matplotlib
+matplotlib.use('Agg')   # Force matplotlib to not use any Xwindows backend
 import matplotlib.pyplot as plt
+
 import datman as dm
 from datman.docopt import docopt
 
