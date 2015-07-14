@@ -42,7 +42,9 @@ import nibabel as nib
 import StringIO as io
 import matplotlib.pyplot as plt
 import datman as dm
-from docopt import docopt
+from datman.docopt import docopt
+
+TESTDATA
 
 def log_parser(log):
     """
@@ -58,7 +60,7 @@ def log_parser(log):
     logname = copy.copy(log)
     log = open(log, "r").readlines()
     pic = filter(lambda s: 'Picture' in s, log)
-    res = filter(lambda s: 'Response' in s, log)
+    #res = filter(lambda s: 'Response' in s, log)
     vid = filter(lambda s: 'Video' in s, log)
 
     # write out files from stringio blobs into numpy genfromtxt
@@ -77,24 +79,6 @@ def log_parser(log):
                                     ('stimtype', '|S64'),
                                     ('pairindex', 'i32')])
 
-    # code 104 == 'mri trigger'
-    res = np.genfromtxt(io.StringIO(''.join(res)), delimiter='\t',
-                             dtype=[('subject', '|S64'), 
-                                    ('trial', 'i32'),
-                                    ('eventtype', '|S64'),
-                                    ('code', '|S64'),
-                                    ('time', 'i32'),
-                                    ('ttime', 'i32'),
-                                    ('uncertainty1', 'i32')])
-
-    # now we need to remove duplicate trials AHEM hillside :D
-    previously_seen = res[0][1]
-    res_final = res[0]     # sorted(set(map(lambda x: x[1], res)))
-    for r in res:
-        if r[1] != previously_seen:
-            previously_seen = r[1]
-            res_final = np.hstack((res_final, r))
-
     vid = np.genfromtxt(io.StringIO(''.join(vid)), delimiter='\t',
                              dtype=[('subject', '|S64'), 
                                     ('trial', 'i32'),
@@ -110,8 +94,8 @@ def log_parser(log):
         raise ValueError
     else:
         # this is the start of the fMRI run, all times are relative to this.
-        mri_start = res_final[0][4]
-        return pic, res_final, vid, mri_start
+        mri_start = pic[0][7]
+        return pic, vid, mri_start
 
 def find_blocks(vid, mri_start):
     """
@@ -129,15 +113,15 @@ def find_blocks(vid, mri_start):
         block_name = v[3]
 
         # all time in 10000s of a sec.
-        block_start = (v[4] - mri_start) / 10000.0 
+        block_start = (v[4]) 
 
         # generate compressed video list
         blocks.append((block_number, block_name, block_start))
-        onsets.append(block_start)
+        onsets.append(block_start / 10000.0)
 
     return blocks, onsets
 
-def find_ratings(res, pic, blk_start, blk_end, mri_start, blk_start_time):
+def find_ratings(pic, blk_start, blk_end, blk_start_time, duration):
     """
     Takes the response and picture tuple lists and the beginning of the current
     and next videos. This will search through all of the responses [vid_start
@@ -153,119 +137,37 @@ def find_ratings(res, pic, blk_start, blk_end, mri_start, blk_start_time):
     ratings = []
     if blk_end == None:
         # find the final response number, take that as the end of our block
-        trial_list = np.linspace(blk_start, res[-1][1], res[-1][1]-blk_start+1)
+        trial_list = np.linspace(blk_start, pic[-1][1], pic[-1][1]-blk_start+1)
     else:
         # just use the beginning of the next block as our end.
         trial_list = np.linspace(blk_start, blk_end-1, blk_end-blk_start)
 
     # refine trial list to include only the first, last, and button presses
-    response_list = np.array(filter(lambda s: s[1] in trial_list, res))
+    responses = np.array(filter(lambda s: s[1] in trial_list, pic))
     
     # if the participant dosen't respond at all, freak out.
-    if len(response_list) == 0:
+    if len(responses) == 0:
         ratings = np.array([5])
         return ratings, 0
 
-    #response_first = response_list[0], response_last = response_list[-1,...]
-    button_pushes = np.array(filter(lambda s: '103' in s[3] or 
-                                              '102' in s[3], response_list))
-    response_list = np.hstack((
-                    np.hstack((response_list[0,...], button_pushes)), 
-                                                       response_list[-1,...]))
+    button_pushes = len(responses)
 
-    # condense the trial list and add 1, as picture comes from the next trial
-    trial_list = []
-    for i in response_list:
-        trial_list.append(i[1]+1)
+    for response in responses:
+        ratings.append((int(response[3][-1]), response[4]))
 
-    # extract the picture list
-    picture_list = filter(lambda s: s[1] in trial_list, pic)
+    t = np.linspace(blk_start_time, blk_start_time+duration-1, num=duration)
+    r = np.zeros(duration)
 
-    for i, r in enumerate(response_list):
+    val = 5
+    last = 0
+    for rating in ratings:
+        idx = np.where(t == rating[1])[0]
+        r[last:idx] = val  # fill in all the values before the button push\
+        val = rating[0]    # update the value to insert
+        last = idx         # keep track of the last button push
+    r[last:] = val         # fill in the tail end of the vector with the last recorded value
 
-        endpoint = len(response_list)-1
-
-        # we will use this to search through the response files
-        response_number = r[1]
-
-        # get the response time relative to the start of the 
-        # (TRIAL OR SESSION??)
-        if i == 0 or i == endpoint:
-            response_time = (response_list[i][4] - mri_start) / 10000.0
-        
-        else:
-            try:
-                response_time = (picture_list[i][4] - mri_start) / 10000.0
-            
-            except:
-                response_time = (response_list[i][4] - mri_start) / 10000.0
-
-        try:
-            # grab the rating string, check contents, and convert to int
-            rating = picture_list[i][3]
-
-        except:
-            # use the final value
-            rating = picture_list[-1][3] 
-    
-        # determine the number of ratings to add (using delta time)
-        n_events = 1 # default
-
-        if i == 0:
-            delta_time = (picture_list[i][4] / 10000.0) - blk_start_time
-
-        else:
-            # if we are in the middle: if i > 0 and i < endpoint:    
-            # time between two picture events
-            try:
-                delta_time = (picture_list[i][4] - 
-                              picture_list[i-1][4]) / 10000.0
-            
-            except:
-                delta_time = (response_list[i][4] - 
-                              response_list[i-1][4]) / 10000.0
-
-        # number of TRs since last event
-        n_events = np.round(delta_time / 2)
-        
-        # if we are at the end
-        #elif i == endpoint:
-            # time between final response event and final picture event
-            
-            # number of TRs since last event
-            #n_events = np.round(delta_time / 2)
-
-        # check that this is, in fact, a rating, and if so, add to the list
-        #if rating[0:6] == 'rating':
-
-        # ^^^ I removed this check
-        if i == 0:
-            rating = 5 # this is the default rating, according 2 colin
-            previous_rating = copy.copy(rating)
-        else:
-            rating = int(rating[-1])
-        for n in np.arange(n_events):
-            ratings.append(previous_rating)
-        # retain the current rating for the next batch
-        previous_rating = copy.copy(rating)
-    
-    # convert to numpy array
-    ratings = np.array(ratings)
-
-    return ratings, len(button_pushes)
-
-# def get_subj_ratings(ratings):
-#     """
-#     Takes a rating list of tuples and returns only the subject ratings vector,
-#     for correlating with the gold standard.
-#     """
-#     subj_rate = []
-#     for r in ratings:
-#         subj_rate.append(r[2])
-
-#     subj_rate = np.array(subj_rate)
-
-#     return subj_rate
+    return r, button_pushes
 
 def find_column_data(blk_name, rating_file):
     """
@@ -371,52 +273,33 @@ def process_behav_data(log, assets, datadir, sub, trial_type):
 
         blk_name = blocks[i][1]
 
-        # extract ratings vector for participant and actor
-        subj_rate, n_pushes = find_ratings(res, pic, blk_start, 
-                                                     blk_end, mri_start,
-                                                     blk_start_time)
-        # = get_subj_ratings(ratings)
-        gold_rate = find_column_data(blk_name, os.path.join(assets, 
-                                                         'EA-timing.csv'))
-        duration = find_column_data(blk_name, os.path.join(assets, 
-                                                         'EA-vid-lengths.csv'))
-        
-        # interpolate the shorter sample to match the longer sample
-        if n_pushes != 0:
-            if len(subj_rate) < len(gold_rate):
-                subj_rate = match_lengths(gold_rate, subj_rate)
+        gold_rate = find_column_data(blk_name, os.path.join(assets, 'EA-timing.csv'))
+        duration = find_column_data(blk_name, os.path.join(assets, 'EA-vid-lengths.csv'))[0]
+        subj_rate, n_pushes = find_ratings(pic, blk_start, blk_end, blk_start_time, duration*10000)
 
-            elif len(subj_rate) > len(gold_rate):
-                gold_rate = match_lengths(subj_rate, gold_rate)
+        # interpolate the gold standard sample to match the subject sample
+        if n_pushes != 0:
+            gold_rate = match_lengths(subj_rate, gold_rate)
         else:
             subj_rate = np.repeat(5, len(gold_rate))
 
         corr = np.corrcoef(subj_rate, gold_rate)[1][0]
 
-        # this happens when we get a flat response from the participant
         if np.isnan(corr) == True:
-            corr = 0
+            corr = 0  # this happens when we get no responses
 
         # add our ish to a kewl plot
-        #plt.subplot(1, len(blocks), i+1, figsize=(width, height))
         axs[i].plot(gold_rate, color='black', linewidth=2)
         axs[i].plot(subj_rate, color='red', linewidth=2)
-     
-        # put legend in the last subplot only, for kewlness
-        if i == len(blocks) -1:
-            axs[i].legend(['Actor', 'Participant'], loc='best', fontsize=10, 
-                                                                frameon=False)
-
+        axs[i].set_title(blk_name + ': r = ' + str(corr), size=10)
         axs[i].set_xlim((0,len(subj_rate)-1))
         axs[i].set_xlabel('TR')
-
+        axs[i].set_xticklabels([])
         axs[i].set_ylim((0, 10))
-
-        # put y axis label on first subplot only, for kewlness
         if i == 0:
             axs[i].set_ylabel('Rating')
-
-        axs[i].set_title(blk_name + ': r = ' + str(corr), size=10)
+        if i == len(blocks) -1:
+            axs[i].legend(['Actor', 'Participant'], loc='best', fontsize=10, frameon=False)
 
         # skip the 'other' kind of task
         if trial_type == 'vid' and blocks[i][1][0] == 'c':
@@ -425,10 +308,10 @@ def process_behav_data(log, assets, datadir, sub, trial_type):
         elif trial_type == 'cvid' and blocks[i][1][0] == 'v':
             continue
         
-        # otherwise, save the output vectors
+        # otherwise, save the output vectors in seconds
         else:
-            onsets_used.append(onsets[i])
-            durations.append(duration.tolist()[0])
+            onsets_used.append(onsets[i] - mri_start/10000.0)
+            durations.append(duration.tolist())
             
             if type(corr) == int:
                 correlations.append(corr)
@@ -446,16 +329,13 @@ def process_behav_data(log, assets, datadir, sub, trial_type):
 def process_functional_data(sub, datadir, script):
     # copy functional data into epitome-compatible structure
     try:
-        niftis = filter(lambda x: 'nii.gz' in x, 
-                            os.listdir(os.path.join(datadir, 'nii', sub)))            
-    
+        niftis = filter(lambda x: 'nii.gz' in x, os.listdir(os.path.join(datadir, 'nii', sub)))
     except:
         print('ERROR: No "nii" folder found for ' + str(sub))
         raise ValueError
 
     # find T1s
-    if os.path.isfile(os.path.join(
-                      datadir, 'freesurfer', sub, 'mri/brain.mgz')) == False:
+    if os.path.isfile(os.path.join(datadir, 'freesurfer', sub, 'mri/brain.mgz')) == False:
         print('ERROR: No Freesurfered T1s found for ' + str(sub))
         raise ValueError
 
@@ -470,7 +350,6 @@ def process_functional_data(sub, datadir, script):
             if nifti.shape[-1] != 277:
                 EA_data.remove(d)
         EA_data = EA_data[-3:]         # take the last three
-
     
     except:
         print('ERROR: No/not enough EA data found for ' + str(sub))
@@ -521,7 +400,7 @@ def process_functional_data(sub, datadir, script):
     os.system('cat {}/FUNC/SESS01/PARAMS/motion.DATMAN.01.1D > {}/ea/{}_motion.1D'.format(epidir, datadir, sub))
     os.system('cat {}/FUNC/SESS01/PARAMS/motion.DATMAN.02.1D >> {}/ea/{}_motion.1D'.format(epidir, datadir, sub))
     os.system('cat {}/FUNC/SESS01/PARAMS/motion.DATMAN.03.1D >> {}/ea/{}_motion.1D'.format(epidir, datadir, sub))
-    os.system('touch {}/ea/{}_complete.log'.format(datadir, sub))
+    os.system('touch {}/ea/{}_preproc-complete.log'.format(datadir, sub))
     os.system('rm -r {}'.format(tmpdir))
 
 def generate_analysis_script(sub, datadir):
@@ -608,14 +487,20 @@ def main():
         print('ERROR: No "nii" folder found for {}.'.format(project))
         sys.exit()
 
+    # preprocessing loop
     for sub in subjects:
         if dm.utils.subject_type(sub) == 'phantom':
             continue
-        if os.path.isfile('{}/ea/{}_complete.log'.format(datadir, sub)) == True:
+        if os.path.isfile('{}/ea/{}_preproc-complete.log'.format(datadir, sub)) == True:
             continue
         try:
             process_functional_data(sub, datadir, script)
         except ValueError as ve:
+            continue
+
+    # analysis loop
+    for sub in subjects:
+        if os.path.isfile('{}/ea/{}_analysis-complete.log'.format(datadir, sub)) == True:
             continue
 
         # get all the log files for a subject
@@ -629,24 +514,21 @@ def main():
 
             logs = filter(lambda x: '.log' in x and 'UCLAEmpAcc' in x, resources)
             logs.sort()
-
         except:
             print('ERROR: No BEHAV data for {}.'.format(sub))
             continue
 
-        # analyze each log file
-        if len(logs) > 0:
-
-            # open a stimulus timing file, if there are any log files
-            f1 = open('{}/ea/{}_block-times_ea.1D'.format(datadir, sub), 'wb')
-            # record the r value and number of pushes per minute
-            f2 = open('{}/ea/{}_corr_push.csv'.format(datadir, sub), 'wb')
+        if len(logs) == 3:
+            f1 = open('{}/ea/{}_block-times_ea.1D'.format(datadir, sub), 'wb') # stim timing file
+            f2 = open('{}/ea/{}_corr_push.csv'.format(datadir, sub), 'wb') # r values and num pushes / minute
             f2.write('correlation,n-pushes-per-minute\n')
+        except:
+            print('ERROR: Need exactly 3 log files for {}'.format(sub))
+            continue
 
         try:
             for log in logs:
-                on, dur, corr, push = process_behav_data(log, assets, 
-                                                              datadir, sub, 'vid')
+                on, dur, corr, push = process_behav_data(log, assets, datadir, sub, 'vid')
                 # write each stimulus time:
                 #         [start_time]*[amplitude],[buttonpushes]:[block_length]
                 #         30*5,0.002:12
@@ -654,9 +536,8 @@ def main():
                     f1.write('{o:.2f}*{r:.2f},{p}:{d:.2f} '.format(o=on[i], r=corr[i], p=push[i], d=dur[i]))
                     f2.write('{r:.2f},{p}\n'.format(r=corr[i], p=push[i]))
                 f1.write('\n') # add newline at the end of each run (up to 3 runs.)
-
         except:
-            print('ERROR: Failed to process logs. Skipping analysis for {}.'.format(sub))
+            print('ERROR: Failed to parse logs. Skipping analysis for {}.'.format(sub))
             pass
 
         finally:
@@ -665,6 +546,7 @@ def main():
 
             generate_analysis_script(sub, datadir)
             os.system('bash {}/ea/{}_glm_1stlevel_cmd.sh'.format(datadir, sub))
+            os.system('touch {}/ea/{}_analysis-complete.log'.format(datadir, sub))
 
 if __name__ == "__main__":
     main()
