@@ -58,7 +58,6 @@ def log_parser(log):
     logname = copy.copy(log)
     log = open(log, "r").readlines()
     pic = filter(lambda s: 'Picture' in s, log)
-    #res = filter(lambda s: 'Response' in s, log)
     vid = filter(lambda s: 'Video' in s, log)
 
     # write out files from stringio blobs into numpy genfromtxt
@@ -498,6 +497,8 @@ def main():
 
     # analysis loop
     for sub in subjects:
+        if dm.utils.subject_type(sub) == 'phantom':
+            continue
         if os.path.isfile('{}/ea/{}_analysis-complete.log'.format(datadir, sub)) == True:
             continue
 
@@ -516,13 +517,9 @@ def main():
             print('ERROR: No BEHAV data for {}.'.format(sub))
             continue
 
-        if len(logs) == 3:
-            f1 = open('{}/ea/{}_block-times_ea.1D'.format(datadir, sub), 'wb') # stim timing file
-            f2 = open('{}/ea/{}_corr_push.csv'.format(datadir, sub), 'wb') # r values and num pushes / minute
-            f2.write('correlation,n-pushes-per-minute\n')
-        else:
-            print('ERROR: Need exactly 3 log files for {}'.format(sub))
-            continue
+        f1 = open('{}/ea/{}_block-times_ea.1D'.format(datadir, sub), 'wb') # stim timing file
+        f2 = open('{}/ea/{}_corr_push.csv'.format(datadir, sub), 'wb') # r values and num pushes / minute
+        f2.write('correlation,n-pushes-per-minute\n')
 
         try:
             for log in logs:
