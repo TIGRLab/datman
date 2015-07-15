@@ -210,6 +210,14 @@ def match_lengths(a, b):
 
     return b
 
+def zscore(data):
+    """
+    zscores input data.
+    """
+    data = (data - np.mean(data)) / np.std(data)
+
+    return data
+
 def process_behav_data(log, assets, datadir, sub, trial_type):
     """
     This parses the behavioural log files for a given trial type (either 
@@ -284,6 +292,10 @@ def process_behav_data(log, assets, datadir, sub, trial_type):
             gold_rate = match_lengths(subj_rate, gold_rate)
         else:
             subj_rate = np.repeat(5, len(gold_rate))
+
+        # z-score both ratings
+        gold_rate = zscore(gold_rate)
+        subj_rate = zscore(subj_rate)
 
         corr = np.corrcoef(subj_rate, gold_rate)[1][0]
 
