@@ -212,9 +212,17 @@ def match_lengths(a, b):
 
 def zscore(data):
     """
-    zscores input data.
+    z-transforms input vector.
     """
     data = (data - np.mean(data)) / np.std(data)
+
+    return data
+
+def r2z(data):
+    """
+    Fischer's r-to-z transform on a matrix (elementwise).
+    """
+    data = 0.5 * np.log( (1+data) / (1-data) )
 
     return data
 
@@ -302,16 +310,18 @@ def process_behav_data(log, assets, datadir, sub, trial_type):
         if np.isnan(corr) == True:
             corr = 0  # this happens when we get no responses
 
+        corr = r2z(corr) # z score correlations
+
         # add our ish to a kewl plot
         axs[i].plot(gold_rate, color='black', linewidth=2)
         axs[i].plot(subj_rate, color='red', linewidth=2)
-        axs[i].set_title(blk_name + ': r = ' + str(corr), size=10)
+        axs[i].set_title(blk_name + ': z(r) = ' + str(corr), size=10)
         axs[i].set_xlim((0,len(subj_rate)-1))
         axs[i].set_xlabel('TR')
         axs[i].set_xticklabels([])
-        axs[i].set_ylim((0, 10))
+        axs[i].set_ylim((-3, 3))
         if i == 0:
-            axs[i].set_ylabel('Rating')
+            axs[i].set_ylabel('Rating (z)')
         if i == len(blocks) -1:
             axs[i].legend(['Actor', 'Participant'], loc='best', fontsize=10, frameon=False)
 
@@ -464,7 +474,7 @@ def generate_analysis_script(sub, datadir):
     -local_times \\
     -jobs 8 \\
     -x1D {datadir}/ea/{sub}_glm_1stlevel_design.mat \\
-    -stim_times_AM2 1 {datadir}/ea/{sub}_block-times_ea.1D \'dmBLOCK\' \\
+    -stim_times_AM1 1 {datadir}/ea/{sub}_block-times_ea.1D \'dmBLOCK\' \\
     -stim_label 1 empathic_accuracy \\
     -fitts {datadir}/ea/{sub}_glm_1stlevel_explained.nii.gz \\
     -errts {datadir}/ea/{sub}_glm_1stlevel_residuals.nii.gz \\
