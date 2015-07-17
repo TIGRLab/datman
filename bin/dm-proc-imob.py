@@ -47,14 +47,13 @@ from docopt import docopt
 def process_functional_data(sub, datadir, script):
     # copy functional data into epitome-compatible structure
     try:
-        niftis = filter(lambda x: 'nii.gz' in x, 
-                            os.listdir(os.path.join(datadir, 'nii', sub)))
+        niftis = filter(lambda x: 'nii.gz' in x, os.listdir(os.path.join(datadir, 'nii', sub)))
     except:
         print('ERROR: No "nii" folder found for {}.'.format(sub))
         raise ValueError
 
     try:
-        T1_data = filter(lambda x: 'T1' == dm.utils.guess_tag(x), niftis)
+        T1_data = filter(lambda x: 'T1' == dm.utils.scanid.parse_filename(x)[1], niftis)
         T1_data.sort()
         T1_data = T1_data[0]
     except:
@@ -62,7 +61,7 @@ def process_functional_data(sub, datadir, script):
         raise ValueError
 
     try:
-        IM_data = filter(lambda x: 'IMI' == dm.utils.guess_tag(x), niftis)
+        IM_data = filter(lambda x: 'IMI' == dm.utils.scanid.parse_filename(x)[1], niftis)
         if len(IM_data) == 1:
             IM_data = IM_data[0]
         else:
@@ -73,7 +72,7 @@ def process_functional_data(sub, datadir, script):
         raise ValueError
 
     try:
-        OB_data = filter(lambda x: 'OBS' == dm.utils.guess_tag(x), niftis)
+        OB_data = filter(lambda x: 'OBS' == dm.utils.scanid.parse_filename(x)[1], niftis)
         if len(OB_data) == 1:
             OB_data = OB_data[0]
         else:
@@ -83,7 +82,7 @@ def process_functional_data(sub, datadir, script):
         print('ERROR: No OBSERVE data found for {}.'.format(sub))
         raise ValueError
 
-    if os.path.isfile('{}/imob/{}_complete.log'.format(datadir, sub)) == True:
+    if os.path.isfile('{}/imob/{}_preproc-complete.log'.format(datadir, sub)) == True:
         if VERBOSE:
              print('MSG: Subject {} has already been preprocessed.'.format(sub))
         raise ValueError
@@ -91,7 +90,19 @@ def process_functional_data(sub, datadir, script):
     tmpdir = tempfile.mkdtemp(dir='/tmp')
     dm.utils.make_epitome_folders(os.path.join(tmpdir, 'epitome'), 2)
     epidir = os.path.join(tmpdir, 'epitome/TEMP/SUBJ')
+    dir_i = os.path.join(os.environ['SUBJECTS_DIR'], sub, 'mri')
 
+    # T1: freesurfer data
+    os.system('mri_convert --in_type mgz --out_type nii -odt float -rt nearest --input_volume {}/brain.mgz --output_volume {}/T1/SESS01/anat_T1_fs.nii.gz'.format(dir_i, epidir))
+    os.system('3daxialize -prefix {epidir}/T1/SESS01/anat_T1_brain.nii.gz -axial {epidir}/T1/SESS01/anat_T1_fs.nii.gz'.format(epidir=epidir))
+
+    os.system('mri_convert --in_type mgz --out_type nii -odt float -rt nearest --input_volume {}/aparc+aseg.mgz --output_volume {}/T1/SESS01/anat_aparc_fs.nii.gz'.format(dir_i, epidir))
+    os.system('3daxialize -prefix {epidir}/T1/SESS01/anat_aparc_brain.nii.gz -axial {epidir}/T1/SESS01/anat_aparc_fs.nii.gz'.format(epidir=epidir))
+
+    os.system('mri_convert --in_type mgz --out_type nii -odt float -rt nearest --input_volume {}/aparc.a2009s+aseg.mgz --output_volume {}/T1/SESS01/anat_aparc2009_fs.nii.gz'.format(dir_i, epidir))
+    os.system('3daxialize -prefix {epidir}/T1/SESS01/anat_aparc2009_brain.nii.gz -axial {epidir}/T1/SESS01/anat_aparc2009_fs.nii.gz'.format(epidir=epidir))
+
+    # functional data
     os.system('cp {}/nii/{}/{} {}/T1/SESS01/RUN01/T1.nii.gz'.format(datadir, sub, T1_data, epidir))
     os.system('cp {}/nii/{}/{} {}/FUNC/SESS01/RUN01/FUNC01.nii.gz'.format(datadir, sub, IM_data, epidir))
     os.system('cp {}/nii/{}/{} {}/FUNC/SESS01/RUN02/FUNC02.nii.gz'.format(datadir, sub, OB_data, epidir))
