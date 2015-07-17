@@ -474,7 +474,7 @@ def generate_analysis_script(sub, datadir):
     -local_times \\
     -jobs 8 \\
     -x1D {datadir}/ea/{sub}_glm_1stlevel_design.mat \\
-    -stim_times_AM1 1 {datadir}/ea/{sub}_block-times_ea.1D \'dmBLOCK\' \\
+    -stim_times_AM2 1 {datadir}/ea/{sub}_block-times_ea.1D \'dmBLOCK(1)\' \\
     -stim_label 1 empathic_accuracy \\
     -fitts {datadir}/ea/{sub}_glm_1stlevel_explained.nii.gz \\
     -errts {datadir}/ea/{sub}_glm_1stlevel_residuals.nii.gz \\
