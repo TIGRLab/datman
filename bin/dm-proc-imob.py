@@ -66,8 +66,7 @@ def process_functional_data(sub, datadir, script):
         if len(IM_data) == 1:
             IM_data = IM_data[0]
         else:
-            print('MSG: Found multiple IM data, using newest: {}'.format(
-                                                             str(len(IM_data))))
+            print('MSG: Found multiple IM data, using newest: {}'.format(str(len(IM_data))))
             IM_data = IM_data[-1]
     except:
         print('ERROR: No IMITATE data found for {}.'.format(sub))
@@ -78,8 +77,7 @@ def process_functional_data(sub, datadir, script):
         if len(OB_data) == 1:
             OB_data = OB_data[0]
         else:
-            print('MSG: Found multiple OB data, using newest: {}'.format(
-                                                             str(len(OB_data))))
+            print('MSG: Found multiple OB data, using newest: {}'.format(str(len(OB_data))))
             OB_data = OB_data[-1]
     except:
         print('ERROR: No OBSERVE data found for {}.'.format(sub))
@@ -118,7 +116,7 @@ def process_functional_data(sub, datadir, script):
     # os.system('cp {}/FUNC/SESS01/qc_reg_T1_to_MNI.pdf ' + 
     #              '{}/imob/{}_qc_reg_T1_to_MNI.pdf'.format(
     #                                                     epidir, datadir, sub))
-    os.system('touch {}/imob/{}_complete.log'.format(datadir, sub))
+    os.system('touch {}/imob/{}_preproc-complete.log'.format(datadir, sub))
     os.system('rm -r {}'.format(tmpdir))
 
 def generate_analysis_script(sub, datadir, assets):
@@ -144,7 +142,7 @@ def generate_analysis_script(sub, datadir, assets):
     f = open('{}/imob/{}_glm_1stlevel_cmd.sh'.format(datadir, sub), 'wb')
     f.write("""#!/bin/bash
 
-# Imitate GLM for {sub}.
+# Imitate Observe GLM for {sub}.
 3dDeconvolve \\
     -input {input_data} \\
     -mask {datadir}/imob/{sub}_anat_EPI_mask_MNI.nii.gz \\
@@ -179,6 +177,7 @@ def generate_analysis_script(sub, datadir, assets):
     -stim_times 12 {assets}/OB_event-times_SA.1D \'TENT(0,15,5)\' \\
     -stim_label 12 OB_SA \\
     -fitts {datadir}/imob/{sub}_glm_1stlevel_explained.nii.gz \\
+    -errts {datadir}/imob/{sub}_glm_1stlevel_residuals.nii.gz \\
     -bucket {datadir}/imob/{sub}_glm_1stlevel.nii.gz \\
     -cbucket {datadir}/imob/{sub}_glm_1stlevel_coeffs.nii.gz \\
     -fout \\
@@ -192,7 +191,6 @@ def main():
     Loops through subjects, preprocessing using supplied script, and runs a
     first-level GLM using AFNI (tent functions, 15 s window) on all subjects.
     """
-
     global VERBOSE 
     global DEBUG
     arguments  = docopt(__doc__)
@@ -214,18 +212,23 @@ def main():
             continue
     
         # check if output already exists
-        if os.path.isfile('{}/imob/{}_complete.log'.format(
-                                                       datadir, sub)) == True:
-            continue
-    
-        try:
-            process_functional_data(sub, datadir, script)
-            generate_analysis_script(sub, datadir, assets)
-            os.system('bash {}/imob/{}_glm_1stlevel_cmd.sh'.format(
-                                                                datadir, sub))
+        if os.path.isfile('{}/imob/{}_preproc-complete.log'.format(datadir, sub)) == False:
+            try:
+                process_functional_data(sub, datadir, script)    
 
-        except ValueError as ve:
-            pass
+            except ValueError as ve:
+                print('ERROR: Failed to pre-process functional data for {}.'.format(sub))
+                pass
+
+        if os.path.isfile('{}/imob/{}_analysis-complete.log'.format(datadir, sub)) == False:
+            try:
+                generate_analysis_script(sub, datadir, assets)
+                os.system('bash {}/imob/{}_glm_1stlevel_cmd.sh'.format(datadir, sub))
+                os.system('touch {}/imob/{}_analysis-complete.log'.format(datadir, sub))
+
+            except ValueError as ve:
+                print('ERROR: Failed to analyze data for {}.'.format(sub))
+                pass
 
 if __name__ == "__main__":
     main()
