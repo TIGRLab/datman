@@ -107,8 +107,8 @@ def proc_data(sub, data_path, tmp_path, tmpdict, script):
 
     # submit to queue
     uid = ''.join(choice(ascii_uppercase + digits) for _ in range(6))
-    cmd = 'bash ' + script + ' ' + tmpfolder
-    name = 'datman_rest_{sub}_{uid}'.format(sub=sub, uid=uid)
+    cmd = 'bash {} {}'.format(script, tmpfolder)
+    name = 'datman_rest_{}_{}'.format(sub, uid)
     log = os.path.join(data_path, 'logs/rest')
     cmd = 'echo {cmd} | qsub -o {log} -S /bin/bash -V -q main.q -cwd -N {name} -l mem_free=3G,virtual_free=3G -j y'.format(cmd=cmd, log=log, name=name)
     dm.utils.run(cmd)

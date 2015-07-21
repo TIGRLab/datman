@@ -47,14 +47,13 @@ from docopt import docopt
 def process_functional_data(sub, datadir, script):
     # copy functional data into epitome-compatible structure
     try:
-        niftis = filter(lambda x: 'nii.gz' in x, 
-                            os.listdir(os.path.join(datadir, 'nii', sub)))
+        niftis = filter(lambda x: 'nii.gz' in x, os.listdir(os.path.join(datadir, 'nii', sub)))
     except:
         print('ERROR: No "nii" folder found for {}.'.format(sub))
         raise ValueError
 
     try:
-        T1_data = filter(lambda x: 'T1' == dm.utils.guess_tag(x), niftis)
+        T1_data = filter(lambda x: 'T1' == dm.utils.scanid.parse_filename(x)[1], niftis)
         T1_data.sort()
         T1_data = T1_data[0]
     except:
@@ -62,30 +61,28 @@ def process_functional_data(sub, datadir, script):
         raise ValueError
 
     try:
-        IM_data = filter(lambda x: 'IMI' == dm.utils.guess_tag(x), niftis)
+        IM_data = filter(lambda x: 'IMI' == dm.utils.scanid.parse_filename(x)[1], niftis)
         if len(IM_data) == 1:
             IM_data = IM_data[0]
         else:
-            print('MSG: Found multiple IM data, using newest: {}'.format(
-                                                             str(len(IM_data))))
+            print('MSG: Found multiple IM data, using newest: {}'.format(str(len(IM_data))))
             IM_data = IM_data[-1]
     except:
         print('ERROR: No IMITATE data found for {}.'.format(sub))
         raise ValueError
 
     try:
-        OB_data = filter(lambda x: 'OBS' == dm.utils.guess_tag(x), niftis)
+        OB_data = filter(lambda x: 'OBS' == dm.utils.scanid.parse_filename(x)[1], niftis)
         if len(OB_data) == 1:
             OB_data = OB_data[0]
         else:
-            print('MSG: Found multiple OB data, using newest: {}'.format(
-                                                             str(len(OB_data))))
+            print('MSG: Found multiple OB data, using newest: {}'.format(str(len(OB_data))))
             OB_data = OB_data[-1]
     except:
         print('ERROR: No OBSERVE data found for {}.'.format(sub))
         raise ValueError
 
-    if os.path.isfile('{}/imob/{}_complete.log'.format(datadir, sub)) == True:
+    if os.path.isfile('{}/imob/{}_preproc-complete.log'.format(datadir, sub)) == True:
         if VERBOSE:
              print('MSG: Subject {} has already been preprocessed.'.format(sub))
         raise ValueError
@@ -93,7 +90,19 @@ def process_functional_data(sub, datadir, script):
     tmpdir = tempfile.mkdtemp(dir='/tmp')
     dm.utils.make_epitome_folders(os.path.join(tmpdir, 'epitome'), 2)
     epidir = os.path.join(tmpdir, 'epitome/TEMP/SUBJ')
+    dir_i = os.path.join(os.environ['SUBJECTS_DIR'], sub, 'mri')
 
+    # T1: freesurfer data
+    os.system('mri_convert --in_type mgz --out_type nii -odt float -rt nearest --input_volume {}/brain.mgz --output_volume {}/T1/SESS01/anat_T1_fs.nii.gz'.format(dir_i, epidir))
+    os.system('3daxialize -prefix {epidir}/T1/SESS01/anat_T1_brain.nii.gz -axial {epidir}/T1/SESS01/anat_T1_fs.nii.gz'.format(epidir=epidir))
+
+    os.system('mri_convert --in_type mgz --out_type nii -odt float -rt nearest --input_volume {}/aparc+aseg.mgz --output_volume {}/T1/SESS01/anat_aparc_fs.nii.gz'.format(dir_i, epidir))
+    os.system('3daxialize -prefix {epidir}/T1/SESS01/anat_aparc_brain.nii.gz -axial {epidir}/T1/SESS01/anat_aparc_fs.nii.gz'.format(epidir=epidir))
+
+    os.system('mri_convert --in_type mgz --out_type nii -odt float -rt nearest --input_volume {}/aparc.a2009s+aseg.mgz --output_volume {}/T1/SESS01/anat_aparc2009_fs.nii.gz'.format(dir_i, epidir))
+    os.system('3daxialize -prefix {epidir}/T1/SESS01/anat_aparc2009_brain.nii.gz -axial {epidir}/T1/SESS01/anat_aparc2009_fs.nii.gz'.format(epidir=epidir))
+
+    # functional data
     os.system('cp {}/nii/{}/{} {}/T1/SESS01/RUN01/T1.nii.gz'.format(datadir, sub, T1_data, epidir))
     os.system('cp {}/nii/{}/{} {}/FUNC/SESS01/RUN01/FUNC01.nii.gz'.format(datadir, sub, IM_data, epidir))
     os.system('cp {}/nii/{}/{} {}/FUNC/SESS01/RUN02/FUNC02.nii.gz'.format(datadir, sub, OB_data, epidir))
@@ -118,7 +127,7 @@ def process_functional_data(sub, datadir, script):
     # os.system('cp {}/FUNC/SESS01/qc_reg_T1_to_MNI.pdf ' + 
     #              '{}/imob/{}_qc_reg_T1_to_MNI.pdf'.format(
     #                                                     epidir, datadir, sub))
-    os.system('touch {}/imob/{}_complete.log'.format(datadir, sub))
+    os.system('touch {}/imob/{}_preproc-complete.log'.format(datadir, sub))
     os.system('rm -r {}'.format(tmpdir))
 
 def generate_analysis_script(sub, datadir, assets):
@@ -144,7 +153,7 @@ def generate_analysis_script(sub, datadir, assets):
     f = open('{}/imob/{}_glm_1stlevel_cmd.sh'.format(datadir, sub), 'wb')
     f.write("""#!/bin/bash
 
-# Imitate GLM for {sub}.
+# Imitate Observe GLM for {sub}.
 3dDeconvolve \\
     -input {input_data} \\
     -mask {datadir}/imob/{sub}_anat_EPI_mask_MNI.nii.gz \\
@@ -179,6 +188,7 @@ def generate_analysis_script(sub, datadir, assets):
     -stim_times 12 {assets}/OB_event-times_SA.1D \'TENT(0,15,5)\' \\
     -stim_label 12 OB_SA \\
     -fitts {datadir}/imob/{sub}_glm_1stlevel_explained.nii.gz \\
+    -errts {datadir}/imob/{sub}_glm_1stlevel_residuals.nii.gz \\
     -bucket {datadir}/imob/{sub}_glm_1stlevel.nii.gz \\
     -cbucket {datadir}/imob/{sub}_glm_1stlevel_coeffs.nii.gz \\
     -fout \\
@@ -192,7 +202,6 @@ def main():
     Loops through subjects, preprocessing using supplied script, and runs a
     first-level GLM using AFNI (tent functions, 15 s window) on all subjects.
     """
-
     global VERBOSE 
     global DEBUG
     arguments  = docopt(__doc__)
@@ -214,18 +223,23 @@ def main():
             continue
     
         # check if output already exists
-        if os.path.isfile('{}/imob/{}_complete.log'.format(
-                                                       datadir, sub)) == True:
-            continue
-    
-        try:
-            process_functional_data(sub, datadir, script)
-            generate_analysis_script(sub, datadir, assets)
-            os.system('bash {}/imob/{}_glm_1stlevel_cmd.sh'.format(
-                                                                datadir, sub))
+        if os.path.isfile('{}/imob/{}_preproc-complete.log'.format(datadir, sub)) == False:
+            try:
+                process_functional_data(sub, datadir, script)    
 
-        except ValueError as ve:
-            pass
+            except ValueError as ve:
+                print('ERROR: Failed to pre-process functional data for {}.'.format(sub))
+                pass
+
+        if os.path.isfile('{}/imob/{}_analysis-complete.log'.format(datadir, sub)) == False:
+            try:
+                generate_analysis_script(sub, datadir, assets)
+                os.system('bash {}/imob/{}_glm_1stlevel_cmd.sh'.format(datadir, sub))
+                os.system('touch {}/imob/{}_analysis-complete.log'.format(datadir, sub))
+
+            except ValueError as ve:
+                print('ERROR: Failed to analyze data for {}.'.format(sub))
+                pass
 
 if __name__ == "__main__":
     main()
