@@ -32,13 +32,6 @@ import os.path
 import sys
 import datetime
 
- = False
-ONETESLA = False
-VERBOSE = False
-VVERBOSE = False
-DRYRUN  = False
-DEBUG   = False
-
 # def main():
 #     global VERBOSE
 #     global VVERBOSE
@@ -119,17 +112,36 @@ for i in len(checklist):
 	#if no add to subjectlist to run
 toruntoday = []
 for i in len(checklist):
-	if checklist['civet_run'][i] =="Y":
-		continue
-	subid = checklist['civetid'][i]
-	thicknessdir = os.path.join(civet_out,subid,'thickness')
-	if os.path.exists(thicknessdir)== False:
-		toruntoday.append(subid)
-        checklist['date_civetran'][i] = datetime.date.today()
-	else if len(os.listdir(thicknessdir)) == 5:
-			checklist['civet_run'][i] = "Y"
-		 else :
-			checklist['notes'][i] = "something was bad with CIVET :("
+	if checklist['civet_run'][i] !="Y":
+    	subid = checklist['civetid'][i]
+    	thicknessdir = os.path.join(civet_out,subid,'thickness')
+    	if os.path.exists(thicknessdir)== False:
+    		toruntoday.append(subid)
+            checklist['date_civetran'][i] = datetime.date.today()
+    	else if len(os.listdir(thicknessdir)) == 5:
+    			checklist['civet_run'][i] = "Y"
+    		 else :
+    			checklist['notes'][i] = "something was bad with CIVET :("
+
+## find those subjects who were run but who have no qc pages made
+## note: the idea of to run the qc before CIVET because it's fast (just .html writing)
+## in order to get a full CIVET + QC for one participants, call this script twice
+
+torqctoday = []
+for i in len(checklist):
+    if checklist['civet_run'][i] =="Y":
+    	if checklist['qc_run'][i] !="Y":
+        	subid = checklist['civetid'][i]
+        	qchtml = os.path.join(civet_out,QC,subid + '.html')
+        	if os.path.isfile(qchtml):
+        		checklist['qc_run'][i] = "Y"
+        	else
+        		toqctoday.append(subid)
+
+QCcmd = 'CIVET_QC_Pipeline -sourcedir ' + civet_input + \
+    ' -targetdir ' + civet_out + \
+    ' -prefix ' + prefix +\
+    ' ' + " ".join(torqctoday)
 
 ## start building the CIVET command
 CIVETcmd = 'CIVET_Processing_Pipeline' + \
@@ -155,29 +167,20 @@ if len(toruntoday) > 0:
     filelist.close()
     CIVETcmd = CIVETcmd + ' -id-file ' + idfile + ' -run'
 
+## write the checklist out to a file
+checklist = pd.to_csv(checklistfile, sep='\s+', cols = cols)
+## the part that actually runs teh qc command
+if DEBUG:
+    print QCcmd
+datman.utils.run(QCcmd)
+
+## probably should write something here that updates the QC index.html
+
 # the part that actually calls CIVET
 if DEBUG:
     print CIVETcmd
 datman.utils.run(CIVETcmd)
 
+
+
 ## maybe we need to sleep here???
-
-## find those subjects who were run but who have no qc pages made
-torqctoday = []
-for i in len(checklist):
-	if checklist['qc_run'][i] !="Y":
-    	subid = checklist['civetid'][i]
-    	qchtml = os.path.join(civet_out,QC,subid + '.html')
-    	if os.path.isfile(qchtml):
-    		checklist['qc_run'][i] = "Y"
-    	else
-    		toqctoday.append(subid)
-
-QCcmd = 'CIVET_QC_Pipeline -sourcedir ' + civet_input + \
-    ' -targetdir ' + civet_out + \
-    ' -prefix ' + prefix +\
-    ' ' + " ".join(torqctoday)
-
-if DEBUG:
-    print QCcmd
-datman.utils.run(QCcmd)
