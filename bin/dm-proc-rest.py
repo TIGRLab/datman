@@ -204,6 +204,7 @@ def check_returncode(returncode):
 
 def export_data(sub, tmpfolder, rest_path):
     
+    # check for existance of all ouputs before copy
     try:
         tmppath = os.path.join(tmpfolder, 'TEMP', 'SUBJ', 'FUNC', 'SESS01')
         print('cp {tmppath}/func_MNI-nonlin.DATMAN.01.nii.gz {rest_path}/{sub}_func_MNI-nonlin.01.nii.gz'.format(tmppath=tmppath, rest_path=rest_path, sub=sub))
@@ -217,6 +218,7 @@ def export_data(sub, tmpfolder, rest_path):
         returncode, _, _ = dm.utils.run('cp {tmppath}/reg_nlin_TAL.nii.gz {rest_path}/{sub}_reg_nlin_MNI.nii.gz'.format(tmppath=tmppath, rest_path=rest_path, sub=sub))
         check_returncode(returncode)
         returncode, _, _ = dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.01.1D > {rest_path}/{sub}_motion.1D'.format(tmppath=tmppath, rest_path=rest_path, sub=sub))
+        check_returncode(returncode)
         returncode, _, _ = dm.utils.run('touch {rest_path}/{sub}_preproc-complete.log'.format(rest_path=rest_path, sub=sub))
         check_returncode(returncode)
         returncode, _, _ = dm.utils.run('rm -r ' + tmpfolder)
@@ -331,10 +333,13 @@ def main():
         if dm.scanid.is_phantom(sub) == True: 
             continue
         if os.path.isfile(os.path.join(rest_path,  sub + '_preproc-complete.log')) == False:
-            try:
-                export_data(sub, tmpdict[sub], rest_path)
-            except ValueError as ve:
-                print('ERROR: Failed to export {}'.format(sub))
+            if sub in tmpdict:
+                try:
+                    export_data(sub, tmpdict[sub], rest_path)
+                except:
+                    print('ERROR: Failed to export {}'.format(sub))
+                    continue
+            else:
                 continue
 
         if os.path.isfile(os.path.join(rest_path,  sub + '_analysis-complete.log')) == False:
