@@ -22,6 +22,12 @@ Options:
 
 DETAILS
 Requires that CIVET module has been loaded.
+Before running this set enviroment as:
+module load CIVET/1.1.10+Ubuntu_12.04 CIVET-extras/1.0
+module load datman
+unset module
+
+The inputdir should be the project directory (inside data-2.0))
 """
 from docopt import docopt
 import pandas as pd
@@ -73,9 +79,25 @@ if os.path.isfile(checklistfile):
 else:
 	checklist = pd.DataFrame(columns = cols)
 
+## load the projects data export checklist so that we can check if the data has been QCed
+QCedTranfer = True #open a flag to say that this is a project with a qc checklist
+qcchecklist = os.path.join(inputpath,'metadata','checklist.csv')
+qcedlist = []
+if os.path.isfile(qcchecklist):
+    with open(qcchecklist) as f:
+        for line in f:
+            line = line.strip()
+            if len(line.split(' ')) > 1:
+                pdf = line.split(' ')[0]
+                subid = pdf.replace('.pdf','')[3:]
+                qcedlist.append(subid)
+
+else: QCedTranfer = False #set flag to False if a qc checklist does not exist
+
 ## find those subjects in input who have not been processed yet and append to checklist
-subids_in_mnc = dm.utils.get_subjects(os.path.normpath(inputpath))
+subids_in_mnc = dm.utils.get_subjects(os.path.join(inputpath,'data','mnc'))
 subids_in_mnc = [ v for v in subids_in_mnc if "PHA" not in v ] ## remove the phantoms from the list
+if QCedTranfer: subids_in_mnc = list(set(subids_in_mnc) & set(qcedlist)) ##now only add it to the filelist if it has been QCed
 newsubs = list(set(subids_in_mnc) - set(checklist.id))
 newsubs_df = pd.DataFrame(columns = cols, index = range(len(checklist),len(checklist)+len(newsubs)))
 newsubs_df.id = newsubs
@@ -100,27 +122,42 @@ def doCIVETlinking(colname, archive_tag, civet_ext):
     	#if link doesn't exist
     	target = os.path.join(civet_in, prefix + '_' + checklist['civetid'][i] + civet_ext)
     	if os.path.exists(target)==False:
-    		mncdir = os.path.join(inputpath,checklist['id'][i])
-    		#if mnc name not in checklist
-    		if pd.isnull(checklist[colname][i]):
-    			mncfiles = []
-    			for fname in os.listdir(mncdir):
-    				if archive_tag in fname:
-    					mncfiles.append(fname)
-    			if len(mncfiles) == 1:
-    				checklist[colname][i] = mncfiles[0]
-    			elif len(mncfiles) > 1:
-                    #add something here that runs a script to merge the T1s
-    				checklist['notes'][i] = "> 1 {} found".format(archive_tag)
-    			elif len(mncfiles) < 1:
-    				checklist['notes'][i] = "No {} found.".format(archive_tag)
-    		# make the link
-    		if pd.isnull(checklist[colname][i])==False:
-    			mncpath = os.path.join(mncdir,checklist[colname][i])
-    			relpath = os.path.relpath(mncpath,os.path.dirname(target))
-    			if VERBOSE: print("linking {} to {}".format(relpath, target))
-    			if not DRYRUN:
-    				os.symlink(relpath, target)
+            if checklist['id'][i] in qcchecklist or QCedTranfer==False:
+        		mncdir = os.path.join(inputpath,data,mnc,checklist['id'][i])
+        		#if mnc name not in checklist
+        		if pd.isnull(checklist[colname][i]):
+        			mncfiles = []
+        			for fname in os.listdir(mncdir):
+        				if archive_tag in fname:
+        					mncfiles.append(fname)
+        			if len(mncfiles) == 1:
+        				checklist[colname][i] = mncfiles[0]
+        			elif len(mncfiles) > 1:
+                        #add something here that runs a script to merge the T1s
+                        if QCedTranfer==True:
+                            ## if mean file exists - thats you file
+                            meanmnc = [m for m in mncfiles if "mean" in m]
+                            if len(meanmnc) == 1:
+                                checklist[colname][i] = meanmnc[0]
+                            ## if not then submit a job to the queue that will do it
+                        else: ##still need to figure out how to do this...
+                                # ## bash to load the proper
+                                # MEANcmd = 'bash', 'module', 'load',
+                                # 'minc-toolkit/1.0.01', 'minc-toolkit-extras/1.0;'
+                                # 'cd', mncdir,';',
+                                # 'qsub', '-o', {log} ,'-S', '/bin/bash', '-V', '-q', 'main.q', '-cwd' -j y \
+                                # "dm-proc-mncmean.py mincfiles '])
+                        else:
+                            checklist['notes'][i] = "> 1 {} found".format(archive_tag)
+        			elif len(mncfiles) < 1:
+        				checklist['notes'][i] = "No {} found.".format(archive_tag)
+        		# make the link
+        		if pd.isnull(checklist[colname][i])==False:
+        			mncpath = os.path.join(mncdir,checklist[colname][i])
+        			relpath = os.path.relpath(mncpath,os.path.dirname(target))
+        			if VERBOSE: print("linking {} to {}".format(relpath, target))
+        			if not DRYRUN:
+        				os.symlink(relpath, target)
 
 # do linking for the T1
 doCIVETlinking('mnc_t1',T1_TAG , '_t1.mnc')
