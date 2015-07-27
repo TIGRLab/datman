@@ -139,14 +139,6 @@ def doCIVETlinking(colname, archive_tag, civet_ext):
                             meanmnc = [m for m in mncfiles if "mean" in m]
                             if len(meanmnc) == 1:
                                 checklist[colname][i] = meanmnc[0]
-                            ## if not then submit a job to the queue that will do it
-                        else: ##still need to figure out how to do this...
-                                # ## bash to load the proper
-                                # MEANcmd = 'bash', 'module', 'load',
-                                # 'minc-toolkit/1.0.01', 'minc-toolkit-extras/1.0;'
-                                # 'cd', mncdir,';',
-                                # 'qsub', '-o', {log} ,'-S', '/bin/bash', '-V', '-q', 'main.q', '-cwd' -j y \
-                                # "dm-proc-mncmean.py mincfiles '])
                         else:
                             checklist['notes'][i] = "> 1 {} found".format(archive_tag)
         			elif len(mncfiles) < 1:
