@@ -13,6 +13,7 @@ Arguments:
 Options:
   --multispectral          Use the T1W, T2W and PD images in pipeline (default = use only T1W)
   --1-Telsa                Use CIVET options for 1-Telsa data (default = 3T options)
+  --CIVET-version-12       Use version 1.1.12 of CIVET (default  = 1.1.10)
   --T1-tag	STR			   Tag in filename that indicates it's a T1 (default = "_T1_")
   --T2-tag	STR			   Tag in filename that indicates it's a T2 (default = "_T2_")
   --PD-tag	STR			   Tag in filename that indicates it's a PD (default = "_PD_")
@@ -21,13 +22,13 @@ Options:
   -n,--dry-run             Dry run
 
 DETAILS
-Requires that CIVET module has been loaded.
-Before running this set enviroment as:
-module load CIVET/1.1.10+Ubuntu_12.04 CIVET-extras/1.0
-note: after loading CIVET you need to reload python (or datman) to get the right python version
-module load datman
-unset module
-
+Runs CIVET in a rather organized way on all the participants within one project.
+This script write a little script (runcivet.sh) within the output directory structure
+that gets submitted to the queue for each subject. Subject's ID is passed into the qsub
+command as a variable ('-v SUBJECT=<subid>').
+The CIVET enviroment used (and all CIVET options) get's printed into the runcivet.sh script.
+Also, this script creates and updates a checklist ('CIVETchecklist.csv') with what
+participants have been run (on which .mnc file) and the date CIVET was ran.
 The inputdir should be the project directory (inside data-2.0))
 """
 from docopt import docopt
@@ -45,6 +46,7 @@ targetpath      = arguments['<targetpath>']
 prefix          = arguments['<prefix>']
 MULTISPECTRAL   = arguments['--multispectral']
 ONETESLA        = arguments['--1-Telsa']
+CIVET12         = arguments['--CIVET-version-12']
 VERBOSE         = arguments['--verbose']
 DEBUG           = arguments['--debug']
 DRYRUN          = arguments['--dry-run']
@@ -63,8 +65,6 @@ def docmd(cmdlist):
     "sends a command (inputed as a list) to the shell"
     if DEBUG: print ' '.join(cmdlist)
     if not DRYRUN: subprocess.call(cmdlist)
-
-
 
 # need to find the t1 weighted scan and update the checklist
 def doCIVETlinking(colname, archive_tag, civet_ext):
@@ -116,14 +116,17 @@ def makeCIVETrunsh(filename):
     """
     #open file for writing
     civetsh = open(filename,'w')
-    civetsh.write('!/bin/bash\n')
+    civetsh.write('#!/bin/bash\n')
     civetsh.write('source /etc/profile.d/modules.sh\n')
     civetsh.write('source /etc/profile.d/quarantine.sh\n\n')
 
     civetsh.write('## this script was created by dm-proc-CIVET.py\n\n')
     ## can add section here that loads chosen CIVET enviroment
     civetsh.write('##load the CIVET enviroment\n')
-    civetsh.write('module load CIVET/1.1.10+Ubuntu_12.04 CIVET-extras/1.0\n\n')
+    if CIVET12:
+        civetsh.write('module load CIVET/1.1.12 CIVET-extras/1.0\n\n')
+    else:
+        civetsh.write('module load CIVET/1.1.10+Ubuntu_12.04 CIVET-extras/1.0\n\n')
 
     ## add a line that will read in the subject id
     #now calling qsub with '-v' option to define $SUBJECT
@@ -137,7 +140,7 @@ def makeCIVETrunsh(filename):
         ' -sourcedir input' + \
         ' -targetdir output' + \
         ' -prefix ' + prefix + \
-        ' -animal -lobe_atlas -resample-surfaces -spawn -no-VBM' + \
+        ' -lobe_atlas -resample-surfaces -spawn -no-VBM' + \
         ' -thickness tlink 20')
 
     if MULTISPECTRAL: #if multispectral option is selected - add it to the command
@@ -146,7 +149,9 @@ def makeCIVETrunsh(filename):
     if ONETESLA:
         civetsh.write(' -N3-distance 200')
     else: # if not one-tesla (so 3T) using 3T options for N3
-        civetsh.write(' -3Tesla -N3-distance 75')
+        if CIVET12==False:
+            civetsh.write(' -3Tesla ')
+        civetsh.write('-N3-distance 75')
 
     civetsh.write( ' ${SUBJECT} -run > logs/${SUBJECT}.log \n\n')
 
@@ -239,7 +244,7 @@ for i in range(0,len(checklist)):
             thicknessdir = os.path.join(civet_out,subid,'thickness')
             if os.path.exists(thicknessdir)== False:
                 os.chdir(os.path.normpath(targetpath))
-                docmd(['qsub','-o', os.path.basename(civet_logs), '-j', 'y',\
+                docmd(['qsub','-o', 'logs', '-j', 'y',\
                          '-N', 'civet' + subid,  \
                          '-q', 'main.q', '-l', 'mem_free=6G,virtual_free=6G',  \
                          '-v', 'SUBJECT='+subid, \
