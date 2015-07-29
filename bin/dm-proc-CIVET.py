@@ -3,7 +3,7 @@
 This run CIVET on stuff
 
 Usage:
-  run-proc-CIVET.py [options] <inputpath> <targetpath> <prefix>
+  dm-proc-CIVET.py [options] <inputpath> <targetpath> <prefix>
 
 Arguments:
     <inputpath>      Path to input directory (usually a project directory inside /data-2.0)
@@ -67,7 +67,7 @@ dm.utils.makedirs(civet_logs)
 
 #set checklist dataframe structure here
 #because even if we do not create it - it will be needed for newsubs_df (line 80)
-cols = ["id", "mnc_t1", "civetid", "date_civetran", "civet_run", "qc_run", "qc_rator", "qc_rating", "notes"]
+cols = ["id", "mnc_t1", "date_civetran", "civet_run", "qc_run", "qc_rator", "qc_rating", "notes"]
 if MULTISPECTRAL:
 	cols.insert(2,"mnc_t2")
 	cols.insert(3,"mnc_pd")
@@ -116,40 +116,34 @@ def doCIVETlinking(colname, archive_tag, civet_ext):
     civet_ext -- end of the link name (following CIVET guide) (i.e. '_t1.mnc')
     """
     for i in range(0,len(checklist)):
-    	#if civet name not in checklist add link to checklist
-    	if pd.isnull(checklist['civetid'][i]):
-    		checklist['civetid'][i] = checklist.id[i].replace(prefix,'').replace('_',"")
     	#if link doesn't exist
-    	target = os.path.join(civet_in, prefix + '_' + checklist['civetid'][i] + civet_ext)
+    	target = os.path.join(civet_in, prefix + '_' + checklist['id'][i] + civet_ext)
     	if os.path.exists(target)==False:
-            if checklist['id'][i] in qcchecklist or QCedTranfer==False:
-        		mncdir = os.path.join(inputpath,data,mnc,checklist['id'][i])
-        		#if mnc name not in checklist
-        		if pd.isnull(checklist[colname][i]):
-        			mncfiles = []
-        			for fname in os.listdir(mncdir):
-        				if archive_tag in fname:
-        					mncfiles.append(fname)
-        			if len(mncfiles) == 1:
-        				checklist[colname][i] = mncfiles[0]
-        			elif len(mncfiles) > 1:
-                        #add something here that runs a script to merge the T1s
-                        if QCedTranfer==True:
-                            ## if mean file exists - thats you file
-                            meanmnc = [m for m in mncfiles if "mean" in m]
-                            if len(meanmnc) == 1:
-                                checklist[colname][i] = meanmnc[0]
-                        else:
-                            checklist['notes'][i] = "> 1 {} found".format(archive_tag)
-        			elif len(mncfiles) < 1:
-        				checklist['notes'][i] = "No {} found.".format(archive_tag)
-        		# make the link
-        		if pd.isnull(checklist[colname][i])==False:
-        			mncpath = os.path.join(mncdir,checklist[colname][i])
-        			relpath = os.path.relpath(mncpath,os.path.dirname(target))
-        			if VERBOSE: print("linking {} to {}".format(relpath, target))
-        			if not DRYRUN:
-        				os.symlink(relpath, target)
+            mncdir = os.path.join(inputpath,'data','mnc',checklist['id'][i])
+    	    #if mnc name not in checklist
+            if pd.isnull(checklist[colname][i]):
+                mncfiles = []
+                for fname in os.listdir(mncdir):
+                    if archive_tag in fname:
+                        mncfiles.append(fname)
+                if DEBUG: print "Found {} {} in {}".format(len(mncfiles),archive_tag,mncdir)
+                if len(mncfiles) == 1:
+                    checklist[colname][i] = mncfiles[0]
+                elif len(mncfiles) > 1 & QCedTranfer:
+                    meanmnc = [m for m in mncfiles if "mean" in m]
+                    if len(meanmnc) == 1:
+                        checklist[colname][i] = meanmnc[0]
+                elif len(mncfiles) > 1 & QCedTranfer==False:
+                    checklist['notes'][i] = "> 1 {} found".format(archive_tag)
+                elif len(mncfiles) < 1:
+                    checklist['notes'][i] = "No {} found.".format(archive_tag)
+            # make the link
+            if pd.isnull(checklist[colname][i])==False:
+                mncpath = os.path.join(mncdir,checklist[colname][i])
+                relpath = os.path.relpath(mncpath,os.path.dirname(target))
+                if VERBOSE: print("linking {} to {}".format(relpath, target))
+                if not DRYRUN:
+                    os.symlink(relpath, target)
 
 # do linking for the T1
 doCIVETlinking('mnc_t1',T1_TAG , '_t1.mnc')
@@ -165,7 +159,7 @@ if MULTISPECTRAL:
 toruntoday = []
 for i in range(0,len(checklist)):
     if checklist['civet_run'][i] !="Y":
-        subid = checklist['civetid'][i]
+        subid = checklist['id'][i]
         subprefix = os.path.join(civet_in, prefix + '_' + subid)
         CIVETready = os.path.exists(subprefix + '_t1.mnc')
         if MULTISPECTRAL:
@@ -189,7 +183,7 @@ toqctoday = []
 for i in range(0,len(checklist)):
     if checklist['civet_run'][i] =="Y":
     	if checklist['qc_run'][i] !="Y":
-        	subid = checklist['civetid'][i]
+        	subid = checklist['id'][i]
         	qchtml = os.path.join(civet_out,QC,subid + '.html')
         	if os.path.isfile(qchtml):
         		checklist['qc_run'][i] = "Y"
@@ -207,7 +201,10 @@ if len(toqctoday) > 0:
         ' ' + " ".join(toqctoday)
     ## the part that actually runs teh qc command
     if DEBUG: print(QCcmd)
-    datman.utils.run(QCcmd,dryrun = DRYRUN)
+    returncode, out, err = datman.utils.run(QCcmd,dryrun = DRYRUN)
+    if DEBUG: print "Stdout: {}".format(out)
+    if DEBUG: print "Stderr: {}".format(err)
+    if DEBUG: print "Returncode: {}".format(returncode)
     ## probably should write something here that updates the QC index.html
 
 ## write the subids to a file if there are more than ten
@@ -236,4 +233,7 @@ if len(toruntoday) > 0:
     CIVETcmd = CIVETcmd + ' -id-file ' + idfile + ' -run'
     # the part that actually calls CIVET
     if DEBUG: print CIVETcmd
-    datman.utils.run(CIVETcmd, dryrun=DRYRUN)
+    returncode, out, err = datman.utils.run(CIVETcmd, dryrun=DRYRUN)
+    if DEBUG: print "Stdout: {}".format(out)
+    if DEBUG: print "Stderr: {}".format(err)
+    if DEBUG: print "Returncode: {}".format(returncode)
