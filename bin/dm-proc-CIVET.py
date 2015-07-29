@@ -24,6 +24,7 @@ DETAILS
 Requires that CIVET module has been loaded.
 Before running this set enviroment as:
 module load CIVET/1.1.10+Ubuntu_12.04 CIVET-extras/1.0
+note: after loading CIVET you need to reload python (or datman) to get the right python version
 module load datman
 unset module
 
@@ -57,51 +58,13 @@ if T1_TAG == None: T1_TAG = '_T1_'
 if T2_TAG == None: T2_TAG = '_T2_'
 if PD_TAG == None: PD_TAG = '_PD_'
 
-## make the civety directory if it doesn't exist
-civet_in    = os.path.normpath(targetpath+'/input/')
-civet_out   = os.path.normpath(targetpath+'/output/')
-civet_logs  = os.path.normpath(targetpath+'/logs/')
-dm.utils.makedirs(civet_in)
-dm.utils.makedirs(civet_out)
-dm.utils.makedirs(civet_logs)
+### Erin's little function for running things in the shell
+def docmd(cmdlist):
+    "sends a command (inputed as a list) to the shell"
+    if DEBUG: print ' '.join(cmdlist)
+    if not DRYRUN: subprocess.call(cmdlist)
 
-#set checklist dataframe structure here
-#because even if we do not create it - it will be needed for newsubs_df (line 80)
-cols = ["id", "mnc_t1", "date_civetran", "civet_run", "qc_run", "qc_rator", "qc_rating", "notes"]
-if MULTISPECTRAL:
-	cols.insert(2,"mnc_t2")
-	cols.insert(3,"mnc_pd")
 
-## if the checklist exists - open it, if not - create the dataframe
-checklistfile = os.path.normpath(targetpath+'/CIVETchecklist.csv')
-if os.path.isfile(checklistfile):
-	checklist = pd.read_csv(checklistfile, sep=',', dtype=str, comment='#')
-else:
-	checklist = pd.DataFrame(columns = cols)
-
-## load the projects data export checklist so that we can check if the data has been QCed
-QCedTranfer = True #open a flag to say that this is a project with a qc checklist
-qcchecklist = os.path.join(inputpath,'metadata','checklist.csv')
-qcedlist = []
-if os.path.isfile(qcchecklist):
-    with open(qcchecklist) as f:
-        for line in f:
-            line = line.strip()
-            if len(line.split(' ')) > 1:
-                pdf = line.split(' ')[0]
-                subid = pdf.replace('.pdf','')[3:]
-                qcedlist.append(subid)
-
-else: QCedTranfer = False #set flag to False if a qc checklist does not exist
-
-## find those subjects in input who have not been processed yet and append to checklist
-subids_in_mnc = dm.utils.get_subjects(os.path.join(inputpath,'data','mnc'))
-subids_in_mnc = [ v for v in subids_in_mnc if "PHA" not in v ] ## remove the phantoms from the list
-if QCedTranfer: subids_in_mnc = list(set(subids_in_mnc) & set(qcedlist)) ##now only add it to the filelist if it has been QCed
-newsubs = list(set(subids_in_mnc) - set(checklist.id))
-newsubs_df = pd.DataFrame(columns = cols, index = range(len(checklist),len(checklist)+len(newsubs)))
-newsubs_df.id = newsubs
-checklist = checklist.append(newsubs_df)
 
 # need to find the t1 weighted scan and update the checklist
 def doCIVETlinking(colname, archive_tag, civet_ext):
@@ -133,6 +96,8 @@ def doCIVETlinking(colname, archive_tag, civet_ext):
                     meanmnc = [m for m in mncfiles if "mean" in m]
                     if len(meanmnc) == 1:
                         checklist[colname][i] = meanmnc[0]
+                    else:
+                        checklist['notes'][i] = "> 1 {} found".format(archive_tag)
                 elif len(mncfiles) > 1 & QCedTranfer==False:
                     checklist['notes'][i] = "> 1 {} found".format(archive_tag)
                 elif len(mncfiles) < 1:
@@ -140,23 +105,128 @@ def doCIVETlinking(colname, archive_tag, civet_ext):
             # make the link
             if pd.isnull(checklist[colname][i])==False:
                 mncpath = os.path.join(mncdir,checklist[colname][i])
-                relpath = os.path.relpath(mncpath,os.path.dirname(target))
-                if VERBOSE: print("linking {} to {}".format(relpath, target))
-                if not DRYRUN:
-                    os.symlink(relpath, target)
+                if DEBUG: print("linking {} to {}".format(mncpath, target))
+                os.symlink(mncpath, target)
+
+### build a template .sh file that gets submitted to the queue
+def makeCIVETrunsh(filename):
+    """
+    builds a script in the CIVET directory (run.sh)
+    that gets submitted to the queue for each participant
+    """
+    #open file for writing
+    civetsh = open(filename,'w')
+    civetsh.write('!/bin/bash\n')
+    civetsh.write('source /etc/profile.d/modules.sh\n')
+    civetsh.write('source /etc/profile.d/quarantine.sh\n\n')
+
+    civetsh.write('## this script was created by dm-proc-CIVET.py\n\n')
+    ## can add section here that loads chosen CIVET enviroment
+    civetsh.write('##load the CIVET enviroment\n')
+    civetsh.write('module load CIVET/1.1.10+Ubuntu_12.04 CIVET-extras/1.0\n\n')
+
+    ## add a line that will read in the subject id
+    #now calling qsub with '-v' option to define $SUBJECT
+    #civetsh.write('SUBJECT=${1}\n\n')
+
+    #add a line to cd to the CIVET directory
+    civetsh.write('cd '+os.path.normpath(targetpath)+"\n\n")
+
+    ## start building the CIVET command
+    civetsh.write('CIVET_Processing_Pipeline' + \
+        ' -sourcedir input' + \
+        ' -targetdir output' + \
+        ' -prefix ' + prefix + \
+        ' -animal -lobe_atlas -resample-surfaces -spawn -no-VBM' + \
+        ' -thickness tlink 20')
+
+    if MULTISPECTRAL: #if multispectral option is selected - add it to the command
+         civetsh.write(' -multispectral')
+
+    if ONETESLA:
+        civetsh.write(' -N3-distance 200')
+    else: # if not one-tesla (so 3T) using 3T options for N3
+        civetsh.write(' -3Tesla -N3-distance 75')
+
+    civetsh.write( ' ${SUBJECT} -run > logs/${SUBJECT}.log \n\n')
+
+    ## might as well run the QC script for this subject now too
+    civetsh.write('CIVET_QC_Pipeline -sourcedir ' + civet_in + \
+            ' -targetpath ' + civet_out + \
+            ' -prefix ' + prefix +\
+            ' ${SUBJECT} \n')
+
+    #and...don't forget to close the file
+    civetsh.close()
+
+######## NOW START the 'main' part of the script ##################
+## make the civety directory if it doesn't exist
+targetpath = os.path.normpath(targetpath)
+civet_in    = os.path.join(targetpath+'/input/')
+civet_out   = os.path.join(targetpath+'/output/')
+civet_logs  = os.path.join(targetpath+'/logs/')
+dm.utils.makedirs(civet_in)
+dm.utils.makedirs(civet_out)
+dm.utils.makedirs(civet_logs)
+
+## writes a standard CIVET running script for this project (if it doesn't exist)
+## the script requires a $SUBJECT variable - that gets sent if by qsub (-v option)
+runcivetsh = os.path.join(targetpath,'runcivet.sh')
+if os.path.isfile(runcivetsh):
+    ##should write something here to check that this file doesn't change over time
+    if DEBUG: print("{} already written - using it".format(runcivetsh))
+else:
+    makeCIVETrunsh(runcivetsh)
+
+####set checklist dataframe structure here
+#because even if we do not create it - it will be needed for newsubs_df (line 80)
+cols = ["id", "mnc_t1", "date_civetran", "civet_run", "qc_run", "qc_rator", "qc_rating", "notes"]
+if MULTISPECTRAL:
+	cols.insert(1,"mnc_t2")
+	cols.insert(2,"mnc_pd")
+
+# if the checklist exists - open it, if not - create the dataframe
+checklistfile = os.path.normpath(targetpath+'/CIVETchecklist.csv')
+if os.path.isfile(checklistfile):
+	checklist = pd.read_csv(checklistfile, sep=',', dtype=str, comment='#')
+else:
+	checklist = pd.DataFrame(columns = cols)
+
+## load the projects data export checklist so that we can check if the data has been QCed
+QCedTranfer = True #open a flag to say that this is a project with a qc checklist
+qcchecklist = os.path.join(inputpath,'metadata','checklist.csv')
+qcedlist = []
+if os.path.isfile(qcchecklist):
+    with open(qcchecklist) as f:
+        for line in f:
+            line = line.strip()
+            if len(line.split(' ')) > 1:
+                pdf = line.split(' ')[0]
+                subid = pdf.replace('.pdf','')[3:]
+                qcedlist.append(subid)
+
+else: QCedTranfer = False #set flag to False if a qc checklist does not exist
+
+## find those subjects in input who have not been processed yet and append to checklist
+subids_in_mnc = dm.utils.get_subjects(os.path.join(inputpath,'data','mnc'))
+subids_in_mnc = [ v for v in subids_in_mnc if "PHA" not in v ] ## remove the phantoms from the list
+if QCedTranfer: subids_in_mnc = list(set(subids_in_mnc) & set(qcedlist)) ##now only add it to the filelist if it has been QCed
+newsubs = list(set(subids_in_mnc) - set(checklist.id))
+newsubs_df = pd.DataFrame(columns = cols, index = range(len(checklist),len(checklist)+len(newsubs)))
+newsubs_df.id = newsubs
+checklist = checklist.append(newsubs_df)
 
 # do linking for the T1
-doCIVETlinking('mnc_t1',T1_TAG , '_t1.mnc')
+doCIVETlinking("mnc_t1",T1_TAG , '_t1.mnc')
 
 #link more files if multimodal
 if MULTISPECTRAL:
-    doCIVETlinking('mnc_t2', T2_TAG, '_t2.mnc')
-    doCIVETlinking('mnc_pd', PD_TAG, '_pd.mnc')
+    doCIVETlinking("mnc_t2", T2_TAG, '_t2.mnc')
+    doCIVETlinking("mnc_pd", PD_TAG, '_pd.mnc')
 
 ## now checkoutputs to see if any of them have been run
 #if yes update spreadsheet
-#if no add to subjectlist to run
-toruntoday = []
+#if no submits that subject to the queue
 for i in range(0,len(checklist)):
     if checklist['civet_run'][i] !="Y":
         subid = checklist['id'][i]
@@ -168,7 +238,12 @@ for i in range(0,len(checklist)):
         if CIVETready:
             thicknessdir = os.path.join(civet_out,subid,'thickness')
             if os.path.exists(thicknessdir)== False:
-                toruntoday.append(subid)
+                os.chdir(os.path.normpath(targetpath))
+                docmd(['qsub','-o', os.path.basename(civet_logs), '-j', 'y',\
+                         '-N', 'civet' + subid,  \
+                         '-q', 'main.q', '-l', 'mem_free=6G,virtual_free=6G',  \
+                         '-v', 'SUBJECT='+subid, \
+                         os.path.basename(runcivetsh)])
                 checklist['date_civetran'][i] = datetime.date.today()
             elif len(os.listdir(thicknessdir)) == 5:
                 checklist['civet_run'][i] = "Y"
@@ -176,7 +251,7 @@ for i in range(0,len(checklist)):
                 checklist['notes'][i] = "something was bad with CIVET :("
 
 ## find those subjects who were run but who have no qc pages made
-## note: the idea of to run the qc before CIVET because it's fast (just .html writing)
+## note: this case should only exist if something went horribly wthe idea of to run the qc before CIVET because it's fast (just .html writing)
 ## in order to get a full CIVET + QC for one participants, call this script twice
 
 toqctoday = []
@@ -187,53 +262,7 @@ for i in range(0,len(checklist)):
         	qchtml = os.path.join(civet_out,QC,subid + '.html')
         	if os.path.isfile(qchtml):
         		checklist['qc_run'][i] = "Y"
-        	else:
-        		toqctoday.append(subid)
+
 
 ## write the checklist out to a file
 checklist.to_csv(checklistfile, sep=',', columns = cols, index = False)
-
-# Run the QC if there are any new peeps to QC, this is fast, so might as well do it now
-if len(toqctoday) > 0:
-    QCcmd = 'CIVET_QC_Pipeline -sourcedir ' + civet_in + \
-        ' -targetpath ' + civet_out + \
-        ' -prefix ' + prefix +\
-        ' ' + " ".join(toqctoday)
-    ## the part that actually runs teh qc command
-    if DEBUG: print(QCcmd)
-    returncode, out, err = datman.utils.run(QCcmd,dryrun = DRYRUN)
-    if DEBUG: print "Stdout: {}".format(out)
-    if DEBUG: print "Stderr: {}".format(err)
-    if DEBUG: print "Returncode: {}".format(returncode)
-    ## probably should write something here that updates the QC index.html
-
-## write the subids to a file if there are more than ten
-if len(toruntoday) > 0:
-    idfile = os.path.join(civet_logs,'id-file-'+str(datetime.date.today())+'.txt')
-    filelist = open(idfile, 'w')
-    filelist.write("\n".join(toruntoday))
-    filelist.close()
-
-    ## start building the CIVET command
-    CIVETcmd = 'CIVET_Processing_Pipeline' + \
-        ' -sourcedir ' + civet_in + \
-        ' -targetdir ' + civet_out + \
-        ' -prefix ' + prefix + \
-        ' -animal -lobe_atlas -resample-surfaces -granular -VBM' + \
-        ' -thickness tlink 20 -queue main.q'
-
-    if MULTISPECTRAL: #if multispectral option is selected - add it to the command
-         CIVETcmd = CIVETcmd +  ' -multispectral'
-
-    if ONETESLA:
-        CIVETcmd = CIVETcmd + ' -N3-distance 200'
-    else: # if not one-tesla (so 3T) using 3T options for N3
-        CIVETcmd = CIVETcmd + ' -3Tesla -N3-distance 75'
-
-    CIVETcmd = CIVETcmd + ' -id-file ' + idfile + ' -run'
-    # the part that actually calls CIVET
-    if DEBUG: print CIVETcmd
-    returncode, out, err = datman.utils.run(CIVETcmd, dryrun=DRYRUN)
-    if DEBUG: print "Stdout: {}".format(out)
-    if DEBUG: print "Stderr: {}".format(err)
-    if DEBUG: print "Returncode: {}".format(returncode)
