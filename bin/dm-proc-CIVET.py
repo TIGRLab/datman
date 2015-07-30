@@ -38,6 +38,7 @@ import datman.utils
 import datman.scanid
 import os.path
 import sys
+import subprocess
 import datetime
 
 arguments       = docopt(__doc__)
@@ -116,7 +117,12 @@ def makeCIVETrunsh(filename):
     """
     #open file for writing
     civetsh = open(filename,'w')
-    civetsh.write('#!/bin/bash\n')
+    civetsh.write('#!/bin/bash\n\n')
+    civetsh.write('# SGE Options\n')
+    civetsh.write('#$ -S /bin/bash\n')
+    civetsh.write('#$ -q main.q\n')
+    civetsh.write('#$ -l mem_free=6G,virtual_free=6G\n\n')
+    civetsh.write('#source the module system\n')
     civetsh.write('source /etc/profile.d/modules.sh\n')
     civetsh.write('source /etc/profile.d/quarantine.sh\n\n')
 
@@ -129,8 +135,7 @@ def makeCIVETrunsh(filename):
         civetsh.write('module load CIVET/1.1.10+Ubuntu_12.04 CIVET-extras/1.0\n\n')
 
     ## add a line that will read in the subject id
-    #now calling qsub with '-v' option to define $SUBJECT
-    #civetsh.write('SUBJECT=${1}\n\n')
+    civetsh.write('SUBJECT=${1}\n\n')
 
     #add a line to cd to the CIVET directory
     civetsh.write('cd '+os.path.normpath(targetpath)+"\n\n")
@@ -151,9 +156,9 @@ def makeCIVETrunsh(filename):
     else: # if not one-tesla (so 3T) using 3T options for N3
         if CIVET12==False:
             civetsh.write(' -3Tesla ')
-        civetsh.write('-N3-distance 75')
+        civetsh.write(' -N3-distance 75')
 
-    civetsh.write( ' ${SUBJECT} -run > logs/${SUBJECT}.log \n\n')
+    civetsh.write( ' ${SUBJECT} -run \n\n')
 
     ## might as well run the QC script for this subject now too
     civetsh.write('CIVET_QC_Pipeline -sourcedir ' + civet_in + \
@@ -244,11 +249,9 @@ for i in range(0,len(checklist)):
             thicknessdir = os.path.join(civet_out,subid,'thickness')
             if os.path.exists(thicknessdir)== False:
                 os.chdir(os.path.normpath(targetpath))
-                docmd(['qsub','-o', 'logs', '-j', 'y',\
-                         '-N', 'civet' + subid,  \
-                         '-q', 'main.q', '-l', 'mem_free=6G,virtual_free=6G',  \
-                         '-v', 'SUBJECT='+subid, \
-                         os.path.basename(runcivetsh)])
+                docmd(['qsub','-o', 'logs', \
+                         '-N', 'civet_' + subid,  \
+                         os.path.basename(runcivetsh), subid])
                 checklist['date_civetran'][i] = datetime.date.today()
             elif len(os.listdir(thicknessdir)) == 5:
                 checklist['civet_run'][i] = "Y"
