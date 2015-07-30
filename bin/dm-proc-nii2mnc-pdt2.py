@@ -3,7 +3,7 @@
 Converts the PD and T2 images from nifty to minc.
 
 Usage:
-    dm-proc-nii2mnc-pdt2.py <projectdir>
+    dm-proc-nii2mnc-pdt2.py [options] <projectdir>
 
 Options:
   --T2-tag	STR			   Tag in filename that indicates it's a T2 (default = "_T2_")
@@ -23,11 +23,12 @@ import datman as dm
 import datman.utils
 import datman.scanid
 import glob
+import tempfile
 import os.path
 import shutil
 import sys
 import subprocess
-import datetime
+
 
 arguments       = docopt(__doc__)
 projectdir      = arguments['<projectdir>']
@@ -45,12 +46,13 @@ if PD_TAG == None: PD_TAG = '_PD_'
 def docmd(cmdlist):
     "sends a command (inputed as a list) to the shell"
     if DEBUG: print ' '.join(cmdlist)
-    if not DRYRUN: subprocess.call(cmdlist)
+    if not DRYRUN:
+        proc = subprocess.call(cmdlist)
 
 #mkdir a tmpdir for the
-tempdir = tempfile.mkdtemp()
+tmpdir = tempfile.mkdtemp()
 
-##
+## the meaty bit
 projectdir = os.path.normpath(projectdir)
 mncdir = os.path.join(projectdir,'data','mnc')
 niidir = os.path.join(projectdir,'data','nii')
@@ -58,14 +60,14 @@ for tag in [T2_TAG, PD_TAG]:
     images = glob.glob('{}/*/*{}*.nii.gz'.format(niidir,tag))
     for image in images:
         # if target exists - then skip
-        targetmnc = image.replace('nii','mnc').replace('gz','')
+        targetmnc = image.replace('.gz','').replace('nii','mnc')
         if os.path.isfile(targetmnc)==False:
             # get the basename without extension
-            imageb = os.path.basename(image).os.path.splitext[0]
+            imageb = os.path.splitext(os.path.basename(image))[0]
             docmd(['cp',image,tmpdir]) #copying to tmpdir so I can gunzip it
             docmd(['gunzip',os.path.join(tmpdir,os.path.basename(image))]) #gunzip it
             # convert gunzipped nifty to mnc
-            docmd(['nii2mnc', os.path.join(tmpdir,imageb+'.nii'),targetmnc])
+            docmd(['nii2mnc', os.path.join(tmpdir,imageb),targetmnc])
 
 #get rid of the tmpdir
-shutil.rmtree(tempdir)
+shutil.rmtree(tmpdir)
