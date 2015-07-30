@@ -162,7 +162,7 @@ def makeCIVETrunsh(filename):
 
     ## might as well run the QC script for this subject now too
     civetsh.write('CIVET_QC_Pipeline -sourcedir ' + civet_in + \
-            ' -targetpath ' + civet_out + \
+            ' -targetdir ' + civet_out + \
             ' -prefix ' + prefix +\
             ' ${SUBJECT} \n')
 
@@ -249,7 +249,7 @@ for i in range(0,len(checklist)):
             thicknessdir = os.path.join(civet_out,subid,'thickness')
             if os.path.exists(thicknessdir)== False:
                 os.chdir(os.path.normpath(targetpath))
-                docmd(['qsub','-o', 'logs', \
+                docmd(['qsub','-o', civet_logs, \
                          '-N', 'civet_' + subid,  \
                          os.path.basename(runcivetsh), subid])
                 checklist['date_civetran'][i] = datetime.date.today()
@@ -267,7 +267,7 @@ for i in range(0,len(checklist)):
     if checklist['civet_run'][i] =="Y":
     	if checklist['qc_run'][i] !="Y":
         	subid = checklist['id'][i]
-        	qchtml = os.path.join(civet_out,QC,subid + '.html')
+        	qchtml = os.path.join(civet_out,'QC',subid + '.html')
         	if os.path.isfile(qchtml):
         		checklist['qc_run'][i] = "Y"
 
