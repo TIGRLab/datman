@@ -23,19 +23,35 @@ Options:
 
 DETAILS
 Runs CIVET in a rather organized way on all the participants within one project.
+This script is built to work within the folder structure of the kimel lab (data-2.0).
+If a the project folder contains a QC checklist for raw data ("metadata/checklist.csv"),
+this script will read that checklist and only process data from QCed scans.
 This script write a little script (runcivet.sh) within the output directory structure
 that gets submitted to the queue for each subject. Subject's ID is passed into the qsub
-command as a variable ('-v SUBJECT=<subid>').
+command as an argument.
+
 The CIVET enviroment used (and all CIVET options) get's printed into the runcivet.sh script.
 Also, this script creates and updates a checklist ('CIVETchecklist.csv') with what
 participants have been run (on which .mnc file) and the date CIVET was ran.
 The inputdir should be the project directory (inside data-2.0))
+
+This script checks that. for each subject, one scan of each type needed
+(T1, or T1, T2 & PD) exist in the data/mnc/ folder within the project.
+If it finds multiple files, it will either:
+search for a file with the tag "_mean" (i.e. output of dm-proc-mncmean.py) or exit
+You can choose to either update CIVETchecklist.csv with the name of the best scan
+OR run dm-proc-mncmean.py to average the scans.
+After doing either just run this script again, and they will be submtted to the queue.
+
+For T2 and PD scans - if not already in minc format, but are in nifty.
+You may need to run dm-proc-nii2mnc.py to convert those images from nifty format.
 """
 from docopt import docopt
 import pandas as pd
 import datman as dm
 import datman.utils
 import datman.scanid
+import glob
 import os.path
 import sys
 import subprocess
@@ -118,10 +134,12 @@ def makeCIVETrunsh(filename):
     #open file for writing
     civetsh = open(filename,'w')
     civetsh.write('#!/bin/bash\n\n')
+
     civetsh.write('# SGE Options\n')
     civetsh.write('#$ -S /bin/bash\n')
     civetsh.write('#$ -q main.q\n')
     civetsh.write('#$ -l mem_free=6G,virtual_free=6G\n\n')
+
     civetsh.write('#source the module system\n')
     civetsh.write('source /etc/profile.d/modules.sh\n')
     civetsh.write('source /etc/profile.d/quarantine.sh\n\n')
@@ -241,22 +259,31 @@ for i in range(0,len(checklist)):
     if checklist['civet_run'][i] !="Y":
         subid = checklist['id'][i]
         subprefix = os.path.join(civet_in, prefix + '_' + subid)
+        # checks that all the input files are there
         CIVETready = os.path.exists(subprefix + '_t1.mnc')
         if MULTISPECTRAL:
             CIVETready = CIVETready & os.path.exists(subprefix + '_t2.mnc')
             CIVETready = CIVETready & os.path.exists(subprefix + '_pd.mnc')
+        # if all input files are there - check if an output exists
         if CIVETready:
             thicknessdir = os.path.join(civet_out,subid,'thickness')
+            # if no output exists than run civet
             if os.path.exists(thicknessdir)== False:
                 os.chdir(os.path.normpath(targetpath))
                 docmd(['qsub','-o', civet_logs, \
                          '-N', 'civet_' + subid,  \
                          os.path.basename(runcivetsh), subid])
                 checklist['date_civetran'][i] = datetime.date.today()
+            # if an full output exists - uptdate the CIVETchecklist
             elif len(os.listdir(thicknessdir)) == 5:
                 checklist['civet_run'][i] = "Y"
+            # if failed logs exist - update the CIVETchecklist
             else :
-                checklist['notes'][i] = "something was bad with CIVET :("
+                civetlogs = os.path.join(civet_out,subid,'logs')
+                faillogs = glob.glob(civetlogs + '/*.failed')
+                if DEBUG: print "Found {} fails for {}: {}".format(len(faillogs),subid,faillogs)
+                if len(faillogs) > 0:
+                    checklist['notes'][i] = "CIVET failed :("
 
 ## find those subjects who were run but who have no qc pages made
 ## note: this case should only exist if something went horribly wthe idea of to run the qc before CIVET because it's fast (just .html writing)
