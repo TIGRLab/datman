@@ -20,6 +20,10 @@ This run ENIGMA DTI pipeline on one FA map.
 This was made to be called from dm-proc-engimadti.py - which runs enigma-dti protocol
 for a group of subjects (or study) - then creates a group csv output.
 
+In order for this to work - you need to turn the queue off before running it..
+export SGE_ON="false"    # for now, don't use SGE because it complicates things
+If you don't, steps 3 on will fail because they are not waiting for the registration to finisih
+
 Requires ENIGMA dti enviroment to be set (for example):
 module load FSL/5.0.7 R/3.1.1 ENIGMA-DTI/2015.01
 
@@ -32,8 +36,7 @@ import datman as dm
 import datman.utils
 import datman.scanid
 import glob
-import os.environ
-import os.path
+import os
 import sys
 import subprocess
 import datetime
@@ -58,24 +61,20 @@ def docmd(cmdlist):
 # note - original version not using SGE within FSL
 #export SGE_ON="false"    # for now, don't use SGE because it complicates things
 
-ENIGMAHOME = os.environ.get('ENIGMAHOME')
+ENIGMAHOME = os.getenv('ENIGMAHOME')
 if ENIGMAHOME==None:
     sys.exit("ENIGMAHOME environment variable is undefined. Try again.")
-FSLDIR = os.environ.get('FSLDIR')
+FSLDIR = os.getenv('FSLDIR')
 if FSLDIR==None:
     sys.exit("FSLDIR environment variable is undefined. Try again.")
+if os.path.isfile(FAmap) == False:
+    sys.exit("Input file {} doesn't exist.".format(FAmap))
 #something to stop if final csv is found?? maybe not good if we wanna keep adding subs
 # if [ ! -e ALL_Subject_Info.csv ];then
 # 	echo "ALL_Subject_Info.csv DNE"
 # 	exit 1
 # fi
 
-## These are the links to some templates and settings from enigma
-skel_thresh = 0.049
-distancemap = os.path.join(ENIGMAHOME,'ENIGMA_DTI_FA_skeleton_mask_dst.nii.gz')
-search_rule_mask = os.path.join(FSLDIR,'data','standard','LowerCingulum_1mm.nii.gz')
-tbss_skeleton_input = os.path.join(ENIGMAHOME,'ENIGMA_DTI_FA.nii.gz')
-tbss_skeleton_alt = os.path.join(ENIGMAHOME, 'ENIGMA_DTI_FA_skeleton_mask.nii.gz')
 
 # make some output directories
 outputdir = os.path.normpath(outputdir)
@@ -88,18 +87,31 @@ outputdir = os.path.normpath(outputdir)
 ## if nifti input is not inside the outputdir than copy it here
 FAimage = os.path.basename(FAmap)
 FAimage_noext = FAimage.replace(dm.utils.get_extension(FAimage),'')
-if os.path.dirname(FAimage) != outputdir:
-    docmd(['cp',FAmap,os.path.join(outputdir,FAimage)])
 
-ROIoutdir = os.path.join(outputdir, 'ROI')
-dm.utils.makedirs(ROIoutdir)
-csvout1 = os.path.join(ROIoutdir, FAimage_noext + '_FA_to_target_FAskel_ROIout.csv')
-csvout2 = os.path.join(ROIoutdir, FAimage_noext + '_FA_to_target_FAskel_ROIout_avg.csv')
 
+## These are the links to some templates and settings from enigma
+skel_thresh = 0.049
+distancemap = os.path.join(ENIGMAHOME,'ENIGMA_DTI_FA_skeleton_mask_dst.nii.gz')
+search_rule_mask = os.path.join(FSLDIR,'data','standard','LowerCingulum_1mm.nii.gz')
+tbss_skeleton_input = os.path.join(ENIGMAHOME,'ENIGMA_DTI_FA.nii.gz')
+tbss_skeleton_alt = os.path.join(ENIGMAHOME, 'ENIGMA_DTI_FA_skeleton_mask.nii.gz')
+ROIoutdir1 = os.path.join(outputdir, 'ROI_part1')
+ROIoutdir2 = os.path.join(outputdir, 'ROI_part2')
+dm.utils.makedirs(ROIoutdir1)
+dm.utils.makedirs(ROIoutdir2)
+csvout1 = os.path.join(ROIoutdir1, FAimage_noext + '_FA_to_target_FAskel_ROIout')
+csvout2 = os.path.join(ROIoutdir2, FAimage_noext + '_FA_to_target_FAskel_ROIout_avg.csv')
 ###############################################################################
-print("TBSS STEP 1")
+## setting up
+## if teh outputfile is not inside the outputdir than copy it there
+if os.path.isfile(os.path.join(outputdir,FAimage)) == False:
+    docmd(['cp',FAmap,os.path.join(outputdir,FAimage)])
 ## cd into the output directory
 os.chdir(outputdir)
+os.putenv('SGE_ON','false')
+###############################################################################
+print("TBSS STEP 1")
+
 docmd(['tbss_1_preproc', FAimage])
 
 ###############################################################################
@@ -115,16 +127,16 @@ docmd(['tbss_3_postreg','-S'])
 ###############################################################################
 print("Skeletonize...")
 # Note many of the options for this are printed at the top of this script
-FAskel = os.path.join(ouputdir,'FA', FAimage_noext + '_FA_to_target_FAskel.nii.gz')
-docmd('tbss_skeleton', \
+FAskel = os.path.join(outputdir,'FA', FAimage_noext + '_FA_to_target_FAskel.nii.gz')
+docmd(['tbss_skeleton', \
       '-i', tbss_skeleton_input, \
       '-s', tbss_skeleton_alt, \
       '-p', str(skel_thresh), distancemap, search_rule_mask,
        'FA/' + FAimage_noext + '_FA_to_target.nii.gz',
-       FAskel)
+       FAskel])
 
 ###############################################################################
-echo "Convert skeleton datatype to 'float'..."
+print("Convert skeleton datatype to 'float'...")
 docmd(['fslmaths', FAskel, '-mul', '1', FAskel, '-odt', 'float'])
 
 ###############################################################################
@@ -144,7 +156,8 @@ docmd([os.path.join(ENIGMAHOME,'singleSubjROI_exe'),
 print("ROI part 2...")
 # ROIoutdir2 = os.path.join(outputdir, 'ROI_part2')
 # dm.utils.makedirs(ROIoutdir2)
-docmd([os.path.join(ENIGMAHOME, 'averageSubjectTracts_exe'), csvout1, csvout2])
+docmd([os.path.join(ENIGMAHOME, 'averageSubjectTracts_exe'), csvout1 + ',csv', csvout2])
 
 ###############################################################################
+os.putenv('SGE_ON','true')
 print("Done !!")
