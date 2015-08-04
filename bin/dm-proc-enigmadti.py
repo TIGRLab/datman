@@ -1,24 +1,27 @@
 #!/usr/bin/env python
 """
-This run ENIGMA DTI pipeline on FA maps
+This run ENIGMA DTI pipeline on FA maps after DTI-fit has been run.
+Calls (or submits) doInd-enigma-dti.py for each subject in order to do so.
 
 Usage:
-  dm-proc-CIVET.py [options] <outputdir> <FAmap.nii.gz>
+  dm-proc-enigmadti.py [options] <input-dtifit-dir> <outputdir>
 
 Arguments:
-    <outputdir>        Top directory for the output file structure
-    <FAmap.nii.gz>     Fractional Anisotropy Image in nifti format to start from
+    <input-dtifit-dir>        Top directory for dti-fit output
+    <outputdir>               Top directory for the output of enigma DTI
 
 Options:
+  --FA-tag  STR            String used to identify FA maps within DTI-fit input (default = '_FA'))
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
   -n,--dry-run             Dry run
 
 DETAILS
+This run ENIGMA DTI pipeline on FA maps after DTI-fit has been run.
+Calls (or submits) doInd-enigma-dti.py for each subject in order to do so.
+
 Requires ENIGMA dti enviroment to be set (for example):
 module load FSL/5.0.7 R/3.1.1 ENIGMA-DTI/2015.01
-
-Note: to force this to work only for one participant - we can just make sure only one participants is in the outputdir
 
 Written by Erin W Dickie, July 30 2015
 Adapted from ENIGMA_MASTER.sh - Generalized October 2nd David Rotenberg Updated Feb 2015 by JP+TB
@@ -36,14 +39,16 @@ import subprocess
 import datetime
 
 arguments       = docopt(__doc__)
+dtifit_dir      = arguments['<input-dtifit-dir>']
 outputdir       = arguments['<outputdir>']
-FAmap           = arguments['<FAmap.nii.gz>']
+FA_tag          = arguments['--FA-tag']
 VERBOSE         = arguments['--verbose']
 DEBUG           = arguments['--debug']
 DRYRUN          = arguments['--dry-run']
 
 if DEBUG: print arguments
-
+#set default tag values
+if --FA-tag == None: T1_TAG = '_FA'
 
 ### Erin's little function for running things in the shell
 def docmd(cmdlist):
@@ -81,96 +86,16 @@ if os.path.dirname(FAimage) != outputdir:
 ## cd into the output directory
 os.chdir(outputdir)
 
-###############################################################################
-## TBSS step 1
-print("TBSS STEP 1")
-docmd(['tbss_1_preproc', FAimage])
-
-###############################################################################
-print("TBSS STEP 2")
-docmd(['tbss_2_reg', '-t', os.path.join(ENIGMAHOME,'ENIGMA_DTI_FA.nii.gz')])
-
-#echo "Waiting for TBSS stage 2 to complete..."
-## || true needed to work around having "set -e" turned on, since grep
-## exits with 1 if nothing is matched
-#pause_crit=$(qstat | grep tbss_2_reg || true)
-#
-#while [ -n "$pause_crit" ]; do
-#    pause_crit=$(qstat | grep tbss_2_reg || true)
-#    sleep 20
-#done
-
-###############################################################################
-print("TBSS STEP 3")
-docmd(['tbss_3_postreg','-S'])
-docmd(['cp', FA/*FA_to_target.nii.gz, FA_to_target_dir])
-
-
-###############################################################################
-print("Skeletonize...")
-skel_thresh = 0.049
-distancemap = os.path.join(ENIGMAHOME,'ENIGMA_DTI_FA_skeleton_mask_dst.nii.gz')
-search_rule_mask = os.path.join(FSLDIR,'data','standard','LowerCingulum_1mm.nii.gz')
-
-if [ ! -e .done_tbss_skel ]; then
-  for a in FA_to_target/*; do
-    sub=$(basename ${a} .nii.gz)
-docmd('tbss_skeleton', \
-      '-i', os.path.join(ENIGMAHOME,'ENIGMA_DTI_FA.nii.gz'), \
-      '-s', os.path.join(ENIGMAHOME, 'ENIGMA_DTI_FA_skeleton_mask.nii.gz'), \
-      '-p', str(skel_thresh), distancemap, search_rule_mask,
-       ${a}, os.path.join(FA_skels/${sub}_FAskel
-
-
-###############################################################################
-echo "Convert skeleton datatype to 'float'..."
-if [ ! -e .done_fslmaths ]; then
-	for sub in FA_skels/* ;do
-		fslmaths $sub -mul 1 $sub -odt float
-	done
-  touch .done_fslmaths
-fi
-
-###############################################################################
-echo "ROI part 1..."
-
-# make directory for ROI_out.csv files
-dir01=ROI_part1
-mkdir -p $dir01
-
-if [ ! -e .done_ROI_part1 ]; then
-  for subject in FA_skels/*.nii.gz; do
-    base=$(basename $subject .nii.gz);
-    ${ENIGMAHOME}/singleSubjROI_exe \
-      ${ENIGMAHOME}/ENIGMA_look_up_table.txt \
-      ${ENIGMAHOME}/ENIGMA_DTI_FA_skeleton.nii.gz \
-      ${ENIGMAHOME}/JHU-WhiteMatter-labels-1mm.nii.gz \
-      ${dir01}/${base}_ROIout ${subject}
-  done
-  touch .done_ROI_part1
-fi
-
 
 ###############################################################################
 ## part 2 - loop through all subjects to create ROI file
 ##			removing ROIs not of interest and averaging others
 echo "ROI part 2..."
 
-# make an output directory for all files
-dir02=ROI_part2
-mkdir -p $dir02
 
 if [ ! -e .done_ROI_part2 ]; then
   rm -f subjectList.csv
   for subject in FA_skels/*.nii.gz; do
-    base=$(basename $subject .nii.gz);
-
-    ${ENIGMAHOME}/averageSubjectTracts_exe \
-      ${dir01}/${base}_ROIout.csv \
-      ${dir02}/${base}_ROIout_avg.csv
-
-    # create subject list for part 3
-    # subjectID, location of ROIout_avg.csv file for subject
     echo ${base},${dir02}/${base}_ROIout_avg.csv >> ./subjectList.csv
   done
   touch .done_ROI_part2
