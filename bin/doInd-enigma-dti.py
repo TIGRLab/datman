@@ -50,7 +50,6 @@ DEBUG           = arguments['--debug']
 DRYRUN          = arguments['--dry-run']
 
 if DEBUG: print arguments
-
 ### Erin's little function for running things in the shell
 def docmd(cmdlist):
     "sends a command (inputed as a list) to the shell"
@@ -77,6 +76,7 @@ if os.path.isfile(FAmap) == False:
 
 # make some output directories
 outputdir = os.path.abspath(outputdir)
+
 ## if nifti input is not inside the outputdir than copy it here
 FAimage = os.path.basename(FAmap)
 FAimage_noext = FAimage.replace(dm.utils.get_extension(FAimage),'')
