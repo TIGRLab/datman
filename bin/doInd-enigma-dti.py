@@ -29,6 +29,7 @@ module load FSL/5.0.7 R/3.1.1 ENIGMA-DTI/2015.01
 
 Written by Erin W Dickie, July 30 2015
 Adapted from ENIGMA_MASTER.sh - Generalized October 2nd David Rotenberg Updated Feb 2015 by JP+TB
+#Note -need ot expand path on FAskel -or it fails if relative paths given...
 """
 from docopt import docopt
 import pandas as pd
@@ -49,8 +50,6 @@ DEBUG           = arguments['--debug']
 DRYRUN          = arguments['--dry-run']
 
 if DEBUG: print arguments
-
-
 
 ### Erin's little function for running things in the shell
 def docmd(cmdlist):
@@ -77,17 +76,16 @@ if os.path.isfile(FAmap) == False:
 
 
 # make some output directories
-outputdir = os.path.normpath(outputdir)
+outputdir = os.path.abspath(outputdir)
+## if nifti input is not inside the outputdir than copy it here
+FAimage = os.path.basename(FAmap)
+FAimage_noext = FAimage.replace(dm.utils.get_extension(FAimage),'')
+
 ## orig version of ENIGMA_MASTER.sh protocol used these directories to organize data
 # FA_to_target_dir = os.path.join(outputdir,'FA_to_target')
 # FA_skels_dir = os.path.join(outputdir,'FA_skels')
 # dm.utils.mkdir(FA_to_target_dir)
 # dm.utils.mkdir(FA_skels_dir)
-
-## if nifti input is not inside the outputdir than copy it here
-FAimage = os.path.basename(FAmap)
-FAimage_noext = FAimage.replace(dm.utils.get_extension(FAimage),'')
-
 
 ## These are the links to some templates and settings from enigma
 skel_thresh = 0.049
@@ -95,12 +93,11 @@ distancemap = os.path.join(ENIGMAHOME,'ENIGMA_DTI_FA_skeleton_mask_dst.nii.gz')
 search_rule_mask = os.path.join(FSLDIR,'data','standard','LowerCingulum_1mm.nii.gz')
 tbss_skeleton_input = os.path.join(ENIGMAHOME,'ENIGMA_DTI_FA.nii.gz')
 tbss_skeleton_alt = os.path.join(ENIGMAHOME, 'ENIGMA_DTI_FA_skeleton_mask.nii.gz')
-ROIoutdir1 = os.path.join(outputdir, 'ROI_part1')
-ROIoutdir2 = os.path.join(outputdir, 'ROI_part2')
-dm.utils.makedirs(ROIoutdir1)
-dm.utils.makedirs(ROIoutdir2)
-csvout1 = os.path.join(ROIoutdir1, FAimage_noext + '_FA_to_target_FAskel_ROIout')
-csvout2 = os.path.join(ROIoutdir2, FAimage_noext + '_FA_to_target_FAskel_ROIout_avg.csv')
+ROIoutdir = os.path.join(outputdir, 'ROI')
+dm.utils.makedirs(ROIoutdir)
+csvout1 = os.path.join(ROIoutdir, FAimage_noext + '_FA_to_target_FAskel_ROIout')
+csvout2 = os.path.join(ROIoutdir, FAimage_noext + '_FA_to_target_FAskel_ROIout_avg')
+FAskel = os.path.join(outputdir,'FA', FAimage_noext + '_FA_to_target_FAskel.nii.gz')
 ###############################################################################
 ## setting up
 ## if teh outputfile is not inside the outputdir than copy it there
@@ -127,7 +124,6 @@ docmd(['tbss_3_postreg','-S'])
 ###############################################################################
 print("Skeletonize...")
 # Note many of the options for this are printed at the top of this script
-FAskel = os.path.join(outputdir,'FA', FAimage_noext + '_FA_to_target_FAskel.nii.gz')
 docmd(['tbss_skeleton', \
       '-i', tbss_skeleton_input, \
       '-s', tbss_skeleton_alt, \
@@ -142,7 +138,6 @@ docmd(['fslmaths', FAskel, '-mul', '1', FAskel, '-odt', 'float'])
 ###############################################################################
 print("ROI part 1...")
 ## note - right now this uses the _exe for ENIGMA - can probably rewrite this with nibabel
-
 docmd([os.path.join(ENIGMAHOME,'singleSubjROI_exe'),
           os.path.join(ENIGMAHOME,'ENIGMA_look_up_table.txt'), \
           os.path.join(ENIGMAHOME, 'ENIGMA_DTI_FA_skeleton.nii.gz'), \
@@ -156,7 +151,7 @@ docmd([os.path.join(ENIGMAHOME,'singleSubjROI_exe'),
 print("ROI part 2...")
 # ROIoutdir2 = os.path.join(outputdir, 'ROI_part2')
 # dm.utils.makedirs(ROIoutdir2)
-docmd([os.path.join(ENIGMAHOME, 'averageSubjectTracts_exe'), csvout1 + ',csv', csvout2])
+docmd([os.path.join(ENIGMAHOME, 'averageSubjectTracts_exe'), csvout1 + '.csv', csvout2 + '.csv'])
 
 ###############################################################################
 os.putenv('SGE_ON','true')
