@@ -67,12 +67,6 @@ if FSLDIR==None:
     sys.exit("FSLDIR environment variable is undefined. Try again.")
 if os.path.isfile(FAmap) == False:
     sys.exit("Input file {} doesn't exist.".format(FAmap))
-#something to stop if final csv is found?? maybe not good if we wanna keep adding subs
-# if [ ! -e ALL_Subject_Info.csv ];then
-# 	echo "ALL_Subject_Info.csv DNE"
-# 	exit 1
-# fi
-
 
 # make some output directories
 outputdir = os.path.abspath(outputdir)
@@ -80,12 +74,6 @@ outputdir = os.path.abspath(outputdir)
 ## if nifti input is not inside the outputdir than copy it here
 FAimage = os.path.basename(FAmap)
 FAimage_noext = FAimage.replace(dm.utils.get_extension(FAimage),'')
-
-## orig version of ENIGMA_MASTER.sh protocol used these directories to organize data
-# FA_to_target_dir = os.path.join(outputdir,'FA_to_target')
-# FA_skels_dir = os.path.join(outputdir,'FA_skels')
-# dm.utils.mkdir(FA_to_target_dir)
-# dm.utils.mkdir(FA_skels_dir)
 
 ## These are the links to some templates and settings from enigma
 skel_thresh = 0.049
