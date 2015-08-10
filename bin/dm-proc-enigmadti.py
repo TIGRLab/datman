@@ -12,6 +12,7 @@ Arguments:
 
 Options:
   --FA-tag STR             String used to identify FA maps within DTI-fit input (default = '_FA'))
+  --FA-tag2 STR            Optional second used to identify FA maps within DTI-fit input (on top of '--FA-tag', ex. 'DTI-60'))
   --QC-transfer QCFILE     QC checklist file - if this option is given than only QCed participants will be processed.
   --no-newsubs             Do not link or submit new subjects - used when this script is recursively called from the concat script
   --use-test-datman        Use the version of datman in Erin's test environment. (default is '/archive/data-2.0/code/datman.module')
@@ -49,6 +50,7 @@ dtifit_dir      = arguments['<input-dtifit-dir>']
 outputdir       = arguments['<outputdir>']
 rawQCfile       = arguments['--QC-transfer']
 FA_tag          = arguments['--FA-tag']
+FA_tag2         = arguments['--FA-tag2']
 NO_NEWSUBS      = arguments['--no-newsubs']
 TESTDATMAN      = arguments['--use-test-datman']
 VERBOSE         = arguments['--verbose']
@@ -71,7 +73,7 @@ def docmd(cmdlist):
     if not DRYRUN: subprocess.call(cmdlist)
 
 # need to find the t1 weighted scan and update the checklist
-def findFAmaps(archive_tag):
+def findFAmaps(archive_tag,archive_tag2):
     """
     will look for new files in the inputdir
     and add them to a list for the processing
@@ -85,7 +87,11 @@ def findFAmaps(archive_tag):
             FAfiles = []
             for fname in os.listdir(FAdir):
                 if archive_tag in fname:
-                    FAfiles.append(fname)
+                    if archive_tag2 != None:
+                        if archive_tag2 in fname:
+                            FAfiles.append(fname)
+                    else:
+                        FAfiles.append(fname)
             if DEBUG: print "Found {} {} in {}".format(len(FAfiles),archive_tag,FAdir)
             if len(FAfiles) == 1:
                 checklist['FA_nii'][i] = FAfiles[0]
@@ -106,7 +112,7 @@ def makeENIGMArunsh(filename):
     if bname == runenigmash_name:
         ENGIMASTEP = 'doInd'
     if bname == runconcatsh_name:
-        ENGIMASTEP == 'concat'
+        ENGIMASTEP = 'concat'
 
     #open file for writing
     enigmash = open(filename,'w')
@@ -125,7 +131,7 @@ def makeENIGMArunsh(filename):
     enigmash.write('##load the ENIGMA DTI enviroment\n')
     enigmash.write('module load FSL/5.0.7 R/3.1.1 ENIGMA-DTI/2015.01\n\n')
     if TESTDATMAN:
-        enigmash.write('module load use.own datman/edickie\n\n')
+        enigmash.write('module load /projects/edickie/privatemodules/datman/edickie\n\n')
     else:
         enigmash.write('module load /archive/data-2.0/code/datman.module\n\n')
 
@@ -140,14 +146,16 @@ def makeENIGMArunsh(filename):
     if ENGIMASTEP == 'concat':
         enigmash.write('DTIFITDIR=${2}\n')
         ## call this script to update the results spreadsheet
-        enigmash.write('\ndm-proc-engimadti.py --no-newsubs ${DTIFITDIR} ${OUTDIR}')
+        enigmash.write('\ndm-proc-engimadti.py --no-newsubs ')
+        if TESTDATMAN: enigmash.write('--use-test-datman ')
+        enigmash.write('${DTIFITDIR} ${OUTDIR}')
         ## add the engima-concat command
         enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR}')
 
     #and...don't forget to close the file
     enigmash.close()
 
-### build a template .sh file that gets submitted to the queue
+### check the template .sh file that gets submitted to the queue to make sure option haven't changed
 def checkrunsh(filename):
     """
     write a temporary (run.sh) file and than checks it againts the run.sh file already there
@@ -156,15 +164,17 @@ def checkrunsh(filename):
     tempdir = tempfile.mkdtemp()
     tmprunsh = os.path.join(tempdir,os.path.basename(filename))
     makeENIGMArunsh(tmprunsh)
-    if filecmp.cmp(runenigmash, tmprunsh):
-        if DEBUG: print("{} already written - using it".format(runenigmash))
+    if filecmp.cmp(filename, tmprunsh):
+        if DEBUG: print("{} already written - using it".format(filename))
     else:
         # If the two files differ - then we use difflib package to print differences to screen
-        with open(runenigmash) as f1, open(tmprunsh) as f2:
+        print('#############################################################\n')
+        print('# Found differences in {} these are marked with (+) '.format(filename))
+        print('#############################################################')
+        with open(filename) as f1, open(tmprunsh) as f2:
             differ = difflib.Differ()
-            differ.compare(f1.readlines(), f2.readlines())
-            print('\n'.join(differ.compare(f1.readlines(), f2.readlines())))
-        sys.exit("Old {} doesn't match parameters of this run....Exiting")
+            print(''.join(differ.compare(f1.readlines(), f2.readlines())))
+        sys.exit("\nOld {} doesn't match parameters of this run....Exiting".format(filename))
     shutil.rmtree(tempdir)
 
 
@@ -190,13 +200,16 @@ for runfilename in [runenigmash_name,runconcatsh_name]:
 
 ####set checklist dataframe structure here
 #because even if we do not create it - it will be needed for newsubs_df (line 80)
-cols = ["id", "FA_nii", "date_ran", "run",\
-    "ACR-L","ACR-R","ALIC-L","ALIC-R","AverageFA","BCC","CGC","CGC-L","CGC-R",\
-    "CR","CR-L","CR-R","CST","CST-L","CST-R","EC","EC-L","EC-R","FX","GCC",\
-    "IC","IC-L","IC-R","IFO","IFO-L","IFO-R","PCR-L","PCR-R","PLIC-L","PLIC-R",\
-    "PTR","PTR-L","PTR-R","RLIC-L","RLIC-R","SCC","SCR-L","SCR-R","SFO","SFO-L",\
-    "SFO-R","SLF","SLF-L","SLF-R","SS","SS-L","SS-R","UNC-L","UNC-R", \
-    "qc_rator", "qc_rating", "notes"]
+cols = ['id', 'FA_nii', 'date_ran', 'run',\
+    'ACR', 'ACR-L', 'ACR-R', 'ALIC', 'ALIC-L', 'ALIC-R', 'AverageFA', \
+    'BCC', 'CC', 'CGC', 'CGC-L', 'CGC-R', 'CGH', 'CGH-L', 'CGH-R', 'CR', \
+    'CR-L', 'CR-R', 'CST', 'CST-L', 'CST-R', 'EC', 'EC-L', 'EC-R', 'FX', \
+    'FX/ST-L', 'FX/ST-R', 'FXST', 'GCC', 'IC', 'IC-L', 'IC-R', 'IFO', \
+    'IFO-L', 'IFO-R', 'PCR', 'PCR-L', 'PCR-R', 'PLIC', 'PLIC-L', 'PLIC-R', \
+    'PTR', 'PTR-L', 'PTR-R', 'RLIC', 'RLIC-L', 'RLIC-R', 'SCC', 'SCR', \
+    'SCR-L', 'SCR-R', 'SFO', 'SFO-L', 'SFO-R', 'SLF', 'SLF-L', 'SLF-R', \
+    'SS', 'SS-L', 'SS-R', 'UNC', 'UNC-L', 'UNC-R', \
+    'qc_rator', 'qc_rating', 'notes']
 
 # if the checklist exists - open it, if not - create the dataframe
 checklistfile = os.path.normpath(outputdir+'/ENIGMA-DTI-results.csv')
@@ -231,7 +244,7 @@ newsubs_df.id = newsubs
 checklist = checklist.append(newsubs_df)
 
 # find the FA maps for each subject
-if NO_NEWSUBS == False: findFAmaps(FA_tag)
+if NO_NEWSUBS == False: findFAmaps(FA_tag,FA_tag2)
 
 ## now checkoutputs to see if any of them have been run
 #if yes update spreadsheet
@@ -266,7 +279,10 @@ if len(jobnames) > 0:
     #if any subjects have been submitted - submit an extract consolidation job to run at the end
     os.chdir(run_dir)
     docmd(['qsub','-o', log_dir, \
-        '-N', edti_results,  \
+        '-N', 'edti_results',  \
         '-hold_jid', ','.join(jobnames), \
         runconcatsh_name, \
         outputdir, dtifit_dir ])
+
+## write the checklist out to a file
+checklist.to_csv(checklistfile, sep=',', columns = cols, index = False)
