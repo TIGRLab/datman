@@ -18,7 +18,19 @@ Options:
   -n,--dry-run             Dry run
 
 DETAILS
-This concatenates all the FA info inside  *_ROIout_avg.csv files from the enigma dti pipeline.
+This concatenates all the FA info inside  *_ROIout_avg.csv files
+This is configured to work for file of the enigma dti pipeline - but could easily
+be adapted to work on other output files.
+
+The default setting are made to work with the outputs of dm-proc-enigmadti.py - and to
+update to the results csv file created by that pipeline.
+However, using the optional arguments (--gen-results and --results <FILE>) you can
+apply this script to concatenate results of older pipelines - not following
+the dm-proc-enigmadti.py file structure, and/or to change the name (and/or location)
+of the output file.
+
+The option "--ROItxt-tag <STR>" can be used to change the search string "_ROIout_avg"
+in order to search for different pipeline output files.
 
 Written by Erin W Dickie, July 30 2015
 Adapted from ENIGMA_MASTER.sh - Generalized October 2nd David Rotenberg Updated Feb 2015 by JP+TB
@@ -71,13 +83,12 @@ if DEBUG: print ROIfiles
 firstROItxt = pd.read_csv(ROIfiles[0], sep=',', dtype=str, comment='#')
 tractnames = firstROItxt['Tract'].tolist() # reads the tract names from the 'Tract' column for template
 
-####set checklist dataframe structure here
-#because even if we do not create it - it will be needed for newsubs_df (line 80)
-# if the checklist exists - open it, if not - create the dataframe
+####set up the resutls dataframe
 if GENresults == False:
     if os.path.isfile(resultsfile):
-        ## read in the file
+        ## if the resultsfile exists - then read it in or exit
     	results = pd.read_csv(resultsfile, sep=',', dtype=str, comment='#')
+        # double check that all the tractnames are present in the header - if not print warning
         cols = list(results.columns.values)
         if len(set(tractnames) & set(cols)) < len(tractnames):
             print("warning - not all tractnames in header...")
@@ -89,19 +100,27 @@ else:
 
 ###now need to insert the new dataness...
 for csvfile in ROIfiles:
+    # for each csv - read it using pandas
     csvdata = pd.read_csv(csvfile, sep=',', dtype=str, comment='#')
     if SUBFOLDERS == True:
+        # if this data follows the dm-proc-enigmadti.py structure: search for the subid
+        ###### if should be two direcotories up from the file
         this_id = os.path.basename(os.path.dirname(os.path.dirname(csvfile)))
     else:
+        ## if not - use the csv filename as the subgject id
         this_id = os.path.basename(csvfile)
     if this_id in results.id:
+        ## search for the correct row
         idx = results[results.id == this_id].index[0]
     else:
+        ## if the subject id is not present in the results dataframe - create a new row for it
         idx = len(results)
         results = results.append(pd.DataFrame(columns = cols, index = [idx]))
         results.id[idx] = this_id
     for tractname in tractnames:
-        results[tractname][idx] = csvdata['Average'][csvdata['Tract']==tractname]
+        ## for each tract in the list, update the value in the results
+        val = float(csvdata.loc[csvdata['Tract']==tractname]['Average'])
+        results[tractname][idx] = val
 
-## write the checklist out to a file
+## write the results out to a file
 results.to_csv(resultsfile, sep=',', columns = cols, index = False)
