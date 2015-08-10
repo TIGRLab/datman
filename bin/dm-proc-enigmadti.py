@@ -13,6 +13,8 @@ Arguments:
 Options:
   --FA-tag STR             String used to identify FA maps within DTI-fit input (default = '_FA'))
   --QC-transfer QCFILE     QC checklist file - if this option is given than only QCed participants will be processed.
+  --no-newsubs             Do not link or submit new subjects - used when this script is recursively called from the concat script
+  --use-test-datman        Use the version of datman in Erin's test environment. (default is '/archive/data-2.0/code/datman.module')
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
   -n,--dry-run             Dry run
@@ -37,12 +39,18 @@ import os
 import sys
 import subprocess
 import datetime
+import tempfile
+import shutil
+import filecmp
+import difflib
 
 arguments       = docopt(__doc__)
 dtifit_dir      = arguments['<input-dtifit-dir>']
 outputdir       = arguments['<outputdir>']
 rawQCfile       = arguments['--QC-transfer']
 FA_tag          = arguments['--FA-tag']
+NO_NEWSUBS      = arguments['--no-newsubs']
+TESTDATMAN      = arguments['--use-test-datman']
 VERBOSE         = arguments['--verbose']
 DEBUG           = arguments['--debug']
 DRYRUN          = arguments['--dry-run']
@@ -51,6 +59,10 @@ if DEBUG: print arguments
 #set default tag values
 if FA_tag == None: FA_tag = '_FA.nii'
 QCedTranfer = False if rawQCfile == None else True
+
+## set the basenames of the two run scripts
+runenigmash_name = 'run_engimadti.sh'
+runconcatsh_name = 'concatresults.sh'
 
 ### Erin's little function for running things in the shell
 def docmd(cmdlist):
@@ -86,9 +98,16 @@ def findFAmaps(archive_tag):
 ### build a template .sh file that gets submitted to the queue
 def makeENIGMArunsh(filename):
     """
-    builds a script in the CIVET directory (run.sh)
-    that gets submitted to the queue for each participant
+    builds a script in the outputdir (run.sh)
+    that gets submitted to the queue for each participant (in the case of 'doInd')
+    or that gets held for all participants and submitted once they all end (the concatenating one)
     """
+    bname = os.path.basename(filename)
+    if bname == runenigmash_name:
+        ENGIMASTEP = 'doInd'
+    if bname == runconcatsh_name:
+        ENGIMASTEP == 'concat'
+
     #open file for writing
     enigmash = open(filename,'w')
     enigmash.write('#!/bin/bash\n\n')
@@ -105,32 +124,69 @@ def makeENIGMArunsh(filename):
     ## can add section here that loads chosen CIVET enviroment
     enigmash.write('##load the ENIGMA DTI enviroment\n')
     enigmash.write('module load FSL/5.0.7 R/3.1.1 ENIGMA-DTI/2015.01\n\n')
-    enigmash.write('module load /archive/data-2.0/code/datman.module\n\n')
+    if TESTDATMAN:
+        enigmash.write('module load use.own datman/edickie\n\n')
+    else:
+        enigmash.write('module load /archive/data-2.0/code/datman.module\n\n')
 
     ## add a line that will read in the subject id
     enigmash.write('OUTDIR=${1}\n')
-    enigmash.write('FAMAP=${2}\n\n')
 
-    ## add the engima-dit command
-    enigmash.write('doInd-enigma-dti.py ${OUTDIR} ${FAMAP}')
+    if ENGIMASTEP == 'doInd':
+        enigmash.write('FAMAP=${2}\n')
+        ## add the engima-dit command
+        enigmash.write('\ndoInd-enigma-dti.py ${OUTDIR} ${FAMAP}')
+
+    if ENGIMASTEP == 'concat':
+        enigmash.write('DTIFITDIR=${2}\n')
+        ## call this script to update the results spreadsheet
+        enigmash.write('\ndm-proc-engimadti.py --no-newsubs ${DTIFITDIR} ${OUTDIR}')
+        ## add the engima-concat command
+        enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR}')
 
     #and...don't forget to close the file
     enigmash.close()
+
+### build a template .sh file that gets submitted to the queue
+def checkrunsh(filename):
+    """
+    write a temporary (run.sh) file and than checks it againts the run.sh file already there
+    This is used to double check that the pipeline is not being called with different options
+    """
+    tempdir = tempfile.mkdtemp()
+    tmprunsh = os.path.join(tempdir,os.path.basename(filename))
+    makeENIGMArunsh(tmprunsh)
+    if filecmp.cmp(runenigmash, tmprunsh):
+        if DEBUG: print("{} already written - using it".format(runenigmash))
+    else:
+        # If the two files differ - then we use difflib package to print differences to screen
+        with open(runenigmash) as f1, open(tmprunsh) as f2:
+            differ = difflib.Differ()
+            differ.compare(f1.readlines(), f2.readlines())
+            print('\n'.join(differ.compare(f1.readlines(), f2.readlines())))
+        sys.exit("Old {} doesn't match parameters of this run....Exiting")
+    shutil.rmtree(tempdir)
+
 
 ######## NOW START the 'main' part of the script ##################
 ## make the putput directory if it doesn't exist
 outputdir = os.path.abspath(outputdir)
 log_dir = os.path.join(outputdir,'logs')
+run_dir = os.path.join(outputdir,'bin')
 dm.utils.makedirs(log_dir)
+dm.utils.makedirs(run_dir)
 
 ## writes a standard ENIGMA-DTI running script for this project (if it doesn't exist)
 ## the script requires a OUTDIR and FAMAP variables - as arguments $1 and $2
-runenigmash = os.path.join(outputdir,'run_engimadti.sh')
-if os.path.isfile(runenigmash):
-    ##should write something here to check that this file doesn't change over time
-    if DEBUG: print("{} already written - using it".format(runenigmash))
-else:
-    makeENIGMArunsh(runenigmash)
+## also write a standard script to concatenate the results at the end (script is held while subjects run)
+for runfilename in [runenigmash_name,runconcatsh_name]:
+    runsh = os.path.join(run_dir,runfilename)
+    if os.path.isfile(runsh):
+        ## create temporary run file and test it against the original
+        checkrunsh(runsh)
+    else:
+        ## if it doesn't exist, write it now
+        makeENIGMArunsh(runsh)
 
 ####set checklist dataframe structure here
 #because even if we do not create it - it will be needed for newsubs_df (line 80)
@@ -175,11 +231,12 @@ newsubs_df.id = newsubs
 checklist = checklist.append(newsubs_df)
 
 # find the FA maps for each subject
-findFAmaps(FA_tag)
+if NO_NEWSUBS == False: findFAmaps(FA_tag)
 
 ## now checkoutputs to see if any of them have been run
 #if yes update spreadsheet
 #if no submits that subject to the queue
+jobnames = []
 for i in range(0,len(checklist)):
     if checklist['run'][i] !="Y":
         subid = checklist['id'][i]
@@ -188,17 +245,28 @@ for i in range(0,len(checklist)):
             ROIout = os.path.join(outputdir,subid,'ROI')
             # if no output exists than run engima-dti
             if os.path.exists(ROIout)== False:
-                os.chdir(os.path.normpath(outputdir))
-                soutput = os.path.join(outputdir,subid)
-                sFAmap = checklist['FA_nii'][i]
-                docmd(['qsub','-o', log_dir, \
-                         '-N', 'edti_' + subid,  \
-                         os.path.basename(runenigmash), \
-                         soutput, \
-                         os.path.join(dtifit_dir,subid,sFAmap)])
-                checklist['date_ran'][i] = datetime.date.today()
+                if NO_NEWSUBS == False:
+                    os.chdir(run_dir)
+                    soutput = os.path.join(outputdir,subid)
+                    sFAmap = checklist['FA_nii'][i]
+                    jobname = 'edti_' + subid
+                    docmd(['qsub','-o', log_dir, \
+                             '-N', jobname,  \
+                             runenigmash_name, \
+                             soutput, \
+                             os.path.join(dtifit_dir,subid,sFAmap)])
+                    checklist['date_ran'][i] = datetime.date.today()
+                    jobnames.append(jobname)
             # if an full output exists - uptdate the CIVETchecklist
             elif len(os.listdir(ROIout)) == 2:
                     checklist['run'][i] = "Y"
 
 ### currently working on a consilidation script that gets run...
+if len(jobnames) > 0:
+    #if any subjects have been submitted - submit an extract consolidation job to run at the end
+    os.chdir(run_dir)
+    docmd(['qsub','-o', log_dir, \
+        '-N', edti_results,  \
+        '-hold_jid', ','.join(jobnames), \
+        runconcatsh_name, \
+        outputdir, dtifit_dir ])
