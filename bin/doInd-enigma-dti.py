@@ -20,10 +20,6 @@ This run ENIGMA DTI pipeline on one FA map.
 This was made to be called from dm-proc-engimadti.py - which runs enigma-dti protocol
 for a group of subjects (or study) - then creates a group csv output.
 
-In order for this to work - you need to turn the queue off before running it..
-export SGE_ON="false"    # for now, don't use SGE because it complicates things
-If you don't, steps 3 on will fail because they are not waiting for the registration to finisih
-
 Requires ENIGMA dti enviroment to be set (for example):
 module load FSL/5.0.7 R/3.1.1 ENIGMA-DTI/2015.01
 
