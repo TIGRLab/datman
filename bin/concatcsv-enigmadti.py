@@ -109,7 +109,7 @@ for csvfile in ROIfiles:
     else:
         ## if not - use the csv filename as the subgject id
         this_id = os.path.basename(csvfile)
-    if this_id in results.id:
+    if this_id in set(results.id):
         ## search for the correct row
         idx = results[results.id == this_id].index[0]
     else:
