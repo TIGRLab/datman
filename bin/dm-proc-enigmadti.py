@@ -14,7 +14,7 @@ Options:
   --FA-tag STR             String used to identify FA maps within DTI-fit input (default = '_FA'))
   --FA-tag2 STR            Optional second used to identify FA maps within DTI-fit input (on top of '--FA-tag', ex. 'DTI-60'))
   --QC-transfer QCFILE     QC checklist file - if this option is given than only QCed participants will be processed.
-  --no-newsubs             Do not link or submit new subjects - used when this script is recursively called from the concat script
+  --no-newsubs             Do not link or submit new subjects - (depricated)
   --use-test-datman        Use the version of datman in Erin's test environment. (default is '/archive/data-2.0/code/datman.module')
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
@@ -144,11 +144,6 @@ def makeENIGMArunsh(filename):
         enigmash.write('\ndoInd-enigma-dti.py ${OUTDIR} ${FAMAP}')
 
     if ENGIMASTEP == 'concat':
-        enigmash.write('DTIFITDIR=${2}\n')
-        ## call this script to update the results spreadsheet
-        enigmash.write('\ndm-proc-engimadti.py --no-newsubs ')
-        if TESTDATMAN: enigmash.write('--use-test-datman ')
-        enigmash.write('${DTIFITDIR} ${OUTDIR}')
         ## add the engima-concat command
         enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR}')
 
@@ -200,7 +195,7 @@ for runfilename in [runenigmash_name,runconcatsh_name]:
 
 ####set checklist dataframe structure here
 #because even if we do not create it - it will be needed for newsubs_df (line 80)
-cols = ['id', 'FA_nii', 'date_ran', 'run',\
+cols = ['id', 'FA_nii', 'date_ran',\
     'ACR', 'ACR-L', 'ACR-R', 'ALIC', 'ALIC-L', 'ALIC-R', 'AverageFA', \
     'BCC', 'CC', 'CGC', 'CGC-L', 'CGC-R', 'CGH', 'CGH-L', 'CGH-R', 'CR', \
     'CR-L', 'CR-R', 'CST', 'CST-L', 'CST-R', 'EC', 'EC-L', 'EC-R', 'FX', \
@@ -251,30 +246,31 @@ if NO_NEWSUBS == False: findFAmaps(FA_tag,FA_tag2)
 #if no submits that subject to the queue
 jobnames = []
 for i in range(0,len(checklist)):
-    if checklist['run'][i] !="Y":
-        subid = checklist['id'][i]
-        # if all input files are found - check if an output exists
-        if pd.isnull(checklist['FA_nii'][i])==False:
-            ROIout = os.path.join(outputdir,subid,'ROI')
-            # if no output exists than run engima-dti
-            if os.path.exists(ROIout)== False:
-                if NO_NEWSUBS == False:
-                    os.chdir(run_dir)
-                    soutput = os.path.join(outputdir,subid)
-                    sFAmap = checklist['FA_nii'][i]
-                    jobname = 'edti_' + subid
-                    docmd(['qsub','-o', log_dir, \
-                             '-N', jobname,  \
-                             runenigmash_name, \
-                             soutput, \
-                             os.path.join(dtifit_dir,subid,sFAmap)])
-                    checklist['date_ran'][i] = datetime.date.today()
-                    jobnames.append(jobname)
-            # if an full output exists - uptdate the CIVETchecklist
-            elif len(os.listdir(ROIout)) == 2:
-                    checklist['run'][i] = "Y"
+    subid = checklist['id'][i]
+    # if all input files are found - check if an output exists
+    if pd.isnull(checklist['FA_nii'][i])==False:
+        ROIout = os.path.join(outputdir,subid,'ROI')
+        # if no output exists than run engima-dti
+        if os.path.exists(ROIout)== False:
+            if NO_NEWSUBS == False:
+                os.chdir(run_dir)
+                soutput = os.path.join(outputdir,subid)
+                sFAmap = checklist['FA_nii'][i]
+                jobname = 'edti_' + subid
+                docmd(['qsub','-o', log_dir, \
+                         '-N', jobname,  \
+                         runenigmash_name, \
+                         soutput, \
+                         os.path.join(dtifit_dir,subid,sFAmap)])
+                checklist['date_ran'][i] = datetime.date.today()
+                jobnames.append(jobname)
 
-### currently working on a consilidation script that gets run...
+
+### if more that 30 subjects have been submitted to the queue,
+### use only the last 30 submitted as -hold_jid arguments
+if len(jobnames) > 30 : jobnames = jobnames[-30:]
+## if any subjects have been submitted,
+## submit a final job that will consolidate the resutls after they are finished
 if len(jobnames) > 0:
     #if any subjects have been submitted - submit an extract consolidation job to run at the end
     os.chdir(run_dir)
@@ -282,7 +278,7 @@ if len(jobnames) > 0:
         '-N', 'edti_results',  \
         '-hold_jid', ','.join(jobnames), \
         runconcatsh_name, \
-        outputdir, dtifit_dir ])
+        outputdir])
 
 ## write the checklist out to a file
 checklist.to_csv(checklistfile, sep=',', columns = cols, index = False)
