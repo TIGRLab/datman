@@ -12,7 +12,8 @@ Arguments:
 
 Options:
   --FA-tag STR             String used to identify FA maps within DTI-fit input (default = '_FA'))
-  --FA-tag2 STR            Optional second used to identify FA maps within DTI-fit input (on top of '--FA-tag', ex. 'DTI-60'))
+  --O-tags  <STR>...       Additional tags (ex. 'MD','L1') for other (non-FA) DTI-fit outputs to run
+  --tag2 STR               Optional second used (as well as '--FA-tag', ex. 'DTI-60')) to identify the maps within DTI-fit input
   --QC-transfer QCFILE     QC checklist file - if this option is given than only QCed participants will be processed.
   --no-newsubs             Do not link or submit new subjects - (depricated)
   --use-test-datman        Use the version of datman in Erin's test environment. (default is '/archive/data-2.0/code/datman.module')
@@ -50,7 +51,8 @@ dtifit_dir      = arguments['<input-dtifit-dir>']
 outputdir       = arguments['<outputdir>']
 rawQCfile       = arguments['--QC-transfer']
 FA_tag          = arguments['--FA-tag']
-FA_tag2         = arguments['--FA-tag2']
+TAG2            = arguments['--tag2']
+O_TAGS          = arguments['--O-tags']
 NO_NEWSUBS      = arguments['--no-newsubs']
 TESTDATMAN      = arguments['--use-test-datman']
 VERBOSE         = arguments['--verbose']
@@ -61,6 +63,7 @@ if DEBUG: print arguments
 #set default tag values
 if FA_tag == None: FA_tag = '_FA.nii'
 QCedTranfer = False if rawQCfile == None else True
+RUN_nonFA = True if len(O_TAGS) > 0 else False
 
 ## set the basenames of the two run scripts
 runenigmash_name = 'run_engimadti.sh'
@@ -73,31 +76,35 @@ def docmd(cmdlist):
     if not DRYRUN: subprocess.call(cmdlist)
 
 # need to find the t1 weighted scan and update the checklist
-def findFAmaps(archive_tag,archive_tag2):
+def find_images(tag,archive_tag2,checklist):
     """
     will look for new files in the inputdir
     and add them to a list for the processing
 
     archive_tag -- filename tag that can be used for search (i.e. '_T1_')
+    archive_tag2 -- second tag that is also need (i.e. 'DTI-60')
+    checklist -- the checklist pandas dataframe to update
     """
+    colname = archive_tag + '_nii'
+    archive_tag = tags[tag]
     for i in range(0,len(checklist)):
-        FAdir = os.path.join(dtifit_dir,checklist['id'][i])
+        sdir = os.path.join(dtifit_dir,checklist['id'][i])
 	    #if FA name not in checklist
-        if pd.isnull(checklist['FA_nii'][i]):
-            FAfiles = []
-            for fname in os.listdir(FAdir):
+        if pd.isnull(checklist[colname][i]):
+            sfiles = []
+            for fname in os.listdir(sdir):
                 if archive_tag in fname:
                     if archive_tag2 != None:
                         if archive_tag2 in fname:
-                            FAfiles.append(fname)
+                            sfiles.append(fname)
                     else:
                         FAfiles.append(fname)
             if DEBUG: print "Found {} {} in {}".format(len(FAfiles),archive_tag,FAdir)
-            if len(FAfiles) == 1:
-                checklist['FA_nii'][i] = FAfiles[0]
-            elif len(FAfiles) > 1:
+            if len(sfiles) == 1:
+                checklist[colname][i] = FAfiles[0]
+            elif len(sfiles) > 1:
                 checklist['notes'][i] = "> 1 {} found".format(archive_tag)
-            elif len(FAfiles) < 1:
+            elif len(sfiles) < 1:
                 checklist['notes'][i] = "No {} found.".format(archive_tag)
 
 
@@ -172,6 +179,73 @@ def checkrunsh(filename):
         sys.exit("\nOld {} doesn't match parameters of this run....Exiting".format(filename))
     shutil.rmtree(tempdir)
 
+####set checklist dataframe structure here
+#because even if we do not create it - it will be needed for newsubs_df (line 80)
+def loadchecklist(tag, subjectlist):
+    """
+    Reads the checklist (also known as 'results') csv for the file type of the tag
+    If the checklist csv file does not exit, it will be created.
+
+    This also checks if any subjects in the subjectlist are missing from the checklist,
+    (checklist.id column)
+    If so, they are appended to the bottom of the dataframe.
+
+    examples:
+    to load the FA results as a checklist and add new QCed subjects
+        checklist_FA = loadchecklist(FA_tag,subids_in_dtifit)
+    to load the MD results as a checklist and add new QCed subjects
+        checklist_MD = loadchecklist(MD_tag,subids_in_dtifit)
+    """
+    tag = tag.replace('_','') ## remove any '_' from tag to make names look better
+    tag = tag.replace('.nii','') ##also remove .nii if it looks better
+
+    cols = ['id', tag +'_nii', 'date_ran',\
+        'ACR', 'ACR-L', 'ACR-R', 'ALIC', 'ALIC-L', 'ALIC-R', 'AverageFA', \
+        'BCC', 'CC', 'CGC', 'CGC-L', 'CGC-R', 'CGH', 'CGH-L', 'CGH-R', 'CR', \
+        'CR-L', 'CR-R', 'CST', 'CST-L', 'CST-R', 'EC', 'EC-L', 'EC-R', 'FX', \
+        'FX/ST-L', 'FX/ST-R', 'FXST', 'GCC', 'IC', 'IC-L', 'IC-R', 'IFO', \
+        'IFO-L', 'IFO-R', 'PCR', 'PCR-L', 'PCR-R', 'PLIC', 'PLIC-L', 'PLIC-R', \
+        'PTR', 'PTR-L', 'PTR-R', 'RLIC', 'RLIC-L', 'RLIC-R', 'SCC', 'SCR', \
+        'SCR-L', 'SCR-R', 'SFO', 'SFO-L', 'SFO-R', 'SLF', 'SLF-L', 'SLF-R', \
+        'SS', 'SS-L', 'SS-R', 'UNC', 'UNC-L', 'UNC-R', \
+        'qc_rator', 'qc_rating', 'notes']
+
+    # if the checklist exists - open it, if not - create the dataframe
+    checklistfile = os.path.normpath(outputdir+'/ENIGMA-DTI-'+ tag +'results.csv')
+    if os.path.isfile(checklistfile):
+    	checklist = pd.read_csv(checklistfile, sep=',', dtype=str, comment='#')
+    else:
+    	checklist = pd.DataFrame(columns = cols)
+
+    # new subjects are those of the subject list that are not in checklist.id
+    newsubs = list(set(subjectlist) - set(checklist.id))
+
+    # add the new subjects to the bottom of the dataframe
+    newsubs_df = pd.DataFrame(columns = cols, index = range(len(checklist),len(checklist)+len(newsubs)))
+    newsubs_df.id = newsubs
+    checklist = checklist.append(newsubs_df)
+
+    # return the checklist as a pandas dataframe
+    return(checklist)
+
+def get_qced_subjectlist(qcchecklist):
+    """
+    reads the QC checklist and returns a list of all subjects who have passed QC
+    """
+    qcedlist = []
+    if os.path.isfile(rawQCfile):
+        with open(rawQCfile) as f:
+            for line in f:
+                line = line.strip()
+                if len(line.split(' ')) > 1:
+                    pdf = line.split(' ')[0]
+                    subid = pdf.replace('.pdf','')[3:]
+                    qcedlist.append(subid)
+    else:
+        sys.exit("QC file for transfer not found. Try again.")
+    ## return the qcedlist (as a list)
+    return qcedlist
+
 
 ######## NOW START the 'main' part of the script ##################
 ## make the putput directory if it doesn't exist
@@ -193,53 +267,30 @@ for runfilename in [runenigmash_name,runconcatsh_name]:
         ## if it doesn't exist, write it now
         makeENIGMArunsh(runsh)
 
-####set checklist dataframe structure here
-#because even if we do not create it - it will be needed for newsubs_df (line 80)
-cols = ['id', 'FA_nii', 'date_ran',\
-    'ACR', 'ACR-L', 'ACR-R', 'ALIC', 'ALIC-L', 'ALIC-R', 'AverageFA', \
-    'BCC', 'CC', 'CGC', 'CGC-L', 'CGC-R', 'CGH', 'CGH-L', 'CGH-R', 'CR', \
-    'CR-L', 'CR-R', 'CST', 'CST-L', 'CST-R', 'EC', 'EC-L', 'EC-R', 'FX', \
-    'FX/ST-L', 'FX/ST-R', 'FXST', 'GCC', 'IC', 'IC-L', 'IC-R', 'IFO', \
-    'IFO-L', 'IFO-R', 'PCR', 'PCR-L', 'PCR-R', 'PLIC', 'PLIC-L', 'PLIC-R', \
-    'PTR', 'PTR-L', 'PTR-R', 'RLIC', 'RLIC-L', 'RLIC-R', 'SCC', 'SCR', \
-    'SCR-L', 'SCR-R', 'SFO', 'SFO-L', 'SFO-R', 'SLF', 'SLF-L', 'SLF-R', \
-    'SS', 'SS-L', 'SS-R', 'UNC', 'UNC-L', 'UNC-R', \
-    'qc_rator', 'qc_rating', 'notes']
-
-# if the checklist exists - open it, if not - create the dataframe
-checklistfile = os.path.normpath(outputdir+'/ENIGMA-DTI-results.csv')
-if os.path.isfile(checklistfile):
-	checklist = pd.read_csv(checklistfile, sep=',', dtype=str, comment='#')
-else:
-	checklist = pd.DataFrame(columns = cols)
-
-## load the projects data export checklist so that we can check if the data has been QCed
- #open a flag to say that this is a project with a qc checklist
-if QCedTranfer ==  True:
-    qcedlist = []
-    if os.path.isfile(rawQCfile):
-        with open(rawQCfile) as f:
-            for line in f:
-                line = line.strip()
-                if len(line.split(' ')) > 1:
-                    pdf = line.split(' ')[0]
-                    subid = pdf.replace('.pdf','')[3:]
-                    qcedlist.append(subid)
-    else:
-        sys.exit("QC file for transfer not found. Try again.")
-
-
-## find those subjects in input who have not been processed yet and append to checklist
+## find those subjects in input who have not been processed yet
 subids_in_dtifit = dm.utils.get_subjects(dtifit_dir)
 subids_in_dtifit = [ v for v in subids_in_dtifit if "PHA" not in v ] ## remove the phantoms from the list
-if QCedTranfer: subids_in_dtifit = list(set(subids_in_dtifit) & set(qcedlist)) ##now only add it to the filelist if it has been QCed
-newsubs = list(set(subids_in_dtifit) - set(checklist.id))
-newsubs_df = pd.DataFrame(columns = cols, index = range(len(checklist),len(checklist)+len(newsubs)))
-newsubs_df.id = newsubs
-checklist = checklist.append(newsubs_df)
+if QCedTranfer:
+    # if a QC checklist exists, than read it and only process those participants who passed QC
+    qcedlist = get_qced_subjectlist(rawQCfile)
+    subids_in_dtifit = list(set(subids_in_dtifit) & set(qcedlist)) ##now only add it to the filelist if it has been QCed
 
-# find the FA maps for each subject
-if NO_NEWSUBS == False: findFAmaps(FA_tag,FA_tag2)
+## create an checklist for the FA maps
+checklist_FA = loadchecklist(FA_tag,subids_in_dtifit)
+
+allTAGS = [FA_tag] + O_TAGS
+checklists = {}
+tags = {}
+ for keytag in ['FA','MD','L1','L2','L3','M0','S0','V1','V2','V3']:
+     for atag in allTAGS:
+         if keytags in atag:
+             tags[keytag] = atag
+
+for tag in list(tags.keys()):
+    ## set up a checklist for this tag
+    checklist[tag] = loadchecklist(tag, subids_in_dtifit)
+    # find the maps for each subject
+    find_images(tag,TAG2,checklist[tag])
 
 ## now checkoutputs to see if any of them have been run
 #if yes update spreadsheet
