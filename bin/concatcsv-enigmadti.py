@@ -9,7 +9,7 @@ Usage:
 Arguments:
     <outputdir>        Top directory for the output file structure
     <postfix>          Postfix that get appended to columnname (ex FA, MD, RD)
-    <results_csv>      Filename for the results csv output
+    <resultsfile>      Filename for the results csv output
 
 Options:
   --ROItxt-tag STR         String within the individual participants results that identifies their data (default = 'ROIout_avg')
@@ -51,7 +51,7 @@ import datetime
 arguments       = docopt(__doc__)
 outputdir       = arguments['<outputdir>']
 postfix         = arguments['<postfix>']
-resultsfile     = arguments['<results_csv>']
+resultsfile     = arguments['<resultsfile>']
 ROItxt_tag      = arguments['--ROItxt-tag']
 OUTPUT_nVOXELS  = arguments['--output-nVox']
 VERBOSE         = arguments['--verbose']
@@ -89,8 +89,8 @@ tractcolnames = [tract + '_' + postfix for tract in tractnames]
 ####set up the resutls dataframe
 if os.path.isfile(resultsfile):
     ## if the resultsfile exists - then read it in or exit
-	results = pd.read_csv(resultsfile, sep=',', dtype=str, comment='#')
-    # double check that all the tractnames are present in the header - if not print warning
+    results = pd.read_csv(resultsfile, sep=',', dtype=str, comment='#')
+    # double check that all the tractnames are present in the header
     cols = list(results.columns.values)
     if len(set(tractcolnames) & set(cols)) < len(tractcolnames):
         print("warning - not all tractnames in header...")
@@ -120,7 +120,7 @@ for csvfile in ROIfiles:
         results.id[idx] = this_id
     for i in range(len(tractnames)):
         ## for each tract in the list, update the value in the results
-        tractname = tractname[i]
+        tractname = tractnames[i]
         tractcolname = tractcolnames[i]
         if OUTPUT_nVOXELS:
             val = int(csvdata.loc[csvdata['Tract']==tractname]['nVoxels'])
