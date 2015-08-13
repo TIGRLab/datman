@@ -4,15 +4,16 @@ Combines the outputs of enigma dti into one file.
 By default the resutls are put in <outputdir>/ENIGMA-DTI-results.csv
 
 Usage:
-  doInd-enigmaconcat.py [options] <outputdir>
+  concatcsv-enigmadti.py [options] <outputdir> <postfix> <resultsfile>
 
 Arguments:
     <outputdir>        Top directory for the output file structure
+    <postfix>          Postfix that get appended to columnname (ex FA, MD, RD)
+    <results_csv>      Filename for the results csv output
 
 Options:
-  --gen-results            Genereate a new resutls file from the available data
   --ROItxt-tag STR         String within the individual participants results that identifies their data (default = 'ROIout_avg')
-  --results FILE           Filename for the results csv output
+  --output-nVox            Output value from "nVoxels" column instead of "Average"
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
   -n,--dry-run             Dry run
@@ -49,9 +50,10 @@ import datetime
 
 arguments       = docopt(__doc__)
 outputdir       = arguments['<outputdir>']
-resultsfile     = arguments['--results']
-GENresults      = arguments['--gen-results']
+postfix         = arguments['<postfix>']
+resultsfile     = arguments['<results_csv>']
 ROItxt_tag      = arguments['--ROItxt-tag']
+OUTPUT_nVOXELS  = arguments['--output-nVox']
 VERBOSE         = arguments['--verbose']
 DEBUG           = arguments['--debug']
 DRYRUN          = arguments['--dry-run']
@@ -62,7 +64,7 @@ if DEBUG: print arguments
 outputdir = os.path.normpath(outputdir)
 if resultsfile == None:
     resultsfile = os.path.join(outputdir,'ENIGMA-DTI-results.csv')
-if ROItxt_tag == None: ROItxt_tag = '_ROIout_avg'
+if ROItxt_tag == None: ROItxt_tag = postfix + 'skel_ROIout_avg'
 
 SUBFOLDERS = True ## assume that the file is inside a heirarchy that contains folders with subject names
 ## find the files that match the resutls tag...first using the place it should be from doInd-enigma-dti.py
@@ -82,21 +84,20 @@ if DEBUG: print ROIfiles
 ## load the first ROIfile to get column header info
 firstROItxt = pd.read_csv(ROIfiles[0], sep=',', dtype=str, comment='#')
 tractnames = firstROItxt['Tract'].tolist() # reads the tract names from the 'Tract' column for template
+tractcolnames = [tract + '_' + postfix for tract in tractnames]
 
 ####set up the resutls dataframe
-if GENresults == False:
-    if os.path.isfile(resultsfile):
-        ## if the resultsfile exists - then read it in or exit
-    	results = pd.read_csv(resultsfile, sep=',', dtype=str, comment='#')
-        # double check that all the tractnames are present in the header - if not print warning
-        cols = list(results.columns.values)
-        if len(set(tractnames) & set(cols)) < len(tractnames):
-            print("warning - not all tractnames in header...")
-    else:
-        sys.exit('Could not find {}'.format(resultsfile))
+if os.path.isfile(resultsfile):
+    ## if the resultsfile exists - then read it in or exit
+	results = pd.read_csv(resultsfile, sep=',', dtype=str, comment='#')
+    # double check that all the tractnames are present in the header - if not print warning
+    cols = list(results.columns.values)
+    if len(set(tractcolnames) & set(cols)) < len(tractcolnames):
+        print("warning - not all tractnames in header...")
 else:
-    cols = ['id'] + tractnames
+    cols = ['id'] + tractcolnames
     results = pd.DataFrame(columns = cols)
+
 
 ###now need to insert the new dataness...
 for csvfile in ROIfiles:
@@ -117,10 +118,15 @@ for csvfile in ROIfiles:
         idx = len(results)
         results = results.append(pd.DataFrame(columns = cols, index = [idx]))
         results.id[idx] = this_id
-    for tractname in tractnames:
+    for i in range(len(tractnames)):
         ## for each tract in the list, update the value in the results
-        val = float(csvdata.loc[csvdata['Tract']==tractname]['Average'])
-        results[tractname][idx] = val
+        tractname = tractname[i]
+        tractcolname = tractcolnames[i]
+        if OUTPUT_nVOXELS:
+            val = int(csvdata.loc[csvdata['Tract']==tractname]['nVoxels'])
+        else:
+            val = float(csvdata.loc[csvdata['Tract']==tractname]['Average'])
+        results[tractcolname][idx] = val
 
 ## write the results out to a file
 results.to_csv(resultsfile, sep=',', columns = cols, index = False)
