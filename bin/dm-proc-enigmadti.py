@@ -12,7 +12,8 @@ Arguments:
 
 Options:
   --FA-tag STR             String used to identify FA maps within DTI-fit input (default = '_FA'))
-  --O-tags  <STR>...       Additional tags (ex. 'MD','L1') for other (non-FA) DTI-fit outputs to run
+  --calc-MD                Also calculate values for MD,
+  --calc-all               Also calculate values for MD, AD, and RD
   --tag2 STR               Optional second used (as well as '--FA-tag', ex. 'DTI-60')) to identify the maps within DTI-fit input
   --QC-transfer QCFILE     QC checklist file - if this option is given than only QCed participants will be processed.
   --no-newsubs             Do not link or submit new subjects - (depricated)
@@ -52,7 +53,8 @@ outputdir       = arguments['<outputdir>']
 rawQCfile       = arguments['--QC-transfer']
 FA_tag          = arguments['--FA-tag']
 TAG2            = arguments['--tag2']
-O_TAGS          = arguments['--O-tags']
+CALC_MD         = argements['--calc-MD']
+CALC_ALL        = arguments['--calc-all']
 NO_NEWSUBS      = arguments['--no-newsubs']
 TESTDATMAN      = arguments['--use-test-datman']
 VERBOSE         = arguments['--verbose']
@@ -61,7 +63,7 @@ DRYRUN          = arguments['--dry-run']
 
 if DEBUG: print arguments
 #set default tag values
-if FA_tag == None: FA_tag = '_FA.nii'
+if FA_tag == None: FA_tag = '_FA.nii.gz'
 QCedTranfer = False if rawQCfile == None else True
 RUN_nonFA = True if len(O_TAGS) > 0 else False
 
@@ -76,7 +78,7 @@ def docmd(cmdlist):
     if not DRYRUN: subprocess.call(cmdlist)
 
 # need to find the t1 weighted scan and update the checklist
-def find_images(tag,archive_tag2,checklist):
+def find_FAimages(archive_tag,archive_tag2):
     """
     will look for new files in the inputdir
     and add them to a list for the processing
@@ -85,12 +87,10 @@ def find_images(tag,archive_tag2,checklist):
     archive_tag2 -- second tag that is also need (i.e. 'DTI-60')
     checklist -- the checklist pandas dataframe to update
     """
-    colname = archive_tag + '_nii'
-    archive_tag = tags[tag]
     for i in range(0,len(checklist)):
         sdir = os.path.join(dtifit_dir,checklist['id'][i])
 	    #if FA name not in checklist
-        if pd.isnull(checklist[colname][i]):
+        if pd.isnull(checklist['base_nii'][i]):
             sfiles = []
             for fname in os.listdir(sdir):
                 if archive_tag in fname:
@@ -98,10 +98,14 @@ def find_images(tag,archive_tag2,checklist):
                         if archive_tag2 in fname:
                             sfiles.append(fname)
                     else:
-                        FAfiles.append(fname)
-            if DEBUG: print "Found {} {} in {}".format(len(FAfiles),archive_tag,FAdir)
+                        sfiles.append(fname)
+            if DEBUG: print "Found {} {} in {}".format(len(sfiles),archive_tag,sdir)
             if len(sfiles) == 1:
-                checklist[colname][i] = FAfiles[0]
+                 ## remove the '_FA.nii.gz' from this string - this is helpful for MD calc
+                base_nii = sfiles[0]
+                base_nii = base_nii.replace(archive_tag,'')
+                ## add this "base_name" to the checklist
+                checklist['base_nii'][i] = sfiles[0]
             elif len(sfiles) > 1:
                 checklist['notes'][i] = "> 1 {} found".format(archive_tag)
             elif len(sfiles) < 1:
@@ -146,13 +150,21 @@ def makeENIGMArunsh(filename):
     enigmash.write('OUTDIR=${1}\n')
 
     if ENGIMASTEP == 'doInd':
-        enigmash.write('FAMAP=${2}\n')
+        enigmash.write('BASEMAP=${2}\n')
         ## add the engima-dit command
-        enigmash.write('\ndoInd-enigma-dti.py ${OUTDIR} ${FAMAP}')
+        enigmash.write('\ndoInd-enigma-dti.py ')
+        if CALC_MD: enigmash.write('--calc-MD ')
+        if CALC_ALL: enigmash.write('--calc-all ')
+        enigmash.write('${OUTDIR} ${BASEMAP} \n')
 
     if ENGIMASTEP == 'concat':
         ## add the engima-concat command
-        enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR}')
+        enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR} FA ${OUTDIR}/enigmaDTI-FA-results.csv\n)
+        if CALC_MD | CALC_ALL:
+             enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR} MD ${OUTDIR}/enigmaDTI-MD-results.csv\n)
+        if CALC_ALL:
+             enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR} AD ${OUTDIR}/enigmaDTI-AD-results.csv\n)
+             enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR} RD ${OUTDIR}/enigmaDTI-RD-results.csv\n)
 
     #and...don't forget to close the file
     enigmash.close()
@@ -181,7 +193,7 @@ def checkrunsh(filename):
 
 ####set checklist dataframe structure here
 #because even if we do not create it - it will be needed for newsubs_df (line 80)
-def loadchecklist(tag, subjectlist):
+def loadchecklist(checklistfile,subjectlist):
     """
     Reads the checklist (also known as 'results') csv for the file type of the tag
     If the checklist csv file does not exit, it will be created.
@@ -199,19 +211,9 @@ def loadchecklist(tag, subjectlist):
     tag = tag.replace('_','') ## remove any '_' from tag to make names look better
     tag = tag.replace('.nii','') ##also remove .nii if it looks better
 
-    cols = ['id', tag +'_nii', 'date_ran',\
-        'ACR', 'ACR-L', 'ACR-R', 'ALIC', 'ALIC-L', 'ALIC-R', 'AverageFA', \
-        'BCC', 'CC', 'CGC', 'CGC-L', 'CGC-R', 'CGH', 'CGH-L', 'CGH-R', 'CR', \
-        'CR-L', 'CR-R', 'CST', 'CST-L', 'CST-R', 'EC', 'EC-L', 'EC-R', 'FX', \
-        'FX/ST-L', 'FX/ST-R', 'FXST', 'GCC', 'IC', 'IC-L', 'IC-R', 'IFO', \
-        'IFO-L', 'IFO-R', 'PCR', 'PCR-L', 'PCR-R', 'PLIC', 'PLIC-L', 'PLIC-R', \
-        'PTR', 'PTR-L', 'PTR-R', 'RLIC', 'RLIC-L', 'RLIC-R', 'SCC', 'SCR', \
-        'SCR-L', 'SCR-R', 'SFO', 'SFO-L', 'SFO-R', 'SLF', 'SLF-L', 'SLF-R', \
-        'SS', 'SS-L', 'SS-R', 'UNC', 'UNC-L', 'UNC-R', \
-        'qc_rator', 'qc_rating', 'notes']
+    cols = ['id', 'base_nii', 'date_ran','qc_rator', 'qc_rating', 'notes']
 
     # if the checklist exists - open it, if not - create the dataframe
-    checklistfile = os.path.normpath(outputdir+'/ENIGMA-DTI-'+ tag +'results.csv')
     if os.path.isfile(checklistfile):
     	checklist = pd.read_csv(checklistfile, sep=',', dtype=str, comment='#')
     else:
@@ -255,8 +257,15 @@ run_dir = os.path.join(outputdir,'bin')
 dm.utils.makedirs(log_dir)
 dm.utils.makedirs(run_dir)
 
+
+## add FA to the list of tags
+tags = ['FA']
+# if the '--calc-all' argument was given, then add MD RD and AD to the list
+if CALC_ALL:
+    tags = tags + ['MD', 'AD', 'RD']
+
 ## writes a standard ENIGMA-DTI running script for this project (if it doesn't exist)
-## the script requires a OUTDIR and FAMAP variables - as arguments $1 and $2
+## the script requires a OUTDIR and MAP_BASE variables - as arguments $1 and $2
 ## also write a standard script to concatenate the results at the end (script is held while subjects run)
 for runfilename in [runenigmash_name,runconcatsh_name]:
     runsh = os.path.join(run_dir,runfilename)
@@ -276,21 +285,13 @@ if QCedTranfer:
     subids_in_dtifit = list(set(subids_in_dtifit) & set(qcedlist)) ##now only add it to the filelist if it has been QCed
 
 ## create an checklist for the FA maps
-checklist_FA = loadchecklist(FA_tag,subids_in_dtifit)
+checklistfile = os.path.normpath(outputdir+'/ENIGMA-DTI-checklist.csv')
+checklist = loadchecklist(checklistfile,subids_in_dtifit)
 
-allTAGS = [FA_tag] + O_TAGS
-checklists = {}
-tags = {}
- for keytag in ['FA','MD','L1','L2','L3','M0','S0','V1','V2','V3']:
-     for atag in allTAGS:
-         if keytags in atag:
-             tags[keytag] = atag
+## look for new subs using FA_tag and tag2
+find_FAimages(FA_tag,TAG2)
 
-for tag in list(tags.keys()):
-    ## set up a checklist for this tag
-    checklist[tag] = loadchecklist(tag, subids_in_dtifit)
-    # find the maps for each subject
-    find_images(tag,TAG2,checklist[tag])
+
 
 ## now checkoutputs to see if any of them have been run
 #if yes update spreadsheet
@@ -306,13 +307,13 @@ for i in range(0,len(checklist)):
             if NO_NEWSUBS == False:
                 os.chdir(run_dir)
                 soutput = os.path.join(outputdir,subid)
-                sFAmap = checklist['FA_nii'][i]
+                smap = checklist['base_nii'][i]
                 jobname = 'edti_' + subid
                 docmd(['qsub','-o', log_dir, \
                          '-N', jobname,  \
                          runenigmash_name, \
                          soutput, \
-                         os.path.join(dtifit_dir,subid,sFAmap)])
+                         os.path.join(dtifit_dir,subid,smap)])
                 checklist['date_ran'][i] = datetime.date.today()
                 jobnames.append(jobname)
 
