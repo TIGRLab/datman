@@ -4,14 +4,15 @@ This run ENIGMA DTI pipeline on one FA map.
 This was made to be called from dm-proc-engimadti.py.
 
 Usage:
-  doInd-enigma-dti.py [options] <outputdir> <FAmap.nii.gz>
+  doInd-enigma-dti.py [options] <outputdir> <inputbase>
 
 Arguments:
     <outputdir>        Top directory for the output file structure
-    <FAmap.nii.gz>     Fractional Anisotropy Image in nifti format to start from
+    <inputbase>        Path to output input file minus the "_FA.nii.gz"
 
 Options:
-  --MD-image <MD.nii>      Option to process MD image as well (give full path to file)
+  --calc-MD                Option to process MD image as well
+  --calc-all               Option to process MD, AD and RD
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
   -n,--dry-run             Dry run
@@ -41,8 +42,9 @@ import datetime
 
 arguments       = docopt(__doc__)
 outputdir       = arguments['<outputdir>']
-FAmap           = arguments['<FAmap.nii.gz>']
-MDmap           = arguments['--MD-image']
+inputbase       = arguments['<map_base>']
+CALC_MD         = arguments['--calc-MD']
+CALC_ALL        = arguments['--calc-all']
 VERBOSE         = arguments['--verbose']
 DEBUG           = arguments['--debug']
 DRYRUN          = arguments['--dry-run']
@@ -56,29 +58,32 @@ def docmd(cmdlist):
     if DEBUG: print ' '.join(cmdlist)
     if not DRYRUN: subprocess.call(cmdlist)
 
-# note - original version not using SGE within FSL
-#export SGE_ON="false"    # for now, don't use SGE because it complicates things
-
+# check that ENIGMAHOME environment variable exists
 ENIGMAHOME = os.getenv('ENIGMAHOME')
 if ENIGMAHOME==None:
     sys.exit("ENIGMAHOME environment variable is undefined. Try again.")
+# check that FSLDIR environment variable exists
 FSLDIR = os.getenv('FSLDIR')
 if FSLDIR==None:
     sys.exit("FSLDIR environment variable is undefined. Try again.")
+# check that the input FA map exists
+FAmap = inputbase + '_FA.nii.gz'
 if os.path.isfile(FAmap) == False:
     sys.exit("Input file {} doesn't exist.".format(FAmap))
-if PROCESS_MD == True:
+# check that the input MD map exists - if MD CALC chosen
+if CALC_MD | CALC_ALL:
+    MDmap = inputbase + '_MD.nii.gz'
     if os.path.isfile(MDmap) == False:
       sys.exit("Input file {} doesn't exist.".format(MDmap))
+# check that the input L1, L2, and L3 maps exists - if CALC_ALL chosen
+if CALC_ALL:
+    for L in ['L1','L2','L3']
+    Lmap = inputbase + '_' L + '.nii.gz'
+    if os.path.isfile(MDmap) == False:
+      sys.exit("Input file {} doesn't exist.".format(Lmap))
 
 # make some output directories
 outputdir = os.path.abspath(outputdir)
-
-## if nifti input is not inside the outputdir than copy it here
-FAimage = os.path.basename(FAmap)
-FAimage = FAimage.replace('_FA','') ## removing the _FA part so that TBSS can work for other file types
-FAimage_noext = FAimage.replace(dm.utils.get_extension(FAimage),'')
-
 
 ## These are the links to some templates and settings from enigma
 skel_thresh = 0.049
@@ -88,9 +93,11 @@ tbss_skeleton_input = os.path.join(ENIGMAHOME,'ENIGMA_DTI_FA.nii.gz')
 tbss_skeleton_alt = os.path.join(ENIGMAHOME, 'ENIGMA_DTI_FA_skeleton_mask.nii.gz')
 ROIoutdir = os.path.join(outputdir, 'ROI')
 dm.utils.makedirs(ROIoutdir)
-csvout1 = os.path.join(ROIoutdir, FAimage_noext + '_FA_to_target_FAskel_ROIout')
-csvout2 = os.path.join(ROIoutdir, FAimage_noext + '_FA_to_target_FAskel_ROIout_avg')
-FAskel = os.path.join(outputdir,'FA', FAimage_noext + '_FA_to_target_FAskel.nii.gz')
+image_noext = os.path.basename(inputbase)
+FAimage = image_noext + '.nii.gz'
+csvout1 = os.path.join(ROIoutdir, image_noext + '_FA_to_target_FAskel_ROIout')
+csvout2 = os.path.join(ROIoutdir, image_noext + '_FA_to_target_FAskel_ROIout_avg')
+FAskel = os.path.join(outputdir,'FA', image_noext + '_FA_to_target_FAskel.nii.gz')
 ###############################################################################
 ## setting up
 ## if teh outputfile is not inside the outputdir than copy it there
@@ -150,43 +157,60 @@ docmd([os.path.join(ENIGMAHOME, 'averageSubjectTracts_exe'), csvout1 + '.csv', c
 ##############################################################################
 ## Now process the MD if that option was asked for
 ## if processing MD also set up for MD-ness
-def run_non_FA(image,DTItag):
+def run_non_FA(DTItag):
     """
-    The Pipeline to run to extract non-FA values (ex. MD, L1)
-
-    Inputs:
-    image        the full path to the image in dti-fit
-    DTI-tag      the string that identifies the type (i.e. 'MD', 'L1'...)
+    The Pipeline to run to extract non-FA values (MD, AD or RD)
     """
-    O_dir = os.path.join(outputdir,DTItag)
+    O_dir = os.path.join(outputdir,tag)
+    O_dir_orig = os.path.join(O_dir, 'origdata')
     dm.utils.makedirs(O_dir)
-    Oimage = FAimage ## for this to work - FA and MD need to have the same names (in different folders)
-    image_noext = FAimage_noext
-    if os.path.isfile(os.path.join(O_dir,Oimage)) == False:
-        docmd(['cp',image,os.path.join(O_dir,Oimage)])
 
-    skel = os.path.join(outputdir,'FA', image_noext + '_' + DTItag +'skel.nii.gz')
-    csvout1 = os.path.join(ROIoutdir, image_noext + '_' + DTItag + 'skel_ROIout')
-    csvout2 = os.path.join(ROIoutdir, image_noext + '_' + DTItag + 'skel_ROIout_avg')
+    if DTItag == 'MD':
+        image_i = inputbase + '_' + DTItag + '.nii.gz'
+        image_o = os.path.join(O_dir_orig,image_noext + '_' + DTItag + '.nii.gz')
+        # copy over the MD image if not done already
+        if os.path.isfile(image_o) == False:
+            docmd(['cp',image_i,image_o])
 
-    ## run tbss_1_preproc on the MDimage to rescale it
-    os.chdir(O_dir)
-    docmd(['tbss_1_preproc', Oimage])
+    if DTItag == 'AD':
+        image_i = inputbase + '_L1.nii.gz'
+        image_o = os.path.join(O_dir_orig,image_noext + '_' + DTItag + '.nii.gz')
+        # copy over the AD image - this is _L1 in dti-fit
+        if os.path.isfile(image_o) == False:
+            docmd(['cp',image_i,image_o])
 
-    ##move the output of tbss_1_preproc back up on level and rename it
-    docmd(['mv', 'FA/' + image_noext + '_FA.nii.gz', Oimage])
+    if DTItag == 'RD':
+        image_l2 = inputbase + '_L2.nii.gz'
+        image_l3 = inputbase + '_L3.nii.gz'
+        image_o = os.path.join(O_dir_orig,image_noext + '_' + DTItag + '.nii.gz')
+        # create the RD image as an average of '_L2' and '_L3' images from dti-fit
+        if os.path.isfile(image_o) == False:
+            docmd(['fslmaths', image_l2, '–add', image_l3, '-div', '2', image_o])
 
-    ##now run tbss_non_FA to Skeletonize it
-    os.chdir(outputdir)
-    docmd(['tbss_non_FA', DTItag])
+
+    masked =    os.path.join(O_dir,image_noext + '_' + DTItag + '.nii.gz')
+    to_target = os.path.join(O_dir,image_noext + '_' + DTItag + 'to_target.nii.gz')
+    skel =      os.path.join(O_dir, image_noext + '_' + DTItag +'skel.nii.gz')
+    csvout1 =   os.path.join(ROIoutdir, image_noext + '_' + DTItag + 'skel_ROIout')
+    csvout2 =   os.path.join(ROIoutdir, image_noext + '_' + DTItag + 'skel_ROIout_avg')
+
+    ## mask with subjects FA mask
+    docmd(['fslmaths', image_o, '-mas', \
+      os.path.join(outputdir,'FA', image_noext + '_FA_mask.nii.gz') \
+      masked)])
+
+    # applywarp calculated for FA map
+    docmd(['applywarp', '-i', masked), \
+        '-o', to_target,
+        '-r', os.path.join(outputdir,'FA', 'target')
+        '-w', os.path.join(O_dir, image_noext + 'FA_to_target_warp.nii.gz'))
 
     ## tbss_skeleton step
     docmd(['tbss_skeleton', \
           '-i', tbss_skeleton_input, \
           '-s', tbss_skeleton_alt, \
           '-p', str(skel_thresh), distancemap, search_rule_mask,
-           'FA/' + FAimage_noext + '_to_target_' + DTItag + '.nii.gz',
-           skel])
+           to_target, skel])
 
     ## ROI extract
     docmd([os.path.join(ENIGMAHOME,'singleSubjROI_exe'),
@@ -199,8 +223,13 @@ def run_non_FA(image,DTItag):
     docmd([os.path.join(ENIGMAHOME, 'averageSubjectTracts_exe'), csvout1 + '.csv', csvout2 + '.csv'])
 
 ## run the pipeline for MD - if asked
-if PROCESS_MD == True:
-    run_non_FA(MDmap,'MD')
+if CALC_MD | CALC_ALL: == True:
+    run_non_FA('MD')
+
+## run the pipeline for AD and RD - if asked
+if CALC_ALL:
+    run_non_FA('AD')
+    run_non_FA('RD')
 
 ###############################################################################
 os.putenv('SGE_ON','true')
