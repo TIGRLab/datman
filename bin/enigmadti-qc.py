@@ -24,6 +24,9 @@ This is configured to work for file of the enigma dti pipeline.
 Write now if pastes together a lot of info in pdfs like
 http://enigma.ini.usc.edu/wp-content/uploads/DTI_Protocols/ENIGMA_FA_Skel_QC_protocol_USC.pdf
 
+Requires matlab
+module load matlab/R2014b_concurrent
+
 Written by Erin W Dickie, July 30 2015
 """
 from docopt import docopt
@@ -70,12 +73,15 @@ QCskeldir = os.path.join(QCdir,'FAskel')
 for i in range(0,len(results)):
     ## read the subject vars from the checklist
     subid = str(results['id'][i])
-    FAorig = str(results['FA_nii'][i])
-    FA_to_target = FAorig.replace('.nii.gz','_FA_to_target.nii.gz')
-    FAskel = FAorig.replace('.nii.gz','_FA_to_target_FAskel.nii.gz')
-    matlabcmd = ['addpath '+ ENIGMAQCPATH + ';' + \
-        'func_QC_enigmaDTI_FA_skel(\'' + subid + '\',\'' + \
-        os.path.join(outputdir,subid,'FA',FA_to_target) + '\',\'' + \
-        os.path.join(outputdir,subid,'FA',FAskel) + '\',\'' + \
-        QCskeldir + '\');exit']
-    docmd(['matlab', '-nodisplay', '-nosplash', '-r',"\"{}\"".format(matlabcmd[0])])
+    base_nii = str(results['base_nii'][i])
+    to_target = base_nii + '_FA_to_target.nii.gz'
+    FAskel = base_nii + '_FA_to_target_FAskel.nii.gz'
+    docmd(['slices',to_target,'-o',os.path.join(tmpdir,subid + "to_target.gif")])
+    docmd(['slices',FAskel,'-o',os.path.join(tmpdir,subid + "FAskel.gif")])
+    docmd(['convert', '-negate', os.path.join(tmpdir,subid + "FAskel.gif"), \
+        '+level-colors', 'magenta', \
+        '-fuzz', '10%', '-transparent', 'white', \
+        os.path.join(tmpdir,subid + 'FAskel_mag.gif')])
+    docmd(['composite', os.path.join(tmpdir,subid + 'FAskel_mag.gif'),
+        os.path.join(tmpdir,subid + 'to_target.gif'),
+        os.path.join(QCskeldir,'subid_FAskel.gif'])
