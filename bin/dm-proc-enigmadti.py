@@ -11,7 +11,7 @@ Arguments:
     <outputdir>               Top directory for the output of enigma DTI
 
 Options:
-  --FA-tag STR             String used to identify FA maps within DTI-fit input (default = '_FA'))
+  --FA-tag STR             String used to identify FA maps within DTI-fit input (default = '_FA.nii.gz'))
   --calc-MD                Also calculate values for MD,
   --calc-all               Also calculate values for MD, AD, and RD
   --tag2 STR               Optional second used (as well as '--FA-tag', ex. 'DTI-60')) to identify the maps within DTI-fit input
@@ -53,7 +53,7 @@ outputdir       = arguments['<outputdir>']
 rawQCfile       = arguments['--QC-transfer']
 FA_tag          = arguments['--FA-tag']
 TAG2            = arguments['--tag2']
-CALC_MD         = argements['--calc-MD']
+CALC_MD         = arguments['--calc-MD']
 CALC_ALL        = arguments['--calc-all']
 NO_NEWSUBS      = arguments['--no-newsubs']
 TESTDATMAN      = arguments['--use-test-datman']
@@ -65,7 +65,6 @@ if DEBUG: print arguments
 #set default tag values
 if FA_tag == None: FA_tag = '_FA.nii.gz'
 QCedTranfer = False if rawQCfile == None else True
-RUN_nonFA = True if len(O_TAGS) > 0 else False
 
 ## set the basenames of the two run scripts
 runenigmash_name = 'run_engimadti.sh'
@@ -90,7 +89,7 @@ def find_FAimages(archive_tag,archive_tag2):
     for i in range(0,len(checklist)):
         sdir = os.path.join(dtifit_dir,checklist['id'][i])
 	    #if FA name not in checklist
-        if pd.isnull(checklist['base_nii'][i]):
+        if pd.isnull(checklist['FA_nii'][i]):
             sfiles = []
             for fname in os.listdir(sdir):
                 if archive_tag in fname:
@@ -101,11 +100,7 @@ def find_FAimages(archive_tag,archive_tag2):
                         sfiles.append(fname)
             if DEBUG: print "Found {} {} in {}".format(len(sfiles),archive_tag,sdir)
             if len(sfiles) == 1:
-                 ## remove the '_FA.nii.gz' from this string - this is helpful for MD calc
-                base_nii = sfiles[0]
-                base_nii = base_nii.replace(archive_tag,'')
-                ## add this "base_name" to the checklist
-                checklist['base_nii'][i] = sfiles[0]
+                checklist['FA_nii'][i] = sfiles[0]
             elif len(sfiles) > 1:
                 checklist['notes'][i] = "> 1 {} found".format(archive_tag)
             elif len(sfiles) < 1:
@@ -150,21 +145,21 @@ def makeENIGMArunsh(filename):
     enigmash.write('OUTDIR=${1}\n')
 
     if ENGIMASTEP == 'doInd':
-        enigmash.write('BASEMAP=${2}\n')
+        enigmash.write('FAMAP=${2}\n')
         ## add the engima-dit command
         enigmash.write('\ndoInd-enigma-dti.py ')
         if CALC_MD: enigmash.write('--calc-MD ')
         if CALC_ALL: enigmash.write('--calc-all ')
-        enigmash.write('${OUTDIR} ${BASEMAP} \n')
+        enigmash.write('${OUTDIR} ${FAMAP} \n')
 
     if ENGIMASTEP == 'concat':
         ## add the engima-concat command
-        enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR} FA ${OUTDIR}/enigmaDTI-FA-results.csv\n)
+        enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR} "FA" "${OUTDIR}/enigmaDTI-FA-results.csv"\n')
         if CALC_MD | CALC_ALL:
-             enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR} MD ${OUTDIR}/enigmaDTI-MD-results.csv\n)
+             enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR} "MD" "${OUTDIR}/enigmaDTI-MD-results.csv"\n')
         if CALC_ALL:
-             enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR} AD ${OUTDIR}/enigmaDTI-AD-results.csv\n)
-             enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR} RD ${OUTDIR}/enigmaDTI-RD-results.csv\n)
+             enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR} "AD" "${OUTDIR}/enigmaDTI-AD-results.csv"\n')
+             enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR} "RD" "${OUTDIR}/enigmaDTI-RD-results.csv"\n')
 
     #and...don't forget to close the file
     enigmash.close()
@@ -195,23 +190,15 @@ def checkrunsh(filename):
 #because even if we do not create it - it will be needed for newsubs_df (line 80)
 def loadchecklist(checklistfile,subjectlist):
     """
-    Reads the checklist (also known as 'results') csv for the file type of the tag
-    If the checklist csv file does not exit, it will be created.
+    Reads the checklistfile (normally called ENIGMA-DTI-checklist.csv)
+    if the checklist csv file does not exit, it will be created.
 
     This also checks if any subjects in the subjectlist are missing from the checklist,
     (checklist.id column)
     If so, they are appended to the bottom of the dataframe.
-
-    examples:
-    to load the FA results as a checklist and add new QCed subjects
-        checklist_FA = loadchecklist(FA_tag,subids_in_dtifit)
-    to load the MD results as a checklist and add new QCed subjects
-        checklist_MD = loadchecklist(MD_tag,subids_in_dtifit)
     """
-    tag = tag.replace('_','') ## remove any '_' from tag to make names look better
-    tag = tag.replace('.nii','') ##also remove .nii if it looks better
 
-    cols = ['id', 'base_nii', 'date_ran','qc_rator', 'qc_rating', 'notes']
+    cols = ['id', 'FA_nii', 'date_ran','qc_rator', 'qc_rating', 'notes']
 
     # if the checklist exists - open it, if not - create the dataframe
     if os.path.isfile(checklistfile):
@@ -257,13 +244,6 @@ run_dir = os.path.join(outputdir,'bin')
 dm.utils.makedirs(log_dir)
 dm.utils.makedirs(run_dir)
 
-
-## add FA to the list of tags
-tags = ['FA']
-# if the '--calc-all' argument was given, then add MD RD and AD to the list
-if CALC_ALL:
-    tags = tags + ['MD', 'AD', 'RD']
-
 ## writes a standard ENIGMA-DTI running script for this project (if it doesn't exist)
 ## the script requires a OUTDIR and MAP_BASE variables - as arguments $1 and $2
 ## also write a standard script to concatenate the results at the end (script is held while subjects run)
@@ -307,7 +287,7 @@ for i in range(0,len(checklist)):
             if NO_NEWSUBS == False:
                 os.chdir(run_dir)
                 soutput = os.path.join(outputdir,subid)
-                smap = checklist['base_nii'][i]
+                smap = checklist['FA_nii'][i]
                 jobname = 'edti_' + subid
                 docmd(['qsub','-o', log_dir, \
                          '-N', jobname,  \
@@ -333,4 +313,4 @@ if len(jobnames) > 0:
         outputdir])
 
 ## write the checklist out to a file
-checklist.to_csv(checklistfile, sep=',', columns = cols, index = False)
+checklist.to_csv(checklistfile, sep=',', index = False)
