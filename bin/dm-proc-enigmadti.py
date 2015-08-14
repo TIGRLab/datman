@@ -160,6 +160,11 @@ def makeENIGMArunsh(filename):
         if CALC_ALL:
              enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR} "AD" "${OUTDIR}/enigmaDTI-AD-results.csv"\n')
              enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR} "RD" "${OUTDIR}/enigmaDTI-RD-results.csv"\n')
+        # now with a qc step
+        enigmash.write('\nenigmadti-qc.py ')
+        if CALC_MD: enigmash.write('--calc-MD ')
+        if CALC_ALL: enigmash.write('--calc-all ')
+        enigmash.write('${OUTDIR}\n')
 
     #and...don't forget to close the file
     enigmash.close()
