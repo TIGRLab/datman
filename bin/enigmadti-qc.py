@@ -110,7 +110,10 @@ QCdir = os.path.join(outputdir,'QC')
 #mkdir a tmpdir for the
 tmpdir = tempfile.mkdtemp()
 
-for tag in ['FA','MD','RD','AD']:
+tags = ['FA']
+if CALC_MD: tags = tags + ['MD']
+if CALC_ALL: tags = tags + ['MD','RD','AD']
+for tag in tags:
 
     QCskeldir = os.path.join(QCdir, tag + 'skel')
     dm.utils.makedirs(QCskeldir)
@@ -134,7 +137,7 @@ for tag in ['FA','MD','RD','AD']:
 
         # run the overlay function
         if os.path.isfile(output_gif) == False:
-            overlay_skel(to_target, skel,output_gif)
+            overlay_skel(to_target,skel,output_gif)
 
         ## append it to the list for the QC file
         pics.append(output_gif)
