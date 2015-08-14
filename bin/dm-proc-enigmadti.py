@@ -164,7 +164,7 @@ def makeENIGMArunsh(filename):
         enigmash.write('\nenigmadti-qc.py ')
         if CALC_MD: enigmash.write('--calc-MD ')
         if CALC_ALL: enigmash.write('--calc-all ')
-        enigmash.write('${OUTDIR}\n')
+        enigmash.write('${OUTDIR} \n')
 
     #and...don't forget to close the file
     enigmash.close()
