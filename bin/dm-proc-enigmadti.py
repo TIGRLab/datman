@@ -150,6 +150,9 @@ def makeENIGMArunsh(filename):
     enigmash.write('# SGE Options\n')
     enigmash.write('#$ -S /bin/bash\n')
     enigmash.write('#$ -q main.q\n')
+    enigmash.write('#$ -j y \n')
+    enigmash.write('#$ -o '+ log_dir + ' \n')
+    enigmash.write('#$ -e '+ log_dir + ' \n')
     enigmash.write('#$ -l mem_free=6G,virtual_free=6G\n\n')
 
     enigmash.write('#source the module system\n')
@@ -164,10 +167,8 @@ def makeENIGMArunsh(filename):
     else:
         enigmash.write('module load /archive/data-2.0/code/datman.module\n\n')
 
-    ## add a line that will read in the subject id
-    enigmash.write('OUTDIR=${1}\n')
-
     if ENGIMASTEP == 'doInd':
+        enigmash.write('OUTDIR=${1}\n')
         enigmash.write('FAMAP=${2}\n')
         ## add the engima-dit command
         enigmash.write('\ndoInd-enigma-dti.py ')
@@ -176,6 +177,7 @@ def makeENIGMArunsh(filename):
         enigmash.write('${OUTDIR} ${FAMAP} \n')
 
     if ENGIMASTEP == 'concat':
+        enigmash.write('OUTDIR=' + outputdir + ' \n')
         ## add the engima-concat command
         enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR} "FA" "${OUTDIR}/enigmaDTI-FA-results.csv"\n')
         if CALC_MD | CALC_ALL:
@@ -315,8 +317,7 @@ for i in range(0,len(checklist)):
                 soutput = os.path.join(outputdir,subid)
                 smap = checklist['FA_nii'][i]
                 jobname = 'edti_' + subid
-                docmd(['qsub','-oe', log_dir, \
-                         '-N', jobname,  \
+                docmd(['qsub','-N', jobname,  \
                          runenigmash_name, \
                          soutput, \
                          os.path.join(dtifit_dir,subid,smap)])
@@ -332,11 +333,9 @@ if len(jobnames) > 30 : jobnames = jobnames[-30:]
 if len(jobnames) > 0:
     #if any subjects have been submitted - submit an extract consolidation job to run at the end
     os.chdir(run_dir)
-    docmd(['qsub','-oe', log_dir, \
-        '-N', 'edti_results',  \
+    docmd(['qsub', '-N', 'edti_results',  \
         '-hold_jid', ','.join(jobnames), \
-        runconcatsh_name, \
-        outputdir])
+        runconcatsh_name])
 
 ## write the checklist out to a file
 checklist.to_csv(checklistfile, sep=',', index = False)
