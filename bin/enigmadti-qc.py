@@ -9,8 +9,8 @@ Arguments:
     <outputdir>        Top directory for the output file structure
 
 Options:
-  --calc-MD                Also calculate values for MD,
-  --calc-all               Also calculate values for MD, AD, and RD
+  --calc-MD                Also run QC for MD values,
+  --calc-all               Also run QC for for MD, AD, and RD values.
   --checklist <FILE>       Filename of the engima checklist (defalt: <outputdir>/ENIGMA-DTI-checklist.csv')
   --results <FILE>...      Filenames for the results csv outputs (for outliers checks - still coming)
   -v,--verbose             Verbose logging
@@ -32,18 +32,15 @@ Future plan: add section that checks results for normality and identifies outlie
 
 Requires datman python enviroment, FSL and imagemagick.
 
-Written by Erin W Dickie, July 30 2015
+Written by Erin W Dickie, August 14 2015
 """
 from docopt import docopt
 import pandas as pd
 import datman as dm
 import datman.utils
 import datman.scanid
-import glob
 import os
-import sys
 import subprocess
-import datetime
 import tempfile
 import shutil
 
@@ -63,7 +60,6 @@ if DEBUG: print arguments
 outputdir = os.path.normpath(outputdir)
 if checklistfile == None:
     checklistfile = os.path.join(outputdir,'ENIGMA-DTI-checklist.csv')
-if ROItxt_tag == None: ROItxt_tag = '_ROIout_avg'
 
 ### Erin's little function for running things in the shell
 def docmd(cmdlist):
@@ -119,37 +115,40 @@ for tag in tags:
 
     pics = []
     for i in range(len(checklist)):
-        ## read the subject vars from the checklist
-        subid = str(checklist['id'][i])
-        FA_nii = str(checklist['FA_nii'][i])
-        base_nii = FA_nii.replace('FA.nii.gz','')
+        ## if an FA has been chosen (i.e. doInd-enigma-dti.py was run...)
+        if pd.isnull(checklist['FA_nii'][i]) == False:
+            ## read the subject vars from the checklist
+            subid = str(checklist['id'][i])
+            FA_nii = str(checklist['FA_nii'][i])
+            base_nii = FA_nii.replace('FA.nii.gz','')
 
-        ### find inputs based on tag
-        if tag == 'FA':
-            to_target = os.path.join(outputdir,subid,tag,base_nii + 'FA_to_target.nii.gz')
-            skel = os.path.join(outputdir,subid,tag,base_nii + 'FA_to_target_FAskel.nii.gz')
-            output_gif = os.path.join(QCskeldir,base_nii + 'FA_to_target_FAskel.gif')
-        else:
-            to_target = os.path.join(outputdir,subid,tag,base_nii + tag + '_to_target.nii.gz')
-            skel = os.path.join(outputdir,subid,tag,base_nii +  tag + 'skel.nii.gz')
-            output_gif = os.path.join(QCskeldir,base_nii +  tag + 'skel.gif')
+            ### find inputs based on tag
+            if tag == 'FA':
+                to_target = os.path.join(outputdir,subid,tag,base_nii + 'FA_to_target.nii.gz')
+                skel = os.path.join(outputdir,subid,tag,base_nii + 'FA_to_target_FAskel.nii.gz')
+                output_gif = os.path.join(QCskeldir,base_nii + 'FA_to_target_FAskel.gif')
+            else:
+                to_target = os.path.join(outputdir,subid,tag,base_nii + tag + '_to_target.nii.gz')
+                skel = os.path.join(outputdir,subid,tag,base_nii +  tag + 'skel.nii.gz')
+                output_gif = os.path.join(QCskeldir,base_nii +  tag + 'skel.gif')
 
-        # run the overlay function
-        if os.path.isfile(output_gif) == False:
-            overlay_skel(to_target,skel,output_gif)
+            # run the overlay function
+            if os.path.isfile(output_gif) == False:
+                overlay_skel(to_target,skel,output_gif)
 
-        ## append it to the list for the QC file
-        pics.append(output_gif)
+            ## append it to the list for the QC file
+            pics.append(output_gif)
 
     ## write an html page that shows all the pics
     qchtml = open(os.path.join(QCdir,tag + '_qcskel.html'),'w')
-    qchtml.write('<HTML><TITLE><font color="white">' + tag + 'skeleton QC page</font></TITLE>')
+    qchtml.write('<HTML><TITLE>' + tag + 'skeleton QC page</TITLE>')
     qchtml.write('<BODY BGCOLOR=#333333>\n')
     qchtml.write('<h1><font color="white">' + tag + ' skeleton QC page</font></h1>')
     for pic in pics:
         relpath = os.path.relpath(pic,QCdir)
-        qchtml.write('<a href="'+ relpath + '"><img src="' + relpath + '""')
-        qchtml.write('WIDTH=800 > ' + relpath + '</a><br>\n')
+        qchtml.write('<a href="'+ relpath + '" style="color: #99CCFF" >')
+        qchtml.write('<img src="' + relpath + '" "WIDTH=800" > ')
+        qchtml.write(relpath + '</a><br>\n')
     qchtml.write('</BODY></HTML>\n')
     qchtml.close() # you can omit in most cases as the destructor will call it
 
