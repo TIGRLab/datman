@@ -23,15 +23,16 @@ This run ENIGMA DTI pipeline on one FA map.
 This was made to be called from dm-proc-engimadti.py - which runs enigma-dti protocol
 for a group of subjects (or study) - then creates a group csv output and QC.
 
-Note: for this meant to work in directory with only ONE FA image!! (ex. enigmaDTI/<subjectID/).
-Having more than one FA image in the outputdir will lead to crazyness during the TBSS steps.
-This is most easily done specifying an outputdir that doesn't yet exist. This script
-will create it and copy over the relevant inputs.
+We recommend specifying an outputdir that doesn't yet exist (ex. enigmaDTI/<subjectID/).
+This script will create the ouputdir and copy over the relevant inputs.
+Why? Because this meant to work in directory with only ONE FA image!! (ex. enigmaDTI/<subjectID/).
+Having more than one FA image in the outputdir would lead to crazyness during the TBSS steps.
+So, the script will not run if more than one FA image (or the wrong FAimage) is present in the outputdir.
 
 By default, this extracts FA values for each ROI in the atlas.
 To extract MD as well, call with the "--calc-MD" option.
 To extract FA, MD, RD and AD, call with the "--calc-all" option.
- 
+
 Requires ENIGMA dti enviroment to be set (for example):
 module load FSL/5.0.7 R/3.1.1 ENIGMA-DTI/2015.01
 
@@ -51,7 +52,7 @@ import glob
 import os
 import sys
 import subprocess
-import datetime
+
 
 arguments       = docopt(__doc__)
 outputdir       = arguments['<outputdir>']
@@ -106,14 +107,18 @@ ROIoutdir = os.path.join(outputdir, 'ROI')
 dm.utils.makedirs(ROIoutdir)
 image_noext = os.path.basename(FAmap.replace('_FA.nii.gz',''))
 FAimage = image_noext + '.nii.gz'
-csvout1 = os.path.join(ROIoutdir, image_noext + '_FA_to_target_FAskel_ROIout')
-csvout2 = os.path.join(ROIoutdir, image_noext + '_FA_to_target_FAskel_ROIout_avg')
-FAskel = os.path.join(outputdir,'FA', image_noext + '_FA_to_target_FAskel.nii.gz')
+csvout1 = os.path.join(ROIoutdir, image_noext + '_FAskel_ROIout')
+csvout2 = os.path.join(ROIoutdir, image_noext + '_FAskel_ROIout_avg')
+FAskel = os.path.join(outputdir,'FA', image_noext + '_FAskel.nii.gz')
 ###############################################################################
 ## setting up
-## if teh outputfile is not inside the outputdir than copy it there
-if os.path.isfile(os.path.join(outputdir,FAimage)) == False:
+## if teh outputfile is not inside the outputdir than copy is there
+outdir_niis = glob.glob(outputdir + '/*.nii.gz') + glob.glob(outputdir + '*.nii')
+if len(outdir_niis) == 0:
     docmd(['cp',FAmap,os.path.join(outputdir,FAimage)])
+else:
+    # if more than one FA image is present in outputdir...we have a problem.
+    sys.exit("Ouputdir already contains nii images..bad news..exiting")
 
 ## cd into the output directory
 os.chdir(outputdir)
@@ -130,8 +135,6 @@ docmd(['tbss_2_reg', '-t', os.path.join(ENIGMAHOME,'ENIGMA_DTI_FA.nii.gz')])
 ###############################################################################
 print("TBSS STEP 3")
 docmd(['tbss_3_postreg','-S'])
-##kinda a useless step....
-#docmd(['cp', 'FA/' + FAimage_noext + '_FA_to_target.nii.gz', FA_to_target_dir])
 
 ###############################################################################
 print("Skeletonize...")
@@ -153,7 +156,7 @@ print("ROI part 1...")
 docmd([os.path.join(ENIGMAHOME,'singleSubjROI_exe'),
           os.path.join(ENIGMAHOME,'ENIGMA_look_up_table.txt'), \
           os.path.join(ENIGMAHOME, 'ENIGMA_DTI_FA_skeleton.nii.gz'), \
-          os.path.join(ENIGMAHOME, 'JHU-WhiteMatter-labels-1mm.nii.gz'), \
+          os.path.join(ENIGMAHOME, 'JHU-WhiteMatter-labels-1mm.nii'), \
           csvout1, FAskel])
 
 ###############################################################################
@@ -161,8 +164,6 @@ docmd([os.path.join(ENIGMAHOME,'singleSubjROI_exe'),
 ##			removing ROIs not of interest and averaging others
 ##          note: also using the _exe files to do this at the moment
 print("ROI part 2...")
-# ROIoutdir2 = os.path.join(outputdir, 'ROI_part2')
-# dm.utils.makedirs(ROIoutdir2)
 docmd([os.path.join(ENIGMAHOME, 'averageSubjectTracts_exe'), csvout1 + '.csv', csvout2 + '.csv'])
 
 ##############################################################################
