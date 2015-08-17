@@ -16,18 +16,31 @@ Options:
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
   -n,--dry-run             Dry run
+  -h,--help                Print this help
 
 DETAILS
 This run ENIGMA DTI pipeline on one FA map.
 This was made to be called from dm-proc-engimadti.py - which runs enigma-dti protocol
-for a group of subjects (or study) - then creates a group csv output.
+for a group of subjects (or study) - then creates a group csv output and QC.
 
+Note: for this meant to work in directory with only ONE FA image!! (ex. enigmaDTI/<subjectID/).
+Having more than one FA image in the outputdir will lead to crazyness during the TBSS steps.
+This is most easily done specifying an outputdir that doesn't yet exist. This script
+will create it and copy over the relevant inputs.
+
+By default, this extracts FA values for each ROI in the atlas.
+To extract MD as well, call with the "--calc-MD" option.
+To extract FA, MD, RD and AD, call with the "--calc-all" option.
+ 
 Requires ENIGMA dti enviroment to be set (for example):
 module load FSL/5.0.7 R/3.1.1 ENIGMA-DTI/2015.01
 
+also requires datman python enviroment.
+
 Written by Erin W Dickie, July 30 2015
 Adapted from ENIGMA_MASTER.sh - Generalized October 2nd David Rotenberg Updated Feb 2015 by JP+TB
-#Note -need ot expand path on FAskel -or it fails if relative paths given...
+Runs pipeline outlined by enigma-dti:
+http://enigma.ini.usc.edu/protocols/dti-protocols/
 """
 from docopt import docopt
 import pandas as pd
