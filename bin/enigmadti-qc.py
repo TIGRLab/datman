@@ -123,14 +123,9 @@ for tag in tags:
             base_nii = FA_nii.replace('FA.nii.gz','')
 
             ### find inputs based on tag
-            if tag == 'FA':
-                to_target = os.path.join(outputdir,subid,tag,base_nii + 'FA_to_target.nii.gz')
-                skel = os.path.join(outputdir,subid,tag,base_nii + 'FA_to_target_FAskel.nii.gz')
-                output_gif = os.path.join(QCskeldir,base_nii + 'FA_to_target_FAskel.gif')
-            else:
-                to_target = os.path.join(outputdir,subid,tag,base_nii + tag + '_to_target.nii.gz')
-                skel = os.path.join(outputdir,subid,tag,base_nii +  tag + 'skel.nii.gz')
-                output_gif = os.path.join(QCskeldir,base_nii +  tag + 'skel.gif')
+            to_target = os.path.join(outputdir,subid,tag,base_nii + tag + '_to_target.nii.gz')
+            skel = os.path.join(outputdir,subid,tag,base_nii +  tag + 'skel.nii.gz')
+            output_gif = os.path.join(QCskeldir,base_nii +  tag + 'skel.gif')
 
             # run the overlay function
             if os.path.isfile(output_gif) == False:
