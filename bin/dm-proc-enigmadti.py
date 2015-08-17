@@ -21,13 +21,36 @@ Options:
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
   -n,--dry-run             Dry run
+  -h, --help               Show help
 
 DETAILS
 This run ENIGMA DTI pipeline on FA maps after DTI-fit has been run.
 Calls (or submits) doInd-enigma-dti.py for each subject in order to do so.
+Also submits a concatcsv-enigmadti.py and enigmadti-qc.py as a held job
+to concatenate the results from each participant into outputs .csv files
+and create some QC web pages.
+
+This script will look search inside the dti-fit output folder for FA images to process.
+If uses the '--FA-tag' string (which is '_FA.nii.gz' by default) to do so.
+If this optional argument (('--tag2') is given, this string will be used to refine
+the search, if more than one FA file is found inside the participants directory.
+
+The FA image found for each participant in printed in the 'FA_nii' column
+of "ENIGMA-DTI-checklist.csv". If no FA image is found, or more than one FA image
+is found, a note to that effect is printed in the "notes" column of the same file.
+You can manually overide this process by editing the "ENIGMA-DTI-checklist.csv"
+with the name of the FA image you would like processed (esp. in the case of repeat scans).
+
+The script then looks to see if any of the FA images (listed in the
+"ENIGMA-DTI-checklist.csv" "FA_nii" column) have not been processed (i.e. have no outputs).
+These images are then submitted to the queue.
+
+If the "--QC-transfer" option is used, the QC checklist from data transfer
+(i.e. metadata/checklist.csv) and only those participants who passed QC will be processed.
 
 Requires ENIGMA dti enviroment to be set (for example):
 module load FSL/5.0.7 R/3.1.1 ENIGMA-DTI/2015.01
+(also requires the datmat python enviroment)
 
 Written by Erin W Dickie, July 30 2015
 Adapted from ENIGMA_MASTER.sh - Generalized October 2nd David Rotenberg Updated Feb 2015 by JP+TB
@@ -276,8 +299,6 @@ checklist = loadchecklist(checklistfile,subids_in_dtifit)
 ## look for new subs using FA_tag and tag2
 find_FAimages(FA_tag,TAG2)
 
-
-
 ## now checkoutputs to see if any of them have been run
 #if yes update spreadsheet
 #if no submits that subject to the queue
@@ -294,7 +315,7 @@ for i in range(0,len(checklist)):
                 soutput = os.path.join(outputdir,subid)
                 smap = checklist['FA_nii'][i]
                 jobname = 'edti_' + subid
-                docmd(['qsub','-o', log_dir, \
+                docmd(['qsub','-oe', log_dir, \
                          '-N', jobname,  \
                          runenigmash_name, \
                          soutput, \
@@ -311,7 +332,7 @@ if len(jobnames) > 30 : jobnames = jobnames[-30:]
 if len(jobnames) > 0:
     #if any subjects have been submitted - submit an extract consolidation job to run at the end
     os.chdir(run_dir)
-    docmd(['qsub','-o', log_dir, \
+    docmd(['qsub','-oe', log_dir, \
         '-N', 'edti_results',  \
         '-hold_jid', ','.join(jobnames), \
         runconcatsh_name, \
