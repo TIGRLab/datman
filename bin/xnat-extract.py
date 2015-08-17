@@ -247,8 +247,12 @@ def export_series(exportinfo, src, header, formats, timepoint, stem,
     debug("{}: description = {}, series = {}, tag = {}".format(
         src, description, series, tag))
 
-    if not tag or type(tag) is list: 
-        error("{}: Unknown series tag for description: {}, tag = {}".format(
+    if not tag:
+        verbose("No matching export pattern for {}, descr: {}. Skipping".format( 
+            src, description))
+        return 
+    elif type(tag) is list: 
+        error("Multiple export patterns match for {}, descr: {}, tags: {}".format(
             src, description, tag))
         return
 

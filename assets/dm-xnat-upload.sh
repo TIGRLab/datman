@@ -16,7 +16,15 @@ XNAT_ARCHIVE="${2}"
 ZIPFOLDER="${3}"
 CREDFILE="${4}"
 
-if [ ! -e ${XNAT_ARCHIVE} ]; then
+if [ $# -ne 4 ]; then
+  echo "Usage: $0 <studyname> <archivedir> <zipdir> <xnatcredfile>"
+  exit 1
+fi 
+
+if [ ! -e ${XNAT_ARCHIVE} -a ! -e $(dirname ${XNAT_ARCHIVE}) ]; then
+  # neither the arc001 folder nor the study folder exist, so something is wrong
+  # If the arc001 folder doesn't exist, but the study folder does, then we 
+  #   are uploading subjects for the first time. 
   exit 1
 fi
 
