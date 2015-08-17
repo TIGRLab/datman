@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """
 Run QC -stuff for enigma dti pipeline.
-By default the resutls are put in <outputdir>/ENIGMA-DTI-results.csv
 
 Usage:
   enigmadti-qc.py [options] <outputdir>
@@ -12,23 +11,26 @@ Arguments:
 Options:
   --calc-MD                Also calculate values for MD,
   --calc-all               Also calculate values for MD, AD, and RD
-  --gen-results            Genereate a new resutls file from the available data
-  --ROItxt-tag STR         String within the individual participants results that identifies their data (default = 'ROIout_avg')
-  --results FILE           Filename for the results csv output
-
+  --checklist <FILE>       Filename of the engima checklist (defalt: <outputdir>/ENIGMA-DTI-checklist.csv')
+  --results <FILE>...      Filenames for the results csv outputs (for outliers checks - still coming)
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
   -n,--dry-run             Dry run
+  --help                   Print help
 
 DETAILS
 This creates some QC outputs from of enigmaDTI pipeline stuff.
-This is configured to work for file of the enigma dti pipeline.
+QC outputs are placed within <outputdir>/QC.
+Right now QC constist of pictures of the skeleton on the registered image, for every subject.
+Pictures are assembled in html pages for quick viewing.
+This is configured to work for outputs of the enigma dti pipeline (dm-proc-enigmadti.py).
 
-Write now if pastes together a lot of info in pdfs like
+The inspiration for these QC practices come from engigma DTI
 http://enigma.ini.usc.edu/wp-content/uploads/DTI_Protocols/ENIGMA_FA_Skel_QC_protocol_USC.pdf
 
-Requires matlab
-module load matlab/R2014b_concurrent
+Future plan: add section that checks results for normality and identifies outliers..
+
+Requires datman python enviroment, FSL and imagemagick.
 
 Written by Erin W Dickie, July 30 2015
 """
@@ -47,9 +49,8 @@ import shutil
 
 arguments       = docopt(__doc__)
 outputdir       = arguments['<outputdir>']
-resultsfile     = arguments['--results']
-GENresults      = arguments['--gen-results']
-ROItxt_tag      = arguments['--ROItxt-tag']
+resultsfiles    = arguments['--results']
+checklistfile   = arguments['--checklist']
 CALC_MD         = arguments['--calc-MD']
 CALC_ALL        = arguments['--calc-all']
 VERBOSE         = arguments['--verbose']
@@ -60,12 +61,10 @@ if DEBUG: print arguments
 
 ## if no result file is given use the default name
 outputdir = os.path.normpath(outputdir)
-if resultsfile == None:
-    resultsfile = os.path.join(outputdir,'ENIGMA-DTI-checklist.csv')
+if checklistfile == None:
+    checklistfile = os.path.join(outputdir,'ENIGMA-DTI-checklist.csv')
 if ROItxt_tag == None: ROItxt_tag = '_ROIout_avg'
 
-SUBFOLDERS = True ## assume that the file is inside a heirarchy that contains folders with subject names
-ENIGMAQCPATH = '/home/edickie/code/ENIGMA_QC/enigmaDTI_QC/'
 ### Erin's little function for running things in the shell
 def docmd(cmdlist):
     "sends a command (inputed as a list) to the shell"
@@ -104,7 +103,7 @@ def overlay_skel(background_nii, skel_nii,overlay_gif):
         os.path.join(overlay_gif)])
 
 ## find the files that match the resutls tag...first using the place it should be from doInd-enigma-dti.py
-results = pd.read_csv(resultsfile, sep=',', dtype=str, comment='#')
+checklist = pd.read_csv(checklistfile, sep=',', dtype=str, comment='#')
 QCdir = os.path.join(outputdir,'QC')
 
 #mkdir a tmpdir for the
@@ -119,10 +118,10 @@ for tag in tags:
     dm.utils.makedirs(QCskeldir)
 
     pics = []
-    for i in range(len(results)):
+    for i in range(len(checklist)):
         ## read the subject vars from the checklist
-        subid = str(results['id'][i])
-        FA_nii = str(results['FA_nii'][i])
+        subid = str(checklist['id'][i])
+        FA_nii = str(checklist['FA_nii'][i])
         base_nii = FA_nii.replace('FA.nii.gz','')
 
         ### find inputs based on tag
@@ -142,8 +141,11 @@ for tag in tags:
         ## append it to the list for the QC file
         pics.append(output_gif)
 
+    ## write an html page that shows all the pics
     qchtml = open(os.path.join(QCdir,tag + '_qcskel.html'),'w')
-    qchtml.write('<HTML><TITLE>' + tag + 'skeleton QC page</TITLE><BODY BGCOLOR="#aaaaff">\n') # python will convert \n to os.linesep
+    qchtml.write('<HTML><TITLE><font color="white">' + tag + 'skeleton QC page</font></TITLE>')
+    qchtml.write('<BODY BGCOLOR=#333333>\n')
+    qchtml.write('<h1><font color="white">' + tag + ' skeleton QC page</font></h1>')
     for pic in pics:
         relpath = os.path.relpath(pic,QCdir)
         qchtml.write('<a href="'+ relpath + '"><img src="' + relpath + '""')
