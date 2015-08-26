@@ -6,7 +6,7 @@ Usage:
   dm-proc-CIVET.py [options] <inputpath> <targetpath> <prefix>
 
 Arguments:
-    <inputpath>      Path to input directory (usually a project directory inside /data-2.0)
+    <inputpath>      Path to input directory (expecting subject directories inside)
     <targetpath>     Path to directory that will contain CIVET inputs (links) and outputs
     <prefix>         Prefix for CIVET input (see details)    `
 
@@ -21,6 +21,7 @@ Options:
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
   -n,--dry-run             Dry run
+  -h,--help                Print help
 
 DETAILS
 Runs CIVET in a rather organized way on all the participants within one project.
