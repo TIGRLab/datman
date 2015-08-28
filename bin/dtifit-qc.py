@@ -122,6 +122,7 @@ if DEBUG : print("FAmaps before filtering: {}".format(allFAmaps))
 if TAG != None:
     allFAmaps = [ v for v in allFAmaps if TAG in v ]
 if DEBUG : print("FAmaps after filtering: {}".format(allFAmaps))
+allFAmaps = [ v for v in allFAmaps if "PHA" not in v ] ## remove the phantoms from the list
 
 #mkdir a tmpdir for the
 tmpdirbase = tempfile.mkdtemp()
