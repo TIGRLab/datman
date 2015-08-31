@@ -42,6 +42,7 @@ import subprocess
 import tempfile
 import shutil
 import glob
+import sys
 
 arguments       = docopt(__doc__)
 dtifitdir       = arguments['<dtifitdir>']
@@ -54,6 +55,11 @@ DRYRUN          = arguments['--dry-run']
 
 if DEBUG: print arguments
 if QCdir == None: QCdir = os.path.join(dtifitdir,'QC')
+
+## check that FSL has been loaded - if not exists
+FSLDIR = os.getenv('FSLDIR')
+if FSLDIR==None:
+    sys.exit("FSLDIR environment variable is undefined. Try again.")
 
 ### Erin's little function for running things in the shell
 def docmd(cmdlist):
