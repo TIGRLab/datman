@@ -31,6 +31,7 @@ import sys
 from docopt import docopt
 import dicom as dcm
 import datman as dm
+import numpy as np
 import datman.utils
 import os.path
 
@@ -91,7 +92,8 @@ ignored_headers = set([
 
 decimal_tolerances = {
         # field           : digits after decimal point
-        'ImagingFrequency': 3, 
+        'ImagingFrequency': 1, 
+        'EchoTime': 5,
         }
 
 QUIET = False
@@ -127,10 +129,11 @@ def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore=ignored_headers):
         if header in decimal_tolerances:
             n = decimal_tolerances[header]
 
-            stdval_rounded = round(float(stdval), n)
-            cmpval_rounded = round(float(cmpval), n)
+            stdval_rounded = np.round(float(stdval))
+            cmpval_rounded = np.round(float(cmpval))
+            difference = np.abs(stdval_rounded - cmpval_rounded)
 
-            if stdval_rounded != cmpval_rounded:
+            if difference > n:
                 msg = "{}: header {}, expected = {}, actual = {} [tolerance = {}]"
                 print(msg.format(cmppath, header, stdval_rounded, cmpval_rounded, n))
 
