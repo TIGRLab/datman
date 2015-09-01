@@ -556,10 +556,9 @@ def main():
                 #         30*5,0.002:12
  
                 # OFFSET 4 TRs == 8 Seconds!
-                on = on - 8.0
-
+                # on = on - 8.0
                 for i in range(len(on)):
-                    f1.write('{o:.2f}*{r:.2f},{p}:{d:.2f} '.format(o=on[i], r=corr[i], p=push[i], d=dur[i]))
+                    f1.write('{o:.2f}*{r:.2f},{p}:{d:.2f} '.format(o=on[i]-8.0, r=corr[i], p=push[i], d=dur[i]))
                     f2.write('{r:.2f},{p}\n'.format(r=corr[i], p=push[i]))
                 f1.write('\n') # add newline at the end of each run (up to 3 runs.)
         except:
