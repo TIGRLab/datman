@@ -64,6 +64,7 @@ ignored_headers = set([
     'PatientName',
     'PatientSex',
     'PatientWeight',
+    'PercentPhaseFieldOfView,',
     'PerformedProcedureStepID',
     'PerformedProcedureStepStartDate',
     'PerformedProcedureStepStartTime',
@@ -90,11 +91,16 @@ ignored_headers = set([
     'WindowWidth',
 ])
 
-decimal_tolerances = {
-        # field           : digits after decimal point
+integer_tolerances = {
+        # field           : interger difference
         'ImagingFrequency': 1, 
-        'EchoTime': 5,
-        }
+        'EchoTime': 3,
+}
+
+decimal_tolerances = {
+        'RepetitionTime': 1
+}
+
 
 QUIET = False
 
@@ -126,14 +132,24 @@ def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore=ignored_headers):
         cmpval = cmphdr.get(header)
 
         # compare within tolerance
-        if header in decimal_tolerances:
-            n = decimal_tolerances[header]
+        if header in integer_tolerances:
+            n = integer_tolerances[header]
 
             stdval_rounded = np.round(float(stdval))
             cmpval_rounded = np.round(float(cmpval))
             difference = np.abs(stdval_rounded - cmpval_rounded)
 
             if difference > n:
+                msg = "{}: header {}, expected = {}, actual = {} [tolerance = {}]"
+                print(msg.format(cmppath, header, stdval_rounded, cmpval_rounded, n))
+
+        elif header in decimal_tolerances:
+            n = decimal_tolerances[header]
+
+            stdval_rounded = round(float(stdval), n)
+            cmpval_rounded = round(float(cmpval), n)
+
+            if stdval_rounded != cmpval_rounded:
                 msg = "{}: header {}, expected = {}, actual = {} [tolerance = {}]"
                 print(msg.format(cmppath, header, stdval_rounded, cmpval_rounded, n))
 
