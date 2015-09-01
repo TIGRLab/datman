@@ -60,7 +60,6 @@ ignored_headers = set([
     'PatientName',
     'PatientSex',
     'PatientWeight',
-    'PerformedProcedureStepDescription',
     'PerformedProcedureStepID',
     'PerformedProcedureStepStartDate',
     'PerformedProcedureStepStartTime',
