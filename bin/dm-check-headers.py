@@ -118,9 +118,9 @@ def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore=ignored_headers):
                 msg = "{}: header {}, expected = {}, actual = {} [tolerance = {}]"
                 print(msg.format(cmppath, header, stdval_rounded, cmpval_rounded, n))
 
-        elif str(cmpval) != str(cmpval):
+        elif str(cmpval) != str(stdval):
             print("{}: header {}, expected = {}, actual = {}".format(
-                    cmppath, header, stdval_rounded, cmpval_rounded))
+                    cmppath, header, stdval, cmpval))
 
 
 def compare_exam_headers(std_headers, examdir, ignorelist):
