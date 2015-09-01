@@ -94,7 +94,7 @@ ignored_headers = set([
 integer_tolerances = {
         # field           : interger difference
         'ImagingFrequency': 1, 
-        'EchoTime': 3,
+        'EchoTime': 5,
 }
 
 decimal_tolerances = {
