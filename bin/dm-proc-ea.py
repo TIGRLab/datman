@@ -4,10 +4,11 @@ This analyzes empathic accuracy behavioural data.It could be generalized
 to analyze any rapid event-related design experiment fairly easily.
 
 Usage:
-    dm-proc-ea.py [options] <project> <script> <assets>
+    dm-proc-ea.py [options] <project> <tmppath> <script> <assets>
 
 Arguments: 
     <project>           Full path to the project directory containing data/.
+    <tmppath>           Full path to a shared folder to run 
     <script>            Full path to an epitome-style script.
     <assets>            Full path to an assets folder containing 
                                               EA-timing.csv, EA-vid-lengths.csv.
@@ -26,8 +27,13 @@ DETAILS
 
 DEPENDENCIES
 
+    + python
     + matlab
     + afni
+    + fsl
+    + epitome
+
+    Requires dm-proc-freesurfer.py to be completed.
 
 This message is printed with the -h, --help flags.
 """
@@ -410,22 +416,49 @@ def process_functional_data(sub, datadir, script):
     # run preprocessing pipeline
     os.system('bash {} {} 4'.format(script, os.path.join(tmpdir, 'epitome')))
 
-    # copy outputs into data folder
-    if os.path.isdir(datadir + '/ea') == False:
-        os.system('mkdir ' + datadir + '/ea' )
 
-    # functional data
-    os.system('cp {}/FUNC/SESS01/func_MNI-nonlin.DATMAN.01.nii.gz {}/ea/{}_func_MNI-nonlin.EA.01.nii.gz'.format(epidir, datadir, sub))
-    os.system('cp {}/FUNC/SESS01/func_MNI-nonlin.DATMAN.02.nii.gz {}/ea/{}_func_MNI-nonlin.EA.02.nii.gz'.format(epidir, datadir, sub))
-    os.system('cp {}/FUNC/SESS01/func_MNI-nonlin.DATMAN.03.nii.gz {}/ea/{}_func_MNI-nonlin.EA.03.nii.gz'.format(epidir, datadir, sub))
-    os.system('cp {}/FUNC/SESS01/anat_EPI_mask_MNI-nonlin.nii.gz {}/ea/{}_anat_EPI_mask_MNI.nii.gz'.format(epidir, datadir, sub))
-    os.system('cp {}/FUNC/SESS01/reg_T1_to_TAL.nii.gz {}/ea/{}_reg_T1_to_MNI-lin.nii.gz'.format(epidir, datadir, sub))
-    os.system('cp {}/FUNC/SESS01/reg_nlin_TAL.nii.gz {}/ea/{}_reg_nlin_MNI.nii.gz'.format(epidir, datadir, sub))
-    os.system('cat {}/FUNC/SESS01/PARAMS/motion.DATMAN.01.1D > {}/ea/{}_motion.1D'.format(epidir, datadir, sub))
-    os.system('cat {}/FUNC/SESS01/PARAMS/motion.DATMAN.02.1D >> {}/ea/{}_motion.1D'.format(epidir, datadir, sub))
-    os.system('cat {}/FUNC/SESS01/PARAMS/motion.DATMAN.03.1D >> {}/ea/{}_motion.1D'.format(epidir, datadir, sub))
-    os.system('touch {}/ea/{}_preproc-complete.log'.format(datadir, sub))
-    os.system('rm -r {}'.format(tmpdir))
+
+
+def export_data(sub, tmpfolder, func_path):
+
+    tmppath = os.path.join(tmpfolder, 'TEMP', 'SUBJ', 'FUNC', 'SESS01')
+
+    try:
+        # functional data
+        returncode, _, _ = dm.utils.run('cp {}/func_MNI-nonlin.DATMAN.01.nii.gz {}/ea/{}_func_MNI-nonlin.EA.01.nii.gz'.format(tmpfolder, func_path, sub))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cp {}/func_MNI-nonlin.DATMAN.02.nii.gz {}/ea/{}_func_MNI-nonlin.EA.02.nii.gz'.format(tmpfolder, func_path, sub))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cp {}/func_MNI-nonlin.DATMAN.03.nii.gz {}/ea/{}_func_MNI-nonlin.EA.03.nii.gz'.format(tmpfolder, func_path, sub))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cp {}/anat_EPI_mask_MNI-nonlin.nii.gz {}/ea/{}_anat_EPI_mask_MNI.nii.gz'.format(tmpfolder, func_path, sub))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cp {}/reg_T1_to_TAL.nii.gz {}/ea/{}_reg_T1_to_MNI-lin.nii.gz'.format(tmpfolder, func_path, sub))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cp {}/reg_nlin_TAL.nii.gz {}/ea/{}_reg_nlin_MNI.nii.gz'.format(tmpfolder, func_path, sub))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cat {}/PARAMS/motion.DATMAN.01.1D > {}/ea/{}_motion.1D'.format(tmpfolder, func_path, sub))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cat {}/PARAMS/motion.DATMAN.02.1D >> {}/ea/{}_motion.1D'.format(tmpfolder, func_path, sub))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cat {}/PARAMS/motion.DATMAN.03.1D >> {}/ea/{}_motion.1D'.format(tmpfolder, func_path, sub))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('touch {}/{}_preproc-complete.log'.format(func_path, sub))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('rm -r {}'.format(tmpdir))
+        dm.utils.check_returncode(returncode)
+    except:
+        raise ValueError
+
+    # TODO
+    #
+    # # copy out QC images of registration
+    # dm.utils.run('cp {tmpfolder}/TEMP/SUBJ/FUNC/SESS01/'
+    #                         + 'qc_reg_EPI_to_T1.pdf ' +
+    #               data_path + '/rest/' + sub + '_qc_reg_EPI_to_T1.pdf')
+    # dm.utils.run('cp {tmpfolder}/TEMP/SUBJ/FUNC/SESS01/'
+    #                         + 'qc_reg_T1_to_MNI.pdf ' +
+    #               data_path + '/rest/' + sub + '_qc_reg_T1_to_MNI.pdf')
 
 def generate_analysis_script(sub, datadir):
     """
@@ -500,38 +533,61 @@ def main():
     global DEBUG
     arguments  = docopt(__doc__)
     project    = arguments['<project>']
+    tmp_path   = arguments['<tmppath>']
     script     = arguments['<script>']
     assets     = arguments['<assets>']
 
-    datadir = os.path.join(project, 'data')
+    data_path = dm.utils.define_folder(os.path.join(project, 'data'))
+    nii_path = dm.utils.define_folder(os.path.join(data_path, 'nii'))
+    func_path = dm.utils.define_folder(os.path.join(data_path, 'ea'))
+    tmp_path = dm.utils.define_folder(tmp_path)
+    _ = dm.utils.define_folder(os.path.join(project, 'logs'))
+    log_path = dm.utils.define_folder(os.path.join(project, 'logs/ea'))
 
-    try:
-        subjects = dm.utils.get_subjects(os.path.join(datadir, 'nii'))
-    except:
-        print('ERROR: No "nii" folder found for {}.'.format(project))
-        sys.exit()
+    list_of_names = []
+    tmpdict = {}
+    subjects = dm.utils.get_subjects(nii_path)
 
-    # preprocessing loop
+    # preprocess
     for sub in subjects:
         if dm.utils.subject_type(sub) == 'phantom':
             continue
-        if os.path.isfile('{}/ea/{}_preproc-complete.log'.format(datadir, sub)) == True:
+        if os.path.isfile(os.path,join(ea_path, '{}_preproc-complete.log'.format(sub))) == True:
             continue
         try:
-            process_functional_data(sub, datadir, script)
+            name, tmpdict = process_functional_data(sub, data_path, script)
+            list_of_names.append(name)
+
         except ValueError as ve:
             continue
 
-    # analysis loop
-    for sub in subjects:
-        if dm.utils.subject_type(sub) == 'phantom':
+    if list_of_names == []:
+        sys.exit()
+
+    dm.utils.run_dummy_q(list_of_names)
+
+    # export
+    for sub in tmpdict:
+        if os.path.isfile(os.path.join(ea_path, '{}_preproc-complete.log')) == True:
             continue
-        if os.path.isfile('{}/ea/{}_analysis-complete.log'.format(datadir, sub)) == True:
+        try:
+            export_data(sub, tmpdict[sub], rest_path)
+        except:
+            print('ERROR: Failed to export {}'.format(sub))
+            continue
+        else:
             continue
 
+
+    # analyze
+    for sub in subjects:
+        if dm.scanid.is_phantom(sub) == True: 
+            continue
+        if os.path.isfile(os.path,join(ea_path, '{}_analysis-complete.log'.format(sub))) == True:
+            continue
         # get all the log files for a subject
         try:
-            resdirs = glob.glob(os.path.join(datadir, 'RESOURCES', sub + '_??'))
+            resdirs = glob.glob(os.path.join(data_path, 'RESOURCES', sub + '_??'))
             resources = []
             for resdir in resdirs:
                 resfiles = [os.path.join(dp, f) for 
@@ -544,13 +600,13 @@ def main():
             print('ERROR: No BEHAV data for {}.'.format(sub))
             continue
 
-        f1 = open('{}/ea/{}_block-times_ea.1D'.format(datadir, sub), 'wb') # stim timing file
-        f2 = open('{}/ea/{}_corr_push.csv'.format(datadir, sub), 'wb') # r values and num pushes / minute
+        f1 = open('{}/ea/{}_block-times_ea.1D'.format(data_path, sub), 'wb') # stim timing file
+        f2 = open('{}/ea/{}_corr_push.csv'.format(data_path, sub), 'wb') # r values and num pushes / minute
         f2.write('correlation,n-pushes-per-minute\n')
 
         try:
             for log in logs:
-                on, dur, corr, push = process_behav_data(log, assets, datadir, sub, 'vid')
+                on, dur, corr, push = process_behav_data(log, assets, data_path, sub, 'vid')
                 # write each stimulus time:
                 #         [start_time]*[amplitude],[buttonpushes]:[block_length]
                 #         30*5,0.002:12
@@ -562,16 +618,16 @@ def main():
                     f2.write('{r:.2f},{p}\n'.format(r=corr[i], p=push[i]))
                 f1.write('\n') # add newline at the end of each run (up to 3 runs.)
         except:
-            print('ERROR: Failed to parse logs. Skipping analysis for {}.'.format(sub))
+            print('ERROR: Failed to parse logs for {}.'.format(sub))
             pass
 
         finally:
             f1.close()
             f2.close()
 
-            generate_analysis_script(sub, datadir)
-            os.system('bash {}/ea/{}_glm_1stlevel_cmd.sh'.format(datadir, sub))
-            os.system('touch {}/ea/{}_analysis-complete.log'.format(datadir, sub))
+            generate_analysis_script(sub, data_path)
+            os.system('bash {}/ea/{}_glm_1stlevel_cmd.sh'.format(data_path, sub))
+            os.system('touch {}/ea/{}_analysis-complete.log'.format(data_path, sub))
 
 if __name__ == "__main__":
     main()

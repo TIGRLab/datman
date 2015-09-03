@@ -30,8 +30,10 @@ DETAILS
 DEPENDENCIES
 
     + python
+    + matlab
     + afni
     + fsl
+    + epitome
 
     Requires dm-proc-freesurfer.py to be completed.
 
@@ -48,8 +50,9 @@ from scipy import stats, linalg
 import nibabel as nib
 import StringIO as io
 import matplotlib.pyplot as plt
-import datman as dm
 import tempfile as tmp
+
+import datman as dm
 from datman.docopt import docopt
 
 def partial_corr(C):
@@ -198,31 +201,25 @@ def proc_data(sub, data_path, tmp_path, tmpdict, script):
 
     return name, tmpdict
 
-def check_returncode(returncode):
-    if returncode != 0:
-        raise ValueError
+def export_data(sub, tmpfolder, func_path):
 
-def export_data(sub, tmpfolder, rest_path):
-    
-    # check for existance of all ouputs before copy
+    tmppath = os.path.join(tmpfolder, 'TEMP', 'SUBJ', 'FUNC', 'SESS01')    
+
     try:
-        tmppath = os.path.join(tmpfolder, 'TEMP', 'SUBJ', 'FUNC', 'SESS01')
-        print('cp {tmppath}/func_MNI-nonlin.DATMAN.01.nii.gz {rest_path}/{sub}_func_MNI-nonlin.01.nii.gz'.format(tmppath=tmppath, rest_path=rest_path, sub=sub))
-
-        returncode, _, _ = dm.utils.run('cp {tmppath}/func_MNI-nonlin.DATMAN.01.nii.gz {rest_path}/{sub}_func_MNI-nonlin.01.nii.gz'.format(tmppath=tmppath, rest_path=rest_path, sub=sub))
-        check_returncode(returncode)
-        returncode, _, _ = dm.utils.run('cp {tmppath}/anat_EPI_mask_MNI-nonlin.nii.gz {rest_path}/{sub}_anat_EPI_mask_MNI.nii.gz'.format(tmppath=tmppath, rest_path=rest_path, sub=sub))
-        check_returncode(returncode)
-        returncode, _, _ = dm.utils.run('cp {tmppath}/reg_T1_to_TAL.nii.gz {rest_path}/{sub}_reg_T1_to_MNI-lin.nii.gz'.format(tmppath=tmppath, rest_path=rest_path, sub=sub))
-        check_returncode(returncode)
-        returncode, _, _ = dm.utils.run('cp {tmppath}/reg_nlin_TAL.nii.gz {rest_path}/{sub}_reg_nlin_MNI.nii.gz'.format(tmppath=tmppath, rest_path=rest_path, sub=sub))
-        check_returncode(returncode)
-        returncode, _, _ = dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.01.1D > {rest_path}/{sub}_motion.1D'.format(tmppath=tmppath, rest_path=rest_path, sub=sub))
-        check_returncode(returncode)
-        returncode, _, _ = dm.utils.run('touch {rest_path}/{sub}_preproc-complete.log'.format(rest_path=rest_path, sub=sub))
-        check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cp {}/func_MNI-nonlin.DATMAN.01.nii.gz {}/{}_func_MNI-nonlin.01.nii.gz'.format(tmppath, func_path, sub))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cp {}/anat_EPI_mask_MNI-nonlin.nii.gz {}/{}_anat_EPI_mask_MNI.nii.gz'.format(tmppath, func_path, sub))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cp {}/reg_T1_to_TAL.nii.gz {}/{}_reg_T1_to_MNI-lin.nii.gz'.format(tmppath, func_path, sub))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cp {}/reg_nlin_TAL.nii.gz {}/{}_reg_nlin_MNI.nii.gz'.format(tmppath, func_path, sub))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cat {}/PARAMS/motion.DATMAN.01.1D > {}/{}_motion.1D'.format(tmppath, func_path, sub))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('touch {}/{}_preproc-complete.log'.format(func_path, sub))
+        dm.utils.check_returncode(returncode)
         returncode, _, _ = dm.utils.run('rm -r ' + tmpfolder)
-        check_returncode(returncode)
+        dm.utils.check_returncode(returncode)
 
     except:
         raise ValueError
@@ -306,7 +303,7 @@ def main():
     tmpdict = {}
     subjects = dm.utils.get_subjects(nii_path)
 
-    # loop through subjects
+    # preprocess
     for sub in subjects:
 
         if dm.scanid.is_phantom(sub) == True: 
@@ -320,33 +317,35 @@ def main():
             list_of_names.append(name)
 
         except ValueError as ve:
-            print('ERROR: Failed to preprocess {}'.format(sub))
+            continue
 
     if list_of_names == []:
         sys.exit()
 
-    # wait for queued items to complete
     dm.utils.run_dummy_q(list_of_names)
 
-    # copy functionals, registrations, motion parameters to rest folder.
+    # export
+    for sub in tmpdict:
+        if os.path.isfile(os.path.join(rest_path, '{}_preproc-complete.log')) == True:
+            continue
+        try:
+            export_data(sub, tmpdict[sub], rest_path)
+        except:
+            print('ERROR: Failed to export {}'.format(sub))
+            continue
+        else:
+            continue
+
+    # analyze
     for sub in subjects:
         if dm.scanid.is_phantom(sub) == True: 
             continue
-        if os.path.isfile(os.path.join(rest_path,  sub + '_preproc-complete.log')) == False:
-            if sub in tmpdict:
-                try:
-                    export_data(sub, tmpdict[sub], rest_path)
-                except:
-                    print('ERROR: Failed to export {}'.format(sub))
-                    continue
-            else:
-                continue
-
-        if os.path.isfile(os.path.join(rest_path,  sub + '_analysis-complete.log')) == False:
-            try:
-                analyze_data(sub, assets, rest_path)
-            except ValueError as ve:
-                print('ERROR: Failed to extract time-series and connectivity data from pre-processed data.')
+        if os.path.isfile(os.path.join(rest_path,  '{}_analysis-complete.log'.format(sub))) == True:
+            continue
+        try:
+            analyze_data(sub, assets, rest_path)
+        except ValueError as ve:
+            print('ERROR: Failed to extract connectivity data from {}.'.format(sub))
 
 if __name__ == "__main__":
     main()
