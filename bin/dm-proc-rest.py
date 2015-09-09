@@ -115,7 +115,7 @@ def partial_corr(C):
         
     return P_corr
 
-def proc_data(sub, data_path, tmp_path, tmpdict, script):
+def proc_data(sub, data_path, log_path, tmp_path, tmpdict, script):
     """
     Copies functional data into epitome-compatible structure, then runs the
     associated epitome script on the data. Finally, we copy the outputs into
@@ -124,7 +124,7 @@ def proc_data(sub, data_path, tmp_path, tmpdict, script):
 
     nii_path = os.path.join(data_path, 'nii')
     t1_path = os.path.join(data_path, 't1')
-    rest_path = os.path.join(data_path, 'rest')
+    func_path = os.path.join(data_path, 'rest')
     
     # find the freesurfer outputs for the T1 data
     try:
@@ -181,45 +181,64 @@ def proc_data(sub, data_path, tmp_path, tmpdict, script):
         print('ERROR: No REST data found for ' + str(sub))
         raise ValueError
 
-    # copy data into temporary epitome structure
-    tmpfolder = tmp.mkdtemp(prefix='rest-', dir=tmp_path)
-    tmpdict[sub] = tmpfolder
+    try:
+        # copy data into temporary epitome structure
+        tmpfolder = tmp.mkdtemp(prefix='rest-', dir=tmp_path)
+        tmpdict[sub] = tmpfolder
 
-    dm.utils.make_epitome_folders(tmpfolder, 1)
-    dm.utils.run('cp {t1_path}/{t1_data} {tmpfolder}/TEMP/SUBJ/T1/SESS01/anat_T1_brain.nii.gz'.format(t1_path=t1_path, t1_data=t1_data, tmpfolder=tmpfolder))
-    dm.utils.run('cp {t1_path}/{aparc} {tmpfolder}/TEMP/SUBJ/T1/SESS01/anat_aparc_brain.nii.gz'.format(t1_path=t1_path, aparc=aparc, tmpfolder=tmpfolder))
-    dm.utils.run('cp {t1_path}/{aparc2009} {tmpfolder}/TEMP/SUBJ/T1/SESS01/anat_aparc2009_brain.nii.gz'.format(t1_path=t1_path, aparc2009=aparc2009, tmpfolder=tmpfolder))
-    dm.utils.run('cp {nii_path}/{sub}/{rest_data} {tmpfolder}/TEMP/SUBJ/FUNC/SESS01/RUN01/FUNC01.nii.gz'.format(nii_path=nii_path, sub=sub, rest_data=rest_data, tmpfolder=tmpfolder))
+        dm.utils.make_epitome_folders(tmpfolder, 1)
+        returncode, _, _ = dm.utils.run('cp {t1_path}/{t1_data} {tmpfolder}/TEMP/SUBJ/T1/SESS01/anat_T1_brain.nii.gz'.format(t1_path=t1_path, t1_data=t1_data, tmpfolder=tmpfolder))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cp {t1_path}/{aparc} {tmpfolder}/TEMP/SUBJ/T1/SESS01/anat_aparc_brain.nii.gz'.format(t1_path=t1_path, aparc=aparc, tmpfolder=tmpfolder))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cp {t1_path}/{aparc2009} {tmpfolder}/TEMP/SUBJ/T1/SESS01/anat_aparc2009_brain.nii.gz'.format(t1_path=t1_path, aparc2009=aparc2009, tmpfolder=tmpfolder))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cp {nii_path}/{sub}/{rest_data} {tmpfolder}/TEMP/SUBJ/FUNC/SESS01/RUN01/FUNC01.nii.gz'.format(nii_path=nii_path, sub=sub, rest_data=rest_data, tmpfolder=tmpfolder))
+        dm.utils.check_returncode(returncode)
 
-    # submit to queue
-    uid = ''.join(choice(ascii_uppercase + digits) for _ in range(6))
-    cmd = 'bash {} {} 4 '.format(script, tmpfolder)
-    name = 'datman_rest_{}_{}'.format(sub, uid)
-    log = os.path.join(data_path, 'logs/rest')
-    cmd = 'echo {cmd} | qsub -o {log} -S /bin/bash -V -q main.q -cwd -N {name} -l mem_free=3G,virtual_free=3G -j y'.format(cmd=cmd, log=log, name=name)
-    dm.utils.run(cmd)
+        # submit to queue
+        uid = ''.join(choice(ascii_uppercase + digits) for _ in range(6))
+        cmd = 'bash {} {} 4 '.format(script, tmpfolder)
+        name = 'dm_rest_{}_{}'.format(sub, uid)
+        log = os.path.join(log_path, name + '.log')
+        cmd = 'echo {cmd} | qsub -o {log} -S /bin/bash -V -q main.q -cwd -N {name} -l mem_free=3G,virtual_free=3G -j y'.format(cmd=cmd, log=log, name=name)
+        dm.utils.run(cmd)
 
-    return name, tmpdict
+        return name, tmpdict
+        
+    except:
+        raise ValueError
 
 def export_data(sub, tmpfolder, func_path):
 
     tmppath = os.path.join(tmpfolder, 'TEMP', 'SUBJ', 'FUNC', 'SESS01')    
 
     try:
-        returncode, _, _ = dm.utils.run('cp {}/func_MNI-nonlin.DATMAN.01.nii.gz {}/{}_func_MNI-nonlin.01.nii.gz'.format(tmppath, func_path, sub))
-        dm.utils.check_returncode(returncode)
-        returncode, _, _ = dm.utils.run('cp {}/anat_EPI_mask_MNI-nonlin.nii.gz {}/{}_anat_EPI_mask_MNI.nii.gz'.format(tmppath, func_path, sub))
-        dm.utils.check_returncode(returncode)
-        returncode, _, _ = dm.utils.run('cp {}/reg_T1_to_TAL.nii.gz {}/{}_reg_T1_to_MNI-lin.nii.gz'.format(tmppath, func_path, sub))
-        dm.utils.check_returncode(returncode)
-        returncode, _, _ = dm.utils.run('cp {}/reg_nlin_TAL.nii.gz {}/{}_reg_nlin_MNI.nii.gz'.format(tmppath, func_path, sub))
-        dm.utils.check_returncode(returncode)
-        returncode, _, _ = dm.utils.run('cat {}/PARAMS/motion.DATMAN.01.1D > {}/{}_motion.1D'.format(tmppath, func_path, sub))
-        dm.utils.check_returncode(returncode)
-        returncode, _, _ = dm.utils.run('touch {}/{}_preproc-complete.log'.format(func_path, sub))
-        dm.utils.check_returncode(returncode)
-        returncode, _, _ = dm.utils.run('rm -r ' + tmpfolder)
-        dm.utils.check_returncode(returncode)
+        # make directory
+        out_path = dm.utils.define_folder(os.path.join(func_path, sub))
+
+        # export data
+        dm.utils.run('cp {tmppath}/func_MNI-nonlin.DATMAN.01.nii.gz {out_path}/{sub}_func_MNI-nonlin.REST.01.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+        dm.utils.run('cp {tmppath}/anat_EPI_mask_MNI-nonlin.nii.gz {out_path}/{sub}_anat_EPI_mask_MNI.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+        dm.utils.run('cp {tmppath}/reg_T1_to_TAL.nii.gz {out_path}/{sub}_reg_T1_to_MNI-lin.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+        dm.utils.run('cp {tmppath}/reg_nlin_TAL.nii.gz {out_path}/{sub}_reg_nlin_MNI.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+
+        # check outputs
+        outputs = ('nonlin.REST.01', 'nlin_MNI', 'MNI-lin', 'mask_MNI')
+        for out in outputs:
+            if len(filter(lambda x: out in x, os.listdir(out_path))) == 0:
+                print('ERROR: Failed to export {}'.format(out))
+                raise ValueError
+
+        dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.01.1D > {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+
+        if os.path.isfile('{out_path}/{sub}_motion.1D'.format(out_path=out_path, sub=sub)) == False:
+            print('Failed to export {sub}_motion.1D'.format(sub=sub))
+            raise ValueError
+
+        # mark as done, clean up
+        dm.utils.run('touch {out_path}/{sub}_preproc-complete.log'.format(out_path=out_path, sub=sub))
+        dm.utils.run('rm -r ' + tmpfolder)
 
     except:
         raise ValueError
@@ -234,7 +253,7 @@ def export_data(sub, tmpfolder, func_path):
     #               data_path + '/rest/' + sub + '_qc_reg_T1_to_MNI.pdf')
 
 
-def analyze_data(sub, assets, rest_path):
+def analyze_data(sub, assets, func_path):
     """
     Extracts: time series, correlation / partial correlation matricies using labels defined
     in 'rsfc.labels' in assets/. This file should be formatted for 3dUndump.
@@ -243,9 +262,9 @@ def analyze_data(sub, assets, rest_path):
     if os.path.isfile(labelfile) == False:
         raise ValueError
 
-    dm.utils.run('3dUndump -master {rest_path}/{sub}_anat_EPI_mask_MNI.nii.gz -xyz -srad 6 -prefix {rest_path}/{sub}_rois.nii.gz {labels}'.format(rest_path=rest_path, sub=sub, labels=os.path.join(assets, 'rsfc.labels')))
-    rois, _, _, _ = dm.utils.loadnii('{rest_path}/{sub}_rois.nii.gz'.format(rest_path=rest_path, sub=sub))
-    data, _, _, _ = dm.utils.loadnii('{rest_path}/{sub}_func_MNI-nonlin.01.nii.gz'.format(rest_path=rest_path, sub=sub))
+    dm.utils.run('3dUndump -master {func_path}/{sub}/{sub}_anat_EPI_mask_MNI.nii.gz -xyz -srad 6 -prefix {func_path}/{sub}/{sub}_rois.nii.gz {labels}'.format(func_path=func_path, sub=sub, labels=os.path.join(assets, 'rsfc.labels')))
+    rois, _, _, _ = dm.utils.loadnii('{func_path}/{sub}/{sub}_rois.nii.gz'.format(func_path=func_path, sub=sub))
+    data, _, _, _ = dm.utils.loadnii('{func_path}/{sub}/{sub}_func_MNI-nonlin.REST.01.nii.gz'.format(func_path=func_path, sub=sub))
 
     n_rois = len(np.unique(rois[rois > 0]))
     dims = np.shape(data)
@@ -259,17 +278,17 @@ def analyze_data(sub, assets, rest_path):
             output[i, :] = np.mean(data[idx, :], axis=0)
 
     # save the raw time series
-    np.savetxt('{rest_path}/{sub}_roi-timeseries.csv'.format(rest_path=rest_path, sub=sub), output.transpose(), delimiter=',')
+    np.savetxt('{func_path}/{sub}/{sub}_roi-timeseries.csv'.format(func_path=func_path, sub=sub), output.transpose(), delimiter=',')
 
     # save the full correlation matrix
     corrs = np.corrcoef(output)
-    np.savetxt('{rest_path}/{sub}_roi-corrs.csv'.format(rest_path=rest_path, sub=sub), corrs, delimiter=',')
+    np.savetxt('{func_path}/{sub}/{sub}_roi-corrs.csv'.format(func_path=func_path, sub=sub), corrs, delimiter=',')
     
     # save partial correlation matrix
     pcorrs = partial_corr(output.transpose())
-    np.savetxt('{rest_path}/{sub}_roi-pcorrs.csv'.format(rest_path=rest_path, sub=sub), pcorrs, delimiter=',') 
+    np.savetxt('{func_path}/{sub}/{sub}_roi-pcorrs.csv'.format(func_path=func_path, sub=sub), pcorrs, delimiter=',') 
 
-    dm.utils.run('touch {rest_path}/{sub}_analysis-complete.log'.format(rest_path=rest_path, sub=sub))
+    dm.utils.run('touch {func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub))
 
 def main():
     """
@@ -294,7 +313,7 @@ def main():
     data_path = dm.utils.define_folder(os.path.join(project, 'data'))
     nii_path = dm.utils.define_folder(os.path.join(data_path, 'nii'))
     t1_path = dm.utils.define_folder(os.path.join(data_path, 't1'))
-    rest_path = dm.utils.define_folder(os.path.join(data_path, 'rest'))
+    func_path = dm.utils.define_folder(os.path.join(data_path, 'rest'))
     tmp_path = dm.utils.define_folder(tmp_path)
     _ = dm.utils.define_folder(os.path.join(project, 'logs'))
     log_path = dm.utils.define_folder(os.path.join(project, 'logs/rest'))
@@ -305,31 +324,28 @@ def main():
 
     # preprocess
     for sub in subjects:
-
         if dm.scanid.is_phantom(sub) == True: 
             continue
-        if os.path.isfile(os.path.join(rest_path,  '{}_preproc-complete.log'.format(sub))) == True:
+        if os.path.isfile(os.path.join(func_path,  '{sub}/{sub}_preproc-complete.log'.format(sub=sub))) == True:
             continue
 
         try:
             # pre-process the data
-            name, tmpdict = proc_data(sub, data_path, tmp_path, tmpdict, script)
+            name, tmpdict = proc_data(sub, data_path, log_path, tmp_path, tmpdict, script)
             list_of_names.append(name)
 
         except ValueError as ve:
             continue
 
-    if list_of_names == []:
-        sys.exit()
-
-    dm.utils.run_dummy_q(list_of_names)
+    if len(list_of_names) > 0:
+        dm.utils.run_dummy_q(list_of_names)
 
     # export
     for sub in tmpdict:
-        if os.path.isfile(os.path.join(rest_path, '{}_preproc-complete.log')) == True:
+        if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_preproc-complete.log'.format(sub=sub))) == True:
             continue
         try:
-            export_data(sub, tmpdict[sub], rest_path)
+            export_data(sub, tmpdict[sub], func_path)
         except:
             print('ERROR: Failed to export {}'.format(sub))
             continue
@@ -340,10 +356,10 @@ def main():
     for sub in subjects:
         if dm.scanid.is_phantom(sub) == True: 
             continue
-        if os.path.isfile(os.path.join(rest_path,  '{}_analysis-complete.log'.format(sub))) == True:
+        if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_analysis-complete.log'.format(sub=sub))) == True:
             continue
         try:
-            analyze_data(sub, assets, rest_path)
+            analyze_data(sub, assets, func_path)
         except ValueError as ve:
             print('ERROR: Failed to extract connectivity data from {}.'.format(sub))
 

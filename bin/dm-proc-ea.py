@@ -592,7 +592,7 @@ def main():
 
     # preprocess
     for sub in subjects:
-        if dm.utils.subject_type(sub) == 'phantom':
+        if dm.scanid.is_phantom(sub) == True: 
             continue
         if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_preproc-complete.log'.format(sub=sub))) == True:
             continue
@@ -609,21 +609,21 @@ def main():
     # export
     for sub in tmpdict:
         if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_preproc-complete.log'.format(sub=sub))) == True:
-            pass
+            continue
         try:
             export_data(sub, tmpdict[sub], func_path)
         except:
             print('ERROR: Failed to export {}'.format(sub))
-            pass
+            continue
         else:
-            pass
+            continue
 
     # analyze
     for sub in subjects:
         if dm.scanid.is_phantom(sub) == True: 
-            pass
+            continue
         if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_analysis-complete.log'.format(sub=sub))) == True:
-            pass
+            continue
         # get all the log files for a subject
         try:
             print(os.path.join(data_path, 'RESOURCES', sub + '_??'))
@@ -639,7 +639,7 @@ def main():
             logs.sort()
         except:
             print('ERROR: No BEHAV data for {}.'.format(sub))
-            pass
+            continue
 
         f1 = open('{func_path}/{sub}/{sub}_block-times_ea.1D'.format(func_path=func_path, sub=sub), 'wb') # stim timing file
         f2 = open('{func_path}/{sub}/{sub}_corr_push.csv'.format(func_path=func_path, sub=sub), 'wb') # r values and num pushes / minute
@@ -660,7 +660,7 @@ def main():
                 f1.write('\n') # add newline at the end of each run (up to 3 runs.)
         except:
             print('ERROR: Failed to parse logs for {}.'.format(sub))
-            pass
+            continue
 
         finally:
             f1.close()
