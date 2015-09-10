@@ -447,7 +447,6 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
         name = 'dm_ea_{}_{}'.format(sub, uid)
         log = os.path.join(log_path, name + '.log')
         cmd = 'echo {cmd} | qsub -o {log} -S /bin/bash -V -q main.q -cwd -N {name} -l mem_free=3G,virtual_free=3G -j y'.format(cmd=cmd, log=log, name=name)
-        print(cmd)
         dm.utils.run(cmd)
 
         return name, tmpdict
