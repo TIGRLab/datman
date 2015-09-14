@@ -625,8 +625,6 @@ def main():
             continue
         # get all the log files for a subject
         try:
-            print(os.path.join(data_path, 'RESOURCES', sub + '_??'))
-
             resdirs = glob.glob(os.path.join(data_path, 'RESOURCES', sub + '_??'))
             resources = []
             for resdir in resdirs:
