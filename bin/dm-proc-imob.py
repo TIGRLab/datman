@@ -219,7 +219,6 @@ def generate_analysis_script(sub, func_path, assets):
     input_data = ''
     for nifti in niftis:
         input_data = '{} {}/{}/{}'.format(input_data, func_path, sub, nifti)
-    print(input_data)
 
     # open up the master script, write common variables
     f = open('{func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub), 'wb')
