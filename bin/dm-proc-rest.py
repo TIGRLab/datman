@@ -262,7 +262,7 @@ def analyze_data(sub, assets, func_path):
     if os.path.isfile(labelfile) == False:
         raise ValueError
 
-    dm.utils.run('3dUndump -master {func_path}/{sub}/{sub}_anat_EPI_mask_MNI.nii.gz -xyz -srad 6 -prefix {func_path}/{sub}/{sub}_rois.nii.gz {labels}'.format(func_path=func_path, sub=sub, labels=os.path.join(assets, 'rsfc.labels')))
+    dm.utils.run('3dUndump -master {func_path}/{sub}/{sub}_anat_EPI_mask_MNI.nii.gz -xyz -srad 6 -prefix {func_path}/{sub}/{sub}_rois.nii.gz {labelfile}'.format(func_path=func_path, sub=sub, labelfile=labelfile))
     rois, _, _, _ = dm.utils.loadnii('{func_path}/{sub}/{sub}_rois.nii.gz'.format(func_path=func_path, sub=sub))
     data, _, _, _ = dm.utils.loadnii('{func_path}/{sub}/{sub}_func_MNI-nonlin.REST.01.nii.gz'.format(func_path=func_path, sub=sub))
 
