@@ -640,9 +640,12 @@ def main():
             print('ERROR: No BEHAV data for {}.'.format(sub))
             continue
 
-        f1 = open('{func_path}/{sub}/{sub}_block-times_ea.1D'.format(func_path=func_path, sub=sub), 'wb') # stim timing file
-        f2 = open('{func_path}/{sub}/{sub}_corr_push.csv'.format(func_path=func_path, sub=sub), 'wb') # r values and num pushes / minute
-        f2.write('correlation,n-pushes-per-minute\n')
+        try:
+            f1 = open('{func_path}/{sub}/{sub}_block-times_ea.1D'.format(func_path=func_path, sub=sub), 'wb') # stim timing file
+            f2 = open('{func_path}/{sub}/{sub}_corr_push.csv'.format(func_path=func_path, sub=sub), 'wb') # r values and num pushes / minute
+            f2.write('correlation,n-pushes-per-minute\n')
+        except:
+            continue
 
         try:
             for log in logs:
