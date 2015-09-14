@@ -100,30 +100,34 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
         IM_data = filter(lambda x: 'IMI' == dm.utils.scanid.parse_filename(x)[1], niftis)
         if len(IM_data) == 1:
             IM_data = IM_data[0]
-        else:
-            print('MSG: Found multiple IM data, using newest: {}'.format(str(len(IM_data))))
+        elif len(IM_data) > 1:
+            print('MSG: Found multiple IM data for {}, using newest'.format(sub)
             IM_data = IM_data[-1]
+        else:
+            print('ERROR: No IM data for {}.'.format(sub))
+            raise ValueError
     except:
-        print('ERROR: No IMITATE data found for {}.'.format(sub))
+        print('ERROR: No IM data for {}.'.format(sub))
         raise ValueError
 
     try:
         OB_data = filter(lambda x: 'OBS' == dm.utils.scanid.parse_filename(x)[1], niftis)
         if len(OB_data) == 1:
             OB_data = OB_data[0]
-        else:
-            print('MSG: Found multiple OB data, using newest: {}'.format(str(len(OB_data))))
+        elif len(OB_data) > 1:
+            print('MSG: Found multiple OB data for {}, using newest.'.format(sub)
             OB_data = OB_data[-1]
+        else:
+            print('ERROR: No OB data found for {}.'.format(sub))
+            raise ValueError
     except:
-        print('ERROR: No OBSERVE data found for {}.'.format(sub))
+        print('ERROR: No OB data found for {}.'.format(sub))
         raise ValueError
 
     if os.path.isfile('{}/{}_preproc-complete.log'.format(imob_path, sub)) == True:
         if VERBOSE:
              print('MSG: Subject {} has already been preprocessed.'.format(sub))
         raise ValueError
-
-
 
     try:
         tmpfolder = tempfile.mkdtemp(prefix='imob-', dir=tmp_path)
