@@ -665,10 +665,13 @@ def main():
         finally:
             f1.close()
             f2.close()
-
+        try:
             generate_analysis_script(sub, func_path)
-            os.system('bash {func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub))
+            returncode, _, _ = dm.utils.run('bash {func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub))
+            dm.utils.check_returncode(returncode)
             os.system('touch {func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub))
+        except:
+            continue
 
 if __name__ == "__main__":
     main()
