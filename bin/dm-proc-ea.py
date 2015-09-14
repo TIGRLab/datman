@@ -355,6 +355,7 @@ def process_behav_data(log, assets, func_path, sub, trial_type):
     fig.suptitle(log, size=10)
     fig.set_tight_layout(True)
     fig.savefig('{func_path}/{sub}/{sub}_{logname}.pdf'.format(func_path=func_path, sub=sub, logname=os.path.basename(log)[:-4]))
+    fig.close()
 
     return onsets_used, durations, correlations, button_pushes
 
