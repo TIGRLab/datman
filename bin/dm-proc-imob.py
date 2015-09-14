@@ -101,7 +101,7 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
         if len(IM_data) == 1:
             IM_data = IM_data[0]
         elif len(IM_data) > 1:
-            print('MSG: Found multiple IM data for {}, using newest'.format(sub)
+            print('MSG: Found multiple IM data for {}, using newest'.format(sub))
             IM_data = IM_data[-1]
         else:
             print('ERROR: No IM data for {}.'.format(sub))
@@ -115,7 +115,7 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
         if len(OB_data) == 1:
             OB_data = OB_data[0]
         elif len(OB_data) > 1:
-            print('MSG: Found multiple OB data for {}, using newest.'.format(sub)
+            print('MSG: Found multiple OB data for {}, using newest.'.format(sub))
             OB_data = OB_data[-1]
         else:
             print('ERROR: No OB data found for {}.'.format(sub))
