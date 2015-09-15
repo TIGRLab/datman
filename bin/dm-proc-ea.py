@@ -624,6 +624,7 @@ def main():
             continue
         if os.path.isfile('{func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub)) == True:
             continue
+        
         # get all the log files for a subject
         try:
             resdirs = glob.glob(os.path.join(data_path, 'RESOURCES', sub + '_??'))
@@ -639,51 +640,48 @@ def main():
             print('ERROR: No BEHAV data for {}.'.format(sub))
             continue
 
-        try:
-            f1 = open('{func_path}/{sub}/{sub}_block-times_ea.1D'.format(func_path=func_path, sub=sub), 'wb') # stim timing file
-            f2 = open('{func_path}/{sub}/{sub}_corr_push.csv'.format(func_path=func_path, sub=sub), 'wb') # r values and num pushes / minute
-            f2.write('correlation,n-pushes-per-minute\n')
-        except:
-            print('ERROR: Failed to open block_times & corr_push for {}'.format(sub))
-            continue
-     
         if len(logs) != 3:
             print('ERROR: Did not find exactly 3 logs for {}.'.format(sub))
             continue
+        
+        print(logs)
+        # exract all of the data from the logs
+        on_all, dur_all, corr_all, push_all = [], [], [], []
 
         try:
             for log in logs:
-                try:
-                        on, dur, corr, push = process_behav_data(log, assets, func_path, sub, 'vid')
-                except:
-                    print('ERROR: Failed to parse logs for {}, log={}.'.format(sub, log))
-                    raise ValueError
-
-                try:
-                    # write each stimulus time:
-                    #         [start_time]*[amplitude],[buttonpushes]:[block_length]
-                    #         30*5,0.002:12
-     
-                    # OFFSET 4 TRs == 8 Seconds!
-                    # on = on - 8.0
-                    print(len(on))
-                    print(len(dur))
-                    print(len(corr))
-                    print(len(push))
-
-                    for i in range(len(on)):
-                        f1.write('{o:.2f}*{r:.2f},{p}:{d:.2f} '.format(o=on[i]-8.0, r=corr[i], p=push[i], d=dur[i]))
-                        f2.write('{r:.2f},{p}\n'.format(r=corr[i], p=push[i]))
-                    f1.write('\n') # add newline at the end of each run (up to 3 runs.)
-                except:
-                    print('ERROR: Failed to write block_times & corr_pushfor {}.'.format(sub))
-                    raise ValueError
+                on, dur, corr, push = process_behav_data(log, assets, func_path, sub, 'vid')
+                on_all.extend(on)
+                dur_all.extend(dur)
+                corr_all.extend(corr)
+                push_all.extend(push)
         except:
+            print('ERROR: Failed to parse logs for {}, log={}.'.format(sub, log))
+            continue
+
+        # write data to stimulus timing file for AFNI, and a QC csv
+        try:
+            # write each stimulus time:
+            #         [start_time]*[amplitude],[buttonpushes]:[block_length]
+            #         30*5,0.002:12
+
+            # OFFSET 4 TRs == 8 Seconds!
+            # on = on - 8.0
+            f1 = open('{func_path}/{sub}/{sub}_block-times_ea.1D'.format(func_path=func_path, sub=sub), 'wb') # stim timing file
+            f2 = open('{func_path}/{sub}/{sub}_corr_push.csv'.format(func_path=func_path, sub=sub), 'wb') # r values and num pushes / minute
+            f2.write('correlation,n-pushes-per-minute\n')
+            for i in range(len(on_all)):
+                f1.write('{o:.2f}*{r:.2f},{p}:{d:.2f} '.format(o=on_all[i]-8.0, r=corr_all[i], p=push_all[i], d=dur_all[i]))
+                f2.write('{r:.2f},{p}\n'.format(r=corr_all[i], p=push_all[i]))
+            f1.write('\n') # add newline at the end of each run (up to 3 runs.)
+        except:
+            print('ERROR: Failed to open block_times & corr_push for {}'.format(sub))
             continue
         finally:
             f1.close()
             f2.close()
 
+        # analyze the data
         try:
             generate_analysis_script(sub, func_path)
             returncode, _, _ = dm.utils.run('bash {func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub))
