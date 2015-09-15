@@ -356,6 +356,8 @@ def main():
     for sub in subjects:
         if dm.scanid.is_phantom(sub) == True: 
             continue
+        if os.path.isdir(os.path.join(func_path, sub)) == False:
+            continue
         if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_analysis-complete.log'.format(sub=sub))) == True:
             continue
         try:
