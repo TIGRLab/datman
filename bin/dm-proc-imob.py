@@ -212,46 +212,70 @@ def generate_analysis_script(sub, func_path, assets):
 
     """
     # first, determine input functional files
-    niftis = filter(lambda x: 'nii.gz' in x and sub + '_func' in x, os.listdir(os.path.join(func_path, sub)))
-    niftis.sort()
-    input_data = ''
-    for nifti in niftis:
-        input_data = '{} {}/{}/{}'.format(input_data, func_path, sub, nifti)
+    IM_data = filter(lambda x: 'nii.gz' in x and sub + '.IM.' in x, os.listdir(os.path.join(func_path, sub)))
+    OB_data = filter(lambda x: 'nii.gz' in x and sub + '.OB.' in x, os.listdir(os.path.join(func_path, sub)))
+
+    IM_data = os.path.join(func_path, sub, IM_data)
+    OB_data = os.path.join(func_path, sub, OB_data)
 
     # open up the master script, write common variables
     f = open('{func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub), 'wb')
     f.write("""#!/bin/bash
+#
+# Contrasts: emotional faces vs. fixation, emotional faces vs. neutral faces.
+# use the 'bucket' dataset (*_1stlevel.nii.gz) for group level analysis.
+#
 
-# Imitate Observe GLM for {sub}.
+# Imitate GLM for {sub}.
 3dDeconvolve \\
-    -input {input_data} \\
+    -input {IM_data} \\
     -mask {func_path}/{sub}/{sub}_anat_EPI_mask_MNI.nii.gz \\
     -ortvec {func_path}/{sub}/{sub}_motion.1D motion_paramaters \\
     -polort 4 \\
-    -num_stimts 12 \\
+    -num_stimts 6 \\
     -local_times \\
     -jobs 8 \\
     -x1D {func_path}/{sub}/{sub}_glm_1stlevel_design.mat \\
-    -stim_label  1 IM_AN -stim_times  1 {assets}/IM_event-times_AN.1D \'TENT(0,15,5)\' \\
-    -stim_label  2 IM_FE -stim_times  2 {assets}/IM_event-times_FE.1D \'TENT(0,15,5)\' \\
-    -stim_label  3 IM_FX -stim_times  3 {assets}/IM_event-times_FX.1D \'TENT(0,15,5)\' \\
-    -stim_label  4 IM_HA -stim_times  4 {assets}/IM_event-times_HA.1D \'TENT(0,15,5)\' \\
-    -stim_label  5 IM_NE -stim_times  5 {assets}/IM_event-times_NE.1D \'TENT(0,15,5)\' \\
-    -stim_label  6 IM_SA -stim_times  6 {assets}/IM_event-times_SA.1D \'TENT(0,15,5)\' \\
-    -stim_label  7 OB_AN -stim_times  7 {assets}/OB_event-times_AN.1D \'TENT(0,15,5)\' \\
-    -stim_label  8 OB_FE -stim_times  8 {assets}/OB_event-times_FE.1D \'TENT(0,15,5)\' \\
-    -stim_label  9 OB_FX -stim_times  9 {assets}/OB_event-times_FX.1D \'TENT(0,15,5)\' \\
-    -stim_label 10 OB_HA -stim_times 10 {assets}/OB_event-times_HA.1D \'TENT(0,15,5)\' \\
-    -stim_label 11 OB_NE -stim_times 11 {assets}/OB_event-times_NE.1D \'TENT(0,15,5)\' \\
-    -stim_label 12 OB_SA -stim_times 12 {assets}/OB_event-times_SA.1D \'TENT(0,15,5)\' \\
-    -fitts {func_path}/{sub}/{sub}_glm_1stlevel_explained.nii.gz \\
-    -errts {func_path}/{sub}/{sub}_glm_1stlevel_residuals.nii.gz \\
-    -bucket {func_path}/{sub}/{sub}_glm_1stlevel.nii.gz \\
-    -cbucket {func_path}/{sub}/{sub}_glm_1stlevel_coeffs.nii.gz \\
-    -fout \\
-    -tout \\
-    -xjpeg {func_path}/{sub}/{sub}_glm_1stlevel_matrix.jpg
-""".format(input_data=input_data, func_path=func_path, assets=assets, sub=sub))
+    -stim_label 1 IM_AN -stim_times 1 {assets}/IM_event-times_AN.1D \'TENT(0,15,5)\' \\
+    -stim_label 2 IM_FE -stim_times 2 {assets}/IM_event-times_FE.1D \'TENT(0,15,5)\' \\
+    -stim_label 3 IM_FX -stim_times 3 {assets}/IM_event-times_FX.1D \'TENT(0,15,5)\' \\
+    -stim_label 4 IM_HA -stim_times 4 {assets}/IM_event-times_HA.1D \'TENT(0,15,5)\' \\
+    -stim_label 5 IM_NE -stim_times 5 {assets}/IM_event-times_NE.1D \'TENT(0,15,5)\' \\
+    -stim_label 6 IM_SA -stim_times 6 {assets}/IM_event-times_SA.1D \'TENT(0,15,5)\' \\
+    -glt_label 1 emot-fix  -gltsym 'SYM: -1*IM_FX +0*IM_NE +0.25*IM_AN +0.25*IM_FE +0.25*IM_HA +0.25*IM_SA' \\
+    -glt_label 2 emot-neut -gltsym 'SYM: +0*IM_FX -1*IM_NE +0.25*IM_AN +0.25*IM_FE +0.25*IM_HA +0.25*IM_SA' \\
+    -fitts   {func_path}/{sub}/{sub}_glm_IM_1stlvl_explained.nii.gz \\
+    -errts   {func_path}/{sub}/{sub}_glm_IM_1stlvl_residuals.nii.gz \\
+    -bucket  {func_path}/{sub}/{sub}_glm_IM_1stlvl.nii.gz \\
+    -cbucket {func_path}/{sub}/{sub}_glm_IM_1stlvl_allcoeffs.nii.gz \\
+    -fout -tout -xjpeg {func_path}/{sub}/{sub}_glm_1stlevel_matrix.jpg
+
+# Obserse GLM for {sub}.
+3dDeconvolve \\
+    -input {OB_data} \\
+    -mask {func_path}/{sub}/{sub}_anat_EPI_mask_MNI.nii.gz \\
+    -ortvec {func_path}/{sub}/{sub}_motion.1D motion_paramaters \\
+    -polort 4 \\
+    -num_stimts 6 \\
+    -local_times \\
+    -jobs 8 \\
+    -x1D {func_path}/{sub}/{sub}_glm_1stlevel_design.mat \\
+    -stim_label 1 OB_AN -stim_times 1 {assets}/OB_event-times_AN.1D \'TENT(0,15,5)\' \\
+    -stim_label 2 OB_FE -stim_times 2 {assets}/OB_event-times_FE.1D \'TENT(0,15,5)\' \\
+    -stim_label 3 OB_FX -stim_times 3 {assets}/OB_event-times_FX.1D \'TENT(0,15,5)\' \\
+    -stim_label 4 OB_HA -stim_times 4 {assets}/OB_event-times_HA.1D \'TENT(0,15,5)\' \\
+    -stim_label 5 OB_NE -stim_times 5 {assets}/OB_event-times_NE.1D \'TENT(0,15,5)\' \\
+    -stim_label 6 OB_SA -stim_times 6 {assets}/OB_event-times_SA.1D \'TENT(0,15,5)\' \\
+    -glt_label 1 emot-fix  -gltsym 'SYM: -1*IM_FX +0*IM_NE +0.25*IM_AN +0.25*IM_FE +0.25*IM_HA +0.25*IM_SA' \\
+    -glt_label 2 emot-neut -gltsym 'SYM: +0*IM_FX -1*IM_NE +0.25*IM_AN +0.25*IM_FE +0.25*IM_HA +0.25*IM_SA' \\
+    -fitts   {func_path}/{sub}/{sub}_glm_OB_1stlvl_explained.nii.gz \\
+    -errts   {func_path}/{sub}/{sub}_glm_OB_1stlvl_residuals.nii.gz \\
+    -bucket  {func_path}/{sub}/{sub}_glm_OB_1stlvl.nii.gz \\
+    -cbucket {func_path}/{sub}/{sub}_glm_OB_1stlvl_allcoeffs.nii.gz \\
+    -fout -tout -xjpeg {func_path}/{sub}/{sub}_glm_1stlevel_matrix.jpg
+
+
+""".format(IM_data=IM_data, OB_data=OB_data, func_path=func_path, assets=assets, sub=sub))
     f.close()
 
 def main():

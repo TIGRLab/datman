@@ -328,7 +328,6 @@ def main():
             continue
         if os.path.isfile(os.path.join(func_path,  '{sub}/{sub}_preproc-complete.log'.format(sub=sub))) == True:
             continue
-
         try:
             # pre-process the data
             name, tmpdict = proc_data(sub, data_path, log_path, tmp_path, tmpdict, script)

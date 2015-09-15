@@ -338,7 +338,7 @@ def run_dummy_q(list_of_names):
     run(cmd)
     print('... Done.')
 
-def run(cmd, dryrun=False, silent=False):
+def run(cmd, dryrun=False):
     """
     Runs a command in the default shell (so beware!)
 
@@ -346,12 +346,9 @@ def run(cmd, dryrun=False, silent=False):
     """
     if dryrun: 
         return 0, "", ""
-    if silent == True:
-        p = proc.Popen(cmd, shell=True, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
-        out, err = None, None
-    else:
-        p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
-        out, err = p.communicate() 
+
+    p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
+    out, err = p.communicate() 
     return p.returncode, out, err
 
 def get_files_with_tag(parentdir, tag, fuzzy = False):
