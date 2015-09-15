@@ -643,8 +643,7 @@ def main():
         if len(logs) != 3:
             print('ERROR: Did not find exactly 3 logs for {}.'.format(sub))
             continue
-        
-        print(logs)
+
         # exract all of the data from the logs
         on_all, dur_all, corr_all, push_all = [], [], [], []
 
