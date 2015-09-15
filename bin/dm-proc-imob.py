@@ -242,8 +242,10 @@ def generate_analysis_script(sub, func_path, assets):
     -stim_label 4 IM_HA -stim_times 4 {assets}/IM_event-times_HA.1D \'TENT(0,15,5)\' \\
     -stim_label 5 IM_NE -stim_times 5 {assets}/IM_event-times_NE.1D \'TENT(0,15,5)\' \\
     -stim_label 6 IM_SA -stim_times 6 {assets}/IM_event-times_SA.1D \'TENT(0,15,5)\' \\
-    -glt_label 1 emot-fix  -gltsym 'SYM: -1*IM_FX +0*IM_NE +0.25*IM_AN +0.25*IM_FE +0.25*IM_HA +0.25*IM_SA' \\
-    -glt_label 2 emot-neut -gltsym 'SYM: +0*IM_FX -1*IM_NE +0.25*IM_AN +0.25*IM_FE +0.25*IM_HA +0.25*IM_SA' \\
+    -gltsym 'SYM: -1*IM_FX +0*IM_NE +0.25*IM_AN +0.25*IM_FE +0.25*IM_HA +0.25*IM_SA' \\
+    -glt_label 1 emot-fix \\
+    -gltsym 'SYM: +0*IM_FX -1*IM_NE +0.25*IM_AN +0.25*IM_FE +0.25*IM_HA +0.25*IM_SA' \\
+    -glt_label 2 emot-neut \\
     -fitts   {func_path}/{sub}/{sub}_glm_IM_1stlvl_explained.nii.gz \\
     -errts   {func_path}/{sub}/{sub}_glm_IM_1stlvl_residuals.nii.gz \\
     -bucket  {func_path}/{sub}/{sub}_glm_IM_1stlvl.nii.gz \\
@@ -266,8 +268,10 @@ def generate_analysis_script(sub, func_path, assets):
     -stim_label 4 OB_HA -stim_times 4 {assets}/OB_event-times_HA.1D \'TENT(0,15,5)\' \\
     -stim_label 5 OB_NE -stim_times 5 {assets}/OB_event-times_NE.1D \'TENT(0,15,5)\' \\
     -stim_label 6 OB_SA -stim_times 6 {assets}/OB_event-times_SA.1D \'TENT(0,15,5)\' \\
-    -glt_label 1 emot-fix  -gltsym 'SYM: -1*IM_FX +0*IM_NE +0.25*IM_AN +0.25*IM_FE +0.25*IM_HA +0.25*IM_SA' \\
-    -glt_label 2 emot-neut -gltsym 'SYM: +0*IM_FX -1*IM_NE +0.25*IM_AN +0.25*IM_FE +0.25*IM_HA +0.25*IM_SA' \\
+    -gltsym 'SYM: -1*IM_FX +0*IM_NE +0.25*IM_AN +0.25*IM_FE +0.25*IM_HA +0.25*IM_SA' \\
+    -glt_label 1 emot-fix \\
+    -gltsym 'SYM: +0*IM_FX -1*IM_NE +0.25*IM_AN +0.25*IM_FE +0.25*IM_HA +0.25*IM_SA' \\
+    -glt_label 2 emot-neut \\
     -fitts   {func_path}/{sub}/{sub}_glm_OB_1stlvl_explained.nii.gz \\
     -errts   {func_path}/{sub}/{sub}_glm_OB_1stlvl_residuals.nii.gz \\
     -bucket  {func_path}/{sub}/{sub}_glm_OB_1stlvl.nii.gz \\
