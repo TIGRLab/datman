@@ -622,7 +622,7 @@ def main():
     for sub in subjects:
         if dm.scanid.is_phantom(sub) == True: 
             continue
-        if os.path.isfile('{func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub))) == True:
+        if os.path.isfile('{func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub)) == True:
             continue
         # get all the log files for a subject
         try:
