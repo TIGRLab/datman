@@ -221,6 +221,7 @@ def generate_analysis_script(sub, func_path, assets):
     # open up the master script, write common variables
     f = open('{func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub), 'wb')
     f.write("""#!/bin/bash
+
 #
 # Contrasts: emotional faces vs. fixation, emotional faces vs. neutral faces.
 # use the 'bucket' dataset (*_1stlevel.nii.gz) for group level analysis.
@@ -235,7 +236,7 @@ def generate_analysis_script(sub, func_path, assets):
     -num_stimts 6 \\
     -local_times \\
     -jobs 8 \\
-    -x1D {func_path}/{sub}/{sub}_glm_1stlevel_design.mat \\
+    -x1D {func_path}/{sub}/{sub}_glm_IM_1stlevel_design.mat \\
     -stim_label 1 IM_AN -stim_times 1 {assets}/IM_event-times_AN.1D \'TENT(0,15,5)\' \\
     -stim_label 2 IM_FE -stim_times 2 {assets}/IM_event-times_FE.1D \'TENT(0,15,5)\' \\
     -stim_label 3 IM_FX -stim_times 3 {assets}/IM_event-times_FX.1D \'TENT(0,15,5)\' \\
@@ -250,7 +251,7 @@ def generate_analysis_script(sub, func_path, assets):
     -errts   {func_path}/{sub}/{sub}_glm_IM_1stlvl_residuals.nii.gz \\
     -bucket  {func_path}/{sub}/{sub}_glm_IM_1stlvl.nii.gz \\
     -cbucket {func_path}/{sub}/{sub}_glm_IM_1stlvl_allcoeffs.nii.gz \\
-    -fout -tout -xjpeg {func_path}/{sub}/{sub}_glm_1stlevel_matrix.jpg
+    -fout -tout -xjpeg {func_path}/{sub}/{sub}_glm_IM_1stlevel_design.jpg
 
 # Obserse GLM for {sub}.
 3dDeconvolve \\
@@ -261,7 +262,7 @@ def generate_analysis_script(sub, func_path, assets):
     -num_stimts 6 \\
     -local_times \\
     -jobs 8 \\
-    -x1D {func_path}/{sub}/{sub}_glm_1stlevel_design.mat \\
+    -x1D {func_path}/{sub}/{sub}_glm_OB_1stlevel_design.mat \\
     -stim_label 1 OB_AN -stim_times 1 {assets}/OB_event-times_AN.1D \'TENT(0,15,5)\' \\
     -stim_label 2 OB_FE -stim_times 2 {assets}/OB_event-times_FE.1D \'TENT(0,15,5)\' \\
     -stim_label 3 OB_FX -stim_times 3 {assets}/OB_event-times_FX.1D \'TENT(0,15,5)\' \\
@@ -276,8 +277,7 @@ def generate_analysis_script(sub, func_path, assets):
     -errts   {func_path}/{sub}/{sub}_glm_OB_1stlvl_residuals.nii.gz \\
     -bucket  {func_path}/{sub}/{sub}_glm_OB_1stlvl.nii.gz \\
     -cbucket {func_path}/{sub}/{sub}_glm_OB_1stlvl_allcoeffs.nii.gz \\
-    -fout -tout -xjpeg {func_path}/{sub}/{sub}_glm_1stlevel_matrix.jpg
-
+    -fout -tout -xjpeg {func_path}/{sub}/{sub}_glm_OB_1stlevel_design.jpg
 
 """.format(IM_data=IM_data, OB_data=OB_data, func_path=func_path, assets=assets, sub=sub))
     f.close()
