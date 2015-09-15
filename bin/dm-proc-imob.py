@@ -212,8 +212,8 @@ def generate_analysis_script(sub, func_path, assets):
 
     """
     # first, determine input functional files
-    IM_data = filter(lambda x: 'nii.gz' in x and '.IM.' in x, os.listdir(os.path.join(func_path, sub)))
-    OB_data = filter(lambda x: 'nii.gz' in x and '.OB.' in x, os.listdir(os.path.join(func_path, sub)))
+    IM_data = filter(lambda x: 'nii.gz' in x and '.IM.' in x, os.listdir(os.path.join(func_path, sub)))[0]
+    OB_data = filter(lambda x: 'nii.gz' in x and '.OB.' in x, os.listdir(os.path.join(func_path, sub)))[0]
 
     IM_data = os.path.join(func_path, sub, IM_data)
     OB_data = os.path.join(func_path, sub, OB_data)
