@@ -31,52 +31,76 @@ import sys
 from docopt import docopt
 import dicom as dcm
 import datman as dm
+import numpy as np
 import datman.utils
 import os.path
 
 ignored_headers = set([
     'AcquisitionDate',
     'AcquisitionTime',
+    'AcquisitionMatrix',
     'ContentDate',
     'ContentTime',
     'DeidentificationMethodCodeSequence',
     'FrameOfReferenceUID',
+    'HeartRate',
+    'ImageOrientationPatient',
     'ImagePositionPatient',
     'InStackPositionNumber',
+    'InversionTime',
+    'ImagesInAcquisition',
     'InstanceNumber',
     'LargestImagePixelValue',
     'OperatorsName',
     'PatientID',
     'PixelData',
+    'ProtocolName',
     'RefdImageSequence',
     'RefdPerformedProcedureStepSequence',
     'ReferencedImageSequence',
     'ReferencedPerformedProcedureStepSequence',
+    'PatientAge',
+    'PatientBirthDate',
     'PatientName',
+    'PatientSex',
     'PatientWeight',
+    'PercentPhaseFieldOfView,',
     'PerformedProcedureStepID',
     'PerformedProcedureStepStartDate',
     'PerformedProcedureStepStartTime',
     'SAR',
+    'ScanOptions',
+    'ScanningSequence',
+    'SequenceVariant',
     'SOPInstanceUID',
     'SoftwareVersions',
     'SeriesNumber',
     'SeriesDate',
+    'SeriesDescription',
     'SeriesInstanceUID',
     'SeriesTime',
     'SliceLocation',
+    'SmallestImagePixelValue',
     'StudyDate',
     'StudyID',
     'StudyInstanceUID',
     'StudyTime',
+    'TemporalPositionIdentifier',
+    'TriggerTime',
     'WindowCenter',
     'WindowWidth',
 ])
 
+integer_tolerances = {
+        # field           : interger difference
+        'ImagingFrequency': 1, 
+        'EchoTime': 5,
+}
+
 decimal_tolerances = {
-        # field           : digits after decimal point
-        'ImagingFrequency': 3, 
-        }
+        'RepetitionTime': 1
+}
+
 
 QUIET = False
 
@@ -108,7 +132,18 @@ def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore=ignored_headers):
         cmpval = cmphdr.get(header)
 
         # compare within tolerance
-        if header in decimal_tolerances:
+        if header in integer_tolerances:
+            n = integer_tolerances[header]
+
+            stdval_rounded = np.round(float(stdval))
+            cmpval_rounded = np.round(float(cmpval))
+            difference = np.abs(stdval_rounded - cmpval_rounded)
+
+            if difference > n:
+                msg = "{}: header {}, expected = {}, actual = {} [tolerance = {}]"
+                print(msg.format(cmppath, header, stdval_rounded, cmpval_rounded, n))
+
+        elif header in decimal_tolerances:
             n = decimal_tolerances[header]
 
             stdval_rounded = round(float(stdval), n)
@@ -118,9 +153,9 @@ def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore=ignored_headers):
                 msg = "{}: header {}, expected = {}, actual = {} [tolerance = {}]"
                 print(msg.format(cmppath, header, stdval_rounded, cmpval_rounded, n))
 
-        elif str(cmpval) != str(cmpval):
+        elif str(cmpval) != str(stdval):
             print("{}: header {}, expected = {}, actual = {}".format(
-                    cmppath, header, stdval_rounded, cmpval_rounded))
+                    cmppath, header, stdval, cmpval))
 
 
 def compare_exam_headers(std_headers, examdir, ignorelist):

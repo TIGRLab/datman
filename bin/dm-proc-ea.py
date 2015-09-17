@@ -4,10 +4,11 @@ This analyzes empathic accuracy behavioural data.It could be generalized
 to analyze any rapid event-related design experiment fairly easily.
 
 Usage:
-    dm-proc-ea.py [options] <project> <script> <assets>
+    dm-proc-ea.py [options] <project> <tmppath> <script> <assets>
 
 Arguments: 
     <project>           Full path to the project directory containing data/.
+    <tmppath>           Full path to a shared folder to run 
     <script>            Full path to an epitome-style script.
     <assets>            Full path to an assets folder containing 
                                               EA-timing.csv, EA-vid-lengths.csv.
@@ -26,8 +27,13 @@ DETAILS
 
 DEPENDENCIES
 
+    + python
     + matlab
     + afni
+    + fsl
+    + epitome
+
+    Requires dm-proc-freesurfer.py to be completed.
 
 This message is printed with the -h, --help flags.
 """
@@ -40,6 +46,8 @@ import numpy as np
 import scipy.interpolate as interpolate
 import nibabel as nib
 import StringIO as io
+from random import choice
+from string import ascii_uppercase, digits
 
 import matplotlib
 matplotlib.use('Agg')   # Force matplotlib to not use any Xwindows backend
@@ -226,7 +234,7 @@ def r2z(data):
 
     return data
 
-def process_behav_data(log, assets, datadir, sub, trial_type):
+def process_behav_data(log, assets, func_path, sub, trial_type):
     """
     This parses the behavioural log files for a given trial type (either 
     'vid' for the empathic-accuracy videos, or 'cvid' for the circles task.
@@ -346,88 +354,156 @@ def process_behav_data(log, assets, datadir, sub, trial_type):
 
     fig.suptitle(log, size=10)
     fig.set_tight_layout(True)
-    fig.savefig('{}/ea/{}_{}.pdf'.format(datadir, sub, os.path.basename(log)[:-4]))
+    fig.savefig('{func_path}/{sub}/{sub}_{logname}.pdf'.format(func_path=func_path, sub=sub, logname=os.path.basename(log)[:-4]))
+    #fig.close()
 
     return onsets_used, durations, correlations, button_pushes
 
-def process_functional_data(sub, datadir, script):
-    # copy functional data into epitome-compatible structure
+def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script):
+
+    nii_path = os.path.join(data_path, 'nii')
+    t1_path = os.path.join(data_path, 't1')
+    func_path = os.path.join(data_path, 'ea')
+
+    # functional data
     try:
-        niftis = filter(lambda x: 'nii.gz' in x, os.listdir(os.path.join(datadir, 'nii', sub)))
+        niftis = filter(lambda x: 'nii.gz' in x, os.listdir(os.path.join(nii_path, sub)))
     except:
-        print('ERROR: No "nii" folder found for ' + str(sub))
+        print('ERROR: No "nii" folder found for {}'.format(sub))
         raise ValueError
 
-    # find T1s
-    if os.path.isfile(os.path.join(datadir, 'freesurfer', sub, 'mri/brain.mgz')) == False:
-        print('ERROR: No Freesurfered T1s found for ' + str(sub))
-        raise ValueError
-
-    # find EA task
     try:
         EA_data = filter(lambda x: 'EMP' == dm.utils.scanid.parse_filename(x)[1], niftis)
         EA_data.sort()
 
         # remove truncated runs
         for d in EA_data:
-            nifti = nib.load(os.path.join(datadir, 'nii', sub, d))
+            nifti = nib.load(os.path.join(nii_path, sub, d))
             if nifti.shape[-1] != 277:
                 EA_data.remove(d)
         EA_data = EA_data[-3:]         # take the last three
-    
     except:
-        print('ERROR: No/not enough EA data found for ' + str(sub))
+        print('ERROR: No/not enough EA data found for {}.'.format(sub))
+        raise ValueError
+    if len(EA_data) != 3:
+        print('ERROR: Did not find all 3 EA files for {}.'.format(sub))
         raise ValueError
 
-    if len(EA_data) != 3:
-        print('ERROR: Did not find all 3 EA files for ' + str(sub))
+    # freesurfer
+    try:
+        niftis = filter(lambda x: 'nii.gz' in x, os.listdir(t1_path))
+        niftis = filter(lambda x: sub in x, niftis)
+    except:
+        print('ERROR: No "t1" folder/outputs found for {}'.format(sub))
+        raise ValueError
+
+    try:
+        t1_data = filter(lambda x: 't1' in x.lower(), niftis)
+        t1_data.sort()
+        t1_data = t1_data[0]
+    except:
+        print('ERROR: No t1 found for {}'.format(sub))
+        raise ValueError
+
+    try:
+        aparc = filter(lambda x: 'aparc.nii.gz' in x.lower(), niftis)
+        aparc.sort()
+        aparc = aparc[0]
+    except:
+        print('ERROR: No aparc atlas found for {}'.format(sub))
+        raise ValueError
+
+    try:
+        aparc2009 = filter(lambda x: 'aparc2009.nii.gz' in x.lower(), niftis)
+        aparc2009.sort()
+        aparc2009 = aparc2009[0]
+    except:
+        print('ERROR: No aparc 2009 atlas found for {}'.format(sub))
         raise ValueError
 
     # check if output already exists
-    if os.path.isfile('{}/ea/{}_complete'.format(datadir, sub)) == True:
+    if os.path.isfile('{func_path}/{sub}/{sub}_preproc-complete'.format(func_path=func_path, sub=sub)) == True:
         raise ValueError
 
-    tmpdir = tempfile.mkdtemp(dir='/tmp')
-    dm.utils.make_epitome_folders(os.path.join(tmpdir, 'epitome'), 3)
-    epidir = os.path.join(tmpdir, 'epitome/TEMP/SUBJ')
-    dir_i = os.path.join(os.environ['SUBJECTS_DIR'], sub, 'mri')
-    
-    # T1: freesurfer data
-    os.system('mri_convert --in_type mgz --out_type nii -odt float -rt nearest --input_volume {}/brain.mgz --output_volume {}/T1/SESS01/anat_T1_fs.nii.gz'.format(dir_i, epidir))
-    os.system('3daxialize -prefix {epidir}/T1/SESS01/anat_T1_brain.nii.gz -axial {epidir}/T1/SESS01/anat_T1_fs.nii.gz'.format(epidir=epidir))
-    
-    os.system('mri_convert --in_type mgz --out_type nii -odt float -rt nearest --input_volume {}/aparc+aseg.mgz --output_volume {}/T1/SESS01/anat_aparc_fs.nii.gz'.format(dir_i, epidir))
-    os.system('3daxialize -prefix {epidir}/T1/SESS01/anat_aparc_brain.nii.gz -axial {epidir}/T1/SESS01/anat_aparc_fs.nii.gz'.format(epidir=epidir))
-    
-    os.system('mri_convert --in_type mgz --out_type nii -odt float -rt nearest --input_volume {}/aparc.a2009s+aseg.mgz --output_volume {}/T1/SESS01/anat_aparc2009_fs.nii.gz'.format(dir_i, epidir))
-    os.system('3daxialize -prefix {epidir}/T1/SESS01/anat_aparc2009_brain.nii.gz -axial {epidir}/T1/SESS01/anat_aparc2009_fs.nii.gz'.format(epidir=epidir))
+    try:
+        tmpfolder = tempfile.mkdtemp(prefix='ea-', dir=tmp_path)
+        tmpdict[sub] = tmpfolder
+        dm.utils.make_epitome_folders(tmpfolder, 3)
+        returncode, _, _ = dm.utils.run('cp {}/{} {}/TEMP/SUBJ/T1/SESS01/anat_T1_brain.nii.gz'.format(t1_path, t1_data, tmpfolder))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cp {}/{} {}/TEMP/SUBJ/T1/SESS01/anat_aparc_brain.nii.gz'.format(t1_path, aparc, tmpfolder))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cp {}/{} {}/TEMP/SUBJ/T1/SESS01/anat_aparc2009_brain.nii.gz'.format(t1_path, aparc2009, tmpfolder))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cp {}/{}/{} {}/TEMP/SUBJ/FUNC/SESS01/RUN01/FUNC01.nii.gz'.format(nii_path, sub, str(EA_data[0]), tmpfolder))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cp {}/{}/{} {}/TEMP/SUBJ/FUNC/SESS01/RUN02/FUNC02.nii.gz'.format(nii_path, sub, str(EA_data[1]), tmpfolder))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cp {}/{}/{} {}/TEMP/SUBJ/FUNC/SESS01/RUN03/FUNC03.nii.gz'.format(nii_path, sub, str(EA_data[2]), tmpfolder))
+        dm.utils.check_returncode(returncode)
 
-    # functional data
-    os.system('cp {}/nii/{}/{} {}/FUNC/SESS01/RUN01/FUNC01.nii.gz'.format(datadir, sub, str(EA_data[0]), epidir))
-    os.system('cp {}/nii/{}/{} {}/FUNC/SESS01/RUN02/FUNC02.nii.gz'.format(datadir, sub, str(EA_data[1]), epidir))
-    os.system('cp {}/nii/{}/{} {}/FUNC/SESS01/RUN03/FUNC03.nii.gz'.format(datadir, sub, str(EA_data[2]), epidir))
+        # submit to queue
+        uid = ''.join(choice(ascii_uppercase + digits) for _ in range(6))
+        cmd = 'bash {} {} 4 '.format(script, tmpfolder)
+        name = 'dm_ea_{}_{}'.format(sub, uid)
+        log = os.path.join(log_path, name + '.log')
+        cmd = 'echo {cmd} | qsub -o {log} -S /bin/bash -V -q main.q -cwd -N {name} -l mem_free=3G,virtual_free=3G -j y'.format(cmd=cmd, log=log, name=name)
+        dm.utils.run(cmd)
+
+        return name, tmpdict
+    
+    except:
+        raise ValueError
+
+def export_data(sub, tmpfolder, func_path):
+
+    tmppath = os.path.join(tmpfolder, 'TEMP', 'SUBJ', 'FUNC', 'SESS01')
+
+    try:
+        # make directory
+        out_path = dm.utils.define_folder(os.path.join(func_path, sub))
+
+        # export data
+        dm.utils.run('cp {tmppath}/func_MNI-nonlin.DATMAN.01.nii.gz {out_path}/{sub}_func_MNI-nonlin.EA.01.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+        dm.utils.run('cp {tmppath}/func_MNI-nonlin.DATMAN.02.nii.gz {out_path}/{sub}_func_MNI-nonlin.EA.02.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+        dm.utils.run('cp {tmppath}/func_MNI-nonlin.DATMAN.03.nii.gz {out_path}/{sub}_func_MNI-nonlin.EA.03.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+        dm.utils.run('cp {tmppath}/anat_EPI_mask_MNI-nonlin.nii.gz {out_path}/{sub}_anat_EPI_mask_MNI.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+        dm.utils.run('cp {tmppath}/reg_T1_to_TAL.nii.gz {out_path}/{sub}_reg_T1_to_MNI-lin.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+        dm.utils.run('cp {tmppath}/reg_nlin_TAL.nii.gz {out_path}/{sub}_reg_nlin_MNI.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
         
-    # run preprocessing pipeline
-    os.system('bash {} {} 4'.format(script, os.path.join(tmpdir, 'epitome')))
+        # check outputs
+        outputs = ('nonlin.EA.01', 'nonlin.EA.02', 'nonlin.EA.03', 'nlin_MNI', 'MNI-lin', 'mask_MNI')
+        for out in outputs:
+            if len(filter(lambda x: out in x, os.listdir(out_path))) == 0:
+                print('ERROR: Failed to export {}'.format(out))
+                raise ValueError
 
-    # copy outputs into data folder
-    if os.path.isdir(datadir + '/ea') == False:
-        os.system('mkdir ' + datadir + '/ea' )
+        dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.01.1D > {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+        dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.02.1D >> {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+        dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.03.1D >> {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+       
+        if os.path.isfile('{out_path}/{sub}_motion.1D'.format(out_path=out_path, sub=sub)) == False:
+            print('Failed to export {}_motion.1D'.format(sub))
+            raise ValueError
 
-    # functional data
-    os.system('cp {}/FUNC/SESS01/func_MNI-nonlin.DATMAN.01.nii.gz {}/ea/{}_func_MNI-nonlin.EA.01.nii.gz'.format(epidir, datadir, sub))
-    os.system('cp {}/FUNC/SESS01/func_MNI-nonlin.DATMAN.02.nii.gz {}/ea/{}_func_MNI-nonlin.EA.02.nii.gz'.format(epidir, datadir, sub))
-    os.system('cp {}/FUNC/SESS01/func_MNI-nonlin.DATMAN.03.nii.gz {}/ea/{}_func_MNI-nonlin.EA.03.nii.gz'.format(epidir, datadir, sub))
-    os.system('cp {}/FUNC/SESS01/anat_EPI_mask_MNI-nonlin.nii.gz {}/ea/{}_anat_EPI_mask_MNI.nii.gz'.format(epidir, datadir, sub))
-    os.system('cp {}/FUNC/SESS01/reg_T1_to_TAL.nii.gz {}/ea/{}_reg_T1_to_MNI-lin.nii.gz'.format(epidir, datadir, sub))
-    os.system('cp {}/FUNC/SESS01/reg_nlin_TAL.nii.gz {}/ea/{}_reg_nlin_MNI.nii.gz'.format(epidir, datadir, sub))
-    os.system('cat {}/FUNC/SESS01/PARAMS/motion.DATMAN.01.1D > {}/ea/{}_motion.1D'.format(epidir, datadir, sub))
-    os.system('cat {}/FUNC/SESS01/PARAMS/motion.DATMAN.02.1D >> {}/ea/{}_motion.1D'.format(epidir, datadir, sub))
-    os.system('cat {}/FUNC/SESS01/PARAMS/motion.DATMAN.03.1D >> {}/ea/{}_motion.1D'.format(epidir, datadir, sub))
-    os.system('touch {}/ea/{}_preproc-complete.log'.format(datadir, sub))
-    os.system('rm -r {}'.format(tmpdir))
+        # mark as done, clean up   
+        dm.utils.run('touch {out_path}/{sub}_preproc-complete.log'.format(out_path=out_path, sub=sub))
+        dm.utils.run('rm -r {}'.format(tmpfolder))
+        
+    except:
+        raise ValueError
 
-def generate_analysis_script(sub, datadir):
+    # TODO
+    #
+    # # copy out QC images of registration
+    # dm.utils.run('cp {tmpfolder}/TEMP/SUBJ/FUNC/SESS01/'
+    #                         + 'qc_reg_EPI_to_T1.pdf ' +
+    #               data_path + '/rest/' + sub + '_qc_reg_EPI_to_T1.pdf')
+    # dm.utils.run('cp {tmpfolder}/TEMP/SUBJ/FUNC/SESS01/'
+    #                         + 'qc_reg_T1_to_MNI.pdf ' +
+    #               data_path + '/rest/' + sub + '_qc_reg_T1_to_MNI.pdf')
+
+def generate_analysis_script(sub, func_path):
     """
     This writes the analysis script to replicate the methods in Harvey et al
     2013 Schizophrenia Bulletin. It expects timing files to exist (those are
@@ -451,39 +527,38 @@ def generate_analysis_script(sub, datadir):
 
     """
     # first, determine input functional files
-    niftis = filter(lambda x: 'nii.gz' in x and sub + '_func' in x, 
-                    os.listdir(os.path.join(datadir, 'ea')))
+    niftis = filter(lambda x: 'nii.gz' in x and sub + '_func' in x, os.listdir(os.path.join(func_path, sub)))
     niftis.sort()
 
     input_data = ''
 
     for nifti in niftis:
-        input_data = input_data + datadir + '/ea/' + nifti + ' '
+        input_data = input_data + os.path.join(func_path, sub, nifti) + ' '
 
     # open up the master script, write common variables
-    f = open('{}/ea/{}_glm_1stlevel_cmd.sh'.format(datadir, sub), 'wb')
+    f = open('{func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub), 'wb')
     f.write("""#!/bin/bash
 
 # Empathic accuracy GLM for {sub}.
 3dDeconvolve \\
     -input {input_data} \\
-    -mask {datadir}/ea/{sub}_anat_EPI_mask_MNI.nii.gz \\
-    -ortvec {datadir}/ea/{sub}_motion.1D motion_paramaters \\
+    -mask {func_path}/{sub}/{sub}_anat_EPI_mask_MNI.nii.gz \\
+    -ortvec {func_path}/{sub}/{sub}_motion.1D motion_paramaters \\
     -polort 4 \\
     -num_stimts 1 \\
     -local_times \\
     -jobs 8 \\
-    -x1D {datadir}/ea/{sub}_glm_1stlevel_design.mat \\
-    -stim_times_AM2 1 {datadir}/ea/{sub}_block-times_ea.1D \'dmBLOCK(1)\' \\
+    -x1D {func_path}/{sub}/{sub}_glm_1stlevel_design.mat \\
+    -stim_times_AM2 1 {func_path}/{sub}/{sub}_block-times_ea.1D \'dmBLOCK(1)\' \\
     -stim_label 1 empathic_accuracy \\
-    -fitts {datadir}/ea/{sub}_glm_1stlevel_explained.nii.gz \\
-    -errts {datadir}/ea/{sub}_glm_1stlevel_residuals.nii.gz \\
-    -bucket {datadir}/ea/{sub}_glm_1stlevel.nii.gz \\
-    -cbucket {datadir}/ea/{sub}_glm_1stlevel_coeffs.nii.gz \\
+    -fitts {func_path}/{sub}/{sub}_glm_1stlevel_explained.nii.gz \\
+    -errts {func_path}/{sub}/{sub}_glm_1stlevel_residuals.nii.gz \\
+    -bucket {func_path}/{sub}/{sub}_glm_1stlevel.nii.gz \\
+    -cbucket {func_path}/{sub}/{sub}_glm_1stlevel_coeffs.nii.gz \\
     -fout \\
     -tout \\
-    -xjpeg {datadir}/ea/{sub}_glm_1stlevel_matrix.jpg
-""".format(input_data=input_data,datadir=datadir,sub=sub))
+    -xjpeg {func_path}/{sub}/{sub}_glm_1stlevel_matrix.jpg
+""".format(input_data=input_data, func_path=func_path, sub=sub))
     f.close()
 
 def main():
@@ -500,38 +575,59 @@ def main():
     global DEBUG
     arguments  = docopt(__doc__)
     project    = arguments['<project>']
+    tmp_path   = arguments['<tmppath>']
     script     = arguments['<script>']
     assets     = arguments['<assets>']
 
-    datadir = os.path.join(project, 'data')
+    data_path = dm.utils.define_folder(os.path.join(project, 'data'))
+    nii_path = dm.utils.define_folder(os.path.join(data_path, 'nii'))
+    func_path = dm.utils.define_folder(os.path.join(data_path, 'ea'))
+    tmp_path = dm.utils.define_folder(tmp_path)
+    _ = dm.utils.define_folder(os.path.join(project, 'logs'))
+    log_path = dm.utils.define_folder(os.path.join(project, 'logs/ea'))
 
-    try:
-        subjects = dm.utils.get_subjects(os.path.join(datadir, 'nii'))
-    except:
-        print('ERROR: No "nii" folder found for {}.'.format(project))
-        sys.exit()
+    list_of_names = []
+    tmpdict = {}
+    subjects = dm.utils.get_subjects(nii_path)
 
-    # preprocessing loop
+    # preprocess
     for sub in subjects:
-        if dm.utils.subject_type(sub) == 'phantom':
+        if dm.scanid.is_phantom(sub) == True: 
             continue
-        if os.path.isfile('{}/ea/{}_preproc-complete.log'.format(datadir, sub)) == True:
+        if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_preproc-complete.log'.format(sub=sub))) == True:
             continue
         try:
-            process_functional_data(sub, datadir, script)
+            name, tmpdict = process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
+            list_of_names.append(name)
+
         except ValueError as ve:
             continue
 
-    # analysis loop
-    for sub in subjects:
-        if dm.utils.subject_type(sub) == 'phantom':
+    if len(list_of_names) > 0:
+        dm.utils.run_dummy_q(list_of_names)
+
+    # export
+    for sub in tmpdict:
+        if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_preproc-complete.log'.format(sub=sub))) == True:
             continue
-        if os.path.isfile('{}/ea/{}_analysis-complete.log'.format(datadir, sub)) == True:
+        try:
+            export_data(sub, tmpdict[sub], func_path)
+        except:
+            print('ERROR: Failed to export {}'.format(sub))
+            continue
+        else:
             continue
 
+    # analyze
+    for sub in subjects:
+        if dm.scanid.is_phantom(sub) == True: 
+            continue
+        if os.path.isfile('{func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub)) == True:
+            continue
+        
         # get all the log files for a subject
         try:
-            resdirs = glob.glob(os.path.join(datadir, 'RESOURCES', sub + '_??'))
+            resdirs = glob.glob(os.path.join(data_path, 'RESOURCES', sub + '_??'))
             resources = []
             for resdir in resdirs:
                 resfiles = [os.path.join(dp, f) for 
@@ -544,35 +640,54 @@ def main():
             print('ERROR: No BEHAV data for {}.'.format(sub))
             continue
 
-        f1 = open('{}/ea/{}_block-times_ea.1D'.format(datadir, sub), 'wb') # stim timing file
-        f2 = open('{}/ea/{}_corr_push.csv'.format(datadir, sub), 'wb') # r values and num pushes / minute
-        f2.write('correlation,n-pushes-per-minute\n')
+        if len(logs) != 3:
+            print('ERROR: Did not find exactly 3 logs for {}.'.format(sub))
+            continue
+
+        # exract all of the data from the logs
+        on_all, dur_all, corr_all, push_all = [], [], [], []
 
         try:
             for log in logs:
-                on, dur, corr, push = process_behav_data(log, assets, datadir, sub, 'vid')
-                # write each stimulus time:
-                #         [start_time]*[amplitude],[buttonpushes]:[block_length]
-                #         30*5,0.002:12
- 
-                # OFFSET 4 TRs == 8 Seconds!
-                on = on - 8.0
-
-                for i in range(len(on)):
-                    f1.write('{o:.2f}*{r:.2f},{p}:{d:.2f} '.format(o=on[i], r=corr[i], p=push[i], d=dur[i]))
-                    f2.write('{r:.2f},{p}\n'.format(r=corr[i], p=push[i]))
-                f1.write('\n') # add newline at the end of each run (up to 3 runs.)
+                on, dur, corr, push = process_behav_data(log, assets, func_path, sub, 'vid')
+                on_all.extend(on)
+                dur_all.extend(dur)
+                corr_all.extend(corr)
+                push_all.extend(push)
         except:
-            print('ERROR: Failed to parse logs. Skipping analysis for {}.'.format(sub))
-            pass
+            print('ERROR: Failed to parse logs for {}, log={}.'.format(sub, log))
+            continue
 
+        # write data to stimulus timing file for AFNI, and a QC csv
+        try:
+            # write each stimulus time:
+            #         [start_time]*[amplitude],[buttonpushes]:[block_length]
+            #         30*5,0.002:12
+
+            # OFFSET 4 TRs == 8 Seconds!
+            # on = on - 8.0
+            f1 = open('{func_path}/{sub}/{sub}_block-times_ea.1D'.format(func_path=func_path, sub=sub), 'wb') # stim timing file
+            f2 = open('{func_path}/{sub}/{sub}_corr_push.csv'.format(func_path=func_path, sub=sub), 'wb') # r values and num pushes / minute
+            f2.write('correlation,n-pushes-per-minute\n')
+            for i in range(len(on_all)):
+                f1.write('{o:.2f}*{r:.2f},{p}:{d:.2f} '.format(o=on_all[i]-8.0, r=corr_all[i], p=push_all[i], d=dur_all[i]))
+                f2.write('{r:.2f},{p}\n'.format(r=corr_all[i], p=push_all[i]))
+            f1.write('\n') # add newline at the end of each run (up to 3 runs.)
+        except:
+            print('ERROR: Failed to open block_times & corr_push for {}'.format(sub))
+            continue
         finally:
             f1.close()
             f2.close()
 
-            generate_analysis_script(sub, datadir)
-            os.system('bash {}/ea/{}_glm_1stlevel_cmd.sh'.format(datadir, sub))
-            os.system('touch {}/ea/{}_analysis-complete.log'.format(datadir, sub))
+        # analyze the data
+        try:
+            generate_analysis_script(sub, func_path)
+            returncode, _, _ = dm.utils.run('bash {func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub))
+            dm.utils.check_returncode(returncode)
+            dm.utils.run('touch {func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub))
+        except:
+            continue
 
 if __name__ == "__main__":
     main()

@@ -338,7 +338,7 @@ def run_dummy_q(list_of_names):
     run(cmd)
     print('... Done.')
 
-def run(cmd, dryrun = False):
+def run(cmd, dryrun=False):
     """
     Runs a command in the default shell (so beware!)
 
@@ -346,6 +346,7 @@ def run(cmd, dryrun = False):
     """
     if dryrun: 
         return 0, "", ""
+
     p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
     out, err = p.communicate() 
     return p.returncode, out, err
@@ -401,15 +402,11 @@ def loadnii(filename):
 
     # if smaller than 3D
     if len(dims) < 3:
-        raise Exception("""
-                        Your data has less than 3 dimensions!
-                        """)
+        raise Exception('Your data has less than 3 dimensions!')
 
     # if smaller than 4D
     if len(dims) > 4:
-        raise Exception("""
-                        Your data is at least a penteract (over 4 dimensions!)
-                        """)
+        raise Exception('Your data is at least a penteract (> 4 dimensions!)')
     
     # load in nifti and reshape to 2D
     nifti = nifti.get_data()
@@ -418,5 +415,9 @@ def loadnii(filename):
     nifti = nifti.reshape(dims[0]*dims[1]*dims[2], dims[3])
 
     return nifti, affine, header, dims
+
+def check_returncode(returncode):
+    if returncode != 0:
+        raise ValueError
 
 # vim: ts=4 sw=4 sts=4:
