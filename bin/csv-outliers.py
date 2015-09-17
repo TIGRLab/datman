@@ -64,35 +64,58 @@ def docmd(cmdlist):
     if DEBUG: print ' '.join(cmdlist)
     if not DRYRUN: subprocess.call(cmdlist)
 
+# check that the input exists
+if os.path.isfile(inputfile) == False:
+    sys.exit("Input file {} doesn't exist.".format(FAmap))
 
+# read the inputdata into a pandas dataframe
 inputdata = pd.read_csv(inputfile, sep=',', dtype=str, comment='#')
-cols_to_test = inputdata.columns[1:].tolist()
 
+## define columns to test as the second column to the end (excluding 'AnyOutliers or QC')
+cols_to_test = inputdata.columns[1:].tolist()
+cols_to_test = list(set(cols_to_test) - set(['AnyOutliers','QC']))
+
+## convert all the cols to test to numeric
 for col in cols_to_test:
     inputdata[[col]] = inputdata[[col]].astype(float)
 
+### Get the summary stats for the calc
 if summaryin == None:
+    '''
+    if no stats file is specified, calculate them from the inputdata
+    '''
     SummaryStats = inputdata.describe()
 else:
-    SummaryStats.to_csv(summaryout,sep=',')
+    '''
+    if a file is specified, check that it exists and load it
+    '''
+    if os.path.isfile(summaryin) == False:
+        sys.exit("Summary Statistics file {} doesn't exist.".format(FAmap))
+    SummaryStats = pd.read_csv(summaryin,sep=',')
 
-inputdata['AnyOutliers'] = pd.Series('',index=inputdata.index)
+## add an "AnyOutliers" column to the inputdata DataFrame
+if 'AnyOutliers' not in inputdata.columns:
+    inputdata['AnyOutliers'] = pd.Series('',index=inputdata.index)
 
+## the meaty bit
 for idx in inputdata.index.tolist():
+    message = ''
     for col in cols_to_test:
+        '''
+        for every cell, check if it is an outlier
+        '''
         value = inputdata.loc[idx,col]
         lower = SummaryStats.loc['mean',col] - 2.698*SummaryStats.loc['std',col]
         upper = SummaryStats.loc['mean',col] + 2.698*SummaryStats.loc['std',col]
         if value < lower:
-            message = inputdata.loc[idx,'AnyOutliers'] + col + " is low;"
-            inputdata.loc[idx,'AnyOutliers'] = message
+            message = message + col + " is low;"
         if value > upper:
-            message = inputdata.loc[idx,'AnyOutliers'] + col + " is high;"
-            inputdata.loc[idx,'AnyOutliers'] = message
+            message = message + col + " is high;"
+        inputdata.loc[idx,'AnyOutliers'] = message
 
     if VERBOSE:
         if len(inputdata.loc[idx,'AnyOutliers']) > 1:
-            print("{} {}".format(inputdata.ix[idx,0],inputdata.loc[idx,'AnyOutliers']))
+            print("{} {}".format(inputdata.ix[idx,0], message))
 
 ## write the results out to a file
 if DONOTMODIFY == False:
