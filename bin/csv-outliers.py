@@ -91,7 +91,7 @@ else:
     '''
     if os.path.isfile(summaryin) == False:
         sys.exit("Summary Statistics file {} doesn't exist.".format(FAmap))
-    SummaryStats = pd.read_csv(summaryin,sep=',')
+    SummaryStats = pd.read_csv(summaryin,sep=',',index_col=0)
 
 ## add an "AnyOutliers" column to the inputdata DataFrame
 if 'AnyOutliers' not in inputdata.columns:
