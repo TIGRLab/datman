@@ -355,8 +355,6 @@ def process_behav_data(log, assets, func_path, sub, trial_type):
     fig.suptitle(log, size=10)
     fig.set_tight_layout(True)
     fig.savefig('{func_path}/{sub}/{sub}_{logname}.pdf'.format(func_path=func_path, sub=sub, logname=os.path.basename(log)[:-4]))
-    plt.clf(fig)
-    plt.close(fig)
 
     return onsets_used, durations, correlations, button_pushes
 
@@ -684,8 +682,7 @@ def main():
         # analyze the data
         try:
             generate_analysis_script(sub, func_path)
-            returncode, _, _ = dm.utils.run('bash {func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub))
-            dm.utils.check_returncode(returncode)
+            dm.utils.run('bash {func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub))
             dm.utils.run('touch {func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub))
         except:
             continue
