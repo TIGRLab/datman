@@ -174,7 +174,7 @@ def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore=ignored_headers):
             print('/n'.join(errors))
 
 
-def compare_exam_headers(std_headers, examdir, ignorelist):
+def compare_exam_headers(std_headers, examdir, ignorelist, blacklistfile):
     """
     Compares headers for each series in an exam against gold standards
 
@@ -193,7 +193,6 @@ def compare_exam_headers(std_headers, examdir, ignorelist):
     newerrors = []
     for path, header in exam_headers.iteritems():
         ident, tag, series, description = dm.scanid.parse_filename(path)
-        print("tag is {}".format(tag))
 
         if tag not in std_headers:
             if not QUIET:
@@ -212,12 +211,12 @@ def compare_exam_headers(std_headers, examdir, ignorelist):
                 stem = os.path.basename(path).replace('.dcm','')
                 if blacklistfile != None:
                     with open(blacklistfile, "a") as blacklist:
-                        blacklist.writeline("{} header-not-matching".format(stem))        for item in errors:
+                        blacklist.write("{}    header-not-matching\n".format(stem))
 
 
     #write message to log to report that an error occured
     if len(newerrors) > 0 :
-        print("{} failed check headers of tags: {}".format(examdir,','.join(newerrors)))
+        print("{} failed check headers for tags: {}".format(examdir,','.join(newerrors)))
 
 
 
@@ -225,6 +224,7 @@ def compare_exam_headers(std_headers, examdir, ignorelist):
 def main():
     global QUIET
     global VERBOSE
+
     arguments = docopt(__doc__)
 
     QUIET         = arguments['--quiet']
@@ -259,7 +259,7 @@ def main():
 
     # run compare_exam_headers for each examdir given
     for examdir in examdirs:
-        compare_exam_headers(stdmap, examdir, ignorelist)
+        compare_exam_headers(stdmap, examdir, ignorelist, blacklistfile)
 
     # ## if blacklistfile was given - write the results out to csv
     # if blacklistfile != None:
