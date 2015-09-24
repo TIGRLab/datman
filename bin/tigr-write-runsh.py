@@ -88,27 +88,28 @@ runsh.write('export PROJECTDIR='+ projectdir +'\n')
 ## write the export info
 for site in config['Sites']:
     runsh.write('export XNAT_ARCHIVE_' + site + '=')
-    runsh.write(config['Sites']['CMH']['XNAT_Archive'] + '\n')
+    runsh.write(config['Sites'][site]['XNAT_Archive'] + '\n')
 
 ## write the gold standard info
 for site in config['Sites']:
     runsh.write('export ' + site + '_STANDARD=')
     runsh.write(projectdir + '/metadata/gold_standards/' + site + '\n')
 
-
-
+## set some settings and load datman module
 runsh.write('args="$@"                           # commence ugly opt handling\n')
-runsh.write('DATESTAMP=$(date +%Y%m%d)\n')
-
+runsh.write('DATESTAMP=$(date +%Y%m%d)\n\n')
 runsh.write('source /etc/profile\n')
 runsh.write('module load /archive/data-2.0/code/datman.module\n')
 runsh.write('export PATH=$PATH:${PROJECTDIR}/bin\n')
 
+## define the message function
 runsh.write('function message () { [[ "$args" =~ "--quiet" ]] || echo "$(date): $1"; }\n')
 
+## start running stuff
 runsh.write('{\n')
 runsh.write('  message "Running pipelines for study: $STUDYNAME"\n')
 
+## get the scans from the camh server
 runsh.write('  message "Get new scans..."\n')
 runsh.write('  dm-sftp-sync.sh ${MRUSER}@mrftp.camhpet.ca "${MRUSER}*/*" ${PROJECTDIR}/data/zips\n')
 
@@ -134,26 +135,31 @@ runsh.write('  module load minc-toolkit/1.0.01\n\n')
 
 ## Extracting the scans from XNAT
 runsh.write('  message "Extract new scans from XNAT..."\n')
-runsh.write('  xnat-extract.py --blacklist ${PROJECTDIR}/metadata/blacklist.csv --datadir ${PROJECTDIR}/data --exportinfo ${PROJECTDIR}/metadata/exportinfo-CMH.csv ${XNAT_ARCHIVE_CMH}/*\n')
-runsh.write('  xnat-extract.py --blacklist ${PROJECTDIR}/metadata/blacklist.csv --datadir ${PROJECTDIR}/data --exportinfo ${PROJECTDIR}/metadata/exportinfo-ZHH.csv ${XNAT_ARCHIVE_ZHH}/*\n')
-runsh.write('  xnat-extract.py --blacklist ${PROJECTDIR}/metadata/blacklist.csv --datadir ${PROJECTDIR}/data --exportinfo ${PROJECTDIR}/metadata/exportinfo-MRC.csv ${XNAT_ARCHIVE_MRC}/*\n')
+for site in config['Sites']:
+    runsh.write('  xnat-extract.py ' + \
+        '--blacklist ${PROJECTDIR}/metadata/blacklist.csv ' + \
+        '--datadir ${PROJECTDIR}/data '\
+        '--exportinfo ${PROJECTDIR}/metadata/exportinfo-' + site + \
+        site + '.csv ${XNAT_ARCHIVE_' + site + '}/*\n')
 
 ## unload the modules for file conversion
 runsh.write('\n\n  module unload slicer/4.4.0\n')
 runsh.write('  module unload mricron/0.20140804\n')
 runsh.write('  module unload minc-toolkit/1.0.01\n\n')
 
-runsh.write('  message "Checking DICOM headers... "\n')
-runsh.write('  dm-check-headers.py ${CMH_STANDARD} ${PROJECTDIR}/dcm/SPN01_CMH_*\n')
-runsh.write('  dm-check-headers.py ${ZHH_STANDARD} ${PROJECTDIR}/dcm/SPN01_ZHH_*\n')
-runsh.write('  dm-check-headers.py ${MRC_STANDARD} ${PROJECTDIR}/dcm/SPN01_MRC_*\n')
-runsh.write('\n')
-runsh.write('  message "Checking gradient directions..."\n')
-runsh.write('  dm-check-bvecs.py ${PROJECTDIR} ${CMH_STANDARD} CMH\n')
-runsh.write('  dm-check-bvecs.py ${PROJECTDIR} ${ZHH_STANDARD} ZHH \n')
-runsh.write('  dm-check-bvecs.py ${PROJECTDIR} ${MRC_STANDARD} MRC \n\n')
+## do the dicom header check
+runsh.write('\n  message "Checking DICOM headers... "\n')
+for site in config['Sites']:
+    runsh.write('  dm-check-headers.py ${' + site + '_STANDARD} ' + \
+        '${PROJECTDIR}/dcm/SPN01_' + site + '_*\n')
 
-runsh.write('  module load AFNI/2014.12.16 \n')
+## do the gradient directions check
+runsh.write('\n  message "Checking gradient directions..."\n')
+for site in config['Sites']:
+    runsh.write('  dm-check-bvecs.py ${PROJECTDIR} ${' + site + '_STANDARD} ' + site + '\n')
+
+## load all the pipeline tools
+runsh.write('\n  module load AFNI/2014.12.16 \n')
 runsh.write('  module load FSL/5.0.7 \n')
 runsh.write('  module load matlab/R2013b_concurrent\n')
 runsh.write('  module load freesurfer/5.3.0 \n')
@@ -161,12 +167,13 @@ runsh.write('  module load python/2.7.9-anaconda-2.1.0-150119 \n')
 runsh.write('  module load python-extras/2.7.9\n')
 runsh.write('  export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer\n\n')
 
+## generate qc ness
 runsh.write('  message "Generating QC documents..."\n')
 runsh.write('  qc.py --datadir ${PROJECTDIR}/data/ --qcdir ${PROJECTDIR}/qc --dbdir ${PROJECTDIR}/qc\n')
 runsh.write('  qc-report.py ${PROJECTDIR}\n\n')
 
 runsh.write('  message "Updating phantom plots..."\n')
-runsh.write('  qc-phantom.py ${PROJECTDIR} 20 CMH ZHH MRC\n')
+runsh.write('  qc-phantom.py ${PROJECTDIR} 20 ' + ' '.join(config['Sites']) + '\n')
 runsh.write('  web-build.py ${PROJECTDIR} \n\n')
 
 runsh.write('  message "Pushing QC documents to github..."\n')
