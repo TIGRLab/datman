@@ -174,7 +174,7 @@ def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore=ignored_headers):
             print('/n'.join(errors))
 
 
-def compare_exam_headers(std_headers, examdir, ignorelist, blacklist):
+def compare_exam_headers(std_headers, examdir, ignorelist):
     """
     Compares headers for each series in an exam against gold standards
 
@@ -189,7 +189,6 @@ def compare_exam_headers(std_headers, examdir, ignorelist, blacklist):
 
     ignore = ignored_headers.union(ignorelist)
 
-    print("std_headers keys: {}".format(std_headers.keys()))
     ## make list to capure new errors
     newerrors = []
     for path, header in exam_headers.iteritems():
@@ -211,14 +210,15 @@ def compare_exam_headers(std_headers, examdir, ignorelist, blacklist):
                 newerrors.append(tag)
                 ## add the info to the blacklist
                 stem = os.path.basename(path).replace('.dcm','')
-                newdata = pd.DataFrame([[stem,'header-not-matching']],columns=['series', 'reason'])
-                blacklist.append(newdata,ignore_index=True)
+                if blacklistfile != None:
+                    with open(blacklistfile, "a") as blacklist:
+                        blacklist.writeline("{} header-not-matching".format(stem))        for item in errors:
+
 
     #write message to log to report that an error occured
-    if len(newerrors) > 1 :
+    if len(newerrors) > 0 :
         print("{} failed check headers of tags: {}".format(examdir,','.join(newerrors)))
 
-    return blacklist
 
 
 
@@ -234,35 +234,36 @@ def main():
     blacklistfile = arguments['--blacklist-fails']
     ignorelist    = arguments['--ignore-headers']
 
+    #parse the ignorelist
     if ignorelist:
         ignorelist = ignorelist.split(",")
     else:
         ignorelist = []
 
+    # get tags for gold standards from standardsdir subfolder names
     standardsdir = os.path.normpath(standardsdir)
-    print("standardsdir is: {}".format(standardsdir))
     manifest = dm.utils.get_all_headers_in_folder(standardsdir,recurse=True)
-    print("manifest keys: {}".format(manifest.keys()))
-    # map tag name to headers
+
+    # scoop up all the header infomation from standards into one dictionary
     stdmap = { os.path.basename(os.path.dirname(k)):(k,v) for (k,v) in manifest.items()}
-    print("stdmap keys: {}".format(stdmap.keys()))
-    ## if blacklistfile was given load it - if not make a new one
-    if blacklistfile != None:
-        if os.path.isfile(blacklistfile):
-            bl = pd.read_table(blacklistfile, sep='\s*',engine='python')
-        else:
-            print('WARNING: could not find blacklistfile {} writing new one'.format(blacklistfile))
-            bl = pd.DataFrame(columns = ['series', 'reason'])
-    else:
-        bl = pd.DataFrame(columns = ['series', 'reason'])
 
+    # ## if blacklistfile was given load it - if not make a new one
+    # if blacklistfile != None:
+    #     if os.path.isfile(blacklistfile):
+    #         bl = pd.read_table(blacklistfile, sep='\s*',engine='python')
+    #     else:
+    #         print('WARNING: could not find blacklistfile {} writing new one'.format(blacklistfile))
+    #         bl = pd.DataFrame(columns = ['series', 'reason'])
+    # else:
+    #     bl = pd.DataFrame(columns = ['series', 'reason'])
+
+    # run compare_exam_headers for each examdir given
     for examdir in examdirs:
-        print("running {}".format(examdir))
-        bl = compare_exam_headers(stdmap, examdir, ignorelist, bl)
+        compare_exam_headers(stdmap, examdir, ignorelist)
 
-    ## if blacklistfile was given - write the results out to csv
-    if blacklistfile != None:
-        bl.to_csv(blacklistfile, sep=' ')
+    # ## if blacklistfile was given - write the results out to csv
+    # if blacklistfile != None:
+    #     bl.to_csv(blacklistfile, sep=' ')
 
 
 
