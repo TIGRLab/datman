@@ -4,11 +4,14 @@ Diffs the relevant fields of the header to determine if anything has changed in
 the protocol.
 
 Usage: 
-    dm-check-header.py [options] <standards> <exam>...
+    dm-check-header.py [options] <standards> <logs> <exam>...
 
 Arguments: 
     <standards/>            Folder with subfolders named by tag. Each subfolder
                             has a sample gold standard dicom file for that tag.
+
+    <logs/>                 Folder to contain the outputs (specific errors found)
+                            of this script.
 
     <exam/>                 Folder with one dicom file sample from each series
                             to check
@@ -104,7 +107,14 @@ decimal_tolerances = {
 
 QUIET = False
 
-def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore=ignored_headers):
+def get_subject_from_filename(filename):
+    filename = os.path.basename(filename)
+    filename = filename.split('_')[0:5]
+    filename = '_'.join(filename)
+
+    return filename
+
+def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore, logsdir, errors):
     """
     Accepts two pydicom objects and prints out header value differences. 
     
@@ -120,18 +130,16 @@ def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore=ignored_headers):
     both_hdr    = stdhdr_.intersection(cmphdr_)
   
     if only_stdhdr:
-        print("{cmppath}: headers in series, not in standard: {list}".format(
-            cmppath=cmppath, list=", ".join(only_stdhdr)))
+        print("{cmppath}: headers in series, not in standard: {list}".format(cmppath=cmppath, list=", ".join(only_stdhdr)))
 
     if only_cmphdr:
-        print("{cmppath}: headers in standard, not in series: {list}".format(
-            cmppath=cmppath, list=", ".join(only_cmphdr)))
+        print("{cmppath}: headers in standard, not in series: {list}".format(cmppath=cmppath, list=", ".join(only_cmphdr)))
     
     for header in both_hdr:
         stdval = stdhdr.get(header)
         cmpval = cmphdr.get(header)
 
-        # compare within tolerance
+        # integer level tolerance
         if header in integer_tolerances:
             n = integer_tolerances[header]
 
@@ -140,9 +148,13 @@ def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore=ignored_headers):
             difference = np.abs(stdval_rounded - cmpval_rounded)
 
             if difference > n:
-                msg = "{}: header {}, expected = {}, actual = {} [tolerance = {}]"
-                print(msg.format(cmppath, header, stdval_rounded, cmpval_rounded, n))
+                with open(os.path.join(logsdir, get_subject_from_filename(cmppath) + '.log'), "a") as fname:
+                    fname.write(
+                        "{}: header {}, expected = {}, actual = {} [tolerance = {}]".format(
+                            cmppath, header, stdval_rounded, cmpval_rounded, n))
+                errors = errors + 1
 
+        # decimal level tolerance
         elif header in decimal_tolerances:
             n = decimal_tolerances[header]
 
@@ -150,19 +162,27 @@ def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore=ignored_headers):
             cmpval_rounded = round(float(cmpval), n)
 
             if stdval_rounded != cmpval_rounded:
-                msg = "{}: header {}, expected = {}, actual = {} [tolerance = {}]"
-                print(msg.format(cmppath, header, stdval_rounded, cmpval_rounded, n))
+                with open(os.path.join(logsdir, get_subject_from_filename(cmppath) + '.log'), "a") as fname:
+                    fname.write(
+                        "{}: header {}, expected = {}, actual = {} [tolerance = {}]".format(
+                            cmppath, header, stdval_rounded, cmpval_rounded, n))
+                errors = errors + 1
 
+        # no tolerance set
         elif str(cmpval) != str(stdval):
-            print("{}: header {}, expected = {}, actual = {}".format(
-                    cmppath, header, stdval, cmpval))
+            with open(os.path.join(logsdir, get_subject_from_filename(cmppath) + '.log'), "a") as fname:
+                fname.write(
+                    "{}: header {}, expected = {}, actual = {}".format(
+                        cmppath, header, stdval, cmpval))
+            errors = errors + 1
 
+    return errors
 
-def compare_exam_headers(std_headers, examdir, ignorelist):
+def compare_exam_headers(stdmap, examdir, ignorelist, logsdir):
     """
     Compares headers for each series in an exam against gold standards
 
-    <std_headers> is a map from description -> (path, headers) of all of the
+    <stdmap> is a map from description -> (cmppath, headers) of all of the
     standard headers to compare against. 
 
     <ignorelist> is a list of headers, in addition to the defaults, to ignore. 
@@ -171,18 +191,24 @@ def compare_exam_headers(std_headers, examdir, ignorelist):
 
     ignore = ignored_headers.union(ignorelist)
 
-    for path, header in exam_headers.iteritems():
-        ident, tag, series, description = dm.scanid.parse_filename(path)
+    try:
+        dm.utils.run('rm {}'.format(os.path.join(logsdir, get_subject_from_filename(cmppath) + '.log')))
 
-        if tag not in std_headers:
+    errors = 0 # if this counter gets tripped, we print a single warning to the screen per subject
+    for cmppath, cmphdr in exam_headers.iteritems():
+        ident, tag, series, description = dm.scanid.parse_filename(cmppath)
+
+        if tag not in stdmap:
             if not QUIET: 
-                print("WARNING: {}: No matching standard for tag '{}'".format(
-                path, tag))
+                print("WARNING: {}: No matching standard for tag '{}'".format(cmppath, tag))
             continue
 
-        std_path, std_header = std_headers[tag]
+        stdpath, stdhdr = stdmap[tag]
 
-        compare_headers(std_path, std_header, path, header, ignore)
+        errors = compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore, logsdir, errors)
+
+    if errors > 0:
+        print('ERROR: {} header mismatches for {}'.format(errors, get_subject_from_filename(cmppath)))
 
 def main():
     global QUIET
@@ -191,21 +217,32 @@ def main():
     QUIET = arguments['--quiet']
 
     standardsdir = arguments['<standards>']
+    logsdir      = arguments['<logs>']
     examdirs     = arguments['<exam>']
     ignorelist   = arguments['--ignore-headers']
-    
+
+    logsdir = dm.utils.define_folder(logsdir)
+
+    # check inputs
+    if os.path.isdir(logsdir) == False:
+        print('ERROR: Log directory {} does not exist'.format(logsdir))
+        sys.exit()
+    if os.path.isdir(standardsdir) == False:
+        print('ERROR: Standards directory {} does not exist'.format(standardsdir))
+        sys.exit()
+
     if ignorelist:
         ignorelist = ignorelist.split(",")
     else:
         ignorelist = []
 
-    manifest = dm.utils.get_all_headers_in_folder(standardsdir,recurse=True)
+    manifest = dm.utils.get_all_headers_in_folder(standardsdir, recurse=True)
    
     # map tag name to headers 
     stdmap = { os.path.basename(os.path.dirname(k)):(k,v) for (k,v) in manifest.items()}
 
     for examdir in examdirs:
-        compare_exam_headers(stdmap, examdir, ignorelist)
+        compare_exam_headers(stdmap, examdir, ignorelist, logsdir)
         
 if __name__ == '__main__': 
     main()
