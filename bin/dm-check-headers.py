@@ -41,6 +41,7 @@ import os.path
 ignored_headers = set([
     'AcquisitionDate',
     'AcquisitionTime',
+    'AcquisitionNumber',
     'AcquisitionMatrix',
     'ContentDate',
     'ContentTime',
@@ -150,7 +151,7 @@ def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore, logsdir, errors):
             if difference > n:
                 with open(os.path.join(logsdir, get_subject_from_filename(cmppath) + '.log'), "a") as fname:
                     fname.write(
-                        "{}: header {}, expected = {}, actual = {} [tolerance = {}]".format(
+                        "{}: header {}, expected = {}, actual = {} [tolerance = {}]\n".format(
                             cmppath, header, stdval_rounded, cmpval_rounded, n))
                 errors = errors + 1
 
@@ -164,7 +165,7 @@ def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore, logsdir, errors):
             if stdval_rounded != cmpval_rounded:
                 with open(os.path.join(logsdir, get_subject_from_filename(cmppath) + '.log'), "a") as fname:
                     fname.write(
-                        "{}: header {}, expected = {}, actual = {} [tolerance = {}]".format(
+                        "{}: header {}, expected = {}, actual = {} [tolerance = {}]\n".format(
                             cmppath, header, stdval_rounded, cmpval_rounded, n))
                 errors = errors + 1
 
@@ -172,7 +173,7 @@ def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore, logsdir, errors):
         elif str(cmpval) != str(stdval):
             with open(os.path.join(logsdir, get_subject_from_filename(cmppath) + '.log'), "a") as fname:
                 fname.write(
-                    "{}: header {}, expected = {}, actual = {}".format(
+                    "{}: header {}, expected = {}, actual = {}\n".format(
                         cmppath, header, stdval, cmpval))
             errors = errors + 1
 
@@ -193,6 +194,8 @@ def compare_exam_headers(stdmap, examdir, ignorelist, logsdir):
 
     try:
         dm.utils.run('rm {}'.format(os.path.join(logsdir, get_subject_from_filename(cmppath) + '.log')))
+    except:
+        pass
 
     errors = 0 # if this counter gets tripped, we print a single warning to the screen per subject
     for cmppath, cmphdr in exam_headers.iteritems():
@@ -240,6 +243,9 @@ def main():
    
     # map tag name to headers 
     stdmap = { os.path.basename(os.path.dirname(k)):(k,v) for (k,v) in manifest.items()}
+
+    # remove phantoms from examdirs
+    examdirs = filter(lambda x: '_PHA_' not in x, examdirs)
 
     for examdir in examdirs:
         compare_exam_headers(stdmap, examdir, ignorelist, logsdir)

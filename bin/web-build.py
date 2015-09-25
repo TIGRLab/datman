@@ -225,7 +225,7 @@ def main():
 
     # syncs latest csv files (from qc-phantom.py) to website
     if adni:
-        print('convertin ADNI')
+        print('converting ADNI')
         convert_to_web(project, adni)
         
     if fmri:
