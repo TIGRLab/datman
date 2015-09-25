@@ -19,6 +19,11 @@ Arguments:
 Options: 
     --quiet                 Don't print warnings
     --ignore-headers LIST   Comma delimited list of headers to ignore
+    --ignore-series FILE    File containing a list of scans to ignore
+                            The file should be a space seperate table with two
+                            columns, 'series' and 'reason'. The series column 
+                            should contain full series name to be ignored (
+                            e.g., ANDT_CMH_308_01_01_DTI60-1000_04_Ax-DTI60plus5-20iso)
 
 DETAILS
     
@@ -35,6 +40,7 @@ from docopt import docopt
 import dicom as dcm
 import datman as dm
 import numpy as np
+import pandas as pd
 import datman.utils
 import os.path
 
@@ -179,14 +185,16 @@ def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore, logsdir, errors):
 
     return errors
 
-def compare_exam_headers(stdmap, examdir, ignorelist, logsdir):
+def compare_exam_headers(stdmap, examdir, ignorelist, logsdir, ignored_series):
     """
     Compares headers for each series in an exam against gold standards
 
     <stdmap> is a map from description -> (cmppath, headers) of all of the
     standard headers to compare against. 
 
-    <ignorelist> is a list of headers, in addition to the defaults, to ignore. 
+    <ignorelist> is a list of headers, in addition to the defaults, to ignore.
+
+    <ignored_series> is a list of series to ignore checking. 
     """
     exam_headers = dm.utils.get_all_headers_in_folder(examdir)
 
@@ -199,7 +207,12 @@ def compare_exam_headers(stdmap, examdir, ignorelist, logsdir):
 
     errors = 0 # if this counter gets tripped, we print a single warning to the screen per subject
     for cmppath, cmphdr in exam_headers.iteritems():
+
         ident, tag, series, description = dm.scanid.parse_filename(cmppath)
+
+        if dm.scanid.make_filename(ident, tag, series, description) in ignored_series:
+            if not QUIET: print("Ignoring {}".format(path))
+            continue
 
         if tag not in stdmap:
             if not QUIET: 
@@ -223,6 +236,7 @@ def main():
     logsdir      = arguments['<logs>']
     examdirs     = arguments['<exam>']
     ignorelist   = arguments['--ignore-headers']
+    series_file  = arguments['--ignore-series']
 
     logsdir = dm.utils.define_folder(logsdir)
 
@@ -239,6 +253,12 @@ def main():
     else:
         ignorelist = []
 
+
+    ignored_series = []
+    if series_file:
+        table = pd.read_table(series_file, sep='\s*', engine="python")
+        ignored_series = table["series"].tolist()
+
     manifest = dm.utils.get_all_headers_in_folder(standardsdir, recurse=True)
    
     # map tag name to headers 
@@ -248,7 +268,7 @@ def main():
     examdirs = filter(lambda x: '_PHA_' not in x, examdirs)
 
     for examdir in examdirs:
-        compare_exam_headers(stdmap, examdir, ignorelist, logsdir)
+        compare_exam_headers(stdmap, examdir, ignorelist, logsdir, ignored_series)
         
 if __name__ == '__main__': 
     main()
