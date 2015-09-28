@@ -4,7 +4,7 @@ Diffs the relevant fields of the header to determine if anything has changed in
 the protocol.
 
 Usage: 
-    dm-check-header.py [options] <standards> <logs> <exam>...
+    dm-check-header.py [options] <standards> <logs> <blacklist> <exam>...
 
 Arguments: 
     <standards/>            Folder with subfolders named by tag. Each subfolder
@@ -13,26 +13,20 @@ Arguments:
     <logs/>                 Folder to contain the outputs (specific errors found)
                             of this script.
 
+    <blacklist>             YAML file for recording ignored / processed series.
+
     <exam/>                 Folder with one dicom file sample from each series
                             to check
 
 Options: 
-    --quiet                 Don't print warnings
+    --verbose               Don't print warnings
     --ignore-headers LIST   Comma delimited list of headers to ignore
-    --ignore-series FILE    File containing a list of scans to ignore
-                            The file should be a space seperate table with two
-                            columns, 'series' and 'reason'. The series column 
-                            should contain full series name to be ignored (
-                            e.g., ANDT_CMH_308_01_01_DTI60-1000_04_Ax-DTI60plus5-20iso)
 
 DETAILS
     
-    Output looks like: 
-
-    /path/to/exam/dicom.dcm: headers not in standard: list,... 
-    /path/to/exam/dicom.dcm: headers not in series: list,... 
-    /path/to/exam/dicom.dcm: header {}: expected = {}, actual = {} [tolerance = {}]
-
+    Outputs the number of mismatches per subject to STDOUT.
+    Outputs the full diff of the mismatches to logs/subjectname.log
+    Records analyzed subjects to the blacklist (so these warnings are not continually produced).
 
 """
 import sys
@@ -111,9 +105,6 @@ decimal_tolerances = {
         'RepetitionTime': 1
 }
 
-
-QUIET = False
-
 def get_subject_from_filename(filename):
     filename = os.path.basename(filename)
     filename = filename.split('_')[0:5]
@@ -136,11 +127,11 @@ def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore, logsdir, errors):
     only_cmphdr = cmphdr_.difference(stdhdr_)
     both_hdr    = stdhdr_.intersection(cmphdr_)
   
-    if only_stdhdr:
-        print("{cmppath}: headers in series, not in standard: {list}".format(cmppath=cmppath, list=", ".join(only_stdhdr)))
+    if only_stdhdr and VERBOSE:
+        print("WARNING: [dm-check-headers] {cmppath}: headers in series, not in standard: {list}".format(cmppath=cmppath, list=", ".join(only_stdhdr)))
 
-    if only_cmphdr:
-        print("{cmppath}: headers in standard, not in series: {list}".format(cmppath=cmppath, list=", ".join(only_cmphdr)))
+    if only_cmphdr and VERBOSE:
+        print("WARNING: [dm-check-headers] {cmppath}: headers in standard, not in series: {list}".format(cmppath=cmppath, list=", ".join(only_cmphdr)))
     
     for header in both_hdr:
         stdval = stdhdr.get(header)
@@ -183,9 +174,10 @@ def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore, logsdir, errors):
                         cmppath, header, stdval, cmpval))
             errors = errors + 1
 
+
     return errors
 
-def compare_exam_headers(stdmap, examdir, ignorelist, logsdir, ignored_series):
+def compare_exam_headers(stdmap, examdir, ignorelist, logsdir, ignored_series, blacklist):
     """
     Compares headers for each series in an exam against gold standards
 
@@ -210,42 +202,44 @@ def compare_exam_headers(stdmap, examdir, ignorelist, logsdir, ignored_series):
 
         ident, tag, series, description = dm.scanid.parse_filename(cmppath)
 
-        if dm.scanid.make_filename(ident, tag, series, description) in ignored_series:
-            if not QUIET: print("Ignoring {}".format(path))
+        if os.path.basename(cmppath) in ignored_series:
+            if VERBOSE: 
+                print("MSG: [dm-check-headers] Ignoring {}".format(cmppath))
             continue
 
         if tag not in stdmap:
-            if not QUIET: 
-                print("WARNING: {}: No matching standard for tag '{}'".format(cmppath, tag))
+            if VERBOSE: 
+                print("WARNING: [dm-check-headers] {}: No matching standard for tag '{}'".format(cmppath, tag))
             continue
 
         stdpath, stdhdr = stdmap[tag]
 
         errors = compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore, logsdir, errors)
+        dm.yamltools.blacklist_series(blacklist, 'dm-check-headers', os.path.basename(cmppath), 'done')
 
     if errors > 0:
-        print('ERROR: {} header mismatches for {}'.format(errors, get_subject_from_filename(cmppath)))
+        print('ERROR: [dm-check-headers] {} header mismatches for {}'.format(errors, get_subject_from_filename(cmppath)))
 
 def main():
-    global QUIET
+    global VERBOSE
     arguments = docopt(__doc__)
 
-    QUIET = arguments['--quiet']
+    VERBOSE = arguments['--verbose']
 
     standardsdir = arguments['<standards>']
     logsdir      = arguments['<logs>']
     examdirs     = arguments['<exam>']
+    blacklist    = arguments['<blacklist>']
     ignorelist   = arguments['--ignore-headers']
-    series_file  = arguments['--ignore-series']
 
     logsdir = dm.utils.define_folder(logsdir)
 
     # check inputs
     if os.path.isdir(logsdir) == False:
-        print('ERROR: Log directory {} does not exist'.format(logsdir))
+        print('ERROR: [dm-check-headers] Log directory {} does not exist'.format(logsdir))
         sys.exit()
     if os.path.isdir(standardsdir) == False:
-        print('ERROR: Standards directory {} does not exist'.format(standardsdir))
+        print('ERROR: [dm-check-headers] Standards directory {} does not exist'.format(standardsdir))
         sys.exit()
 
     if ignorelist:
@@ -253,12 +247,7 @@ def main():
     else:
         ignorelist = []
 
-
-    ignored_series = []
-    if series_file:
-        table = pd.read_table(series_file, sep='\s*', engine="python")
-        ignored_series = table["series"].tolist()
-
+    ignored_series = dm.yamltools.list_series(blacklist, 'dm-check-headers')
     manifest = dm.utils.get_all_headers_in_folder(standardsdir, recurse=True)
    
     # map tag name to headers 
@@ -268,7 +257,7 @@ def main():
     examdirs = filter(lambda x: '_PHA_' not in x, examdirs)
 
     for examdir in examdirs:
-        compare_exam_headers(stdmap, examdir, ignorelist, logsdir, ignored_series)
+        compare_exam_headers(stdmap, examdir, ignorelist, logsdir, ignored_series, blacklist)
         
 if __name__ == '__main__': 
     main()
