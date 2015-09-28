@@ -52,7 +52,7 @@ with open(config_yml, 'r') as stream:
     config = yaml.load(stream)
 
 ## check that the expected keys are there
-ExpectedKeys = ['MRUSER','StudyName','PROJECTDIR','Sites','XNAT_PROJECT']
+ExpectedKeys = ['MRUSER','StudyName','PROJECTDIR','Sites','XNAT_PROJECT','PREFIX']
 diffs = set(ExpectedKeys) - set(config.keys())
 if len(diffs) > 0:
     sys.exit("configuration file missing {}".format(diffs))
@@ -107,9 +107,13 @@ for siteinfo in config['Sites']:
     runsh.write('export XNAT_ARCHIVE_' + site + '=' + xnat + '\n')
 
 ## write the gold standard info
-for site in SiteNames:
+if len(SiteNames) == 1:
     runsh.write('export ' + site + '_STANDARD=')
-    runsh.write(projectdir + '/metadata/gold_standards/' + site + '\n')
+    runsh.write(projectdir + '/metadata/gold_standards/\n')
+else:
+    for site in SiteNames:
+        runsh.write('export ' + site + '_STANDARD=')
+        runsh.write(projectdir + '/metadata/gold_standards/' + site + '\n')
 
 ## set some settings and load datman module
 runsh.write('args="$@"                           # commence ugly opt handling\n')
@@ -144,35 +148,33 @@ runsh.write('    ${XNAT_ARCHIVE_CMH} \\\n')
 runsh.write('    ${PROJECTDIR}/data/dicom \\\n')
 runsh.write('    ${PROJECTDIR}/metadata/xnat-credentials\n\n')
 
-## load modules for file conversion
-runsh.write('  module load slicer/4.4.0 \n')
-runsh.write('  module load mricron/0.20140804 \n')
-runsh.write('  module load minc-toolkit/1.0.01\n\n')
 
 ## Extracting the scans from XNAT
 runsh.write('  message "Extract new scans from XNAT..."\n')
+## load modules for file conversion
+runsh.write('  module load slicer/4.4.0 mricron/0.20140804 minc-toolkit/1.0.01\n')
 for site in SiteNames:
     runsh.write('  xnat-extract.py ' + \
         '--blacklist ${PROJECTDIR}/metadata/blacklist.csv ' + \
         '--datadir ${PROJECTDIR}/data '\
         '--exportinfo ${PROJECTDIR}/metadata/exportinfo-' + site + \
         site + '.csv ${XNAT_ARCHIVE_' + site + '}/*\n')
-
-## unload the modules for file conversion
-runsh.write('\n\n  module unload slicer/4.4.0\n')
-runsh.write('  module unload mricron/0.20140804\n')
-runsh.write('  module unload minc-toolkit/1.0.01\n\n')
+## load modules for file conversion
+runsh.write('  module unload slicer/4.4.0 mricron/0.20140804 minc-toolkit/1.0.01\n')
 
 ## do the dicom header check
 runsh.write('\n  message "Checking DICOM headers... "\n')
 for site in SiteNames:
     runsh.write('  dm-check-headers.py ${' + site + '_STANDARD} ' + \
-        '${PROJECTDIR}/dcm/SPN01_' + site + '_*\n')
+        '${PROJECTDIR}/dcm/' + config['PREFIX'] + '_' + site + '_*\n')
 
 ## do the gradient directions check
 runsh.write('\n  message "Checking gradient directions..."\n')
-for site in SiteNames:
-    runsh.write('  dm-check-bvecs.py ${PROJECTDIR} ${' + site + '_STANDARD} ' + site + '\n')
+if len(SiteNames) == 1:
+    runsh.write('  dm-check-bvecs.py ${PROJECTDIR} ${' + site + '_STANDARD}\n')
+else:
+    for site in SiteNames:
+        runsh.write('  dm-check-bvecs.py ${PROJECTDIR} ${' + site + '_STANDARD} ' + site + '\n')
 
 ## load all the pipeline tools
 runsh.write('\n  module load AFNI/2014.12.16 \n')
@@ -188,12 +190,13 @@ runsh.write('  message "Generating QC documents..."\n')
 runsh.write('  qc.py --datadir ${PROJECTDIR}/data/ --qcdir ${PROJECTDIR}/qc --dbdir ${PROJECTDIR}/qc\n')
 runsh.write('  qc-report.py ${PROJECTDIR}\n\n')
 
-if 'qc-phantom.py' in config['PipelineSettings'].keys():
-    runsh.write('  message "Updating phantom plots..."\n')
-    runsh.write('  qc-phantom.py ${PROJECTDIR} ' + \
-        str(config['PipelineSettings']['qc-phantom.py']['NTP']) + ' ' + \
-        config['PipelineSettings']['qc-phantom.py']['Sites'] + '\n')
-    runsh.write('  web-build.py ${PROJECTDIR} \n\n')
+if config['PipelineSettings'] != None:
+    if 'qc-phantom.py' in config['PipelineSettings'].keys():
+        runsh.write('  message "Updating phantom plots..."\n')
+        runsh.write('  qc-phantom.py ${PROJECTDIR} ' + \
+            str(config['PipelineSettings']['qc-phantom.py']['NTP']) + ' ' + \
+            config['PipelineSettings']['qc-phantom.py']['Sites'] + '\n')
+        runsh.write('  web-build.py ${PROJECTDIR} \n\n')
 
 ## pushing stuff to git hub
 runsh.write('  message "Pushing QC documents to github..."\n')
@@ -260,7 +263,7 @@ runsh.write('} | tee -a ${PROJECTDIR}/logs/run-all-${DATESTAMP}.log\n')
 runsh.close()
 
 ### change anything that needs to be changed with Find and Replace
-if 'FindandReplace' in config.keys():
+if config['FindandReplace'] != None :
     with open (outputfile,'r') as runsh:
         allrun = runsh.read()
     for block in config['FindandReplace']:
