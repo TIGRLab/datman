@@ -261,12 +261,14 @@ runsh.close()
 
 ### change anything that needs to be changed with Find and Replace
 if 'FindandReplace' in config.keys():
+    with open (outputfile,'r') as runsh:
+        allrun = runsh.read()
     for block in config['FindandReplace']:
         toFind = block['Find']
         toReplace = block['Replace']
-        with open (outputfile,'r') as runsh:
-            allrun = runsh.read()
         if block['Find'] in allrun:
-            allrun.replace(block['Find'],block['Replace'])
+            allrun = allrun.replace(block['Find'],block['Replace'])
         else:
             print('WARNING: could not find {} in run.sh file'.format(block['Find']))
+    with open (outputfile,'w') as runsh:
+        runsh.write(allrun)
