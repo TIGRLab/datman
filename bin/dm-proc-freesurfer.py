@@ -15,6 +15,8 @@ Options:
   --T1-tag STR             Tag used to find the T1 files (default is 'T1')
   --tags STR               Optional tag used (as well as '--T1-tag') to filter for correct input
   --multiple-inputs        Allow multiple input T1 files to Freesurfersh
+  --FS-option STR          A quoted string of an non-default freesurfer option to add.
+  --run-version STR        A version string that is appended to 'run_freesurfer_<tag>.sh' for mutliple versions
   --QC-transfer QCFILE     QC checklist file - if this option is given than only QCed participants will be processed.
   --use-test-datman        Use the version of datman in Erin's test environment. (default is '/archive/data-2.0/code/datman.module')
   -v,--verbose             Verbose logging
@@ -43,6 +45,13 @@ These images are then submitted to the queue.
 
 If the "--QC-transfer" option is used, the QC checklist from data transfer
 (i.e. metadata/checklist.csv) and only those participants who passed QC will be processed.
+
+The '--run-version' option was added for situations when you might want to use
+different freesurfer settings for a subgroup of your participants (for example,
+all subjects from a site with an older scanner (but have all the
+outputs show up in the same folder in the end). The run version string is appended
+to the freesurfer_run.sh script name. Which allows for mutliple freesurfer_run.sh
+scripts to exists in the bin folder.
 
 Will load freesurfer in queue:
 module load freesurfer/5.3.0
@@ -74,6 +83,8 @@ MULTI_T1        = arguments['--multiple-inputs']
 NO_SINK         = arguments['--do-not-sink']
 T1_tag          = arguments['--T1-tag']
 TAG2            = arguments['--tag2']
+RUN_TAG         = arguments['--run-version']
+FS_option       = arguments['--FS-option']
 TESTDATMAN      = arguments['--use-test-datman']
 VERBOSE         = arguments['--verbose']
 DEBUG           = arguments['--debug']
@@ -85,8 +96,13 @@ if T1_tag == None: T1_tag = '_T1_'
 QCedTranfer = False if rawQCfile == None else True
 
 ## set the basenames of the two run scripts
-runFSsh_name = 'run_freesurfer.sh'
+if RUN_TAG == None:
+    runFSsh_name = 'run_freesurfer.sh'
+else:
+    runFSsh_name = 'run_freesurfer_' + RUN_TAG + '.sh'
 runPostsh_name = 'postfreesurfer.sh'
+
+## two silly little things to find for the run script
 
 ### Erin's little function for running things in the shell
 def docmd(cmdlist):
@@ -132,7 +148,7 @@ def find_T1images(archive_tag,archive_tag2):
 
 
 ### build a template .sh file that gets submitted to the queue
-def makeFreesurferrunsh(filename):
+def makeFreesurferrunsh(filename,prefix):
     """
     builds a script in the subjectsdir (run.sh)
     that gets submitted to the queue for each participant (in the case of 'doInd')
@@ -172,23 +188,29 @@ def makeFreesurferrunsh(filename):
         Freesurfersh.write('T1MAPS=${2}\n')
         ## add the engima-dit command
 
-        Freesurfersh.write('\nrecon-all -all -notal-check -cw256 -subjid ' + \
-          '${SUBJECT} ${T1MAPS}' + ' -qcache\n')
+        Freesurfersh.write('\nrecon-all -all -notal-check -cw256 ')
+        if FS_option != None:
+            Freesurfersh.write(FS_option + ' ')
+        Freesurfersh.write('-subjid ${SUBJECT} ${T1MAPS}' + ' -qcache\n')
 
     ## write the post freesurfer bit
     if FS_STEP == 'Post':
-        if not NO_SINK:
-            Freesurfersh.write('module load AFNI/2014.12.161\n')
-            # The dm-freesurfer-sink.py bit requires datman
-            if TESTDATMAN:
-                Freesurfersh.write('module load /projects/edickie/privatemodules/datman/edickie\n\n')
-            else:
-                Freesurfersh.write('module load /archive/data-2.0/code/datman.module\n\n')
+        # The dm-freesurfer-sink.py bit requires datman
+        if TESTDATMAN:
+            Freesurfersh.write('module load /projects/edickie/privatemodules/datman/edickie\n\n')
+        else:
+            Freesurfersh.write('module load /archive/data-2.0/code/datman.module\n\n')
 
+        ## to the sinking - unless told not to
+        if not NO_SINK:
+            PROJECTDIR = os.path.dirname(os.path.dirname(subjectsdir))
+            Freesurfersh.write('module load AFNI/2014.12.161\n')
             Freesurfersh.write('PROJECTDIR=' + PROJECTDIR + ' \n\n')
             Freesurfersh.write('dm-freesurfer-sink.py ${PROJECTDIR} \n\n')
 
         ## add the engima-extract bits
+        Freesurfersh.write('ENGIMA_ExtractCortical.sh ${SUBJECTS_DIR} '+ prefix + '\n')
+        Freesurfersh.write('ENGIMA_ExtractSubcortical.sh ${SUBJECTS_DIR} '+ prefix + '\n')
 
     #and...don't forget to close the file
     Freesurfersh.close()
@@ -273,18 +295,6 @@ run_dir = os.path.join(subjectsdir,'bin')
 dm.utils.makedirs(log_dir)
 dm.utils.makedirs(run_dir)
 
-## writes a standard Freesurfer-DTI running script for this project (if it doesn't exist)
-## the script requires a OUTDIR and MAP_BASE variables - as arguments $1 and $2
-## also write a standard script to concatenate the results at the end (script is held while subjects run)
-for runfilename in [runFSsh_name,runPostsh_name]:
-    runsh = os.path.join(run_dir,runfilename)
-    if os.path.isfile(runsh):
-        ## create temporary run file and test it against the original
-        checkrunsh(runsh)
-    else:
-        ## if it doesn't exist, write it now
-        makeFreesurferrunsh(runsh)
-
 ## find those subjects in input who have not been processed yet
 subids_in_nii = dm.utils.get_subjects(inputdir)
 subids_in_nii = [ v for v in subids_in_nii if "PHA" not in v ] ## remove the phantoms from the list
@@ -292,6 +302,19 @@ if QCedTranfer:
     # if a QC checklist exists, than read it and only process those participants who passed QC
     qcedlist = get_qced_subjectlist(rawQCfile)
     subids_in_nii = list(set(subids_in_nii) & set(qcedlist)) ##now only add it to the filelist if it has been QCed
+
+## writes a standard Freesurfer-DTI running script for this project (if it doesn't exist)
+## the script requires a OUTDIR and MAP_BASE variables - as arguments $1 and $2
+## also write a standard script to concatenate the results at the end (script is held while subjects run)
+prefix = subids_in_nii[0][0:4]
+for runfilename in [runFSsh_name,runPostsh_name]:
+    runsh = os.path.join(run_dir,runfilename)
+    if os.path.isfile(runsh):
+        ## create temporary run file and test it against the original
+        checkrunsh(runsh,prefix)
+    else:
+        ## if it doesn't exist, write it now
+        makeFreesurferrunsh(runsh,prefix)
 
 ## create an checklist for the T1 maps
 checklistfile = os.path.normpath(subjectsdir+'/freesurfer-checklist.csv')
