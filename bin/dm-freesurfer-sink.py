@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 """
-dm-freesurfer-sink.py <experiment-directory>
+dm-freesurfer-sink.py <subjectsdir> <t1directory>
 
 This converts some files from the freesurfer outputs into nifty for epitome scripts to use.
 
 Requires AFNI and Freesurfer modules loaded.
 
-freesurfer outputs are expected to be in <experiment-directory>/data/freesurfer
-The converted files go into <experiment-directory>/data/t1
+freesurfer outputs are expected to be in <subjectsdir>
+The converted files go into <t1directory>/data/t1
 
 """
 
@@ -70,23 +70,19 @@ def export_data(sub, data_path):
                                                 sub=sub)
     dm.utils.run(cmd)
 
-def main(base_path):
+def main(fs_path,t1_path):
     """
     Essentially, runs freesurfer on brainz. :D
     """
     # sets up relative paths
-    data_path = dm.utils.define_folder(os.path.join(base_path, 'data'))
-    nii_path = dm.utils.define_folder(os.path.join(data_path, 'nii'))
-    t1_path = dm.utils.define_folder(os.path.join(data_path, 't1'))
-    fs_path = dm.utils.define_folder(os.path.join(data_path, 'freesurfer'))
-    _ = dm.utils.define_folder(os.path.join(base_path, 'logs'))
-    log_path = dm.utils.define_folder(os.path.join(base_path, 'logs/freesurfer'))
+    fs_path = os.path.normpath(fs_path)
+    t1_path = dm.utils.define_folder(os.path.normpath(t1path))
 
     # configure the freesurfer environment
     os.environ['SUBJECTS_DIR'] = fs_path
 
     list_of_names = []
-    subjects = dm.utils.get_subjects(nii_path)
+    subjects = dm.utils.get_subjects(fs_path)
 
     # copy anatomicals, masks to t1 folder
     for sub in subjects:
@@ -96,7 +92,7 @@ def main(base_path):
             export_data(sub, data_path)
 
 if __name__ == "__main__":
-    if len(sys.argv) == 2:
-        main(sys.argv[1])
+    if len(sys.argv) == 3:
+        main(sys.argv[1],sys.argv[2])
     else:
         print(__doc__)
