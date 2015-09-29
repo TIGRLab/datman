@@ -1,162 +1,382 @@
 #!/usr/bin/env python
 """
-dm-proc-freesurfer.py <experiment-directory>
+This run freesurfer pipeline on T1 images.
+Also now extracts some volumes and converts some files to nifty for epitome
 
-This runs freesurfer on the input T1 data.
+Usage:
+  dm-proc-freesurfer.py [options] <inputdir> <FS_subjectsdir>
 
-Requires AFNI and Freesurfer modules loaded.
+Arguments:
+    <inputdir>                Top directory for nii inputs normally (project/data/nii/)
+    <FS_subjectsdir>          Top directory for the Freesurfer output
 
-outputs are placed in <experiment-directory>/data/freesurfer
-logs in data_path/logs/freesurfer.
+Options:
+  --do-not-sink            Do not convert a data to nifty for epitome
+  --T1-sinkdir PATH        Full path to the location of the 't1' (epitome) directory
+  --no-postFS              Do not submit postprocessing script to the queue
+  --T1-tag STR             Tag used to find the T1 files (default is 'T1')
+  --tag2 STR               Optional tag used (as well as '--T1-tag') to filter for correct input
+  --multiple-inputs        Allow multiple input T1 files to Freesurfersh
+  --FS-option STR          A quoted string of an non-default freesurfer option to add.
+  --run-version STR        A version string that is appended to 'run_freesurfer_<tag>.sh' for mutliple versions
+  --QC-transfer QCFILE     QC checklist file - if this option is given than only QCed participants will be processed.
+  --use-test-datman        Use the version of datman in Erin's test environment. (default is '/archive/data-2.0/code/datman.module')
+  -v,--verbose             Verbose logging
+  --debug                  Debug logging in Erin's very verbose style
+  -n,--dry-run             Dry run
+  -h, --help               Show help
+
+DETAILS
+This run freesurfer pipeline on T1 images maps after conversion to nifty.
+Also submits a dm-freesurfer-sink.py and some extraction scripts as a held job.
+
+This script will look search inside the "inputdir" folder for T1 images to process.
+If uses the '--T1-tag' string (which is '_T1_' by default) to do so.
+If this optional argument (('--tag2') is given, this string will be used to refine
+the search, if more than one T1 file is found inside the participants directory.
+
+The T1 image found for each participant in printed in the 'T1_nii' column
+of "freesurfer-checklist.csv". If no T1 image is found, or more than one T1 image
+is found, a note to that effect is printed in the "notes" column of the same file.
+You can manually overide this process by editing the "freesurfer-checklist.csv"
+with the name of the T1 image you would like processed (esp. in the case of repeat scans).
+
+The script then looks to see if any of the T1 images (listed in the
+"freesurfer-checklist.csv" "T1_nii" column) have not been processed (i.e. have no outputs).
+These images are then submitted to the queue.
+
+If the "--QC-transfer" option is used, the QC checklist from data transfer
+(i.e. metadata/checklist.csv) and only those participants who passed QC will be processed.
+
+The '--run-version' option was added for situations when you might want to use
+different freesurfer settings for a subgroup of your participants (for example,
+all subjects from a site with an older scanner (but have all the
+outputs show up in the same folder in the end). The run version string is appended
+to the freesurfer_run.sh script name. Which allows for mutliple freesurfer_run.sh
+scripts to exists in the bin folder.
+
+Will load freesurfer in queue:
+module load freesurfer/5.3.0
+(also requires the datmat python enviroment)
+
+Written by Erin W Dickie, Sep 30 2015
+Adapted from old dm-proc-freesurfer.py
 """
-
-import os, sys
-import copy
-from random import choice
-from glob import glob
-from string import ascii_uppercase, digits
-import numpy as np
+from docopt import docopt
+import pandas as pd
 import datman as dm
+import datman.utils
+import datman.scanid
+import glob
+import os
+import sys
+import subprocess
+import datetime
+import tempfile
+import shutil
+import filecmp
+import difflib
 
-def proc_data(sub, data_path, log_path):
-    # copy functional data into epitome-compatible structure
-    try:
-        niftis = filter(lambda x: 'nii.gz' in x, 
-                            os.listdir(os.path.join(data_path, 'nii', sub)))
-    except:
-        print('ERROR: No "nii" folder found for ' + str(sub))
-        raise ValueError
+arguments       = docopt(__doc__)
+inputdir        = arguments['<inputdir>']
+subjectsdir     = arguments['<FS_subjectsdir>']
+rawQCfile       = arguments['--QC-transfer']
+MULTI_T1        = arguments['--multiple-inputs']
+NO_SINK         = arguments['--do-not-sink']
+T1sinkdir       = arguments['--T1-sinkdir']
+T1_tag          = arguments['--T1-tag']
+TAG2            = arguments['--tag2']
+RUN_TAG         = arguments['--run-version']
+FS_option       = arguments['--FS-option']
+NO_POST         = arguments['--no-postFS']
+TESTDATMAN      = arguments['--use-test-datman']
+VERBOSE         = arguments['--verbose']
+DEBUG           = arguments['--debug']
+DRYRUN          = arguments['--dry-run']
 
-    try:
-        t1_data = filter(lambda x: 't1' in x.lower(), niftis)
-        t1_data.sort()
-    
-    except:
-        print('ERROR: No T1s found for ' + str(sub))
-        raise ValueError
+if DEBUG: print arguments
+#set default tag values
+if T1_tag == None: T1_tag = '_T1_'
+QCedTranfer = False if rawQCfile == None else True
+## if T1 sink directory is not specified - put it in the default place
+if T1sinkdir == None: T1sinkdir = os.path.join(os.path.dirname(subjectsdir),'t1')
 
-    # generate the freesurfer command (using all available T1s)
-    inputs = ''
-    for t1 in t1_data:
-        inputs = inputs + ' -i ' + os.path.join(data_path, 'nii', sub, t1)
+## set the basenames of the two run scripts
+if RUN_TAG == None:
+    runFSsh_name = 'run_freesurfer.sh'
+else:
+    runFSsh_name = 'run_freesurfer_' + RUN_TAG + '.sh'
+runPostsh_name = 'postfreesurfer.sh'
 
-    cmd = 'recon-all -all -notal-check -cw256 -subjid ' +  sub
-    cmd = cmd + inputs + ' -qcache'
+## two silly little things to find for the run script
 
-    # submit to queue
-    uid = ''.join(choice(ascii_uppercase + digits) for _ in range(6))
-    name = 'datman_fs_{sub}_{uid}'.format(sub=sub, uid=uid)
-    cmd = """echo {cmd} | qsub -o {log} -S /bin/bash -V -q main.q -cwd \
-             -N {name} -l mem_free=6G,virtual_free=6G -j y \
-          """.format(cmd=cmd, log=log_path, name=name)
-    dm.utils.run(cmd)
+### Erin's little function for running things in the shell
+def docmd(cmdlist):
+    "sends a command (inputed as a list) to the shell"
+    if DEBUG: print ' '.join(cmdlist)
+    if not DRYRUN: subprocess.call(cmdlist)
 
-    return name
-
-def run_dummy_q(list_of_names):
+# need to find the t1 weighted scan and update the checklist
+def find_T1images(archive_tag):
     """
-    This holds the script until all of the queued freesurfer items are done.
+    will look for new files in the inputdir
+    and add them to a list for the processing
+
+    archive_tag -- filename tag that can be used for search (i.e. '_T1_')
+    checklist -- the checklist pandas dataframe to update
     """
-    print('Holding for remaining freesurfer processes.')
-    cmd = ('echo sleep 30 | qsub -sync y -q main.q '   
-                              + '-hold_jid ' + ",".join(list_of_names))
-    dm.utils.run(cmd)
-    print('... Done.')
+    for i in range(0,len(checklist)):
+        sdir = os.path.join(inputdir,checklist['id'][i])
+	    #if T1 name not in checklist
+        if pd.isnull(checklist['T1_nii'][i]):
+            sfiles = []
+            for fname in os.listdir(sdir):
+                if archive_tag in fname:
+                    sfiles.append(fname)
 
-def export_data(sub, data_path):
+            if DEBUG: print "Found {} {} in {}".format(len(sfiles),archive_tag,sdir)
+            if len(sfiles) == 1:
+                checklist['T1_nii'][i] = sfiles[0]
+            elif len(sfiles) > 1:
+                if MULTI_T1:
+                    '''
+                    if multiple T1s are allowed (as per --multiple-inputs flag) - add to T1 file
+                    '''
+                    checklist['T1_nii'][i] = ';'.join(sfiles)
+                else:
+                    checklist['notes'][i] = "> 1 {} found".format(archive_tag)
+            elif len(sfiles) < 1:
+                checklist['notes'][i] = "No {} found.".format(archive_tag)
+
+
+### build a template .sh file that gets submitted to the queue
+def makeFreesurferrunsh(filename,prefix):
     """
-    Copies the deskulled T1 and masks to the t1/ directory.
+    builds a script in the subjectsdir (run.sh)
+    that gets submitted to the queue for each participant (in the case of 'doInd')
+    or that gets held for all participants and submitted once they all end (the concatenating one)
     """
-    cmd = 'mri_convert -it mgz -ot nii \
-           {data_path}/freesurfer/{sub}/mri/brain.mgz \
-           {data_path}/t1/{sub}_T1_TMP.nii.gz'.format(
-                                               data_path=data_path, 
-                                               sub=sub)
-    dm.utils.run(cmd)
+    bname = os.path.basename(filename)
+    if bname == runFSsh_name:
+        FS_STEP = 'FS'
+    if bname == runPostsh_name:
+        FS_STEP = 'Post'
 
-    cmd = '3daxialize \
-           -prefix {data_path}/t1/{sub}_T1.nii.gz \
-           -axial {data_path}/t1/{sub}_T1_TMP.nii.gz'.format(
-                                                  data_path=data_path, 
-                                                  sub=sub)
-    dm.utils.run(cmd)
+    #open file for writing
+    Freesurfersh = open(filename,'w')
+    Freesurfersh.write('#!/bin/bash\n\n')
 
-    cmd = 'mri_convert -it mgz -ot nii \
-           {data_path}/freesurfer/{sub}/mri/aparc+aseg.mgz \
-           {data_path}/t1/{sub}_APARC_TMP.nii.gz'.format(
-                                                  data_path=data_path, 
-                                                  sub=sub)
-    dm.utils.run(cmd)
+    Freesurfersh.write('# SGE Options\n')
+    Freesurfersh.write('#$ -S /bin/bash\n')
+    Freesurfersh.write('#$ -q main.q\n')
+    Freesurfersh.write('#$ -j y \n')
+    Freesurfersh.write('#$ -o '+ log_dir + ' \n')
+    Freesurfersh.write('#$ -e '+ log_dir + ' \n')
+    Freesurfersh.write('#$ -l mem_free=6G,virtual_free=6G\n\n')
 
-    cmd = '3daxialize \
-           -prefix {data_path}/t1/{sub}_APARC.nii.gz \
-           -axial {data_path}/t1/{sub}_APARC_TMP.nii.gz'.format(
-                                                     data_path=data_path, 
-                                                     sub=sub)
-    dm.utils.run(cmd)
+    Freesurfersh.write('#source the module system\n')
+    Freesurfersh.write('source /etc/profile\n\n')
 
-    cmd = 'mri_convert -it mgz -ot nii \
-           {data_path}/freesurfer/{sub}/mri/aparc.a2009s+aseg.mgz \
-           {data_path}/t1/{sub}_APARC2009_TMP.nii.gz'.format(
-                                                      data_path=data_path, 
-                                                      sub=sub)
-    dm.utils.run(cmd)
+    Freesurfersh.write('## this script was created by dm-proc-freesurfer.py\n\n')
+    ## can add section here that loads chosen CIVET enviroment
+    Freesurfersh.write('##load the Freesurfer enviroment\n')
+    Freesurfersh.write('module load freesurfer/5.3.0\n\n')
 
-    cmd = '3daxialize \
-           -prefix {data_path}/t1/{sub}_APARC2009.nii.gz \
-           -axial {data_path}/t1/{sub}_APARC2009_TMP.nii.gz'.format(
-                                                         data_path=data_path, 
-                                                         sub=sub)
-    dm.utils.run(cmd)
+    Freesurfersh.write('\nexport SUBJECTS_DIR=' + subjectsdir + '\n\n')
+    ## write the freesurfer running bit
+    if FS_STEP == 'FS':
 
-    cmd = 'rm {data_path}/t1/{sub}*_TMP.nii.gz'.format(
-                                                data_path=data_path, 
-                                                sub=sub)
-    dm.utils.run(cmd)
+        Freesurfersh.write('SUBJECT=${1}\n')
+        Freesurfersh.write('T1MAPS=${2}\n')
+        ## add the engima-dit command
 
-def main(base_path):
+        Freesurfersh.write('\nrecon-all -all -notal-check -cw256 ')
+        if FS_option != None:
+            Freesurfersh.write(FS_option + ' ')
+        Freesurfersh.write('-subjid ${SUBJECT} ${T1MAPS}' + ' -qcache\n')
+
+    ## write the post freesurfer bit
+    if FS_STEP == 'Post':
+        # The dm-freesurfer-sink.py bit requires datman
+        if TESTDATMAN:
+            Freesurfersh.write('module load /projects/edickie/privatemodules/datman/edickie\n\n')
+        else:
+            Freesurfersh.write('module load /archive/data-2.0/code/datman.module\n\n')
+
+        ## to the sinking - unless told not to
+        if not NO_SINK:
+            Freesurfersh.write('module load AFNI/2014.12.161\n')
+            Freesurfersh.write('T1SINK=' + T1sinkdir + ' \n\n')
+            Freesurfersh.write('dm-freesurfer-sink.py ${SUBJECTS_DIR} ${T1SINK}\n\n')
+
+        ## add the engima-extract bits
+        Freesurfersh.write('ENGIMA_ExtractCortical.sh ${SUBJECTS_DIR} '+ prefix + '\n')
+        Freesurfersh.write('ENGIMA_ExtractSubcortical.sh ${SUBJECTS_DIR} '+ prefix + '\n')
+
+    #and...don't forget to close the file
+    Freesurfersh.close()
+
+### check the template .sh file that gets submitted to the queue to make sure option haven't changed
+def checkrunsh(filename,prefix):
     """
-    Essentially, runs freesurfer on brainz. :D
+    write a temporary (run.sh) file and than checks it againts the run.sh file already there
+    This is used to double check that the pipeline is not being called with different options
     """
-    # sets up relative paths
-    data_path = dm.utils.define_folder(os.path.join(base_path, 'data'))
-    nii_path = dm.utils.define_folder(os.path.join(data_path, 'nii'))
-    t1_path = dm.utils.define_folder(os.path.join(data_path, 't1'))
-    fs_path = dm.utils.define_folder(os.path.join(data_path, 'freesurfer'))
-    _ = dm.utils.define_folder(os.path.join(base_path, 'logs'))
-    log_path = dm.utils.define_folder(os.path.join(base_path, 'logs/freesurfer'))
-
-    # configure the freesurfer environment
-    os.environ['SUBJECTS_DIR'] = fs_path
-
-    list_of_names = []
-    subjects = dm.utils.get_subjects(nii_path)
-    for sub in subjects:
-
-        if dm.scanid.is_phantom(sub) == True: continue
-        if os.path.isdir(os.path.join(fs_path, sub)) == True: continue
-
-        try:
-            # run through freesurfer
-            name = proc_data(sub, data_path, log_path)
-            list_of_names.append(name)
-
-        except ValueError as ve:
-            print('ERROR: ' + str(sub) + ' !!!')
-
-    # wait for fresurfer to complete
-    dm.utils.run_dummy_q(list_of_names)
-
-    # copy anatomicals, masks to t1 folder
-    for sub in subjects:
-        if dm.scanid.is_phantom(sub) == True: continue
-    
-        if os.path.isfile(os.path.join(t1_path, sub + '_T1.nii.gz')) == False:
-            export_data(sub, data_path)
-
-if __name__ == "__main__":
-    if len(sys.argv) == 2:
-        main(sys.argv[1])
+    tempdir = tempfile.mkdtemp()
+    tmprunsh = os.path.join(tempdir,os.path.basename(filename))
+    makeFreesurferrunsh(tmprunsh,prefix)
+    if filecmp.cmp(filename, tmprunsh):
+        if DEBUG: print("{} already written - using it".format(filename))
     else:
-        print(__doc__)
+        # If the two files differ - then we use difflib package to print differences to screen
+        print('#############################################################\n')
+        print('# Found differences in {} these are marked with (+) '.format(filename))
+        print('#############################################################')
+        with open(filename) as f1, open(tmprunsh) as f2:
+            differ = difflib.Differ()
+            print(''.join(differ.compare(f1.readlines(), f2.readlines())))
+        sys.exit("\nOld {} doesn't match parameters of this run....Exiting".format(filename))
+    shutil.rmtree(tempdir)
 
+####set checklist dataframe structure here
+#because even if we do not create it - it will be needed for newsubs_df (line 80)
+def loadchecklist(checklistfile,subjectlist):
+    """
+    Reads the checklistfile (normally called Freesurfer-DTI-checklist.csv)
+    if the checklist csv file does not exit, it will be created.
+
+    This also checks if any subjects in the subjectlist are missing from the checklist,
+    (checklist.id column)
+    If so, they are appended to the bottom of the dataframe.
+    """
+
+    cols = ['id', 'T1_nii', 'date_ran','qc_rator', 'qc_rating', 'notes']
+
+    # if the checklist exists - open it, if not - create the dataframe
+    if os.path.isfile(checklistfile):
+    	checklist = pd.read_csv(checklistfile, sep=',', dtype=str, comment='#')
+    else:
+    	checklist = pd.DataFrame(columns = cols)
+
+    # new subjects are those of the subject list that are not in checklist.id
+    newsubs = list(set(subjectlist) - set(checklist.id))
+
+    # add the new subjects to the bottom of the dataframe
+    newsubs_df = pd.DataFrame(columns = cols, index = range(len(checklist),len(checklist)+len(newsubs)))
+    newsubs_df.id = newsubs
+    checklist = checklist.append(newsubs_df)
+
+    # return the checklist as a pandas dataframe
+    return(checklist)
+
+def get_qced_subjectlist(qcchecklist):
+    """
+    reads the QC checklist and returns a list of all subjects who have passed QC
+    """
+    qcedlist = []
+    if os.path.isfile(rawQCfile):
+        with open(rawQCfile) as f:
+            for line in f:
+                line = line.strip()
+                if len(line.split(' ')) > 1:
+                    pdf = line.split(' ')[0]
+                    subid = pdf.replace('.pdf','')[3:]
+                    qcedlist.append(subid)
+    else:
+        sys.exit("QC file for transfer not found. Try again.")
+    ## return the qcedlist (as a list)
+    return qcedlist
+
+
+######## NOW START the 'main' part of the script ##################
+## make the putput directory if it doesn't exist
+subjectsdir = os.path.abspath(subjectsdir)
+log_dir = os.path.join(subjectsdir,'logs')
+run_dir = os.path.join(subjectsdir,'bin')
+dm.utils.makedirs(log_dir)
+dm.utils.makedirs(run_dir)
+
+## find those subjects in input who have not been processed yet
+subids_in_nii = dm.utils.get_subjects(inputdir)
+subids_in_nii = [ v for v in subids_in_nii if "PHA" not in v ] ## remove the phantoms from the list
+## filters for --tag2 if it was specified
+if TAG2 != None:
+    subids_in_nii = [ v for v in subids_in_nii if TAG2 in v ]
+if QCedTranfer:
+    # if a QC checklist exists, than read it and only process those participants who passed QC
+    qcedlist = get_qced_subjectlist(rawQCfile)
+    subids_in_nii = list(set(subids_in_nii) & set(qcedlist)) ##now only add it to the filelist if it has been QCed
+
+## writes a standard Freesurfer-DTI running script for this project (if it doesn't exist)
+## the script requires a OUTDIR and MAP_BASE variables - as arguments $1 and $2
+## also write a standard script to concatenate the results at the end (script is held while subjects run)
+prefix = subids_in_nii[0][0:3]
+for runfilename in [runFSsh_name,runPostsh_name]:
+    runsh = os.path.join(run_dir,runfilename)
+    if os.path.isfile(runsh):
+        ## create temporary run file and test it against the original
+        checkrunsh(runsh,prefix)
+    else:
+        ## if it doesn't exist, write it now
+        makeFreesurferrunsh(runsh,prefix)
+
+## create an checklist for the T1 maps
+checklistfile = os.path.normpath(subjectsdir+'/freesurfer-checklist.csv')
+checklist = loadchecklist(checklistfile,subids_in_nii)
+
+## look for new subs using T1_tag and tag2
+find_T1images(T1_tag)
+
+## now checkoutputs to see if any of them have been run
+#if yes update spreadsheet
+#if no submits that subject to the queue
+jobnames = []
+## should be in the right run dir so that it submits without the full path
+os.chdir(run_dir)
+for i in range(0,len(checklist)):
+    subid = checklist['id'][i]
+    ## make sure that is TAG2 was called - only the tag2s are going to queue
+    if (TAG2 == None) | (TAG2 in subid):
+        # if all input files are found - check if an output exists
+        if pd.isnull(checklist['T1_nii'][i])==False:
+            FScomplete = os.path.join(subjectsdir,subid,'scripts','recon-all.done')
+            FSrunning = os.path.join(subjectsdir,subid,'scripts','recon-all.done')
+            # if no output exists than run engima-dti
+            if os.path.isfile(FScomplete)== False & os.path.isfile(FSrunning)==False:
+
+                ##  set up params
+                jobname = 'FS_' + subid
+                smap = checklist['T1_nii'][i]
+
+                ## if multiple inputs in smap - need to parse
+                if ';' in smap:
+                    base_smaps = smap.split(';')
+                else: base_smaps = [smap]
+                T1s = []
+                for basemap in base_smaps:
+                    T1s.append(os.path.join(inputdir,subid,basemap))
+
+                jobname = 'FS_' + subid
+                docmd(['qsub','-N', jobname,  \
+                         runFSsh_name, \
+                         subid, \
+                         "'" + ' '.join(T1s) + "'"])
+                checklist['date_ran'][i] = datetime.date.today()
+                jobnames.append(jobname)
+
+
+### if more that 30 subjects have been submitted to the queue,
+### use only the last 30 submitted as -hold_jid arguments
+if len(jobnames) > 30 : jobnames = jobnames[-30:]
+## if any subjects have been submitted,
+## submit a final job that will consolidate the resutls after they are finished
+if not NO_POST:
+    if len(jobnames) > 0:
+        #if any subjects have been submitted - submit an extract consolidation job to run at the end
+        os.chdir(run_dir)
+        docmd(['qsub', '-N', 'postFS',  \
+            '-hold_jid', ','.join(jobnames), \
+            runPostsh_name])
+
+## write the checklist out to a file
+checklist.to_csv(checklistfile, sep=',', index = False)
