@@ -157,15 +157,19 @@ for site in SiteNames:
     runsh.write('  xnat-extract.py ' + \
         '--blacklist ${PROJECTDIR}/metadata/blacklist.csv ' + \
         '--datadir ${PROJECTDIR}/data '\
-        '--exportinfo ${PROJECTDIR}/metadata/exportinfo-' + site + \
-        site + '.csv ${XNAT_ARCHIVE_' + site + '}/*\n')
+        '--exportinfo ${PROJECTDIR}/metadata/exportinfo.csv '+ \
+        '${XNAT_ARCHIVE_' + site + '}/*\n')
 ## load modules for file conversion
 runsh.write('  module unload slicer/4.4.0 mricron/0.20140804 minc-toolkit/1.0.01\n')
 
 ## do the dicom header check
 runsh.write('\n  message "Checking DICOM headers... "\n')
-for site in SiteNames:
-    runsh.write('  dm-check-headers.py ${' + site + '_STANDARD} ' + \
+for sitedict in config['Sites']:
+    site = config['Sites'][0].keys()[0]
+    runsh.write('  dm-check-headers.py ')
+    if 'Ingnore_Headers' in sitedict[site].keys():
+        runsh.write('--ignore-headers '+ ','.join(sitedict[site]['Ingnore_Headers']) + ' ')
+    runsh.write('${' + site + '_STANDARD} ' + \
         '${PROJECTDIR}/dcm/' + config['PREFIX'] + '_' + site + '_*\n')
 
 ## do the gradient directions check
@@ -177,13 +181,7 @@ else:
         runsh.write('  dm-check-bvecs.py ${PROJECTDIR} ${' + site + '_STANDARD} ' + site + '\n')
 
 ## load all the pipeline tools
-runsh.write('\n  module load AFNI/2014.12.16 \n')
-runsh.write('  module load FSL/5.0.7 \n')
-runsh.write('  module load matlab/R2013b_concurrent\n')
-runsh.write('  module load freesurfer/5.3.0 \n')
-runsh.write('  module load python/2.7.9-anaconda-2.1.0-150119 \n')
-runsh.write('  module load python-extras/2.7.9\n')
-runsh.write('  export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer\n\n')
+runsh.write('\n  module load AFNI/2014.12.16 FSL/5.0.7 matlab/R2013b_concurrent \n\n')
 
 ## generate qc ness
 runsh.write('  message "Generating QC documents..."\n')
@@ -198,6 +196,8 @@ if config['PipelineSettings'] != None:
             config['PipelineSettings']['qc-phantom.py']['Sites'] + '\n')
         runsh.write('  web-build.py ${PROJECTDIR} \n\n')
 
+runsh.write('\n  module unload AFNI/2014.12.16 FSL/5.0.7 matlab/R2013b_concurrent \n\n')
+
 ## pushing stuff to git hub
 runsh.write('  message "Pushing QC documents to github..."\n')
 runsh.write('  ( # subshell invoked to handle directory change\n')
@@ -209,51 +209,61 @@ runsh.write('    git push --quiet\n')
 runsh.write('  )\n\n')
 
 ## pushing website ness
-runsh.write('  message "Pushing website data to github..."\n')
-runsh.write('  (  \n')
-runsh.write('    cd ${PROJECTDIR}/website\n')
-runsh.write('    git add .\n')
-runsh.write('    git commit -m "Updating QC plots"\n')
-runsh.write('    git push --quiet\n')
-runsh.write('  )\n\n')
+if config['PipelineSettings'] != None:
+    if 'qc-phantom.py' in config['PipelineSettings'].keys():
+        runsh.write('  message "Pushing website data to github..."\n')
+        runsh.write('  (  \n')
+        runsh.write('    cd ${PROJECTDIR}/website\n')
+        runsh.write('    git add .\n')
+        runsh.write('    git commit -m "Updating QC plots"\n')
+        runsh.write('    git push --quiet\n')
+        runsh.write('  )\n\n')
 
 if 'PDT2' in ScanTypes:
     runsh.write('  message "Split the PDT2 images..."\n')
-    runsh.write('  (\n   dm-proc-split-pdt2.py ${PROJECTDIR}/data/nii/*/*_PDT2_*.nii.gz\n  )\n\n')
+    runsh.write('  (\n   module load FSL/5.0.7 \n')
+    runsh.write('  dm-proc-split-pdt2.py ${PROJECTDIR}/data/nii/*/*_PDT2_*.nii.gz\n')
+    runsh.write('  module unload FSL/5.0.7\n  )\n\n')
 
 if 'DTI60-1000' in ScanTypes:
     runsh.write('  message "Running dtifit..."\n')
+    runsh.write('  module load FSL/5.0.7 \n')
     runsh.write('  dm-proc-dtifit.py --datadir ${PROJECTDIR}/data/ --outputdir ${PROJECTDIR}/data/dtifit\n\n')
 
     runsh.write('  message "Running ditfit qc..."\n')
     runsh.write('  dtifit-qc.py --tag DTI60 ${PROJECTDIR}/data/dtifit/\n\n')
 
     runsh.write('  message "Running enignmaDTI..."\n')
-    runsh.write('  dm-proc-enigmadti.py --calc-all --QC-transfer ${PROJECTDIR}/metadata/checklist.csv ${PROJECTDIR}/data/dtifit ${PROJECTDIR}/data/enigmaDTI\n\n')
+    runsh.write('  dm-proc-enigmadti.py --calc-all --tag2 "DTI60" --QC-transfer ${PROJECTDIR}/metadata/checklist.csv ${PROJECTDIR}/data/dtifit ${PROJECTDIR}/data/enigmaDTI\n\n')
+    runsh.write('  module unload FSL/5.0.7 \n\n')
 
 if 'T1' in ScanTypes:
     runsh.write('  message "Running freesurfer..."\n')
+    runsh.write('  module load freesurfer/5.3.0 \n')
+    runsh.write('  export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer\n\n')
     runsh.write('  dm-proc-freesurfer.py ${PROJECTDIR}\n\n')
+    runsh.write('  module unload freesurfer/5.3.0 \n')
 
-if 'EMP' in ScanTypes:
-    runsh.write('  message "Analyzing empathic accuracy data..."\n')
-    runsh.write('  dm-proc-ea.py ${PROJECTDIR} /scratch/clevis /archive/data-2.0/code/datman/assets/150409-compcor-nonlin-8fwhm.sh ${PROJECTDIR}/metadata/design\n\n')
+if len(set(['EMP','OBS','IMI','RST']).intersection(ScanTypes)) > 0:
+    # load modules for epitome
+    runsh.write('  module load freesurfer/5.3.0\n')
+    runsh.write('  module load AFNI/2014.12.16 FSL/5.0.7 matlab/R2013b_concurrent \n')
+    runsh.write('  export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer\n\n')
 
-if ('IMI' in ScanTypes) & ('OBS' in ScanTypes):
-    runsh.write('  message "Analyzing imitate observe data..."\n')
-    runsh.write('  dm-proc-imob.py ${PROJECTDIR} /scratch/clevis /archive/data-2.0/code/datman/assets/150409-compcor-nonlin-8fwhm.sh ${PROJECTDIR}/metadata/design\n\n')
+    if 'EMP' in ScanTypes:
+        runsh.write('  message "Analyzing empathic accuracy data..."\n')
+        runsh.write('  dm-proc-ea.py ${PROJECTDIR} /scratch/clevis /archive/data-2.0/code/datman/assets/150409-compcor-nonlin-8fwhm.sh ${PROJECTDIR}/metadata/design\n\n')
 
-if 'RST' in ScanTypes:
-    runsh.write('  message "Analyzing resting state data..."\n')
-    runsh.write('  dm-proc-rest.py ${PROJECTDIR} /scratch/clevis /archive/data-2.0/code/datman/assets/150409-compcor-nonlin-8fwhm.sh ${PROJECTDIR}/metadata/design\n\n')
+    if ('IMI' in ScanTypes) & ('OBS' in ScanTypes):
+        runsh.write('  message "Analyzing imitate observe data..."\n')
+        runsh.write('  dm-proc-imob.py ${PROJECTDIR} /scratch/clevis /archive/data-2.0/code/datman/assets/150409-compcor-nonlin-8fwhm.sh ${PROJECTDIR}/metadata/design\n\n')
 
-### unload all the modules
-runsh.write('  module unload AFNI/2014.12.16 \n')
-runsh.write('  module unload FSL/5.0.7\n')
-runsh.write('  module unload matlab/R2013b_concurrent\n')
-runsh.write('  module unload freesurfer/5.3.0 \n')
-runsh.write('  module unload python/2.7.9-anaconda-2.1.0-150119 \n')
-runsh.write('  module unload python-extras/2.7.9\n\n')
+    if 'RST' in ScanTypes:
+        runsh.write('  message "Analyzing resting state data..."\n')
+        runsh.write('  dm-proc-rest.py ${PROJECTDIR} /scratch/clevis /archive/data-2.0/code/datman/assets/150409-compcor-nonlin-8fwhm.sh ${PROJECTDIR}/metadata/design\n\n')
+    # unload modules for epitome
+    runsh.write('  module unload freesurfer/5.3.0\n')
+    runsh.write('  module unload AFNI/2014.12.16 FSL/5.0.7 matlab/R2013b_concurrent \n\n')
 
 ### tee out a log
 runsh.write('  message "Done."\n')
