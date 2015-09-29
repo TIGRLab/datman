@@ -1,109 +1,132 @@
 #!/usr/bin/env python
 """
-dm-check-bvecs.py <experiment-directory> <gold-directory> <site>
-
 For each subject, ensures the dicom data's headers in the xnat database
 are similar to those in the supplied gold-standard folder.
 
-If 'site' is supplied, this will only check files that match the supplied
-site code (e.g., 'CMH', 'MRC', etc.)
+Usage:
+    dm-check-bvecs.py [options] <standards> <logs> <blacklist> <exam>...
 
-logs in <data_path>/logs/goldstd.
+Arguments: 
+    <standards/>            Folder with subfolders named by tag. Each subfolder
+                            has a sample gold standard dicom file for that tag.
+
+    <logs/>                 Folder to contain the outputs (specific errors found)
+                            of this script.
+
+    <blacklist>             YAML file for recording ignored / processed series.
+
+    <exam/>                 Folder with one dicom file sample from each series
+                            to check
+
+Options: 
+    --verbose               Print warnings
+
+DETAILS
+    
+    Outputs a mismatch warning per subject to STDOUT.
+    Outputs the full diff of the mismatche to logs/subjectname.log
+    Records analyzed subjects to the blacklist (so these warnings are not continually produced).
+
 """
 
 import datman as dm
+from docopt import docopt
 import numpy as np
 from subprocess import Popen, PIPE
 import os, sys
 import glob
 import datetime
-import logging
 
-def diff_files(sub, nii_path, gold_path, log_path):
-    """
-    Diffs .bvec and .bvals.
-    """
-    # make a kewl log
+def diff_files(examdir, standardsdir, logsdir, blacklist):
+
     date = datetime.date.today()
-    log = '{log_path}/{strfdate}.log'.format(log_path=log_path,
-                                             strfdate=date.strftime('%y%m%d'))
-    logging.basicConfig(filename=log,level=logging.DEBUG)
+    logfile = os.path.join(logsdir, os.path.basename(examdir)) + '.log'
+    
+    errors = 0
       
     # get list of .bvecs
-    bvecs = glob.glob(os.path.join(nii_path, sub) + '/*.bvec')
+    bvecs = glob.glob('{}/*.bvec'.format(examdir))
     for b in bvecs:
         tag = dm.scanid.parse_filename(os.path.basename(b))[1]
-        test = glob.glob(os.path.join(gold_path, tag) + '/*.bvec')
+        test = glob.glob(os.path.join(standardsdir, tag) + '/*.bvec')
+        
         if len(test) > 1:
-            print('ERROR: more than one gold standard BVEC file!')
-            raise ValueError
+            print('ERROR: [dm-check-bvecs] more than one goldSTD BVEC file for TAG = {}.'.format(tag))
+            sys.exit()
+        
         if len(test) == 0:
-            print('ERROR: No goldSTD found for ' + tag + ', SUBJ= ' + sub)
-            continue
+            print('ERROR: [dm-check-bvecs] No goldSTD BVEC found for TAG = {}.'.format(tag))
+            sys.exit()
         else:
             p = Popen(['diff', b, test[0]], stdout=PIPE, stderr=PIPE)
             out, err = p.communicate()
+       
         if len(out) > 0:
-            print(b + ': TAG = ' + tag + ' BVEC DIFF.')
-            logging.warning(b + ': TAG = ' + tag + ' BVEC DIFF:')
-            logging.warning(out)
+            with open(logfile, "a") as fname:
+                fname.write('{} : TAG = {} BVEC DIFF:\n{}\n'.format(b, tag, out))
+            errors = errors + 1
 
     # get a list of .bvals
-    bvals = glob.glob(os.path.join(nii_path, sub) + '/*.bval') 
+    bvals = glob.glob('{}/*.bval'.format(examdir)) 
     for b in bvals:
         tag = dm.scanid.parse_filename(os.path.basename(b))[1]
-        test = glob.glob(os.path.join(gold_path, tag) + '/*.bval')
+        test = glob.glob(os.path.join(standardsdir, tag) + '/*.bval')
+        
         if len(test) > 1:
-            print('ERROR: more than one gold standard BVAL file!')
-            raise ValueError
+            print('ERROR: [dm-check-bvecs] more than one gold standard BVAL file for TAG = {}'.format(tag))
+            sys.exit()
+
         if len(test) == 0:
-            continue
+            print('ERROR: [dm-check-bvecs] No goldSTD BVAL found for TAG = {}.'.format(tag))
+            sys.exit()
         else:
             p = Popen(['diff', b, test[0]], stdout=PIPE, stderr=PIPE)
             out, err = p.communicate()
+        
         if len(out) > 0:
-            print(b + ': TAG = ' + tag + ' BVAL DIFF.')
-            logging.warning(b + ': TAG = ' + tag + ' BVAL DIFF:')
-            logging.warning(out)
+            with open(logfile, "a") as fname:
+                fname.write('{} : TAG = {} BVAL DIFF:\n{}\n'.format(b, tag, out))
+            errors = errors + 1
 
-def main(base_path, gold_path, site=None):
-    """
-    Iterates through subjects, finds DTI data, and compares with gold-stds.
-    """
-    # sets up paths
-    data_path = dm.utils.define_folder(os.path.join(base_path, 'data'))
-    nii_path = dm.utils.define_folder(os.path.join(data_path, 'nii'))
-    _ = dm.utils.define_folder(os.path.join(base_path, 'logs'))
-    log_path = dm.utils.define_folder(os.path.join(base_path, 'logs/goldstd'))
+    return errors
 
-    subjects = dm.utils.get_subjects(nii_path)
+def main():
+    global VERBOSE
 
-    # loop through subjects
-    for sub in subjects:
-        
-        # skip phantoms
-        if dm.scanid.is_phantom(sub) == True: 
+    arguments    = docopt(__doc__)
+    standardsdir = arguments['<standards>']
+    logsdir      = arguments['<logs>']
+    examdirs     = arguments['<exam>']
+    blacklist    = arguments['<blacklist>']
+    VERBOSE      = arguments['--verbose']
+
+    logsdir = dm.utils.define_folder(logsdir)
+
+    # check inputs
+    if os.path.isdir(logsdir) == False:
+        print('ERROR: [dm-check-bvecs] Log directory {} does not exist'.format(logsdir))
+        sys.exit()
+    if os.path.isdir(standardsdir) == False:
+        print('ERROR: [dm-check-bvecs] Standards directory {} does not exist'.format(standardsdir))
+        sys.exit()
+
+    dm.yamltools.touch_blacklist_stage(blacklist, 'dm-check-bvecs')
+
+    # remove phantoms from examdirs
+    examdirs = filter(lambda x: '_PHA_' not in x, examdirs)
+    try:
+        ignored_series = dm.yamltools.list_series(blacklist, 'dm-check-bvecs')
+    except:
+        ignored_series = []
+
+    for examdir in examdirs:
+        if os.path.basename(examdir) in ignored_series:
             continue
-        
-        # if a site is supplied, only look at those subjects
-        test = dm.scanid.parse(sub + '_01')
-        if site != None and test.site != site: 
-            continue
-        
-        try:
-            # pre-process the data
-            diff_files(sub, nii_path, gold_path, log_path)
+        errors = diff_files(examdir, standardsdir, logsdir, blacklist)
+        dm.yamltools.blacklist_series(blacklist, 'dm-check-bvecs', os.path.basename(examdir), 'done')
 
-        except ValueError as ve:
-            print('ERROR: ' + str(sub) + ' !!!')
+        if errors > 0:
+            print('ERROR: [dm-check-bvecs] {} BVEC/BVAL mismatches for {}'.format(errors, os.path.basename(examdir)))
 
 if __name__ == '__main__':
-    if len(sys.argv) == 3:
-        # no site supplied
-        main(sys.argv[1], sys.argv[2])
-    elif len(sys.argv) == 4:
-        # site supplied
-        main(sys.argv[1], sys.argv[2], sys.argv[3])
-    else:
-        print(__doc__)
-
+    main()

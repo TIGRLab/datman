@@ -34,6 +34,13 @@ SERIES_TAGS_MAP = {
 "Loc"        :  "LOC",
 } 
 
+def get_subject_from_filename(filename):
+    filename = os.path.basename(filename)
+    filename = filename.split('_')[0:5]
+    filename = '_'.join(filename)
+
+    return filename
+
 def guess_tag(description, tagmap = SERIES_TAGS_MAP): 
     """
     Given a series description return a list of series tags this might be.

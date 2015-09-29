@@ -19,7 +19,7 @@ Arguments:
                             to check
 
 Options: 
-    --verbose               Don't print warnings
+    --verbose               Print warnings
     --ignore-headers LIST   Comma delimited list of headers to ignore
 
 DETAILS
@@ -105,13 +105,6 @@ decimal_tolerances = {
         'RepetitionTime': 1
 }
 
-def get_subject_from_filename(filename):
-    filename = os.path.basename(filename)
-    filename = filename.split('_')[0:5]
-    filename = '_'.join(filename)
-
-    return filename
-
 def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore, logsdir, errors):
     """
     Accepts two pydicom objects and prints out header value differences. 
@@ -146,7 +139,7 @@ def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore, logsdir, errors):
             difference = np.abs(stdval_rounded - cmpval_rounded)
 
             if difference > n:
-                with open(os.path.join(logsdir, get_subject_from_filename(cmppath) + '.log'), "a") as fname:
+                with open(os.path.join(logsdir, dm.utils.get_subject_from_filename(cmppath) + '.log'), "a") as fname:
                     fname.write(
                         "{}: header {}, expected = {}, actual = {} [tolerance = {}]\n".format(
                             cmppath, header, stdval_rounded, cmpval_rounded, n))
@@ -160,7 +153,7 @@ def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore, logsdir, errors):
             cmpval_rounded = round(float(cmpval), n)
 
             if stdval_rounded != cmpval_rounded:
-                with open(os.path.join(logsdir, get_subject_from_filename(cmppath) + '.log'), "a") as fname:
+                with open(os.path.join(logsdir, dm.utils.get_subject_from_filename(cmppath) + '.log'), "a") as fname:
                     fname.write(
                         "{}: header {}, expected = {}, actual = {} [tolerance = {}]\n".format(
                             cmppath, header, stdval_rounded, cmpval_rounded, n))
@@ -168,7 +161,7 @@ def compare_headers(stdpath, stdhdr, cmppath, cmphdr, ignore, logsdir, errors):
 
         # no tolerance set
         elif str(cmpval) != str(stdval):
-            with open(os.path.join(logsdir, get_subject_from_filename(cmppath) + '.log'), "a") as fname:
+            with open(os.path.join(logsdir, dm.utils.get_subject_from_filename(cmppath) + '.log'), "a") as fname:
                 fname.write(
                     "{}: header {}, expected = {}, actual = {}\n".format(
                         cmppath, header, stdval, cmpval))
@@ -193,7 +186,7 @@ def compare_exam_headers(stdmap, examdir, ignorelist, logsdir, ignored_series, b
     ignore = ignored_headers.union(ignorelist)
 
     try:
-        dm.utils.run('rm {}'.format(os.path.join(logsdir, get_subject_from_filename(cmppath) + '.log')))
+        dm.utils.run('rm {}'.format(os.path.join(logsdir, dm.utils.get_subject_from_filename(cmppath) + '.log')))
     except:
         pass
 
@@ -218,19 +211,18 @@ def compare_exam_headers(stdmap, examdir, ignorelist, logsdir, ignored_series, b
         dm.yamltools.blacklist_series(blacklist, 'dm-check-headers', os.path.basename(cmppath), 'done')
 
     if errors > 0:
-        print('ERROR: [dm-check-headers] {} header mismatches for {}'.format(errors, get_subject_from_filename(cmppath)))
+        print('ERROR: [dm-check-headers] {} header mismatches for {}'.format(errors, dm.utils.get_subject_from_filename(cmppath)))
 
 def main():
     global VERBOSE
-    arguments = docopt(__doc__)
 
-    VERBOSE = arguments['--verbose']
-
+    arguments    = docopt(__doc__)
     standardsdir = arguments['<standards>']
     logsdir      = arguments['<logs>']
     examdirs     = arguments['<exam>']
     blacklist    = arguments['<blacklist>']
     ignorelist   = arguments['--ignore-headers']
+    VERBOSE      = arguments['--verbose']
 
     logsdir = dm.utils.define_folder(logsdir)
 
@@ -242,12 +234,17 @@ def main():
         print('ERROR: [dm-check-headers] Standards directory {} does not exist'.format(standardsdir))
         sys.exit()
 
+    dm.yamltools.touch_blacklist_stage(blacklist, 'dm-check-headers')
+
     if ignorelist:
         ignorelist = ignorelist.split(",")
     else:
         ignorelist = []
 
-    ignored_series = dm.yamltools.list_series(blacklist, 'dm-check-headers')
+    try:
+        ignored_series = dm.yamltools.list_series(blacklist, 'dm-check-headers')
+    except:
+        ignored_series = []
     manifest = dm.utils.get_all_headers_in_folder(standardsdir, recurse=True)
    
     # map tag name to headers 

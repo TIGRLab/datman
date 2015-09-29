@@ -9,7 +9,6 @@ def load_yaml(filename):
     """
     Attempts to load a YAML file. Complains and exits if it fails.
     """
-
     try:
         with open(filename, 'r') as stream:
             data = yaml.load(stream)
@@ -23,7 +22,6 @@ def save_yaml(filename, data):
     """
     Saves a YAML file.
     """
-    
     try:
         with open(filename, 'w') as f:
             yaml.dump(data, f, default_flow_style=False)
@@ -36,7 +34,6 @@ def blacklist_series(filename, stage, series, message):
     Adds a series to the list of ignored for the defined stage of the pipeline in 
     the configuration file. It also appends a diagnostic message to the series.
     """
-
     # kickflip to create a recursive defaultdict, and register it with pyyaml
     tree = lambda: collections.defaultdict(tree)
     yaml.add_representer(collections.defaultdict, yaml.representer.Representer.represent_dict)
@@ -49,7 +46,6 @@ def whitelist_series(filename, stage, series):
     """
     Checks if a series in a particular stage is blacklisted. If so, this removes it.
     """
-
     # kickflip to create a recursive defaultdict, and register it with pyyaml
     tree = lambda: collections.defaultdict(tree)
     yaml.add_representer(collections.defaultdict, yaml.representer.Representer.represent_dict)
@@ -65,8 +61,18 @@ def list_series(filename, stage):
     """
     Returns all of the series from a stage as a list.
     """
-
     data = load_yaml(filename)
     serieslist = data['ignore'][stage].keys()
 
     return serieslist
+
+def touch_blacklist_stage(filename, stage):
+    """
+    Initializes a stage in the YAML file.
+    """
+    data = load_yaml(filename)
+    try:
+        _ = data['ignore'][stage]
+    except KeyError:
+        data['ignore'][stage] = {}
+        save_yaml(filename, data)
