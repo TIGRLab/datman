@@ -187,10 +187,11 @@ def makeFreesurferrunsh(filename,prefix):
     if FS_STEP == 'FS':
 
         Freesurfersh.write('SUBJECT=${1}\n')
-        Freesurfersh.write('T1MAPS=${2}\n')
+        Freesurfersh.write('shift\n')
+        Freesurfersh.write('T1MAPS=${@}\n')
         ## add the engima-dit command
 
-        Freesurfersh.write('\nrecon-all -all -notal-check -cw256 ')
+        Freesurfersh.write('\nrecon-all -all ')
         if FS_option != None:
             Freesurfersh.write(FS_option + ' ')
         Freesurfersh.write('-subjid ${SUBJECT} ${T1MAPS}' + ' -qcache\n')
@@ -354,13 +355,13 @@ for i in range(0,len(checklist)):
                 else: base_smaps = [smap]
                 T1s = []
                 for basemap in base_smaps:
+                    T1s.append('-i')
                     T1s.append(os.path.join(inputdir,subid,basemap))
 
                 jobname = 'FS_' + subid
                 docmd(['qsub','-N', jobname,  \
                          runFSsh_name, \
-                         subid, \
-                         "'" + ' '.join(T1s) + "'"])
+                         subid, ' '.join(T1s)])
                 checklist['date_ran'][i] = datetime.date.today()
                 jobnames.append(jobname)
 
