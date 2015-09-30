@@ -52,7 +52,7 @@ with open(config_yml, 'r') as stream:
     config = yaml.load(stream)
 
 ## check that the expected keys are there
-ExpectedKeys = ['MRUSER','StudyName','PROJECTDIR','Sites','XNAT_PROJECT','PREFIX']
+ExpectedKeys = ['MRUSER','StudyName','PROJECTDIR','Sites','ExportInfo']
 diffs = set(ExpectedKeys) - set(config.keys())
 if len(diffs) > 0:
     sys.exit("configuration file missing {}".format(diffs))
@@ -67,15 +67,19 @@ SiteNames = []
 for site in config['Sites']:
     SiteNames.append(site.keys()[0])
 
-## read export info
-exportinfofile = os.path.join(projectdir,'metadata','exportinfo.csv')
-if not os.path.isfile(exportinfofile):
-    sys.exit("Can't find exportinfofile {}".format(exportinfofile))
+## sets some variables using defaults if not given
+if 'XNAT_PROJECT' in config.keys():
+    XNAT_PROJECT = config['XNAT_PROJECT']
 else:
-    exportinfo = pd.read_csv(exportinfofile, sep='\s*',engine='python')
+    XNAT_PROJECT = config['StudyName']
 
-## get ScanTypes from exportinfo 'tags' column
-ScanTypes = exportinfo.tag.tolist()
+if 'PREFIX' in config.keys():
+    PREFIX = config['PREFIX']
+else:
+    PREFIX = config['StudyName']
+
+## read export info
+ScanTypes = config['ExportInfo'].keys()
 
 ## unless an outputfile is specified, set the output to ${PROJECTDIR}/bin/run.sh
 if outputfile == None:
@@ -96,7 +100,7 @@ runsh.write('#!/#\n#!/#\n')
 
 ## write the top bit
 runsh.write('export STUDYNAME=' + config['StudyName'] + '     # Data archive study name\n')
-runsh.write('export XNAT_PROJECT=' + config['XNAT_PROJECT'] + '  # XNAT project name\n')
+runsh.write('export XNAT_PROJECT=' + XNAT_PROJECT + '  # XNAT project name\n')
 runsh.write('export MRUSER=' + config['MRUSER'] +'         # MR Unit FTP user\n')
 runsh.write('export PROJECTDIR='+ projectdir +'\n')
 
@@ -170,7 +174,7 @@ for sitedict in config['Sites']:
     if 'Ingnore_Headers' in sitedict[site].keys():
         runsh.write('--ignore-headers '+ ','.join(sitedict[site]['Ingnore_Headers']) + ' ')
     runsh.write('${' + site + '_STANDARD} ' + \
-        '${PROJECTDIR}/dcm/' + config['PREFIX'] + '_' + site + '_*\n')
+        '${PROJECTDIR}/dcm/' + PREFIX + '_' + site + '_*\n')
 
 ## do the gradient directions check
 runsh.write('\n  message "Checking gradient directions..."\n')
@@ -179,6 +183,12 @@ if len(SiteNames) == 1:
 else:
     for site in SiteNames:
         runsh.write('  dm-check-bvecs.py ${PROJECTDIR} ${' + site + '_STANDARD} ' + site + '\n')
+
+### if specified - link the sprial scans
+if config['PipelineSettings'] != None:
+    if 'dm-link-sprl.sh' in config['PipelineSettings'].keys():
+        runsh.write('\n  message "Link spiral scans..."')
+        runsh.write('\n  dm-link-sprl.sh ${PROJECTDIR}/data\n')
 
 ## load all the pipeline tools
 runsh.write('\n  module load AFNI/2014.12.16 FSL/5.0.7 matlab/R2013b_concurrent \n\n')
@@ -221,7 +231,7 @@ if config['PipelineSettings'] != None:
 
 if 'PDT2' in ScanTypes:
     runsh.write('  message "Split the PDT2 images..."\n')
-    runsh.write('  (\n   module load FSL/5.0.7 \n')
+    runsh.write('  (\n  module load FSL/5.0.7 \n')
     runsh.write('  dm-proc-split-pdt2.py ${PROJECTDIR}/data/nii/*/*_PDT2_*.nii.gz\n')
     runsh.write('  module unload FSL/5.0.7\n  )\n\n')
 
@@ -239,10 +249,10 @@ if 'DTI60-1000' in ScanTypes:
 
 if 'T1' in ScanTypes:
     runsh.write('  message "Running freesurfer..."\n')
-    runsh.write('  module load freesurfer/5.3.0 \n')
-    runsh.write('  export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer\n\n')
-    runsh.write('  dm-proc-freesurfer.py ${PROJECTDIR}\n\n')
-    runsh.write('  module unload freesurfer/5.3.0 \n')
+    runsh.write('  dm-proc-freesurfer.py ' + \
+        '--FS-option \'-notal-check -cw256\' ' + \
+        '--QC-transfer ${PROJECTDIR}/metadata/checklist.csv ' + \
+        '${PROJECTDIR}/data/nii/ ${PROJECTDIR}/data/freesurfer/ \n\n')
 
 if len(set(['EMP','OBS','IMI','RST']).intersection(ScanTypes)) > 0:
     # load modules for epitome
