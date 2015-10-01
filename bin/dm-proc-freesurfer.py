@@ -206,7 +206,7 @@ def makeFreesurferrunsh(filename,prefix):
 
         ## to the sinking - unless told not to
         if not NO_SINK:
-            Freesurfersh.write('module load AFNI/2014.12.161\n')
+            Freesurfersh.write('module load AFNI/2014.12.16\n')
             Freesurfersh.write('T1SINK=' + T1sinkdir + ' \n\n')
             Freesurfersh.write('dm-freesurfer-sink.py ${SUBJECTS_DIR} ${T1SINK}\n\n')
 
