@@ -1,6 +1,19 @@
 #!/usr/bin/env python
 """
-dm-freesurfer-sink.py <subjectsdir> <t1directory>
+This converts some files from the freesurfer outputs into nifty for epitome scripts to use.
+
+Usage:
+    dm-freesurfer-sink.py [options] <subjectsdir> <t1directory>
+
+Arguments:
+    <subjectsdir>            The freesurfer SUBJECTS_DIR (output directory)
+    <t1directory>            Output directory for converted files
+
+Options:
+    -v,--verbose             Verbose logging
+    --debug                  Debug logging
+    -n,--dry-run             Dry run
+
 
 This converts some files from the freesurfer outputs into nifty for epitome scripts to use.
 
@@ -10,7 +23,7 @@ freesurfer outputs are expected to be in <subjectsdir>
 The converted files go into <t1directory>/data/t1
 
 """
-
+from docopt import docopt
 import os, sys
 import copy
 from random import choice
@@ -19,64 +32,77 @@ from string import ascii_uppercase, digits
 import numpy as np
 import datman as dm
 
-def export_data(sub, data_path):
+def export_data(sub, fs_path, t1_path):
     """
     Copies the deskulled T1 and masks to the t1/ directory.
     """
     cmd = 'mri_convert -it mgz -ot nii \
-           {data_path}/freesurfer/{sub}/mri/brain.mgz \
-           {data_path}/t1/{sub}_T1_TMP.nii.gz'.format(
-                                               data_path=data_path,
+           {fs_path}/{sub}/mri/brain.mgz \
+           {t1_path}/{sub}_T1_TMP.nii.gz'.format(
+                                               fs_path=fs_path,
+                                               t1_path=t1_path,
                                                sub=sub)
     dm.utils.run(cmd)
 
     cmd = '3daxialize \
-           -prefix {data_path}/t1/{sub}_T1.nii.gz \
-           -axial {data_path}/t1/{sub}_T1_TMP.nii.gz'.format(
-                                                  data_path=data_path,
+           -prefix {t1_path}/{sub}_T1.nii.gz \
+           -axial {t1_path}/{sub}_T1_TMP.nii.gz'.format(
+                                                  t1_path=t1_path,
                                                   sub=sub)
     dm.utils.run(cmd)
 
     cmd = 'mri_convert -it mgz -ot nii \
-           {data_path}/freesurfer/{sub}/mri/aparc+aseg.mgz \
-           {data_path}/t1/{sub}_APARC_TMP.nii.gz'.format(
-                                                  data_path=data_path,
+           {fs_path}/{sub}/mri/aparc+aseg.mgz \
+           {t1_path}/{sub}_APARC_TMP.nii.gz'.format(
+                                                  fs_path=fs_path,
+                                                  t1_path=t1_path,
                                                   sub=sub)
     dm.utils.run(cmd)
 
     cmd = '3daxialize \
-           -prefix {data_path}/t1/{sub}_APARC.nii.gz \
-           -axial {data_path}/t1/{sub}_APARC_TMP.nii.gz'.format(
-                                                     data_path=data_path,
+           -prefix {t1_path}/{sub}_APARC.nii.gz \
+           -axial {t1_path}/{sub}_APARC_TMP.nii.gz'.format(
+                                                     t1_path=t1_path,
                                                      sub=sub)
     dm.utils.run(cmd)
 
     cmd = 'mri_convert -it mgz -ot nii \
-           {data_path}/freesurfer/{sub}/mri/aparc.a2009s+aseg.mgz \
-           {data_path}/t1/{sub}_APARC2009_TMP.nii.gz'.format(
-                                                      data_path=data_path,
+           {fs_path}/{sub}/mri/aparc.a2009s+aseg.mgz \
+           {t1_path}/{sub}_APARC2009_TMP.nii.gz'.format(
+                                                      fs_path=fs_path,
+                                                      t1_path=t1_path,
                                                       sub=sub)
     dm.utils.run(cmd)
 
     cmd = '3daxialize \
-           -prefix {data_path}/t1/{sub}_APARC2009.nii.gz \
-           -axial {data_path}/t1/{sub}_APARC2009_TMP.nii.gz'.format(
-                                                         data_path=data_path,
+           -prefix {t1_path}/{sub}_APARC2009.nii.gz \
+           -axial {t1_path}/{sub}_APARC2009_TMP.nii.gz'.format(
+                                                         t1_path=t1_path,
                                                          sub=sub)
     dm.utils.run(cmd)
 
-    cmd = 'rm {data_path}/t1/{sub}*_TMP.nii.gz'.format(
-                                                data_path=data_path,
+    cmd = 'rm {t1_path}/{sub}*_TMP.nii.gz'.format(
+                                                t1_path=t1_path,
                                                 sub=sub)
     dm.utils.run(cmd)
 
-def main(fs_path,t1_path):
+def main():
     """
-    Essentially, runs freesurfer on brainz. :D
+    Essentially, sets up t1 dir for epitomeness brainz. :D
     """
+    global VERBOSE
+    global DRYRUN
+    global DEBUG
+    arguments    = docopt(__doc__)
+    fs_path      = arguments['<subjectsdir>']
+    t1_path      = arguments['<t1directory>']
+    VERBOSE      = arguments['--verbose']
+    DEBUG        = arguments['--debug']
+    DRYRUN       = arguments['--dry-run']
+
     # sets up relative paths
     fs_path = os.path.normpath(fs_path)
-    t1_path = dm.utils.define_folder(os.path.normpath(t1path))
+    t1_path = dm.utils.define_folder(os.path.normpath(t1_path))
 
     # configure the freesurfer environment
     os.environ['SUBJECTS_DIR'] = fs_path
@@ -89,10 +115,7 @@ def main(fs_path,t1_path):
         if dm.scanid.is_phantom(sub) == True: continue
 
         if os.path.isfile(os.path.join(t1_path, sub + '_T1.nii.gz')) == False:
-            export_data(sub, data_path)
+            export_data(sub, fs_path, t1_path)
 
-if __name__ == "__main__":
-    if len(sys.argv) == 3:
-        main(sys.argv[1],sys.argv[2])
-    else:
-        print(__doc__)
+if __name__ == '__main__':
+    main()
