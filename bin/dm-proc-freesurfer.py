@@ -21,6 +21,7 @@ Options:
   --FS-option STR          A quoted string of an non-default freesurfer option to add.
   --run-version STR        A version string that is appended to 'run_freesurfer_<tag>.sh' for mutliple versions
   --QC-transfer QCFILE     QC checklist file - if this option is given than only QCed participants will be processed.
+  --prefix STR             A prefix string (used by the ENIGMA Extract) to filter to subject ids.
   --use-test-datman        Use the version of datman in Erin's test environment. (default is '/archive/data-2.0/code/datman.module')
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
@@ -56,6 +57,8 @@ outputs show up in the same folder in the end). The run version string is append
 to the freesurfer_run.sh script name. Which allows for mutliple freesurfer_run.sh
 scripts to exists in the bin folder.
 
+
+
 Will load freesurfer in queue:
 module load freesurfer/5.3.0
 (also requires the datmat python enviroment)
@@ -90,6 +93,7 @@ T1_tag          = arguments['--T1-tag']
 TAG2            = arguments['--tag2']
 RUN_TAG         = arguments['--run-version']
 FS_option       = arguments['--FS-option']
+prefix          = arguments['--prefix']
 NO_POST         = arguments['--no-postFS']
 POSTFS_ONLY     = arguments['--postFS-only']
 TESTDATMAN      = arguments['--use-test-datman']
@@ -155,7 +159,7 @@ def find_T1images(archive_tag):
 
 
 ### build a template .sh file that gets submitted to the queue
-def makeFreesurferrunsh(filename,prefix):
+def makeFreesurferrunsh(filename):
     """
     builds a script in the subjectsdir (run.sh)
     that gets submitted to the queue for each participant (in the case of 'doInd')
@@ -223,14 +227,14 @@ def makeFreesurferrunsh(filename,prefix):
     Freesurfersh.close()
 
 ### check the template .sh file that gets submitted to the queue to make sure option haven't changed
-def checkrunsh(filename,prefix):
+def checkrunsh(filename):
     """
     write a temporary (run.sh) file and than checks it againts the run.sh file already there
     This is used to double check that the pipeline is not being called with different options
     """
     tempdir = tempfile.mkdtemp()
     tmprunsh = os.path.join(tempdir,os.path.basename(filename))
-    makeFreesurferrunsh(tmprunsh,prefix)
+    makeFreesurferrunsh(tmprunsh)
     if filecmp.cmp(filename, tmprunsh):
         if DEBUG: print("{} already written - using it".format(filename))
     else:
@@ -313,20 +317,21 @@ if QCedTranfer:
     qcedlist = get_qced_subjectlist(rawQCfile)
     subids_in_nii = list(set(subids_in_nii) & set(qcedlist)) ##now only add it to the filelist if it has been QCed
 
+# grab the prefix from the subid if not given
+if prefix == None: prefix = subids_in_nii[0][0:3]
 ## writes a standard Freesurfer-DTI running script for this project (if it doesn't exist)
 ## the script requires a OUTDIR and MAP_BASE variables - as arguments $1 and $2
 ## also write a standard script to concatenate the results at the end (script is held while subjects run)
-prefix = subids_in_nii[0][0:3]
 runscripts = [runFSsh_name,runPostsh_name]
 if POSTFS_ONLY: runscripts = [runPostsh_name]
 for runfilename in runscripts:
     runsh = os.path.join(run_dir,runfilename)
     if os.path.isfile(runsh):
         ## create temporary run file and test it against the original
-        checkrunsh(runsh,prefix)
+        checkrunsh(runsh)
     else:
         ## if it doesn't exist, write it now
-        makeFreesurferrunsh(runsh,prefix)
+        makeFreesurferrunsh(runsh)
 
 ## create an checklist for the T1 maps
 checklistfile = os.path.normpath(subjectsdir+'/freesurfer-checklist.csv')
@@ -384,7 +389,7 @@ if not POSTFS_ONLY:
 
 ## This will get all the jobids of using a prefix...
 time.sleep(5) ## sleep 5 seconds to make sure that everything is in the queue
-qstatcmd='qstat | grep FS_ | awk -F " " \'{print $1}\''
+qstatcmd='qstat | grep FS_' + prefix + '| awk -F " " \'{print $1}\''
 qstatcall = subprocess.Popen(qstatcmd,shell=True,stdout=subprocess.PIPE)
 joblist, err = qstatcall.communicate()
 joblist = joblist.replace('\n',',')
