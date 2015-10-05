@@ -591,9 +591,9 @@ def main():
 
     list_of_names = []
     tmpdict = {}
-    subjects = dm.utils.get_subjects(nii_path)
 
     # preprocess
+    subjects = dm.utils.get_subjects(nii_path)
     for sub in subjects:
         if dm.scanid.is_phantom(sub) == True: 
             continue
@@ -622,6 +622,8 @@ def main():
             continue
 
     # analyze
+    subjects = dm.utils.get_subjects(func_path)
+
     for sub in subjects:
         if dm.scanid.is_phantom(sub) == True: 
             continue
