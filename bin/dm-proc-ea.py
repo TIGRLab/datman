@@ -220,9 +220,13 @@ def match_lengths(a, b):
 
 def zscore(data):
     """
-    z-transforms input vector.
+    z-transforms input vector. If this fails, return a vector of zeros.
     """
-    data = (data - np.mean(data)) / np.std(data)
+    datalength = len(data)
+    try:
+        data = (data - np.mean(data)) / np.std(data)
+    except:
+        data = np.zeros(datalen)
 
     return data
 
