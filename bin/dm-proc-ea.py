@@ -55,6 +55,7 @@ from string import ascii_uppercase, digits
 
 import datman as dm
 from datman.docopt import docopt
+import traceback
 
 def log_parser(log):
     """
@@ -172,6 +173,12 @@ def find_ratings(pic, blk_start, blk_end, blk_start_time, duration):
     last = 0
     for rating in ratings:
         idx = np.where(t == rating[1])[0]
+
+        # hack to save malformed data
+        if len(idx) == 0:
+            idx = last + 1
+        #print('last={} idx={} t={} rating={}'.format(last, idx, t, rating))
+
         r[last:idx] = val  # fill in all the values before the button push\
         val = rating[0]    # update the value to insert
         last = idx         # keep track of the last button push
@@ -659,8 +666,9 @@ def main():
                 dur_all.extend(dur)
                 corr_all.extend(corr)
                 push_all.extend(push)
-        except:
+        except Exception, e:
             print('ERROR: Failed to parse logs for {}, log={}.'.format(sub, log))
+            print(traceback.print_exc())
             continue
 
         # write data to stimulus timing file for AFNI, and a QC csv
