@@ -3,11 +3,11 @@
 """
 Runs dtifit  (╯°□°）╯︵ ┻━┻
 
-Usage: 
+Usage:
     dm-proc-dtifit.py [options]
 
 Options:
-    --datadir DIR      Parent folder holding exported data [default: data]
+    --inputdir DIR     Parent folder holding exported data [default: data/nii]
     --outputdir DIR    Output folder [default: data/dtifit]
     --logdir DIR       Logdir [default: logs]
     --ref_vol N        Registration volume index [default: 0]
@@ -15,6 +15,7 @@ Options:
     --script PATH      Path to dtifit script.  [default: dtifit.sh]
                        This script should accept the following arguments:
                             dwifile outputdir ref_vol fa_threshold
+    --tag TAG          A string to filter inputs by [ex. site name]
     --quiet            Be quiet
     --verbose          Be chatty
     --debug            Be extra chatty
@@ -34,16 +35,17 @@ DRYRUN = False
 def main():
     global DRYRUN
     arguments = docopt(__doc__)
-    datadir   = arguments['--datadir']
+    inputdir  = arguments['--inputdir']
     outputdir = arguments['--outputdir']
     logdir    = arguments['--logdir']
     ref_vol   = arguments['--ref_vol']
     fa_thresh = arguments['--fa_thresh']
     script    = arguments['--script']
+    TAG       = arguments['--tag']
     quiet     = arguments['--quiet']
     debug     = arguments['--debug']
     verbose   = arguments['--verbose']
-    DRYRUN    = arguments['--dry-run'] 
+    DRYRUN    = arguments['--dry-run']
 
     loglevel = log.WARN
     if verbose: loglevel = log.INFO
@@ -51,9 +53,18 @@ def main():
     if quiet:   loglevel = log.ERROR
     log.basicConfig(level=loglevel)
 
-    nii_dir = os.path.join(datadir, 'nii')
+    nii_dir = os.path.normpath(inputdir)
 
-    for subjectname in dm.utils.get_subjects(nii_dir):
+    ## get the list of subjects
+    allsubjectsnames = dm.utils.get_subjects(nii_dir)
+
+    ## if a tag is given for filtering - filter now
+    if TAG != None :
+        subjectnames = filter(lambda x: TAG in x, allsubjectsnames)
+    else:
+        subjectnames = allsubjectsnames
+
+    for subjectname in subjectnames:
         inputpath  = os.path.join(nii_dir, subjectname)
         outputpath = os.path.join(outputdir, subjectname)
         files = dm.utils.get_files_with_tag(inputpath, 'DTI', fuzzy = True)
@@ -74,13 +85,14 @@ def main():
                     "{script} {dwi} {outputdir} {ref} {thresh}".format(
                         logdir = logdir,
                         script = script,
-                        dwi = dwi, 
-                        outputdir= outputpath, 
-                        ref = ref_vol, 
+                        dwi = dwi,
+                        outputdir= outputpath,
+                        ref = ref_vol,
                         thresh = fa_thresh)
                 log.debug("exec: {}".format(cmd))
                 dm.utils.run(cmd, dryrun=DRYRUN)
-            
+
+
 if __name__ == '__main__':
     main()
 
