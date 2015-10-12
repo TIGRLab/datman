@@ -1,0 +1,170 @@
+#!/usr/bin/env python
+
+"""
+Takes an input mask in volume space and projects it on to a CIVET surface.
+
+Usage:
+    epi-maskifier [options] <mask> <civetdir> <keeptmp>
+
+Arguments:
+    <mask>          Input mask file.
+    <civetdir>      Civet output directory.
+
+Options:
+    --keeptmp       If 1, keep intermediate files
+
+DETAILS
+
+    This will take any NIFTI (.nii.gz), MNI space mask, and project it to a 
+    civet surface file inside of the supplied CIVET folder. This will allow you 
+    to do ROI analysis using the cortical thickness outputs of CIVET, among 
+    other kewl things.
+
+    If you pass 'True' or 1 to keep_tmp, then this program will not delete any 
+    intermediate files.
+"""
+
+import sys, os
+import string
+import random
+import numpy as np
+from epitome.docopt import docopt
+
+def module_load():
+    """
+    Loads the modules: minc-toolkit, AFNI.
+    """
+    path = os.getenv('PATH')
+    os.environ['PATH'] = '/opt/quarantine/AFNI/2014.09.22.1635EDT/build:' + path
+    os.environ['PATH'] = '/opt/quarantine/minc-toolkit/1.0.01/build/bin:' + path
+
+def random_alphanumeric(N):
+    """
+    Returns a random alpha-numeric string of length N (uppercase only).
+    """
+    s = ''.join(random.choice(
+                string.ascii_uppercase + string.digits) for _ in range(N))
+
+    return s
+
+def check_inputs(mask, dir_civet):
+    """
+    Check supplied inputs. Returns False if one of the inputs are incorrect,
+    causing the program to abort.
+    """
+    # check that mask is NIFTI.gz
+    if str(mask)[-7:] != '.nii.gz':
+        print('Mask input must be .nii.gz format!')
+        return False
+
+    # check that civet folder is legit (likely this is sloppy)
+    if os.path.isdir(os.path.join(dir_civet, 'final')) == False:
+        print('Your CIVET directory does not look complete!')
+        return False
+
+    # if these are ok, return True
+    return True
+
+def main():
+    arguments  = docopt(__doc__)
+    mask       = arguments['<mask>']
+    dir_civet  = arguments['<civetdir>']
+    keep_tmp   = arguments['--keeptmp']
+
+    # set path
+    module_load()
+
+    # check inputs, exit if we have an error.
+    if check_inputs(mask, dir_civet) == False:
+        print(mask2obj.__doc__)
+        print('\n*** Please check your inputs and try again. ***')
+        sys.exit()
+
+    # make working directory
+    dir_tmp = 'tmp-' + random_alphanumeric(6)
+    os.system('mkdir ' + dir_tmp)
+
+    # get MNI volume from civet folder
+    os.system('cp ' + dir_civet + '/final/*_raw_struct_t1_tal.mnc ' + 
+                        dir_tmp + '/anat_T1_brain_MNI.mnc')
+    os.system('mnc2nii ' + dir_tmp + '/anat_T1_brain_MNI.mnc ' +
+                           dir_tmp + '/anat_T1_brain_MNI.nii')
+
+    # get mask
+    os.system('cp {} {}/mask.nii.gz'.format(mask, dir_tmp))
+
+    # get surfaces from civet folder
+    os.system('ConvertSurface -i_mni {dir_civet}/surfaces/*white_surface_rsl_left*81920.obj  -o_fs {dir_tmp}/surf_wm_L.asc  -sv {dir_tmp}/anat_T1_brain_MNI.nii'.format(dir_civet=dir_civet, dir_tmp=dir_tmp))
+    os.system('ConvertSurface -i_mni {dir_civet}/surfaces/*white_surface_rsl_right*81920.obj -o_fs {dir_tmp}/surf_wm_R.asc  -sv {dir_tmp}/anat_T1_brain_MNI.nii'.format(dir_civet=dir_civet, dir_tmp=dir_tmp))
+    os.system('ConvertSurface -i_mni {dir_civet}/surfaces/*mid_surface_rsl_left*81920.obj    -o_fs {dir_tmp}/surf_mid_L.asc -sv {dir_tmp}/anat_T1_brain_MNI.nii'.format(dir_civet=dir_civet, dir_tmp=dir_tmp))
+    os.system('ConvertSurface -i_mni {dir_civet}/surfaces/*mid_surface_rsl_right*81920.obj   -o_fs {dir_tmp}/surf_mid_R.asc -sv {dir_tmp}/anat_T1_brain_MNI.nii'.format(dir_civet=dir_civet, dir_tmp=dir_tmp))
+    os.system('ConvertSurface -i_mni {dir_civet}/surfaces/*gray_surface_rsl_left*81920.obj   -o_fs {dir_tmp}/surf_gm_L.asc  -sv {dir_tmp}/anat_T1_brain_MNI.nii'.format(dir_civet=dir_civet, dir_tmp=dir_tmp))
+    os.system('ConvertSurface -i_mni {dir_civet}/surfaces/*gray_surface_rsl_right*81920.obj  -o_fs {dir_tmp}/surf_gm_R.asc  -sv {dir_tmp}/anat_T1_brain_MNI.nii'.format(dir_civet=dir_civet, dir_tmp=dir_tmp))
+    
+    # make SUMA 'spec' file
+    os.system('quickspec -tn FS ' + dir_tmp + '/surf_wm_L.asc ' +
+                        '-tn FS ' + dir_tmp + '/surf_wm_R.asc ' + 
+                        '-tn FS ' + dir_tmp + '/surf_mid_L.asc ' +
+                        '-tn FS ' + dir_tmp + '/surf_mid_R.asc ' +
+                        '-tn FS ' + dir_tmp + '/surf_gm_L.asc ' +
+                        '-tn FS ' + dir_tmp + '/surf_gm_R.asc')
+    
+    # project mask onto 'dset' surface
+    os.system('3dVol2Surf -spec quick.spec ' + 
+                         '-surf_A surf_mid_L.asc ' +
+                         '-sv ' + dir_tmp + '/anat_T1_brain_MNI.nii ' +
+                         '-grid_parent ' + dir_tmp + '/mask.nii.gz ' +
+                         '-map_func mask ' + 
+                         '-f_steps 2 ' + 
+                         '-f_index nodes ' +
+                         '-out_1D atlas_civ_dset.L.1D')
+    print('Wrote out SUMA-compatible mask: atlas_civ_dset.L.1D')
+
+    os.system('3dVol2Surf -spec quick.spec ' + 
+                         '-surf_A surf_mid_R.asc ' +
+                         '-sv ' + dir_tmp + '/anat_T1_brain_MNI.nii ' +
+                         '-grid_parent ' + dir_tmp + '/mask.nii.gz ' +
+                         '-map_func mask ' + 
+                         '-f_steps 2 ' + 
+                         '-f_index nodes ' +
+                         '-out_1D atlas_civ_dset.R.1D')
+    print('Wrote out SUMA-compatible mask: atlas_civ_dset.R.1D')
+    
+    # extract mask vector from 'dset' surface
+    dset_L = np.genfromtxt('atlas_civ_dset.L.1D', skip_header=5)
+    dset_R = np.genfromtxt('atlas_civ_dset.R.1D', skip_header=5)
+
+    # 1D index vector 
+    ind_L = dset_L[:, 1]
+    ind_R = dset_R[:, 1]
+    np.savetxt('atlas_civ_1dindex.L.csv', ind_L, fmt='%1d')
+    np.savetxt('atlas_civ_1dindex.R.csv', ind_R, fmt='%1d')
+    print('Wrote out dset 1D index: atlas_civ_1dindex.X.csv')
+
+    # i, j, k voxels corresponded to (MNI space)
+    ijk_L = dset_L[:, 2:5]
+    ijk_R = dset_L[:, 2:5]
+    np.savetxt('atlas_civ_ijk.L.csv', ijk_L, fmt='%1d', delimiter=',')
+    np.savetxt('atlas_civ_ijk.R.csv', ijk_R, fmt='%1d', delimiter=',')
+    print('Wrote out dset 3D coordinates (MNI space): atlas_civ_ijk.X.csv')
+
+    # mask values
+    mask_L = dset_L[:, 6]
+    mask_R = dset_R[:, 6]
+    np.savetxt('atlas_civ_mask.L.txt', mask_L, fmt='%1d')
+    np.savetxt('atlas_civ_mask.R.txt', mask_R, fmt='%1d')
+    print('Wrote out CIVET mask vector: atlas_civ_mask.X.txt')
+
+    # print out some characters in a string for the human
+    print('MSG: Finished projecting mask: {} to civet subject {}.'.format(mask, dir_civet))
+
+    # optionally keep the tmp directory
+    if int(keep_tmp) == 1:
+        print('Retaining temporary directory: ' + dir_tmp)
+    else:
+        os.system('rm -r ' + dir_tmp)
+
+    sys.exit()
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,102 @@
+#!/usr/bin/env python
+"""
+Takes a proclist created using epitome run and submits it to the installed
+Oracle Sun Grid Engine using qsub.
+
+Usage:
+    epi-queue <proclist> <queue>
+
+Arguement:
+    <proclist>      Name of the epitome proclist to submit
+    <queue>         Name of the queue to submit to
+
+DETAILS:
+    Opens the input file, and generates a unique string for each run.
+    Parses the submitted proclist and generates a set of qsub commands.
+"""
+
+import os, sys
+import random
+import string
+import subprocess
+import epitome as epi
+from epitome.docopt import docopt
+
+def main():
+    arguments = docopt(__doc__)
+    proclist  = arguments['<proclist>']
+    queue     = arguments['<queue>']
+
+    f = open(proclist)
+    f = f.read()
+
+    # used to keep freesurfer + qc jobs distinct
+    u_id = ''.join(random.choice(string.ascii_uppercase + 
+                                 string.digits) for _ in range(6))
+    sublist = []
+    fslist = []
+
+    for i, line in enumerate(f.split('\n')):
+
+        # skip empty entries
+        if len(line) == 0:
+            continue
+
+        # parsed line
+        name = (line.replace('/', ' ').split(' ')[-1][0:-3] + '_' + str(i))
+
+        # freesurfer recon-alls
+        if line.startswith('recon-all') == True:
+            fsname = 'epi-fs_' + u_id + '_' + str(i)
+            log = fsname + '.log'
+            cmd = """echo {line} | qsub -o {log} -S /bin/bash -V -q {queue} \
+                     -cwd -N {name} -l mem_free=6G,virtual_free=6G -j y \
+                  """.format(line=line, log=log, queue=queue, name=fsname)
+            fslist.append(fsname)
+
+        elif line == '':
+            continue
+
+        # freesurfer exports
+        elif line.startswith('epi-fsexport') == True:
+            fsexportname = 'epi-fsexport_' + u_id
+            log = fsexportname + '.log'
+            cmd = """echo {line} | qsub -o {log} -S /bin/bash -V -q {queue} \
+                     -hold_jid {hold} -cwd -N {name} -j y \
+                  """.format(line=line, log=log, hold=",".join(fslist),
+                                                 queue=queue, name=fsexportname)
+
+        # preprocessing
+        elif line.split('/')[-1].startswith('cmd') == True:
+            cmdname = 'epi-cmd_' + name
+            log = cmdname + '.log'
+            cmd = """echo {line} | qsub -o {log} -S /bin/bash -V -q {queue} \
+                     -hold_jid {hold} -cwd -N {name} -j y \
+                  """.format(line=line, log=log, hold=fsexportname,
+                                                 queue=queue, name=cmdname)
+            sublist.append(cmdname)
+
+        # qc
+        elif line.startswith('epi-qc') == True:
+            qcname = 'epi-qc_' + u_id + '_' + str(i)
+            log = qcname + '.log'
+            cmd = """echo {line} | qsub -o {log} -S /bin/bash -V -q {queue} \
+                     -hold_jid {hold} -cwd -N {name} -j y \
+                  """.format(line=line, log=log, hold=",".join(sublist),
+                                                 queue=queue, name=qcname)
+
+        else:
+            print('Failed to parse ' + line)
+            continue
+
+        # open a subprocess, print the result to the console
+        pipe = subprocess.Popen(cmd, shell=True,
+                                     executable='/bin/bash',
+                                     stdout=subprocess.PIPE, 
+                                     stderr=subprocess.PIPE)
+        out, err = pipe.communicate()
+        result = out.decode()
+        print(result)
+
+if __name__ == "__main__":
+    main()

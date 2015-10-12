@@ -1,0 +1,234 @@
+#!/usr/bin/env python
+"""
+Takes input NIFTI 4D data, and applies the specified low-pass filter to each
+voxel. To save on computation time, this requires a mask input. All values > 0
+in the mask survive.
+
+Usage: 
+    epi-lowpass [options] <func> <mask> <output>
+
+Arguments:
+    <func>           input functional nifti.
+    <mask>           input brain mask nifti (same grid as func).
+    <output>         output nifti.
+
+Options:
+    -t --type=<type>      median, average, kaiser, or butterworth [default: butterworth].
+    -c --cutoff=<cutoff>  width of the time-domain filter, cutoff frequency (Hz) for frequency domain filter.
+
+DETAILS:
+
+    Median Filter
+    -------------
+    Low-passes each time series using a n-d median filter. Useful in cases
+    where one cannot assume Gaussian noise and/or would like to preserve 
+    edges within the data.
+
+    The default kernel size (5) is conservative, but does a nice job.
+
+    Mean Filter
+    -----------
+    Low-passes each time series using a 1d moving average filter. Useful in
+    cases where one wants to suppress Gaussian noise.
+
+    The default kernel size (5) is conservative, but does a nice job.
+
+    Kaiser Filter
+    -------------
+    Low-passes each time series using a bi-directional FIR kaiser filter.
+    Useful in cases where the preservation of phase information is more
+    important than strong attenuation of high frequencies.
+
+    The default cutoff (0.1 Hz) is the traditional resting-state fMRI cutoff.
+
+    Butterworth Filter
+    ------------------
+    Low-passes each time series using a low order, bi-directional FIR
+    butterworth filter. Useful in cases where you are particularly worried
+    about the impact of discontinuities in your data on the behavior of your
+    filter.
+
+    The default cutoff (0.1 Hz) is the traditional resting-state cutoff.
+"""
+
+import os, sys
+import numpy as np
+import scipy as sp
+import scipy.signal as sig
+import nibabel as nib
+import epitome as epi
+from epitome.docopt import docopt
+
+def get_samp_nyq(TR):
+    """
+    From a TR, return the sampling rate and nyquist frequency.
+    """
+    if TR > 1000:
+        TR = TR / 1000.0
+    samp_rate = 1.0/TR
+    nyq = samp_rate/2.0
+
+    return samp_rate, nyq
+
+def median_filter(func, mask, kernel_size=5):
+    func, func_aff, func_head, func_dims = epi.utilities.loadnii(func)
+    mask, mask_aff, mask_head, mask_dims = epi.utilities.loadnii(mask)
+    tmp, idx = epi.utilities.maskdata(func, mask)
+
+    # init output array
+    filt = np.zeros(tmp.shape)
+
+    # filter data
+    for x in np.arange(tmp.shape[0]):
+        filt[x, :] = sig.medfilt(tmp[x, :], kernel_size=int(kernel_size))
+
+    # create a 4D output array
+    output = np.zeros(func.shape)
+    output[idx, :] = filt
+    output = output.reshape(func_dims)
+    output_aff = func_aff
+    output_head = func_head
+
+    return output, output_aff, output_head
+
+def mean_filter(func, mask, kernel_size=5):
+    func, func_aff, func_head, func_dims  = epi.utilities.loadnii(func)
+    mask, mask_aff, mask_head, mask_dims  = epi.utilities.loadnii(mask)
+    tmp, idx = epi.utilities.maskdata(func, mask)
+
+    # init output array
+    filt = np.zeros(tmp.shape)
+
+    # filter data
+    for x in np.arange(tmp.shape[0]):
+        filt[x, :] = epi.signal.moving_average(tmp[x, :], N=kernel_size)
+
+    # create a 4D output array
+    output = np.zeros(func.shape)
+    output[idx, :] = filt
+    output = output.reshape(func_dims)
+    output_aff = func_aff
+    output_head = func_head
+
+    return output, output_aff, output_head
+
+def kaiser_filter(func, mask, cutoff=0.1):
+    func, func_aff, func_head, func_dims  = epi.utilities.loadnii(func)
+    mask, mask_aff, mask_head, mask_dims  = epi.utilities.loadnii(mask)
+    tmp, idx = epi.utilities.maskdata(func, mask)
+
+    # init output array
+    filt = np.zeros(tmp.shape)
+
+    # get sampling rate, nyquist frequency
+    samp_rate, nyq = get_samp_nyq(func_head.values()[15][4])
+
+    # return a kaiser window with 60 Hz attenuation over a 0.1 Hz transition
+    width = 0.1
+    ripple_db = 60.0
+    numtap, beta = sig.kaiserord(ripple_db, width)
+    
+    # enforce odd filter order
+    if np.remainder(numtap, 2.0) == 0:
+        numtap = numtap -1
+
+    # design and apply lowpass filter
+    b = sig.firwin(numtap, cutoff/nyq, window=('kaiser', beta))
+    a = [1.0]
+
+    padlen = len(tmp[0, :])-1 # defined explicitly else we lose the last TRs...
+    for x in np.arange(tmp.shape[0]):
+        filt[x, :] = sig.filtfilt(b, a, tmp[x, :], axis=0, padlen=padlen)
+
+    # create a 4D output array
+    output = np.zeros(func.shape)
+    output[idx, :] = filt
+    output = output.reshape(func_dims)
+    output_aff = func_aff
+    output_head = func_head
+
+    return output, output_aff, output_head
+
+def butterworth_filter(func, mask, cutoff=0.1):
+    # load in everything
+    func, func_aff, func_head, func_dims  = epi.utilities.loadnii(func)
+    mask, mask_aff, mask_head, mask_dims  = epi.utilities.loadnii(mask)
+    tmp, idx = epi.utilities.maskdata(func, mask)
+
+    # init output array
+    filt = np.zeros(tmp.shape)
+
+    # get sampling rate, nyquist frequency
+    samp_rate, nyq = get_samp_nyq(func_head.values()[15][4])
+
+    # design and apply lowpass filter
+    b, a = sig.butter(3, cutoff/nyq)
+    a = [1.0]
+
+    padlen = len(tmp[0, :])-1 # defined explicitly else we lose the last TRs...
+    for x in np.arange(tmp.shape[0]):
+        filt[x, :] = sig.filtfilt(b, a, tmp[x, :], axis=0, padlen=padlen)
+
+    # create a 4D output array
+    output = np.zeros(func.shape)
+    output[idx, :] = filt
+    output = output.reshape(func_dims)
+    output_aff = func_aff
+    output_head = func_head
+
+    return output, output_aff, output_head
+
+def write_output(path, uid, num, out, aff, head):
+    """
+    Writes a NIFTI file to the specified path with the specified run number.
+    """
+    #out = nib.nifti1.Nifti1Image(out, aff, head)    
+
+def main():
+    arguments   = docopt(__doc__)
+    func        = arguments['<func>']
+    mask        = arguments['<mask>']
+    output      = arguments['<output>']
+    filtertype  = arguments['--type']
+    cutoff      = arguments['--cutoff']
+
+    # check cutoff for reasonable inputs, otherwise revert to default
+    if not cutoff:
+        if filtertype == 'median': cutoff = 5
+        elif filtertype == 'average': cutoff = 5
+        elif filtertype == 'kaiser': cutoff = 0.1
+        elif filtertype == 'butterworth': cutoff = 0.1
+
+    if cutoff:
+        if filtertype in ['median', 'average']:
+            cutoff = int(cutoff) 
+            if cutoff == 0: cutoff = 5 # time domain filter default
+            if cutoff % 2 == 0: cutoff = cutoff + 1 # time domain filter is odd
+        if filtertype in  ['kaiser', 'butterworth']:
+            cutoff = float(cutoff)
+            if cutoff == 0: cutoff = 0.1 # frequency domain filter default
+
+    print('MSG: Lowpass {} with filter {}, cutoff = {}.'.format(func, filtertype, cutoff))
+
+    if filtertype == 'median':
+        cutoff = int(cutoff)
+        out, aff, hdr = median_filter(func, mask, cutoff)
+    elif filtertype == 'average':
+        cutoff = int(cutoff)
+        out, aff, hdr = mean_filter(func, mask, cutoff)
+    elif filtertype == 'kaiser':
+        cutoff = float(cutoff)
+        out, aff, hdr = kaiser_filter(func, mask, cutoff)
+    elif filtertype == 'butterworth':
+        cutoff = float(cutoff)
+        out, aff, hdr = butterworth_filter(func, mask, cutoff)    
+    else:
+        print(__doc__)
+        sys.exit()
+
+    out = nib.nifti1.Nifti1Image(out, aff, header=hdr)
+    out.header_class(extensions=())
+    out.to_filename(output)
+
+if __name__ == "__main__":
+    main()

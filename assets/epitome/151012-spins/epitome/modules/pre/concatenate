@@ -1,0 +1,25 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT=$(echo func_${1})
+
+EOF
+
+cat <<"EOF"
+echo '*** MODULE: concatenate. Concatenates all functional runs. **************'
+
+# create concatenated runs in order
+if [ ! -f ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/func_concat.nii.gz ]; then
+    LIST=``
+    DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+    for SESS in ${DIR_SESS}; do
+        FILES=`ls ${SESS}/${INPUT}.${ID}.*`
+        LIST="${LIST} ${FILES}"
+    done    
+    
+    3dTcat \
+        -prefix ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/func_concat.nii.gz \
+        `echo ${LIST}` 
+fi
+
+EOF

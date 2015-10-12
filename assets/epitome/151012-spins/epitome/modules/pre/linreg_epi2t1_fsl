@@ -1,0 +1,56 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT=$(echo func_${1})
+export DIMS=${2}
+
+EOF
+
+cat <<"EOF"
+echo '*** MODULE: linreg_epi2t1_fsl. T1-transforms functional data. ***********'
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in `basename ${DIR_SESS}`; do
+    
+    DIR=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/${SESS}`
+    DIR_T1=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/T1/${SESS}`
+
+    # create registration dummy for FSL
+    if [ -f ${DIR}/anat_EPI_reg_target.nii.gz ]; then
+      rm ${DIR}/anat_EPI_reg_target.nii.gz
+    fi
+    3dresample \
+        -dxyz ${DIMS} ${DIMS} ${DIMS} \
+        -prefix ${DIR}/anat_EPI_reg_target.nii.gz \
+        -inset ${DIR_T1}/anat_T1_brain.nii.gz
+ 
+    DIR_RUNS=`ls -d -- ${DIR}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+
+        # register runs with individual T1s
+        if [ ! -f ${DIR}/func_T1.${ID}.${NUM}.nii.gz ]; then
+            flirt \
+                -in ${DIR}/${INPUT}.${ID}.${NUM}.nii.gz \
+                -ref ${DIR}/anat_EPI_reg_target.nii.gz \
+                -applyxfm -init ${DIR}/mat_EPI_to_T1.mat \
+                -out ${DIR}/func_T1.${ID}.${NUM}.nii.gz \
+                -interp sinc \
+                -sincwidth 7 \
+                -sincwindow blackman
+        fi
+
+    done
+    
+    # register session masks with T1
+    if [ ! -f ${DIR}/anat_EPI_mask_T1.nii.gz ]; then
+        flirt \
+          -in ${DIR}/anat_EPI_mask.nii.gz \
+          -ref ${DIR}/anat_EPI_reg_target.nii.gz \
+          -applyxfm -init ${DIR}/mat_EPI_to_T1.mat \
+          -interp nearestneighbour \
+          -out ${DIR}/anat_EPI_mask_T1.nii.gz
+    fi
+done
+
+EOF

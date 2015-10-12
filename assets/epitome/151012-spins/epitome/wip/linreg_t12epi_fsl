@@ -1,0 +1,61 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT=`echo 'func_${1}'`
+export DIMS=`echo ${2}`
+
+EOF
+
+cat <<"EOF"
+
+echo '************************************************************************'
+echo '                    FSL T1-to-MNI-transform data'
+echo ''
+echo '   - Resamples '${INPUT}' data to MNI space at '${DIMS}'^3mm,'
+echo '   - Transforms whole-brain masks to MNI space,'
+echo ''
+echo '************************************************************************'
+
+cd /tmp
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in `basename ${DIR_SESS}`; do
+    
+    DIR=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/${SESS}`
+    DIR_T1=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/T1/${SESS}`
+
+    # create registration dummy for FSL
+    3dresample -dxyz ${DIMS} ${DIMS} ${DIMS} \
+               -prefix ${DIR}/anat_EPI_reg_target.nii.gz \
+               -inset ${DIR_T1}/anat_T1_brain.nii.gz
+
+    DIR_RUNS=`ls -d -- ${DIR}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+
+        # register runs with individual T1s
+        if [ ! -f ${DIR}/func_T1.${ID}.${NUM}.nii.gz ]; then
+            flirt -in ${DIR}/${INPUT}.${ID}.${NUM}.nii.gz \
+                  -ref ${DIR}/anat_EPI_reg_target.nii.gz \
+                  -applyxfm -init ${DIR}/mat_T1_to_TAL.mat \
+                  -out ${DIR}/func_T1.${ID}.${NUM}.nii.gz
+                  -interp sinc \
+                  -sincwidth 7 \
+                  -sincwindow blackman
+        fi
+
+    done
+    
+    # register session masks with T1
+    if [ ! -f ${DIR}/anat_EPI_mask_MNI.nii.gz ]; then
+        flirt -in ${DIR}/anat_EPI_mask.nii.gz \
+              -ref ${DIR}/anat_EPI_reg_target.nii.gz \
+              -applyxfm -init ${DIR}/mat_EPI_to_T1.mat \
+              -interp nearestneighbour \
+              -out ${DIR}/anat_EPI_mask_T1.nii.gz
+    fi
+done
+
+cd ${DIR_PIPE}
+
+EOF

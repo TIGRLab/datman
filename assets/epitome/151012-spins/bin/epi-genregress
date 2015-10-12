@@ -1,0 +1,53 @@
+#!/usr/bin/env python
+"""
+Takes an input NIFTI and ROI mask to produce n PC component time series that
+best explain the variance within the ROI.
+
+Usage:
+    epi-genregress <data> <mask> <output> <n>
+
+Arguements:
+    <data>          Input data (4D NIFTI).
+    <mask>          ROI mask (brain or otherwise).
+    <output>        Output filename.
+    <n>             Number of PCs to extract.
+
+DETAILS
+    This will mean-centre and variance normalize each time series before
+    estimating PCs within the ROI mask.
+
+    These might useful regressors for cleaning up resting-state data.
+
+    Outputs are 1 column per PC in an AFNI-friendly format.
+
+    Based on: Behzadi, Y. 2007. A Component Based Noise Correction Method 
+    (CompCor) for BOLD and Perfusion Based fMRI. Neuroimage 37(1).
+"""
+import os, sys
+import scipy as sp
+import numpy as np
+import epitome as epi
+from epitome.docopt import docopt
+
+def main():
+    arguments = docopt(__doc__)
+    data = arguments['<data>']
+    mask = arguments['<mask>']
+    output = arguments['<output>']
+    n = arguments['<n>']
+
+    n = int(n) # check type
+
+    data, _, _, _ = epi.utilities.loadnii(data)
+    mask, _, _, _ = epi.utilities.loadnii(mask)
+    data, idx = epi.utilities.maskdata(data, mask)
+
+    data -= np.mean(data, 1)[:, None]  # mean center
+    data /= np.std(data, 1)[:, None]   # variance normalize
+
+    # retrieve the top component and save to an afni-compatible 1D file
+    components, exp_var = epi.stats.pca_reduce(data.T, n=n, copy=True, whiten=True)
+    np.savetxt(output, components, fmt='%10.12f')
+
+if __name__ == '__main__':
+    main()

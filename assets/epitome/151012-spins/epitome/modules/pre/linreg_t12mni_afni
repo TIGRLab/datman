@@ -1,0 +1,44 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT=`echo 'func_'${1}`
+export DIMS=`echo ${2}`
+
+EOF
+
+cat <<"EOF"
+echo '*** MODULE: linreg_t12mni_afni. MNI-transforms functional data. *********'
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+
+        # register runs with MNI
+        if [ ! -f ${SESS}/func_MNI.${ID}.${NUM}.nii.gz ]; then
+            3dAllineate \
+                -prefix ${SESS}/func_MNI.${ID}.${NUM}.nii.gz \
+                -input ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz \
+                -1Dmatrix_apply ${SESS}/mat_T1_to_TAL.aff12.1D \
+                -master ${SESS}/reg_T1_to_TAL.nii.gz \
+                -float -quiet \
+                -final wsinc5 \
+                -mast_dxyz ${DIMS} ${DIMS} ${DIMS}
+        fi
+    done
+
+    # register session masks with MNI
+    if [ ! -f ${SESS}/anat_EPI_mask_MNI.nii.gz ]; then
+        3dAllineate \
+            -prefix ${SESS}/anat_EPI_mask_MNI.nii.gz \
+            -input ${SESS}/anat_EPI_mask.nii.gz \
+            -1Dmatrix_apply ${SESS}/mat_EPI_to_TAL.aff12.1D \
+            -master ${SESS}/reg_T1_to_TAL.nii.gz \
+            -float -quiet \
+            -final NN \
+            -mast_dxyz ${DIMS} ${DIMS} ${DIMS}
+    fi
+done
+
+EOF

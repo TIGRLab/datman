@@ -1,0 +1,48 @@
+#!/bin/bash
+
+cat <<EOF
+export DATA_QUALITY=`echo ${1}`
+export COST=`echo ${2}`
+export REG_DOF=`echo ${3}`
+
+EOF
+
+cat <<"EOF"
+
+echo '************************************************************************'
+echo '                       Pre-processing of T1 data'
+echo ''
+echo ' This analysis does not make use of freesurfer, so we are just going'
+echo ' to reorient and deskull the T1 manually.'
+echo ''
+echo '************************************************************************'
+
+cd /tmp
+
+# loop through sessions
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/T1/*/`
+for SESS in ${DIR_SESS}; do
+     # loop through runs
+     DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+     for RUN in ${DIR_RUNS}; do
+         NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+         FILE=`echo ${RUN}/*.nii.gz`
+
+         # Reorient T1
+         if [ ! -f ${SESS}/anat_T1.nii.gz ]; then
+             3daxialize \
+                 -prefix ${SESS}/anat_T1.nii.gz \
+                 -axial \
+                 ${FILE}
+         fi
+
+         # Deskull T1
+         if [ ! -f ${SESS}/anat_T1_brain.nii.gz ]; then
+             3dSkullStrip \
+                 -prefix ${SESS}/anat_T1_brain.nii.gz \
+                 -input ${SESS}/anat_T1.nii.gz
+         fi
+    done
+done
+
+EOF

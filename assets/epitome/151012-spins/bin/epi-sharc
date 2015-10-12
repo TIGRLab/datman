@@ -1,0 +1,101 @@
+#!/usr/bin/env python
+"""
+Takes a proclist created using epitome run and submits it to the scheduler 
+installed on SHARCnet.
+
+Usage:
+    epi-sharc <proclist>
+
+Arguments:    
+    <proclist>      input proclist
+
+DETAILS:
+    Opens the input file, and generates a unique string for each run.
+    This keeps jobs submitted by multiple users distinct.
+"""
+import os, sys
+import random
+import string
+import shlex
+import subprocess
+from epitome.docopt import docopt
+
+def submit_jobs(f, u_id, command_file):
+    """
+    Parses the submitted proclist and generates a set of qsub commands.
+    """
+    subjlist = []
+    fslist = []
+    for i, line in enumerate(f.split('\n')):
+
+        # skip empty entries
+        if len(line) == 0:
+            continue
+
+        # parsed line
+        name = (line.replace('/', ' ').split(' ')[-1][0:-3] + '_' + str(i))
+
+        # freesurfer recon-alls
+        if line[0:9] == 'recon-all':
+            name = 'qsub_fs_' + u_id + '_' + str(i)
+            cmd = ('sqsub -r 23h --memperproc=2.5g -o ' + 
+                   str(name) + '.out' + 
+                   ' -q serial -j ' + name + ' ' + line)
+            fslist.append(name)
+
+        # freesurfer exports
+        elif line.find('fsexport.py') >= 0:
+            fsexport_name = 'qsub_fsexport_' + u_id
+            logfile = (fsexport_name + '.log')
+            cmd = ('sqsub -r 23h --memperproc=2.5g -o ' + 
+                   str(fsexport_name) + '.out' + 
+                   '-w ' + ",".join(fslist) + ' ' +
+                   '-q serial -j ' + fsexport_name + ' ' + line)
+            
+        # preprocessing
+        elif line.find(command_file) >= 0:
+            name = 'qsub_' + name
+            logfile = (name + '.log')
+            cmd = ('sqsub -r 23h --memperproc=2.5g -o ' + 
+                   str(name) + '.out' + 
+                   '-w ' + str(fsexport_name) + ' ' +
+                   '-q serial -j ' + name + ' ' + line)         
+            subjlist.append(name)
+            
+        # qc
+        else:
+            name = 'qsub_qc_' + u_id + '_' + str(i)
+            logfile = (name + '.log')
+            cmd = ('sqsub -r 23h --memperproc=2.5g -o ' + 
+                   str(name) + '.out' + 
+                   '-w ' ",".join(subjlist) + ' ' +
+                   '-q serial -j ' + name + ' ' + line)
+        #print cmd
+
+        # open a subprocess, print the result to the console
+        pipe = subprocess.Popen(cmd, shell=True,
+                                     executable='/bin/bash',
+                                     stdout=subprocess.PIPE, 
+                                     stderr=subprocess.PIPE)
+        out, err = pipe.communicate()
+        result = out.decode()
+        print(result)
+
+def main():
+    arguments  = docopt(__doc__)
+    input_file = arguments['<proclist>']
+
+    # replace proclist with cmd for identifying subject-wise scripts
+    command_file = 'cmd_' + input_file[9:]
+
+    f = open(input_file)
+    f = f.read()
+
+    # used to keep freesurfer + qc jobs distinct
+    u_id = ''.join(random.choice(string.ascii_uppercase + 
+                                 string.digits) for _ in range(6))
+
+    submit_jobs(f, u_id, command_file)
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,27 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT=$(echo func_${1})
+export OPT1=$(echo ${2})
+export OPT2=$(echo ${3})
+export OPT3=$(echo ${4})
+export OPT4=$(echo ${5})
+
+EOF
+
+cat<<"EOF"
+echo '*** MODULE: template. I print to the screen. ***************************'
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+        
+        echo ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz ${OPT1} ${OPT2} ${OPT3} ${OPT4} 
+
+    done
+done
+
+EOF
+

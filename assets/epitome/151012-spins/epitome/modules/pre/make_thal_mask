@@ -1,0 +1,32 @@
+#!/bin/bash
+
+cat <<"EOF"
+echo '*** MODULE: make_thal_mask. Creates a thalamus mask for fMRI data. ******'
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+    SESS=`basename ${SESS}`        
+    DIR=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/${SESS}`
+
+    if [ ! -f ${DIR}/${SESS}/anat_THAL_mask.nii.gz ]; then
+
+        # create dialated mask to capture surrounding nuclei
+        mri_binarize \
+            --i ${DIR}/anat_aparc2009_reg.nii.gz \
+            --match 9 10 11 12 13 16 17 18 19 26 27 28 48 49 50 51 52 53 54 55 58 59 60 \
+            --dilate 4 \
+            --o ${DIR}/anat_tmp_THAL_mask.nii.gz
+
+
+        # take intersection of this mask and the EPI mask
+        3dcalc \
+            -prefix ${DIR}/anat_THAL_mask.nii.gz \
+            -a ${DIR}/anat_tmp_THAL_mask.nii.gz \
+            -b ${DIR}/anat_EPI_mask.nii.gz \
+            -expr 'and(a,b)'
+
+        rm ${DIR}/anat_tmp_THAL_mask.nii.gz   
+    fi
+done
+
+EOF
