@@ -25,14 +25,13 @@ module load freesurfer/5.3.0
 module load python/2.7.9-anaconda-2.1.0-150119                                  
 module load python-extras/2.7.8 
 
-# adds epitome to path                                                
-export PATH=${DIR_PIPE}'/bin':$PATH                                             
 
 export DIR_DATA=${1}                                                            
 export DELTR=${2}                                                               
                                                                                 
 export DIR_PIPE='/archive/data-2.0/code/datman/assets/epitome/151012-spins'     
 export DIR_AFNI=/opt/quarantine/AFNI/2014.12.16/build
+export PATH=${DIR_PIPE}'/bin':$PATH # adds epitome to path                         
 export DIR_EXPT=TEMP
 export DATA_TYPE=FUNC
 export ID=DATMAN
