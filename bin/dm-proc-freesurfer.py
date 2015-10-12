@@ -387,19 +387,20 @@ if not POSTFS_ONLY:
 ### use only the last 30 submitted as -hold_jid arguments
 # if len(jobnames) > 30 : jobnames = jobnames[-30:]
 
-## This will get all the jobids of using a prefix...
-time.sleep(5) ## sleep 5 seconds to make sure that everything is in the queue
-qstatcmd='qstat | grep FS_' + prefix + '| awk -F " " \'{print $1}\''
-qstatcall = subprocess.Popen(qstatcmd,shell=True,stdout=subprocess.PIPE)
-joblist, err = qstatcall.communicate()
-joblist = joblist.replace('\n',',')
-if joblist[-1] == ',': joblist = joblist[0:-1]
+
 
 ##qstat | grep FS_ | awk -F " " '{print $1}'
 ## if any subjects have been submitted,
 ## submit a final job that will consolidate the resutls after they are finished
 if not NO_POST:
+    ## This will get all the jobids of using a prefix...
+    time.sleep(5) ## sleep 5 seconds to make sure that everything is in the queue
+    qstatcmd='qstat | grep FS_' + prefix + '| awk -F " " \'{print $1}\''
+    qstatcall = subprocess.Popen(qstatcmd,shell=True,stdout=subprocess.PIPE)
+    joblist, err = qstatcall.communicate()
     if len(joblist) > 0:
+        joblist = joblist.replace('\n',',')
+        if joblist[-1] == ',': joblist = joblist[0:-1]
         #if any subjects have been submitted - submit an extract consolidation job to run at the end
         os.chdir(run_dir)
         docmd(['qsub', '-N', 'postFS',  \
