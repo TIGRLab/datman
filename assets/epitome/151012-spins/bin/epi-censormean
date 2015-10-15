@@ -1,0 +1,199 @@
+#!/usr/bin/env python
+"""
+Takes a list of input niftis and input AFNI-formatted motion parameters, 
+calculates the framewise-displacement vector for each run, and takes a TR-wise 
+average of the runs using all runs that fall below the framewise displacement
+threshold for that TR.
+
+Outputs the run mean & standard deviation, and a samples-per-TR vector.
+
+Usage: 
+    epi-censormean [options] --input <input>... --output <output>
+
+Options:
+    -i --input <input>...  a pair of nifti and motion paramater (AFNI) files, comma separated
+                               (e.g., run1.nii.gz,run1_motion.1D')
+    -o --output <output>   output nifti of mean. 
+    -f --fd=<fd>           framewise displacement threshold in mm/TR [default: 0.5]
+    -r --rad=<rad>         radius of head in mm [default: 50]
+    -c --cycles=<cycles>   number of cycles to fold over (for periodic designs)
+    -v --var=<var>         output nifti of standard deviation
+    -q --qc=<qc>           output text vector of number of runs retained per TR
+
+DETAILS:
+    
+    Useful if you have multiple runs of a participant performing the exact same 
+    task, or viewing the exact same stimulus, and would like to minimize the 
+    influence of head motion on the resulting mean.
+
+    For periodic experimental designs, it is sometimes desirable to look at the 
+    mean cycle. To do this, give --cycles the number of periods per run in your 
+    design. At the moment, the number of cycles should be integral with the 
+    length of the run, as no interpolation is currently performed on the data.
+
+    If a particular TR has no candidate runs (due to excessive head motion), 
+    those TRs will currently be returned having the value 0 (due to how numpy 
+    handles division by 0).
+
+    Method based on that described in: 
+    
+    Interhemispheric interactions of the human thalamic reticular nucleus.
+    Viviano JD, Schneider KA. J Neurosci. 2015 Feb 4;35(5):2026-32.
+"""
+
+import os, sys
+import numpy as np
+import scipy as sp
+import scipy.signal as sig
+import nibabel as nib
+import epitome as epi
+from epitome.docopt import docopt
+
+def parse_inputs(inputs, head_radius):
+    """
+    Takes input list and creates an input dictionary with each nifti key mapping
+    onto a motion parameter value pair.
+
+    Also checks the input lengths (relies on the motion parameters) to ensure
+    all inputs are the same length. Exits if not.
+    """
+    d = {}
+    lengths = []
+    for i in inputs:
+        fd = epi.stats.FD(i.split(',')[1], head_radius)
+        d[i.split(',')[0]] = fd
+        lengths.append(len(fd))
+
+    if len(np.unique(lengths)) != 1:
+        print('ERROR: Not all submitted runs are the same length.')
+        print('       Found: {}'.format(np.unique(lengths)))
+        sys.exit()
+
+    return d
+
+def find_surviving_trs(vector, threshold):
+    ntrs = len(vector)
+    idx = np.where(vector > threshold)[0]
+    idx = np.union1d(np.union1d(idx-1, idx), idx+1) # mask TRs 1 back/forward
+    idx = idx[idx > 1]       # keep first and last tr
+    idx = idx[idx < ntrs-1]  #
+    idx = np.setdiff1d(np.arange(ntrs), idx)
+
+    return idx
+
+def write_data(data, dims, affine, name):
+    data = np.reshape(data, (dims[0], dims[1], dims[2], dims[3]))
+    data = nib.nifti1.Nifti1Image(data, affine)
+    data.update_header() # removed header (interferes with AFNI, why?) 
+    data.header_class(extensions=())
+    data.to_filename(name)
+
+def main():
+    arguments  = docopt(__doc__)
+    inputs     = arguments['--input']
+    output     = arguments['--output']
+    fd         = arguments['--fd']
+    rad        = arguments['--rad']
+    cycles     = arguments['--cycles']
+    var        = arguments['--var']
+    qc         = arguments['--qc']
+
+    # cast types
+    fd = float(fd)
+    rad = float(rad)
+    if cycles: cycles = int(cycles)
+
+    # checks inputs
+    if len(inputs) <= 1:
+        print('ERROR: Need more than one input file pair to average over.')
+        sys.exit()
+
+    if len(inputs) < 3 and var is not None:
+        print('MSG: Not enough inputs to calculate standard deviation.')
+        var = None
+
+    try:
+        inputs = parse_inputs(inputs, rad)
+
+    except:
+        print('ERROR: Inputs are not formatted correctly')
+        print('       example: -i dat1.nii,mot1.1D -i dat2.nii,mot2.1D')
+        sys.exit()
+
+    _, affine, _, dims = epi.utilities.loadnii(inputs.keys()[0])
+
+    if len(dims) != 4:
+        print('ERROR: Inputs must be 4D')
+        sys.exit()
+
+    if cycles == 1: cycles = None
+
+    if cycles and dims[3] % cycles != 0:
+        print('ERROR: Cycles are not integral with the length of the run.')
+        sys.exit()
+
+    # define matrices
+    nvox = dims[0]*dims[1]*dims[2]
+    mean = np.zeros((nvox, dims[3]))
+    trcount = np.zeros(dims[3])
+
+    # calculate the mean
+    for i in inputs:
+        data, _, _, _ = epi.utilities.loadnii(i)
+        idx = find_surviving_trs(inputs[i], fd)
+        trcount[idx] = trcount[idx] + 1
+        mean[:, idx] = mean[:, idx] + data[:, idx]
+
+    if cycles:
+        mean = np.reshape(mean, (nvox, dims[3]/cycles, cycles))
+        mean = np.sum(mean, axis=2)
+
+        trcount = np.reshape(trcount, (dims[3]/cycles, cycles))
+        trcount = np.sum(trcount, axis=1)
+
+    mean = mean / np.tile(trcount, [nvox, 1])
+
+    # calculate the SD, if required
+    # note SD is calculated differently than the mean because we can't use
+    # the same shortcut as above.
+    if var:
+        if cycles: 
+            std = np.zeros((nvox, dims[3]/cycles))
+            trcount = np.zeros(dims[3]/cycles)
+        else:
+            std = np.zeros((nvox, dims[3]))
+            trcount = np.zeros(dims[3])
+
+        for i in inputs:
+            data, _, _, _ = epi.utilities.loadnii(i)
+            idx = find_surviving_trs(inputs[i], fd)
+
+            if cycles:
+                data = np.reshape(data, (nvox, dims[3]/cycles, cycles))
+
+                # does some footwork to map from run to cycles to properly calculate SD
+                for cyc in np.arange(cycles):
+                    cycidx = np.arange(cyc*dims[3]/cycles,(cyc+1)*dims[3]/cycles)
+                    cycidx = np.intersect1d(cycidx, idx) # get this cycle's subset
+                    cycidx = cycidx - (cyc*dims[3]/cycles) # set to start at 0
+                    std[:, cycidx] = std[:, cycidx] + (data[:, cycidx, cyc] - mean[:, cycidx])**2
+                    trcount[cycidx] = trcount[cycidx] + 1
+
+            else:
+                std[:, idx] = std[:, idx] + (data[:, idx] - mean[:, idx])**2
+                trcount[idx] = trcount[idx] + 1
+        
+        std = std / np.tile(trcount, [nvox, 1])
+
+    if cycles:
+        dims = (dims[0], dims[1], dims[2], dims[3] / cycles)
+
+    # write outputs
+    write_data(mean, dims, affine, output)
+    if var:
+        write_data(std, dims, affine, var)
+    if qc:
+        np.savetxt(qc, trcount, fmt='%d')
+
+if __name__ == "__main__":
+    main()

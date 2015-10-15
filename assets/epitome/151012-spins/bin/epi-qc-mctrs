@@ -1,0 +1,168 @@
+#!/usr/bin/env python
+"""
+Prints TRs 6-10 from the first run of each session. TR 8 is marked, as
+this is the motion-correction image all runs are registered to. This
+will allow the user to identify whether the motion-correction TR is
+somehow corrupted for any given subject with ease. 
+
+Usage:
+    epi-qc-mctrs <path> <expt> <mode> <uid>
+
+Arguement:
+    <path>          path to epitome data directory
+    <expt>          experiment name
+    <mode>          image modaility
+    <uid>           unique identifier for a given run
+"""
+
+import os, sys
+import datetime
+
+import nibabel as nib
+import numpy as np
+from scipy import ndimage as nd
+
+import matplotlib
+matplotlib.use('Agg')
+
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+
+import epitome as epi
+from epitome.docopt import docopt
+
+def mc_check(path, expt, mode, uid, subj, sess, pdf):
+    """
+    Loads in EPI and prints 5 TRs surrounding MC target.
+    """
+    EPI = os.path.join(path, expt, subj, mode, sess,
+                                'func_ob.'+ uid +'.01.nii.gz')
+    # load in data
+    EPI = nib.load(EPI).get_data()
+
+    # define colormaps
+    cmap_bg = plt.cm.gray
+    cmap_rd = plt.cm.Reds
+
+    # plot all five images
+    tmp = EPI[:, :, :, 6]
+    tmp = epi.plot.reorient_to_radiological(tmp)
+    mid_x = np.round(tmp.shape[0] / 2)
+    mid_y = np.round(tmp.shape[1] / 2)
+    mid_z = np.round(tmp.shape[2] / 2)
+
+    plt.subplot(3,5,1)
+    plt.imshow(tmp[mid_x, :, :], cmap=cmap_bg, interpolation='nearest')
+    plt.axis('off')
+    plt.subplot(3,5,6)
+    plt.imshow(tmp[:, mid_y, :], cmap=cmap_bg, interpolation='nearest')
+    plt.axis('off')
+    plt.subplot(3,5,11)
+    plt.imshow(tmp[:, :, mid_z], cmap=cmap_bg, interpolation='nearest')
+    plt.axis('off')
+
+    tmp = EPI[:, :, :, 7]
+    tmp = epi.plot.reorient_to_radiological(tmp)
+
+    plt.subplot(3,5,2)
+    plt.imshow(tmp[mid_x, :, :], cmap=cmap_bg, interpolation='nearest')
+    plt.axis('off')
+    plt.subplot(3,5,7)
+    plt.imshow(tmp[:, mid_y, :], cmap=cmap_bg, interpolation='nearest')
+    plt.axis('off')
+    plt.subplot(3,5,12)
+    plt.imshow(tmp[:, :, mid_z], cmap=cmap_bg, interpolation='nearest')
+    plt.axis('off')
+
+    tmp = EPI[:, :, :, 8]
+    tmp = epi.plot.reorient_to_radiological(tmp)
+
+    # motion correction TR
+    plt.subplot(3,5,3)
+    plt.imshow(tmp[mid_x, :, :], cmap=cmap_rd, interpolation='nearest')
+    plt.axis('off')
+    plt.subplot(3,5,8)
+    plt.imshow(tmp[:, mid_y, :], cmap=cmap_rd, interpolation='nearest')
+    plt.axis('off')
+    plt.subplot(3,5,13)
+    plt.imshow(tmp[:, :, mid_z], cmap=cmap_rd, interpolation='nearest')
+    plt.axis('off')
+
+    tmp = EPI[:, :, :, 9]
+    tmp = epi.plot.reorient_to_radiological(tmp)
+
+    plt.subplot(3,5,4)
+    plt.imshow(tmp[mid_x, :, :], cmap=cmap_bg, interpolation='nearest')
+    plt.axis('off')
+    plt.subplot(3,5,9)
+    plt.imshow(tmp[:, mid_y, :], cmap=cmap_bg, interpolation='nearest')
+    plt.axis('off')
+    plt.subplot(3,5,14)
+    plt.imshow(tmp[:, :, mid_z], cmap=cmap_bg, interpolation='nearest')
+    plt.axis('off')
+
+    tmp = EPI[:, :, :, 10]
+    tmp = epi.plot.reorient_to_radiological(tmp)
+
+    plt.subplot(3,5,5)
+    plt.imshow(tmp[mid_x, :, :], cmap=cmap_bg, interpolation='nearest')
+    plt.axis('off')
+    plt.subplot(3,5,10)
+    plt.imshow(tmp[:, mid_y, :], cmap=cmap_bg, interpolation='nearest')
+    plt.axis('off')
+    plt.subplot(3,5,15)
+    plt.imshow(tmp[:, :, mid_z], cmap=cmap_bg, interpolation='nearest')
+    plt.axis('off')
+
+    plt.suptitle(str(expt) + ' ' + str(mode) + 
+                            ', ' + str(sess) + ': ' + str(subj))
+    plt.tight_layout()
+    plt.savefig(pdf, format='pdf')
+    plt.close()
+
+    return pdf
+
+def main():
+    """
+    Generates a plot for each participant.
+    """
+    arguments = docopt(__doc__)
+    path      = arguments['<path>']
+    expt      = arguments['<expt>']
+    mode      = arguments['<mode>']
+    uid       = arguments['<uid>']
+
+    # get subject numbers
+    subjects = epi.utilities.get_subj(os.path.join(path, expt))
+
+    # loop through all subjects
+    pdf = PdfPages(os.path.join(path, expt, 'qc_' + str(uid) + '_mc_TRs.pdf'))
+    for subj in subjects:
+
+        modepath = os.path.join(path, expt, subj, mode)
+        try:
+            sessions = [s for s in os.listdir(modepath)
+                          if os.path.isdir(os.path.join(modepath, s)) == True]
+            sessions.sort()
+        except:
+            continue  
+
+        for sess in sessions:
+            try:
+                pdf = mc_check(path, expt, mode, uid, subj, sess, pdf)
+
+            except:
+                continue
+
+    # Add some metadata and close the PDF object
+    d = pdf.infodict()
+    d['Title'] = 'Quality Control: Quality of Motion Correction Targets'
+    d['Author'] = u'Joseph D Viviano\xe4nen'
+    d['Subject'] = 'Quality Control'
+    d['Keywords'] = 'QC EPI Motion Correction'
+    d['CreationDate'] = datetime.datetime.today()
+    d['ModDate'] = datetime.datetime.today()
+    pdf.close()
+
+if __name__ == "__main__":
+    main()

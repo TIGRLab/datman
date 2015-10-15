@@ -1,0 +1,36 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT=$(echo func_${1})
+export HEAD=${2}
+export FD=${3}
+export DV=${4}
+export MODE=${5}
+
+EOF
+
+cat <<"EOF"
+echo '*** MODULE: trscrub. Removes TRs corrupted by motion. *******************'
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+
+        if [ ! -f ${SESS}/func_scrubbed.${ID}.${NUM}.nii.gz ]; then
+            epi-trscrub \
+                ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz \
+                ${SESS}/func_scrubbed.${ID}.${NUM}.nii.gz \
+                ${SESS}/PARAMS/motion.${ID}.${NUM}.1D \
+                --DVARS ${SESS}/PARAMS/DVARS.${ID}.${NUM}.1D \
+                --report ${SESS}/PARAMS/retained_TRs.${ID}.${NUM}.1D \
+                --head ${HEAD} \
+                --FD ${FD} \
+                --DV ${DV} \
+                --mode ${MODE}
+        fi
+    done
+done
+
+EOF

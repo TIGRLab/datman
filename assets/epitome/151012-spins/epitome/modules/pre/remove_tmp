@@ -1,0 +1,21 @@
+#!/bin/bash
+
+cat<<"EOF"
+echo '*** MODULE: remove_tmp. Removes all temporary files. ********************'
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+
+	# Clean up leftovers 
+	rm ${SESS}/anat_*    || echo ''
+	rm ${SESS}/__tt*     || echo ''
+	rm ${SESS}/template* || echo ''
+	rm ${SESS}/pre.*     || echo ''
+
+    rm ${SESS}/anat_EPI_tmp*.nii.gz || echo ''
+    rm ${SESS}/func_tmp*.nii.gz     || echo ''
+    rm ${SESS}/PARAMS/tmp*.1D       || echo ''
+
+done
+
+EOF

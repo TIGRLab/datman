@@ -1,0 +1,379 @@
+#!/usr/bin/env python
+"""
+Plots the spectra of regressors used during the filter module.
+
+Usage:
+    epi-qc-spectra <path> <expt> <mode> <uid>
+
+Arguement:
+    <path>          path to epitome data directory
+    <expt>          experiment name
+    <mode>          image modaility
+    <uid>           unique identifier for a given run
+"""
+
+import os, sys
+import datetime
+
+import numpy as np
+import scipy as sp
+import scipy.signal as sig
+import nibabel as nib
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+
+import epitome as epi
+from epitome.docopt import docopt
+
+def load_PSD(array, fs):
+    """
+    Uses Welch's method to estimate the spectra of a given 1D input. This 
+    is then normalized to [0, 1], unless the spectra is all zero. In this 
+    case, we return all NaNs.
+    """
+    array = sig.welch(array, fs=fs, window='hann', nperseg=20, 
+                                                   noverlap=None, 
+                                                   return_onesided=True)
+
+    # frequency bins
+    freqs = array[0]
+
+    # check that the spectra isn't all zero (happens if mask is out of bounds)
+    if np.sum(array[1] > 0):
+        # normalize the spectra to [0, 1]
+        power = array[1] / np.sum(array[1])
+    else:
+        # return NaNs for the power vector
+        array[1][:] = np.nan
+        power = array[1]
+
+    return freqs, power
+
+def load_mask(path):
+    """
+    Loads in a 3D mask file, and returns the index where the mask > 0. 
+    """
+    mask = nib.load(path).get_data()
+    mask = mask.reshape(mask.shape[0]*mask.shape[1]*mask.shape[2])
+    idx = np.where(mask > 0)[0]
+
+    return idx
+
+def load_masked_func(path, idx):
+    """
+    Loads in a 4D functional file, and returns a 2D masked functional dataset.
+    """
+    ts = nib.load(path).get_data()
+    ts = ts.reshape(ts.shape[0]*ts.shape[1]*ts.shape[2], ts.shape[3])
+    ts = ts[idx, :]
+
+    return ts
+
+def get_TR(path):
+    """
+    Uses FSLHD to grab the TR field from the header, and converts the output
+    to seconds. Also calculates the sampling rate in Hz, and the nyquist 
+    frequency.
+    """
+    TR = os.popen('fslhd ' + path + ' | sed -n 22p | cut -c 8- | xargs').read()
+
+    # workaround for strange TR-is-missing bug
+    try:
+        TR = float(TR)
+    except:
+        print('ERROR: Trouble reading TR from ' + path + ', using TR = 2 s.')
+        print('NB: Frequencies are likely wrong!!!')
+        TR = 2.0
+
+    if TR >= 1000:
+        TR = TR / 1000
+    fs = 1.0 / TR
+    ny = fs / 2.0
+
+    return TR, fs, ny
+
+def plotter_format(ax, ind, y_min, y_max, freq):
+    """
+    Boring formatting settings for each axes.
+    """
+    # add in bandpass markers
+    ax[ind].vlines([0.01, 0.1], y_min, y_max, 'black')
+
+    # set graph limits
+    ax[ind].set_ylim((y_min, y_max))
+    ax[ind].set_xlim((freq[1], freq[-1]))
+
+    # format the legend to be clean
+    ax[ind].legend(loc=3, fontsize=10, frameon=False)
+
+    return ax[ind]
+
+def plotter(raw, noise, signal, dv, vent, gm, n, freq):
+    """
+    Takes in the data from regressor_spectra to produce a single subject's
+    spectra. Outputs a PDF page that can be combined with others to produce
+    the full experiment-wide report.
+    """
+    # calculate mean, sd, sem from data
+    sd_raw = np.nanstd(raw, axis=0)
+    sd_fit = np.nanstd(noise, axis=0)
+    sd_sig = np.nanstd(signal, axis=0)
+    sd_drv = np.nanstd(dv, axis=0)
+    sd_vnt = np.nanstd(vent, axis=0)
+    sd_grm = np.nanstd(gm, axis=0)
+
+    # these SE measures are going to be wrong due to the NaNs...
+    se_raw = sd_raw / np.repeat(np.sqrt(raw.shape[0]), raw.shape[1])
+    se_fit = sd_fit / np.repeat(np.sqrt(noise.shape[0]), noise.shape[1])
+    se_sig = sd_sig / np.repeat(np.sqrt(signal.shape[0]), signal.shape[1])
+    se_drv = sd_drv / np.repeat(np.sqrt(dv.shape[0]), n)
+    se_vnt = sd_vnt / np.repeat(np.sqrt(vent.shape[0]), n)
+    se_grm = sd_grm / np.repeat(np.sqrt(gm.shape[0]), n)
+
+    mu_raw = np.nanmean(raw, axis=0)
+    mu_fit = np.nanmean(noise, axis=0)
+    mu_sig = np.nanmean(signal, axis=0)
+    mu_drv = np.nanmean(dv, axis=0) 
+    mu_vnt = np.nanmean(vent, axis=0)
+    mu_grm = np.nanmean(gm, axis=0)
+
+    # compute spectra min + max
+    y_min = np.min(np.concatenate((mu_drv[1:], mu_vnt[1:], mu_grm[1:],
+                                               mu_fit[1:], mu_sig[1:])))
+    y_max = np.max(np.concatenate((mu_drv, mu_vnt, mu_grm, mu_fit, mu_sig)))
+
+    # init the subject plot (3 subplots)
+    fig, ax = plt.subplots(nrows=3,  ncols=1, figsize=(4, 12), 
+                                              dpi=72, facecolor='white')
+
+    ###########################################################################
+    # compare overall models
+    ax[0].loglog(freq, mu_raw, color='black', linewidth=2, label='Raw Data')
+    ax[0].fill_between(freq, mu_raw + sd_raw, mu_raw, color='black', alpha=0.5)
+    ax[0].fill_between(freq, mu_raw - sd_raw, mu_raw, color='black', alpha=0.5)
+    ax[0].loglog(freq, mu_raw + se_raw, color='black', linestyle='-.', 
+                                                       linewidth=0.5)
+    ax[0].loglog(freq, mu_raw - se_raw, color='black', linestyle='-.', 
+                                                       linewidth=0.5)
+
+    ax[0].loglog(freq, mu_fit, color='blue', linewidth=2, label='Noise Model')
+    ax[0].fill_between(freq, mu_fit + sd_fit, mu_fit, color='blue', alpha=0.5)
+    ax[0].fill_between(freq, mu_fit - sd_fit, mu_fit, color='blue', alpha=0.5)
+    ax[0].loglog(freq, mu_fit + se_fit, color='blue', linestyle='-.', 
+                                                      linewidth=0.5)
+    ax[0].loglog(freq, mu_fit - se_fit, color='blue', linestyle='-.', 
+                                                      linewidth=0.5)
+
+    ax[0].loglog(freq, mu_sig, color='red', linewidth=2, label='Residuals')
+    ax[0].fill_between(freq, mu_sig + sd_sig, mu_sig, color='red', alpha=0.5)
+    ax[0].fill_between(freq, mu_sig - sd_sig, mu_sig, color='red', alpha=0.5)
+    ax[0].loglog(freq, mu_sig + se_sig, color='red', linestyle='-.', 
+                                                     linewidth=0.5)
+    ax[0].loglog(freq, mu_sig - se_sig, color='red', linestyle='-.', 
+                                                     linewidth=0.5)
+    ax[0] = plotter_format(ax, 0, y_min, y_max, freq)
+
+    ###################################################################
+    # compare individual regressors
+    ax[1].loglog(freq, mu_drv, color='black', linewidth=2, label='Draining')
+    ax[1].fill_between(freq, mu_drv + sd_drv, mu_drv, color='black', alpha=0.5)
+    ax[1].fill_between(freq, mu_drv - sd_drv, mu_drv, color='black', alpha=0.5)
+    ax[1].loglog(freq, mu_drv + se_drv, color='black', linestyle='-.', 
+                                                       linewidth=0.5)
+    ax[1].loglog(freq, mu_drv + se_drv, color='black', linestyle='-.', 
+                                                       linewidth=0.5)
+
+    ax[1].loglog(freq, mu_vnt, color='blue', linewidth=2, label='Ventricles')
+    ax[1].fill_between(freq, mu_vnt + sd_vnt, mu_vnt, color='blue', alpha=0.5)
+    ax[1].fill_between(freq, mu_vnt - sd_vnt, mu_vnt, color='blue', alpha=0.5)
+    ax[1].loglog(freq, mu_vnt + se_vnt, color='blue', linestyle='-.', 
+                                                      linewidth=0.5)
+    ax[1].loglog(freq, mu_vnt - se_vnt, color='blue', linestyle='-.', 
+                                                      linewidth=0.5)
+
+    ax[1].loglog(freq, mu_grm, color='red', linewidth=2, label='Global Mean')
+    ax[1].fill_between(freq, mu_grm + sd_grm, mu_grm, color='red', alpha=0.5)
+    ax[1].fill_between(freq, mu_grm - sd_grm, mu_grm, color='red', alpha=0.5)
+    ax[1].loglog(freq, mu_grm + se_grm, color='red', linewidth=0.5, 
+                                                     linestyle='-.')
+    ax[1].loglog(freq, mu_grm - se_grm, color='red', linewidth=0.5, 
+                                                     linestyle='-.')
+    ax[1] = plotter_format(ax, 1, y_min, y_max, freq)
+
+    ###################################################################
+    # compare global mean with mean spectra
+    ax[2].loglog(freq, mu_raw, color='black', linewidth=2, label='Raw Data')
+    ax[2].fill_between(freq, mu_raw + sd_raw, mu_raw, color='black', alpha=0.5)
+    ax[2].fill_between(freq, mu_raw - sd_raw, mu_raw, color='black', alpha=0.5)
+    ax[2].loglog(freq, mu_raw + se_raw, color='black', linestyle='-.', 
+                                                       linewidth=0.5)
+    ax[2].loglog(freq, mu_raw - se_raw, color='black', linestyle='-.',
+                                                       linewidth=0.5)
+    
+    ax[2].loglog(freq, mu_grm, color='red', linewidth=2, label='Global Mean')
+    ax[2].fill_between(freq, mu_grm + sd_grm, mu_grm, color='red', alpha=0.5)
+    ax[2].fill_between(freq, mu_grm - sd_grm, mu_grm, color='red', alpha=0.5)
+    ax[2].loglog(freq, mu_grm + se_grm, color='red', linewidth=0.5, 
+                                                     linestyle='-.')
+    ax[2].loglog(freq, mu_grm - se_grm, color='red', linewidth=0.5,
+                                                     linestyle='-.')
+    ax[2] = plotter_format(ax, 2, y_min, y_max, freq)
+
+    return fig, ax
+
+def main():
+    arguments = docopt(__doc__)
+    path      = arguments['<path>']
+    expt      = arguments['<expt>']
+    mode      = arguments['<mode>']
+    uid       = arguments['<uid>']
+
+    # get subject numbers
+    subjects = epi.utilities.get_subj(os.path.join(path, expt))
+
+    # loop through all subjects
+    pdf = PdfPages(os.path.join(path, expt, 
+                  'qc_' + uid + '_regressor_spectra_' + mode + '.pdf'))
+    for subj in subjects:
+
+        # define some useful shortcuts
+        subjpath = os.path.join(path, expt, subj)
+        modepath = os.path.join(subjpath, mode)
+
+        # get relevant timing information
+        TR, fs, ny = get_TR(os.path.join(
+                            modepath, 'SESS01/func_scaled.' + 
+                                                   str(uid) + '.01.nii.gz'))
+
+        # get the number of sessions
+        sessions = len([f for f in os.listdir(modepath) 
+                          if os.path.isdir(os.path.join(modepath, f)) 
+                          and f[0:4] == 'SESS'])
+
+        for sess in range(sessions):
+            
+            # number and list of frequency bins
+            tmp = np.genfromtxt(os.path.join(
+                                modepath, 'SESS' + '%02d'%(sess+1), 
+                                'PARAMS/global_mean.' + str(uid) + '.01.1D'))
+
+            freq = load_PSD(tmp, fs)[0]
+            n = len(freq) 
+
+            # get the number of runs
+            runs = len([f for f in os.listdir(os.path.join(
+                              modepath, 'SESS' + '%02d'%(sess+1))) 
+                              if os.path.isdir(os.path.join(
+                              modepath, 'SESS' + '%02d'%(sess+1), f)) 
+                              and f[0:3] == 'RUN'])
+
+            # load in the subject gray matter mask
+            idx = load_mask(os.path.join(modepath, 'SESS' + '%02d'%(sess+1), 
+                                                         'anat_gm.nii.gz'))
+
+            # init the data arrays
+            dv = np.zeros(n)
+            vent = np.zeros(n)
+            gm = np.zeros(n)
+            raw = np.zeros((len(idx) * runs, len(freq)))
+            noise = np.zeros((len(idx) * runs, len(freq)))
+            signal = np.zeros((len(idx) * runs, len(freq)))
+
+            # initialize the master index
+            ind = 0
+
+            for run in range(runs):
+
+                # load in regressor spectra
+                files = os.listdir(os.path.join(
+                           modepath, 'SESS' + '%02d'%(sess+1), 'PARAMS'))
+                
+                for f in files:
+                    
+                    if f[:11] == 'global_mean':
+
+                        tmp = np.genfromtxt(os.path.join(
+                              modepath, 'SESS' + '%02d'%(sess+1), 'PARAMS', f))
+                        freqs, power = load_PSD(tmp, fs)
+                        gm = np.vstack((gm, power))
+                    
+                    elif f[:2] == 'dv':
+
+                        tmp = np.genfromtxt(os.path.join(
+                              modepath, 'SESS' + '%02d'%(sess+1), 'PARAMS', f))
+                        freqs, power = load_PSD(tmp, fs)
+                        dv = np.vstack((dv, power))
+
+                    elif f[:4] == 'vent':
+
+                        tmp = np.genfromtxt(os.path.join(
+                              modepath, 'SESS' + '%02d'%(sess+1), 'PARAMS', f))
+                        freqs, power = load_PSD(tmp, fs)
+                        vent = np.vstack((vent, power))
+
+                # load in unfiltered data spectra
+                ts = load_masked_func(os.path.join(path, expt, subj, mode, 
+                                                  'SESS' + '%02d'%(sess+1), 
+                                                  'func_scaled.' +
+                                                  str(uid) + '.' +
+                                                  '%02d'%(run+1) + 
+                                                  '.nii.gz'), idx)
+                for i, t in enumerate(ts):
+                    power = load_PSD(t, fs)[1]
+                    raw[i + ind, :] = power
+                    
+                # load in full noise model spectra
+                ts = load_masked_func(os.path.join(path, expt, subj, mode,
+                                                  'SESS' + '%02d'%(sess+1),
+                                                  'func_noise.' +
+                                                  str(uid) + '.' +
+                                                  '%02d'%(run+1) + 
+                                                  '.nii.gz'), idx)
+                for i, t in enumerate(ts):
+                    power = load_PSD(t, fs)[1]
+                    noise[i + ind, :] = power
+
+                # load in residual signal
+                ts = load_masked_func(os.path.join(path, expt, subj, mode,
+                                                  'SESS' + '%02d'%(sess+1),
+                                                  'func_filtered.' +
+                                                  str(uid) + '.' +
+                                                  '%02d'%(run+1) + 
+                                                  '.nii.gz'), idx)
+                for i, t in enumerate(ts):
+                    power = load_PSD(t, fs)[1]
+                    signal[i + ind, :] = power
+                
+                # iterate the master index
+                ind = ind + len(idx)
+
+            # strip off empty vector
+            print(str(subj) + ' ' + str(sess))
+            dv = dv[1:, :]
+            vent = vent[1:, :]
+            gm = gm[1:, :]
+
+            # plot everything, format, and save to the PDF
+            fig, ax = plotter(raw, noise, signal, dv, vent, gm, n, freqs)
+
+            fig.subplots_adjust(hspace=0.15)
+
+            plt.suptitle(str(expt) + ' ' + str(mode) + ': ' + str(subj))
+            plt.savefig(pdf, format='pdf')
+            plt.close()
+
+    # Add some metadata and close the PDF object
+    d = pdf.infodict()
+    d['Title'] = 'Quality Control: Spectra of data, modeled noise, residuals'
+    d['Author'] = u'Joseph D Viviano\xe4nen'
+    d['Subject'] = 'Quality Control'
+    d['Keywords'] = 'QC modeled noise spectra'
+    d['CreationDate'] = datetime.datetime.today()
+    d['ModDate'] = datetime.datetime.today()
+    pdf.close()
+
+if __name__ == "__main__":
+    main()

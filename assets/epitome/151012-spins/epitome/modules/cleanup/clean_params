@@ -1,0 +1,29 @@
+#!/bin/bash
+cat <<"EOF"
+
+echo '************************************************************************'
+echo '                       CLEANUP: PARAMS Purge'
+echo ''
+echo '   - Removes faulty PARAMS files, which can arise for various reasons.'
+echo '   - Will NOT delete successfully-generated (i.e., non-zero) PARAMS.'
+echo ''
+echo '************************************************************************'
+
+## Let's Dance https://www.youtube.com/watch?v=N4d7Wp9kKjA ##
+for SUB in ${SUBJECTS}; do
+
+    DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+    for SESS in ${DIR_SESS}; do
+    	for FILE in ${SESS}/PARAMS/*; do
+
+            # remove all empty PARAMS files
+    		SIZE=`cat ${FILE} | wc -l`;
+    		if [ ${SIZE} -eq 0 ]; then
+    			rm ${FILE}
+    		fi
+
+    	done
+    done
+done
+
+EOF

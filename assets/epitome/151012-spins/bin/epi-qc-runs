@@ -1,0 +1,43 @@
+#!/bin/bash
+
+if [ $# -ne 2 ]; then
+    echo 'Returns x, y, z, and t sizes for all data in EXPT.'
+    echo ''
+    echo 'Usage:'
+    echo '    epi-qc-runs <dir-data> <dir-expt>'
+    echo ''
+    exit
+done
+
+DIR_DATA=${1}
+DIR_EXPT=${2}
+
+# report raw data's file dimensions (4D)
+echo 'Generating 4D file dimensions for '${DIR_EXPT}
+echo Subj_ID,Mode,Session,Run,X,Y,Z,TR > \
+                              ${DIR_DATA}/${DIR_EXPT}/qc_NIFTI_overview.csv
+
+# get a list of all the subjects
+SUBJECTS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/*/`
+
+for SUB in ${SUBJECTS}; do
+    DIR_MODE=`ls -d -- ${SUB}/*/`
+    for MODE in ${DIR_MODE}; do
+        DIR_SESS=`ls -d -- ${MODE}/*/`
+        for SESS in ${DIR_SESS}; do
+            DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+            for RUN in ${DIR_RUNS}; do
+                NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+                FILE=`echo ${RUN}/*.nii.gz`
+
+                # grab the number of TRs
+                X=`fslhd ${FILE} | sed -n 6p | cut -c 5- | xargs`
+                Y=`fslhd ${FILE} | sed -n 7p | cut -c 5- | xargs`
+                Z=`fslhd ${FILE} | sed -n 8p | cut -c 5- | xargs`
+                TR=`fslhd ${FILE} | sed -n 9p | cut -c 5- | xargs`
+                echo `basename ${SUB}`,`basename ${MODE}`,`basename ${SESS}`,`basename ${RUN}`,${X},${Y},${Z},${TR} >> ${DIR_DATA}/${DIR_EXPT}/qc_NIFTI_overview.csv
+            done
+        done
+    done
+done
+echo 'Wrote data to '${DIR_DATA}/${DIR_EXPT}/qc_NIFTI_overview.csv

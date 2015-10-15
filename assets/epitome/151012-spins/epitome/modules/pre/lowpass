@@ -1,0 +1,31 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT=$(echo func_${1})
+export MASK=$(echo anat_${2})
+export FILTER=${3}
+export CUTOFF=${4}
+
+EOF
+
+cat <<"EOF"
+echo '*** MODULE: lowpass. Lowpasses functional data. *************************'
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+
+        if [ ! -f ${SESS}/func_lowpass.${ID}.${NUM}.nii.gz ]; then
+            epi-lowpass \
+                ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz \
+                ${SESS}/${MASK}.nii.gz \
+                ${SESS}/func_lowpass.${ID}.${NUM}.nii.gz \
+                --type ${FILTER} \
+                --cutoff ${CUTOFF}
+        fi
+    done
+done
+
+EOF

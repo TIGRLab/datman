@@ -1,0 +1,132 @@
+#!/usr/bin/env python
+"""
+Parses BIOPACK MP150 files from the York University, TO, Neuroimaging Unit.
+
+Usage:
+    epi-physio <input>
+
+Arguments:
+    <input>         Input biopack file.
+
+DETAILS:
+
+    This outputs one set of cardiac waveform data, respiratory waveform data,  
+    and heart rate data from each contiguous blocks of TTL pulses from the MRI.
+    the corresponding files should be placed in the RUN folder for functional  
+    EPI data that you would like to undergo physiological noise regression, and  
+    epitome will look for and use *.phys files in each RUN directory 
+    automatically.
+
+    Returns a set of {card.X.phys, resp.X.phys, card_rate.X.phys} in the current 
+    directory.
+
+    Requires the bioread python package (currently not included in epitome).
+"""
+
+import os, sys, csv
+import numpy as np
+import scipy.signal as sig
+import bioread as bio
+import matplotlib.pyplot as plt
+from epitome.docopt import docopt
+
+def find_transitions(ttl_dat):
+    """
+    Takes TTL data, returns an equal-length vector with 1s @ onsets & offsets.
+    """
+    # normalize TTL data & set small values to == 0
+    ttl_dat_max = np.max(ttl_dat)
+    ttl_dat = ttl_dat / ttl_dat_max
+
+    ttl_dat_negatives = np.where(ttl_dat < 0.1)[0]
+    ttl_dat[ttl_dat_negatives] = 0
+
+    ## find peaks (values > 0)
+    ttl_idx = np.where(ttl_dat > 0)[0]
+    ttl_dif = np.diff(ttl_idx)
+
+    ## find all of the transition points
+    trans = np.array([])
+    for x in np.unique(ttl_dif):
+        if len(np.where(ttl_dif == x)[0]) == 1:
+            trans = np.append(trans, np.where(ttl_dif == x)[0]) # offsets
+
+    trans = np.union1d(trans, trans+1) # add onset
+    trans = ttl_idx[trans.tolist()] # find most transition indicies
+    trans = np.append(ttl_idx[0], trans) # add in the 1st transition
+    trans = trans[:-1] # remove the stop signal
+
+    # generate a vector of onsets & offsets
+    ttl_out = np.zeros(len(ttl_dat))
+    ttl_out[trans.tolist()] = 1
+
+    return ttl_out
+
+def main():
+    arguments = docopt(__doc__)
+    infile     = arguments['<input>']
+
+    if os.path.isfile(infile) == True:
+        try:
+            # read in ttl data, return transitions, create transition index
+            data = bio.read_file(infile)
+            ttl_dat = data.named_channels['TTL pulse'].data
+            ttl_out = find_transitions(ttl_dat)
+            ttl_idx = np.where(ttl_out == 1)[0]
+        
+        except:
+            # print a warning & exit if the input file confuses bioread
+            print('ERROR: Bioread import failed. Correct file type?')
+            sys.exit()
+    else:
+        # print a warning & exit if the input filename does not exist
+        print('ERROR: Input files does not exist! Exiting.')
+        sys.exit()
+
+    # split data into start and end points
+    starts = []
+    stops = []
+
+    for iteration in np.arange(len(ttl_idx)):
+
+        # if iteration is odd -- remember zero index!
+        if np.remainder(iteration, 2.0) == 0: 
+            starts.append(ttl_idx[iteration])
+        
+        # if iteration is even
+        else:
+            stops.append(ttl_idx[iteration])
+
+    # write out data
+    for run in np.arange(len(starts)):
+        num = run + 1 # file number start at 1
+
+        # heart rate data -- 1/2 sampling rate
+        tmp = data.named_channels['Pulse Rate'].data
+        tmp = tmp[starts[run]/2:stops[run]/2] # 1/2 sampling speed
+        with open('card_rate.' + str("%02d" % num) + '.phys', 'wb') as csvfile:
+            writer = csv.writer(csvfile, delimiter=' ')
+            writer.writerow(tmp) # write the data
+            csvfile.close()
+
+        # respiratory data
+        tmp = data.named_channels['resp'].data
+        tmp = tmp[starts[run]:stops[run]]
+        with open('resp.' + str("%02d" % num) + '.phys', 'wb') as csvfile:
+            writer = csv.writer(csvfile, delimiter=' ')
+            writer.writerow(tmp) # write the data
+            csvfile.close()
+
+        # pulse waveform data
+        tmp = data.named_channels['pulse waveform'].data
+        tmp = tmp[starts[run]:stops[run]]
+        with open('card.' + str("%02d" % num) + '.phys', 'wb') as csvfile:
+            writer = csv.writer(csvfile, delimiter=' ')
+            writer.writerow(tmp) # write the data
+            csvfile.close()
+
+    print('MSG: Processed {} runs from {}'.format(str(len(starts)), infile))
+    print('MSG: Place these outputs into the corresponding RUN folders.')
+
+if __name__ == "__main__":
+    main()
