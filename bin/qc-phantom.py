@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 """
-This runs the QC on the ADNI, fMRI, and DTI data, respectively. Allows 
+This runs the QC on the ADNI, fMRI, and DTI data, respectively. Allows
 you to specify plotting of all sites concurrently or a single site. If a
 number of time-points is specified, we submit those to each function.
 
 Usage:
     qc-phantom.py [options] <project> <ntp> <assets> <sites>...
 
-Arguments: 
+Arguments:
     <sites>             List of sites to plot.
-    <ntp>               Number of previous time points to plot. 
+    <ntp>               Number of previous time points to plot.
     <project>           Full path to the project directory containing data/.
     <assets>            Full path to folder containing adni-template.nii.gz
 
@@ -30,10 +30,10 @@ DETAILS
         fBIRN DIT  -- DTI
 
     Each file is then sent through the appropriate analysis pipeline, if the
-    outputs do not already exist. Finally, this compiles results of the last 
+    outputs do not already exist. Finally, this compiles results of the last
     n weeks into a plot that summarizes the data from the submitted sites.
 
-    Often, you will want to plot all sites together, and then each site one 
+    Often, you will want to plot all sites together, and then each site one
     by one, if the scales are substantially different across sites.
 
 DEPENDENCIES
@@ -64,18 +64,18 @@ VERBOSE = False
 DRYRUN  = False
 DEBUG   = False
 
-def log(message): 
+def log(message):
     print message
     sys.stdout.flush()
 
-def error(message): 
+def error(message):
     log("ERROR: " + message)
 
-def verbose(message): 
+def verbose(message):
     if not(VERBOSE or DEBUG): return
     log(message)
 
-def debug(message): 
+def debug(message):
     if not DEBUG: return
     log("DEBUG: " + message)
 
@@ -84,16 +84,16 @@ def get_discrete_colormap(n, cmap):
     Returns the submitted colormap and normalizer. Use like this...
 
     # make the scatter
-    plot = ax.scatter(x, y, c=tag, s=np.random.randint(100,500,20), cmap=cmap, 
+    plot = ax.scatter(x, y, c=tag, s=np.random.randint(100,500,20), cmap=cmap,
                                                                     norm=norm)
 
     # create a second axes for the colorbar
     ax2 = fig.add_axes([0.95, 0.1, 0.03, 0.8])
-    cb = mpl.colorbar.ColorbarBase(ax2, cmap=cmap, 
-                                        norm=norm, 
-                                        spacing='proportional', 
-                                        ticks=bounds, 
-                                        boundaries=bounds, 
+    cb = mpl.colorbar.ColorbarBase(ax2, cmap=cmap,
+                                        norm=norm,
+                                        spacing='proportional',
+                                        ticks=bounds,
+                                        boundaries=bounds,
                                         format='%1i')
     """
 
@@ -113,13 +113,13 @@ def get_discrete_colormap(n, cmap):
 
 def remove_region(data, i):
     """
-    Removes the ROIs containing the value i from the data. 
+    Removes the ROIs containing the value i from the data.
     """
     x = data.shape[0]
     y = data.shape[1]
 
     data = data.reshape(x * y)
-    idx = np.where(data == i)[0] 
+    idx = np.where(data == i)[0]
     data[idx] = 0
     data = data.reshape(x, y)
 
@@ -198,14 +198,14 @@ def find_adni_t1_vals(project, data, assets):
     Find the 5 ROIs of interest using the random walker algorithm [1]. Uses the
     image mean as the lower threshold, and 2x the mean as an upper threshold.
 
-    Further, we find the 5 largest connected components. The mean of these 
+    Further, we find the 5 largest connected components. The mean of these
     masks are used as our ADNI samples and passed along for plotting.
 
     This also calculates the relevant T1 ratios: s2/s1, s3/s1, s4/s1, s5/s1.
 
     http://scikit-image.org/docs/dev/auto_examples
 
-    [1] Random walks for image segmentation, Leo Grady, IEEE Trans. 
+    [1] Random walks for image segmentation, Leo Grady, IEEE Trans.
         Pattern Anal. Mach. Intell. 2006 Nov; 28(11):1768-83
     """
     from copy import copy
@@ -245,7 +245,7 @@ def find_adni_t1_vals(project, data, assets):
     plot = copy(data)
     plot[mask] = 0
     print_adni_qc(project, plot, title)
-    
+
     # find the central roi
     center = np.max(retain_n_segments(copy(labels), 1))
 
@@ -255,7 +255,7 @@ def find_adni_t1_vals(project, data, assets):
     # find quadrants (start in bottom lh corner, moving counter-clockwise)
     x = labels.shape[1] / 2
     y = labels.shape[0] / 2
-    
+
     q1 = labels[y:, 0:x]
     q2 = labels[y:, x:]
     q3 = labels[0:y, x:]
@@ -303,14 +303,14 @@ def find_fbirn_fmri_vals(base_path, subj, phantom):
 
     assets = os.getenv('DATMAN_ASSETS')
 
-    if os.path.isfile(os.path.join(base_path, 'qc/phantom/fmri/', 
+    if os.path.isfile(os.path.join(base_path, 'qc/phantom/fmri/',
                                                    subj + '.csv')) == False:
         cmd = (r"addpath(genpath('{}')); compute_fbirn('{}','{}','{}')".format(
-                                              assets, base_path, subj, phantom)) 
+                                              assets, base_path, subj, phantom))
         os.system('matlab -nodisplay -nosplash -r "' + cmd + '"')
 
     fbirn = np.genfromtxt(os.path.join(
-                          base_path, 'qc/phantom/fmri/', subj + '.csv'), 
+                          base_path, 'qc/phantom/fmri/', subj + '.csv'),
                            delimiter=',',dtype=np.float, skip_header=1)
     fbirn = fbirn[1:]
 
@@ -355,7 +355,7 @@ def get_scatter_x(tp, l, timevector):
         # we use the previous week.
         except:
             x[j] = x[j-1]
-    
+
     return x
 
 def get_scan_date(data_path, subject):
@@ -369,7 +369,7 @@ def get_scan_date(data_path, subject):
     for dicom in dicoms:
         # read in the dicom header
         d = dcm.read_file(os.path.join(dcm_path, dicom))
-        
+
         for t in trys:
             if t == 'imageactualdate':
                 try:
@@ -411,7 +411,7 @@ def get_time_array(sites, dtype, subjects, data_path, tp):
     timearray = []
     discarray = []
     for site in sites:
-        
+
         # init vector
         timepoints = []
         timediscription = []
@@ -428,7 +428,7 @@ def get_time_array(sites, dtype, subjects, data_path, tp):
 
         # keep only the last n timepoints, append to array
         timepoints = timepoints[-tp:]
-        timediscription = timediscription[-tp:] 
+        timediscription = timediscription[-tp:]
         timearray.append(timepoints)
         discarray.append(timediscription)
 
@@ -484,8 +484,14 @@ def main_adni(project, sites, tp, assets):
             candidates = find_adni_niftis(os.path.join(data_path, 'nii', subj))
             phantom = candidates[-1]
             if os.path.isfile(os.path.join(project, 'qc/phantom/adni', subj + '.csv')) == False:
-                adni = find_adni_t1_vals(project, 
-                           os.path.join(data_path, 'nii', subj, phantom), assets)
+                phantompath = os.path.join(data_path, 'nii', subj, phantom)
+
+                try:
+                    adni = find_adni_t1_vals(project, phantompath, assets)
+                except:
+                    print('ERROR: T1 segmentation failed for {}'.format(phantompath))
+                    adni = np.repeat(np.nan, 9)
+
                 # write csv file header='s1,s2,s3,s4,s5,s2/s1,s3/s1,s4/s1,s5/s1')
                 np.savetxt(os.path.join(
                            project, 'qc/phantom/adni', subj + '.csv'), adni.T,
@@ -498,12 +504,8 @@ def main_adni(project, sites, tp, assets):
             array[:, i, j] = adni
 
     ## static plotting removed, replaced with web-generated plotting
-    ## therefore generates a csv same length as the scan window with 
+    ## therefore generates a csv same length as the scan window with
     ## NaNs in missed weeks.
-
-    # # now plot these values in 9 subplots, respecting upload week
-    # h, w = plt.figaspect(3/3)
-    # plt.figure(figsize=(w*2.5, h*2.5))
 
     # titles = ['S1 T1 Contrast', 'S2 T1 Contrast', 'S3 T1 Contrast',
     #           'S4 T1 Contrast', 'S5 T1 Contrast',
@@ -556,49 +558,12 @@ def main_adni(project, sites, tp, assets):
             for row in output:
                 writer.writerow(row)
 
-    # x = get_scatter_x(tp, l, timearray[s])
-    #         plt.scatter(x, plot[s], c=cmap[s], marker="o")
-        
-    #     # set common elements
-    #     plt.xticks(np.arange(len(l)), l.astype(np.int))
-    #     plt.xlabel('Week Number', size=10)
-
-    #     if len(sites) > 1:
-    #         plt.legend(sites, loc='right', fontsize=8)
-
-    #     # set figure-dependent elements
-    #     plt.ylabel(titles[i], fontsize=10)
-    #     plt.title(titles[i], size=10)
-
-    # finish up
-    # plt.tight_layout() # do most of the formatting for us automatically
-    # if len(sites) == 1:
-    #     title = '{} ADNI phantoms: {}, {} timepoints \n\n'.format(
-    #                             site, time.strftime("%x"), str(tp))
-
-    # else:
-    #     title = 'ADNI phantoms: {}, {} timepoints \n\n'.format(
-    #                                   time.strftime("%x"), str(tp))
-    # plt.suptitle(title)
-    # plt.subplots_adjust(top=0.9) # give our title some breathing room
-
-    # if len(sites) == 1:
-    #     filename = '{}/qc/phantom/adni/{}_ADNI_QC_{}.pdf'.format(
-    #                             project, time.strftime("%y-%m-%d"), sites[0]) 
-    # else:
-    #     filename = '{}/qc/phantom/adni/{}_ADNI_QC.pdf'.format(
-    #                             project, time.strftime("%y-%m-%d")) 
-
-    # plt.savefig(filename)
-    # print('Successfully exported ' + filename)
-    # plt.close()
-
 def main_fmri(project, sites, tp):
     """
     Finds the relevant fBRIN fMRI scans and submits them to the fBIRN pipeline,
     which is a matlab script kept in code/.
 
-    The outputs of this pipeline are then plotted and exported as a PDF. 
+    The outputs of this pipeline are then plotted and exported as a PDF.
     """
     # set paths, datatype
     data_path = os.path.join(project, 'data')
@@ -627,13 +592,6 @@ def main_fmri(project, sites, tp):
             phantom = candidates[-1] # for upper bound of time range
             fbirn = find_fbirn_fmri_vals(project, subj, phantom)
             array[:, i, j] = fbirn
-
-    # now plot these values in 7 subplots, respecting upload week
-    # h, w = plt.figaspect(3/3)
-    # plt.figure(figsize=(w*2.5, h*2.5))
-
-    # titles = [r'$\bar{x}$', r'$\sigma$', '% fluctuation', 
-    #                        'Drift', 'SNR', 'SFNR', 'RDC']
 
     for plotnum, plot in enumerate(array):
 
@@ -682,48 +640,8 @@ def main_fmri(project, sites, tp):
             for row in output:
                 writer.writerow(row)
 
-    #     # generate the scatterplot
-    #     plt.subplot(4, 2, i+1)
-    #     for s in np.arange(len(sites)):
-    #         x = get_scatter_x(tp, l, timearray[s])
-    #         plt.scatter(x, plot[s], c=cmap[s], marker="o")
-        
-    #     # set common elements
-    #     plt.xticks(np.arange(len(l)), l.astype(np.int))
-    #     plt.xlabel('Week Number', size=10)
-
-    #     if len(sites) > 1:
-    #         plt.legend(sites, loc='right', fontsize=8)
-
-    #     # set figure-dependent elements
-    #     plt.ylabel(titles[i], fontsize=10)
-    #     plt.title(titles[i], size=10)
-
-    # # finish up
-    # plt.tight_layout() # do most of the formatting for us automatically
-    # if len(sites) == 1:
-    #     title = '{} fMRI fBIRN phantoms: {}, {} timepoints \n\n'.format(
-    #                             site, time.strftime("%x"), str(tp))
-
-    # else:
-    #     title = 'fMRI fBIRN phantoms: {}, {} timepoints \n\n'.format(
-    #                                   time.strftime("%x"), str(tp))
-    # plt.suptitle(title)
-    # plt.subplots_adjust(top=0.9) # give our title some breathing room
-
-    # if len(sites) == 1:
-    #     filename = '{}/qc/phantom/fmri/{}_fMRI_QC_{}.pdf'.format(
-    #                             project, time.strftime("%y-%m-%d"), sites[0]) 
-    # else:
-    #     filename = '{}/qc/phantom/fmri/{}_fMRI_QC.pdf'.format(
-    #                             project, time.strftime("%y-%m-%d")) 
-
-    # plt.savefig(filename)
-    # print('Successfully exported ' + filename)
-    # plt.close()
-
 def main():
-    global VERBOSE 
+    global VERBOSE
     global DEBUG
     arguments = docopt(__doc__)
     sites     = arguments['<sites>']
