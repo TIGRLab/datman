@@ -258,9 +258,9 @@ def analyze_data(sub, assets, func_path):
     Extracts: time series, correlation / partial correlation matricies using labels defined
     in 'rsfc.labels' in assets/. This file should be formatted for 3dUndump.
     """
-    labelfile = os.path.join(assets, 'rsfc.labels')
-    if os.path.isfile(labelfile) == False:
-        raise ValueError
+    #labelfile = os.path.join(assets, 'rsfc.labels')
+    #if os.path.isfile(labelfile) == False:
+    #    raise ValueError
 
     #dm.utils.run('3dUndump -master {func_path}/{sub}/{sub}_anat_EPI_mask_MNI.nii.gz -xyz -srad 6 -prefix {func_path}/{sub}/{sub}_rois.nii.gz {labelfile}'.format(func_path=func_path, sub=sub, labelfile=labelfile))
     dm.utils.run('3dresample -master {func_path}/{sub}/{sub}_func_MNI-nonlin.REST.01.nii.gz -prefix {func_path}/{sub}/{sub}_rois.nii.gz -inset {assets}/shen_1mm_268_parcellation.nii.gz'.format(
