@@ -2,14 +2,14 @@
 """
 This pre-processes resting state data and extracts the mean time series from the defined
 ROIs in MNI space (6 mm spheres). This data is returned as the time series, a full correlation
-matrix, and a partial correlation matrix (all in .csv format). 
+matrix, and a partial correlation matrix (all in .csv format).
 
 Usage:
     dm-proc-rest.py [options] <project> <tmppath> <script> <assets>
 
-Arguments: 
+Arguments:
     <project>           Full path to the project directory containing data/.
-    <tmppath>           Full path to a shared folder to run 
+    <tmppath>           Full path to a shared folder to run
     <script>            Full path to an epitome-style script.
     <assets>            Full path to an assets folder containing rsfc.labels (3dUndump format).
 
@@ -60,8 +60,8 @@ def partial_corr(C):
     Partial Correlation in Python (clone of Matlab's partialcorr)
     from https://gist.github.com/fabianp/9396204419c7b638d38f
 
-    This uses the linear regression approach to compute the partial 
-    correlation (might be slow for a huge number of variables). The 
+    This uses the linear regression approach to compute the partial
+    correlation (might be slow for a huge number of variables). The
     algorithm is detailed here:
 
         http://en.wikipedia.org/wiki/Partial_correlation#Using_linear_regression
@@ -73,11 +73,11 @@ def partial_corr(C):
         2) calculate the residuals in Step #1
         3) perform a normal linear least-squares regression with Y as the target and Z as the predictor
         4) calculate the residuals in Step #3
-        5) calculate the correlation coefficient between the residuals from Steps #2 and #4; 
+        5) calculate the correlation coefficient between the residuals from Steps #2 and #4;
 
     The result is the partial correlation between X and Y while controlling for the effect of Z
 
-    Returns the sample linear partial correlation coefficients between pairs of variables in C, controlling 
+    Returns the sample linear partial correlation coefficients between pairs of variables in C, controlling
     for the remaining variables in C.
 
 
@@ -93,7 +93,7 @@ def partial_corr(C):
         P[i, j] contains the partial correlation of C[:, i] and C[:, j] controlling
         for the remaining variables in C.
     """
-    
+
     C = np.asarray(C)
     p = C.shape[1]
     P_corr = np.zeros((p, p), dtype=np.float)
@@ -108,11 +108,11 @@ def partial_corr(C):
 
             res_j = C[:, j] - C[:, idx].dot( beta_i)
             res_i = C[:, i] - C[:, idx].dot(beta_j)
-            
+
             corr = stats.pearsonr(res_i, res_j)[0]
             P_corr[i, j] = corr
             P_corr[j, i] = corr
-        
+
     return P_corr
 
 def proc_data(sub, data_path, log_path, tmp_path, tmpdict, script):
@@ -125,7 +125,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, script):
     nii_path = os.path.join(data_path, 'nii')
     t1_path = os.path.join(data_path, 't1')
     func_path = os.path.join(data_path, 'rest')
-    
+
     # find the freesurfer outputs for the T1 data
     try:
         niftis = filter(lambda x: 'nii.gz' in x, os.listdir(t1_path))
@@ -138,7 +138,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, script):
         t1_data = filter(lambda x: 't1' in x.lower(), niftis)
         t1_data.sort()
         t1_data = t1_data[0]
-    
+
     except:
         print('ERROR: No t1 found for ' + str(sub))
         raise ValueError
@@ -147,7 +147,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, script):
         aparc = filter(lambda x: 'aparc.nii.gz' in x.lower(), niftis)
         aparc.sort()
         aparc = aparc[0]
-    
+
     except:
         print('ERROR: No aparc atlas found for ' + str(sub))
         raise ValueError
@@ -171,9 +171,9 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, script):
 
     try:
         rest_data = filter(lambda x: 'rst' in x.lower(), niftis)
-        
+
         if len(rest_data) > 1:
-            print('MSG: Multiple resting-state data! Using most recent for {}'.format(sub)) 
+            print('MSG: Multiple resting-state data! Using most recent for {}'.format(sub))
 
         rest_data = rest_data[-1]
 
@@ -205,13 +205,13 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, script):
         dm.utils.run(cmd)
 
         return name, tmpdict
-        
+
     except:
         raise ValueError
 
 def export_data(sub, tmpfolder, func_path):
 
-    tmppath = os.path.join(tmpfolder, 'TEMP', 'SUBJ', 'FUNC', 'SESS01')    
+    tmppath = os.path.join(tmpfolder, 'TEMP', 'SUBJ', 'FUNC', 'SESS01')
 
     try:
         # make directory
@@ -262,18 +262,21 @@ def analyze_data(sub, assets, func_path):
     if os.path.isfile(labelfile) == False:
         raise ValueError
 
-    dm.utils.run('3dUndump -master {func_path}/{sub}/{sub}_anat_EPI_mask_MNI.nii.gz -xyz -srad 6 -prefix {func_path}/{sub}/{sub}_rois.nii.gz {labelfile}'.format(func_path=func_path, sub=sub, labelfile=labelfile))
+    #dm.utils.run('3dUndump -master {func_path}/{sub}/{sub}_anat_EPI_mask_MNI.nii.gz -xyz -srad 6 -prefix {func_path}/{sub}/{sub}_rois.nii.gz {labelfile}'.format(func_path=func_path, sub=sub, labelfile=labelfile))
+    dm.utils.run('3dresample -master {func_path}/{sub}/{sub}_func_MNI-nonlin.REST.01.nii.gz -prefix {func_path}/{sub}/{sub}_rois.nii.gz -inset {assets}/shen_1mm_268_parcellation.nii.gz'.format(
+                       func_path=func_path, sub=sub, assets=assets))
     rois, _, _, _ = dm.utils.loadnii('{func_path}/{sub}/{sub}_rois.nii.gz'.format(func_path=func_path, sub=sub))
     data, _, _, _ = dm.utils.loadnii('{func_path}/{sub}/{sub}_func_MNI-nonlin.REST.01.nii.gz'.format(func_path=func_path, sub=sub))
 
     n_rois = len(np.unique(rois[rois > 0]))
     dims = np.shape(data)
 
+    # loop through all ROIs, extracting mean timeseries.
     output = np.zeros((n_rois, dims[1]))
 
     for i, roi in enumerate(np.unique(rois[rois > 0])):
         idx = np.where(rois == roi)[0]
-        
+
         if len(idx) > 0:
             output[i, :] = np.mean(data[idx, :], axis=0)
 
@@ -283,10 +286,10 @@ def analyze_data(sub, assets, func_path):
     # save the full correlation matrix
     corrs = np.corrcoef(output)
     np.savetxt('{func_path}/{sub}/{sub}_roi-corrs.csv'.format(func_path=func_path, sub=sub), corrs, delimiter=',')
-    
+
     # save partial correlation matrix
-    pcorrs = partial_corr(output.transpose())
-    np.savetxt('{func_path}/{sub}/{sub}_roi-pcorrs.csv'.format(func_path=func_path, sub=sub), pcorrs, delimiter=',') 
+    #pcorrs = partial_corr(output.transpose())
+    #np.savetxt('{func_path}/{sub}/{sub}_roi-pcorrs.csv'.format(func_path=func_path, sub=sub), pcorrs, delimiter=',')
 
     dm.utils.run('touch {func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub))
 
@@ -298,10 +301,10 @@ def main():
     2) Extracts time series from the cortex using MRI-space ROIs.
     3) Generates a correlation matrix for each subject.
     4) Generates an experiment-wide correlation matrix.
-    5) Generates a set of graph metrics for each subject. 
+    5) Generates a set of graph metrics for each subject.
     """
 
-    global VERBOSE 
+    global VERBOSE
     global DEBUG
     arguments  = docopt(__doc__)
     project    = arguments['<project>']
@@ -324,7 +327,7 @@ def main():
 
     # preprocess
     for sub in subjects:
-        if dm.scanid.is_phantom(sub) == True: 
+        if dm.scanid.is_phantom(sub) == True:
             continue
         if os.path.isfile(os.path.join(func_path,  '{sub}/{sub}_preproc-complete.log'.format(sub=sub))) == True:
             continue
@@ -353,7 +356,7 @@ def main():
 
     # analyze
     for sub in subjects:
-        if dm.scanid.is_phantom(sub) == True: 
+        if dm.scanid.is_phantom(sub) == True:
             continue
         if os.path.isdir(os.path.join(func_path, sub)) == False:
             continue
