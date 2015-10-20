@@ -136,7 +136,7 @@ def main():
             continue
 
         # do the linking 
-        target = os.path.join(targetdir,scanid)+'.zip'
+        target = os.path.join(targetdir,scanid) + datman.utils.get_extension(archivepath)
         if os.path.exists(target): 
             verbose("{} already exists for archive {}. Skipping.".format(
                 target,archivepath))
