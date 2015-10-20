@@ -6,11 +6,11 @@ to analyze any rapid event-related design experiment fairly easily.
 Usage:
     dm-proc-imob.py [options] <project> <tmppath> <script> <assets>
 
-Arguments: 
+Arguments:
     <project>           Full path to the project directory containing data/.
-    <tmppath>           Full path to a shared folder to run 
+    <tmppath>           Full path to a shared folder to run
     <script>            Full path to an epitome-style script.
-    <assets>            Full path to an assets folder containing 
+    <assets>            Full path to an assets folder containing
                                               EA-timing.csv, EA-vid-lengths.csv.
 
 Options:
@@ -20,7 +20,7 @@ Options:
 DETAILS
 
     1) Preprocesses MRI data.
-    2) Produces an AFNI-compatible GLM file with the event timing. 
+    2) Produces an AFNI-compatible GLM file with the event timing.
     3) Runs the GLM analysis at the single-subject level.
 
     Each subject is run through this pipeline if the outputs do not already exist.
@@ -131,7 +131,7 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
         tmpfolder = tempfile.mkdtemp(prefix='imob-', dir=tmp_path)
         tmpdict[sub] = tmpfolder
         dm.utils.make_epitome_folders(tmpfolder, 2)
-        
+
         returncode, _, _ = dm.utils.run('cp {}/{} {}/TEMP/SUBJ/T1/SESS01/anat_T1_brain.nii.gz'.format(t1_path, t1_data, tmpfolder))
         dm.utils.check_returncode(returncode)
         returncode, _, _ = dm.utils.run('cp {}/{} {}/TEMP/SUBJ/T1/SESS01/anat_aparc_brain.nii.gz'.format(t1_path, aparc, tmpfolder))
@@ -158,7 +158,7 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
 
 def export_data(sub, tmpfolder, func_path):
 
-    tmppath = os.path.join(tmpfolder, 'TEMP', 'SUBJ', 'FUNC', 'SESS01')    
+    tmppath = os.path.join(tmpfolder, 'TEMP', 'SUBJ', 'FUNC', 'SESS01')
 
     try:
         # make directory
@@ -187,27 +187,27 @@ def export_data(sub, tmpfolder, func_path):
 
         dm.utils.run('touch {out_path}/{sub}_preproc-complete.log'.format(out_path=out_path, sub=sub))
         dm.utils.run('rm -r {}'.format(tmpfolder))
-        
+
     except:
         raise ValueError
 
     #TODO
-    # os.system('cp {}/FUNC/SESS01/qc_reg_EPI_to_T1.pdf ' + 
+    # os.system('cp {}/FUNC/SESS01/qc_reg_EPI_to_T1.pdf ' +
     #              '{}/imob/{}_qc_reg_EPI_to_T1.pdf'.format(
     #                                                     epidir, datadir, sub))
-    # os.system('cp {}/FUNC/SESS01/qc_reg_T1_to_MNI.pdf ' + 
+    # os.system('cp {}/FUNC/SESS01/qc_reg_T1_to_MNI.pdf ' +
     #              '{}/imob/{}_qc_reg_T1_to_MNI.pdf'.format(
     #                                                     epidir, datadir, sub))
 
 
 def generate_analysis_script(sub, func_path, assets):
     """
-    This writes the analysis script to replicate the methods in [insert paper 
-    here]. It expects timing files to exist (these are static, and are generated 
+    This writes the analysis script to replicate the methods in [insert paper
+    here]. It expects timing files to exist (these are static, and are generated
     by 'imob-parse.py').
 
-    Briefly, this is a standard rapid-event related design. We use 5 tent 
-    functions to explain each event over a 15 second window (this is the 
+    Briefly, this is a standard rapid-event related design. We use 5 tent
+    functions to explain each event over a 15 second window (this is the
     standard length of the HRF).
 
     """
@@ -237,12 +237,12 @@ def generate_analysis_script(sub, func_path, assets):
     -local_times \\
     -jobs 8 \\
     -x1D {func_path}/{sub}/{sub}_glm_IM_1stlevel_design.mat \\
-    -stim_label 1 IM_AN -stim_times 1 {assets}/IM_event-times_AN.1D \'TENT(0,15,5)\' \\
-    -stim_label 2 IM_FE -stim_times 2 {assets}/IM_event-times_FE.1D \'TENT(0,15,5)\' \\
-    -stim_label 3 IM_FX -stim_times 3 {assets}/IM_event-times_FX.1D \'TENT(0,15,5)\' \\
-    -stim_label 4 IM_HA -stim_times 4 {assets}/IM_event-times_HA.1D \'TENT(0,15,5)\' \\
-    -stim_label 5 IM_NE -stim_times 5 {assets}/IM_event-times_NE.1D \'TENT(0,15,5)\' \\
-    -stim_label 6 IM_SA -stim_times 6 {assets}/IM_event-times_SA.1D \'TENT(0,15,5)\' \\
+    -stim_label 1 IM_AN -stim_times 1 {assets}/IM_event-times_AN.1D \'BLOCK(1,1)\' \\
+    -stim_label 2 IM_FE -stim_times 2 {assets}/IM_event-times_FE.1D \'BLOCK(1,1)\' \\
+    -stim_label 3 IM_FX -stim_times 3 {assets}/IM_event-times_FX.1D \'BLOCK(1,1)\' \\
+    -stim_label 4 IM_HA -stim_times 4 {assets}/IM_event-times_HA.1D \'BLOCK(1,1)\' \\
+    -stim_label 5 IM_NE -stim_times 5 {assets}/IM_event-times_NE.1D \'BLOCK(1,1)\' \\
+    -stim_label 6 IM_SA -stim_times 6 {assets}/IM_event-times_SA.1D \'BLOCK(1,1)\' \\
     -gltsym 'SYM: -1*IM_FX +0*IM_NE +0.25*IM_AN +0.25*IM_FE +0.25*IM_HA +0.25*IM_SA' \\
     -glt_label 1 emot-fix \\
     -gltsym 'SYM: +0*IM_FX -1*IM_NE +0.25*IM_AN +0.25*IM_FE +0.25*IM_HA +0.25*IM_SA' \\
@@ -263,12 +263,12 @@ def generate_analysis_script(sub, func_path, assets):
     -local_times \\
     -jobs 8 \\
     -x1D {func_path}/{sub}/{sub}_glm_OB_1stlevel_design.mat \\
-    -stim_label 1 OB_AN -stim_times 1 {assets}/OB_event-times_AN.1D \'TENT(0,15,5)\' \\
-    -stim_label 2 OB_FE -stim_times 2 {assets}/OB_event-times_FE.1D \'TENT(0,15,5)\' \\
-    -stim_label 3 OB_FX -stim_times 3 {assets}/OB_event-times_FX.1D \'TENT(0,15,5)\' \\
-    -stim_label 4 OB_HA -stim_times 4 {assets}/OB_event-times_HA.1D \'TENT(0,15,5)\' \\
-    -stim_label 5 OB_NE -stim_times 5 {assets}/OB_event-times_NE.1D \'TENT(0,15,5)\' \\
-    -stim_label 6 OB_SA -stim_times 6 {assets}/OB_event-times_SA.1D \'TENT(0,15,5)\' \\
+    -stim_label 1 OB_AN -stim_times 1 {assets}/OB_event-times_AN.1D \'BLOCK(1,1)\' \\
+    -stim_label 2 OB_FE -stim_times 2 {assets}/OB_event-times_FE.1D \'BLOCK(1,1)\' \\
+    -stim_label 3 OB_FX -stim_times 3 {assets}/OB_event-times_FX.1D \'BLOCK(1,1)\' \\
+    -stim_label 4 OB_HA -stim_times 4 {assets}/OB_event-times_HA.1D \'BLOCK(1,1)\' \\
+    -stim_label 5 OB_NE -stim_times 5 {assets}/OB_event-times_NE.1D \'BLOCK(1,1)\' \\
+    -stim_label 6 OB_SA -stim_times 6 {assets}/OB_event-times_SA.1D \'BLOCK(1,1)\' \\
     -gltsym 'SYM: -1*OB_FX +0*OB_NE +0.25*OB_AN +0.25*OB_FE +0.25*OB_HA +0.25*OB_SA' \\
     -glt_label 1 emot-fix \\
     -gltsym 'SYM: +0*OB_FX -1*OB_NE +0.25*OB_AN +0.25*OB_FE +0.25*OB_HA +0.25*OB_SA' \\
@@ -287,7 +287,7 @@ def main():
     Loops through subjects, preprocessing using supplied script, and runs a
     first-level GLM using AFNI (tent functions, 15 s window) on all subjects.
     """
-    global VERBOSE 
+    global VERBOSE
     global DEBUG
     arguments  = docopt(__doc__)
     project    = arguments['<project>']
@@ -309,13 +309,13 @@ def main():
     # preprocess
 
     for sub in subjects:
-        if dm.scanid.is_phantom(sub) == True: 
+        if dm.scanid.is_phantom(sub) == True:
             continue
         if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_preproc-complete.log'.format(sub=sub))) == True:
-            continue        
+            continue
         try:
             name, tmpdict = process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
-            list_of_names.append(name)    
+            list_of_names.append(name)
 
         except ValueError as ve:
             continue
@@ -323,7 +323,7 @@ def main():
     if len(list_of_names) > 0:
         dm.utils.run_dummy_q(list_of_names)
 
-    # export 
+    # export
     for sub in tmpdict:
         if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_preproc-complete.log'.format(sub=sub))) == True:
             continue
@@ -336,8 +336,8 @@ def main():
             continue
 
     # analyze
-    for sub in subjects:      
-        if dm.scanid.is_phantom(sub) == True: 
+    for sub in subjects:
+        if dm.scanid.is_phantom(sub) == True:
             continue
         if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_analysis-complete.log'.format(sub=sub))) == True:
             continue
@@ -346,7 +346,7 @@ def main():
             returncode, _, _ = dm.utils.run('bash {func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub))
             dm.utils.check_returncode(returncode)
             dm.utils.run('touch {func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub))
-            
+
         except:
             print('ERROR: Failed to analyze IMOB data for {}.'.format(sub))
             pass
