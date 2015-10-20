@@ -74,6 +74,7 @@ import pandas as pd
 import datman as dm
 import datman.utils
 import datman.scanid
+import glob
 import os.path
 import sys
 
@@ -112,8 +113,14 @@ def main():
     lookup = pd.read_table(lookup_table, sep='\s+', dtype=str)
     targetdir = os.path.normpath(targetdir)
 
+    already_linked = { os.path.realpath(f):f for f in glob.glob(targetdir+'/*') if os.path.islink(f)}
+
     for archivepath in archives: 
-        
+
+        if os.path.realpath(archivepath) in already_linked.keys(): 
+            verbose("{} already linked at {}".format(archivepath, already_linked[os.path.realpath(archivepath)]))
+            continue
+
         # get some DICOM headers from the archive
         try:
             header = dm.utils.get_archive_headers(
