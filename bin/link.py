@@ -190,7 +190,7 @@ def get_scanid_from_header(archivepath, header, scanid_field):
         return scanid 
 
     else: 
-        error("{}: {} (header {}) not valid scan ID".format(
+        verbose("{}: {} (header {}) not valid scan ID".format(
             archivepath, scanid, scanid_field))
         return None
 
