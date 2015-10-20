@@ -155,7 +155,7 @@ def get_scanid_from_lookup_table(archivepath, header, lookup):
     match. 
     """
     basename    = os.path.basename(os.path.normpath(archivepath))
-    source_name = basename[:-len('.zip')]
+    source_name = basename[:-len(datman.utils.get_extension(basename))]
     lookupinfo  = lookup[ lookup['source_name'] == source_name ]
 
     if len(lookupinfo) == 0:
