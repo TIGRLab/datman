@@ -74,6 +74,7 @@ import pandas as pd
 import datman as dm
 import datman.utils
 import datman.scanid
+import glob
 import os.path
 import sys
 
@@ -109,11 +110,17 @@ def main():
     DEBUG        = arguments['--debug']
     DRYRUN       = arguments['--dry-run']
 
-    lookup = pd.read_table(lookup_table, sep='\s+', dtype=str, comment='#')
+    lookup = pd.read_table(lookup_table, sep='\s+', dtype=str)
     targetdir = os.path.normpath(targetdir)
 
+    already_linked = { os.path.realpath(f):f for f in glob.glob(targetdir+'/*') if os.path.islink(f)}
+
     for archivepath in archives: 
-        
+
+        if os.path.realpath(archivepath) in already_linked.keys(): 
+            verbose("{} already linked at {}".format(archivepath, already_linked[os.path.realpath(archivepath)]))
+            continue
+
         # get some DICOM headers from the archive
         try:
             header = dm.utils.get_archive_headers(
@@ -136,7 +143,7 @@ def main():
             continue
 
         # do the linking 
-        target = os.path.join(targetdir,scanid)+'.zip'
+        target = os.path.join(targetdir,scanid) + datman.utils.get_extension(archivepath)
         if os.path.exists(target): 
             verbose("{} already exists for archive {}. Skipping.".format(
                 target,archivepath))
@@ -155,7 +162,7 @@ def get_scanid_from_lookup_table(archivepath, header, lookup):
     match. 
     """
     basename    = os.path.basename(os.path.normpath(archivepath))
-    source_name = basename[:-len('.zip')]
+    source_name = basename[:-len(datman.utils.get_extension(basename))]
     lookupinfo  = lookup[ lookup['source_name'] == source_name ]
 
     if len(lookupinfo) == 0:
@@ -190,7 +197,7 @@ def get_scanid_from_header(archivepath, header, scanid_field):
         return scanid 
 
     else: 
-        error("{}: {} (header {}) not valid scan ID".format(
+        verbose("{}: {} (header {}) not valid scan ID".format(
             archivepath, scanid, scanid_field))
         return None
 
