@@ -5,23 +5,24 @@ ROIs in MNI space (6 mm spheres). This data is returned as the time series, a fu
 matrix, and a partial correlation matrix (all in .csv format).
 
 Usage:
-    dm-proc-rest.py [options] <project> <tmppath> <script> <assets>
+    dm-proc-rest.py [options] <project> <tmppath> <script> <atlas> <tags>...
 
 Arguments:
     <project>           Full path to the project directory containing data/.
     <tmppath>           Full path to a shared folder to run
     <script>            Full path to an epitome-style script.
-    <assets>            Full path to an assets folder containing rsfc.labels (3dUndump format).
+    <atlas>             Full path to a NIFTI atlas in MNI space.
+    <tags>              DATMAN tags to run pipeline on.
 
 Options:
-    -v,--verbose             Verbose logging
-    --debug                  Debug logging
+    -v,--verbose        Verbose logging
+    --debug             Debug logging
 
 DETAILS
 
     1) Preprocesses fMRI data using the defined epitome-style script.
-    2) Produces a CSV of the ROI time series from the 'rsfc.labels' file in 'assets/' (6mm sphere).
-    3) Produces a correlation and partial correlation matrix of these same time series.
+    2) Produces a CSV of the ROI time series from the MNI-space atlas NIFTI in assets/.
+    3) Produces a correlation matrix of these same time series.
 
     Each subject is run through this pipeline if the outputs do not already exist.
     Outputs are placed in <project>/data/rest
@@ -115,7 +116,7 @@ def partial_corr(C):
 
     return P_corr
 
-def proc_data(sub, data_path, log_path, tmp_path, tmpdict, script):
+def proc_data(sub, data_path, log_path, tmp_path, tmpdict, script, tags):
     """
     Copies functional data into epitome-compatible structure, then runs the
     associated epitome script on the data. Finally, we copy the outputs into
@@ -125,6 +126,9 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, script):
     nii_path = os.path.join(data_path, 'nii')
     t1_path = os.path.join(data_path, 't1')
     func_path = os.path.join(data_path, 'rest')
+
+    # make tags lowercase
+    tags = map(lambda x: x.lower(), tags)
 
     # find the freesurfer outputs for the T1 data
     try:
@@ -170,7 +174,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, script):
         raise ValueError
 
     try:
-        rest_data = filter(lambda x: 'rst' in x.lower(), niftis)
+        rest_data = filter(lambda x: x.lower() in tags, niftis)
 
         if len(rest_data) > 1:
             print('MSG: Multiple resting-state data! Using most recent for {}'.format(sub))
@@ -183,7 +187,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, script):
 
     try:
         # copy data into temporary epitome structure
-        tmpfolder = tmp.mkdtemp(prefix='rest-', dir=tmp_path)
+        tmpfolder = tmp.mdtemp(prefix='rest-', dir=tmp_path)
         tmpdict[sub] = tmpfolder
 
         dm.utils.make_epitome_folders(tmpfolder, 1)
@@ -242,27 +246,15 @@ def export_data(sub, tmpfolder, func_path):
 
     except:
         raise ValueError
-    # TODO
-    #
-    # # copy out QC images of registration
-    # dm.utils.run('cp {tmpfolder}/TEMP/SUBJ/FUNC/SESS01/'
-    #                         + 'qc_reg_EPI_to_T1.pdf ' +
-    #               data_path + '/rest/' + sub + '_qc_reg_EPI_to_T1.pdf')
-    # dm.utils.run('cp {tmpfolder}/TEMP/SUBJ/FUNC/SESS01/'
-    #                         + 'qc_reg_T1_to_MNI.pdf ' +
-    #               data_path + '/rest/' + sub + '_qc_reg_T1_to_MNI.pdf')
 
-
-def analyze_data(sub, assets, func_path):
+def analyze_data(sub, atlas, func_path):
     """
     Extracts: time series, correlation / partial correlation matricies using labels defined
     in 'rsfc.labels' in assets/. This file should be formatted for 3dUndump.
     """
-    #labelfile = os.path.join(assets, 'rsfc.labels')
-    #if os.path.isfile(labelfile) == False:
-    #    raise ValueError
+    if os.path.isfile(atlas) == False:
+        raise ValueError
 
-    #dm.utils.run('3dUndump -master {func_path}/{sub}/{sub}_anat_EPI_mask_MNI.nii.gz -xyz -srad 6 -prefix {func_path}/{sub}/{sub}_rois.nii.gz {labelfile}'.format(func_path=func_path, sub=sub, labelfile=labelfile))
     dm.utils.run('3dresample -master {func_path}/{sub}/{sub}_func_MNI-nonlin.REST.01.nii.gz -prefix {func_path}/{sub}/{sub}_rois.nii.gz -inset {assets}/shen_1mm_268_parcellation.nii.gz'.format(
                        func_path=func_path, sub=sub, assets=assets))
     rois, _, _, _ = dm.utils.loadnii('{func_path}/{sub}/{sub}_rois.nii.gz'.format(func_path=func_path, sub=sub))
@@ -329,11 +321,11 @@ def main():
     for sub in subjects:
         if dm.scanid.is_phantom(sub) == True:
             continue
-        if os.path.isfile(os.path.join(func_path,  '{sub}/{sub}_preproc-complete.log'.format(sub=sub))) == True:
+        if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_preproc-complete.log'.format(sub=sub))) == True:
             continue
         try:
             # pre-process the data
-            name, tmpdict = proc_data(sub, data_path, log_path, tmp_path, tmpdict, script)
+            name, tmpdict = proc_data(sub, data_path, log_path, tmp_path, tmpdict, script, tags)
             list_of_names.append(name)
 
         except ValueError as ve:
@@ -363,9 +355,10 @@ def main():
         if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_analysis-complete.log'.format(sub=sub))) == True:
             continue
         try:
-            analyze_data(sub, assets, func_path)
+            analyze_data(sub, atlas, func_path)
         except ValueError as ve:
             print('ERROR: Failed to extract connectivity data from {}.'.format(sub))
 
 if __name__ == "__main__":
     main()
+
