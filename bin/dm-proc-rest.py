@@ -174,8 +174,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, script, tags):
         raise ValueError
 
     try:
-        rest_data = filter(lambda x: x.lower() in tags, niftis)
-
+        rest_data = filter(lambda x: any(t in x.lower() for t in tags), niftis)
         if len(rest_data) > 1:
             print('MSG: Multiple resting-state data! Using most recent for {}'.format(sub))
 
@@ -187,7 +186,8 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, script, tags):
 
     try:
         # copy data into temporary epitome structure
-        tmpfolder = tmp.mdtemp(prefix='rest-', dir=tmp_path)
+        tmpfolder = tmp.mkdtemp(prefix='rest-', dir=tmp_path)
+        print(tmpfolder)
         tmpdict[sub] = tmpfolder
 
         dm.utils.make_epitome_folders(tmpfolder, 1)
@@ -302,7 +302,8 @@ def main():
     project    = arguments['<project>']
     tmp_path   = arguments['<tmppath>']
     script     = arguments['<script>']
-    assets     = arguments['<assets>']
+    atlas      = arguments['<atlas>']
+    tags       = arguments['<tags>']
 
     # sets up paths
     data_path = dm.utils.define_folder(os.path.join(project, 'data'))
