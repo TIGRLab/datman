@@ -116,7 +116,7 @@ def partial_corr(C):
 
     return P_corr
 
-def proc_data(sub, data_path, log_path, tmp_path, tmpdict, script, tags):
+def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags):
     """
     Copies functional data into epitome-compatible structure, then runs the
     associated epitome script on the data. Finally, we copy the outputs into
@@ -175,10 +175,14 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, script, tags):
 
     try:
         rest_data = filter(lambda x: any(t in x.lower() for t in tags), niftis)
-        if len(rest_data) > 1:
-            print('MSG: Multiple resting-state data! Using most recent for {}'.format(sub))
+        
+        if len(rest_data) == 1:
+            rest_data = [rest_data]
 
-        rest_data = rest_data[-1]
+        # keep track of the tags of the input files, as we will need the name the epitome outputs with them
+        taglist = []
+        for d in rest_data:
+            taglist.append(dm.utils.scanid.parse_filename(d)[1])    
 
     except:
         print('ERROR: No REST data found for ' + str(sub))
@@ -186,19 +190,24 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, script, tags):
 
     try:
         # copy data into temporary epitome structure
+        n_runs = len(rest_data)
         tmpfolder = tmp.mkdtemp(prefix='rest-', dir=tmp_path)
-        print(tmpfolder)
+        
+        # dicts to map from subject --> temp directory --> tag list (in order)
         tmpdict[sub] = tmpfolder
+        tagdict[tmpfolder] = taglist
 
-        dm.utils.make_epitome_folders(tmpfolder, 1)
+        dm.utils.make_epitome_folders(tmpfolder, n_runs)
         returncode, _, _ = dm.utils.run('cp {t1_path}/{t1_data} {tmpfolder}/TEMP/SUBJ/T1/SESS01/anat_T1_brain.nii.gz'.format(t1_path=t1_path, t1_data=t1_data, tmpfolder=tmpfolder))
         dm.utils.check_returncode(returncode)
         returncode, _, _ = dm.utils.run('cp {t1_path}/{aparc} {tmpfolder}/TEMP/SUBJ/T1/SESS01/anat_aparc_brain.nii.gz'.format(t1_path=t1_path, aparc=aparc, tmpfolder=tmpfolder))
         dm.utils.check_returncode(returncode)
         returncode, _, _ = dm.utils.run('cp {t1_path}/{aparc2009} {tmpfolder}/TEMP/SUBJ/T1/SESS01/anat_aparc2009_brain.nii.gz'.format(t1_path=t1_path, aparc2009=aparc2009, tmpfolder=tmpfolder))
         dm.utils.check_returncode(returncode)
-        returncode, _, _ = dm.utils.run('cp {nii_path}/{sub}/{rest_data} {tmpfolder}/TEMP/SUBJ/FUNC/SESS01/RUN01/FUNC01.nii.gz'.format(nii_path=nii_path, sub=sub, rest_data=rest_data, tmpfolder=tmpfolder))
-        dm.utils.check_returncode(returncode)
+
+        for i, d in enumerate(rest_data):
+            returncode, _, _ = dm.utils.run('cp {nii_path}/{sub}/{d} {tmpfolder}/TEMP/SUBJ/FUNC/SESS01/RUN{i}/FUNC.nii.gz'.format(nii_path=nii_path, sub=sub, d=d, i='%02d' % (i+1), tmpfolder=tmpfolder))
+            dm.utils.check_returncode(returncode)
 
         # submit to queue
         uid = ''.join(choice(ascii_uppercase + digits) for _ in range(6))
@@ -207,13 +216,14 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, script, tags):
         log = os.path.join(log_path, name + '.log')
         cmd = 'echo {cmd} | qsub -o {log} -S /bin/bash -V -q main.q -cwd -N {name} -l mem_free=3G,virtual_free=3G -j y'.format(cmd=cmd, log=log, name=name)
         dm.utils.run(cmd)
+        print(cmd)
 
-        return name, tmpdict
+        return name, tmpdict, tagdict
 
     except:
         raise ValueError
 
-def export_data(sub, tmpfolder, func_path):
+def export_data(sub, tmpfolder, taglist, func_path):
 
     tmppath = os.path.join(tmpfolder, 'TEMP', 'SUBJ', 'FUNC', 'SESS01')
 
@@ -222,7 +232,8 @@ def export_data(sub, tmpfolder, func_path):
         out_path = dm.utils.define_folder(os.path.join(func_path, sub))
 
         # export data
-        dm.utils.run('cp {tmppath}/func_MNI-nonlin.DATMAN.01.nii.gz {out_path}/{sub}_func_MNI-nonlin.REST.01.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+        for i, t in enumerate(taglist):
+            dm.utils.run('cp {tmppath}/func_MNI-nonlin.DATMAN.{i}.nii.gz {out_path}/{sub}_func_MNI-nonlin.{tag}.{i}.nii.gz'.format(i='%02d' % (i+1), tag=tag, tmppath=tmppath, out_path=out_path, sub=sub))
         dm.utils.run('cp {tmppath}/anat_EPI_mask_MNI-nonlin.nii.gz {out_path}/{sub}_anat_EPI_mask_MNI.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
         dm.utils.run('cp {tmppath}/reg_T1_to_TAL.nii.gz {out_path}/{sub}_reg_T1_to_MNI-lin.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
         dm.utils.run('cp {tmppath}/reg_nlin_TAL.nii.gz {out_path}/{sub}_reg_nlin_MNI.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
@@ -255,33 +266,41 @@ def analyze_data(sub, atlas, func_path):
     if os.path.isfile(atlas) == False:
         raise ValueError
 
-    dm.utils.run('3dresample -master {func_path}/{sub}/{sub}_func_MNI-nonlin.REST.01.nii.gz -prefix {func_path}/{sub}/{sub}_rois.nii.gz -inset {assets}/shen_1mm_268_parcellation.nii.gz'.format(
-                       func_path=func_path, sub=sub, assets=assets))
-    rois, _, _, _ = dm.utils.loadnii('{func_path}/{sub}/{sub}_rois.nii.gz'.format(func_path=func_path, sub=sub))
-    data, _, _, _ = dm.utils.loadnii('{func_path}/{sub}/{sub}_func_MNI-nonlin.REST.01.nii.gz'.format(func_path=func_path, sub=sub))
+    # get an input file list
+    filelist = glob('{func_path}/{sub}/{sub}_func_MNI*'.format(func_path=func_path, sub=sub))
 
-    n_rois = len(np.unique(rois[rois > 0]))
-    dims = np.shape(data)
+    for f in filelist:
 
-    # loop through all ROIs, extracting mean timeseries.
-    output = np.zeros((n_rois, dims[1]))
+        # strips off extension and folder structure from input filename
+        basename = '.'.join(os.path.basename(x).split('.')[:-2])
 
-    for i, roi in enumerate(np.unique(rois[rois > 0])):
-        idx = np.where(rois == roi)[0]
+        dm.utils.run('3dresample -master {f} -prefix {func_path}/{sub}/{basename}_rois.nii.gz -inset {atlas}/shen_1mm_268_parcellation.nii.gz'.format(
+                         f=f, func_path=func_path, basename=basename, sub=sub, atlas=atlas))
+        rois, _, _, _ = dm.utils.loadnii('{func_path}/{sub}/{basename}_rois.nii.gz'.format(func_path=func_path, sub=sub, basename=basename))
+        data, _, _, _ = dm.utils.loadnii('{}'.format(f))
 
-        if len(idx) > 0:
-            output[i, :] = np.mean(data[idx, :], axis=0)
+        n_rois = len(np.unique(rois[rois > 0]))
+        dims = np.shape(data)
 
-    # save the raw time series
-    np.savetxt('{func_path}/{sub}/{sub}_roi-timeseries.csv'.format(func_path=func_path, sub=sub), output.transpose(), delimiter=',')
+        # loop through all ROIs, extracting mean timeseries.
+        output = np.zeros((n_rois, dims[1]))
 
-    # save the full correlation matrix
-    corrs = np.corrcoef(output)
-    np.savetxt('{func_path}/{sub}/{sub}_roi-corrs.csv'.format(func_path=func_path, sub=sub), corrs, delimiter=',')
+        for i, roi in enumerate(np.unique(rois[rois > 0])):
+ 	    idx = np.where(rois == roi)[0]
 
-    # save partial correlation matrix
-    #pcorrs = partial_corr(output.transpose())
-    #np.savetxt('{func_path}/{sub}/{sub}_roi-pcorrs.csv'.format(func_path=func_path, sub=sub), pcorrs, delimiter=',')
+	    if len(idx) > 0:
+	        output[i, :] = np.mean(data[idx, :], axis=0)
+
+        # save the raw time series
+        np.savetxt('{func_path}/{sub}/{basename}_roi-timeseries.csv'.format(func_path=func_path, sub=sub, basename=basename), output.transpose(), delimiter=',')
+
+        # save the full correlation matrix
+        corrs = np.corrcoef(output)
+        np.savetxt('{func_path}/{sub}/{basename}_roi-corrs.csv'.format(func_path=func_path, sub=sub, basename=basename), corrs, delimiter=',')
+
+        # save partial correlation matrix
+        #pcorrs = partial_corr(output.transpose())
+        #np.savetxt('{func_path}/{sub}/{sub}_roi-pcorrs.csv'.format(func_path=func_path, sub=sub), pcorrs, delimiter=',')
 
     dm.utils.run('touch {func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub))
 
@@ -316,6 +335,7 @@ def main():
 
     list_of_names = []
     tmpdict = {}
+    tagdict = {}
     subjects = dm.utils.get_subjects(nii_path)
 
     # preprocess
@@ -326,7 +346,7 @@ def main():
             continue
         try:
             # pre-process the data
-            name, tmpdict = proc_data(sub, data_path, log_path, tmp_path, tmpdict, script, tags)
+            name, tmpdict, tagdict = proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags)
             list_of_names.append(name)
 
         except ValueError as ve:
@@ -340,7 +360,7 @@ def main():
         if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_preproc-complete.log'.format(sub=sub))) == True:
             continue
         try:
-            export_data(sub, tmpdict[sub], func_path)
+            export_data(sub, tmpdict[sub], tagdict[tmpdict[sub]], func_path)
         except:
             print('ERROR: Failed to export {}'.format(sub))
             continue
