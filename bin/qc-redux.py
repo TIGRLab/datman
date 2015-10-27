@@ -3,18 +3,19 @@
 Produces QC documents for each exam.
 
 Usage:
-    qc_redux.py [options]
+    qc_redux.py [options] <file.nii.gz> <qcpath>
 
 Arguments:
-    <scanid>        Scan ID to QC for. E.g. DTI_CMH_H001_01_01
+    <file.nii.gz>        Scan ID to QC for. E.g. DTI_CMH_H001_01_01
+    <qcpath>             Path to the qc files
 
 Options:
-    --datadir DIR      Parent folder holding exported data [default: data]
-    --qcdir DIR        Folder for QC reports [default: qc]
-    --dbdir DIR        Folder for the database [default: qc]
-    --verbose          Be chatty
-    --debug            Be extra chatty
-    --dry-run          Don't actually do any work
+    --scantype <tag>          The type of scan to QC
+    --checkheaderlogs <path>  Read check header log files
+    --bvecstandards <path>    Compare .bval and .bvec to gold standards
+    --verbose                 Be chatty
+    --debug                   Be extra chatty
+    --dry-run                 Don't actually do any work
 
 DETAILS
 
@@ -26,7 +27,6 @@ DETAILS
 
     The database stores some of the numbers plotted here, and is used by web-
     build to generate interactive charts detailing the acquisitions over time.
-
 """
 import os
 import sys
@@ -741,13 +741,15 @@ def main():
     global DEBUG
     global DRYRUN
 
-    arguments = docopt(__doc__)
-    fpath     = arguments['<file.nii.gz>']
-    qcpath    = arguments['<qcpath>']
-    scantype  = arguments['--scantype']
-    VERBOSE   = arguments['--verbose']
-    DEBUG     = arguments['--debug']
-    DRYRUN    = arguments['--dry-run']
+    arguments   = docopt(__doc__)
+    fpath       = arguments['<file.nii.gz>']
+    qcpath      = arguments['<qcpath>']
+    scantype    = arguments['--scantype']
+    hdcmplogs   = arguments['--checkheaderlogs']
+    bvec_std    = arguments['--bvecstandards']
+    VERBOSE     = arguments['--verbose']
+    DEBUG       = arguments['--debug']
+    DRYRUN      = arguments['--dry-run']
 
     QC_HANDLERS = {   # map from tag to QC function
             "T1"            : t1_qc,
@@ -777,20 +779,39 @@ def main():
             "DTI33-b4500"   : dti_qc,
     }
 
+    ## check that the input nii.gz file exists
+    if not os.path.isfile(fpath):
+        sys.exit('Cannot find input {}'.format(fpath))
 
-    for path in glob.glob(timepoint_glob):
-        subject = os.path.basename(path)
+    ## make qc directory (if it doesnot exits)
+    qcdir = dm.utils.define_folder(qcpath)
+    qchtml = open(os.path.join(qcdir,'qc.html'),'a')
 
-        # skip phantoms
-        if 'PHA' in subject:
-            pass
+    ## define headerlog if needed
+    if hdcmplogs != None:
+        if not os.path.exists(hdcmplogs):
+            sys.exit('Cannot find headerlogs directory {}'.format(fpath))
+    ## define bvec and bval standards if needed
+
+    ## get file type and send off the qc
+    verbose("QC scan {}".format(fname))
+    if scantype = None:
+        for tag in QC_HANDLERS.keys():
+            if tag in os.path.basename(fpath):
+                QC_HANDLERS[tag](fname, qchtml, cur)
+                break
         else:
-            verbose("QCing folder {}".format(path))
-            qc_folder(path, subject, qcdir, cur, QC_HANDLERS)
+            sys.exit("Could not find scantype for {}, exiting".format(fpath))
+    else:
+        if scantype not in QC_HANDLERS:
+            sys.exit("Scantype {} not in list, exiting".format(scantype))
+        else:
+            QC_HANDLERS[scantype](fname, qchtml, cur)
 
-    # close database properly
-    cur.close()
-    db.close()
+        continue
+
+
+    qchtml.close()
 
 if __name__ == "__main__":
     main()
