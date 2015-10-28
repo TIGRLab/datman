@@ -226,30 +226,28 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
 def export_data(sub, tmpfolder, taglist, func_path):
 
     tmppath = os.path.join(tmpfolder, 'TEMP', 'SUBJ', 'FUNC', 'SESS01')
-
+    print(taglist)
     try:
         # make directory
         out_path = dm.utils.define_folder(os.path.join(func_path, sub))
 
         # export data
         for i, t in enumerate(taglist):
-            dm.utils.run('cp {tmppath}/func_MNI-nonlin.DATMAN.{i}.nii.gz {out_path}/{sub}_func_MNI-nonlin.{tag}.{i}.nii.gz'.format(i='%02d' % (i+1), tag=tag, tmppath=tmppath, out_path=out_path, sub=sub))
-        dm.utils.run('cp {tmppath}/anat_EPI_mask_MNI-nonlin.nii.gz {out_path}/{sub}_anat_EPI_mask_MNI.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
-        dm.utils.run('cp {tmppath}/reg_T1_to_TAL.nii.gz {out_path}/{sub}_reg_T1_to_MNI-lin.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
-        dm.utils.run('cp {tmppath}/reg_nlin_TAL.nii.gz {out_path}/{sub}_reg_nlin_MNI.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+            print('cp {tmppath}/func_MNI-nonlin.DATMAN.{i}.nii.gz {out_path}/{sub}_func_MNI-nonlin.{t}.{i}.nii.gz'.format(i='%02d' % (i+1), t=t, tmppath=tmppath, out_path=out_path, sub=sub))
+            returncode, _, _ = dm.utils.run('cp {tmppath}/func_MNI-nonlin.DATMAN.{i}.nii.gz {out_path}/{sub}_func_MNI-nonlin.{t}.{i}.nii.gz'.format(i='%02d' % (i+1), t=t, tmppath=tmppath, out_path=out_path, sub=sub))
+            dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cp {tmppath}/anat_EPI_mask_MNI-nonlin.nii.gz {out_path}/{sub}_anat_EPI_mask_MNI.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cp {tmppath}/reg_T1_to_TAL.nii.gz {out_path}/{sub}_reg_T1_to_MNI-lin.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cp {tmppath}/reg_nlin_TAL.nii.gz {out_path}/{sub}_reg_nlin_MNI.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+        dm.utils.check_returncode(returncode)
+        returncode, _, _ = dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.01.1D > {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+        dm.utils.check_returncode(returncode)
 
-        # check outputs
-        outputs = ('nonlin.REST.01', 'nlin_MNI', 'MNI-lin', 'mask_MNI')
-        for out in outputs:
-            if len(filter(lambda x: out in x, os.listdir(out_path))) == 0:
-                print('ERROR: Failed to export {}'.format(out))
-                raise ValueError
-
-        dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.01.1D > {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
-
-        if os.path.isfile('{out_path}/{sub}_motion.1D'.format(out_path=out_path, sub=sub)) == False:
-            print('Failed to export {sub}_motion.1D'.format(sub=sub))
-            raise ValueError
+        #if os.path.isfile('{out_path}/{sub}_motion.1D'.format(out_path=out_path, sub=sub)) == False:
+        #    print('Failed to export {sub}_motion.1D'.format(sub=sub))
+        #    raise ValueError
 
         # mark as done, clean up
         dm.utils.run('touch {out_path}/{sub}_preproc-complete.log'.format(out_path=out_path, sub=sub))
@@ -272,7 +270,7 @@ def analyze_data(sub, atlas, func_path):
     for f in filelist:
 
         # strips off extension and folder structure from input filename
-        basename = '.'.join(os.path.basename(x).split('.')[:-2])
+        basename = '.'.join(os.path.basename(f).split('.')[:-2])
 
         dm.utils.run('3dresample -master {f} -prefix {func_path}/{sub}/{basename}_rois.nii.gz -inset {atlas}/shen_1mm_268_parcellation.nii.gz'.format(
                          f=f, func_path=func_path, basename=basename, sub=sub, atlas=atlas))
