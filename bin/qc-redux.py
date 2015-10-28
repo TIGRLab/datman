@@ -91,7 +91,10 @@ def run(cmd):
             out and debug("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
             err and debug("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
 
-def add_pic_to_html(qchtml, pic)
+def add_pic_to_html(qchtml, pic):
+    '''
+    Adds a pic to an html page with this handler "qchtml"
+    '''
     relpath = os.path.relpath(pic,qcpath)
     qchtml.write('<a href="'+ relpath + '" style="color: #99CCFF" >')
     qchtml.write('<img src="' + relpath + '" "WIDTH=800" > ')
@@ -598,13 +601,37 @@ def montage(image, name, filename, qchtml, cmaptype='grey', mode='3d', minval=No
 
 
 def add_slicer_pic(fpath,slicergap,picwidth,qchtml):
+    """
+    Uses FSL's slicer function to generate a pretty montage png from a nifty file
+    Then adds a link to that png in the qcthml
+
+    Usage:
+        add_slicer_pic(fpath,slicergap,picwidth,qchtml)
+
+        fpath       -- submitted image file name
+        slicergap   -- int of "gap" between slices in Montage
+        picwidth    -- width (in pixels) of output image
+        qchtml      -- file handle for qc html page to link to
+    """
+    ### figure out a name for the output image from the input file name
     basefpath = os.path.basename(fpath)
     stem = basefpath.replace('nii.gz','')
     pic = os.path.join(qcpath,stem + '.png')
+    ## make the pic using FSL's slicer function
     run("slicer {} -S {} {} {}".format(fpath,slicergap,picwidth,pic))
+    ## add pic to html
     qchtml = add_pic_to_html(qchtml, pic)
 
-def add_headercompare_note(headerlog, fpath, qchtml)
+def add_headercompare_note(headerlog, fpath, qchtml):
+    """
+    Reads the header log and prints any errors related to this particular scan to the qchtml
+    Usage:
+        add_headercompare_note(headerlog,fpath,qchtml)
+
+        headerlog   -- full path to log file from checkheaders
+        fpath       -- submitted image file name
+        qchtml      -- file handle for qc html page to link to
+    """
     basefpath = os.path.basename(fpath)
     stem = basefpath.replace('nii.gz','')
     if CHECKHEADERS:
@@ -676,6 +703,15 @@ def rest_qc(fpath, qchtml, cur):
 
     return qchtml
 
+def emp_qc(fpath, qchtml, cur):
+    '''
+    Run qc for an the empathic accuracy task
+    It's the same as fmri_qc except that it also checks that the behavioural files exist
+    '''
+    # if the number of TRs is too little, we skip the pipeline
+    qchtml = fmri_qc(fpath, qchtml, cur)
+    ## also need to check that the behavioural files in this task are in the onsets
+
 def t1_qc(fpath, qchtml, cur):
     ## slicer pic
     add_slicer_pic(fpath,qcpath,5,1600,qchtml)
@@ -712,6 +748,8 @@ def dti_qc(fpath, qchtml, cur):
 
     add_headercompare_note(headerlog, fpath, qchtml)
 
+    ### also need to add bval bvec compare
+
     # load in bvec file
     bvec = filename.split('.')
     try:
@@ -727,7 +765,7 @@ def dti_qc(fpath, qchtml, cur):
     bvec = np.sum(bvec, axis=0)
 
     qchtml = montage(fpath, 'B0-contrast', filename, qchtml, maxval=0.25)
-    qchtmlf = montage(fpath, 'DTI Directions', filename, qchtml, mode='4d', maxval=0.25)
+    qchtml = montage(fpath, 'DTI Directions', filename, qchtml, mode='4d', maxval=0.25)
     qchtml = find_epi_spikes(fpath, filename, qchtml, 'dti', cur=cur, bvec=bvec)
 
     return qchtml
@@ -761,10 +799,11 @@ def main():
             "FMAP-6.5"      : ignore,
             "FMAP-8.5"      : ignore,
             "RST"           : rest_qc,
+            "SPRL"          : rest_qc,
             "OBS"           : fmri_qc,
             "IMI"           : fmri_qc,
             "NBK"           : fmri_qc,
-            "EMP"           : fmri_qc,
+            "EMP"           : emp_qc,
             "fMRI"          : fmri_qc,
             "DTI"           : dti_qc,
             "DTI60-29-1000" : dti_qc,
