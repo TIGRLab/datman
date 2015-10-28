@@ -12,7 +12,7 @@ Arguments:
 
 Options: 
     --server URL          XNAT server to connect to
-                          [default: http://da55.pet.utoronto.ca:5004/spred]
+                          [default: http://da55.pet.utoronto.ca:5004]
 
     -c,--credfile FILE    File containing XNAT username and password. The
                           username should be on the first line, and password
