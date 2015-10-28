@@ -54,7 +54,7 @@ diffs = set(ExpectedKeys) - set(config.keys())
 if len(diffs) > 0:
     sys.exit("configuration file missing {}".format(diffs))
 
-PipelineSettings = config['PipelineSettings']
+GeneralPipelineSettings = config['PipelineSettings']
 ExportSettings = config['ExportSettings']
 
 for Project in config['Projects'].keys():
@@ -92,6 +92,13 @@ for Project in config['Projects'].keys():
 
     ## read export info
     ScanTypes = ProjectSettings['ExportInfo'].keys()
+
+    ## Update the General Settings with Project Specific Settings
+    PipelineSettings = list(GeneralPipelineSettings)
+    for cmdi in ProjectSettings['PipelineSettings']:
+        for cmdj in PipelineSettings:
+            if cmdi.keys()[0] in cmdj.keys()[0]:
+                cmdj.update(cmdi)
 
     ## unless an outputfile is specified, set the output to ${PROJECTDIR}/bin/run.sh
     if outputpath == None:
@@ -153,19 +160,29 @@ for Project in config['Projects'].keys():
     ## get the scans from the camh server
     for cmd in PipelineSettings:
         cmdname = cmd.keys()[0]
+        if cmd[cmdname] == False:
+            continue
         if 'runif' in cmd[cmdname].keys():
             if not eval(cmd[cmdname]['runif']): continue
         if 'message' in cmd[cmdname].keys():
             runsh.write('\n  message "'+ cmd[cmdname]['message']+ '..."\n')
         if 'modules' in cmd[cmdname].keys():
             runsh.write('  module load '+ cmd[cmdname]['modules']+'\n')
-        fullcmd = '  ' + cmdname + ' ' + ' '.join(cmd[cmdname]['arguments']) + '\n'
-        if 'SiteSpecificSettings' in cmd[cmdname].keys():
-            for site in SiteNames:
-                thiscmd = fullcmd.replace('<site>',site)
+        if 'enviroment' in cmd[cmdname].keys():
+            runsh.write('  '+ cmd[cmdname]['enviroment']+'\n')
+        if 'CallMultipleTimes' in cmd[cmdname].keys():
+            for subcmd in cmd[cmdname]['CallMultipleTimes'].keys():
+                arglist = cmd[cmdname]['CallMultipleTimes'][subcmd]['arguments']
+                thiscmd = '  ' + cmdname + ' ' + ' '.join(arglist) + '\n'
                 runsh.write(thiscmd)
         else:
-            runsh.write(fullcmd)
+            fullcmd = '  ' + cmdname + ' ' + ' '.join(cmd[cmdname]['arguments']) + '\n'
+            if 'IterateOverSites' in cmd[cmdname].keys():
+                for site in SiteNames:
+                    thiscmd = fullcmd.replace('<site>',site)
+                    runsh.write(thiscmd)
+            else:
+                runsh.write(fullcmd)
         if 'modules' in cmd[cmdname].keys():
             runsh.write('  module unload '+ cmd[cmdname]['modules']+'\n')
 
