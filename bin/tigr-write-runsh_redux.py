@@ -58,6 +58,7 @@ GeneralPipelineSettings = config['PipelineSettings']
 ExportSettings = config['ExportSettings']
 
 for Project in config['Projects'].keys():
+    print("Working on Project {}".format(Project))
     ProjectSettings = config['Projects'][Project]
     ## check that the projectdir exists
     projectdir =  os.path.normpath(ProjectSettings['PROJECTDIR'])
@@ -76,7 +77,7 @@ for Project in config['Projects'].keys():
         XNAT_PROJECT = Project
 
     if 'PREFIX' in ProjectSettings.keys():
-        PREFIX = config['PREFIX']
+        PREFIX = ProjectSettings['PREFIX']
     else:
         PREFIX = Project
 
@@ -94,12 +95,13 @@ for Project in config['Projects'].keys():
     ScanTypes = ProjectSettings['ExportInfo'].keys()
 
     ## Update the General Settings with Project Specific Settings
-    QC_Phantoms == True ## set QC_Phatoms to true (it gets set to False if indicated)
+    QC_Phantoms = True ## set QC_Phatoms to true (it gets set to False if indicated)
     PipelineSettings = list(GeneralPipelineSettings)
-    for cmdi in ProjectSettings['PipelineSettings']:
-        for cmdj in PipelineSettings:
-            if cmdi.keys()[0] in cmdj.keys()[0]:
-                cmdj.update(cmdi)
+    if 'PipelineSettings' in ProjectSettings:
+        for cmdi in ProjectSettings['PipelineSettings']:
+            for cmdj in PipelineSettings:
+                if cmdi.keys()[0] in cmdj.keys()[0]:
+                    cmdj.update(cmdi)
 
     ## unless an outputfile is specified, set the output to ${PROJECTDIR}/bin/run.sh
     if outputpath == None:
@@ -113,15 +115,15 @@ for Project in config['Projects'].keys():
     runsh = open(outputfile,'w')
 
     runsh.write('''\
-    '#!/bin/bash
-    # Runs pipelines like a bro
-    #
-    # Usage:
-    #   run.sh [options]
-    #
-    # Options:
-    #   --quiet     Do not be chatty (does nnt apply to pipeline stages)
-    #
+#!/bin/bash
+# Runs pipelines like a bro
+#
+# Usage:
+#   run.sh [options]
+#
+# Options:
+#   --quiet     Do not be chatty (does nnt apply to pipeline stages)
+#
     ''')
 
     ## write the top bit
@@ -130,13 +132,13 @@ for Project in config['Projects'].keys():
     runsh.write('export MRUSER=' + MRUSER +'         # MR Unit FTP user\n')
     runsh.write('export MRFOLDER="'+ MRFOLDER +'"         # MR Unit FTP folder\n')
     runsh.write('export PROJECTDIR='+ projectdir +'\n')
-    runsh.write('export SITES=('+ ' '.join(SiteNames) +')\n')
+    runsh.write('export SITES=('+ ' '.join(SiteNames) +')\n\n')
     ## write the export from XNAT
     for siteinfo in ProjectSettings['Sites']:
         site = siteinfo.keys()[0]
         xnat = siteinfo[site]['XNAT_Archive']
         runsh.write('export XNAT_ARCHIVE_' + site + '=' + xnat + '\n')
-
+    runsh.write('\n')
     ## write the gold standard info
     if len(SiteNames) == 1:
         runsh.write('export ' + site + '_STANDARD=')
@@ -147,14 +149,15 @@ for Project in config['Projects'].keys():
             runsh.write(projectdir + '/metadata/gold_standards/' + site + '\n')
 
     ## set some settings and load datman module
-    runsh.write('''\
-    args="$@"                           # commence ugly opt handling
-    DATESTAMP=$(date +%Y%m%d)
+    runsh.write('''
+args="$@"                           # commence ugly opt handling
+DATESTAMP=$(date +%Y%m%d)
 
-    source /etc/profile
-    module load /archive/data-2.0/code/datman.module
+source /etc/profile
+module load /archive/data-2.0/code/datman.module
+export PATH=$PATH:${PROJECTDIR}/bin
+
     ''')
-    runsh.write('export PATH=$PATH:${PROJECTDIR}/bin\n')
 
     ## define the message function
     runsh.write('function message () { [[ "$args" =~ "--quiet" ]] || echo "$(date): $1"; }\n')
@@ -196,28 +199,28 @@ for Project in config['Projects'].keys():
     ## pushing stuff to git hub
     runsh.write(
     '''
-      message "Pushing QC documents to github..."
-      ( # subshell invoked to handle directory change
-        cd ${PROJECTDIR}
-        git add qc/
-        git add metadata/checklist.csv
-        git add metadata/checklist.yaml
-        git diff --quiet HEAD || git commit -m "Autoupdating QC documents"
-        git push --quiet
-      )
+  message "Pushing QC documents to github..."
+  ( # subshell invoked to handle directory change
+    cd ${PROJECTDIR}
+    git add qc/
+    git add metadata/checklist.csv
+    git add metadata/checklist.yaml
+    git diff --quiet HEAD || git commit -m "Autoupdating QC documents"
+    git push --quiet
+  )
      ''')
 
     ## pushing website ness
     if (QC_Phantoms == True) & (len(SiteNames) > 1):
         runsh.write(
         '''
-          message "Pushing website data to github..."
-          (
-            cd ${PROJECTDIR}/website
-            git add .
-            git commit -m "Updating QC plots"
-            git push --quiet
-          )
+  message "Pushing website data to github..."
+  (
+    cd ${PROJECTDIR}/website
+    git add .
+    git commit -m "Updating QC plots"
+    git push --quiet
+  )
         ''')
 
 ### tee out a log
