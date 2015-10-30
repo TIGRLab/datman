@@ -45,7 +45,9 @@ import datman.scanid
 import subprocess as proc
 from copy import copy
 from docopt import docopt
+import re
 import tempfile
+import textwrap
 
 import matplotlib
 matplotlib.use('Agg')   # Force matplotlib to not use any Xwindows backend
@@ -710,6 +712,32 @@ def dti_qc(fpath, doc, cur):
     montage(fpath, 'DTI Directions', filename, doc, mode='4d', maxval=0.25)
     find_epi_spikes(fpath, filename, doc, 'dti', cur=cur, bvec=bvec)
 
+def add_header_checks(fpath, doc, logdata): 
+    filestem = os.path.basename(fpath).replace(dm.utils.get_extension(fpath),'')
+    lines = [re.sub('^.*?: *','',line) for line in logdata if filestem in line]
+    if not lines: 
+        return
+
+    fig = plt.figure()
+    fig.suptitle(filestem + " header differences")
+    fig.text(.1,.1, ''.join(lines), size='xx-small')
+    doc.add_figure(fig)
+
+def add_bvec_checks(fpath, doc, logdata): 
+    filestem = os.path.basename(fpath).replace(dm.utils.get_extension(fpath),'')
+    lines = [re.sub('^.*'+filestem,'',line) for line in logdata if filestem in line]
+    if not lines: 
+        return
+
+    print lines
+    text ='\n'.join(['\n'.join(textwrap.wrap(l,width=120,subsequent_indent=" "*4)) for l in lines])
+    print text
+
+    fig = plt.figure()
+    fig.suptitle(filestem + " bvec/bval differences")
+    fig.text(.1,.1, text, size='xx-small')
+    doc.add_figure(fig)
+
 ###############################################################################
 # MAIN
 
@@ -744,12 +772,28 @@ def qc_folder(scanpath, subject, qcdir, cur, QC_HANDLERS):
         found_files.extend(glob.glob(scanpath + '/' + filetype))
     found_files.sort()
 
+    # load up any header/bvec check log files for the subjectt
+    header_check_logs = glob.glob(os.path.join(qcdir, 'logs', 'dm-check-headers-'+subject+'*'))
+    header_check_log = []
+    for logfile in header_check_logs:
+        header_check_log += open(logfile).readlines()
+
+    # load up any header/bvec check log files for the subjectt
+    bvecs_check_logs = glob.glob(os.path.join(qcdir, 'logs', 'dm-check-bvecs-'+subject+'*'))
+    bvecs_check_log = []
+    for logfile in bvecs_check_logs:
+        bvecs_check_log += open(logfile).readlines()
+
     for fname in found_files:
         verbose("QC scan {}".format(fname))
         ident, tag, series, description = dm.scanid.parse_filename(fname)
         if tag not in QC_HANDLERS:
             log("QC hanlder for scan {} (tag {}) not found. Skipping.".format(fname, tag))
             continue
+        if header_check_log: 
+            add_header_checks(fname, doc, header_check_log)
+        if bvecs_check_log: 
+            add_bvec_checks(fname, doc, bvecs_check_log)
         QC_HANDLERS[tag](fname, doc, cur)
 
     # finally, close the pdf
