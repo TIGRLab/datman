@@ -10,7 +10,7 @@ Arguments:
     <config.yml>             Configuration file in yml format
 
 Options:
-    --outputfile FILE        Full path to outputfile (default is ${PROJECTDIR}/bin/run.sh)
+    --outputpath <path>      Full path to top of output tree
     --quiet                  Don't print warnings
     --verbose                Print warnings
     --help                   Print help
@@ -21,11 +21,8 @@ DETAILS
 Reads from yml config file and export info to determine what to put in run.sh for this project.
 Then writes run.sh file.
 
-Expecting to find exportinfo file in ${PROJECTDIR}/metadata/exportinfo.csv
-
 """
 from docopt import docopt
-import pandas as pd
 import datman as dm
 import datman.utils
 import datman.scanid
@@ -39,7 +36,7 @@ import difflib
 
 arguments       = docopt(__doc__)
 config_yml      = arguments['<config.yml>']
-outputfile      = arguments['--outputfile']
+outputpath      = arguments['--outputpath']
 VERBOSE         = arguments['--verbose']
 QUIET           = arguments['--quiet']
 
@@ -52,246 +49,208 @@ with open(config_yml, 'r') as stream:
     config = yaml.load(stream)
 
 ## check that the expected keys are there
-ExpectedKeys = ['MRUSER','StudyName','PROJECTDIR','Sites','ExportInfo']
+ExpectedKeys = ['PipelineSettings', 'Projects', 'ExportSettings']
 diffs = set(ExpectedKeys) - set(config.keys())
 if len(diffs) > 0:
     sys.exit("configuration file missing {}".format(diffs))
 
-## check that the projectdir exists
-projectdir =  os.path.normpath(config['PROJECTDIR'])
-if not os.path.exists(projectdir):
-    print("WARNING: PROJECTDIR {} does not exist".format(projectdir))
+GeneralPipelineSettings = config['PipelineSettings']
+print("Id of GeneralPipelineSettings is {}".format(id(GeneralPipelineSettings)))
+ExportSettings = config['ExportSettings']
 
-## read in the site names as a list
-SiteNames = []
-for site in config['Sites']:
-    SiteNames.append(site.keys()[0])
+for Project in config['Projects'].keys():
+    print("Working on Project {}".format(Project))
+    ProjectSettings = config['Projects'][Project]
+    ## check that the projectdir exists
+    projectdir =  os.path.normpath(ProjectSettings['PROJECTDIR'])
+    if not os.path.exists(projectdir):
+        print("WARNING: PROJECTDIR {} does not exist".format(projectdir))
 
-## sets some variables using defaults if not given
-if 'XNAT_PROJECT' in config.keys():
-    XNAT_PROJECT = config['XNAT_PROJECT']
-else:
-    XNAT_PROJECT = config['StudyName']
+    ## read in the site names as a list
+    SiteNames = []
+    for site in ProjectSettings['Sites']:
+        SiteNames.append(site.keys()[0])
 
-if 'PREFIX' in config.keys():
-    PREFIX = config['PREFIX']
-else:
-    PREFIX = config['StudyName']
+    ## sets some variables using defaults if not given
+    if 'XNAT_PROJECT' in ProjectSettings.keys():
+        XNAT_PROJECT = ProjectSettings['XNAT_PROJECT']
+    else:
+        XNAT_PROJECT = Project
 
-## read export info
-ScanTypes = config['ExportInfo'].keys()
+    if 'PREFIX' in ProjectSettings.keys():
+        PREFIX = ProjectSettings['PREFIX']
+    else:
+        PREFIX = Project
 
-## unless an outputfile is specified, set the output to ${PROJECTDIR}/bin/run.sh
-if outputfile == None:
-    ouputfile = os.path.join(projectdir,'bin','run.sh')
+    if 'MRUSER' in ProjectSettings.keys():
+        MRUSER = ProjectSettings['MRUSER']
+    else:
+        MRUSER = Project
 
-#open file for writing
-runsh = open(outputfile,'w')
+    if 'MRFOLDER' in ProjectSettings.keys():
+        MRFOLDER = ProjectSettings['MRFOLDER']
+    else:
+        MRFOLDER = '${MRUSER}*/*'
 
-runsh.write('#!/bin/bash\n')
-runsh.write('#!/# Runs pipelines like a bro\n#!/#\n')
+    ## read export info
+    ScanTypes = ProjectSettings['ExportInfo'].keys()
 
-runsh.write('#!/# Usage:\n')
-runsh.write('#!/#   run.sh [options]\n')
-runsh.write('#!/#\n')
-runsh.write('#!/# Options:\n')
-runsh.write('#!/#   --quiet     Do not be chatty (does nnt apply to pipeline stages)\n')
-runsh.write('#!/#\n#!/#\n')
+    ## Update the General Settings with Project Specific Settings
+    QC_Phantoms = True ## set QC_Phatoms to true (it gets set to False if indicated)
 
-## write the top bit
-runsh.write('export STUDYNAME=' + config['StudyName'] + '     # Data archive study name\n')
-runsh.write('export XNAT_PROJECT=' + XNAT_PROJECT + '  # XNAT project name\n')
-runsh.write('export MRUSER=' + config['MRUSER'] +'         # MR Unit FTP user\n')
-runsh.write('export PROJECTDIR='+ projectdir +'\n')
+    ## the next section seems to to updating the original no matter how hard I try...
+    with open(config_yml, 'r') as stream:
+        config = yaml.load(stream)
+    PipelineSettings = config['PipelineSettings']
 
-## write the export from XNAT
-for siteinfo in config['Sites']:
-    site = siteinfo.keys()[0]
-    xnat = siteinfo[site]['XNAT_Archive']
-    runsh.write('export XNAT_ARCHIVE_' + site + '=' + xnat + '\n')
+    if 'PipelineSettings' in ProjectSettings:
+        for cmdi in ProjectSettings['PipelineSettings']:
+            for cmdj in PipelineSettings:
+                if cmdi.keys()[0] in cmdj.keys()[0]:
+                    cmdj.update(cmdi)
 
-## write the gold standard info
-if len(SiteNames) == 1:
-    runsh.write('export ' + site + '_STANDARD=')
-    runsh.write(projectdir + '/metadata/gold_standards/\n')
-else:
-    for site in SiteNames:
+    ## unless an outputfile is specified, set the output to ${PROJECTDIR}/bin/run.sh
+    if outputpath == None:
+        ouputfile = os.path.join(projectdir,'bin','run.sh')
+    else:
+        projectoutput = os.path.join(outputpath,Project)
+        dm.utils.makedirs(projectoutput)
+        outputfile = os.path.join(projectoutput,'run.sh')
+
+    #open file for writing
+    runsh = open(outputfile,'w')
+
+    runsh.write('''\
+#!/bin/bash
+# Runs pipelines like a bro
+#
+# Usage:
+#   run.sh [options]
+#
+# Options:
+#   --quiet     Do not be chatty (does nnt apply to pipeline stages)
+#
+    ''')
+
+    ## write the top bit
+    runsh.write('\n\nexport STUDYNAME=' + Project + '     # Data archive study name\n')
+    runsh.write('export XNAT_PROJECT=' + XNAT_PROJECT + '  # XNAT project name\n')
+    runsh.write('export MRUSER=' + MRUSER +'         # MR Unit FTP user\n')
+    runsh.write('export MRFOLDER="'+ MRFOLDER +'"         # MR Unit FTP folder\n')
+    runsh.write('export PROJECTDIR='+ projectdir +'\n')
+    runsh.write('export PREFIX='+ PREFIX +'\n')
+    runsh.write('export SITES=('+ ' '.join(SiteNames) +')\n\n')
+    ## write the export from XNAT
+    for siteinfo in ProjectSettings['Sites']:
+        site = siteinfo.keys()[0]
+        xnat = siteinfo[site]['XNAT_Archive']
+        runsh.write('export XNAT_ARCHIVE_' + site + '=' + xnat + '\n')
+    runsh.write('\n')
+    ## write the gold standard info
+    if len(SiteNames) == 1:
         runsh.write('export ' + site + '_STANDARD=')
-        runsh.write(projectdir + '/metadata/gold_standards/' + site + '\n')
+        runsh.write(projectdir + '/metadata/gold_standards/\n')
+    else:
+        for site in SiteNames:
+            runsh.write('export ' + site + '_STANDARD=')
+            runsh.write(projectdir + '/metadata/gold_standards/' + site + '\n')
 
-## set some settings and load datman module
-runsh.write('args="$@"                           # commence ugly opt handling\n')
-runsh.write('DATESTAMP=$(date +%Y%m%d)\n\n')
-runsh.write('source /etc/profile\n')
-runsh.write('module load /archive/data-2.0/code/datman.module\n')
-runsh.write('export PATH=$PATH:${PROJECTDIR}/bin\n')
+    ## set some settings and load datman module
+    runsh.write('''
+args="$@"                           # commence ugly opt handling
+DATESTAMP=$(date +%Y%m%d)
 
-## define the message function
-runsh.write('function message () { [[ "$args" =~ "--quiet" ]] || echo "$(date): $1"; }\n')
+source /etc/profile
+module load /archive/data-2.0/code/datman.module
+export PATH=$PATH:${PROJECTDIR}/bin
 
-## start running stuff
-runsh.write('{\n')
-runsh.write('  message "Running pipelines for study: $STUDYNAME"\n\n')
+    ''')
 
-## get the scans from the camh server
-runsh.write('  message "Get new scans..."\n')
-runsh.write('  dm-sftp-sync.sh ${MRUSER}@mrftp.camhpet.ca "${MRUSER}*/*" ${PROJECTDIR}/data/zips\n\n')
+    ## define the message function
+    runsh.write('function message () { [[ "$args" =~ "--quiet" ]] || echo "$(date): $1"; }\n')
 
-## link.py part
-runsh.write('  message "Link scans..."\n')
-runsh.write('  link.py \\\n')
-runsh.write('    --lookup=${PROJECTDIR}/metadata/scans.csv \\\n')
-runsh.write('    ${PROJECTDIR}/data/dicom/ \\\n')
-runsh.write('    ${PROJECTDIR}/data/zips/*.zip\n\n')
+    ## start running stuff
+    runsh.write('{\n')
+    runsh.write('  message "Running pipelines for study: $STUDYNAME"\n')
 
-## XNAT uploading from our server
-runsh.write('  message "Uploading new scans to XNAT..."\n')
-runsh.write('  dm-xnat-upload.sh \\\n')
-runsh.write('    ${XNAT_PROJECT} \\\n')
-runsh.write('    ${XNAT_ARCHIVE_CMH} \\\n')
-runsh.write('    ${PROJECTDIR}/data/dicom \\\n')
-runsh.write('    ${PROJECTDIR}/metadata/xnat-credentials\n\n')
-
-
-## Extracting the scans from XNAT
-runsh.write('  message "Extract new scans from XNAT..."\n')
-## load modules for file conversion
-runsh.write('  module load slicer/4.4.0 mricron/0.20140804 minc-toolkit/1.0.01\n')
-for site in SiteNames:
-    runsh.write('  xnat-extract.py ' + \
-        '--blacklist ${PROJECTDIR}/metadata/blacklist.csv ' + \
-        '--datadir ${PROJECTDIR}/data '\
-        '--exportinfo ${PROJECTDIR}/metadata/exportinfo.csv '+ \
-        '${XNAT_ARCHIVE_' + site + '}/*\n')
-## load modules for file conversion
-runsh.write('  module unload slicer/4.4.0 mricron/0.20140804 minc-toolkit/1.0.01\n')
-
-## do the dicom header check
-runsh.write('\n  message "Checking DICOM headers... "\n')
-for sitedict in config['Sites']:
-    site = config['Sites'][0].keys()[0]
-    runsh.write('  dm-check-headers.py ')
-    if 'Ingnore_Headers' in sitedict[site].keys():
-        runsh.write('--ignore-headers '+ ','.join(sitedict[site]['Ingnore_Headers']) + ' ')
-    runsh.write('${' + site + '_STANDARD} ' + \
-        '${PROJECTDIR}/dcm/' + PREFIX + '_' + site + '_*\n')
-
-## do the gradient directions check
-runsh.write('\n  message "Checking gradient directions..."\n')
-if len(SiteNames) == 1:
-    runsh.write('  dm-check-bvecs.py ${PROJECTDIR} ${' + site + '_STANDARD}\n')
-else:
-    for site in SiteNames:
-        runsh.write('  dm-check-bvecs.py ${PROJECTDIR} ${' + site + '_STANDARD} ' + site + '\n')
-
-### if specified - link the sprial scans
-if config['PipelineSettings'] != None:
-    if 'dm-link-sprl.sh' in config['PipelineSettings'].keys():
-        runsh.write('\n  message "Link spiral scans..."')
-        runsh.write('\n  dm-link-sprl.sh ${PROJECTDIR}/data\n')
-
-## load all the pipeline tools
-runsh.write('\n  module load AFNI/2014.12.16 FSL/5.0.7 matlab/R2013b_concurrent \n\n')
-
-## generate qc ness
-runsh.write('  message "Generating QC documents..."\n')
-runsh.write('  qc.py --datadir ${PROJECTDIR}/data/ --qcdir ${PROJECTDIR}/qc --dbdir ${PROJECTDIR}/qc\n')
-runsh.write('  qc-report.py ${PROJECTDIR}\n\n')
-
-if config['PipelineSettings'] != None:
-    if 'qc-phantom.py' in config['PipelineSettings'].keys():
-        runsh.write('  message "Updating phantom plots..."\n')
-        runsh.write('  qc-phantom.py ${PROJECTDIR} ' + \
-            str(config['PipelineSettings']['qc-phantom.py']['NTP']) + ' ' + \
-            config['PipelineSettings']['qc-phantom.py']['Sites'] + '\n')
-        runsh.write('  web-build.py ${PROJECTDIR} \n\n')
-
-runsh.write('\n  module unload AFNI/2014.12.16 FSL/5.0.7 matlab/R2013b_concurrent \n\n')
-
-## pushing stuff to git hub
-runsh.write('  message "Pushing QC documents to github..."\n')
-runsh.write('  ( # subshell invoked to handle directory change\n')
-runsh.write('    cd ${PROJECTDIR}\n')
-runsh.write('    git add qc/\n')
-runsh.write('    git add metadata/checklist.csv\n')
-runsh.write('    git diff --quiet HEAD || git commit -m "Autoupdating QC documents"\n')
-runsh.write('    git push --quiet\n')
-runsh.write('  )\n\n')
-
-## pushing website ness
-if config['PipelineSettings'] != None:
-    if 'qc-phantom.py' in config['PipelineSettings'].keys():
-        runsh.write('  message "Pushing website data to github..."\n')
-        runsh.write('  (  \n')
-        runsh.write('    cd ${PROJECTDIR}/website\n')
-        runsh.write('    git add .\n')
-        runsh.write('    git commit -m "Updating QC plots"\n')
-        runsh.write('    git push --quiet\n')
-        runsh.write('  )\n\n')
-
-if 'PDT2' in ScanTypes:
-    runsh.write('  message "Split the PDT2 images..."\n')
-    runsh.write('  (\n  module load FSL/5.0.7 \n')
-    runsh.write('  dm-proc-split-pdt2.py ${PROJECTDIR}/data/nii/*/*_PDT2_*.nii.gz\n')
-    runsh.write('  module unload FSL/5.0.7\n  )\n\n')
-
-if 'DTI60-1000' in ScanTypes:
-    runsh.write('  message "Running dtifit..."\n')
-    runsh.write('  module load FSL/5.0.7 \n')
-    runsh.write('  dm-proc-dtifit.py --datadir ${PROJECTDIR}/data/ --outputdir ${PROJECTDIR}/data/dtifit\n\n')
-
-    runsh.write('  message "Running ditfit qc..."\n')
-    runsh.write('  dtifit-qc.py --tag DTI60 ${PROJECTDIR}/data/dtifit/\n\n')
-
-    runsh.write('  message "Running enignmaDTI..."\n')
-    runsh.write('  dm-proc-enigmadti.py --calc-all --tag2 "DTI60" --QC-transfer ${PROJECTDIR}/metadata/checklist.csv ${PROJECTDIR}/data/dtifit ${PROJECTDIR}/data/enigmaDTI\n\n')
-    runsh.write('  module unload FSL/5.0.7 \n\n')
-
-if 'T1' in ScanTypes:
-    runsh.write('  message "Running freesurfer..."\n')
-    runsh.write('  dm-proc-freesurfer.py ' + \
-        '--FS-option \'-notal-check -cw256\' ' + \
-        '--QC-transfer ${PROJECTDIR}/metadata/checklist.csv ' + \
-        '${PROJECTDIR}/data/nii/ ${PROJECTDIR}/data/freesurfer/ \n\n')
-
-if len(set(['EMP','OBS','IMI','RST']).intersection(ScanTypes)) > 0:
-    # load modules for epitome
-    runsh.write('  module load freesurfer/5.3.0\n')
-    runsh.write('  module load AFNI/2014.12.16 FSL/5.0.7 matlab/R2013b_concurrent \n')
-    runsh.write('  export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer\n\n')
-
-    if 'EMP' in ScanTypes:
-        runsh.write('  message "Analyzing empathic accuracy data..."\n')
-        runsh.write('  dm-proc-ea.py ${PROJECTDIR} /scratch/clevis /archive/data-2.0/code/datman/assets/150409-compcor-nonlin-8fwhm.sh ${PROJECTDIR}/metadata/design\n\n')
-
-    if ('IMI' in ScanTypes) & ('OBS' in ScanTypes):
-        runsh.write('  message "Analyzing imitate observe data..."\n')
-        runsh.write('  dm-proc-imob.py ${PROJECTDIR} /scratch/clevis /archive/data-2.0/code/datman/assets/150409-compcor-nonlin-8fwhm.sh ${PROJECTDIR}/metadata/design\n\n')
-
-    if 'RST' in ScanTypes:
-        runsh.write('  message "Analyzing resting state data..."\n')
-        runsh.write('  dm-proc-rest.py ${PROJECTDIR} /scratch/clevis /archive/data-2.0/code/datman/assets/150409-compcor-nonlin-8fwhm.sh ${PROJECTDIR}/metadata/design\n\n')
-    # unload modules for epitome
-    runsh.write('  module unload freesurfer/5.3.0\n')
-    runsh.write('  module unload AFNI/2014.12.16 FSL/5.0.7 matlab/R2013b_concurrent \n\n')
-
-### tee out a log
-runsh.write('  message "Done."\n')
-runsh.write('} | tee -a ${PROJECTDIR}/logs/run-all-${DATESTAMP}.log\n')
-
-## close the file
-runsh.close()
-
-### change anything that needs to be changed with Find and Replace
-if config['FindandReplace'] != None :
-    with open (outputfile,'r') as runsh:
-        allrun = runsh.read()
-    for block in config['FindandReplace']:
-        toFind = block['Find']
-        toReplace = block['Replace']
-        if block['Find'] in allrun:
-            allrun = allrun.replace(block['Find'],block['Replace'])
+    ## get the scans from the camh server
+    for cmd in PipelineSettings:
+        cmdname = cmd.keys()[0]
+        if cmd[cmdname] == False:
+            if cmdname == 'qc-phantom.py': QC_Phantoms = False
+            continue
+        if 'runif' in cmd[cmdname].keys():
+            if not eval(cmd[cmdname]['runif']): continue
+        if 'message' in cmd[cmdname].keys():
+            runsh.write('\n  message "'+ cmd[cmdname]['message']+ '..."\n')
+        if 'runInsideSubShell' in cmd[cmdname].keys():
+            runsh.write('(\n')
+        if 'modules' in cmd[cmdname].keys():
+            runsh.write('  module load '+ cmd[cmdname]['modules']+'\n')
+        if 'enviroment' in cmd[cmdname].keys():
+            runsh.write('  '+ cmd[cmdname]['enviroment']+'\n')
+        if 'CallMultipleTimes' in cmd[cmdname].keys():
+            for subcmd in cmd[cmdname]['CallMultipleTimes'].keys():
+                arglist = cmd[cmdname]['CallMultipleTimes'][subcmd]['arguments']
+                thiscmd = '  ' + cmdname + ' ' + ' '.join(arglist) + '\n'
+                runsh.write(thiscmd)
         else:
-            print('WARNING: could not find {} in run.sh file'.format(block['Find']))
-    with open (outputfile,'w') as runsh:
-        runsh.write(allrun)
+            fullcmd = '  ' + cmdname + ' ' + ' '.join(cmd[cmdname]['arguments']) + '\n'
+            if 'IterateOverSites' in cmd[cmdname].keys():
+                for site in SiteNames:
+                    thiscmd = fullcmd.replace('<site>',site)
+                    runsh.write(thiscmd)
+            else:
+                runsh.write(fullcmd)
+        if 'modules' in cmd[cmdname].keys():
+            runsh.write('  module unload '+ cmd[cmdname]['modules']+'\n')
+        if 'runInsideSubShell' in cmd[cmdname].keys():
+            runsh.write(')\n')
+    ## pushing stuff to git hub
+    runsh.write(
+    '''
+  message "Pushing QC documents to github..."
+  ( # subshell invoked to handle directory change
+    cd ${PROJECTDIR}
+    git add qc/
+    git add metadata/checklist.csv
+    git add metadata/checklist.yaml
+    git diff --quiet HEAD || git commit -m "Autoupdating QC documents"
+    git push --quiet
+  )
+     ''')
+
+    ## pushing website ness
+    if (QC_Phantoms == True) & (len(SiteNames) > 1):
+        runsh.write(
+        '''
+  message "Pushing website data to github..."
+  (
+    cd ${PROJECTDIR}/website
+    git add .
+    git commit -m "Updating QC plots"
+    git push --quiet
+  )
+        ''')
+
+    ### tee out a log
+    runsh.write('  message "Done."\n')
+    runsh.write('} | tee -a ${PROJECTDIR}/logs/run-all-${DATESTAMP}.log\n')
+
+    ## close the file
+    runsh.close()
+    del(PipelineSettings)
+#
+# ### change anything that needs to be changed with Find and Replace
+# if config['FindandReplace'] != None :
+#     with open (outputfile,'r') as runsh:
+#         allrun = runsh.read()
+#     for block in config['FindandReplace']:
+#         toFind = block['Find']
+#         toReplace = block['Replace']
+#         if block['Find'] in allrun:
+#             allrun = allrun.replace(block['Find'],block['Replace'])
+#         else:
+#             print('WARNING: could not find {} in run.sh file'.format(block['Find']))
+#     with open (outputfile,'w') as runsh:
+#         runsh.write(allrun)
