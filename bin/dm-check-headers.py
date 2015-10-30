@@ -15,7 +15,7 @@ Arguments:
                             folder for each exam, named: dm-check-headers-<examdir>.log
 
     <examsdir/>             Folder with subfolder for each exam to check. Each
-                            exam directory shoul dhave one dicom file sample
+                            exam directory should have one dicom file sample
                             from each series to check.
 
 Options:
@@ -258,6 +258,9 @@ def main():
         all_mismatches = compare_exam_headers(stdmap, examdir, ignore_headers)
         if not all_mismatches:
             continue
+
+        if not os.path.exists(logfile):  # display warning on first encounter
+            log.warn('{} mismatches for exam {}'.format(len(all_mismatches), examdir))
 
         with open(logfile, "w") as fname:
             for path, mismatches in all_mismatches.iteritems():
