@@ -28,6 +28,7 @@ DETAILS
     build to generate interactive charts detailing the acquisitions over time.
 
 """
+
 import os
 import sys
 import glob
@@ -54,6 +55,17 @@ from matplotlib.backends.backend_pdf import PdfPages
 DEBUG  = False
 VERBOSE= False
 DRYRUN = False
+
+class Document:
+    pass 
+
+class PdfDocument(Document):
+    def __init__(self, pdf_object): 
+        self.pdf = pdf_object
+
+    def add_figure(self, fig): 
+        """Adds a matplotlib figure/plot to the document"""
+        fig.savefig(self.pdf, format='pdf')
 
 ###############################################################################
 # HELPERS
@@ -274,7 +286,7 @@ def reorient_4d_image(image):
 ###############################################################################
 # PLOTTERS / CALCULATORS
 
-def montage(image, name, filename, pdf, cmaptype='grey', mode='3d', minval=None, maxval=None, box=None):
+def montage(image, name, filename, doc, cmaptype='grey', mode='3d', minval=None, maxval=None, box=None):
     """
     Creates a montage of images displaying a image set on top of a grayscale 
     image.
@@ -284,10 +296,10 @@ def montage(image, name, filename, pdf, cmaptype='grey', mode='3d', minval=None,
     'SNR.nii.gz' from 'fMRI.nii.gz', we would submit everything to montage
     as so:
 
-        montage('SNR.nii.gz', 'SNR', 'EPI.nii.gz', pdf)
+        montage('SNR.nii.gz', 'SNR', 'EPI.nii.gz', doc)
 
     Usage:
-        montage(image, name, filename, pdf)
+        montage(image, name, filename, doc)
 
         image    -- submitted image file name
         name     -- name of the printout (e.g, SNR map, t-stats, etc.)
@@ -296,7 +308,7 @@ def montage(image, name, filename, pdf, cmaptype='grey', mode='3d', minval=None,
         maxval   -- colormap maximum value as a % (None == 'auto')
         mode     -- '3d' (prints through space) or '4d' (prints through time)
         filename -- qc image file name  
-        pdf      -- PDF object to save the figure to
+        doc      -- Document object to save the figure to
         box      -- a (3,2) tuple that describes the start and end voxel 
                     for x, y, and z, respectively. If None, we find it ourselves.
     """
@@ -373,12 +385,10 @@ def montage(image, name, filename, pdf, cmaptype='grey', mode='3d', minval=None,
     #cb.set_label(name, labelpad=0, y=0.5)
     fig.suptitle(filename + '\n' + name, size=10)
 
-    fig.savefig(pdf, format='pdf')
+    doc.add_figure(fig)
     plt.close()
 
-    return pdf
-
-def find_epi_spikes(image, filename, pdf, ftype, cur=None, bvec=None):
+def find_epi_spikes(image, filename, doc, ftype, cur=None, bvec=None):
 
     """
     Plots, for each axial slice, the mean instensity over all TRs. 
@@ -389,12 +399,12 @@ def find_epi_spikes(image, filename, pdf, ftype, cur=None, bvec=None):
     vector.
 
     Usage:
-        find_epi_spikes(image, filename, pdf)
+        find_epi_spikes(image, filename, doc)
 
         image    -- submitted image file name
         filename -- qc image file name  
-        pdf      -- PDF object to save the figure to
-        ftype     -- 'fmri' or 'dti'
+        doc      -- Document object to save the figure to
+        ftype    -- 'fmri' or 'dti'
         cur      -- cursor object for subject qc database (if None, don't use)
         bvec     -- numpy array of bvecs (for finding direction = 0)
 
@@ -449,7 +459,7 @@ def find_epi_spikes(image, filename, pdf, ftype, cur=None, bvec=None):
                     v_sd = np.hstack((v_sd, sd))
 
             # crop out b0 images
-            if bvec == None:
+            if bvec is None:
                 v_t = np.arange(t)
             else:
                 idx = np.where(bvec != 0)[0]
@@ -476,12 +486,10 @@ def find_epi_spikes(image, filename, pdf, ftype, cur=None, bvec=None):
         insert_value(cur, ftype, subj, 'spikecount', spikecount)
 
     plt.suptitle(filename + '\n' + 'DTI Slice/TR Wise Abnormalities', size=10)
-    plt.savefig(pdf, format='pdf')
+    doc.add_figure(plt)
     plt.close()
 
-    return pdf
-
-def fmri_plots(func, mask, f, filename, pdf, cur=None):
+def fmri_plots(func, mask, f, filename, doc, cur=None):
     """
     Calculates and plots:
          + Mean and SD of normalized spectra across brain.
@@ -573,18 +581,17 @@ def fmri_plots(func, mask, f, filename, pdf, cur=None):
     ##############################################################################
     # add a final plot?
     plt.suptitle(filename)
-    plt.savefig(pdf, format='pdf')
-    plt.close()
+    doc.add_figure(plt)
 
-    return pdf
+    plt.close()
 
 ###############################################################################
 # PIPELINES
 
-def ignore(fpath, pdf, cur):
+def ignore(fpath, doc, cur):
     pass
 
-def rest_qc(fpath, pdf, cur):
+def rest_qc(fpath, doc, cur):
     """
     This takes an input image, motion corrects, and generates a brain mask. 
     It then calculates a signal to noise ratio map and framewise displacement
@@ -597,7 +604,7 @@ def rest_qc(fpath, pdf, cur):
     ntrs = check_n_trs(fpath)
 
     if ntrs < 20:
-        return pdf
+        return
 
     filename = os.path.basename(fpath)
     tmpdir = tempfile.mkdtemp(prefix='qc-')
@@ -615,19 +622,17 @@ def rest_qc(fpath, pdf, cur):
            -prefix {t}/sfnr.nii.gz \
            -a {t}/mean.nii.gz -b {t}/std.nii.gz -expr 'a/b'""".format(t=tmpdir))
 
-    pdf = montage(fpath, 'BOLD-contrast', filename, pdf, maxval=0.75)
-    pdf = fmri_plots('{t}/mcorr.nii.gz'.format(t=tmpdir), 
+    montage(fpath, 'BOLD-contrast', filename, doc, maxval=0.75)
+    fmri_plots('{t}/mcorr.nii.gz'.format(t=tmpdir), 
                      '{t}/mask.nii.gz'.format(t=tmpdir), 
-                     '{t}/motion.1D'.format(t=tmpdir), filename, pdf, cur)
-    pdf = montage('{t}/sfnr.nii.gz'.format(t=tmpdir), 
-                  'SFNR', filename, pdf, cmaptype='hot', maxval=0.75)
-    pdf = find_epi_spikes(fpath, filename, pdf, 'fmri', cur=cur)
+                     '{t}/motion.1D'.format(t=tmpdir), filename, doc, cur)
+    montage('{t}/sfnr.nii.gz'.format(t=tmpdir), 
+                  'SFNR', filename, doc, cmaptype='hot', maxval=0.75)
+    find_epi_spikes(fpath, filename, doc, 'fmri', cur=cur)
 
     run('rm -r {}'.format(tmpdir))
 
-    return pdf
-
-def fmri_qc(fpath, pdf, cur):
+def fmri_qc(fpath, doc, cur):
     """
     This takes an input image, motion corrects, and generates a brain mask. 
     It then calculates a signal to noise ratio map and framewise displacement
@@ -637,7 +642,7 @@ def fmri_qc(fpath, pdf, cur):
     ntrs = check_n_trs(fpath)
 
     if ntrs < 20:
-        return pdf
+        return
 
     filename = os.path.basename(fpath)
     tmpdir = tempfile.mkdtemp(prefix='qc-')
@@ -655,35 +660,29 @@ def fmri_qc(fpath, pdf, cur):
            -prefix {t}/sfnr.nii.gz \
            -a {t}/mean.nii.gz -b {t}/std.nii.gz -expr 'a/b'""".format(t=tmpdir))
 
-    pdf = montage(fpath, 'BOLD-contrast', filename, pdf, maxval=0.75)
-    pdf = fmri_plots('{t}/mcorr.nii.gz'.format(t=tmpdir), 
+    montage(fpath, 'BOLD-contrast', filename, doc, maxval=0.75)
+    fmri_plots('{t}/mcorr.nii.gz'.format(t=tmpdir), 
                      '{t}/mask.nii.gz'.format(t=tmpdir), 
-                     '{t}/motion.1D'.format(t=tmpdir), filename, pdf)
-    pdf = montage('{t}/sfnr.nii.gz'.format(t=tmpdir), 
-                  'SFNR', filename, pdf, cmaptype='hot', maxval=0.75)
-    pdf = find_epi_spikes(fpath, filename, pdf, 'fmri')
+                     '{t}/motion.1D'.format(t=tmpdir), filename, doc)
+    montage('{t}/sfnr.nii.gz'.format(t=tmpdir), 
+                  'SFNR', filename, doc, cmaptype='hot', maxval=0.75)
+    find_epi_spikes(fpath, filename, doc, 'fmri')
 
     run('rm -r {}'.format(tmpdir))
 
-    return pdf
+def t1_qc(fpath, doc, cur):
+    montage(fpath, 'T1-contrast', os.path.basename(fpath), doc, maxval=0.25)
 
-def t1_qc(fpath, pdf, cur):
-    pdf = montage(fpath, 'T1-contrast', os.path.basename(fpath), pdf, maxval=0.25)
-    return pdf
+def pd_qc(fpath, doc, cur):
+    montage(fpath, 'PD-contrast', os.path.basename(fpath), doc, maxval=0.4)
 
-def pd_qc(fpath, pdf, cur):
-    pdf = montage(fpath, 'PD-contrast', os.path.basename(fpath), pdf, maxval=0.4)
-    return pdf
+def t2_qc(fpath, doc, cur):
+    montage(fpath, 'T2-contrast', os.path.basename(fpath), doc, maxval=0.5)
 
-def t2_qc(fpath, pdf, cur):
-    pdf = montage(fpath, 'T2-contrast', os.path.basename(fpath), pdf, maxval=0.5)
-    return pdf
+def flair_qc(fpath, doc, cur):
+    montage(fpath, 'FLAIR-contrast', os.path.basename(fpath), doc, maxval=0.3)
 
-def flair_qc(fpath, pdf, cur):
-    pdf = montage(fpath, 'FLAIR-contrast', os.path.basename(fpath), pdf, maxval=0.3)
-    return pdf
-
-def dti_qc(fpath, pdf, cur):
+def dti_qc(fpath, doc, cur):
     """
     Runs the QC pipeline on the DTI inputs. We use the BVEC (not BVAL)
     file to find B0 images (in some scans, mid-sequence B0s are coded
@@ -707,11 +706,9 @@ def dti_qc(fpath, pdf, cur):
     bvec = np.genfromtxt(os.path.join(directory, ".".join(bvec) + '.bvec'))
     bvec = np.sum(bvec, axis=0)
 
-    pdf = montage(fpath, 'B0-contrast', filename, pdf, maxval=0.25)
-    pdf = montage(fpath, 'DTI Directions', filename, pdf, mode='4d', maxval=0.25)
-    pdf = find_epi_spikes(fpath, filename, pdf, 'dti', cur=cur, bvec=bvec)
-
-    return pdf
+    montage(fpath, 'B0-contrast', filename, doc, maxval=0.25)
+    montage(fpath, 'DTI Directions', filename, doc, mode='4d', maxval=0.25)
+    find_epi_spikes(fpath, filename, doc, 'dti', cur=cur, bvec=bvec)
 
 ###############################################################################
 # MAIN
@@ -733,6 +730,7 @@ def qc_folder(scanpath, subject, qcdir, cur, QC_HANDLERS):
         return 
 
     pdf = PdfPages(pdffile)
+    doc = PdfDocument(pdf)
 
     # add in sites to the database
     insert_value(cur, 'fmri', subject, 'site', subject.split('_')[1])
@@ -752,7 +750,7 @@ def qc_folder(scanpath, subject, qcdir, cur, QC_HANDLERS):
         if tag not in QC_HANDLERS:
             log("QC hanlder for scan {} (tag {}) not found. Skipping.".format(fname, tag))
             continue
-        QC_HANDLERS[tag](fname, pdf, cur)
+        QC_HANDLERS[tag](fname, doc, cur)
 
     # finally, close the pdf
     d = pdf.infodict()
