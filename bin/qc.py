@@ -729,9 +729,7 @@ def add_bvec_checks(fpath, doc, logdata):
     if not lines: 
         return
 
-    print lines
     text ='\n'.join(['\n'.join(textwrap.wrap(l,width=120,subsequent_indent=" "*4)) for l in lines])
-    print text
 
     fig = plt.figure()
     fig.suptitle(filestem + " bvec/bval differences")
