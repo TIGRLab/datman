@@ -19,6 +19,9 @@ Arguments:
                             from each series to check.
 
 Options:
+    --filter TEXT           A string to filter exams by (ex. site name). All
+                            exam folders found in <examsdir/> must have this
+                            text in their name.
     --ignore-headers LIST   Comma delimited list of headers to ignore
     --verbose               Print mismatches to stdout as well as the log file
 """
@@ -226,6 +229,7 @@ def main():
     logsdir = arguments['<logdir/>']
     examsdir = arguments['<examsdir/>']
     verbose = arguments['--verbose']
+    filtertext = arguments['--filter']
     ignore_headers = arguments['--ignore-headers']
 
     log.basicConfig(
@@ -248,7 +252,12 @@ def main():
     ignore_headers = DEFAULT_IGNORED_HEADERS.union(ignore_headers)
 
     stdmap = get_gold_standard_headers(standardsdir)
-    for examdir in glob.glob(examsdir + '/*/'):
+
+    globexpr = '*'
+    if filtertext: 
+        globexpr = '*{}*'.format(filtertext)
+
+    for examdir in glob.glob('{}/{}/'.format(examsdir,globexpr)):
         if '_PHA_' in examdir:  # ignore phantoms
             continue
 
