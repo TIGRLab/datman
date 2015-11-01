@@ -1,132 +1,112 @@
 #!/usr/bin/env python
 """
-For each subject, ensures the dicom data's headers in the xnat database
-are similar to those in the supplied gold-standard folder.
+Checks that DTI bvec and bvals match the gold standards. 
 
 Usage:
-    dm-check-bvecs.py [options] <standards> <logs> <blacklist> <exam>...
+    dm-check-bvecs.py [options] <standards/> <logdir/> <examsdir/>
 
 Arguments: 
     <standards/>            Folder with subfolders named by tag. Each subfolder
                             has a sample gold standard dicom file for that tag.
 
-    <logs/>                 Folder to contain the outputs (specific errors found)
-                            of this script.
+    <logdir/>               Folder to contain the outputs (specific errors found)
+                            of this script. A log file is created in this
+                            folder for each exam, named: dm-check-headers-<examdir>.log
 
-    <blacklist>             YAML file for recording ignored / processed series.
-
-    <exam/>                 Folder with one dicom file sample from each series
-                            to check
+    <examsdir/>             Folder with subfolder for each exam to check. Each
+                            exam directory should have export nifti series,
+                            some of which have corresponding .bvec/.bval files
 
 Options: 
-    --verbose               Print warnings
-
-DETAILS
-    
-    Outputs a mismatch warning per subject to STDOUT.
-    Outputs the full diff of the mismatche to logs/subjectname.log
-    Records analyzed subjects to the blacklist (so these warnings are not continually produced).
-
+    --filter TEXT           A string to filter exams by (ex. site name). All
+                            exam folders found in <examsdir/> must have this
+                            text in their name.
+    --verbose               Print mismatches to stdout as well as the log file
 """
 
-import datman as dm
 from docopt import docopt
-import numpy as np
-from subprocess import Popen, PIPE
-import os, sys
+import datman as dm
+import difflib
 import glob
-import datetime
+import logging as log
+import os
+import pprint
+import re
+import sys
 
-def diff_files(examdir, standardsdir, logsdir, blacklist):
+def diff_files(examdir, standardsdir):
+     
+    diffs = {}  # map from file to diff against gold standard
+    for ext in ['bvec','bval']:
+        for test in glob.glob(examdir+'/*.'+ext):
+            tag = dm.scanid.parse_filename(os.path.basename(test))[1]
+            gold = glob.glob("{}/{}/*.{}".format(standardsdir, tag, ext))
+            
+            if len(gold) > 1:
+                log.error('More than one gold standard .{} file for tag {}'.format(ext, tag))
+                continue
+            
+            if len(gold) == 0:
+                log.error('No gold standard .{} file for tag {}'.format(ext, tag))
+                continue
 
-    date = datetime.date.today()
-    logfile = os.path.join(logsdir, os.path.basename(examdir)) + '.log'
-    
-    errors = 0
-      
-    # get list of .bvecs
-    bvecs = glob.glob('{}/*.bvec'.format(examdir))
-    for b in bvecs:
-        tag = dm.scanid.parse_filename(os.path.basename(b))[1]
-        test = glob.glob(os.path.join(standardsdir, tag) + '/*.bvec')
-        
-        if len(test) > 1:
-            print('ERROR: [dm-check-bvecs] more than one goldSTD BVEC file for TAG = {}.'.format(tag))
-            sys.exit()
-        
-        if len(test) == 0:
-            print('ERROR: [dm-check-bvecs] No goldSTD BVEC found for TAG = {}.'.format(tag))
-            sys.exit()
-        else:
-            p = Popen(['diff', b, test[0]], stdout=PIPE, stderr=PIPE)
-            out, err = p.communicate()
-       
-        if len(out) > 0:
-            with open(logfile, "a") as fname:
-                fname.write('{} : TAG = {} BVEC DIFF:\n{}\n'.format(b, tag, out))
-            errors = errors + 1
+            diff = difflib.ndiff(open(test).readlines(), open(gold[0]).readlines())
+            changes = [l for l in diff if l.startswith('+ ') or l.startswith('- ')]
 
-    # get a list of .bvals
-    bvals = glob.glob('{}/*.bval'.format(examdir)) 
-    for b in bvals:
-        tag = dm.scanid.parse_filename(os.path.basename(b))[1]
-        test = glob.glob(os.path.join(standardsdir, tag) + '/*.bval')
-        
-        if len(test) > 1:
-            print('ERROR: [dm-check-bvecs] more than one gold standard BVAL file for TAG = {}'.format(tag))
-            sys.exit()
+            if changes: 
+                diffs[test] = ''.join(changes)
 
-        if len(test) == 0:
-            print('ERROR: [dm-check-bvecs] No goldSTD BVAL found for TAG = {}.'.format(tag))
-            sys.exit()
-        else:
-            p = Popen(['diff', b, test[0]], stdout=PIPE, stderr=PIPE)
-            out, err = p.communicate()
-        
-        if len(out) > 0:
-            with open(logfile, "a") as fname:
-                fname.write('{} : TAG = {} BVAL DIFF:\n{}\n'.format(b, tag, out))
-            errors = errors + 1
-
-    return errors
+    return diffs 
 
 def main():
-    global VERBOSE
+    arguments = docopt(__doc__)
+    standardsdir = arguments['<standards/>']
+    logsdir = arguments['<logdir/>']
+    examsdir = arguments['<examsdir/>']
+    filtertext = arguments['--filter']
+    verbose = arguments['--verbose']
 
-    arguments    = docopt(__doc__)
-    standardsdir = arguments['<standards>']
-    logsdir      = arguments['<logs>']
-    examdirs     = arguments['<exam>']
-    blacklist    = arguments['<blacklist>']
-    VERBOSE      = arguments['--verbose']
+    log.basicConfig(
+        level=log.WARN, format="[dm-check-bvec] %(levelname)s: %(message)s")
 
-    logsdir = dm.utils.define_folder(logsdir)
+    if verbose:
+        log.getLogger('').setLevel(log.INFO)
 
-    # check inputs
-    if os.path.isdir(logsdir) == False:
-        print('ERROR: [dm-check-bvecs] Log directory {} does not exist'.format(logsdir))
-        sys.exit()
-    if os.path.isdir(standardsdir) == False:
-        print('ERROR: [dm-check-bvecs] Standards directory {} does not exist'.format(standardsdir))
-        sys.exit()
+    if not os.path.isdir(logsdir):
+        log.error('Log directory {} does not exist'.format(logsdir))
+        sys.exit(1)
+    if not os.path.isdir(standardsdir):
+        log.error('Standards directory {} does not exist'.format(standardsdir))
+        sys.exit(1)
+    if not os.path.isdir(examsdir):
+        log.error('Exams directory {} does not exist'.format(examsdir))
+        sys.exit(1)
 
-    dm.yamltools.touch_blacklist_stage(blacklist, 'dm-check-bvecs')
+    globexpr = '*'
+    if filtertext: 
+        globexpr = '*{}*'.format(filtertext)
 
-    # remove phantoms from examdirs
-    examdirs = filter(lambda x: '_PHA_' not in x, examdirs)
-    try:
-        ignored_series = dm.yamltools.list_series(blacklist, 'dm-check-bvecs')
-    except:
-        ignored_series = []
-
-    for examdir in examdirs:
-        if os.path.basename(examdir) in ignored_series:
+    for examdir in glob.glob('{}/{}/'.format(examsdir,globexpr)):
+        if '_PHA_' in examdir:  # ignore phantoms
             continue
-        errors = diff_files(examdir, standardsdir, logsdir, blacklist)
-        dm.yamltools.blacklist_series(blacklist, 'dm-check-bvecs', os.path.basename(examdir), 'done')
 
-        if errors > 0:
-            print('ERROR: [dm-check-bvecs] {} BVEC/BVAL mismatches for {}'.format(errors, os.path.basename(examdir)))
+        diffs = diff_files(examdir, standardsdir)
+
+        if not diffs: 
+            continue
+
+        logfile = os.path.join(logsdir, "dm-check-bvecs-{}.log".format(
+            os.path.basename(os.path.normpath(examdir))))
+
+        if not os.path.exists(logfile):  # display warning on first encounter
+            log.warn('{} mismatches for exam {}'.format(len(diffs), examdir))
+
+        fname = open(logfile, "w")
+
+        for path, diff in diffs.iteritems():
+            message = re.sub('^',path+": ", diff.strip(), flags=re.MULTILINE)
+            log.info(message)
+            fname.write(message + "\n")
 
 if __name__ == '__main__':
     main()
