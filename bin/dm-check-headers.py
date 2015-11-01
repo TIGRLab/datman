@@ -144,18 +144,22 @@ def compare_headers(stdhdr, cmphdr, tolerances=None, ignore_headers=None):
     tolerances = tolerances or DEFAULT_TOLERANCES
     ignore_headers = ignore_headers or []
 
+    # dir() is expensive so we cache results here
+    stdhdr_names = stdhdr.dir() 
+    cmphdr_names = cmphdr.dir() 
+
     # get the unignored headers
-    headers = set(stdhdr.dir()).union(cmphdr.dir()).difference(ignore_headers)
+    headers = set(stdhdr_names).union(cmphdr_names).difference(ignore_headers)
 
     mismatches = []  # list of Mismatches
 
     for header in headers:
-        if header not in stdhdr.dir():
+        if header not in stdhdr_names:
             mismatches.append(Mismatch(
                 header=header, expected=None, actual=cmphdr.get(header), tolerance=None))
             continue
 
-        if header not in cmphdr.dir():
+        if header not in cmphdr_names:
             mismatches.append(Mismatch(
                 header=header, expected=stdhdr.get(header), actual=None, tolerance=None))
             continue
