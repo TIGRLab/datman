@@ -18,6 +18,9 @@ Arguments:
                             some of which have corresponding .bvec/.bval files
 
 Options: 
+    --filter TEXT           A string to filter exams by (ex. site name). All
+                            exam folders found in <examsdir/> must have this
+                            text in their name.
     --verbose               Print mismatches to stdout as well as the log file
 """
 
@@ -60,6 +63,7 @@ def main():
     standardsdir = arguments['<standards/>']
     logsdir = arguments['<logdir/>']
     examsdir = arguments['<examsdir/>']
+    filtertext = arguments['--filter']
     verbose = arguments['--verbose']
 
     log.basicConfig(
@@ -78,7 +82,11 @@ def main():
         log.error('Exams directory {} does not exist'.format(examsdir))
         sys.exit(1)
 
-    for examdir in glob.glob(examsdir + '/*/'):
+    globexpr = '*'
+    if filtertext: 
+        globexpr = '*{}*'.format(filtertext)
+
+    for examdir in glob.glob('{}/{}/'.format(examsdir,globexpr)):
         if '_PHA_' in examdir:  # ignore phantoms
             continue
 
