@@ -110,6 +110,7 @@ def main():
     DEBUG        = arguments['--debug']
     DRYRUN       = arguments['--dry-run']
 
+
     lookup = pd.read_table(lookup_table, sep='\s+', dtype=str)
     targetdir = os.path.normpath(targetdir)
 
@@ -122,22 +123,33 @@ def main():
             continue
 
         # get some DICOM headers from the archive
+        header = None
         try:
             header = dm.utils.get_archive_headers(
                                 archivepath, stop_after_first=True).values()[0]
         except:
-            error("{}: Contains no DICOMs. Skipping.".format(archivepath))
+            verbose("{}: Contains no DICOMs. Skipping.".format(archivepath))
             continue
 
         # search the lookup and the headers for a valid scan ID 
-        scanid = get_scanid_from_lookup_table(archivepath, header, lookup)
+        scanid, lookupinfo = get_scanid_from_lookup_table(archivepath, lookup)
         debug("Found {} as scanid from lookup table {}".format(scanid, lookup_table))
+
         if scanid == '<ignore>': 
             verbose("Ignoring {}".format(archivepath))
             continue
-        if scanid is None:
+
+        # if we have a scan id, then validate any expected DICOM headers, 
+        # otherwise, check the DICOM headers for a valid scan id
+        if scanid: 
+            if not validate(archivepath, header, lookupinfo):
+                error("{}: DICOM headers do not match expected from scans.csv. Skipping.".format(
+                    archivepath))
+                continue
+        elif header:
             scanid = get_scanid_from_header(archivepath, header, scanid_field) 
             debug("Found {} as scanid from header.".format(scanid))
+
         if scanid is None: 
             error("{}: Cannot find scan id. Skipping".format(archivepath))
             continue
@@ -154,12 +166,13 @@ def main():
         if not DRYRUN:
             os.symlink(relpath, target)
 
-def get_scanid_from_lookup_table(archivepath, header, lookup):
+def get_scanid_from_lookup_table(archivepath, lookup):
     """
     Gets the scanid from the lookup table (pandas dataframe)
 
-    Returns None if a match can't be found, or additional dicom fields don't
-    match. 
+    Returns the scanid and the rest of the lookup table information (e.g.
+    expected dicom header matches). If no match is found, both the scan id and
+    lookup table info is None.
     """
     basename    = os.path.basename(os.path.normpath(archivepath))
     source_name = basename[:-len(datman.utils.get_extension(basename))]
@@ -167,14 +180,10 @@ def get_scanid_from_lookup_table(archivepath, header, lookup):
 
     if len(lookupinfo) == 0:
         debug("{} not found in source_name column.".format(source_name))
-        return None
+        return (None, None)
     else: 
         scanid = lookupinfo['target_name'].tolist()[0]
-        debug("Found scan ID '{}' in lookup table".format(scanid))
-        if not validate(archivepath, header, lookupinfo):
-            return None
-        else:
-            return scanid
+        return (scanid, lookupinfo)
 
 def get_scanid_from_header(archivepath, header, scanid_field):
     """
