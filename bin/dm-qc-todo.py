@@ -8,6 +8,8 @@ Usage:
 Options:
     --no-older       Don't check for QC documents older than source data
     --show-newer     Show data files newer than QC doc
+    --root PATH      Path to parent folder to all study folders.
+                     [default: /archive/data-2.0]
 
 Expects to be run in the parent folder to all study folders. Looks for the file
 checklist.csv in subfolders, and prints out any QC pdf from those that haven't
@@ -43,8 +45,9 @@ def get_project_dirs(root, maxdepth=4):
 
 def main():
     arguments = docopt.docopt(__doc__)
+    rootdir = arguments['--root']
 
-    for projectdir in get_project_dirs("."):
+    for projectdir in get_project_dirs(rootdir):
         checklist = os.path.join(projectdir, 'metadata', 'checklist.csv')
         if not os.path.exists(checklist):
             continue
