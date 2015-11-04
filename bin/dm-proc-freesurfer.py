@@ -341,7 +341,10 @@ checklist = loadchecklist(checklistfile,subids_in_nii)
 find_T1images(T1_tag)
 
 ## fetch a list of the jobs that are already in the queue
-qstatcmd='qstat | grep FS_' + prefix + '| awk -F " " \'{print $1}\''
+###qstat -xml | tr '\n' ' ' | sed 's#<job_list[^>]*>#\n#g'   | sed 's#<[^>]*>##g' | grep FS_STO | awk -F " " '{print $3}'
+qstatcmd="qstat -xml | tr '\\n' ' '" + \
+    " | sed 's#<job_list[^>]*>#\\n#g'   | sed 's#<[^>]*>##g' | grep FS_" + \
+    prefix + " | awk -F \" \" '{print $3}'"
 qstatcall = subprocess.Popen(qstatcmd,shell=True,stdout=subprocess.PIPE)
 joblist, err = qstatcall.communicate()
 if DEBUG:
