@@ -344,6 +344,11 @@ find_T1images(T1_tag)
 qstatcmd='qstat | grep FS_' + prefix + '| awk -F " " \'{print $1}\''
 qstatcall = subprocess.Popen(qstatcmd,shell=True,stdout=subprocess.PIPE)
 joblist, err = qstatcall.communicate()
+if DEBUG:
+    if len(joblist) > 0:
+        print("Already submitted jobs for this project are {}".format(joblist))
+    else:
+        print("No jobs for this project are already sitting in the queue")
 
 ## now checkoutputs to see if any of them have been run
 #if yes update spreadsheet
@@ -355,54 +360,54 @@ if not POSTFS_ONLY:
     for i in range(0,len(checklist)):
         subid = checklist['id'][i]
         ## make sure that is TAG2 was called - only the tag2s are going to queue
-        submit = False
-        if (TAG2 == None): submit = True # if no TAG2  - continue to processing
-        else:
-            if TAG2 in subid: submit = True # if TAG2 is in subit continue to processing
-        if submit == True:
-            # if all input files are found - check if an output exists
-            if pd.isnull(checklist['T1_nii'][i])==False:
-                FScomplete = os.path.join(subjectsdir,subid,'scripts','recon-all.done')
-                FSrunning = os.path.join(subjectsdir,subid,'scripts','recon-all.done')
-                # if no output exists than run engima-dti
-                if os.path.isfile(FScomplete)== False & os.path.isfile(FSrunning)==False:
+        if (TAG2 != None):
+            if (TAG2 not in subid): continue
 
-                    ##  set up params
-                    jobname = 'FS_' + subid
-                    if jobname not in joblist:
-                        smap = checklist['T1_nii'][i]
+        ## make sure that a T1 has been selected for this subject
+        if pd.isnull(checklist['T1_nii'][i]): continue
 
-                        ## if multiple inputs in smap - need to parse
-                        if ';' in smap:
-                            base_smaps = smap.split(';')
-                        else: base_smaps = [smap]
-                        T1s = []
-                        for basemap in base_smaps:
-                            T1s.append('-i')
-                            T1s.append(os.path.join(inputdir,subid,basemap))
+        ## make sure that this subject is not sitting in the queue
+        jobname = 'FS_' + subid
+        if jobname in joblist: continue
 
-                        jobname = 'FS_' + subid
-                        docmd(['qsub','-N', jobname,  \
-                                 runFSsh_name, \
-                                 subid, ' '.join(T1s)])
-                        checklist['date_ran'][i] = datetime.date.today()
-                    #jobnames.append(jobname)
+        ## check if this subject has already been completed - or started and halted
+        FScomplete = os.path.join(subjectsdir,subid,'scripts','recon-all.done')
+        FSrunningglob = glob.glob(os.path.join(subjectsdir,subid,'scripts','IsRunning*'))
+        FSrunning = FSrunningglob[0] if len(FSrunningglob) > 0 else ''
+        # if no output exists than run engima-dti
+        if os.path.isfile(FScomplete)== False:
+            if os.path.isfile(FSrunning):
+                checklist['notes'][i] = "FS halted at {}".format(os.path.basename(FSrunning))
+            else:
+                ## format contents of T1 column into recon-all command input
+                smap = checklist['T1_nii'][i]
+                if ';' in smap:
+                    base_smaps = smap.split(';')
+                else: base_smaps = [smap]
+                T1s = []
+                for basemap in base_smaps:
+                    T1s.append('-i')
+                    T1s.append(os.path.join(inputdir,subid,basemap))
 
-
-### if more that 30 subjects have been submitted to the queue,
-### use only the last 30 submitted as -hold_jid arguments
-# if len(jobnames) > 30 : jobnames = jobnames[-30:]
+                ## submit this subject to the queue
+                docmd(['qsub','-N', jobname,  \
+                         runFSsh_name, \
+                         subid, ' '.join(T1s)])
+                ## add today date to the checklist
+                checklist['date_ran'][i] = datetime.date.today()
 
 
 
-##qstat | grep FS_ | awk -F " " '{print $1}'
+
 ## if any subjects have been submitted,
 ## submit a final job that will consolidate the resutls after they are finished
 if not NO_POST:
     ## This will get all the jobids of using a prefix...
     time.sleep(5) ## sleep 5 seconds to make sure that everything is in the queue
+    qstatcall = subprocess.Popen(qstatcmd,shell=True,stdout=subprocess.PIPE)
+    joblist, err = qstatcall.communicate()
     post_jobname = 'postFS_'+ prefix
-    if (len(joblist) > 0 & post_jobname not in joblist) :
+    if ((len(joblist) > 0) & (post_jobname not in joblist)) :
         joblist = joblist.replace('\n',',')
         if joblist[-1] == ',': joblist = joblist[0:-1]
         #if any subjects have been submitted - submit an extract consolidation job to run at the end
