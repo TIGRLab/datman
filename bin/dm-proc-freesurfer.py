@@ -340,6 +340,11 @@ checklist = loadchecklist(checklistfile,subids_in_nii)
 ## look for new subs using T1_tag and tag2
 find_T1images(T1_tag)
 
+## fetch a list of the jobs that are already in the queue
+qstatcmd='qstat | grep FS_' + prefix + '| awk -F " " \'{print $1}\''
+qstatcall = subprocess.Popen(qstatcmd,shell=True,stdout=subprocess.PIPE)
+joblist, err = qstatcall.communicate()
+
 ## now checkoutputs to see if any of them have been run
 #if yes update spreadsheet
 #if no submits that subject to the queue
@@ -364,22 +369,23 @@ if not POSTFS_ONLY:
 
                     ##  set up params
                     jobname = 'FS_' + subid
-                    smap = checklist['T1_nii'][i]
+                    if jobname not in joblist:
+                        smap = checklist['T1_nii'][i]
 
-                    ## if multiple inputs in smap - need to parse
-                    if ';' in smap:
-                        base_smaps = smap.split(';')
-                    else: base_smaps = [smap]
-                    T1s = []
-                    for basemap in base_smaps:
-                        T1s.append('-i')
-                        T1s.append(os.path.join(inputdir,subid,basemap))
+                        ## if multiple inputs in smap - need to parse
+                        if ';' in smap:
+                            base_smaps = smap.split(';')
+                        else: base_smaps = [smap]
+                        T1s = []
+                        for basemap in base_smaps:
+                            T1s.append('-i')
+                            T1s.append(os.path.join(inputdir,subid,basemap))
 
-                    jobname = 'FS_' + subid
-                    docmd(['qsub','-N', jobname,  \
-                             runFSsh_name, \
-                             subid, ' '.join(T1s)])
-                    checklist['date_ran'][i] = datetime.date.today()
+                        jobname = 'FS_' + subid
+                        docmd(['qsub','-N', jobname,  \
+                                 runFSsh_name, \
+                                 subid, ' '.join(T1s)])
+                        checklist['date_ran'][i] = datetime.date.today()
                     #jobnames.append(jobname)
 
 
@@ -395,15 +401,13 @@ if not POSTFS_ONLY:
 if not NO_POST:
     ## This will get all the jobids of using a prefix...
     time.sleep(5) ## sleep 5 seconds to make sure that everything is in the queue
-    qstatcmd='qstat | grep FS_' + prefix + '| awk -F " " \'{print $1}\''
-    qstatcall = subprocess.Popen(qstatcmd,shell=True,stdout=subprocess.PIPE)
-    joblist, err = qstatcall.communicate()
-    if len(joblist) > 0:
+    post_jobname = 'postFS_'+ prefix
+    if (len(joblist) > 0 & post_jobname not in joblist) :
         joblist = joblist.replace('\n',',')
         if joblist[-1] == ',': joblist = joblist[0:-1]
         #if any subjects have been submitted - submit an extract consolidation job to run at the end
         os.chdir(run_dir)
-        docmd(['qsub', '-N', 'postFS',  \
+        docmd(['qsub', '-N', post_jobname,  \
             '-hold_jid', joblist, \
             runPostsh_name])
 
