@@ -175,14 +175,14 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
 
     try:
         rest_data = filter(lambda x: any(t in x.lower() for t in tags), niftis)
-        
+
         if len(rest_data) == 1:
             rest_data = [rest_data]
 
         # keep track of the tags of the input files, as we will need the name the epitome outputs with them
         taglist = []
         for d in rest_data:
-            taglist.append(dm.utils.scanid.parse_filename(d)[1])    
+            taglist.append(dm.utils.scanid.parse_filename(d)[1])
 
     except:
         print('ERROR: No REST data found for ' + str(sub))
@@ -192,7 +192,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         # copy data into temporary epitome structure
         n_runs = len(rest_data)
         tmpfolder = tmp.mkdtemp(prefix='rest-', dir=tmp_path)
-        
+
         # dicts to map from subject --> temp directory --> tag list (in order)
         tmpdict[sub] = tmpfolder
         tagdict[tmpfolder] = taglist
@@ -216,7 +216,6 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         log = os.path.join(log_path, name + '.log')
         cmd = 'echo {cmd} | qsub -o {log} -S /bin/bash -V -q main.q -cwd -N {name} -l mem_free=3G,virtual_free=3G -j y'.format(cmd=cmd, log=log, name=name)
         dm.utils.run(cmd)
-        print(cmd)
 
         return name, tmpdict, tagdict
 
