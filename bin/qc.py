@@ -2,13 +2,13 @@
 """
 Produces QC documents for each exam.
 
-Usage: 
+Usage:
     qc.py [options]
 
-Arguments: 
+Arguments:
     <scanid>        Scan ID to QC for. E.g. DTI_CMH_H001_01_01
 
-Options: 
+Options:
     --datadir DIR      Parent folder holding exported data [default: data]
     --qcdir DIR        Folder for QC reports [default: qc]
     --dbdir DIR        Folder for the database [default: qc]
@@ -59,31 +59,31 @@ VERBOSE= False
 DRYRUN = False
 
 class Document:
-    pass 
+    pass
 
 class PdfDocument(Document):
-    def __init__(self, pdf_object): 
+    def __init__(self, pdf_object):
         self.pdf = pdf_object
 
-    def add_figure(self, fig): 
+    def add_figure(self, fig):
         """Adds a matplotlib figure/plot to the document"""
         fig.savefig(self.pdf, format='pdf')
 
 ###############################################################################
 # HELPERS
 
-def log(message): 
+def log(message):
     print message
     sys.stdout.flush()
 
-def error(message): 
+def error(message):
     log("ERROR: " + message)
 
-def verbose(message): 
+def verbose(message):
     if not(VERBOSE or DEBUG): return
     log(message)
 
-def debug(message): 
+def debug(message):
     if not DEBUG: return
     log("DEBUG: " + message)
 
@@ -93,10 +93,10 @@ def makedirs(path):
 
 def run(cmd):
     debug("exec: {}".format(cmd))
-    if not DRYRUN: 
+    if not DRYRUN:
         p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
-        out, err = p.communicate() 
-        if p.returncode != 0: 
+        out, err = p.communicate()
+        if p.returncode != 0:
             log("Error {} while executing: {}".format(p.returncode, cmd))
             out and log("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
             err and log("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
@@ -149,11 +149,11 @@ def insert_value(cur, table, subj, colname, value):
             cur.execute("""UPDATE {table} SET {colname} = {value} WHERE subj='{subj}'""".format(
                            table=table, subj=subj, colname=colname, value=value))
 
-def factors(n):    
+def factors(n):
     """
     Returns all factors of n.
-    """    
-    return set(reduce(list.__add__, 
+    """
+    return set(reduce(list.__add__,
                 ([i, n//i] for i in range(1, int(n**0.5) + 1) if n % i == 0)))
 
 def square_factors(fac, num):
@@ -174,13 +174,13 @@ def square_factors(fac, num):
                     factor = [x, y]
     if factor[0] > factor[1]:
         factor = factor[::-1]
-    
+
     return factor
 
 def load_masked_data(func, mask):
     """
     Accepts 'functional.nii.gz' and 'mask.nii.gz', and returns a voxels x
-    timepoints matrix of the functional data in non-zero mask locations. 
+    timepoints matrix of the functional data in non-zero mask locations.
     """
     func = nib.load(func).get_data()
     mask = nib.load(mask).get_data()
@@ -243,7 +243,7 @@ def bounding_box(filename):
         # descending search
         while flag == 1:
             for dim_test in np.arange(dim):
-                
+
                 dim_test = dim-dim_test - 1  # we have to reverse things
 
                 # get sum of all values in each slice
@@ -272,13 +272,13 @@ def reorient_4d_image(image):
         elif i == 1:
             tmpimage = np.transpose(image[:, :, :, i], (2,0,1))
             tmpimage = np.rot90(tmpimage, 2)
-            newimage = np.concatenate((newimage[...,np.newaxis], 
+            newimage = np.concatenate((newimage[...,np.newaxis],
                                        tmpimage[...,np.newaxis]), axis=3)
-        
+
         else:
             tmpimage = np.transpose(image[:, :, :, i], (2,0,1))
             tmpimage = np.rot90(tmpimage, 2)
-            newimage = np.concatenate((newimage, 
+            newimage = np.concatenate((newimage,
                                        tmpimage[...,np.newaxis]), axis=3)
 
     image = copy(newimage)
@@ -290,7 +290,7 @@ def reorient_4d_image(image):
 
 def montage(image, name, filename, doc, cmaptype='grey', mode='3d', minval=None, maxval=None, box=None):
     """
-    Creates a montage of images displaying a image set on top of a grayscale 
+    Creates a montage of images displaying a image set on top of a grayscale
     image.
 
     Generally, this will be used to plot an image (of type 'name') that was
@@ -309,9 +309,9 @@ def montage(image, name, filename, doc, cmaptype='grey', mode='3d', minval=None,
         minval   -- colormap minimum value as a % (None == 'auto')
         maxval   -- colormap maximum value as a % (None == 'auto')
         mode     -- '3d' (prints through space) or '4d' (prints through time)
-        filename -- qc image file name  
+        filename -- qc image file name
         doc      -- Document object to save the figure to
-        box      -- a (3,2) tuple that describes the start and end voxel 
+        box      -- a (3,2) tuple that describes the start and end voxel
                     for x, y, and z, respectively. If None, we find it ourselves.
     """
     image = str(image) # input checks
@@ -319,7 +319,7 @@ def montage(image, name, filename, doc, cmaptype='grey', mode='3d', minval=None,
     output = str(image)
     image = nib.load(image).get_data() # load in the daterbytes
 
-    if mode == '3d':  
+    if mode == '3d':
         if len(image.shape) > 3: # if image is 4D, only keep the first time-point
             image = image[:, :, :, 0]
 
@@ -338,12 +338,12 @@ def montage(image, name, filename, doc, cmaptype='grey', mode='3d', minval=None,
 
     if mode == '4d':
         image = reorient_4d_image(image)
-        midslice = np.floor((image.shape[2]-1)/2) # print a single plane across all slices 
+        midslice = np.floor((image.shape[2]-1)/2) # print a single plane across all slices
         factor = np.ceil(np.sqrt(image.shape[3])) # print all timepoints
         factor = factor.astype(int)
 
     # colormapping -- set value
-    if cmaptype == 'redblue': cmap = plt.cm.RdBu_r 
+    if cmaptype == 'redblue': cmap = plt.cm.RdBu_r
     elif cmaptype == 'hot': cmap = plt.cm.OrRd
     elif cmaptype == 'gray': cmap = plt.cm.gray
     else:
@@ -361,20 +361,20 @@ def montage(image, name, filename, doc, cmaptype='grey', mode='3d', minval=None,
     else:
         maxval = np.max(image) * maxval
 
-    cmap.set_bad('g', 0)  # value for transparent pixels in the overlay 
+    cmap.set_bad('g', 0)  # value for transparent pixels in the overlay
 
     fig, axes = plt.subplots(nrows=factor, ncols=factor, facecolor='white')
     for i, ax in enumerate(axes.flat):
 
         if mode == '3d':
             im = ax.imshow(image[steps[i], :, :], cmap=cmap, interpolation='nearest', vmin=minval, vmax=maxval)
-            ax.set_frame_on(False) 
+            ax.set_frame_on(False)
             ax.axes.get_xaxis().set_visible(False)
             ax.axes.get_yaxis().set_visible(False)
 
         elif mode == '4d' and i < image.shape[3]:
             im = ax.imshow(image[:, :, midslice, i], cmap=cmap, interpolation='nearest')
-            ax.set_frame_on(False) 
+            ax.set_frame_on(False)
             ax.axes.get_xaxis().set_visible(False)
             ax.axes.get_yaxis().set_visible(False)
 
@@ -393,7 +393,7 @@ def montage(image, name, filename, doc, cmaptype='grey', mode='3d', minval=None,
 def find_epi_spikes(image, filename, doc, ftype, cur=None, bvec=None):
 
     """
-    Plots, for each axial slice, the mean instensity over all TRs. 
+    Plots, for each axial slice, the mean instensity over all TRs.
     Strong deviations are an indication of the presence of spike
     noise.
 
@@ -404,7 +404,7 @@ def find_epi_spikes(image, filename, doc, ftype, cur=None, bvec=None):
         find_epi_spikes(image, filename, doc)
 
         image    -- submitted image file name
-        filename -- qc image file name  
+        filename -- qc image file name
         doc      -- Document object to save the figure to
         ftype    -- 'fmri' or 'dti'
         cur      -- cursor object for subject qc database (if None, don't use)
@@ -595,7 +595,7 @@ def ignore(fpath, doc, cur):
 
 def rest_qc(fpath, doc, cur):
     """
-    This takes an input image, motion corrects, and generates a brain mask. 
+    This takes an input image, motion corrects, and generates a brain mask.
     It then calculates a signal to noise ratio map and framewise displacement
     plot for the file.
 
@@ -625,10 +625,10 @@ def rest_qc(fpath, doc, cur):
            -a {t}/mean.nii.gz -b {t}/std.nii.gz -expr 'a/b'""".format(t=tmpdir))
 
     montage(fpath, 'BOLD-contrast', filename, doc, maxval=0.75)
-    fmri_plots('{t}/mcorr.nii.gz'.format(t=tmpdir), 
-                     '{t}/mask.nii.gz'.format(t=tmpdir), 
+    fmri_plots('{t}/mcorr.nii.gz'.format(t=tmpdir),
+                     '{t}/mask.nii.gz'.format(t=tmpdir),
                      '{t}/motion.1D'.format(t=tmpdir), filename, doc, cur)
-    montage('{t}/sfnr.nii.gz'.format(t=tmpdir), 
+    montage('{t}/sfnr.nii.gz'.format(t=tmpdir),
                   'SFNR', filename, doc, cmaptype='hot', maxval=0.75)
     find_epi_spikes(fpath, filename, doc, 'fmri', cur=cur)
 
@@ -636,7 +636,7 @@ def rest_qc(fpath, doc, cur):
 
 def fmri_qc(fpath, doc, cur):
     """
-    This takes an input image, motion corrects, and generates a brain mask. 
+    This takes an input image, motion corrects, and generates a brain mask.
     It then calculates a signal to noise ratio map and framewise displacement
     plot for the file.
     """
@@ -663,10 +663,10 @@ def fmri_qc(fpath, doc, cur):
            -a {t}/mean.nii.gz -b {t}/std.nii.gz -expr 'a/b'""".format(t=tmpdir))
 
     montage(fpath, 'BOLD-contrast', filename, doc, maxval=0.75)
-    fmri_plots('{t}/mcorr.nii.gz'.format(t=tmpdir), 
-                     '{t}/mask.nii.gz'.format(t=tmpdir), 
+    fmri_plots('{t}/mcorr.nii.gz'.format(t=tmpdir),
+                     '{t}/mask.nii.gz'.format(t=tmpdir),
                      '{t}/motion.1D'.format(t=tmpdir), filename, doc)
-    montage('{t}/sfnr.nii.gz'.format(t=tmpdir), 
+    montage('{t}/sfnr.nii.gz'.format(t=tmpdir),
                   'SFNR', filename, doc, cmaptype='hot', maxval=0.75)
     find_epi_spikes(fpath, filename, doc, 'fmri')
 
@@ -712,10 +712,10 @@ def dti_qc(fpath, doc, cur):
     montage(fpath, 'DTI Directions', filename, doc, mode='4d', maxval=0.25)
     find_epi_spikes(fpath, filename, doc, 'dti', cur=cur, bvec=bvec)
 
-def add_header_checks(fpath, doc, logdata): 
+def add_header_checks(fpath, doc, logdata):
     filestem = os.path.basename(fpath).replace(dm.utils.get_extension(fpath),'')
     lines = [re.sub('^.*?: *','',line) for line in logdata if filestem in line]
-    if not lines: 
+    if not lines:
         return
 
     fig = plt.figure()
@@ -723,10 +723,10 @@ def add_header_checks(fpath, doc, logdata):
     fig.text(.1,.1, ''.join(lines), size='xx-small')
     doc.add_figure(fig)
 
-def add_bvec_checks(fpath, doc, logdata): 
+def add_bvec_checks(fpath, doc, logdata):
     filestem = os.path.basename(fpath).replace(dm.utils.get_extension(fpath),'')
     lines = [re.sub('^.*'+filestem,'',line) for line in logdata if filestem in line]
-    if not lines: 
+    if not lines:
         return
 
     text ='\n'.join(['\n'.join(textwrap.wrap(l,width=120,subsequent_indent=" "*4)) for l in lines])
@@ -753,7 +753,7 @@ def qc_folder(scanpath, subject, qcdir, cur, QC_HANDLERS):
     pdffile = os.path.join(qcdir, 'qc_' + subject + '.pdf')
     if os.path.exists(pdffile):
         debug("{} pdf exists, skipping.".format(pdffile))
-        return 
+        return
 
     pdf = PdfPages(pdffile)
     doc = PdfDocument(pdf)
@@ -788,9 +788,9 @@ def qc_folder(scanpath, subject, qcdir, cur, QC_HANDLERS):
         if tag not in QC_HANDLERS:
             log("QC hanlder for scan {} (tag {}) not found. Skipping.".format(fname, tag))
             continue
-        if header_check_log: 
+        if header_check_log:
             add_header_checks(fname, doc, header_check_log)
-        if bvecs_check_log: 
+        if bvecs_check_log:
             add_bvec_checks(fname, doc, bvecs_check_log)
         QC_HANDLERS[tag](fname, doc, cur)
 
@@ -807,8 +807,8 @@ def main():
     global VERBOSE
     global DEBUG
     global DRYRUN
-    
-    QC_HANDLERS = {   # map from tag to QC function 
+
+    QC_HANDLERS = {   # map from tag to QC function
             "T1"            : t1_qc,
             "T2"            : t2_qc,
             "PD"            : pd_qc,
@@ -817,22 +817,23 @@ def main():
             "FMAP"          : ignore,
             "FMAP-6.5"      : ignore,
             "FMAP-8.5"      : ignore,
-            "RST"           : rest_qc, 
-            "OBS"           : fmri_qc, 
-            "IMI"           : fmri_qc, 
-            "NBK"           : fmri_qc, 
-            "EMP"           : fmri_qc, 
-            "DTI"           : dti_qc, 
+            "RST"           : rest_qc,
+            "SPRL"          : rest_qc,
+            "OBS"           : fmri_qc,
+            "IMI"           : fmri_qc,
+            "NBK"           : fmri_qc,
+            "EMP"           : fmri_qc,
+            "DTI"           : dti_qc,
             "DTI60-29-1000" : dti_qc,
             "DTI60-20-1000" : dti_qc,
-            "DTI60-1000"    : dti_qc, 
-            "DTI60-b1000"   : dti_qc, 
-            "DTI33-1000"    : dti_qc, 
-            "DTI33-b1000"   : dti_qc, 
-            "DTI33-3000"    : dti_qc, 
-            "DTI33-b3000"   : dti_qc, 
-            "DTI33-4500"    : dti_qc, 
-            "DTI33-b4500"   : dti_qc, 
+            "DTI60-1000"    : dti_qc,
+            "DTI60-b1000"   : dti_qc,
+            "DTI33-1000"    : dti_qc,
+            "DTI33-b1000"   : dti_qc,
+            "DTI33-3000"    : dti_qc,
+            "DTI33-b3000"   : dti_qc,
+            "DTI33-4500"    : dti_qc,
+            "DTI33-b4500"   : dti_qc,
     }
     arguments = docopt(__doc__)
     datadir   = arguments['--datadir']
@@ -846,10 +847,10 @@ def main():
 
     db_filename = '{dbdir}/subject-qc.db'.format(dbdir=dbdir)
     db_is_new = not os.path.exists(db_filename)
-    
+
     try:
         db = sqlite3.connect(db_filename)
-    except: 
+    except:
         print('ERROR: invalid database path, or permissions issue.')
         sys.exit()
     cur = db.cursor()
@@ -858,7 +859,7 @@ def main():
     if db_is_new == True:
         create_db(cur)
 
-    for path in glob.glob(timepoint_glob): 
+    for path in glob.glob(timepoint_glob):
         subject = os.path.basename(path)
 
         # skip phantoms
