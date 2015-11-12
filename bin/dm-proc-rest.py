@@ -353,6 +353,12 @@ def main():
         dm.utils.run_dummy_q(list_of_names)
 
     # export
+    print('***EXPORTING DATA***')
+    print('***WHY IS THE TAGDICT EMPTY???***')
+    print('***TMPDICT***:')
+    print(tmpdict)
+    print('***TAGDICT***:')
+    print(tagdict)
     for sub in tmpdict:
         if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_preproc-complete.log'.format(sub=sub))) == True:
             continue
