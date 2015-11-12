@@ -96,6 +96,7 @@ DEFAULT_IGNORED_HEADERS = set([
     'SliceLocation',
     'SmallestImagePixelValue',
     'StudyDate',
+    'StudyDescription',
     'StudyID',
     'StudyInstanceUID',
     'StudyTime',
