@@ -38,6 +38,7 @@ import datman.utils
 import os.path
 
 DEFAULT_IGNORED_HEADERS = set([
+    'AccessionNumber',
     'AcquisitionDate',
     'AcquisitionTime',
     'AcquisitionNumber',
@@ -50,27 +51,37 @@ DEFAULT_IGNORED_HEADERS = set([
     'ImageOrientationPatient',
     'ImagePositionPatient',
     'InStackPositionNumber',
+    'InstanceCreationDate',
+    'InstanceCreationTime',
+    'InstitutionAddress',
     'InversionTime',
     'ImagesInAcquisition',
     'InstanceNumber',
     'LargestImagePixelValue',
     'OperatorsName',
     'PatientID',
+    'PatientSize',
     'PixelData',
     'ProtocolName',
     'RefdImageSequence',
     'RefdPerformedProcedureStepSequence',
+    'RefdStudySequence',
     'ReferencedImageSequence',
     'ReferencedPerformedProcedureStepSequence',
+    'ReferencedStudySequence',
+    'RequestAttributesSequence',
+    'RequestingPhysician',
     'PatientAge',
     'PatientBirthDate',
     'PatientName',
     'PatientSex',
     'PatientWeight',
-    'PercentPhaseFieldOfView,',
+    'PercentPhaseFieldOfView',
     'PerformedProcedureStepID',
     'PerformedProcedureStepStartDate',
     'PerformedProcedureStepStartTime',
+    'PhysiciansOfRecord',
+    'ReferringPhysicianName',
     'SAR',
     'ScanOptions',
     'ScanningSequence',
@@ -145,8 +156,8 @@ def compare_headers(stdhdr, cmphdr, tolerances=None, ignore_headers=None):
     ignore_headers = ignore_headers or []
 
     # dir() is expensive so we cache results here
-    stdhdr_names = stdhdr.dir() 
-    cmphdr_names = cmphdr.dir() 
+    stdhdr_names = stdhdr.dir()
+    cmphdr_names = cmphdr.dir()
 
     # get the unignored headers
     headers = set(stdhdr_names).union(cmphdr_names).difference(ignore_headers)
@@ -258,7 +269,7 @@ def main():
     stdmap = get_gold_standard_headers(standardsdir)
 
     globexpr = '*'
-    if filtertext: 
+    if filtertext:
         globexpr = '*{}*'.format(filtertext)
 
     for examdir in glob.glob('{}/{}/'.format(examsdir,globexpr)):
