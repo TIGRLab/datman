@@ -167,8 +167,8 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
 
     # find resting state data
     try:
-        niftis = filter(lambda x: 'nii.gz' in x, os.listdir(os.path.join(
-                                                            nii_path, sub)))
+        niftis = filter(lambda x: '.nii' or 'nii.gz' in x, os.listdir(
+                                                os.path.join(nii_path, sub)))
     except:
         print('ERROR: No "nifti" folder found for ' + str(sub) + ', aborting!')
         raise ValueError
