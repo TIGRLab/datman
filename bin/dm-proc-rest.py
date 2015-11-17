@@ -268,8 +268,9 @@ def analyze_data(sub, atlas, func_path):
 
         # strips off extension and folder structure from input filename
         basename = '.'.join(os.path.basename(f).split('.')[:-2])
+        print(basename)
 
-        dm.utils.run('3dresample -master {f} -prefix {func_path}/{sub}/{basename}_rois.nii.gz -inset {atlas}/shen_1mm_268_parcellation.nii.gz'.format(
+        dm.utils.run('3dresample -master {f} -prefix {func_path}/{sub}/{basename}_rois.nii.gz -inset {atlas}'.format(
                          f=f, func_path=func_path, basename=basename, sub=sub, atlas=atlas))
         rois, _, _, _ = dm.utils.loadnii('{func_path}/{sub}/{basename}_rois.nii.gz'.format(func_path=func_path, sub=sub, basename=basename))
         data, _, _, _ = dm.utils.loadnii('{}'.format(f))
