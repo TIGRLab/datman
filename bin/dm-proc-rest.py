@@ -225,14 +225,12 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
 def export_data(sub, tmpfolder, taglist, func_path):
 
     tmppath = os.path.join(tmpfolder, 'TEMP', 'SUBJ', 'FUNC', 'SESS01')
-    print(taglist)
     try:
         # make directory
         out_path = dm.utils.define_folder(os.path.join(func_path, sub))
 
         # export data
         for i, t in enumerate(taglist):
-            print('cp {tmppath}/func_MNI-nonlin.DATMAN.{i}.nii.gz {out_path}/{sub}_func_MNI-nonlin.{t}.{i}.nii.gz'.format(i='%02d' % (i+1), t=t, tmppath=tmppath, out_path=out_path, sub=sub))
             returncode, _, _ = dm.utils.run('cp {tmppath}/func_MNI-nonlin.DATMAN.{i}.nii.gz {out_path}/{sub}_func_MNI-nonlin.{t}.{i}.nii.gz'.format(i='%02d' % (i+1), t=t, tmppath=tmppath, out_path=out_path, sub=sub))
             dm.utils.check_returncode(returncode)
         returncode, _, _ = dm.utils.run('cp {tmppath}/anat_EPI_mask_MNI-nonlin.nii.gz {out_path}/{sub}_anat_EPI_mask_MNI.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
