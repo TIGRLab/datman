@@ -225,14 +225,12 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
 def export_data(sub, tmpfolder, taglist, func_path):
 
     tmppath = os.path.join(tmpfolder, 'TEMP', 'SUBJ', 'FUNC', 'SESS01')
-    print(taglist)
     try:
         # make directory
         out_path = dm.utils.define_folder(os.path.join(func_path, sub))
 
         # export data
         for i, t in enumerate(taglist):
-            print('cp {tmppath}/func_MNI-nonlin.DATMAN.{i}.nii.gz {out_path}/{sub}_func_MNI-nonlin.{t}.{i}.nii.gz'.format(i='%02d' % (i+1), t=t, tmppath=tmppath, out_path=out_path, sub=sub))
             returncode, _, _ = dm.utils.run('cp {tmppath}/func_MNI-nonlin.DATMAN.{i}.nii.gz {out_path}/{sub}_func_MNI-nonlin.{t}.{i}.nii.gz'.format(i='%02d' % (i+1), t=t, tmppath=tmppath, out_path=out_path, sub=sub))
             dm.utils.check_returncode(returncode)
         returncode, _, _ = dm.utils.run('cp {tmppath}/anat_EPI_mask_MNI-nonlin.nii.gz {out_path}/{sub}_anat_EPI_mask_MNI.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
@@ -271,7 +269,7 @@ def analyze_data(sub, atlas, func_path):
         # strips off extension and folder structure from input filename
         basename = '.'.join(os.path.basename(f).split('.')[:-2])
 
-        dm.utils.run('3dresample -master {f} -prefix {func_path}/{sub}/{basename}_rois.nii.gz -inset {atlas}/shen_1mm_268_parcellation.nii.gz'.format(
+        dm.utils.run('3dresample -master {f} -prefix {func_path}/{sub}/{basename}_rois.nii.gz -inset {atlas}'.format(
                          f=f, func_path=func_path, basename=basename, sub=sub, atlas=atlas))
         rois, _, _, _ = dm.utils.loadnii('{func_path}/{sub}/{basename}_rois.nii.gz'.format(func_path=func_path, sub=sub, basename=basename))
         data, _, _, _ = dm.utils.loadnii('{}'.format(f))
