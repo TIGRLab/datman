@@ -38,18 +38,18 @@ DEPENDENCIES
 This message is printed with the -h, --help flags.
 """
 
-import os, sys
-import copy
-import tempfile
-import numpy as np
-import nibabel as nib
-import StringIO as io
-import matplotlib.pyplot as plt
+from datman.docopt import docopt
 from random import choice
 from string import ascii_uppercase, digits
-
 import datman as dm
-from datman.docopt import docopt
+import logging
+import os
+import sys
+import tempfile
+
+logging.basicConfig(level=logging.WARN, 
+        format="[%(name)s] %(levelname)s: %(message)s")
+logger = logging.getLogger(os.path.basename(__file__))
 
 def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script):
 
@@ -62,7 +62,7 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
         niftis = filter(lambda x: 'nii.gz' in x, os.listdir(t1_path))
         niftis = filter(lambda x: sub in x, niftis)
     except:
-        print('ERROR: No "t1" folder/outputs found for ' + str(sub))
+        logger.error('No "t1" folder/outputs found for ' + str(sub))
         raise ValueError
 
     try:
@@ -70,7 +70,7 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
         t1_data.sort()
         t1_data = t1_data[0]
     except:
-        print('ERROR: No t1 found for ' + str(sub))
+        logger.error('No t1 found for ' + str(sub))
         raise ValueError
 
     try:
@@ -78,7 +78,7 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
         aparc.sort()
         aparc = aparc[0]
     except:
-        print('ERROR: No aparc atlas found for ' + str(sub))
+        logger.error('No aparc atlas found for ' + str(sub))
         raise ValueError
 
     try:
@@ -86,14 +86,14 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
         aparc2009.sort()
         aparc2009 = aparc2009[0]
     except:
-        print('ERROR: No aparc 2009 atlas found for ' + str(sub))
+        logger.error('No aparc 2009 atlas found for ' + str(sub))
         raise ValueError
 
     # functional data
     try:
         niftis = filter(lambda x: 'nii.gz' in x, os.listdir(os.path.join(nii_path, sub)))
     except:
-        print('ERROR: No "nii" folder found for ' + str(sub))
+        logger.error('No "nii" folder found for ' + str(sub))
         raise ValueError
 
     try:
@@ -101,12 +101,12 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
         if len(IM_data) == 1:
             IM_data = IM_data[0]
         elif len(IM_data) > 1:
-            print('MSG: Found multiple IM data for {}, using newest'.format(sub))
+            logger.info('Found multiple IM data for {}, using newest'.format(sub))
             IM_data = IM_data[-1]
         else:
             raise ValueError
     except:
-        print('ERROR: No IM data for {}.'.format(sub))
+        logger.error('No IM data for {}.'.format(sub))
         raise ValueError
 
     try:
@@ -114,17 +114,16 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
         if len(OB_data) == 1:
             OB_data = OB_data[0]
         elif len(OB_data) > 1:
-            print('MSG: Found multiple OB data for {}, using newest.'.format(sub))
+            logger.info('Found multiple OB data for {}, using newest.'.format(sub))
             OB_data = OB_data[-1]
         else:
             raise ValueError
     except:
-        print('ERROR: No OB data found for {}.'.format(sub))
+        logger.error('No OB data found for {}.'.format(sub))
         raise ValueError
 
     if os.path.isfile('{}/{}_preproc-complete.log'.format(imob_path, sub)) == True:
-        if VERBOSE:
-             print('MSG: Subject {} has already been preprocessed.'.format(sub))
+        logger.info('Subject {} has already been preprocessed.'.format(sub))
         raise ValueError
 
     try:
@@ -145,10 +144,13 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
 
         # submit to queue
         uid = ''.join(choice(ascii_uppercase + digits) for _ in range(6))
-        cmd = 'bash {} {} 4 '.format(script, tmpfolder)
+        cmd = '{} {} 4 '.format(script, tmpfolder)
         name = 'dm_imob_{}_{}'.format(sub, uid)
         log = os.path.join(log_path, name + '.log')
-        cmd = 'echo {cmd} | qsub -o {log} -S /bin/bash -V -q main.q -cwd -N {name} -l mem_free=3G,virtual_free=3G -j y'.format(cmd=cmd, log=log, name=name)
+        opts = 'h_vmem=3G,mem_free=3G,virtual_free=3G'
+
+        cmd = 'qsub -o {log} -V -cwd -N {name} -l {opts} -j y {cmd}'.format(cmd=cmd, log=log, name=name, opts=opts)
+        logger.debug('Running command: {}'.format(cmd))
         dm.utils.run(cmd)
 
         return name, tmpdict
@@ -175,14 +177,14 @@ def export_data(sub, tmpfolder, func_path):
         outputs = ('nonlin.IM.01', 'nonlin.OB.02', 'nlin_MNI', 'MNI-lin', 'mask_MNI')
         for out in outputs:
             if len(filter(lambda x: out in x, os.listdir(out_path))) == 0:
-                print('ERROR: Failed to export {}'.format(out))
+                logger.error('Failed to export {}'.format(out))
                 raise ValueError
 
         dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.01.1D > {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
         dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.02.1D >> {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
 
         if os.path.isfile('{out_path}/{sub}_motion.1D'.format(out_path=out_path, sub=sub)) == False:
-            print('Failed to export {}_motion.1D'.format(sub))
+            logger.error('Failed to export {}_motion.1D'.format(sub))
             raise ValueError
 
         dm.utils.run('touch {out_path}/{sub}_preproc-complete.log'.format(out_path=out_path, sub=sub))
@@ -287,13 +289,18 @@ def main():
     Loops through subjects, preprocessing using supplied script, and runs a
     first-level GLM using AFNI (tent functions, 15 s window) on all subjects.
     """
-    global VERBOSE
-    global DEBUG
     arguments  = docopt(__doc__)
     project    = arguments['<project>']
     tmp_path   = arguments['<tmppath>']
     script     = arguments['<script>']
     assets     = arguments['<assets>']
+    verbose    = arguments['--verbose']
+    debug      = arguments['--debug']
+
+    if verbose: 
+        logger.setLevel(logging.INFO)
+    if debug: 
+        logger.setLevel(logging.DEBUG)
 
     data_path = dm.utils.define_folder(os.path.join(project, 'data'))
     nii_path = dm.utils.define_folder(os.path.join(data_path, 'nii'))
@@ -310,10 +317,12 @@ def main():
 
     for sub in subjects:
         if dm.scanid.is_phantom(sub) == True:
+            logger.debug("Skipping phantom subject {}".format(sub))
             continue
         if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_preproc-complete.log'.format(sub=sub))) == True:
             continue
         try:
+            logger.info("Preprocessing subject {}".format(sub))
             name, tmpdict = process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
             list_of_names.append(name)
 
@@ -328,9 +337,10 @@ def main():
         if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_preproc-complete.log'.format(sub=sub))) == True:
             continue
         try:
+            logger.info("Exporting subject {}".format(sub))
             export_data(sub, tmpdict[sub], func_path)
         except:
-            print('ERROR: Failed to export {}'.format(sub))
+            logger.error('Failed to export {}'.format(sub))
             continue
         else:
             continue
@@ -342,14 +352,14 @@ def main():
         if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_analysis-complete.log'.format(sub=sub))) == True:
             continue
         try:
+            logger.info("Analyzing subject {}".format(sub))
             generate_analysis_script(sub, func_path, assets)
             returncode, _, _ = dm.utils.run('bash {func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub))
             dm.utils.check_returncode(returncode)
             dm.utils.run('touch {func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub))
 
-        except:
-            print('ERROR: Failed to analyze IMOB data for {}.'.format(sub))
-            pass
+        except Exception, e:
+            logger.exception('Failed to analyze IMOB data for {}.'.format(sub))
 
 if __name__ == "__main__":
     main()
