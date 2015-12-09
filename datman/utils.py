@@ -76,6 +76,8 @@ def mangle(string):
 
     Mangling is roughly: convert runs of non-alphanumeric characters to a dash.
     """
+    if not string: 
+        string = ""
     return re.sub(r"[^a-zA-Z0-9.+]+","-",string)
 
 def get_extension(path): 
