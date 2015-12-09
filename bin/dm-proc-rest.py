@@ -43,6 +43,7 @@ This message is printed with the -h, --help flags.
 
 import os, sys
 import copy
+import logging
 from random import choice
 from glob import glob
 from string import ascii_uppercase, digits
@@ -135,7 +136,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         niftis = filter(lambda x: 'nii.gz' in x, os.listdir(t1_path))
         niftis = filter(lambda x: sub in x, niftis)
     except:
-        print('ERROR: No "t1" folder/outputs found for ' + str(sub))
+        logging.error('No "t1" folder/outputs found for ' + str(sub))
         raise ValueError
 
     try:
@@ -144,7 +145,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         t1_data = t1_data[0]
 
     except:
-        print('ERROR: No t1 found for ' + str(sub))
+        logging.error('No t1 found for ' + str(sub))
         raise ValueError
 
     try:
@@ -153,7 +154,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         aparc = aparc[0]
 
     except:
-        print('ERROR: No aparc atlas found for ' + str(sub))
+        logging.error('No aparc atlas found for ' + str(sub))
         raise ValueError
 
     try:
@@ -162,7 +163,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         aparc2009 = aparc2009[0]
 
     except:
-        print('ERROR: No aparc 2009 atlas found for ' + str(sub))
+        logging.error('No aparc 2009 atlas found for ' + str(sub))
         raise ValueError
 
     # find resting state data
@@ -170,7 +171,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         niftis = filter(lambda x: '.nii' or 'nii.gz' in x, os.listdir(
                                                 os.path.join(nii_path, sub)))
     except:
-        print('ERROR: No "nifti" folder found for ' + str(sub) + ', aborting!')
+        logging.error('No "nifti" folder found for ' + str(sub) + ', aborting!')
         raise ValueError
 
     try:
@@ -185,7 +186,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
             taglist.append(dm.utils.scanid.parse_filename(d)[1])
 
     except:
-        print('ERROR: No REST data found for ' + str(sub))
+        logging.error('No REST data found for ' + str(sub))
         raise ValueError
 
     try:
@@ -211,10 +212,13 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
 
         # submit to queue
         uid = ''.join(choice(ascii_uppercase + digits) for _ in range(6))
-        cmd = 'bash {} {} 4 '.format(script, tmpfolder)
+        cmd = 'bash {} {} 4'.format(script, tmpfolder)
         name = 'dm_rest_{}_{}'.format(sub, uid)
         log = os.path.join(log_path, name + '.log')
-        cmd = 'echo {cmd} | qsub -o {log} -S /bin/bash -V -q main.q -cwd -N {name} -l mem_free=3G,virtual_free=3G -j y'.format(cmd=cmd, log=log, name=name)
+        cmd = 'echo {cmd} | qsub -o {log} -V -q main.q -cwd -N {name} -l h_vmem=3G,mem_free=3G,virtual_free=3G -j y'.format(cmd=cmd, log=log, name=name)
+        logging.debug('-'*80)
+        logging.debug(cmd)
+        logging.debug('-'*80)
         dm.utils.run(cmd)
 
         return name, tmpdict, tagdict
@@ -318,6 +322,17 @@ def main():
     script     = arguments['<script>']
     atlas      = arguments['<atlas>']
     tags       = arguments['<tags>']
+    verbose    = arguments['--verbose']
+    debug      = arguments['--debug']
+
+    # set up logging
+    logging.basicConfig(
+        level=logging.WARN, format="[dm-proc-rest] %(levelname)s: %(message)s")
+
+    if verbose: 
+        logging.getLogger().setLevel(logging.INFO)
+    if debug: 
+        logging.getLogger().setLevel(logging.DEBUG)
 
     # sets up paths
     data_path = dm.utils.define_folder(os.path.join(project, 'data'))
@@ -341,6 +356,7 @@ def main():
             continue
         try:
             # pre-process the data
+            logging.info("Preprocessing subject {}".format(sub))
             name, tmpdict, tagdict = proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags)
             list_of_names.append(name)
 
@@ -357,7 +373,7 @@ def main():
         try:
             export_data(sub, tmpdict[sub], tagdict[tmpdict[sub]], func_path)
         except:
-            print('ERROR: Failed to export {}'.format(sub))
+            logging.error('Failed to export {}'.format(sub))
             continue
         else:
             continue
@@ -373,7 +389,7 @@ def main():
         try:
             analyze_data(sub, atlas, func_path)
         except ValueError as ve:
-            print('ERROR: Failed to extract connectivity data from {}.'.format(sub))
+            logging.error('Failed to extract connectivity data from {}.'.format(sub))
 
 if __name__ == "__main__":
     main()
