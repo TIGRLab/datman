@@ -71,6 +71,7 @@ def gif_gridtoline(input_gif,output_gif):
     '''
     uses imagemagick to take a grid from fsl slices and convert to one line (like in slicesdir)
     '''
+    docmd(['convert',input_gif, '-resize', '384x384',input_gif])
     docmd(['convert', input_gif,\
         '-crop', '100x33%+0+0', os.path.join(tmpdir,'sag.gif')])
     docmd(['convert', input_gif,\
