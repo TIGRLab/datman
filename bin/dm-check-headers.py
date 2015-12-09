@@ -45,6 +45,7 @@ DEFAULT_IGNORED_HEADERS = set([
     'AcquisitionMatrix',
     'ContentDate',
     'ContentTime',
+    'ContributingEquipmentSequence',
     'DeidentificationMethod',
     'DeidentificationMethodCodeSequence',
     'DeviceSerialNumber',
@@ -52,6 +53,7 @@ DEFAULT_IGNORED_HEADERS = set([
     'HeartRate',
     'ImageOrientationPatient',
     'ImagePositionPatient',
+    'ImageType',
     'InStackPositionNumber',
     'InstanceCreationDate',
     'InstanceCreationTime',
@@ -85,10 +87,11 @@ DEFAULT_IGNORED_HEADERS = set([
     'PerformedProcedureStepID',
     'PerformedProcedureStepDescription',
     'PerformedProcedureStepStartDate',
-    'PerformedProcedureStesudopStartTime',
+    'PerformedProcedureStepStartTime',
     'PerformingPhysicianName',
     'PhysiciansOfRecord',
     'ReferringPhysicianName',
+    'RequestedProcedureDescription',
     'SAR',
     'ScanOptions',
     'ScanningSequence',
@@ -122,7 +125,8 @@ INTEGER_TOLERANCES = {
 }
 
 DECIMAL_TOLERANCES = {
-    'RepetitionTime': 1
+    'RepetitionTime': 1 ,
+    'SpacingBetweenSlices': 4
 }
 
 # represents a mismatch between expected (gold standard) and actual
