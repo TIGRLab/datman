@@ -167,19 +167,14 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         raise ValueError
 
     #### find resting state data
-    try:
-        niftis = filter(lambda x: '.nii' or 'nii.gz' in x, os.listdir(
-                                                os.path.join(nii_path, sub)))
-    except:
-        logging.error('No "nifti" folder found for ' + str(sub) + ', aborting!')
-        raise ValueError
-
-    rest_data = filter(lambda x: any(t in x.lower() for t in tags), niftis)
-    logging.debug("Found REST data for subject {}: {}".format(sub, rest_data))
+    rest_data = filter(lambda x: any(t in x.lower() for t in tags), 
+                    glob(os.path.join(nii_path,sub,'*.nii*')))
 
     if not rest_data: 
         logging.error('No REST data found for ' + str(sub))
         raise ValueError
+
+    logging.debug("Found REST data for subject {}: {}".format(sub, rest_data))
 
     # keep track of the tags of the input files, as we will need the name the epitome outputs with them
     taglist = []
@@ -205,7 +200,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         dm.utils.check_returncode(returncode)
 
         for i, d in enumerate(rest_data):
-            returncode, _, _ = dm.utils.run('cp {nii_path}/{sub}/{d} {tmpfolder}/TEMP/SUBJ/FUNC/SESS01/RUN{i}/FUNC.nii.gz'.format(nii_path=nii_path, sub=sub, d=d, i='%02d' % (i+1), tmpfolder=tmpfolder))
+            returncode, _, _ = dm.utils.run('cp {d} {tmpfolder}/TEMP/SUBJ/FUNC/SESS01/RUN{i}/FUNC.nii.gz'.format(nii_path=nii_path, sub=sub, d=d, i='%02d' % (i+1), tmpfolder=tmpfolder))
             dm.utils.check_returncode(returncode)
 
         # submit to queue
