@@ -177,8 +177,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
     try:
         rest_data = filter(lambda x: any(t in x.lower() for t in tags), niftis)
 
-        if len(rest_data) == 1:
-            rest_data = [rest_data]
+        logging.debug("Found REST data for subject {}: {}".format(sub, rest_data))
 
         # keep track of the tags of the input files, as we will need the name the epitome outputs with them
         taglist = []
