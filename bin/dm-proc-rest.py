@@ -210,9 +210,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         log = os.path.join(log_path, name + '.log')
         opts = 'h_vmem=3G,mem_free=3G,virtual_free=3G'
         cmd = 'qsub -o {log} -V -cwd -N {name} -l {opts} -j y {cmd}'.format(cmd=cmd, log=log, name=name, opts=opts)
-        logging.debug('-'*80)
-        logging.debug(cmd)
-        logging.debug('-'*80)
+        logging.debug('Running command: {}'.format(cmd))
         dm.utils.run(cmd)
 
         return name, tmpdict, tagdict
