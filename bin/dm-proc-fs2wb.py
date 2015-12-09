@@ -186,7 +186,7 @@ for i in range(0,len(checklist)):
         if os.path.exists(FS32)== False:
             jobname = 'fs2wb_' + subid
             os.chdir(bin_dir)
-            docmd(['qsub','-o', logs_dir, \
+            docmd(['qsub','-o', logs_dir,'-e', logs_dir, \
                      '-N', jobname,  \
                      runconvertsh, subid])
             jobnames.append(jobname)
