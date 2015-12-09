@@ -166,7 +166,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         logging.error('No aparc 2009 atlas found for ' + str(sub))
         raise ValueError
 
-    # find resting state data
+    #### find resting state data
     try:
         niftis = filter(lambda x: '.nii' or 'nii.gz' in x, os.listdir(
                                                 os.path.join(nii_path, sub)))
@@ -174,20 +174,19 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         logging.error('No "nifti" folder found for ' + str(sub) + ', aborting!')
         raise ValueError
 
-    try:
-        rest_data = filter(lambda x: any(t in x.lower() for t in tags), niftis)
+    rest_data = filter(lambda x: any(t in x.lower() for t in tags), niftis)
+    logging.debug("Found REST data for subject {}: {}".format(sub, rest_data))
 
-        logging.debug("Found REST data for subject {}: {}".format(sub, rest_data))
-
-        # keep track of the tags of the input files, as we will need the name the epitome outputs with them
-        taglist = []
-        for d in rest_data:
-            taglist.append(dm.utils.scanid.parse_filename(d)[1])
-
-    except:
+    if not rest_data: 
         logging.error('No REST data found for ' + str(sub))
         raise ValueError
 
+    # keep track of the tags of the input files, as we will need the name the epitome outputs with them
+    taglist = []
+    for d in rest_data:
+        taglist.append(dm.utils.scanid.parse_filename(d)[1])
+
+    #### setup and run preprocessing
     try:
         # copy data into temporary epitome structure
         n_runs = len(rest_data)
@@ -211,10 +210,11 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
 
         # submit to queue
         uid = ''.join(choice(ascii_uppercase + digits) for _ in range(6))
-        cmd = 'bash {} {} 4'.format(script, tmpfolder)
+        cmd = '{} {} 4'.format(script, tmpfolder)
         name = 'dm_rest_{}_{}'.format(sub, uid)
         log = os.path.join(log_path, name + '.log')
-        cmd = 'echo {cmd} | qsub -o {log} -V -q main.q -cwd -N {name} -l h_vmem=3G,mem_free=3G,virtual_free=3G -j y'.format(cmd=cmd, log=log, name=name)
+        opts = 'h_vmem=3G,mem_free=3G,virtual_free=3G'
+        cmd = 'qsub -o {log} -V -cwd -N {name} -l {opts} -j y {cmd}'.format(cmd=cmd, log=log, name=name, opts=opts)
         logging.debug('-'*80)
         logging.debug(cmd)
         logging.debug('-'*80)
