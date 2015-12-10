@@ -41,21 +41,21 @@ DEPENDENCIES
 This message is printed with the -h, --help flags.
 """
 
-import os, sys
-import copy
-import logging
-from random import choice
+from datman.docopt import docopt
 from glob import glob
-from string import ascii_uppercase, digits
-import numpy as np
+from random import choice
 from scipy import stats, linalg
-import nibabel as nib
-import StringIO as io
-import matplotlib.pyplot as plt
+from string import ascii_uppercase, digits
+import datman as dm
+import logging
+import numpy as np
+import os
+import sys
 import tempfile as tmp
 
-import datman as dm
-from datman.docopt import docopt
+logging.basicConfig(level=logging.WARN, 
+    format="[%(name)s] %(levelname)s: %(message)s")
+logger = logging.getLogger(os.path.basename(__file__))
 
 def partial_corr(C):
     """
@@ -136,7 +136,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         niftis = filter(lambda x: 'nii.gz' in x, os.listdir(t1_path))
         niftis = filter(lambda x: sub in x, niftis)
     except:
-        logging.error('No "t1" folder/outputs found for ' + str(sub))
+        logger.error('No "t1" folder/outputs found for ' + str(sub))
         raise ValueError
 
     try:
@@ -145,7 +145,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         t1_data = t1_data[0]
 
     except:
-        logging.error('No t1 found for ' + str(sub))
+        logger.error('No t1 found for ' + str(sub))
         raise ValueError
 
     try:
@@ -154,7 +154,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         aparc = aparc[0]
 
     except:
-        logging.error('No aparc atlas found for ' + str(sub))
+        logger.error('No aparc atlas found for ' + str(sub))
         raise ValueError
 
     try:
@@ -163,7 +163,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         aparc2009 = aparc2009[0]
 
     except:
-        logging.error('No aparc 2009 atlas found for ' + str(sub))
+        logger.error('No aparc 2009 atlas found for ' + str(sub))
         raise ValueError
 
     #### find resting state data
@@ -171,10 +171,10 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
                     glob(os.path.join(nii_path,sub,'*.nii*')))
 
     if not rest_data: 
-        logging.error('No REST data found for ' + str(sub))
+        logger.error('No REST data found for ' + str(sub))
         raise ValueError
 
-    logging.debug("Found REST data for subject {}: {}".format(sub, rest_data))
+    logger.debug("Found REST data for subject {}: {}".format(sub, rest_data))
 
     # keep track of the tags of the input files, as we will need the name the epitome outputs with them
     taglist = []
@@ -209,8 +209,9 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         name = 'dm_rest_{}_{}'.format(sub, uid)
         log = os.path.join(log_path, name + '.log')
         opts = 'h_vmem=3G,mem_free=3G,virtual_free=3G'
+
         cmd = 'qsub -o {log} -V -cwd -N {name} -l {opts} -j y {cmd}'.format(cmd=cmd, log=log, name=name, opts=opts)
-        logging.debug('Running command: {}'.format(cmd))
+        logger.debug('Running command: {}'.format(cmd))
         dm.utils.run(cmd)
 
         return name, tmpdict, tagdict
@@ -305,9 +306,6 @@ def main():
     4) Generates an experiment-wide correlation matrix.
     5) Generates a set of graph metrics for each subject.
     """
-
-    global VERBOSE
-    global DEBUG
     arguments  = docopt(__doc__)
     project    = arguments['<project>']
     tmp_path   = arguments['<tmppath>']
@@ -316,10 +314,6 @@ def main():
     tags       = arguments['<tags>']
     verbose    = arguments['--verbose']
     debug      = arguments['--debug']
-
-    # set up logging
-    logging.basicConfig(
-        level=logging.WARN, format="[dm-proc-rest] %(levelname)s: %(message)s")
 
     if verbose: 
         logging.getLogger().setLevel(logging.INFO)
