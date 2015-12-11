@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 #
 # This is a slightly-modified epitome script.
 # More on epitome here: https://github.com/josephdviviano/epitome

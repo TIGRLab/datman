@@ -32,6 +32,7 @@ DETAILS
 import os
 import sys
 import glob
+import logging
 import sqlite3
 import datetime
 import numpy as np
@@ -54,8 +55,10 @@ matplotlib.use('Agg')   # Force matplotlib to not use any Xwindows backend
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-DEBUG  = False
-VERBOSE= False
+logging.basicConfig(level=logging.WARN, 
+    format="[%(name)s] %(levelname)s: %(message)s")
+logger = logging.getLogger(os.path.basename(__file__))
+
 DRYRUN = False
 
 class Document:
@@ -72,38 +75,23 @@ class PdfDocument(Document):
 ###############################################################################
 # HELPERS
 
-def log(message):
-    print message
-    sys.stdout.flush()
-
-def error(message):
-    log("ERROR: " + message)
-
-def verbose(message):
-    if not(VERBOSE or DEBUG): return
-    log(message)
-
-def debug(message):
-    if not DEBUG: return
-    log("DEBUG: " + message)
-
 def makedirs(path):
-    debug("makedirs: {}".format(path))
+    logger.debug("makedirs: {}".format(path))
     if not DRYRUN: os.makedirs(path)
 
 def run(cmd):
-    debug("exec: {}".format(cmd))
+    logger.debug("exec: {}".format(cmd))
     if not DRYRUN:
         p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
         out, err = p.communicate()
         if p.returncode != 0:
-            log("Error {} while executing: {}".format(p.returncode, cmd))
-            out and log("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
-            err and log("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
+            logger.error("Error {} while executing: {}".format(p.returncode, cmd))
+            out and logger.error("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
+            err and logger.error("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
         else:
-            debug("rtnval: {}".format(p.returncode))
-            out and debug("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
-            err and debug("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
+            logger.debug("rtnval: {}".format(p.returncode))
+            out and logger.debug("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
+            err and logger.debug("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
 
 def create_db(cur):
     cur.execute('CREATE TABLE fmri (subj TEXT, site TEXT)')
@@ -332,7 +320,7 @@ def montage(image, name, filename, doc, cmaptype='grey', mode='3d', minval=None,
         if box == None:
             box = bounding_box(image) # get the image bounds
         elif box.shape != (3,2): # if we did, ensure it is the right shape
-            error('ERROR: Bounding box should have shape = (3,2).')
+            logger.error('ERROR: Bounding box should have shape = (3,2).')
             raise ValueError
         image = image[box[0,0]:box[0,1], box[1,0]:box[1,1], box[2,0]:box[2,1]]
 
@@ -347,7 +335,7 @@ def montage(image, name, filename, doc, cmaptype='grey', mode='3d', minval=None,
     elif cmaptype == 'hot': cmap = plt.cm.OrRd
     elif cmaptype == 'gray': cmap = plt.cm.gray
     else:
-        debug('No valid colormap supplied, default = greyscale.')
+        logger.debug('No valid colormap supplied, default = greyscale.')
         cmap = plt.cm.gray
 
     # colormapping -- set range
@@ -695,15 +683,11 @@ def dti_qc(fpath, doc, cur):
     directory = os.path.dirname(fpath)
 
     # load in bvec file
-    bvec = filename.split('.')
-    try:
-        bvec.remove('gz')
-    except:
-        pass
-    try:
-        bvec.remove('nii')
-    except:
-        pass
+    bvec = filename[:-len(datman.utils.get_extension(filename))] + ".bvec"
+
+    if not os.path.exists(bvec):
+        logger.warn("Expected bvec file not found: {}. Skipping".format(bvec))
+        return
 
     bvec = np.genfromtxt(os.path.join(directory, ".".join(bvec) + '.bvec'))
     bvec = np.sum(bvec, axis=0)
@@ -752,7 +736,7 @@ def qc_folder(scanpath, subject, qcdir, cur, QC_HANDLERS):
     qcdir = dm.utils.define_folder(qcdir)
     pdffile = os.path.join(qcdir, 'qc_' + subject + '.pdf')
     if os.path.exists(pdffile):
-        debug("{} pdf exists, skipping.".format(pdffile))
+        logger.debug("{} pdf exists, skipping.".format(pdffile))
         return
 
     pdf = PdfPages(pdffile)
@@ -783,10 +767,10 @@ def qc_folder(scanpath, subject, qcdir, cur, QC_HANDLERS):
         bvecs_check_log += open(logfile).readlines()
 
     for fname in found_files:
-        verbose("QC scan {}".format(fname))
+        logger.info("QC scan {}".format(fname))
         ident, tag, series, description = dm.scanid.parse_filename(fname)
         if tag not in QC_HANDLERS:
-            log("QC hanlder for scan {} (tag {}) not found. Skipping.".format(fname, tag))
+            logger.info("QC hanlder for scan {} (tag {}) not found. Skipping.".format(fname, tag))
             continue
         if header_check_log:
             add_header_checks(fname, doc, header_check_log)
@@ -839,9 +823,14 @@ def main():
     datadir   = arguments['--datadir']
     qcdir     = arguments['--qcdir']
     dbdir     = arguments['--dbdir']
-    VERBOSE   = arguments['--verbose']
-    DEBUG     = arguments['--debug']
+    verbose   = arguments['--verbose']
+    debug     = arguments['--debug']
     DRYRUN    = arguments['--dry-run']
+
+    if verbose: 
+        logging.getLogger().setLevel(logging.INFO)
+    if debug: 
+        logging.getLogger().setLevel(logging.DEBUG)
 
     timepoint_glob = '{datadir}/nii/*'.format(datadir=datadir)
 
@@ -851,7 +840,7 @@ def main():
     try:
         db = sqlite3.connect(db_filename)
     except:
-        print('ERROR: invalid database path, or permissions issue.')
+        logger.error('Invalid database path, or permissions issue.')
         sys.exit()
     cur = db.cursor()
 
@@ -866,7 +855,7 @@ def main():
         if 'PHA' in subject:
             pass
         else:
-            verbose("QCing folder {}".format(path))
+            logger.info("QCing folder {}".format(path))
             qc_folder(path, subject, qcdir, cur, QC_HANDLERS)
 
     # close database properly

@@ -41,20 +41,21 @@ DEPENDENCIES
 This message is printed with the -h, --help flags.
 """
 
-import os, sys
-import copy
-from random import choice
+from datman.docopt import docopt
 from glob import glob
-from string import ascii_uppercase, digits
-import numpy as np
+from random import choice
 from scipy import stats, linalg
-import nibabel as nib
-import StringIO as io
-import matplotlib.pyplot as plt
+from string import ascii_uppercase, digits
+import datman as dm
+import logging
+import numpy as np
+import os
+import sys
 import tempfile as tmp
 
-import datman as dm
-from datman.docopt import docopt
+logging.basicConfig(level=logging.WARN, 
+    format="[%(name)s] %(levelname)s: %(message)s")
+logger = logging.getLogger(os.path.basename(__file__))
 
 def partial_corr(C):
     """
@@ -135,7 +136,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         niftis = filter(lambda x: 'nii.gz' in x, os.listdir(t1_path))
         niftis = filter(lambda x: sub in x, niftis)
     except:
-        print('ERROR: No "t1" folder/outputs found for ' + str(sub))
+        logger.error('No "t1" folder/outputs found for ' + str(sub))
         raise ValueError
 
     try:
@@ -144,7 +145,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         t1_data = t1_data[0]
 
     except:
-        print('ERROR: No t1 found for ' + str(sub))
+        logger.error('No t1 found for ' + str(sub))
         raise ValueError
 
     try:
@@ -153,7 +154,7 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         aparc = aparc[0]
 
     except:
-        print('ERROR: No aparc atlas found for ' + str(sub))
+        logger.error('No aparc atlas found for ' + str(sub))
         raise ValueError
 
     try:
@@ -162,32 +163,25 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         aparc2009 = aparc2009[0]
 
     except:
-        print('ERROR: No aparc 2009 atlas found for ' + str(sub))
+        logger.error('No aparc 2009 atlas found for ' + str(sub))
         raise ValueError
 
-    # find resting state data
-    try:
-        niftis = filter(lambda x: '.nii' or 'nii.gz' in x, os.listdir(
-                                                os.path.join(nii_path, sub)))
-    except:
-        print('ERROR: No "nifti" folder found for ' + str(sub) + ', aborting!')
+    #### find resting state data
+    rest_data = filter(lambda x: any(t in x.lower() for t in tags), 
+                    glob(os.path.join(nii_path,sub,'*.nii*')))
+
+    if not rest_data: 
+        logger.error('No REST data found for ' + str(sub))
         raise ValueError
 
-    try:
-        rest_data = filter(lambda x: any(t in x.lower() for t in tags), niftis)
+    logger.debug("Found REST data for subject {}: {}".format(sub, rest_data))
 
-        if len(rest_data) == 1:
-            rest_data = [rest_data]
+    # keep track of the tags of the input files, as we will need the name the epitome outputs with them
+    taglist = []
+    for d in rest_data:
+        taglist.append(dm.utils.scanid.parse_filename(d)[1])
 
-        # keep track of the tags of the input files, as we will need the name the epitome outputs with them
-        taglist = []
-        for d in rest_data:
-            taglist.append(dm.utils.scanid.parse_filename(d)[1])
-
-    except:
-        print('ERROR: No REST data found for ' + str(sub))
-        raise ValueError
-
+    #### setup and run preprocessing
     try:
         # copy data into temporary epitome structure
         n_runs = len(rest_data)
@@ -206,15 +200,18 @@ def proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags
         dm.utils.check_returncode(returncode)
 
         for i, d in enumerate(rest_data):
-            returncode, _, _ = dm.utils.run('cp {nii_path}/{sub}/{d} {tmpfolder}/TEMP/SUBJ/FUNC/SESS01/RUN{i}/FUNC.nii.gz'.format(nii_path=nii_path, sub=sub, d=d, i='%02d' % (i+1), tmpfolder=tmpfolder))
+            returncode, _, _ = dm.utils.run('cp {d} {tmpfolder}/TEMP/SUBJ/FUNC/SESS01/RUN{i}/FUNC.nii.gz'.format(nii_path=nii_path, sub=sub, d=d, i='%02d' % (i+1), tmpfolder=tmpfolder))
             dm.utils.check_returncode(returncode)
 
         # submit to queue
         uid = ''.join(choice(ascii_uppercase + digits) for _ in range(6))
-        cmd = 'bash {} {} 4 '.format(script, tmpfolder)
+        cmd = '{} {} 4'.format(script, tmpfolder)
         name = 'dm_rest_{}_{}'.format(sub, uid)
         log = os.path.join(log_path, name + '.log')
-        cmd = 'echo {cmd} | qsub -o {log} -S /bin/bash -V -q main.q -cwd -N {name} -l mem_free=3G,virtual_free=3G -j y'.format(cmd=cmd, log=log, name=name)
+        opts = 'h_vmem=3G,mem_free=3G,virtual_free=3G'
+
+        cmd = 'qsub -o {log} -V -cwd -N {name} -l {opts} -j y {cmd}'.format(cmd=cmd, log=log, name=name, opts=opts)
+        logger.debug('Running command: {}'.format(cmd))
         dm.utils.run(cmd)
 
         return name, tmpdict, tagdict
@@ -309,15 +306,19 @@ def main():
     4) Generates an experiment-wide correlation matrix.
     5) Generates a set of graph metrics for each subject.
     """
-
-    global VERBOSE
-    global DEBUG
     arguments  = docopt(__doc__)
     project    = arguments['<project>']
     tmp_path   = arguments['<tmppath>']
     script     = arguments['<script>']
     atlas      = arguments['<atlas>']
     tags       = arguments['<tags>']
+    verbose    = arguments['--verbose']
+    debug      = arguments['--debug']
+
+    if verbose: 
+        logger.setLevel(logging.INFO)
+    if debug: 
+        logger.setLevel(logging.DEBUG)
 
     # sets up paths
     data_path = dm.utils.define_folder(os.path.join(project, 'data'))
@@ -341,6 +342,7 @@ def main():
             continue
         try:
             # pre-process the data
+            logger.info("Preprocessing subject {}".format(sub))
             name, tmpdict, tagdict = proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags)
             list_of_names.append(name)
 
@@ -357,7 +359,7 @@ def main():
         try:
             export_data(sub, tmpdict[sub], tagdict[tmpdict[sub]], func_path)
         except:
-            print('ERROR: Failed to export {}'.format(sub))
+            logger.error('Failed to export {}'.format(sub))
             continue
         else:
             continue
@@ -373,7 +375,7 @@ def main():
         try:
             analyze_data(sub, atlas, func_path)
         except ValueError as ve:
-            print('ERROR: Failed to extract connectivity data from {}.'.format(sub))
+            logger.error('Failed to extract connectivity data from {}.'.format(sub))
 
 if __name__ == "__main__":
     main()

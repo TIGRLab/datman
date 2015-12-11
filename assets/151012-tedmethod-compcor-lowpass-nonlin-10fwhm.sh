@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 set -e
                                                                               
 # This is a slightly-modified epitome script.                                   

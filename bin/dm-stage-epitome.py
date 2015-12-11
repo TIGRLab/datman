@@ -3,19 +3,20 @@
 This copies files from the archive into the epitome folder structure.
 
 Usage:
-  dm-proc-enigmadti.py [options] <input-nii-dir> <outputdir>
+  dm-stage-epitome.py [options] <input-nii-dir> <outputdir>
 
 Arguments:
     <input-nii-dir>          Top directory for dti-fit output
     <outputdir>              Top directory for the output of enigma DTI
-    --func-tags LIST         List of expected tags for functional data
-    --func-counts LIST       List of expected files matching length of func-tags
+
 
 Options:
-  --QC-transfer QCFILE     QC checklist file - if this option is given than only QCed participants will be processed.
-  --debug                  Debug logging in Erin's very verbose style
-  -n,--dry-run             Dry run
-  -h, --help               Show help
+    --func-tags LIST         List of expected tags for functional data
+    --func-counts LIST       List of expected files matching length of func-tags
+    --QC-transfer QCFILE     QC checklist file - if this option is given than only QCed participants will be processed.
+    --debug                  Debug logging in Erin's very verbose style
+    -n,--dry-run             Dry run
+    -h, --help               Show help
 
 DETAILS
 This copies files from the archive into the epitome folder structure.
@@ -43,7 +44,7 @@ inputdir        = arguments['<input-nii-dir>']
 outputdir       = arguments['<outputdir>']
 rawQCfile       = arguments['--QC-transfer']
 functagsarg     = arguments['--func-tags']
-funccountsarg  = arguments['--func-counts']
+funccountsarg   = arguments['--func-counts']
 DEBUG           = arguments['--debug']
 DRYRUN          = arguments['--dry-run']
 

@@ -72,7 +72,7 @@ def makerunsh(filename):
     runsh.write('# SGE Options\n')
     runsh.write('#$ -S /bin/bash\n')
     runsh.write('#$ -q main.q\n')
-    runsh.write('#$ -l mem_free=6G,virtual_free=6G\n\n')
+    runsh.write('#$ -l mem_free=2G,virtual_free=2G,h_vmem=2G\n\n')
 
     runsh.write('#source the module system\n')
     runsh.write('source /etc/profile\n')
@@ -186,7 +186,7 @@ for i in range(0,len(checklist)):
         if os.path.exists(FS32)== False:
             jobname = 'fs2wb_' + subid
             os.chdir(bin_dir)
-            docmd(['qsub','-o', logs_dir, \
+            docmd(['qsub','-o', logs_dir,'-e', logs_dir, \
                      '-N', jobname,  \
                      runconvertsh, subid])
             jobnames.append(jobname)
