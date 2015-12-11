@@ -455,10 +455,13 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
 
         # submit to queue
         uid = ''.join(choice(ascii_uppercase + digits) for _ in range(6))
-        cmd = 'bash {} {} 4 '.format(script, tmpfolder)
+        cmd = '{} {} 4 '.format(script, tmpfolder)
         name = 'dm_ea_{}_{}'.format(sub, uid)
         log = os.path.join(log_path, name + '.log')
-        cmd = 'echo {cmd} | qsub -o {log} -S /bin/bash -V -q main.q -cwd -N {name} -l mem_free=3G,virtual_free=3G -j y'.format(cmd=cmd, log=log, name=name)
+        opts = 'h_vmem=3G,mem_free=3G,virtual_free=3G'
+
+        cmd = 'qsub -o {log} -V -cwd -N {name} -l {opts} -j y {cmd}'.format(cmd=cmd, log=log, name=name, opts=opts)
+        logger.debug('Running command: {}'.format(cmd))
         dm.utils.run(cmd)
 
         return name, tmpdict
