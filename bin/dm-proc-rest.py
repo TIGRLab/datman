@@ -316,9 +316,9 @@ def main():
     debug      = arguments['--debug']
 
     if verbose: 
-        logging.getLogger().setLevel(logging.INFO)
+        logger.setLevel(logging.INFO)
     if debug: 
-        logging.getLogger().setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
 
     # sets up paths
     data_path = dm.utils.define_folder(os.path.join(project, 'data'))
@@ -342,7 +342,7 @@ def main():
             continue
         try:
             # pre-process the data
-            logging.info("Preprocessing subject {}".format(sub))
+            logger.info("Preprocessing subject {}".format(sub))
             name, tmpdict, tagdict = proc_data(sub, data_path, log_path, tmp_path, tmpdict, tagdict, script, tags)
             list_of_names.append(name)
 
@@ -359,7 +359,7 @@ def main():
         try:
             export_data(sub, tmpdict[sub], tagdict[tmpdict[sub]], func_path)
         except:
-            logging.error('Failed to export {}'.format(sub))
+            logger.error('Failed to export {}'.format(sub))
             continue
         else:
             continue
@@ -375,7 +375,7 @@ def main():
         try:
             analyze_data(sub, atlas, func_path)
         except ValueError as ve:
-            logging.error('Failed to extract connectivity data from {}.'.format(sub))
+            logger.error('Failed to extract connectivity data from {}.'.format(sub))
 
 if __name__ == "__main__":
     main()
