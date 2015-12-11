@@ -38,24 +38,24 @@ DEPENDENCIES
 This message is printed with the -h, --help flags.
 """
 
-import os, sys
-import glob
-import copy
-import tempfile
-import numpy as np
-import scipy.interpolate as interpolate
-import nibabel as nib
-import StringIO as io
+from datman.docopt import docopt
 from random import choice
 from string import ascii_uppercase, digits
-
-# import matplotlib
-# matplotlib.use('Agg')   # Force matplotlib to not use any Xwindows backend
-# import matplotlib.pyplot as plt
-
+import StringIO as io
+import copy
 import datman as dm
-from datman.docopt import docopt
-import traceback
+import glob
+import logging
+import nibabel as nib
+import numpy as np
+import os
+import scipy.interpolate as interpolate
+import sys
+import tempfile
+
+logging.basicConfig(level=logging.WARN, 
+    format="[%(name)s] %(levelname)s: %(message)s")
+logger = logging.getLogger(os.path.basename(__file__))
 
 def log_parser(log):
     """
@@ -100,7 +100,7 @@ def log_parser(log):
 
     # ensure our inputs contain a 'MRI_start' string.
     if pic[0][3] != 'MRI_start':
-        print('ERROR: log {} does not contain an MRI_start entry!'.format(logname))
+        logger.error('log {} does not contain an MRI_start entry!'.format(logname))
         raise ValueError
     else:
         # this is the start of the fMRI run, all times are relative to this.
@@ -177,7 +177,7 @@ def find_ratings(pic, blk_start, blk_end, blk_start_time, duration):
         # hack to save malformed data
         if len(idx) == 0:
             idx = last + 1
-        #print('last={} idx={} t={} rating={}'.format(last, idx, t, rating))
+        logger.debug('last={} idx={} t={} rating={}'.format(last, idx, t, rating))
 
         r[last:idx] = val  # fill in all the values before the button push\
         val = rating[0]    # update the value to insert
@@ -208,7 +208,7 @@ def find_column_data(blk_name, rating_file):
         column_data = column_data[:,column_number]
     # complain if the supplied rating_file is a dungparty
     else:
-        print('*** ERROR: the file you supplied is not formatted properly!')
+        logger.error('{} is not formatted properly!'.format(rating_file))
         raise ValueError
     # strip off NaN values
     column_data = column_data[np.isfinite(column_data)]
@@ -275,14 +275,15 @@ def process_behav_data(log, assets, func_path, sub, trial_type):
 
     # make sure our trial type inputs are valid
     if trial_type not in ['vid', 'cvid']:
-        print('ERROR: trial_type input {} is incorrect.'.format(trial_type))
-        print('VALID: vid or cvid.')
+        logger.error(
+                'trial_type input {} is incorrect: invalid vid or cvid'.format(
+                    trial_type))
         raise ValueError
 
     try:
         pic, vid, mri_start = log_parser(log)
     except:
-        print('ERROR: Failed to parse log file: {}'.format(log))
+        logger.error('Failed to parse log file: {}'.format(log))
         raise ValueError
 
     blocks, onsets = find_blocks(vid, mri_start)
@@ -379,7 +380,7 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
     try:
         niftis = filter(lambda x: 'nii.gz' in x, os.listdir(os.path.join(nii_path, sub)))
     except:
-        print('ERROR: No "nii" folder found for {}'.format(sub))
+        logger.error('No "nii" folder found for {}'.format(sub))
         raise ValueError
 
     try:
@@ -393,10 +394,10 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
                 EA_data.remove(d)
         EA_data = EA_data[-3:]         # take the last three
     except:
-        print('ERROR: No/not enough EA data found for {}.'.format(sub))
+        logger.error('No/not enough EA data found for {}.'.format(sub))
         raise ValueError
     if len(EA_data) != 3:
-        print('ERROR: Did not find all 3 EA files for {}.'.format(sub))
+        logger.error('Did not find all 3 EA files for {}.'.format(sub))
         raise ValueError
 
     # freesurfer
@@ -404,7 +405,7 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
         niftis = filter(lambda x: 'nii.gz' in x, os.listdir(t1_path))
         niftis = filter(lambda x: sub in x, niftis)
     except:
-        print('ERROR: No "t1" folder/outputs found for {}'.format(sub))
+        logger.error('No "t1" folder/outputs found for {}'.format(sub))
         raise ValueError
 
     try:
@@ -412,7 +413,7 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
         t1_data.sort()
         t1_data = t1_data[0]
     except:
-        print('ERROR: No t1 found for {}'.format(sub))
+        logger.error('No t1 found for {}'.format(sub))
         raise ValueError
 
     try:
@@ -420,7 +421,7 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
         aparc.sort()
         aparc = aparc[0]
     except:
-        print('ERROR: No aparc atlas found for {}'.format(sub))
+        logger.error('No aparc atlas found for {}'.format(sub))
         raise ValueError
 
     try:
@@ -428,7 +429,7 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
         aparc2009.sort()
         aparc2009 = aparc2009[0]
     except:
-        print('ERROR: No aparc 2009 atlas found for {}'.format(sub))
+        logger.error('No aparc 2009 atlas found for {}'.format(sub))
         raise ValueError
 
     # check if output already exists
@@ -485,7 +486,7 @@ def export_data(sub, tmpfolder, func_path):
         outputs = ('nonlin.EA.01', 'nonlin.EA.02', 'nonlin.EA.03', 'nlin_MNI', 'MNI-lin', 'mask_MNI')
         for out in outputs:
             if len(filter(lambda x: out in x, os.listdir(out_path))) == 0:
-                print('ERROR: Failed to export {}'.format(out))
+                logger.error('Failed to export {}'.format(out))
                 raise ValueError
 
         dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.01.1D > {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
@@ -493,7 +494,7 @@ def export_data(sub, tmpfolder, func_path):
         dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.03.1D >> {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
        
         if os.path.isfile('{out_path}/{sub}_motion.1D'.format(out_path=out_path, sub=sub)) == False:
-            print('Failed to export {}_motion.1D'.format(sub))
+            logger.error('Failed to export {}_motion.1D'.format(sub))
             raise ValueError
 
         # mark as done, clean up   
@@ -588,6 +589,13 @@ def main():
     tmp_path   = arguments['<tmppath>']
     script     = arguments['<script>']
     assets     = arguments['<assets>']
+    verbose    = arguments['--verbose']
+    debug      = arguments['--debug']
+
+    if verbose: 
+        logging.getLogger().setLevel(logging.INFO)
+    if debug: 
+        logging.getLogger().setLevel(logging.DEBUG)
 
     data_path = dm.utils.define_folder(os.path.join(project, 'data'))
     nii_path = dm.utils.define_folder(os.path.join(data_path, 'nii'))
@@ -623,7 +631,7 @@ def main():
         try:
             export_data(sub, tmpdict[sub], func_path)
         except:
-            print('ERROR: Failed to export {}'.format(sub))
+            logger.error('Failed to export {}'.format(sub))
             continue
         else:
             continue
@@ -649,11 +657,11 @@ def main():
             logs = filter(lambda x: '.log' in x and 'UCLAEmpAcc' in x, resources)
             logs.sort()
         except:
-            print('ERROR: No BEHAV data for {}.'.format(sub))
+            logger.error('No BEHAV data for {}.'.format(sub))
             continue
 
         if len(logs) != 3:
-            print('ERROR: Did not find exactly 3 logs for {}.'.format(sub))
+            logger.error('Did not find exactly 3 logs for {}.'.format(sub))
             continue
 
         # exract all of the data from the logs
@@ -667,8 +675,7 @@ def main():
                 corr_all.extend(corr)
                 push_all.extend(push)
         except Exception, e:
-            print('ERROR: Failed to parse logs for {}, log={}.'.format(sub, log))
-            print(traceback.print_exc())
+            logger.error('Failed to parse logs for {}, log={}.'.format(sub, log))
             continue
 
         # write data to stimulus timing file for AFNI, and a QC csv
@@ -687,7 +694,7 @@ def main():
                 f2.write('{r:.2f},{p}\n'.format(r=corr_all[i], p=push_all[i]))
             f1.write('\n') # add newline at the end of each run (up to 3 runs.)
         except:
-            print('ERROR: Failed to open block_times & corr_push for {}'.format(sub))
+            logger.error('Failed to open block_times & corr_push for {}'.format(sub))
             continue
         finally:
             f1.close()
