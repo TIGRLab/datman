@@ -39,6 +39,7 @@ This message is printed with the -h, --help flags.
 """
 
 from datman.docopt import docopt
+from glob import glob
 from random import choice
 from string import ascii_uppercase, digits
 import datman as dm
@@ -57,74 +58,46 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
     t1_path = os.path.join(data_path, 't1')
     imob_path = os.path.join(data_path, 'imob')
 
-    # freesurfer
-    try:
-        niftis = filter(lambda x: 'nii.gz' in x, os.listdir(t1_path))
-        niftis = filter(lambda x: sub in x, niftis)
-    except:
-        logger.error('No "t1" folder/outputs found for ' + str(sub))
-        raise ValueError
-
-    try:
-        t1_data = filter(lambda x: 't1' in x.lower(), niftis)
-        t1_data.sort()
-        t1_data = t1_data[0]
-    except:
-        logger.error('No t1 found for ' + str(sub))
-        raise ValueError
-
-    try:
-        aparc = filter(lambda x: 'aparc.nii.gz' in x.lower(), niftis)
-        aparc.sort()
-        aparc = aparc[0]
-    except:
-        logger.error('No aparc atlas found for ' + str(sub))
-        raise ValueError
-
-    try:
-        aparc2009 = filter(lambda x: 'aparc2009.nii.gz' in x.lower(), niftis)
-        aparc2009.sort()
-        aparc2009 = aparc2009[0]
-    except:
-        logger.error('No aparc 2009 atlas found for ' + str(sub))
-        raise ValueError
-
-    # functional data
-    try:
-        niftis = filter(lambda x: 'nii.gz' in x, os.listdir(os.path.join(nii_path, sub)))
-    except:
-        logger.error('No "nii" folder found for ' + str(sub))
-        raise ValueError
-
-    try:
-        IM_data = filter(lambda x: 'IMI' == dm.utils.scanid.parse_filename(x)[1], niftis)
-        if len(IM_data) == 1:
-            IM_data = IM_data[0]
-        elif len(IM_data) > 1:
-            logger.info('Found multiple IM data for {}, using newest'.format(sub))
-            IM_data = IM_data[-1]
-        else:
-            raise ValueError
-    except:
-        logger.error('No IM data for {}.'.format(sub))
-        raise ValueError
-
-    try:
-        OB_data = filter(lambda x: 'OBS' == dm.utils.scanid.parse_filename(x)[1], niftis)
-        if len(OB_data) == 1:
-            OB_data = OB_data[0]
-        elif len(OB_data) > 1:
-            logger.info('Found multiple OB data for {}, using newest.'.format(sub))
-            OB_data = OB_data[-1]
-        else:
-            raise ValueError
-    except:
-        logger.error('No OB data found for {}.'.format(sub))
-        raise ValueError
-
+    # check if already complete
     if os.path.isfile('{}/{}_preproc-complete.log'.format(imob_path, sub)) == True:
         logger.info('Subject {} has already been preprocessed.'.format(sub))
         raise ValueError
+
+    # find freesurfer data
+    t1_data = '{path}/{sub}_T1.nii.gz'.format(path=t1_path, sub=sub)
+    aparc = '{path}/{sub}_APARC.nii.gz'.format(path=t1_path, sub=sub)
+    aparc2009 = '{path}/{sub}_APARC2009.nii.gz'.format(path=t1_path, sub=sub)
+
+    if not os.path.exists(t1_data):  
+        logger.info('No T1 found for sub {}. Skipping.'.format(sub))
+        raise ValueError
+
+    if not os.path.exists(aparc):  
+        logger.info('No aparc atlas found for sub {}. Skipping.'.format(sub))
+        raise ValueError
+
+    if not os.path.exists(aparc2009):  
+        logger.info('No aparc 2009 atlas found for sub {}. Skipping.'.format(sub))
+        raise ValueError
+
+    ## find functional data
+    # IMI
+    IM_data = glob('{path}/{sub}/*_IMI_*.nii.gz'.format(path=nii_path, sub=sub))
+    if not IM_data: 
+        logger.error('No IMI data for sub {}. Skipping.'.format(sub))
+        raise ValueError
+
+    IM_data = IM_data[-1]   # if multiple, use one... 
+    logger.debug('For sub {}, using IMI data: {}'.format(sub, IM_data))
+
+    # OBS
+    OB_data = glob('{path}/{sub}/*_OBS_*.nii.gz'.format(path=nii_path, sub=sub))
+    if not OB_data: 
+        logger.error('No OBS data for sub {}. Skipping.'.format(sub))
+        raise ValueError
+
+    OB_data = OB_data[-1]   # if multiple, use one... 
+    logger.debug('For sub {}, using OBS data: {}'.format(sub, OB_data))
 
     try:
         tmpfolder = tempfile.mkdtemp(prefix='imob-', dir=tmp_path)
@@ -154,8 +127,8 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
         dm.utils.run(cmd)
 
         return name, tmpdict
-
     except:
+        logger.exception("Error while preparing and running preprocessing job")
         raise ValueError
 
 def export_data(sub, tmpfolder, func_path):
@@ -212,16 +185,23 @@ def generate_analysis_script(sub, func_path, assets):
     functions to explain each event over a 15 second window (this is the
     standard length of the HRF).
 
+    Returns the path to the script that was generated or None if there was an
+    error. 
     """
     # first, determine input functional files
-    IM_data = filter(lambda x: 'nii.gz' in x and '.IM.' in x, os.listdir(os.path.join(func_path, sub)))[0]
-    OB_data = filter(lambda x: 'nii.gz' in x and '.OB.' in x, os.listdir(os.path.join(func_path, sub)))[0]
+    IM_data = glob('{path}/{sub}/*.IM.*.nii.gz')
+    OB_data = glob('{path}/{sub}/*.OB.*.nii.gz')
+    if not IM_data or OB_data: 
+        logger.error("Missing IM or OB imob data for sub {}. Skipping.".format(sub))
+        return None
 
-    IM_data = os.path.join(func_path, sub, IM_data)
-    OB_data = os.path.join(func_path, sub, OB_data)
+    IM_data = IM_data[0]
+    OB_data = OB_data[0]
 
     # open up the master script, write common variables
-    f = open('{func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub), 'wb')
+    script = '{func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub)
+
+    f = open(script, 'wb')
     f.write("""#!/bin/bash
 
 #
@@ -283,6 +263,8 @@ def generate_analysis_script(sub, func_path, assets):
 
 """.format(IM_data=IM_data, OB_data=OB_data, func_path=func_path, assets=assets, sub=sub))
     f.close()
+
+    return script
 
 def main():
     """
@@ -353,11 +335,11 @@ def main():
             continue
         try:
             logger.info("Analyzing subject {}".format(sub))
-            generate_analysis_script(sub, func_path, assets)
-            returncode, _, _ = dm.utils.run('bash {func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub))
-            dm.utils.check_returncode(returncode)
-            dm.utils.run('touch {func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub))
-
+            script = generate_analysis_script(sub, func_path, assets)
+            if script: 
+                returncode, _, _ = dm.utils.run('bash {}'.format(script))
+                dm.utils.check_returncode(returncode)
+                dm.utils.run('touch {func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub))
         except Exception, e:
             logger.exception('Failed to analyze IMOB data for {}.'.format(sub))
 
