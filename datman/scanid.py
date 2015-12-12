@@ -110,10 +110,7 @@ def is_scanid(identifier):
 def is_phantom(identifier):
     try:
         x = parse(identifier)
-        if x.subject[0:3] == 'PHA':
-            return True
-        else:
-            return False
+        return x.subject[0:3] == 'PHA'
     except ParseException:
         return False
 
