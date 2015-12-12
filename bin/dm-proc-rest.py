@@ -57,15 +57,18 @@ import sys
 import tempfile
 import time
 
-logging.basicConfig(level=logging.WARN, 
-    format="[%(name)s] %(levelname)s: %(message)s")
+logging.basicConfig(level=logging.WARN,
+                    format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
+
 
 class MissingDataException(Exception):
     pass
 
+
 class ProcessingException(Exception):
     pass
+
 
 def partial_corr(C):
     """
@@ -111,14 +114,14 @@ def partial_corr(C):
     P_corr = np.zeros((p, p), dtype=np.float)
     for i in range(p):
         P_corr[i, i] = 1
-        for j in range(i+1, p):
+        for j in range(i + 1, p):
             idx = np.ones(p, dtype=np.bool)
             idx[i] = False
             idx[j] = False
             beta_i = linalg.lstsq(C[:, idx], C[:, j])[0]
             beta_j = linalg.lstsq(C[:, idx], C[:, i])[0]
 
-            res_j = C[:, j] - C[:, idx].dot( beta_i)
+            res_j = C[:, j] - C[:, idx].dot(beta_i)
             res_i = C[:, i] - C[:, idx].dot(beta_j)
 
             corr = stats.pearsonr(res_i, res_j)[0]
@@ -126,6 +129,7 @@ def partial_corr(C):
             P_corr[j, i] = corr
 
     return P_corr
+
 
 def proc_data(sub, data, log_path, tmpfolder, script):
     """
@@ -138,34 +142,38 @@ def proc_data(sub, data, log_path, tmpfolder, script):
     """
 
     t1_data = data['T1']
-    aparc = data['aparc'] 
-    aparc2009 = data['aparc2009'] 
+    aparc = data['aparc']
+    aparc2009 = data['aparc2009']
     rest_data = data['resting']
     taglist = data['tags']
 
-    #### setup and run preprocessing
+    # setup and run preprocessing
     # copy data into temporary epitome structure
     dm.utils.make_epitome_folders(tmpfolder, len(rest_data))
     epi_t1_dir = '{}/TEMP/SUBJ/T1/SESS01'.format(tmpfolder)
     epi_func_dir = '{}/TEMP/SUBJ/FUNC/SESS01'.format(tmpfolder)
 
-    try: 
+    try:
         shutil.copyfile(t1_data, '{}/anat_T1_brain.nii.gz'.format(epi_t1_dir))
         shutil.copyfile(aparc, '{}/anat_aparc_brain.nii.gz'.format(epi_t1_dir))
-        shutil.copyfile(aparc2009, '{}/anat_aparc2009_brain.nii.gz'.format(epi_t1_dir))
+        shutil.copyfile(
+            aparc2009, '{}/anat_aparc2009_brain.nii.gz'.format(epi_t1_dir))
         for i, d in enumerate(rest_data):
-            shutil.copyfile(d, '{}/RUN{}/FUNC.nii.gz'.format(epi_func_dir, '%02d' % (i+1)))
-    except IOError, e: 
+            shutil.copyfile(
+                d, '{}/RUN{}/FUNC.nii.gz'.format(epi_func_dir, '%02d' % (i + 1)))
+    except IOError, e:
         logger.exception("Exception when copying files to epitome temp folder")
-        raise ProcessingException("Problem copying files to epitome temp folder")
-        
+        raise ProcessingException(
+            "Problem copying files to epitome temp folder")
+
     cmd = '{} {} 4'.format(script, tmpfolder)
     logger.debug('exec: {}'.format(cmd))
     rtn, out, err = dm.utils.run(cmd)
-    output = '\n'.join([out,err]).replace('\n','\n\t')
+    output = '\n'.join([out, err]).replace('\n', '\n\t')
     logger.info(output)
-    if rtn != 0: 
+    if rtn != 0:
         raise ProcessingException("Trouble running preprocessing data")
+
 
 def export_data(sub, data, tmpfolder, func_path):
     tmppath = os.path.join(tmpfolder, 'TEMP', 'SUBJ', 'FUNC', 'SESS01')
@@ -173,30 +181,31 @@ def export_data(sub, data, tmpfolder, func_path):
         out_path = dm.utils.define_folder(os.path.join(func_path, sub))
 
         for i, t in enumerate(data['tags']):
-            idx = '%02d' % (i+1)
+            idx = '%02d' % (i + 1)
             shutil.copyfile(
-                    '{inpath}/func_MNI-nonlin.DATMAN.{i}.nii.gz'.format(
-                        i=idx, inpath=tmppath),
-                    '{outpath}/{sub}_func_MNI-nonlin.{t}.{i}.nii.gz'.format(
-                        i=idx, t=t, outpath=out_path, sub=sub))
+                '{inpath}/func_MNI-nonlin.DATMAN.{i}.nii.gz'.format(
+                    i=idx, inpath=tmppath),
+                '{outpath}/{sub}_func_MNI-nonlin.{t}.{i}.nii.gz'.format(
+                    i=idx, t=t, outpath=out_path, sub=sub))
 
         shutil.copyfile(
-                '{}/anat_EPI_mask_MNI-nonlin.nii.gz'.format(tmppath),
-                '{}/{}_anat_EPI_mask_MNI.nii.gz'.format(out_path, sub))
+            '{}/anat_EPI_mask_MNI-nonlin.nii.gz'.format(tmppath),
+            '{}/{}_anat_EPI_mask_MNI.nii.gz'.format(out_path, sub))
         shutil.copyfile(
-                '{}/reg_T1_to_TAL.nii.gz'.format(tmppath),
-                '{}/{}_reg_T1_to_MNI-lin.nii.gz'.format(out_path, sub))
+            '{}/reg_T1_to_TAL.nii.gz'.format(tmppath),
+            '{}/{}_reg_T1_to_MNI-lin.nii.gz'.format(out_path, sub))
         shutil.copyfile(
-                '{}/reg_nlin_TAL.nii.gz'.format(tmppath),
-                '{}/{}_reg_nlin_MNI.nii.gz'.format(out_path, sub))
+            '{}/reg_nlin_TAL.nii.gz'.format(tmppath),
+            '{}/{}_reg_nlin_MNI.nii.gz'.format(out_path, sub))
         shutil.copyfile(
-                '{}/PARAMS/motion.DATMAN.01.1D'.format(tmppath),
-                '{}/{}_motion.1D'.format(out_path, sub))
-    except IOError, e: 
+            '{}/PARAMS/motion.DATMAN.01.1D'.format(tmppath),
+            '{}/{}_motion.1D'.format(out_path, sub))
+    except IOError, e:
         logger.exception("Exception when copying files from temp folder")
         raise ProcessingException("Problem copying files from temp folder")
 
     open('{}/{}_preproc-complete.log'.format(out_path, sub), 'a').close()
+
 
 def analyze_data(sub, atlas, func_path):
     """
@@ -205,7 +214,8 @@ def analyze_data(sub, atlas, func_path):
     """
 
     # get an input file list
-    filelist = glob('{func_path}/{sub}/{sub}_func_MNI*'.format(func_path=func_path, sub=sub))
+    filelist = glob(
+        '{func_path}/{sub}/{sub}_func_MNI*'.format(func_path=func_path, sub=sub))
 
     for f in filelist:
 
@@ -213,14 +223,15 @@ def analyze_data(sub, atlas, func_path):
         basename = '.'.join(os.path.basename(f).split('.')[:-2])
 
         rtn, out, err = dm.utils.run(
-                '3dresample -master {f} -prefix {func_path}/{sub}/{basename}_rois.nii.gz -inset {atlas}'.format(
-                    f=f, func_path=func_path, basename=basename, sub=sub, atlas=atlas))
-        output = '\n'.join([out,err]).replace('\n','\n\t')
+            '3dresample -master {f} -prefix {func_path}/{sub}/{basename}_rois.nii.gz -inset {atlas}'.format(
+                f=f, func_path=func_path, basename=basename, sub=sub, atlas=atlas))
+        output = '\n'.join([out, err]).replace('\n', '\n\t')
         logger.info(output)
-        if rtn != 0: 
+        if rtn != 0:
             raise ProcessingException("Error resampling atlas.")
 
-        rois, _, _, _ = dm.utils.loadnii('{func_path}/{sub}/{basename}_rois.nii.gz'.format(func_path=func_path, sub=sub, basename=basename))
+        rois, _, _, _ = dm.utils.loadnii(
+            '{func_path}/{sub}/{basename}_rois.nii.gz'.format(func_path=func_path, sub=sub, basename=basename))
         data, _, _, _ = dm.utils.loadnii(f)
 
         n_rois = len(np.unique(rois[rois > 0]))
@@ -230,25 +241,29 @@ def analyze_data(sub, atlas, func_path):
         output = np.zeros((n_rois, dims[1]))
 
         for i, roi in enumerate(np.unique(rois[rois > 0])):
- 	    idx = np.where(rois == roi)[0]
+            idx = np.where(rois == roi)[0]
 
-	    if len(idx) > 0:
-	        output[i, :] = np.mean(data[idx, :], axis=0)
+            if len(idx) > 0:
+                output[i, :] = np.mean(data[idx, :], axis=0)
 
         # save the raw time series
-        np.savetxt('{func_path}/{sub}/{basename}_roi-timeseries.csv'.format(func_path=func_path, sub=sub, basename=basename), output.transpose(), delimiter=',')
+        np.savetxt('{func_path}/{sub}/{basename}_roi-timeseries.csv'.format(
+            func_path=func_path, sub=sub, basename=basename), output.transpose(), delimiter=',')
 
         # save the full correlation matrix
         corrs = np.corrcoef(output)
-        np.savetxt('{func_path}/{sub}/{basename}_roi-corrs.csv'.format(func_path=func_path, sub=sub, basename=basename), corrs, delimiter=',')
+        np.savetxt('{func_path}/{sub}/{basename}_roi-corrs.csv'.format(
+            func_path=func_path, sub=sub, basename=basename), corrs, delimiter=',')
 
-    open('{path}/{sub}/{sub}_analysis-complete.log'.format(path=func_path, sub=sub), 'a').close()
+    open('{path}/{sub}/{sub}_analysis-complete.log'.format(path=func_path,
+                                                           sub=sub), 'a').close()
 
 
-def is_complete(projectdir, subject): 
-    complete_file = os.path.join(projectdir,'data','rest',subject,
-            '{sub}_analysis-complete.log'.format(sub=subject))
+def is_complete(projectdir, subject):
+    complete_file = os.path.join(projectdir, 'data', 'rest', subject,
+                                 '{sub}_analysis-complete.log'.format(sub=subject))
     return os.path.isfile(complete_file)
+
 
 def get_required_data(projectdir, sub, tags):
     """Finds the necessary data for processing this subject. 
@@ -271,21 +286,24 @@ def get_required_data(projectdir, sub, tags):
     aparc = '{path}/{sub}_APARC.nii.gz'.format(path=t1_path, sub=sub)
     aparc2009 = '{path}/{sub}_APARC2009.nii.gz'.format(path=t1_path, sub=sub)
 
-    if not os.path.exists(t1):  
-        raise MissingDataException('No T1 found for sub {}. Skipping.'.format(sub))
+    if not os.path.exists(t1):
+        raise MissingDataException(
+            'No T1 found for sub {}. Skipping.'.format(sub))
 
-    if not os.path.exists(aparc):  
-        raise MissingDataException('No aparc atlas found for sub {}. Skipping.'.format(sub))
+    if not os.path.exists(aparc):
+        raise MissingDataException(
+            'No aparc atlas found for sub {}. Skipping.'.format(sub))
 
-    if not os.path.exists(aparc2009):  
-        raise MissingDataException('No aparc 2009 atlas found for sub {}. Skipping.'.format(sub))
+    if not os.path.exists(aparc2009):
+        raise MissingDataException(
+            'No aparc 2009 atlas found for sub {}. Skipping.'.format(sub))
 
-    #### find resting state data
+    # find resting state data
     rest_data = [glob('{path}/{sub}/*_{tag}_*.nii.gz'.format(
         path=nii_path, sub=sub, tag=tag)) for tag in tags]
-    rest_data = reduce(lambda x,y: x+y, rest_data)  # merge lists
+    rest_data = reduce(lambda x, y: x + y, rest_data)  # merge lists
 
-    if not rest_data: 
+    if not rest_data:
         raise MissingDataException('No REST data found for ' + str(sub))
 
     logger.debug("Found REST data for subject {}: {}".format(sub, rest_data))
@@ -296,11 +314,12 @@ def get_required_data(projectdir, sub, tags):
     for d in rest_data:
         taglist.append(dm.utils.scanid.parse_filename(d)[1])
 
-    return {'T1' : t1, 
-            'aparc' : aparc,
-            'aparc2009' : aparc2009,
-            'resting' : rest_data, 
-            'tags' : taglist }
+    return {'T1': t1,
+            'aparc': aparc,
+            'aparc2009': aparc2009,
+            'resting': rest_data,
+            'tags': taglist}
+
 
 def process_subject(project, data, sub, tags, atlas, script):
     data_path = dm.utils.define_folder(os.path.join(project, 'data'))
@@ -311,23 +330,26 @@ def process_subject(project, data, sub, tags, atlas, script):
     tempfolder = tempfile.mkdtemp(prefix='rest-')
     try:
         if os.path.isfile(os.path.join(func_path, sub, '{sub}_preproc-complete.log'.format(sub=sub))):
-            logger.info("Subject {} preprocessing already complete.".format(sub))
-        else: 
+            logger.info(
+                "Subject {} preprocessing already complete.".format(sub))
+        else:
             logger.info("Preprocessing subject {}".format(sub))
             proc_data(sub, data, log_path, tempfolder, script)
             export_data(sub, data, tempfolder, func_path)
 
         if not os.path.isdir(os.path.join(func_path, sub)):
-            logger.error("Subject's rest folder not present after preproc.".format(sub))
+            logger.error(
+                "Subject's rest folder not present after preproc.".format(sub))
             return False
 
         analyze_data(sub, atlas, func_path)
-    except ProcessingException, e: 
+    except ProcessingException, e:
         logger.error(e.message)
         return False
     finally:
         if os.path.exists(tempfolder):
             shutil.rmtree(tempfolder)
+
 
 def main():
     """
@@ -340,20 +362,19 @@ def main():
     5) Generates a set of graph metrics for each subject.
     """
 
-    arguments  = docopt(__doc__)
-    project    = arguments['<project>']
-    script     = arguments['<script>']
-    atlas      = arguments['<atlas>']
-    subjects   = arguments['<subject>']
-    tags       = arguments['--tags'].split(',')
-    verbose    = arguments['--verbose']
-    debug      = arguments['--debug']
+    arguments = docopt(__doc__)
+    project = arguments['<project>']
+    script = arguments['<script>']
+    atlas = arguments['<atlas>']
+    subjects = arguments['<subject>']
+    tags = arguments['--tags'].split(',')
+    verbose = arguments['--verbose']
+    debug = arguments['--debug']
 
-    if verbose: 
+    if verbose:
         logger.setLevel(logging.INFO)
-    if debug: 
+    if debug:
         logger.setLevel(logging.DEBUG)
-
 
     # check inputs
     if not os.path.isfile(atlas):
@@ -364,7 +385,8 @@ def main():
         logger.error("Epitome script {} does not exist".format(script))
         sys.exit(-1)
 
-    submit_mode = len(subjects) == 0  # submit jobs if not working on single subject
+    # submit jobs if not working on single subject
+    submit_mode = len(subjects) == 0
     logger.debug("Subjects: {}".format(subjects))
     logger.debug("Submit mode: {}".format(submit_mode))
 
@@ -372,7 +394,7 @@ def main():
     subjects = subjects or dm.utils.get_subjects(nii_path)
 
     for subject in subjects:
-        if is_complete(project, subject): 
+        if is_complete(project, subject):
             logger.info("Subject {} processed. Skipping.".format(subject))
             continue
 
@@ -380,41 +402,40 @@ def main():
             logger.debug("Subject {} is a phantom. Skipping.".format(subject))
             continue
 
-        try: 
+        try:
             data = get_required_data(project, subject, tags)
         except MissingDataException, e:
             logger.error(e.message)
             continue
 
-        if submit_mode: 
+        if submit_mode:
             opts = ''
             opts += verbose and ' --verbose' or ''
             opts += debug and ' --debug' or ''
-            opts += tags and ' --tags='+','.join(tags) or ''
+            opts += tags and ' --tags=' + ','.join(tags) or ''
 
             cmd = "{me} {opts} {project} {script} {atlas} {subject}".format(
-                    me=__file__,
-                    opts=opts,
-                    project=project,
-                    script=script,
-                    atlas=atlas,
-                    subject=subject)
+                me=__file__,
+                opts=opts,
+                project=project,
+                script=script,
+                atlas=atlas,
+                subject=subject)
             job_name = 'dm_rest_{}'.format(subject)
             memopts = 'h_vmem=3G,mem_free=3G,virtual_free=3G'
-            stamp= time.strftime("%Y%m%d-%H%M%S")
-            logfile = '{name}-{stamp}.log'.format(name=job_name,stamp=stamp)
-            logpath = os.path.join(project,'logs', 'rest', logfile)
+            stamp = time.strftime("%Y%m%d-%H%M%S")
+            logfile = '{name}-{stamp}.log'.format(name=job_name, stamp=stamp)
+            logpath = os.path.join(project, 'logs', 'rest', logfile)
             qsub = 'qsub -V -N {name} -l {memopts} -o {logpath} -j y -b y {cmd}'.format(
-                    name=job_name,
-                    memopts=memopts,
-                    logpath=logpath,
-                    cmd=cmd)
+                name=job_name,
+                memopts=memopts,
+                logpath=logpath,
+                cmd=cmd)
 
             logger.debug('exec: {}'.format(qsub))
             dm.utils.run(qsub)
         else:
-            process_subject(project, data, subject, tags, atlas, script) 
+            process_subject(project, data, subject, tags, atlas, script)
 
 if __name__ == "__main__":
     main()
-
