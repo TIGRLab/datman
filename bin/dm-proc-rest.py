@@ -137,8 +137,7 @@ def proc_data(sub, data, log_path, tmpfolder, script):
     associated epitome script on the data. Finally, we copy the outputs into
     the 'rest' directory.
 
-    If any of the required stating data is missing, a MissingDataException is
-    raised. 
+    A ProcessingException is raised if there are any errors during preprocessing. 
     """
 
     t1_data = data['T1']
@@ -170,10 +169,11 @@ def proc_data(sub, data, log_path, tmpfolder, script):
     logger.debug('exec: {}'.format(cmd))
     rtn, out, err = dm.utils.run(cmd)
     output = '\n'.join([out, err]).replace('\n', '\n\t')
-    logger.info(output)
     if rtn != 0:
+        logger.error(output)
         raise ProcessingException("Trouble running preprocessing data")
-
+    else:
+        logger.info(output)
 
 def export_data(sub, data, tmpfolder, func_path):
     tmppath = os.path.join(tmpfolder, 'TEMP', 'SUBJ', 'FUNC', 'SESS01')
@@ -226,9 +226,11 @@ def analyze_data(sub, atlas, func_path):
             '3dresample -master {f} -prefix {func_path}/{sub}/{basename}_rois.nii.gz -inset {atlas}'.format(
                 f=f, func_path=func_path, basename=basename, sub=sub, atlas=atlas))
         output = '\n'.join([out, err]).replace('\n', '\n\t')
-        logger.info(output)
         if rtn != 0:
+            logger.error(output)
             raise ProcessingException("Error resampling atlas.")
+        else:
+            logger.info(output)
 
         rois, _, _, _ = dm.utils.loadnii(
             '{func_path}/{sub}/{basename}_rois.nii.gz'.format(func_path=func_path, sub=sub, basename=basename))
