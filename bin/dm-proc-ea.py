@@ -585,8 +585,6 @@ def main():
     4) Executes this script, producing beta-weights for each subject.
     """
 
-    global VERBOSE 
-    global DEBUG
     arguments  = docopt(__doc__)
     project    = arguments['<project>']
     tmp_path   = arguments['<tmppath>']
