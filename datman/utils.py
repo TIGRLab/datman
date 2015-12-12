@@ -343,11 +343,13 @@ def run_dummy_q(list_of_names):
     This holds the script until all of the queued items are done.
     """
     print('Holding for remaining processes.')
-    cmd = ('echo sleep 30 | qsub -sync y -q main.q -hold_jid ' + ",".join(list_of_names))
+    opts = 'h_vmem=3G,mem_free=3G,virtual_free=3G'
+    holds = ",".join(list_of_names)
+    cmd = 'qsub -sync y -hold_jid {} -l {} -b y echo'.format(holds, opts)
     run(cmd)
     print('... Done.')
 
-def run(cmd, dryrun=False):
+def run(cmd, dryrun=False, echo=False):
     """
     Runs a command in the default shell (so beware!)
 
@@ -356,7 +358,10 @@ def run(cmd, dryrun=False):
     if dryrun: 
         return 0, "", ""
 
-    p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
+    stdout = echo and None or proc.PIPE
+    stderr = echo and None or proc.PIPE
+
+    p = proc.Popen(cmd, shell=True, stdout=stdout, stderr=stderr)
     out, err = p.communicate() 
     return p.returncode, out, err
 
