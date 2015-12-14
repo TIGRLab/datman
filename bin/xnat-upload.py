@@ -24,17 +24,22 @@ Options:
     -v,--verbose          Be chatty
 
 """
-import requests
 from docopt import docopt
 import datman as dm
-import datman.utils
 import datman.scanid
-import os.path
-import zipfile
+import datman.utils
 import dicom as dcm
-import io
-import sys
 import getpass
+import io
+import logging
+import os.path
+import requests
+import sys
+import zipfile
+
+logging.basicConfig(level=logging.WARN,
+                    format="[%(name)s] %(levelname)s: %(message)s")
+logger = logging.getLogger(os.path.basename(__file__))
 
 CREATE_URL = "{server}/REST/projects/{project}/subjects/{subject}"
 
@@ -48,10 +53,6 @@ ATTACH_URL = "{server}/data/archive/projects/{project}/subjects/{subject}" \
 
 dcm_exts = ('dcm','img')
 
-def fatal(message):
-    print "ERROR:", message
-    sys.exit(1)
-
 def main():
     arguments = docopt(__doc__)
     server   = arguments['--server']
@@ -60,6 +61,9 @@ def main():
     verbose  = arguments['--verbose']
     username = arguments['--username']
     credfile = arguments['--credfile']
+
+    if verbose:
+        logger.setLevel(logging.INFO)
 
     if username: 
         password = getpass.getpass()
@@ -71,7 +75,8 @@ def main():
     archivefile = os.path.basename(os.path.normpath(archive))
     scanid      = archivefile[:-len(dm.utils.get_extension(archivefile))]
     if not dm.scanid.is_scanid(scanid):
-        fatal("{} is not a valid scan identifier".format(scanid))
+        logger.error("{} is not a valid scan identifier".format(scanid))
+        sys.exit(1)
 
     subject = scanid
     session = scanid
@@ -85,7 +90,7 @@ def main():
     # https://wiki.xnat.org/pages/viewpage.action?pageId=5017279
 
     # create the subject
-    if verbose: print "Creating subject {}".format(subject)
+    logger.info("Creating subject {}".format(subject))
     r = requests.put(CREATE_URL.format(**url_params), auth=auth)
     
     r.raise_for_status()
@@ -93,7 +98,7 @@ def main():
     # upload the DICOM data
     # NOTE: If your project is not set to auto archive, then this will end up
     # in the prearchive
-    if verbose: print "Uploading dicom data..."
+    logger.info("Uploading dicom data...")
     r = requests.post(UPLOAD_URL.format(**url_params), 
             auth=auth, 
             headers={'Content-Type' : 'application/zip'},
@@ -102,7 +107,7 @@ def main():
     r.raise_for_status()
 
     # upload non-dicom stuff
-    if verbose: print "Scanning for non-dicom data..."
+    logger.info("Scanning for non-dicom data...")
     zf = zipfile.ZipFile(archive)
 
     # filter dirs
@@ -115,7 +120,7 @@ def main():
     # filter actual dicoms :D
     files = filter(lambda f: not is_dicom(io.BytesIO(zf.read(f))), files)
 
-    if verbose: print "Uploading non-dicom data..."
+    logger.info("Uploading non-dicom data...")
     for f in files:
         r = None
         try:
@@ -125,10 +130,10 @@ def main():
 
             r.raise_for_status() 
         except requests.exceptions.HTTPError, e:
-            print "ERROR uploading file {}".format(f)
-            print e
+            logger.error("ERROR uploading file {}".format(f))
+            raise e
 
-    if verbose: print "Done."
+    print("Subject {} uploaded to xnat".format(subject))
 
 def is_named_like_a_dicom(path):
     return any(map(lambda x: path.lower().endswith(x), dcm_exts))
@@ -144,6 +149,6 @@ if __name__ == '__main__':
     try:
         main()
     except requests.exceptions.HTTPError, e:
-        fatal(e)
+        logger.exception("Error communicating with XNAT")
 
 # vim: ts=4 sw=4:

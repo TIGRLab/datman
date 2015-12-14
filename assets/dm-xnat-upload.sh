@@ -33,6 +33,6 @@ for zip in ${ZIPFOLDER}/*.zip; do
   if [ -e ${XNAT_ARCHIVE}/${scanid} ]; then 
     continue
   fi
-  xnat-upload.py -v --credfile ${CREDFILE} ${STUDYNAME} ${zip} 
+  xnat-upload.py --credfile ${CREDFILE} ${STUDYNAME} ${zip} 
 done
 
