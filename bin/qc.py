@@ -683,13 +683,14 @@ def dti_qc(fpath, doc, cur):
     directory = os.path.dirname(fpath)
 
     # load in bvec file
-    bvec = filename[:-len(datman.utils.get_extension(filename))] + ".bvec"
+    bvec = fpath[:-len(datman.utils.get_extension(fpath))] + ".bvec"
+    logger.debug("fpath = {}, bvec = {}".format(fpath, bvec))
 
     if not os.path.exists(bvec):
         logger.warn("Expected bvec file not found: {}. Skipping".format(bvec))
         return
 
-    bvec = np.genfromtxt(os.path.join(directory, ".".join(bvec) + '.bvec'))
+    bvec = np.genfromtxt(bvec)
     bvec = np.sum(bvec, axis=0)
 
     montage(fpath, 'B0-contrast', filename, doc, maxval=0.25)
