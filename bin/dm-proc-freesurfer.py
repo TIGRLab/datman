@@ -297,7 +297,6 @@ def get_qced_subjectlist(qcchecklist):
     ## return the qcedlist (as a list)
     return qcedlist
 
-
 ######## NOW START the 'main' part of the script ##################
 ## make the putput directory if it doesn't exist
 subjectsdir = os.path.abspath(subjectsdir)
@@ -306,19 +305,29 @@ run_dir = os.path.join(subjectsdir,'bin')
 dm.utils.makedirs(log_dir)
 dm.utils.makedirs(run_dir)
 
-## find those subjects in input who have not been processed yet
+# find new subjects
 subids_in_nii = dm.utils.get_subjects(inputdir)
-subids_in_nii = [ v for v in subids_in_nii if "PHA" not in v ] ## remove the phantoms from the list
-## filters for --tag2 if it was specified
+
+# remove phantoms
+subids_in_nii = [ v for v in subids_in_nii if "PHA" not in v ]
+
+# filters for --tag2 if it was specified
 if TAG2 != None:
     subids_in_nii = [ v for v in subids_in_nii if TAG2 in v ]
+
+# if a QC checklist exists, than read it and only process those participants who passed QC
 if QCedTranfer:
-    # if a QC checklist exists, than read it and only process those participants who passed QC
     qcedlist = get_qced_subjectlist(rawQCfile)
-    subids_in_nii = list(set(subids_in_nii) & set(qcedlist)) ##now only add it to the filelist if it has been QCed
+    subids_in_nii = list(set(subids_in_nii) & set(qcedlist))
+
+# check if we have any work to do, exit if not
+if len(subids_in_nii) == 0:
+    sys.exit('MSG: No outstanding scans to process.')
 
 # grab the prefix from the subid if not given
-if prefix == None: prefix = subids_in_nii[0][0:3]
+if prefix == None:
+    prefix = subids_in_nii[0][0:3]
+
 ## writes a standard Freesurfer-DTI running script for this project (if it doesn't exist)
 ## the script requires a OUTDIR and MAP_BASE variables - as arguments $1 and $2
 ## also write a standard script to concatenate the results at the end (script is held while subjects run)
@@ -333,14 +342,14 @@ for runfilename in runscripts:
         ## if it doesn't exist, write it now
         makeFreesurferrunsh(runsh)
 
-## create an checklist for the T1 maps
+# create an checklist for the T1 maps
 checklistfile = os.path.normpath(subjectsdir+'/freesurfer-checklist.csv')
 checklist = loadchecklist(checklistfile,subids_in_nii)
 
-## look for new subs using T1_tag and tag2
+# look for new subs using T1_tag and tag2
 find_T1images(T1_tag)
 
-## fetch a list of the jobs that are already in the queue
+# fetch a list of the jobs that are already in the queue
 ###qstat -xml | tr '\n' ' ' | sed 's#<job_list[^>]*>#\n#g'   | sed 's#<[^>]*>##g' | grep FS_STO | awk -F " " '{print $3}'
 qstatcmd="qstat -xml | tr '\\n' ' '" + \
     " | sed 's#<job_list[^>]*>#\\n#g'   | sed 's#<[^>]*>##g' | grep FS_" + \
@@ -358,20 +367,25 @@ if DEBUG:
 #if no submits that subject to the queue
 #jobnames = []
 ## should be in the right run dir so that it submits without the full path
+
 os.chdir(run_dir)
 if not POSTFS_ONLY:
     for i in range(0,len(checklist)):
         subid = checklist['id'][i]
-        ## make sure that is TAG2 was called - only the tag2s are going to queue
+
+        # make sure that is TAG2 was called - only the tag2s are going to queue
         if (TAG2 != None):
-            if (TAG2 not in subid): continue
+            if (TAG2 not in subid):
+                continue
 
         ## make sure that a T1 has been selected for this subject
-        if pd.isnull(checklist['T1_nii'][i]): continue
+        if pd.isnull(checklist['T1_nii'][i]):
+            continue
 
         ## make sure that this subject is not sitting in the queue
         jobname = 'FS_' + subid
-        if jobname in joblist: continue
+        if jobname in joblist:
+            continue
 
         ## check if this subject has already been completed - or started and halted
         FScomplete = os.path.join(subjectsdir,subid,'scripts','recon-all.done')
@@ -398,9 +412,6 @@ if not POSTFS_ONLY:
                          subid, ' '.join(T1s)])
                 ## add today date to the checklist
                 checklist['date_ran'][i] = datetime.date.today()
-
-
-
 
 ## if any subjects have been submitted,
 ## submit a final job that will consolidate the resutls after they are finished
