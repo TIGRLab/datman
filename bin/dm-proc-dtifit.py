@@ -56,13 +56,7 @@ def main():
     nii_dir = os.path.normpath(inputdir)
 
     ## get the list of subjects
-    allsubjectsnames = dm.utils.get_subjects(nii_dir)
-
-    ## if a tag is given for filtering - filter now
-    if TAG != None :
-        subjectnames = filter(lambda x: TAG in x, allsubjectsnames)
-    else:
-        subjectnames = allsubjectsnames
+    subjectnames = dm.utils.get_subjects(nii_dir)
 
     for subjectname in subjectnames:
         inputpath  = os.path.join(nii_dir, subjectname)
@@ -75,6 +69,10 @@ def main():
         dm.utils.makedirs(outputpath)
 
         for dwi in dwifiles:
+            if TAG and TAG not in dwi: 
+                log.debug("Tag '{}' not found in file {}. Skipping".format(TAG, dwi))
+                continue
+
             stem = os.path.basename(dwi).replace('.nii','').replace('.gz','')
 
             dtifit_output = outputpath+'/'+stem+'_eddy_correct_dtifit_FA.nii.gz'
