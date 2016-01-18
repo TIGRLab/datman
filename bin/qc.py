@@ -6,7 +6,7 @@ Usage:
     qc.py [options]
 
 Arguments:
-    <scanid>        Scan ID to QC for. E.g. DTI_CMH_H001_01_01
+    <scanid>           Scan ID to QC for. E.g. DTI_CMH_H001_01_01
 
 Options:
     --datadir DIR      Parent folder holding exported data [default: data]
