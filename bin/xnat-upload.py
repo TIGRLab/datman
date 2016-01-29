@@ -34,6 +34,7 @@ import io
 import logging
 import os.path
 import requests
+import urllib
 import sys
 import zipfile
 
@@ -86,8 +87,7 @@ def main():
                    'subject' : subject,
                    'session' : session }
 
-    # Upload
-    # https://wiki.xnat.org/pages/viewpage.action?pageId=5017279
+    # Upload - https://wiki.xnat.org/pages/viewpage.action?pageId=5017279
 
     # create the subject
     logger.info("Creating subject {}".format(subject))
@@ -95,9 +95,7 @@ def main():
     
     r.raise_for_status()
 
-    # upload the DICOM data
-    # NOTE: If your project is not set to auto archive, then this will end up
-    # in the prearchive
+    # NOTE: If your project is not set to auto archive, then this will end up in the prearchive
     logger.info("Uploading dicom data...")
     r = requests.post(UPLOAD_URL.format(**url_params), 
             auth=auth, 
@@ -122,13 +120,14 @@ def main():
 
     logger.info("Uploading non-dicom data...")
     for f in files:
+        # remove symbols potentially problematic for REST calls
+        uploadname=f.strip('!@#$%^&*()":;{}[]|<>?,')
+        uploadname=uploadname.strip("'")
         r = None
         try:
-            r = requests.post(ATTACH_URL.format(filename=f, **url_params),
-                    data=zf.read(f),
-                    auth=auth)
-
+            r = requests.post(ATTACH_URL.format(filename=uploadname, **url_params), data=zf.read(f), auth=auth)
             r.raise_for_status() 
+
         except requests.exceptions.HTTPError, e:
             logger.error("ERROR uploading file {}".format(f))
             raise e
