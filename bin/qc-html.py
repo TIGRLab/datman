@@ -795,6 +795,16 @@ def qc_folder(scanpath, subject, qcdir, cur, QC_HANDLERS):
         return
 
     qchtml = open(htmlfile,'a')
+    qchtml.write('<HTML><TITLE>{} qc</TITLE>\n'.format(subject))
+    qchtml.write('<head>\n<style>\n'
+                'body { font-family: futura,sans-serif;'
+                '        text-align: center;}\n'
+                'img {width:800; '
+                '   display: block;'
+                '   margin-left: auto;'
+                '   margin-right: auto }\n'
+                '</style></head>\n')
+
     qchtml.write('<h1> QC report for '+ subject + ' <h1>')
     # pdf = PdfPages(pdffile)
     # doc = PdfDocument(pdf)
