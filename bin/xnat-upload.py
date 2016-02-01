@@ -120,9 +120,8 @@ def main():
 
     logger.info("Uploading non-dicom data...")
     for f in files:
-        # remove symbols potentially problematic for REST calls
-        uploadname=f.strip('!@#$%^&*()":;{}[]|<>?,')
-        uploadname=uploadname.strip("'")
+        # convert to HTTP language
+        uploadname = urllib.quote(f)
         r = None
         try:
             r = requests.post(ATTACH_URL.format(filename=uploadname, **url_params), data=zf.read(f), auth=auth)
