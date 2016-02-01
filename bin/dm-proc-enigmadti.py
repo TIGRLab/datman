@@ -153,7 +153,7 @@ def makeENIGMArunsh(filename):
     enigmash.write('#$ -j y \n')
     enigmash.write('#$ -o '+ log_dir + ' \n')
     enigmash.write('#$ -e '+ log_dir + ' \n')
-    enigmash.write('#$ -l mem_free=6G,virtual_free=6G\n\n')
+    enigmash.write('#$ -l mem_free=1G,virtual_free=1G\n\n')
 
     enigmash.write('#source the module system\n')
     enigmash.write('source /etc/profile\n\n')
