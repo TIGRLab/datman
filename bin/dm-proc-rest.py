@@ -301,7 +301,7 @@ def get_required_data(projectdir, sub, tags):
             'No aparc 2009 atlas found for sub {}. Skipping.'.format(sub))
 
     # find resting state data
-    rest_data = [glob('{path}/{sub}/*_{tag}_*.nii.gz'.format(
+    rest_data = [glob('{path}/{sub}/*_{tag}_*.nii*'.format(
         path=nii_path, sub=sub, tag=tag)) for tag in tags]
     rest_data = reduce(lambda x, y: x + y, rest_data)  # merge lists
 
