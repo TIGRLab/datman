@@ -137,7 +137,7 @@ def proc_data(sub, data, log_path, tmpfolder, script):
     associated epitome script on the data. Finally, we copy the outputs into
     the 'rest' directory.
 
-    A ProcessingException is raised if there are any errors during preprocessing. 
+    A ProcessingException is raised if there are any errors during preprocessing.
     """
 
     t1_data = data['T1']
@@ -268,10 +268,10 @@ def is_complete(projectdir, subject):
 
 
 def get_required_data(projectdir, sub, tags):
-    """Finds the necessary data for processing this subject. 
+    """Finds the necessary data for processing this subject.
 
-    If the necessary data can't be found, a MissingDataException is 
-    raised. Otherwise, a dict is returned with: 
+    If the necessary data can't be found, a MissingDataException is
+    raised. Otherwise, a dict is returned with:
 
     - T1 : path to the T1 data
     - aparc : path to the aparc atlas
@@ -281,7 +281,7 @@ def get_required_data(projectdir, sub, tags):
     """
 
     nii_path = os.path.join(projectdir, 'data', 'nii')
-    t1_path = os.path.join(projectdir, 'data', 't1')
+    t1_path = os.path.join(projectdir, 'data', 'freesurfer', 't1')
 
     # find freesurfer data
     t1 = '{path}/{sub}_T1.nii.gz'.format(path=t1_path, sub=sub)
@@ -301,7 +301,7 @@ def get_required_data(projectdir, sub, tags):
             'No aparc 2009 atlas found for sub {}. Skipping.'.format(sub))
 
     # find resting state data
-    rest_data = [glob('{path}/{sub}/*_{tag}_*.nii.gz'.format(
+    rest_data = [glob('{path}/{sub}/*_{tag}_*.nii*'.format(
         path=nii_path, sub=sub, tag=tag)) for tag in tags]
     rest_data = reduce(lambda x, y: x + y, rest_data)  # merge lists
 
