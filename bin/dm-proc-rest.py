@@ -427,7 +427,12 @@ def main():
             memopts = 'h_vmem=3G,mem_free=3G,virtual_free=3G'
             stamp = time.strftime("%Y%m%d-%H%M%S")
             logfile = '{name}-{stamp}.log'.format(name=job_name, stamp=stamp)
-            logpath = os.path.join(project, 'logs', 'rest', logfile)
+
+            # ensure logpath exists
+            logpath = dm.utils.define_folder(os.path.join(project, 'logs', 'rest'))
+            # add in the logfile
+            logpath = os.path.join(logpath, logfile)
+
             qsub = 'qsub -V -N {name} -l {memopts} -o {logpath} -j y -b y {cmd}'.format(
                 name=job_name,
                 memopts=memopts,
@@ -441,3 +446,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -1,5 +1,5 @@
 """
-A collection of utilities for generally munging imaging data. 
+A collection of utilities for generally munging imaging data.
 """
 import os, sys
 import os.path
@@ -32,7 +32,7 @@ SERIES_TAGS_MAP = {
 "Frac"       :  "ANI",
 "Cal"        :  "CAL",
 "Loc"        :  "LOC",
-} 
+}
 
 def get_subject_from_filename(filename):
     filename = os.path.basename(filename)
@@ -41,17 +41,17 @@ def get_subject_from_filename(filename):
 
     return filename
 
-def guess_tag(description, tagmap = SERIES_TAGS_MAP): 
+def guess_tag(description, tagmap = SERIES_TAGS_MAP):
     """
     Given a series description return a list of series tags this might be.
-    
+
     By "series tag" we mean a short code like T1, DTI, etc.. that indicates
     more generally what the data is (usually the DICOM header
     SeriesDescription).
 
     <tagmap> is a dictionary that maps a regex to a series tag, where the regex
     matches the series description dicom header. If not specified this modules
-    SERIES_TAGS_MAP is used. 
+    SERIES_TAGS_MAP is used.
     """
     matches = list(set(
         [tag for p,tag in tagmap.iteritems() if re.search(p,description)]
@@ -71,31 +71,31 @@ def mangle_basename(base_path):
 
     return base
 
-def mangle(string): 
+def mangle(string):
     """Mangles a string to conform with the naming scheme.
 
     Mangling is roughly: convert runs of non-alphanumeric characters to a dash.
     """
-    if not string: 
+    if not string:
         string = ""
     return re.sub(r"[^a-zA-Z0-9.+]+","-",string)
 
-def get_extension(path): 
+def get_extension(path):
     """
-    Get the filename extension on this path. 
+    Get the filename extension on this path.
 
     This is a slightly more sophisticated version of os.path.splitext in that
     this will correctly return the extension for '.tar.gz' files, for example.
     :D
     """
-    if path.endswith('.tar.gz'): 
+    if path.endswith('.tar.gz'):
         return '.tar.gz'
-    if path.endswith('.nii.gz'): 
+    if path.endswith('.nii.gz'):
         return '.nii.gz'
     else:
         return os.path.splitext(path)[1]
 
-def get_archive_headers(path, stop_after_first = False): 
+def get_archive_headers(path, stop_after_first = False):
     """
     Get dicom headers from a scan archive.
 
@@ -105,21 +105,21 @@ def get_archive_headers(path, stop_after_first = False):
 
     The entire archive is scanned and dicom headers from a single file in each
     folder are returned as a dictionary that maps path->headers.
-    
+
     If stop_after_first == True only a single set of dicom headers are
     returned for the entire archive, which is useful if you only care about the
     exam details.
     """
-    if os.path.isdir(path): 
+    if os.path.isdir(path):
         return get_folder_headers(path, stop_after_first)
     elif zipfile.is_zipfile(path):
         return get_zipfile_headers(path, stop_after_first)
     elif os.path.isfile(path) and path.endswith('.tar.gz'):
         return get_tarfile_headers(path, stop_after_first)
-    else: 
+    else:
 	raise Exception("{} must be a file (zip/tar) or folder.".format(path))
 
-def get_tarfile_headers(path, stop_after_first = False): 
+def get_tarfile_headers(path, stop_after_first = False):
     """
     Get headers for dicom files within a tarball
     """
@@ -137,14 +137,14 @@ def get_tarfile_headers(path, stop_after_first = False):
             if stop_after_first: break
         except dcm.filereader.InvalidDicomError, e:
             continue
-    return manifest 
+    return manifest
 
-def get_zipfile_headers(path, stop_after_first = False): 
+def get_zipfile_headers(path, stop_after_first = False):
     """
     Get headers for a dicom file within a zipfile
     """
     zf = zipfile.ZipFile(path)
-    
+
     manifest = {}
     for f in zf.namelist():
         dirname = os.path.dirname(f)
@@ -154,9 +154,9 @@ def get_zipfile_headers(path, stop_after_first = False):
             if stop_after_first: break
         except dcm.filereader.InvalidDicomError, e:
             continue
-    return manifest 
+    return manifest
 
-def get_folder_headers(path, stop_after_first = False): 
+def get_folder_headers(path, stop_after_first = False):
     """
     Generate a dictionary of subfolders and dicom headers.
     """
@@ -164,12 +164,12 @@ def get_folder_headers(path, stop_after_first = False):
     manifest = {}
 
     # for each dir, we want to inspect files inside of it until we find a dicom
-    # file that has header information 
+    # file that has header information
     subdirs = []
     for filename in os.listdir(path):
         filepath = os.path.join(path,filename)
         try:
-            if os.path.isdir(filepath): 
+            if os.path.isdir(filepath):
                 subdirs.append(filepath)
                 continue
             manifest[path] = dcm.read_file(filepath)
@@ -180,13 +180,13 @@ def get_folder_headers(path, stop_after_first = False):
     if stop_after_first: return manifest
 
     # recurse
-    for subdir in subdirs: 
+    for subdir in subdirs:
         manifest.update(get_folder_headers(subdir, stop_after_first))
     return manifest
 
-def get_all_headers_in_folder(path, recurse = False): 
+def get_all_headers_in_folder(path, recurse = False):
     """
-    Get DICOM headers for all files in the given path. 
+    Get DICOM headers for all files in the given path.
 
     Returns a dictionary mapping path->headers for *all* files (headers == None
     for files that are not dicoms).
@@ -201,13 +201,13 @@ def get_all_headers_in_folder(path, recurse = False):
                 headers = dcm.read_file(filepath)
             except dcm.filereader.InvalidDicomError, e:
                 continue
-            manifest[filepath] = headers 
+            manifest[filepath] = headers
         if not recurse: break
     return manifest
 
 def col(arr, colname):
     """
-    Return the named column of an ndarray. 
+    Return the named column of an ndarray.
 
     Column names are given by the first row in the ndarray
     """
@@ -226,13 +226,13 @@ def subject_type(subject):
 
         if subject[2] == 'PHA':
             return 'phantom'
-        
+
         elif subject[2] != 'PHA' and subject[2][0] == 'P':
             return 'humanphantom'
-        
+
         elif str.isdigit(subject[2]) == True and len(subject[2]) == 4:
             return 'subject'
-        
+
         else:
             return None
 
@@ -269,7 +269,7 @@ def get_xnat_catalog(data_path, subject):
     """
     For a given subject, finds and returns all of the xml files as full
     paths. In almost all cases, this will be a single catalog.
-    
+
 
     THIS IS BROKEN.
     """
@@ -281,11 +281,11 @@ def get_xnat_catalog(data_path, subject):
     for subject in subjects:
         folders = os.listdir(os.path.join(data_path, 'dicom', subject))
         folders.sort()
-        files = os.listdir(os.path.join(data_path, 'dicom', subject, 
+        files = os.listdir(os.path.join(data_path, 'dicom', subject,
                                                             folders[0]))
         files = filter(lambda x: '.xml' in x, files)
 
-        catalogs.append(os.path.join(data_path, 'dicom', subject, 
+        catalogs.append(os.path.join(data_path, 'dicom', subject,
                                                          folders[0],
                                                          files[0]))
 
@@ -295,16 +295,15 @@ def get_xnat_catalog(data_path, subject):
 
 def define_folder(path):
     """
-    Sets a variable to be the path to a folder. Also, if the folder does not 
+    Sets a variable to be the path to a folder. Also, if the folder does not
     exist, this makes it so, unless we lack the permissions to do so, which
     leads to a graceful exit.
     """
     if os.path.isdir(path) == False:
         try:
-            os.mkdir(path)
+            os.makedirs(path)
         except:
-            if has_permissions(path) == False:
-                sys.exit()
+            sys.exit()
 
     if has_permissions(path) == False:
         sys.exit()
@@ -355,39 +354,39 @@ def run(cmd, dryrun=False, echo=False):
 
     Returns the return code, stdout and stderr.
     """
-    if dryrun: 
+    if dryrun:
         return 0, "", ""
 
     stdout = echo and None or proc.PIPE
     stderr = echo and None or proc.PIPE
 
     p = proc.Popen(cmd, shell=True, stdout=stdout, stderr=stderr)
-    out, err = p.communicate() 
+    out, err = p.communicate()
     return p.returncode, out, err
 
 def get_files_with_tag(parentdir, tag, fuzzy = False):
     """
-    Returns a list of files that have the specified tag. 
+    Returns a list of files that have the specified tag.
 
     Filenames must conform to the datman naming convention (see
-    scanid.parse_filename) in order to be considered. 
+    scanid.parse_filename) in order to be considered.
 
     If fuzzy == True, then filenames are matched if the given tag is found
-    within the filename's tag. 
+    within the filename's tag.
     """
 
     files = []
-    for f in os.listdir(parentdir): 
+    for f in os.listdir(parentdir):
         try:
             _, filetag, _, _ = scanid.parse_filename(f)
-            if tag == filetag or (fuzzy and tag in filetag): 
+            if tag == filetag or (fuzzy and tag in filetag):
                 files.append(os.path.join(parentdir,f))
         except scanid.ParseException:
             continue
-            
+
     return files
 
-def makedirs(path): 
+def makedirs(path):
     """
     Make the directory (including parent directories) if they don't exist
     """
@@ -400,11 +399,11 @@ def loadnii(filename):
         nifti, affine, header, dims = loadnii(filename)
 
     Loads a Nifti file (3 or 4 dimensions).
-    
-    Returns: 
-        a 2D matrix of voxels x timepoints, 
-        the input file affine transform, 
-        the input file header, 
+
+    Returns:
+        a 2D matrix of voxels x timepoints,
+        the input file affine transform,
+        the input file header,
         and input file dimensions.
     """
 
@@ -421,7 +420,7 @@ def loadnii(filename):
     # if smaller than 4D
     if len(dims) > 4:
         raise Exception('Your data is at least a penteract (> 4 dimensions!)')
-    
+
     # load in nifti and reshape to 2D
     nifti = nifti.get_data()
     if len(dims) == 3:
