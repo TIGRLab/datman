@@ -9,12 +9,13 @@ Arguments:
     <scanid>           Scan ID to QC for. E.g. DTI_CMH_H001_01_01
 
 Options:
-    --datadir DIR      Parent folder holding exported data [default: data]
-    --qcdir DIR        Folder for QC reports [default: qc]
-    --dbdir DIR        Folder for the database [default: qc]
-    --verbose          Be chatty
-    --debug            Be extra chatty
-    --dry-run          Don't actually do any work
+    --datadir DIR           Parent folder holding exported data [default: data]
+    --qcdir DIR             Folder for QC reports [default: qc]
+    --dbdir DIR             Folder for the database [default: qc]
+    --project-settings YML  File with project settings (to read expected file list from)
+    --verbose               Be chatty
+    --debug                 Be extra chatty
+    --dry-run               Don't actually do any work
 
 DETAILS
 
@@ -49,6 +50,8 @@ from docopt import docopt
 import re
 import tempfile
 import textwrap
+import yaml
+import pandas as pd
 
 import matplotlib
 matplotlib.use('Agg')   # Force matplotlib to not use any Xwindows backend
@@ -97,6 +100,58 @@ def create_db(cur):
     cur.execute('CREATE TABLE fmri (subj TEXT, site TEXT)')
     cur.execute('CREATE TABLE dti (subj TEXT, site TEXT)')
     cur.execute('CREATE TABLE t1 (subj TEXT, site TEXT)')
+
+def found_files_df(config, scanpath, subject):
+    '''
+    reads in the export info from the config file and
+    compares it to the contents of the subjects nii folder (scanpath)
+    write the results out info a pandas dataframe
+    '''
+    ### read info from config file
+    cols = ['tag', 'File','bookmark', 'Note']
+    exportinfo = pd.DataFrame(columns=cols)
+    idx = 0
+    for sitedict in config['Sites']:
+        site = sitedict.keys()[0]
+        if site in subject:
+            for row in sitedict[site]['ExportInfo']:
+                tag = row.keys()[0]
+                expected_count = row[tag]['Count']
+                tagstring = "_{}_".format(tag)
+                files = []
+                filenum = 1
+                for filetype in filetypes:
+                    files.extend(glob.glob(scanpath + '/*' + tagstring + filetype))
+                files.sort()
+                for file in files:
+                    bfile = os.path.basename(file)
+                    bookmark = tag + str(filenum)
+                    notes='Repeated Scan' if filenum > expected_count else ''
+                    exportinfo.loc[idx] = [tag, bfile, bookmark, notes]
+                    idx += 1
+                    filenum += 1
+                if filenum < (expected_count + 1):
+                    notes='missing({})'.format(expected_count-filenum + 1)
+                    exportinfo.loc[idx] = [tag, '', '', notes]
+                    idx += 1
+
+    return(exportinfo)
+
+def qchtml_writetable(qchtml, exportinfo):
+    ##write table header
+    qchtml.write('<table>'
+                '<tr><th>Tag</th>'
+                '<th>File</th>'
+                '<th>Notes</th></tr>')
+
+    ## for each row write the table data
+    for row in range(0,len(exportinfo)):
+        qchtml.write('<tr><td>{}</td>'.format(exportinfo.loc[row,'tag'])) ## table new row
+        qchtml.write('<td><a href="#{}">{}</a></td>'.format(exportinfo.loc[row,'bookmark'],exportinfo.loc[row,'File']))
+        qchtml.write('<tr><td>{}</td></tr>'.format(exportinfo.loc[row,'Note'])) ## table new row
+
+    ##end table
+    qc.htmlwrite('</table>\n')
 
 def nifty_basename(fpath):
     """
@@ -686,7 +741,9 @@ def rest_qc(fpath, qcpath, qchtml, cur):
     """
     fmri_qc(fpath, qcpath, qchtml, cur)
 
-
+def pdt2_qc(fpath,qcpath, qchtml, cur):
+    ## split it up...
+    
 def t1_qc(fpath, qcpath, qchtml, cur):
     pic=os.path.join(qcpath, nifty_basename(fpath) + '.png')
     fslslicer_pic(fpath,pic,5,1600)
@@ -776,7 +833,7 @@ def add_bvec_checks(fpath, qchtml, logdata):
 ###############################################################################
 # MAIN
 
-def qc_folder(scanpath, subject, qcdir, cur, QC_HANDLERS):
+def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
     """
     QC all the images in a folder (scanpath).
 
@@ -784,6 +841,8 @@ def qc_folder(scanpath, subject, qcdir, cur, QC_HANDLERS):
     subject.
 
     'cur' is a cursor pointing to the QC database.
+
+    pconfig is loaded from the project_settings.yml file
     """
 
     qcdir = dm.utils.define_folder(qcdir)
@@ -814,12 +873,16 @@ def qc_folder(scanpath, subject, qcdir, cur, QC_HANDLERS):
     insert_value(cur, 'dti', subject, 'site', subject.split('_')[1])
     insert_value(cur, 't1', subject, 'site', subject.split('_')[1])
 
-    # loop through files, running PDF and databasing as needed on particular file types.
-    filetypes = ('*.nii.gz', '*.nii')
-    found_files = []
-    for filetype in filetypes:
-        found_files.extend(glob.glob(scanpath + '/' + filetype))
-    found_files.sort()
+    # # loop through files, running PDF and databasing as needed on particular file types.
+    # filetypes = ('*.nii.gz', '*.nii')
+    # found_files = []
+    # for filetype in filetypes:
+    #     found_files.extend(glob.glob(scanpath + '/' + filetype))
+    # found_files.sort()
+
+    ## now read exportinfo from config_yml
+    exportinfo = found_files_df(config, scanpath, subject)
+    qchtml_writetable(qchtml, exportinfo)
 
     # load up any header/bvec check log files for the subjectt
     header_check_logs = glob.glob(os.path.join(qcdir, 'logs', 'dm-check-headers-'+subject+'*'))
@@ -833,10 +896,11 @@ def qc_folder(scanpath, subject, qcdir, cur, QC_HANDLERS):
     for logfile in bvecs_check_logs:
         bvecs_check_log += open(logfile).readlines()
 
-    for fname in found_files:
+    for idx in range(0,length(exportinfo)):
+        fname = os.path.join(scanpath,exportinfo.loc[idx,'File'])
         logger.info("QC scan {}".format(fname))
         ident, tag, series, description = dm.scanid.parse_filename(fname)
-        qchtml.write("<h2> " + os.path.basename(fname) + " <h2>")
+        qchtml.write('<h2 id="{}">{}<h2>\n'.format(exportinfo.loc[idx,'bookmark'],exportinfo.loc[idx,'File']))
         if tag not in QC_HANDLERS:
             logger.info("QC hanlder for scan {} (tag {}) not found. Skipping.".format(fname, tag))
             continue
@@ -892,6 +956,7 @@ def main():
     datadir   = arguments['--datadir']
     qcdir     = arguments['--qcdir']
     dbdir     = arguments['--dbdir']
+    ymlfile   = arguments['--project-settings']
     verbose   = arguments['--verbose']
     debug     = arguments['--debug']
     DRYRUN    = arguments['--dry-run']
@@ -918,6 +983,11 @@ def main():
     if db_is_new == True:
         create_db(cur)
 
+    # load the yml of project settings
+    with open(ymlfile, 'r') as stream:
+        pconfig = yaml.load(stream)
+
+
     for path in glob.glob(timepoint_glob):
         subject = os.path.basename(path)
 
@@ -926,7 +996,7 @@ def main():
             pass
         else:
             logger.info("QCing folder {}".format(path))
-            qc_folder(path, subject, qcdir, cur, QC_HANDLERS)
+            qc_folder(path, subject, qcdir, cur, pconfig, QC_HANDLERS)
 
     # close database properly
     cur.close()
