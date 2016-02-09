@@ -459,9 +459,13 @@ def montage(image, name, filename, pic, cmaptype='grey', mode='3d', minval=None,
         elif mode == '4d' and i >= image.shape[3]:
             ax.set_axis_off() # removes extra axes from plot
 
-    fig.subplots_adjust(right=0.8)
-    cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+    #plt.subplots_adjust(right=0.8)
+    #plt.subplots_adjust(left=0.1, right=0.8, top=0.9, bottom=0.1)
+    plt.subplots_adjust(left=0, right=0.85, top=0.9, bottom=0)
+
+    cbar_ax = fig.add_axes([0.88, 0.10, 0.05, 0.7])
     cb = fig.colorbar(im, cax=cbar_ax)
+    #fig.tight_layout()
     #cb.set_label(name, labelpad=0, y=0.5)
     fig.suptitle(filename + '\n' + name, size=10)
 
@@ -566,6 +570,7 @@ def find_epi_spikes(image, filename, pic, ftype, cur=None, bvec=None):
 
         insert_value(cur, ftype, subj, 'spikecount', spikecount)
 
+    plt.subplots_adjust(left=0, right=1, top=0.9, bottom=0)
     plt.suptitle(filename + '\n' + 'DTI Slice/TR Wise Abnormalities', size=10)
 
 
@@ -810,8 +815,10 @@ def add_header_checks(fpath, qchtml, logdata):
     if not lines:
         return
 
-    qchtml.write('<h3>' + filestem + " header differences <h3>")
-    qchtml.write('<p>' + ''.join(lines) + '<p>')
+    qchtml.write('<h3>' + filestem + " header differences </h3>\n<table>")
+    for l in lines:
+        qchtml.write('<tr><td>{}</td></tr>'.format(line))
+    qchtml.write('</table>\n')
     # fig = plt.figure()
     # fig.suptitle(filestem + " header differences")
     # fig.text(.1,.1, ''.join(lines), size='xx-small')
@@ -823,10 +830,12 @@ def add_bvec_checks(fpath, qchtml, logdata):
     if not lines:
         return
 
-    text ='\n'.join(['\n'.join(textwrap.wrap(l,width=120,subsequent_indent=" "*4)) for l in lines])
+    #text ='\n'.join(['\n'.join(textwrap.wrap(l,width=120,subsequent_indent=" "*4)) for l in lines])
 
-    qchtml.write('<h3>' + filestem + " bvec/bval differences <h3>")
-    qchtml.write('<p>' + text + '<p>')
+    qchtml.write('<h3>' + filestem + " bvec/bval differences </h3>\n<table>")
+    for l in lines:
+        qchtml.write('<tr><td>{}</td></tr>'.format(line))
+    qchtml.write('</table>\n')
     # fig = plt.figure()
     # fig.suptitle(filestem + " bvec/bval differences")
     # fig.text(.1,.1, text, size='xx-small')
@@ -860,15 +869,15 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
     qchtml.write('<head>\n<style>\n'
                 'body { font-family: futura,sans-serif;'
                 '        text-align: center;}\n'
-                'img {width:90%; '
-                '   display: block;'
-                '   margin-left: auto;'
+                'img {width:90%; \n'
+                '   display: block\n;'
+                '   margin-left: auto;\n'
                 '   margin-right: auto }\n'
-                'table { margin: 25px auto; '
-                '        border-collapse: collapse;'
-                '        text-align: left;'
-                '        width: 90%; '
-                '        border: 1px solid grey;'
+                'table { margin: 25px auto; \n'
+                '        border-collapse: collapse;\n'
+                '        text-align: left;\n'
+                '        width: 90%; \n'
+                '        border: 1px solid grey;\n'
                 '        border-bottom: 2px solid black;} \n'
                 'th {background: black;\n'
                 'color: white;'
@@ -897,6 +906,21 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
     exportinfo = found_files_df(pconfig, scanpath, subject)
     qchtml_writetable(qchtml, exportinfo)
 
+    ## hack job - find and add a link to the technotes..
+    ## find the tech notes - if this is CMH
+    if 'CMH' in subject:
+        techglob = '{}/../../RESOURCES/{}*/*/*/Tech*.pdf'.format(scanpath,subject)
+        technotes = glob.glob(techglob)
+        if len(technotes) > 0:
+            techrelpath = os.path.relpath(
+                                os.path.abspath(technotes[0]),
+                                os.path.dirname(qchtml.name))
+            qchtml.write('<a href="'+ techrelpath + '" >')
+            qchtml.write('Click Here to open Tech Notes')
+            qchtml.write('</a><br>\n')
+        else:
+            qchtml.write('<p>Tech Notes not found</p>\n')
+
     # load up any header/bvec check log files for the subjectt
     header_check_logs = glob.glob(os.path.join(qcdir, 'logs', 'dm-check-headers-'+subject+'*'))
     header_check_log = []
@@ -919,7 +943,7 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
             if tag not in QC_HANDLERS:
                 logger.info("QC hanlder for scan {} (tag {}) not found. Skipping.".format(fname, tag))
                 continue
-            if header_check_log:
+            if header_check_log and tag not 'PDT2':
                 add_header_checks(fname, qchtml, header_check_log)
             if bvecs_check_log:
                 add_bvec_checks(fname, qchtml, bvecs_check_log)
