@@ -55,7 +55,7 @@ matplotlib.use('Agg')   # Force matplotlib to not use any Xwindows backend
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-logging.basicConfig(level=logging.WARN, 
+logging.basicConfig(level=logging.WARN,
     format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
@@ -804,6 +804,7 @@ def main():
             "FMAP-8.5"      : ignore,
             "RST"           : rest_qc,
             "SPRL"          : rest_qc,
+            "VN-SPRL"       : fmri_qc,
             "OBS"           : fmri_qc,
             "IMI"           : fmri_qc,
             "NBK"           : fmri_qc,
@@ -828,9 +829,9 @@ def main():
     debug     = arguments['--debug']
     DRYRUN    = arguments['--dry-run']
 
-    if verbose: 
+    if verbose:
         logging.getLogger().setLevel(logging.INFO)
-    if debug: 
+    if debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
     timepoint_glob = '{datadir}/nii/*'.format(datadir=datadir)
