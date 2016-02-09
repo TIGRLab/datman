@@ -5,14 +5,12 @@ Produces QC documents for each exam.
 Usage:
     qc-html.py [options]
 
-Arguments:
-    <scanid>           Scan ID to QC for. E.g. DTI_CMH_H001_01_01
-
 Options:
     --datadir DIR           Parent folder holding exported data [default: data]
     --qcdir DIR             Folder for QC reports [default: qc]
     --dbdir DIR             Folder for the database [default: qc]
     --project-settings YML  File with project settings (to read expected file list from)
+    --subject SCANID        Scan ID to QC for. E.g. DTI_CMH_H001_01_01
     --verbose               Be chatty
     --debug                 Be extra chatty
     --dry-run               Don't actually do any work
@@ -23,7 +21,7 @@ DETAILS
     scans for each acquisition to be QC'd. That is, it searches for exported
     nifti acquistions in:
 
-        <datadir>/nifti/<timepoint>
+        <datadir>/nii/<timepoint>
 
     The database stores some of the numbers plotted here, and is used by web-
     build to generate interactive charts detailing the acquisitions over time.
@@ -120,7 +118,7 @@ def found_files_df(config, scanpath, subject):
                 tagstring = "_{}_".format(tag)
                 files = []
                 filenum = 1
-                for filetype in filetypes:
+                for filetype in ('*.nii.gz', '*.nii'):
                     files.extend(glob.glob(scanpath + '/*' + tagstring + filetype))
                 files.sort()
                 for file in files:
@@ -148,10 +146,10 @@ def qchtml_writetable(qchtml, exportinfo):
     for row in range(0,len(exportinfo)):
         qchtml.write('<tr><td>{}</td>'.format(exportinfo.loc[row,'tag'])) ## table new row
         qchtml.write('<td><a href="#{}">{}</a></td>'.format(exportinfo.loc[row,'bookmark'],exportinfo.loc[row,'File']))
-        qchtml.write('<tr><td>{}</td></tr>'.format(exportinfo.loc[row,'Note'])) ## table new row
+        qchtml.write('<td>{}</td></tr>'.format(exportinfo.loc[row,'Note'])) ## table new row
 
     ##end table
-    qc.htmlwrite('</table>\n')
+    qchtml.write('</table>\n')
 
 def nifty_basename(fpath):
     """
@@ -743,7 +741,11 @@ def rest_qc(fpath, qcpath, qchtml, cur):
 
 def pdt2_qc(fpath,qcpath, qchtml, cur):
     ## split it up...
-    
+    pdpath = fpath.replace('_PDT2_','_PD_')
+    t2path = fpath.replace('_PDT2_','_T2_')
+    pd_qc(pdpath,qcpath, qchtml, cur)
+    t2_qc(t2path,qcpath, qchtml, cur)
+
 def t1_qc(fpath, qcpath, qchtml, cur):
     pic=os.path.join(qcpath, nifty_basename(fpath) + '.png')
     fslslicer_pic(fpath,pic,5,1600)
@@ -858,10 +860,21 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
     qchtml.write('<head>\n<style>\n'
                 'body { font-family: futura,sans-serif;'
                 '        text-align: center;}\n'
-                'img {width:800; '
+                'img {width:90%; '
                 '   display: block;'
                 '   margin-left: auto;'
                 '   margin-right: auto }\n'
+                'table { margin: 25px auto; '
+                '        border-collapse: collapse;'
+                '        text-align: left;'
+                '        width: 90%; '
+                '        border: 1px solid grey;'
+                '        border-bottom: 2px solid black;} \n'
+                'th {background: black;\n'
+                'color: white;'
+                'text-transform: uppercase;};'
+                'td {border-top: thin solid;'
+                '    border-bottom: thin solid;}\n'
                 '</style></head>\n')
 
     qchtml.write('<h1> QC report for '+ subject + ' <h1>')
@@ -881,7 +894,7 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
     # found_files.sort()
 
     ## now read exportinfo from config_yml
-    exportinfo = found_files_df(config, scanpath, subject)
+    exportinfo = found_files_df(pconfig, scanpath, subject)
     qchtml_writetable(qchtml, exportinfo)
 
     # load up any header/bvec check log files for the subjectt
@@ -896,20 +909,22 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
     for logfile in bvecs_check_logs:
         bvecs_check_log += open(logfile).readlines()
 
-    for idx in range(0,length(exportinfo)):
-        fname = os.path.join(scanpath,exportinfo.loc[idx,'File'])
-        logger.info("QC scan {}".format(fname))
-        ident, tag, series, description = dm.scanid.parse_filename(fname)
-        qchtml.write('<h2 id="{}">{}<h2>\n'.format(exportinfo.loc[idx,'bookmark'],exportinfo.loc[idx,'File']))
-        if tag not in QC_HANDLERS:
-            logger.info("QC hanlder for scan {} (tag {}) not found. Skipping.".format(fname, tag))
-            continue
-        if header_check_log:
-            add_header_checks(fname, qchtml, header_check_log)
-        if bvecs_check_log:
-            add_bvec_checks(fname, qchtml, bvecs_check_log)
-        QC_HANDLERS[tag](fname, qcpath, qchtml, cur)
-        qchtml.write('<br>')
+    for idx in range(0,len(exportinfo)):
+        bname = exportinfo.loc[idx,'File']
+        if bname!='' :
+            fname = os.path.join(scanpath,bname)
+            logger.info("QC scan {}".format(fname))
+            ident, tag, series, description = dm.scanid.parse_filename(fname)
+            qchtml.write('<h2 id="{}">{}<h2>\n'.format(exportinfo.loc[idx,'bookmark'],bname))
+            if tag not in QC_HANDLERS:
+                logger.info("QC hanlder for scan {} (tag {}) not found. Skipping.".format(fname, tag))
+                continue
+            if header_check_log:
+                add_header_checks(fname, qchtml, header_check_log)
+            if bvecs_check_log:
+                add_bvec_checks(fname, qchtml, bvecs_check_log)
+            QC_HANDLERS[tag](fname, qcpath, qchtml, cur)
+            qchtml.write('<br>')
     # # finally, close the pdf
     # d = pdf.infodict()
     # d['CreationDate'] = datetime.datetime.today()
@@ -929,7 +944,7 @@ def main():
             "T1"            : t1_qc,
             "T2"            : t2_qc,
             "PD"            : pd_qc,
-            "PDT2"          : ignore,
+            "PDT2"          : pdt2_qc,
             "FLAIR"         : flair_qc,
             "FMAP"          : ignore,
             "FMAP-6.5"      : ignore,
@@ -940,6 +955,7 @@ def main():
             "IMI"           : fmri_qc,
             "NBK"           : fmri_qc,
             "EMP"           : fmri_qc,
+            "VN-SPRL"       : fmri_qc,
             "DTI"           : dti_qc,
             "DTI60-29-1000" : dti_qc,
             "DTI60-20-1000" : dti_qc,
@@ -957,6 +973,7 @@ def main():
     qcdir     = arguments['--qcdir']
     dbdir     = arguments['--dbdir']
     ymlfile   = arguments['--project-settings']
+    scanid    = arguments['--subject']
     verbose   = arguments['--verbose']
     debug     = arguments['--debug']
     DRYRUN    = arguments['--dry-run']
@@ -966,7 +983,10 @@ def main():
     if debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    timepoint_glob = '{datadir}/nii/*'.format(datadir=datadir)
+    if scanid:
+        timepoint_glob = '{datadir}/nii/{scanid}'.format(datadir=datadir, scanid=scanid)
+    else:
+        timepoint_glob = '{datadir}/nii/*'.format(datadir=datadir)
 
     db_filename = '{dbdir}/subject-qc.db'.format(dbdir=dbdir)
     db_is_new = not os.path.exists(db_filename)
