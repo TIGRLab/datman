@@ -880,13 +880,15 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
                 '        border: 1px solid grey;\n'
                 '        border-bottom: 2px solid black;} \n'
                 'th {background: black;\n'
-                'color: white;'
-                'text-transform: uppercase;};'
-                'td {border-top: thin solid;'
-                '    border-bottom: thin solid;}\n'
+                '    color: white;\n'
+                '    text-transform: uppercase;\n'
+                '    padding: 10px;}\n'
+                'td {border-top: thin solid;\n'
+                '    border-bottom: thin solid;\n'
+                '    padding: 10px;}\n'
                 '</style></head>\n')
 
-    qchtml.write('<h1> QC report for '+ subject + ' <h1>')
+    qchtml.write('<h1> QC report for '+ subject + ' <h1/>')
     # pdf = PdfPages(pdffile)
     # doc = PdfDocument(pdf)
 
@@ -939,11 +941,11 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
             fname = os.path.join(scanpath,bname)
             logger.info("QC scan {}".format(fname))
             ident, tag, series, description = dm.scanid.parse_filename(fname)
-            qchtml.write('<h2 id="{}">{}<h2>\n'.format(exportinfo.loc[idx,'bookmark'],bname))
+            qchtml.write('<h2 id="{}">{}</h2>\n'.format(exportinfo.loc[idx,'bookmark'],bname))
             if tag not in QC_HANDLERS:
                 logger.info("QC hanlder for scan {} (tag {}) not found. Skipping.".format(fname, tag))
                 continue
-            if header_check_log and tag not 'PDT2':
+            if header_check_log and tag!='PDT2':
                 add_header_checks(fname, qchtml, header_check_log)
             if bvecs_check_log:
                 add_bvec_checks(fname, qchtml, bvecs_check_log)
