@@ -105,14 +105,19 @@ def found_files_df(config, scanpath, subject):
     compares it to the contents of the subjects nii folder (scanpath)
     write the results out info a pandas dataframe
     '''
+    ## get a list of files
     allfiles = []
     for filetype in ('*.nii.gz', '*.nii'):
         allfiles.extend(glob.glob(scanpath + '/*' + filetype))
+    allbfiles = []
+    for file in allfiles: allbfiles.append(os.path.basename(file))
 
-    ### read info from config file
+    ### initialize the DataFrame
     cols = ['tag', 'File','bookmark', 'Note']
     exportinfo = pd.DataFrame(columns=cols)
     idx = 0
+
+    ### for the subjects site - compare filelist to exportinfo
     for sitedict in config['Sites']:
         site = sitedict.keys()[0]
         if site in subject:
@@ -120,11 +125,10 @@ def found_files_df(config, scanpath, subject):
                 tag = row.keys()[0]
                 expected_count = row[tag]['Count']
                 tagstring = "_{}_".format(tag)
-                files = [k for k in allfiles if tagstring in k]
-                files.sort()
+                bfiles = [k for k in allbfiles if tagstring in k]
+                bfiles.sort()
                 filenum = 1
-                for file in files:
-                    bfile = os.path.basename(file)
+                for bfile in bfiles:
                     bookmark = tag + str(filenum)
                     notes='Repeated Scan' if filenum > expected_count else ''
                     exportinfo.loc[idx] = [tag, bfile, bookmark, notes]
@@ -134,12 +138,21 @@ def found_files_df(config, scanpath, subject):
                     notes='missing({})'.format(expected_count-filenum + 1)
                     exportinfo.loc[idx] = [tag, '', '', notes]
                     idx += 1
+
     ## add any extra files to the end
-    otherscans = list(set(allfiles) - set(exportinfo.File))
+    ## need to add PD and T2 as expected files...
+    exportinfoFiles = exportinfo.File.tolist()
+    PDT2scans = [k for k in exportinfoFiles if '_PDT2_' in k]
+    if len(PDT2scans) > 0:
+        for PDT2scan in PDT2scans:
+            exportinfoFiles.append(PDT2scan.replace('_PDT2_','_T2_'))
+            exportinfoFiles.append(PDT2scan.replace('_PDT2_','_PD_'))
+
+    otherscans = list(set(allbfiles) - set(exportinfoFiles))
     for oscan in otherscans:
         exportinfo.loc[idx] = ['unknown', oscan, '', 'extra scan']
         idx += 1
-    
+
     return(exportinfo)
 
 def qchtml_writetable(qchtml, exportinfo):
