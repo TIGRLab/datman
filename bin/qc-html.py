@@ -105,6 +105,10 @@ def found_files_df(config, scanpath, subject):
     compares it to the contents of the subjects nii folder (scanpath)
     write the results out info a pandas dataframe
     '''
+    allfiles = []
+    for filetype in ('*.nii.gz', '*.nii'):
+        allfiles.extend(glob.glob(scanpath + '/*' + filetype))
+
     ### read info from config file
     cols = ['tag', 'File','bookmark', 'Note']
     exportinfo = pd.DataFrame(columns=cols)
@@ -116,11 +120,9 @@ def found_files_df(config, scanpath, subject):
                 tag = row.keys()[0]
                 expected_count = row[tag]['Count']
                 tagstring = "_{}_".format(tag)
-                files = []
-                filenum = 1
-                for filetype in ('*.nii.gz', '*.nii'):
-                    files.extend(glob.glob(scanpath + '/*' + tagstring + filetype))
+                files = [k for k in allfiles if tagstring in k]
                 files.sort()
+                filenum = 1
                 for file in files:
                     bfile = os.path.basename(file)
                     bookmark = tag + str(filenum)
@@ -132,7 +134,12 @@ def found_files_df(config, scanpath, subject):
                     notes='missing({})'.format(expected_count-filenum + 1)
                     exportinfo.loc[idx] = [tag, '', '', notes]
                     idx += 1
-
+    ## add any extra files to the end
+    otherscans = list(set(allfiles) - set(exportinfo.File))
+    for oscan in otherscans:
+        exportinfo.loc[idx] = ['unknown', oscan, '', 'extra scan']
+        idx += 1
+    
     return(exportinfo)
 
 def qchtml_writetable(qchtml, exportinfo):
