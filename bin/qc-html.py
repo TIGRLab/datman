@@ -8,7 +8,7 @@ Usage:
 Options:
     --datadir DIR           Parent folder holding exported data [default: data]
     --qcdir DIR             Folder for QC reports [default: qc]
-    --dbdir DIR             Folder for the database [default: qc]
+    --dbdir DIR             Folder for the database (default, same as --qcdir)
     --project-settings YML  File with project settings (to read expected file list from)
     --subject SCANID        Scan ID to QC for. E.g. DTI_CMH_H001_01_01
     --verbose               Be chatty
@@ -1034,6 +1034,7 @@ def main():
     else:
         timepoint_glob = '{datadir}/nii/*'.format(datadir=datadir)
 
+    if not dbdir: dbdir = qcdir
     db_filename = '{dbdir}/subject-qc.db'.format(dbdir=dbdir)
     db_is_new = not os.path.exists(db_filename)
 
