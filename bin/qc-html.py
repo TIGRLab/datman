@@ -62,6 +62,8 @@ logger = logging.getLogger(os.path.basename(__file__))
 
 DRYRUN = False
 
+FIGDPI = 144
+
 class Document:
     pass
 
@@ -489,7 +491,7 @@ def montage(image, name, filename, pic, cmaptype='grey', mode='3d', minval=None,
     #cb.set_label(name, labelpad=0, y=0.5)
     fig.suptitle(filename + '\n' + name, size=10)
 
-    fig.savefig(pic,format='png')
+    fig.savefig(pic, format='png', dpi=FIGDPI)
     #doc.add_figure(fig)
     plt.close()
 
@@ -591,10 +593,10 @@ def find_epi_spikes(image, filename, pic, ftype, cur=None, bvec=None):
         insert_value(cur, ftype, subj, 'spikecount', spikecount)
 
     plt.subplots_adjust(left=0, right=1, top=0.9, bottom=0)
-    plt.suptitle(filename + '\n' + 'DTI Slice/TR Wise Abnormalities', size=10)
+    plt.suptitle('{}\nDTI Slice/TR Wise Abnormalities'.format(filename), size=10)
 
 
-    fig.savefig(pic,format='png')
+    fig.savefig(pic, format='png', dpi=FIGDPI)
     #doc.add_figure(fig)
     plt.close()
 
