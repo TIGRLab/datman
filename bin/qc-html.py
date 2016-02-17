@@ -693,7 +693,7 @@ def fmri_plots(func, mask, f, filename, pic, cur=None):
     # add a final plot?
     plt.suptitle(filename)
     #doc.add_figure(plt)
-    plt.savefig(pic, format='png')
+    plt.savefig(pic, format='png', dpi=FIGDPI)
     plt.close()
 
 ###############################################################################
