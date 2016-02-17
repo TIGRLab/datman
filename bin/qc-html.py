@@ -825,7 +825,7 @@ def dti_qc(fpath, qcpath, qchtml, cur):
     montage(fpath, 'DTI Directions', filename, dti4dpic, mode='4d', maxval=0.25)
     add_pic_to_html(qchtml, dti4dpic)
 
-    spikespic = os.path.join(qcpath,filestem + '_spikes.png')
+    spikespic = os.path.join(qcpath, filestem + '_spikes.png')
     find_epi_spikes(fpath, filename, spikespic, 'dti', cur=cur, bvec=bvec)
     add_pic_to_html(qchtml, spikespic)
 
@@ -835,7 +835,7 @@ def add_header_checks(fpath, qchtml, logdata):
     if not lines:
         return
 
-    qchtml.write('<h3>' + filestem + " header differences </h3>\n<table>")
+    qchtml.write('<h3> {} header differences </h3>\n<table>'.format(filestem))
     for l in lines:
         qchtml.write('<tr><td>{}</td></tr>'.format(line))
     qchtml.write('</table>\n')
@@ -852,7 +852,7 @@ def add_bvec_checks(fpath, qchtml, logdata):
 
     #text ='\n'.join(['\n'.join(textwrap.wrap(l,width=120,subsequent_indent=" "*4)) for l in lines])
 
-    qchtml.write('<h3>' + filestem + " bvec/bval differences </h3>\n<table>")
+    qchtml.write('<h3> {} bvec/bval differences </h3>\n<table>'.format(filestem))
     for l in lines:
         qchtml.write('<tr><td>{}</td></tr>'.format(line))
     qchtml.write('</table>\n')
@@ -879,7 +879,7 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
     qcdir = dm.utils.define_folder(qcdir)
     qcpath = dm.utils.define_folder(os.path.join(qcdir,subject))
 
-    htmlfile = os.path.join(qcpath, 'qc_' + subject + '.html')
+    htmlfile = os.path.join(qcpath, 'qc_{}' + subject + '.html'.format(subject))
     if os.path.exists(htmlfile):
         logger.debug("{} exists, skipping.".format(htmlfile))
         return
@@ -908,7 +908,7 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
                 '    padding: 10px;}\n'
                 '</style></head>\n')
 
-    qchtml.write('<h1> QC report for '+ subject + ' <h1/>')
+    qchtml.write('<h1> QC report for {} <h1/>'.format(subject))
     # pdf = PdfPages(pdffile)
     # doc = PdfDocument(pdf)
 
@@ -944,13 +944,15 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
             qchtml.write('<p>Tech Notes not found</p>\n')
 
     # load up any header/bvec check log files for the subjectt
-    header_check_logs = glob.glob(os.path.join(qcdir, 'logs', 'dm-check-headers-'+subject+'*'))
+    header_check_logs = glob.glob(os.path.join(
+                         qcdir, 'logs', 'dm-check-headers-{}*'.format(subject)))
     header_check_log = []
     for logfile in header_check_logs:
         header_check_log += open(logfile).readlines()
 
     # load up any header/bvec check log files for the subjectt
-    bvecs_check_logs = glob.glob(os.path.join(qcdir, 'logs', 'dm-check-bvecs-'+subject+'*'))
+    bvecs_check_logs = glob.glob(os.path.join(
+                           qcdir, 'logs', 'dm-check-bvecs-{}*'.format(subject)))
     bvecs_check_log = []
     for logfile in bvecs_check_logs:
         bvecs_check_log += open(logfile).readlines()
@@ -958,12 +960,13 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
     for idx in range(0,len(exportinfo)):
         bname = exportinfo.loc[idx,'File']
         if bname!='' :
-            fname = os.path.join(scanpath,bname)
+            fname = os.path.join(scanpath, bname)
             logger.info("QC scan {}".format(fname))
             ident, tag, series, description = dm.scanid.parse_filename(fname)
-            qchtml.write('<h2 id="{}">{}</h2>\n'.format(exportinfo.loc[idx,'bookmark'],bname))
+            qchtml.write('<h2 id="{}">{}</h2>\n'.format(exportinfo.loc[idx,'bookmark'], bname))
             if tag not in QC_HANDLERS:
-                logger.info("QC hanlder for scan {} (tag {}) not found. Skipping.".format(fname, tag))
+                logger.info("MSG: No QC tag {} for scan {}. Skipping.".format(
+                                                                    tag, fname))
                 continue
             if header_check_log and tag!='PDT2':
                 add_header_checks(fname, qchtml, header_check_log)
@@ -971,7 +974,8 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
                 add_bvec_checks(fname, qchtml, bvecs_check_log)
             QC_HANDLERS[tag](fname, qcpath, qchtml, cur)
             qchtml.write('<br>')
-    # # finally, close the pdf
+
+    # finally, close the pdf
     # d = pdf.infodict()
     # d['CreationDate'] = datetime.datetime.today()
     # d['ModDate'] = datetime.datetime.today()
@@ -1030,12 +1034,12 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
 
     if scanid:
-        timepoint_glob = '{datadir}/nii/{scanid}'.format(datadir=datadir, scanid=scanid)
+        timepoint_glob = '{}/nii/{}'.format(datadir, scanid)
     else:
-        timepoint_glob = '{datadir}/nii/*'.format(datadir=datadir)
+        timepoint_glob = '{}/nii/*'.format(datadir)
 
     if not dbdir: dbdir = qcdir
-    db_filename = '{dbdir}/subject-qc.db'.format(dbdir=dbdir)
+    db_filename = '{}/subject-qc.db'.format(dbdir)
     db_is_new = not os.path.exists(db_filename)
 
     if not db_is_new :
@@ -1043,7 +1047,8 @@ def main():
             db = sqlite3.connect(db_filename)
         except:
             logger.error('Invalid database path, or permissions issue.')
-            sys.exit()
+            sys.exit('Invalid database path, or permissions issue.')
+
     cur = db.cursor()
 
     # initialize the tables if the database does not yet exist
@@ -1053,7 +1058,6 @@ def main():
     # load the yml of project settings
     with open(ymlfile, 'r') as stream:
         pconfig = yaml.load(stream)
-
 
     for path in glob.glob(timepoint_glob):
         subject = os.path.basename(path)
@@ -1071,3 +1075,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
