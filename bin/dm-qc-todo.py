@@ -22,7 +22,6 @@ import os
 import os.path
 import re
 
-
 def get_project_dirs(root, maxdepth=4):
     """
     Search for datman project directories below root.
@@ -71,16 +70,16 @@ def main():
             qcdocname = 'qc_' + timepoint + '.html'
             qcdoc = os.path.join(projectdir, 'qc', timepoint, qcdocname)
 
-            data_ctime = max(
-                map(os.path.getctime, glob.glob(timepointdir + '/*')))
+            data_mtime = max(
+                map(os.path.getmtime, glob.glob(timepointdir + '/*')))
 
             if qcdocname not in checklistdict or not os.path.exists(qcdoc):
                 print 'No QC doc generated for {}'.format(timepointdir)
 
-            elif not arguments['--no-older'] and data_ctime > os.path.getctime(qcdoc):
-                print '{}: QC doc is older than data in folder {} {} {}'.format(qcdoc, timepointdir, data_ctime, os.path.getctime(qcdoc))
+            elif not arguments['--no-older'] and data_mtime > os.path.getmtime(qcdoc):
+                print '{}: QC doc is older than data in folder {} {} {}'.format(qcdoc, timepointdir, data_mtime, os.path.getmtime(qcdoc))
                 if arguments['--show-newer']:
-                    newer = filter(lambda x: os.path.getctime(x) > os.path.getctime(qcdoc),
+                    newer = filter(lambda x: os.path.getmtime(x) > os.path.getmtime(qcdoc),
                                    glob.glob(timepointdir + '/*'))
                     print '\t' + '\n\t'.join(newer)
 
