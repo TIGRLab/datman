@@ -154,6 +154,7 @@ subids_fs = filter(os.path.isdir, glob.glob(os.path.join(inputpath, '*')))
 for i, subj in enumerate(subids_fs):
     subids_fs[i] = os.path.basename(subj)
 subids_fs = [ v for v in subids_fs if "PHA" not in v ] ## remove the phantoms from the list
+subids_fs = [ v for v in subids_fs if "fsaverage" not in v ] ## remove the fsaverage from the list
 if prefix != None:
     subids_fs = [ v for v in subids_fs if prefix in v ] ## remove the phantoms from the list
 newsubs = list(set(subids_fs) - set(checklist.id))
