@@ -72,7 +72,7 @@ def makerunsh(filename):
     runsh.write('# SGE Options\n')
     runsh.write('#$ -S /bin/bash\n')
     runsh.write('#$ -q main.q\n')
-    runsh.write('#$ -l mem_free=1G,virtual_free=1G,h_vmem=1G\n\n')
+    runsh.write('#$ -l mem_free=2G,virtual_free=2G\n\n')
 
     runsh.write('#source the module system\n')
     runsh.write('source /etc/profile\n')
