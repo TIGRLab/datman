@@ -72,14 +72,13 @@ def makerunsh(filename):
     runsh.write('# SGE Options\n')
     runsh.write('#$ -S /bin/bash\n')
     runsh.write('#$ -q main.q\n')
-    runsh.write('#$ -l mem_free=2G,virtual_free=2G,h_vmem=2G\n\n')
+    runsh.write('#$ -l mem_free=1G,virtual_free=1G,h_vmem=1G\n\n')
 
     runsh.write('#source the module system\n')
     runsh.write('source /etc/profile\n')
+    runsh.write('module load FSL/5.0.7 freesurfer/5.3.0 connectome-workbench/1.1.1 hcp-pipelines/3.7.0\n')
 
     runsh.write('## this script was created by dm-proc-fs2wb.py\n\n')
-    ## can add section here that loads chosen CIVET enviroment
-    runsh.write('##workbench and hcp enviroments are loaded insite the scripts\n')
 
     ## add a line that will read in the subject id
     runsh.write('SUBJECT=${1}\n')
