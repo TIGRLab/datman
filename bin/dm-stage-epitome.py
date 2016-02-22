@@ -23,13 +23,13 @@ DETAILS
 This copies files from the archive into the epitome folder structure.
 It's meant to be run before transfering data onto a cluster where it will be processed.
 
-Example: To set up Imitate and Observe Task Runs from COBDY for analysis:
+Example: To set up Imitate and Observe Task Runs from SPINS for analysis:
 dm-stage-epitome.py --sym-link \
     --func-tags "IMI,OBS" \
     --func-counts "1,1" \
-    --QC-transfer /archive/data-2.0/COGBDY/metadata/checklist.csv \
-    /archive/data-2.0/COGBDY/data/nii/ \
-    /scratch/edickie/COGBDY_imob/
+    --QC-transfer /archive/data-2.0/SPINS/metadata/checklist.csv \
+    /archive/data-2.0/SPINS/data/nii/ \
+    /scratch/edickie/SPINS_imob/
 
 Written by Erin W. Dickie, November 17, 2015
 """
