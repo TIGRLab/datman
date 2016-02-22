@@ -881,7 +881,7 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
     qcdir = dm.utils.define_folder(qcdir)
     qcpath = dm.utils.define_folder(os.path.join(qcdir,subject))
 
-    htmlfile = os.path.join(qcpath, 'qc_{}' + subject + '.html'.format(subject))
+    htmlfile = os.path.join(qcpath, 'qc_{}.html'.format(subject))
     if os.path.exists(htmlfile):
         logger.debug("{} exists, skipping.".format(htmlfile))
         return
@@ -1077,4 +1077,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
