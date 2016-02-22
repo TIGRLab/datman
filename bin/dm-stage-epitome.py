@@ -14,6 +14,7 @@ Options:
     --func-tags LIST         List of expected tags for functional data
     --func-counts LIST       List of expected files matching length of func-tags
     --QC-transfer QCFILE     QC checklist file - if this option is given than only QCed participants will be processed.
+    --sym-link               Create symbolik link to the files in data-2.0 (default is to copy file)
     --debug                  Debug logging in Erin's very verbose style
     -n,--dry-run             Dry run
     -h, --help               Show help
@@ -21,6 +22,14 @@ Options:
 DETAILS
 This copies files from the archive into the epitome folder structure.
 It's meant to be run before transfering data onto a cluster where it will be processed.
+
+Example: To set up Imitate and Observe Task Runs from COBDY for analysis:
+dm-stage-epitome.py --sym-link \
+    --func-tags "IMI,OBS" \
+    --func-counts "1,1" \
+    --QC-transfer /archive/data-2.0/COGBDY/metadata/checklist.csv \
+    /archive/data-2.0/COGBDY/data/nii/ \
+    /scratch/edickie/COGBDY_imob/
 
 Written by Erin W. Dickie, November 17, 2015
 """
@@ -45,6 +54,7 @@ outputdir       = arguments['<outputdir>']
 rawQCfile       = arguments['--QC-transfer']
 functagsarg     = arguments['--func-tags']
 funccountsarg   = arguments['--func-counts']
+SYMLINK         = arguments['--sym-link']
 DEBUG           = arguments['--debug']
 DRYRUN          = arguments['--dry-run']
 
@@ -87,9 +97,13 @@ def find_and_copy_tagnii(colname, archive_tag, expected_count):
             if pd.isnull(checklist[colname][i])==False:
                 niifiles = checklist[colname][i].split(';')
                 for niifile in niifiles:
-                    niipath = os.path.join(niidir,niifile)
+                    niipath = os.path.abspath(os.path.join(niidir,niifile))
+                    targetpath = os.path.abspath(os.path.join(targetdir,niifile))
                     docmd(['mkdir','-p',targetdir])
-                    docmd(['cp', niipath, targetdir])
+                    if SYMLINK:
+                        os.symlink(niipath, targetpath)
+                    else:
+                        docmd(['cp', niipath, targetdir])
 
 
 ####set checklist dataframe structure here
