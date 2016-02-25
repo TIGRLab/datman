@@ -283,7 +283,7 @@ if QCedTranfer == True:
                 line = line.strip()
                 if len(line.split(' ')) > 1:
                     pdf = line.split(' ')[0]
-                    subid = pdf.replace('.pdf','')[3:]
+                    subid = pdf.replace('.pdf','').replace('.html','')[3:]
                     qcedlist.append(subid)
     else:
         sys.exit("Cannot find QC file {}".format(rawQCfile))
