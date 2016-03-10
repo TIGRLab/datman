@@ -1044,12 +1044,11 @@ def main():
     db_filename = '{}/subject-qc.db'.format(dbdir)
     db_is_new = not os.path.exists(db_filename)
 
-    if not db_is_new :
-        try:
-            db = sqlite3.connect(db_filename)
-        except:
-            logger.error('Invalid database path, or permissions issue.')
-            sys.exit('Invalid database path, or permissions issue.')
+    try:
+        db = sqlite3.connect(db_filename)
+    except:
+        logger.error('Invalid database path, or permissions issue.')
+        sys.exit('Invalid database path, or permissions issue.')
 
     cur = db.cursor()
 
