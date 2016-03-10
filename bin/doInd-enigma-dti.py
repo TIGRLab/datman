@@ -84,13 +84,13 @@ if os.path.isfile(FAmap) == False:
     sys.exit("Input file {} doesn't exist.".format(FAmap))
 # check that the input MD map exists - if MD CALC chosen
 if CALC_MD | CALC_ALL:
-    MDmap = FAmap.replace('FA','MD')
+    MDmap = FAmap.replace('FA.nii.gz','MD.nii.gz')
     if os.path.isfile(MDmap) == False:
       sys.exit("Input file {} doesn't exist.".format(MDmap))
 # check that the input L1, L2, and L3 maps exists - if CALC_ALL chosen
 if CALC_ALL:
-    for L in ['L1','L2','L3']:
-        Lmap = FAmap.replace('FA', L)
+    for L in ['L1.nii.gz','L2.nii.gz','L3.nii.gz']:
+        Lmap = FAmap.replace('FA.nii.gz', L)
         if os.path.isfile(MDmap) == False:
           sys.exit("Input file {} doesn't exist.".format(Lmap))
 
@@ -178,22 +178,22 @@ def run_non_FA(DTItag):
     dm.utils.makedirs(O_dir_orig)
 
     if DTItag == 'MD':
-        image_i = FAmap.replace('FA','MD')
+        image_i = FAmap.replace('FA.nii.gz','MD.nii.gz')
         image_o = os.path.join(O_dir_orig,image_noext + '_' + DTItag + '.nii.gz')
         # copy over the MD image if not done already
         if os.path.isfile(image_o) == False:
             docmd(['cp',image_i,image_o])
 
     if DTItag == 'AD':
-        image_i = FAmap.replace('FA','L1')
+        image_i = FAmap.replace('FA.nii.gz','L1.nii.gz')
         image_o = os.path.join(O_dir_orig,image_noext + '_' + DTItag + '.nii.gz')
         # copy over the AD image - this is _L1 in dti-fit
         if os.path.isfile(image_o) == False:
             docmd(['cp',image_i,image_o])
 
     if DTItag == 'RD':
-        imageL2 = FAmap.replace('FA','L2')
-        imageL3 = FAmap.replace('FA','L3')
+        imageL2 = FAmap.replace('FA.nii.gz','L2.nii.gz')
+        imageL3 = FAmap.replace('FA.nii.gz','L3.nii.gz')
         image_o = os.path.join(O_dir_orig,image_noext + '_' + DTItag + '.nii.gz')
         # create the RD image as an average of '_L2' and '_L3' images from dti-fit
         if os.path.isfile(image_o) == False:
