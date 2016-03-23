@@ -933,8 +933,9 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
     ## hack job - find and add a link to the technotes..
     ## find the tech notes - if this is CMH
     if 'CMH' in subject:
-        techglob = '{}/../../RESOURCES/{}*/*/*/Tech*.pdf'.format(scanpath,subject)
+        techglob = '{}/../../RESOURCES/{}*/*/*/*.pdf'.format(scanpath,subject)
         technotes = glob.glob(techglob)
+
         if len(technotes) > 0:
             techrelpath = os.path.relpath(
                                 os.path.abspath(technotes[0]),
@@ -1002,6 +1003,7 @@ def main():
             "FMAP-6.5"      : ignore,
             "FMAP-8.5"      : ignore,
             "RST"           : rest_qc,
+            "EPI"           : fmri_qc,
             "SPRL"          : rest_qc,
             "OBS"           : fmri_qc,
             "IMI"           : fmri_qc,
@@ -1009,6 +1011,9 @@ def main():
             "EMP"           : fmri_qc,
             "VN-SPRL"       : fmri_qc,
             "DTI"           : dti_qc,
+            "DTI21"         : dti_qc,
+            "DTI22"         : dti_qc,
+            "DTI23"         : dti_qc,
             "DTI60-29-1000" : dti_qc,
             "DTI60-20-1000" : dti_qc,
             "DTI60-1000"    : dti_qc,
@@ -1019,6 +1024,7 @@ def main():
             "DTI33-b3000"   : dti_qc,
             "DTI33-4500"    : dti_qc,
             "DTI33-b4500"   : dti_qc,
+
     }
     arguments = docopt(__doc__)
     datadir   = arguments['--datadir']
