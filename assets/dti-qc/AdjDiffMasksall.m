@@ -39,6 +39,7 @@ for i=1:ndir+nb0
     radc=30;
     circ=makecirc(N,N/2,N/2,radc);
     e(find(circ))=0; % remove some central edges from 'canny'
+
     ef2=imfill(e,[N/2,N/2]); % flood from central points (to overcome closed edges within phantom)
     lenfill=length(find(ef2))
     if i<nb0+1

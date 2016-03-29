@@ -4,7 +4,7 @@
 %   rev 0   3/3/00      original from noiseave and imgroi
 %   rev 1   3/29/02     fix a few header things
 %   rev 2   9/4/02      add weissnoise plot
-%   rev 3   1/28/03     add phase drift plot 
+%   rev 3   1/28/03     add phase drift plot
 %               .freq image is scaled 10x
 %   rev 4   4/1/03      for fbirn
 
@@ -14,8 +14,8 @@
 %% adapted to SPINS by Sofia Chavez, Sep.2014
 %% modified to fit SPINS pipeline by Joseph Viviano, Jan.2015
 
-function spins_fbirn(basepath, subj, data)
-    
+function compute_fbirn(basepath, subj, data)
+
     % datapath = '/projects/spins/data/';
     % addpath('/projects/spins/code/nifti-tools')
     % subj = 'SPN01_ZHH_PHA_FBN0005';
@@ -33,7 +33,7 @@ function spins_fbirn(basepath, subj, data)
     outflname=strcat(qcpath, subj, '.csv');
     fid=fopen(outflname,'w');
     count=fprintf(fid, '%s,%s,%s,%s,%s,%s,%s,%s\n', ...
-                 'subj','mean','std','%fluct','drift','snr','sfnr','rdc');  
+                 'subj','mean','std','%fluct','drift','snr','sfnr','rdc');
 
     more off;
     clear roi;
@@ -98,7 +98,7 @@ function spins_fbirn(basepath, subj, data)
     for j = i1:i2 %i1 and i2 are time pts
 
         A=squeeze(I4d(:,:,slicenum,j));
-        
+
         tmpI=[];
         for xx=1:NPIX
             tmp=A(xx,1:NPIX);
@@ -112,7 +112,7 @@ function spins_fbirn(basepath, subj, data)
         else
             Ieven = Ieven + I;
         end
-        
+
         Syt = Syt + I*j;
         Syy = Syy + I.*I;
         S0 = S0 + 1;
@@ -121,7 +121,7 @@ function spins_fbirn(basepath, subj, data)
         img(:) = I;
         sub = img(X1:X2,Y1:Y2);
         roi(S0) = sum(sum(sub))/npx;
-        
+
         for r = r1:r2 % each roi size
             ro2 = fix(r/2);
             x1 = npo2 - ro2;
@@ -129,7 +129,7 @@ function spins_fbirn(basepath, subj, data)
             sub = img(x1:x2,x1:x2);
             roir(j-i1+1, r) = mean(sub(:));
         end
-        
+
         if(numwin == 4) % do the phase
             fname = sprintf('%s.%03dp', fkern, j);
             fid = fopen(fname, 'r');
@@ -138,7 +138,7 @@ function spins_fbirn(basepath, subj, data)
             img(:) = buf;
             phase = img*.001;
             img1 = exp(i*phase);
-            z = img1./base; 
+            z = img1./base;
             phi = atan2(imag(z), real(z));
             freq = phi/(2*pi*TE);
             sub = freq(X1:X2,Y1:Y2);
@@ -151,7 +151,7 @@ function spins_fbirn(basepath, subj, data)
     img(:) = Isub;
     sub = img(X1:X2,Y1:Y2);
     varI = var(sub(:));
-            
+
     %  write out ave image
     Sy = Iodd + Ieven;
     Iave = Sy/N;
@@ -277,7 +277,7 @@ function spins_fbirn(basepath, subj, data)
     end
 
     % print figures and txt file results
-    count=fprintf(fid,'%s,%09.3f,%09.3f,%09.3f,%09.3f,%09.3f,%09.3f,%09.3f\n', subj,meanI,sd,sd*100/m,100*drift,snr,sfnrI,rdc);  
+    count=fprintf(fid,'%s,%09.3f,%09.3f,%09.3f,%09.3f,%09.3f,%09.3f,%09.3f\n', subj,meanI,sd,sd*100/m,100*drift,snr,sfnrI,rdc);
 
     fig1name=strcat(qcpath, subj, '_fmri_qa_images.jpg');
     fig2name=strcat(qcpath, subj, '_fmri_qa_plots.jpg');

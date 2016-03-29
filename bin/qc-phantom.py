@@ -303,15 +303,13 @@ def find_fbirn_fmri_vals(base_path, subj, phantom):
 
     assets = os.getenv('DATMAN_ASSETS')
 
-    if os.path.isfile(os.path.join(base_path, 'qc/phantom/fmri/',
-                                                   subj + '.csv')) == False:
+    if os.path.isfile(os.path.join(base_path, 'qc/phantom/fmri/', subj + '.csv')) == False:
         cmd = (r"addpath(genpath('{}')); compute_fbirn('{}','{}','{}')".format(
                                               assets, base_path, subj, phantom))
         os.system('matlab -nodisplay -nosplash -r "' + cmd + '"')
 
-    fbirn = np.genfromtxt(os.path.join(
-                          base_path, 'qc/phantom/fmri/', subj + '.csv'),
-                           delimiter=',',dtype=np.float, skip_header=1)
+    fbirn = np.genfromtxt(os.path.join(base_path, 'qc/phantom/fmri/', subj + '.csv'),
+                                         delimiter=',',dtype=np.float, skip_header=1)
     fbirn = fbirn[1:]
 
     return fbirn
