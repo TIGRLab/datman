@@ -1010,6 +1010,8 @@ def main():
             "NBK"           : fmri_qc,
             "EMP"           : fmri_qc,
             "VN-SPRL"       : fmri_qc,
+            "SID"           : fmri_qc,
+            "MID"           : fmri_qc,
             "DTI"           : dti_qc,
             "DTI21"         : dti_qc,
             "DTI22"         : dti_qc,
