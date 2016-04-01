@@ -5,19 +5,19 @@ you to specify plotting of all sites concurrently or a single site. If a
 number of time-points is specified, we submit those to each function.
 
 Usage:
-    qc-phantom.py [options] <project> <ntp> <assets> <sites>...
+    qc-phantom.py [options] <project> <ntp> <sites>...
 
 Arguments:
     <sites>             List of sites to plot.
     <ntp>               Number of previous time points to plot.
     <project>           Full path to the project directory containing data/.
-    <assets>            Full path to folder containing adni-template.nii.gz
 
 Options:
     -v,--verbose             Verbose logging
     --debug                  Debug logging
     --adni                   Run on ADNI phantom data
     --fmri                   Run on fBIRN fMRI phantom data
+    --dti                    Run of fBIRN DTI phantom data
 
 DETAILS
 
@@ -206,7 +206,7 @@ def print_adni_qc(project, data, title):
     plt.savefig(os.path.join(project, 'qc/phantom/adni/{}.jpg'.format(title)))
     plt.close()
 
-def find_adni_t1_vals(project, data, assets):
+def find_adni_t1_vals(project, data):
     """
     Find the 5 ROIs of interest using the random walker algorithm [1]. Uses the
     image mean as the lower threshold, and 2x the mean as an upper threshold.
@@ -225,15 +225,21 @@ def find_adni_t1_vals(project, data, assets):
     from skimage.measure import label
     from skimage.segmentation import random_walker
 
-    # print(data)
-    title = copy(data) # QC
+
+    datman_config = os.getenv('datman_config')
+    if datman_config:
+        template = parse_config(datman_config, 'adni-template')
+    else:
+        sys.exit('ERROR: datman_config env variable is not defined.')
+
+    title = copy(data)
 
     # convert data to LPI orientation
     tmpdir = tempfile.mkdtemp(prefix='adni-')
     os.system('3daxialize -prefix {}/adni-lpi.nii.gz -orient LPI {}'.format(
                                                                tmpdir, data))
-    os.system('flirt -in {tmpdir}/adni-lpi.nii.gz -ref {assets}/adni-template.nii.gz -out {tmpdir}/adni-lpi-reg.nii.gz'.format(
-                                                                tmpdir=tmpdir, assets=assets))
+    os.system('flirt -in {tmpdir}/adni-lpi.nii.gz -ref {template} -out {tmpdir}/adni-lpi-reg.nii.gz'.format(
+                                              tmpdir=tmpdir, template=template))
 
     data = nib.load(os.path.join(tmpdir, 'adni-lpi-reg.nii.gz')).get_data() # import
     os.system('rm -r {}'.format(tmpdir))
@@ -308,39 +314,45 @@ def find_adni_t1_vals(project, data, assets):
 
     return adni
 
-def find_fbirn_fmri_vals(base_path, subj, phantom):
+def find_fmri_vals(base_path, subj, phantom):
     """
     This runs the spins_fbirn matlab code if required, and returns the output
     as a vector.
     """
+    datman_config = os.getenv('datman_config')
+    if datman_config:
+        qc_code = parse_config(datman_config, 'phantom-qc')
+    else:
+        sys.exit('ERROR: datman_config env variable is not defined.')
 
-    assets = os.getenv('DATMAN_ASSETS')
-
-    if os.path.isfile(os.path.join(base_path, 'qc/phantom/fmri/', subj + '.csv')) == False:
+    outputfile = os.path.join(base_path, 'qc/phantom/fmri/', subj + '.csv')
+    if os.path.isfile(outputfile) == False:
         cmd = (r"addpath(genpath('{}')); compute_fbirn('{}','{}','{}')".format(
-                                              assets, base_path, subj, phantom))
+                                              qc_code, base_path, subj, phantom))
         os.system('matlab -nodisplay -nosplash -r "' + cmd + '"')
 
-    fbirn = np.genfromtxt(os.path.join(base_path, 'qc/phantom/fmri/', subj + '.csv'),
-                                         delimiter=',',dtype=np.float, skip_header=1)
-    fbirn = fbirn[1:]
+    data = np.genfromtxt(outputfile, delimiter=',',dtype=np.float, skip_header=1)
 
-    return fbirn
+    return data[1:]
 
 def find_dti_vals(base_path, subj, raw, bval, fa):
     """
     This runs the spins_fbirn matlab code if required, and returns the output
     as a vector.
     """
+    datman_config = os.getenv('datman_config')
+    if datman_config:
+        qc_code = parse_config(datman_config, 'phantom-qc')
+    else:
+        sys.exit('ERROR: datman_config env variable is not defined.')
 
-    assets = os.getenv('DATMAN_ASSETS')
     output = os.path.join(base_path, 'qc/phantom/dti/', subj)
     dm.utils.makedirs(output)
     outputfile = os.path.join(output, 'main_stats.csv')
 
     if os.path.isfile(outputfile) == False:
-        cmd = (r"addpath(genpath('{}')); analyze_dti_phantom('{}','{}','{}', {}, {})".format(
-                                              assets, raw, fa, bval, output, 1))
+        cmd = (r"addpath(genpath('{}')); analyze_dti_phantom('{}','{}','{}', '{}', {})".format(
+                                               qc_code, raw, fa, bval, output, 1))
         os.system('matlab -nodisplay -nosplash -r "' + cmd + '"')
 
     data = np.genfromtxt(outputfile, delimiter=',',dtype=np.float, skip_header=1)
@@ -478,7 +490,7 @@ def find_adni_niftis(subject_folder):
 
     return candidates
 
-def find_fmri_niftis(subject_folder):
+def find_fmri_inputs(subject_folder):
     """
     Returns all of the candidate ADNI phantom files in a subject folder.
     """
@@ -499,21 +511,21 @@ def find_dti_inputs(folder, subj):
     candidates = filter(lambda x: '.nii.gz' in x, os.listdir(nifti_folder))
     candidates = filter(lambda x: 'dti' in x.lower() and 'no' in x.lower(), candidates)
     candidates.sort()
-    raw = candidates[-1]
+    raw = os.path.join(nifti_folder, candidates[-1])
 
     # get the bval file
     discription = dm.utils.scanid.parse_filename(raw)[3]
     candidates = filter(lambda x: discription in x and '.bval' in x, os.listdir(nifti_folder))
-    bval = candidates[-1]
+    bval = os.path.join(nifti_folder, candidates[-1])
 
     # get the FA map
     sn = dm.utils.scanid.parse_filename(raw)[2]
     candidates = filter(lambda x: '_{}_'.format(sn) in x and '_FA' in x, os.listdir(dtifit_folder))
-    fa = candidates[-1]
+    fa = os.path.join(dtifit_folder, candidates[-1])
 
     return raw, bval, fa
 
-def main_adni(project, sites, tp, assets):
+def main_adni(project, sites, tp):
     # set paths, datatype
     data_path = os.path.join(project, 'data')
     dtype = 'ADN'
@@ -543,7 +555,7 @@ def main_adni(project, sites, tp, assets):
                 phantompath = os.path.join(data_path, 'nii', subj, phantom)
 
                 try:
-                    adni = find_adni_t1_vals(project, phantompath, assets)
+                    adni = find_adni_t1_vals(project, phantompath)
                 except:
                     print('ERROR: T1 segmentation failed for {}'.format(phantompath))
                     adni = np.repeat(np.nan, 9)
@@ -644,9 +656,9 @@ def main_fmri(project, sites, tp):
 
         for j, subj in enumerate(sitesubj):
 
-            candidates = find_fmri_niftis(os.path.join(data_path, 'nii', subj))
+            candidates = find_fmri_inputs(os.path.join(data_path, 'nii', subj))
             phantom = candidates[-1] # for upper bound of time range
-            fbirn = find_fbirn_fmri_vals(project, subj, phantom)
+            fbirn = find_fmri_vals(project, subj, phantom)
             array[:, i, j] = fbirn
 
     for plotnum, plot in enumerate(array):
@@ -703,12 +715,6 @@ def main_dti(project, sites, tp):
 
     The outputs of this pipeline are then plotted and exported as a PDF.
     """
-    # get path to QC code
-    datman_config = os.getenv('datman_config')
-    if datman_config:
-        qc_code = parse_config(datman_config, 'phantom-qc')
-    else:
-        sys.exit('ERROR: datman_config env variable is not defined.')
 
     data_path = os.path.join(project, 'data')
     dtype = 'FBN'
@@ -784,15 +790,17 @@ def main():
     sites     = arguments['<sites>']
     ntp       = arguments['<ntp>']
     project   = arguments['<project>']
-    assets    = arguments['<assets>']
     VERBOSE   = arguments['--verbose']
     DEBUG     = arguments['--debug']
     adni      = arguments['--adni']
     fmri      = arguments['--fmri']
     dti       = arguments['--dti']
 
+    if not os.getenv('datman_config'):
+        sys.exit('ERROR: datman_config environment variable is not defined.')
+
     if adni:
-        main_adni(project, sites, int(ntp), assets)
+        main_adni(project, sites, int(ntp))
 
     if fmri:
         main_fmri(project, sites, int(ntp))
