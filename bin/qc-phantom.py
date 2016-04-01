@@ -47,7 +47,7 @@ DEPENDENCIES
 
 import os, sys
 import time, datetime
-import csv
+import csv, yaml
 
 import datman as dm
 import dicom as dcm
@@ -78,6 +78,19 @@ def verbose(message):
 def debug(message):
     if not DEBUG: return
     log("DEBUG: " + message)
+
+def parse_config(filename, field):
+    """
+    Return the contents of the specified field, if found. If not, return None.
+    """
+    with open(filename, 'r') as fname:
+        data = yaml.load(fname)
+
+    try:
+        return data[field]
+    except KeyError:
+        print('ERROR: Field {} does not exist in {}.'.format(field, filename))
+        return None
 
 def get_discrete_colormap(n, cmap):
     """
@@ -314,6 +327,26 @@ def find_fbirn_fmri_vals(base_path, subj, phantom):
 
     return fbirn
 
+def find_dti_vals(base_path, subj, raw, bval, fa):
+    """
+    This runs the spins_fbirn matlab code if required, and returns the output
+    as a vector.
+    """
+
+    assets = os.getenv('DATMAN_ASSETS')
+    output = os.path.join(base_path, 'qc/phantom/dti/', subj)
+    dm.utils.makedirs(output)
+    outputfile = os.path.join(output, 'main_stats.csv')
+
+    if os.path.isfile(outputfile) == False:
+        cmd = (r"addpath(genpath('{}')); analyze_dti_phantom('{}','{}','{}', {}, {})".format(
+                                              assets, raw, fa, bval, output, 1))
+        os.system('matlab -nodisplay -nosplash -r "' + cmd + '"')
+
+    data = np.genfromtxt(outputfile, delimiter=',',dtype=np.float, skip_header=1)
+
+    return data
+
 def get_scan_range(timearray):
     """
     Takes the week indicies from a time array and returns the total extent
@@ -454,6 +487,31 @@ def find_fmri_niftis(subject_folder):
     candidates.sort()
 
     return candidates
+
+def find_dti_inputs(folder, subj):
+    """
+    Returns all of the candidate ADNI phantom files in a subject folder.
+    """
+    nifti_folder = os.path.join(folder, 'nii', subj)
+    dtifit_folder = os.path.join(folder, 'dtifit', subj)
+
+    # get the last raw nifti with no acceleration found
+    candidates = filter(lambda x: '.nii.gz' in x, os.listdir(nifti_folder))
+    candidates = filter(lambda x: 'dti' in x.lower() and 'no' in x.lower(), candidates)
+    candidates.sort()
+    raw = candidates[-1]
+
+    # get the bval file
+    discription = dm.utils.scanid.parse_filename(raw)[3]
+    candidates = filter(lambda x: discription in x and '.bval' in x, os.listdir(nifti_folder))
+    bval = candidates[-1]
+
+    # get the FA map
+    sn = dm.utils.scanid.parse_filename(raw)[2]
+    candidates = filter(lambda x: '_{}_'.format(sn) in x and '_FA' in x, os.listdir(dtifit_folder))
+    fa = candidates[-1]
+
+    return raw, bval, fa
 
 def main_adni(project, sites, tp, assets):
     # set paths, datatype
@@ -638,6 +696,87 @@ def main_fmri(project, sites, tp):
             for row in output:
                 writer.writerow(row)
 
+def main_dti(project, sites, tp):
+    """
+    Finds the relevant fBRIN fMRI scans and submits them to the fBIRN pipeline,
+    which is a matlab script kept in code/.
+
+    The outputs of this pipeline are then plotted and exported as a PDF.
+    """
+    # get path to QC code
+    datman_config = os.getenv('datman_config')
+    if datman_config:
+        qc_code = parse_config(datman_config, 'phantom-qc')
+    else:
+        sys.exit('ERROR: datman_config env variable is not defined.')
+
+    data_path = os.path.join(project, 'data')
+    dtype = 'FBN'
+    subjects = dm.utils.get_phantoms(os.path.join(data_path, 'nii'))
+
+    # get the timepoint arrays for each site, and the x-values for the plots
+    timearray, discarray = get_time_array(sites, dtype, subjects, data_path, tp)
+    l = get_scan_range(timearray)
+    cmap = get_discrete_colormap(len(sites), plt.cm.rainbow)
+
+    # for each site, for each subject, for each week, get the dti measurements
+    array = np.zeros((14, len(sites), tp))
+
+    for i, site in enumerate(sites):
+
+        # get the n most recent subjects
+        sitesubj = filter(lambda x: site in x, subjects)
+        sitesubj = filter(lambda x: dtype in x, sitesubj)
+        sitesubj = sitesubj[-tp:]
+
+        for j, subj in enumerate(sitesubj):
+
+            raw, bval, fa = find_dti_inputs(data_path, subj)
+            data = find_dti_vals(data_path, subj, raw, bval, fa)
+            array[:, i, j] = data
+
+    for plotnum, plot in enumerate(array):
+
+        output = []
+        o = []
+        o.append('x')
+        for s in sites:
+            o.append(str(s))
+        output.append(o)
+
+        # construct string dict
+        datedict = {}
+        for row in np.arange(len(l)):
+            weeknum = l[row]
+            for s in np.arange(len(sites)):
+                for i, week in enumerate(timearray[s]):
+                    if weeknum == week:
+                        datedict[week] = discarray[s][i]
+
+        # now add the data
+        for row in np.arange(len(l)):
+            o = []
+            o.append(row)
+
+            # append the string discription for the first site that matches
+            weeknum = l[row]
+
+            for s in np.arange(len(sites)):
+                tmp = list(timearray[s])
+                try:
+                    idx = tmp.index(weeknum)
+                    o.append(plot[s][idx])
+                except:
+                    o.append('')
+            output.append(o)
+
+        fname = '{}/qc/phantom/dti/{}_fmri_{}.csv'.format(
+                              project, time.strftime("%y-%m-%d"), str(plotnum))
+        with open(fname, 'wb') as csvfile:
+            writer = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            for row in output:
+                writer.writerow(row)
+
 def main():
     global VERBOSE
     global DEBUG
@@ -650,12 +789,16 @@ def main():
     DEBUG     = arguments['--debug']
     adni      = arguments['--adni']
     fmri      = arguments['--fmri']
+    dti       = arguments['--dti']
 
     if adni:
         main_adni(project, sites, int(ntp), assets)
 
     if fmri:
         main_fmri(project, sites, int(ntp))
+
+    if dti:
+        main_dti(project, sites, int(ntp))
 
 if __name__ == '__main__':
     main()
