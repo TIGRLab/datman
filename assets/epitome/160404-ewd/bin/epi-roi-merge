@@ -1,0 +1,93 @@
+#!/usr/bin/env python
+"""
+Takes all the .nii.gz files in the current directory and merges them into a 
+single ROI file. The number are assigned alphabetically.
+
+Usage:
+    epi-roi-merge <data_path>
+
+Arguments:    
+    <data_path>     path to a folder containing all of the ROI data.
+
+DETAILS:
+    This program is dumb and does not distinguish between ROI files and
+    NIFTI data of other kinds. Make sure the only NIFTI files in this
+    folder are ROIs that you want merged!
+
+    Also, assumes everything is defined on the same grid, if not, 
+    this will fail.
+"""
+
+import os, csv
+from copy import copy
+import numpy as np
+import nibabel as nib
+from epitome.docopt import docopt
+
+def main():
+    arguments = docopt(__doc__)
+    data_path = arguments['<data_path>']
+
+    # remove old ROI file, if it exists
+    if os.path.isfile(data_path + '/merged-rois.nii.gz') == True:
+        os.system('rm ' + data_path + '/merged-rois.nii.gz')
+
+    # load in all the nifti data
+    rois = os.listdir(data_path)
+    rois = filter(lambda x: '.nii.gz' in x or '.nii' in x, rois)
+    rois.sort()
+
+    # we use this to shift 'i' to the appropriate value. This is useful if one
+    # of the rois supplied contains more than a single.
+    scale_factor = 1
+
+    # init our output csv file
+    csvfile = open(os.path.join(data_path, 'roi-mappings.csv'), 'wb')
+    writer = csv.writer(csvfile, delimiter=' ',
+                            quotechar='|', quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(('name', 'firstval'))    
+
+    for i, roi in enumerate(rois):
+        # grab the name for the output file
+        name = copy(roi)
+        
+        # load in the data
+        roi = nib.load(roi)
+        
+        # create the output array, if this is the first pass
+        if i == 0:
+            affine = roi.get_affine()
+            header = roi.get_header()
+            dims = roi.shape
+            out = np.zeros(dims[0]*dims[1]*dims[2])        
+
+        # load in the data matrix
+        roi = roi.get_data()
+        roi = roi.reshape(dims[0]*dims[1]*dims[2])
+
+        # renumber the ROIs -- first linearly scale, then add the shift factor
+        for j, val in enumerate(filter(lambda x: x > 0, np.unique(roi))):
+            idx = np.where(roi == val)[0]
+            roi[idx] = j+1 + scale_factor
+
+        # keep track of how many ROIs we've seen
+        scale_factor = scale_factor + len(np.unique(roi))-1
+
+        # add roi to the output array
+        out = out + roi
+
+        # update our notes
+        writer.writerow((name, str(scale_factor-1)))   
+
+    # write out the file
+    out = out.reshape((dims[0], dims[1], dims[2]))
+    out = nib.nifti1.Nifti1Image(out, affine, header=header)
+    out.update_header()
+    out.header_class(extensions=())
+    out.to_filename(os.path.join(data_path, 'merged-rois.nii.gz'))
+    csvfile.close()
+
+    print('Merged ' + str(scale_factor) + ' rois into merged-rois.nii.gz')
+
+if __name__ == '__main__':
+    main()

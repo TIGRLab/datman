@@ -1,0 +1,25 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT=$(echo func_${1})
+
+EOF
+
+cat <<"EOF"
+echo '*** MODULE: gen_gcor. calculates global correlation in native space. ****'
+
+## calculate global correlation for each run. NB: does not work on MNI data!!!
+for SESS in `ls -d ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`; do
+    for FILE in `ls ${SESS}/${INPUT}.${ID}.*.nii.gz`; do
+        FNAME=`basename ${FILE}`
+        if [ ! -f ${SESS}/${PARAMS}/${FNAME}.gcorr ]; then
+            @compute_gcor \
+                -input ${FILE} \
+                -verb 0 \
+                -mask ${SESS}/anat_EPI_mask.nii.gz \
+                > ${SESS}/${PARAMS}/${FNAME}.gcorr
+        fi
+    done
+done
+
+EOF

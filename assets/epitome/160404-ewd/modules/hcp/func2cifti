@@ -1,0 +1,96 @@
+#!/bin/bash
+
+cat <<EOF
+# parse arguments
+export INPUT=$(echo func_${1})
+export FWHM=${2}
+export HCP_SUBID=${3}
+
+EOF
+
+cat<<"EOF"
+echo '*** MODULE: func2cifti. Map Functional Data to HCP and do HCP smoothing***************'
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+
+        ## determine what the subid looks like in teh HCP data dir
+        if [`echo ${$HCP_SUBID}` = 'datman']; then
+          HCP_SUB=${SUB}
+        else
+          Session=`basename ${SESS}`
+          HCP_SUB=${DATA_TYPE}_${SUB}_${Session}
+        fi
+
+        ## determine the location of the Folder in HCP_DATA
+        AtlasSpaceFolder=${HCP_DATA}/${HCP_SUB}/MNINonLinear
+
+        ## make a subfolder to run HCP stuff in
+        ResultsFolder="${SESS}"/"HCP"
+        mkdir -p ${ResultsFolder}
+
+        ## make a reference from the output
+        if [ ! -f  ${ResultsFolder}/${DATA_TYPE}.${ID}.${NUM}_SBRef.nii.gz ]; then
+          cp ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz ${ResultsFolder}/${DATA_TYPE}.${ID}.${NUM}.nii.gz
+          fslmaths ${ResultsFolder}/${DATA_TYPE}.${ID}.${NUM}.nii.gz -Tmean ${ResultsFolder}/${DATA_TYPE}.${ID}.${NUM}_SBRef.nii.gz
+        fi
+
+        ## run the Ribbon Volume to surface mapping
+        if [ ! -f ${ResultsFolder}/${DATA_TYPE}.${ID}.${NUM}.R.atlasroi.32k_fs_LR.func.gii ]; then
+          echo "Make fMRI Ribbon"
+          echo "mkdir -p ${SESS}/RibbonVolumeToSurfaceMapping"
+          mkdir -p ${SESS}/RibbonVolumeToSurfaceMapping
+          ${HCPPIPEDIR_fMRISurf}/RibbonVolumeToSurfaceMapping.sh \
+          	${SESS}/RibbonVolumeToSurfaceMapping \
+          	${ResultsFolder}/"${DATA_TYPE}.${ID}.${NUM}" \
+          	${HCP_SUB} \
+          	"${AtlasSpaceFolder}"/"fsaverage_LR32k" \
+          	"32" \ ## we want a 32k mesh
+          	"${AtlasSpaceFolder}"/"Native" \
+          	"FS" ## freesurfer registraction of surfaces
+        fi
+
+        #Surface Smoothing
+        if [ ! -f ${ResultsFolder}/"${DATA_TYPE}.${ID}.${NUM}_s${FWHM}.atlasroi.R.32k_fs_LR.func.gii" ]; then
+          echo "Surface Smoothing"
+          ${HCPPIPEDIR_fMRISurf}/SurfaceSmoothing.sh \
+          	${ResultsFolder}/"${DATA_TYPE}.${ID}.${NUM}" \
+          	${HCP_SUB}" \
+          	"${AtlasSpaceFolder}"/"fsaverage_LR32k" \
+          	"32" \
+          	${FWHM}
+        fi
+
+        #Subcortical Processing
+        if [ ! -f ${ResultsFolder}/"${DATA_TYPE}.${ID}.${NUM}_AtlasSubcortical_s${SmoothingFWHM}.nii.gz ]; then
+        echo "Subcortical Processing"
+        ${HCPPIPEDIR_fMRISurf}/SubcorticalProcessing.sh \
+        	"$AtlasSpaceFolder" \
+        	"$AtlasSpaceFolder"/ROIs \
+        	"2" \
+        	"$ResultsFolder" \
+        	"${DATA_TYPE}.${ID}.${NUM}" \
+        	${FWHM} \
+        	"2"
+        fi
+
+        #Generation of Dense Timeseries
+        if [ ! -f ${ResultsFolder}/"${DATA_TYPE}.${ID}.${NUM}_Atlas_s${FWHM}.dtseries.nii" ]; then
+          echo "Generation of Dense Timeseries"
+          ${HCPPIPEDIR_fMRISurf}/CreateDenseTimeseries.sh \
+          	"${AtlasSpaceFolder}"/"fsaverage_LR32k" \
+          	"${HCP_SUB}" \
+          	"32" \
+          	"${ResultsFolder}"/"${DATA_TYPE}.${ID}.${NUM}" \
+          	"${FWHM}" \
+          	"${AtlasSpaceFolder}"/"ROIs" \
+          	"$ResultsFolder"/"${DATA_TYPE}.${ID}.${NUM}_Atlas_s${FWHM}" \
+          	"2"
+        fi
+    done
+  done
+
+EOF

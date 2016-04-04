@@ -1,0 +1,12 @@
+// all coords given in MNI space  labels arbitrary and subject to change
+//
+// Below are coordinates taken from Neto et al. 2008
+//     'The human nucleus accumbens: where is it? A stereotactic, anatomical and magnetic resonance imaging study.'
+//
+// Turn into an MNI-space ROI volume with something like:
+//   3dUndump -master MNI.nii.gz -xyz -srad 6 -prefix MNI_rois.nii.gz nacc.labels
+//
+// x y z label      //  ROI                   network
+-9   6   -4    1    //  l-nucleus-accumbens   basal-ganglia
+9    6   -4    2    //  r-nucleus-accumbens   basal-ganglia
+

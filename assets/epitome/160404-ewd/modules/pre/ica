@@ -1,0 +1,32 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT=$(echo func_${1})
+export MASK=$(echo anat_${2})
+
+EOF
+
+cat <<"EOF"
+echo '*** MODULE: ica. Runs MELODIC on each run. ******************************'
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+
+        # run MELODIC, output some images of components (saves space)
+        if [ ! -d ${SESS}/MELODIC.${ID}.${NUM}/ ]; then
+            melodic \
+                -i ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz \
+                -o ${SESS}/MELODIC.${ID}.${NUM} \
+                --mask=${SESS}/${MASK}.nii.gz \
+                --dimest=lap \
+                --report \
+                --Oall \
+                --logPower
+        fi
+    done
+done
+
+EOF

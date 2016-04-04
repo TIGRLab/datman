@@ -1,0 +1,41 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT=`echo 'func_'${1}`
+export DIMS=`echo ${2}`
+
+EOF
+
+cat <<"EOF"
+echo '*** MODULE: nonlinreg_epi2mni_afni. Warps EPI data to MNI space. ********'
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+
+        # register runs with MNI (concatenates linear transform)
+        if [ ! -f ${SESS}/func_MNI-nonlin.${ID}.${NUM}.nii.gz ]; then
+            3dNwarpApply \
+                -prefix ${SESS}/func_MNI-nonlin.${ID}.${NUM}.nii.gz \
+                -source ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz \
+                -master WARP \
+                -dxyz ${DIMS} \
+                -nwarp ${SESS}/reg_nlin_TAL_WARP.nii.gz ${SESS}/mat_EPI_to_TAL.aff12.1D
+        fi
+    done
+
+    # register session masks with MNI (concatenates linear transform)
+    if [ ! -f ${SESS}/anat_EPI_mask_MNI-nonlin.nii.gz ]; then
+        3dNwarpApply \
+            -prefix ${SESS}/anat_EPI_mask_MNI-nonlin.nii.gz \
+            -source ${SESS}/anat_EPI_mask.nii.gz \
+            -master WARP \
+            -dxyz ${DIMS} \
+            -ainterp NN \
+            -nwarp ${SESS}/reg_nlin_TAL_WARP.nii.gz ${SESS}/mat_EPI_to_TAL.aff12.1D
+    fi
+done
+
+EOF

@@ -1,0 +1,76 @@
+#!/usr/bin/env python
+"""
+Produces a .csv of the correlations between the supplied ROIS. If a mask is
+given, no samples will be taken from any ROI that falls outside of the brain.
+This function required all supplied images to be the same dimensions.
+
+Usage:
+    epi-corr-mat [options] <func> <seeds> <output>
+
+Arguments:
+    <4d-input>      Input 4d data to correlate (likely an fMRI scan).
+    <seeds>         Set of ROIs to correlate between.
+    <output>        Filename for the correlation .csv.
+
+Options:
+    --mask=<mask>   A binary brain mask.
+    --pcorr         Compute partial correlations between ROIs instead
+
+DETAILS
+
+    This computes the defined statistic between the mean time series
+    within all unique ROIs and returns them as a .csv matrix. All
+    inputs should be defined on the same voxel grid (i.e., have the
+    exact same dimensions). All seed voxels falling outside of the
+    supplied brain mask will not contribute to the statistic.
+
+    epi-corr-mat -h or --help prints this message.
+"""
+
+import sys
+import numpy as np
+import scipy as sp
+import nibabel as nib
+import epitome as epi
+from epitome.docopt import docopt
+
+def main():
+    arguments = docopt(__doc__)
+    data   = arguments['<func>']
+    seed   = arguments['<seeds>']
+    output = arguments['<output>']
+    mask   = arguments['--mask']
+    pcorr  = arguments['--pcorr']
+
+    data, _, _, dims = epi.utilities.loadnii(data)
+    seed, _, _, _ = epi.utilities.loadnii(seed)
+    if mask:
+        mask, _, _, _ = epi.utilities.loadnii(mask)
+        # attempt to mask out non-brain regions in ROIs
+        n_seeds = len(np.unique(seed))
+        seed = seed * mask
+        if len(np.unique(seed)) != n_seeds:
+            sys.exit('ERROR: At least 1 ROI completely outside mask for {}.'.format(output))
+
+    # init output vector
+    out_data = np.zeros(dims[3])
+
+    # get mean seed stat from each, append to output
+    for s in np.unique(seed)[1:]:
+        idx = np.where(seed == s)[0]
+        seed_data = data[idx, :]
+        seed_data = np.mean(seed_data, axis=0)
+        out_data = np.vstack((out_data, seed_data))
+
+    # strip off zeros, calculate correlation matrix
+    out_data = out_data[1:,:]
+    if pcorr:
+        out_data = epi.stats.pcorr(out_data)
+    else:
+        out_data = np.corrcoef(out_data)
+
+    # write out csv
+    np.savetxt(output, out_data, delimiter=",")
+
+if __name__ == '__main__':
+    main()

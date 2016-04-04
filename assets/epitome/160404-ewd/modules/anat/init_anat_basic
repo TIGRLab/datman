@@ -1,0 +1,29 @@
+#!/bin/bash
+
+cat <<"EOF"
+echo '*** MODULE: init_anat. Reorients, deskulls data, tissue segmentation. ***'
+
+# loop through sessions
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/T1/`
+for SESS in ${DIR_SESS}; do
+
+    # loop through runs
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+        FILE=`echo ${RUN}/*.nii.gz`
+
+        if [ ! -f ${SESS}/anat_T1_reorient.nii.gz ]; then
+            fslreorient2std \
+                ${FILE} \
+                ${SESS}/anat_T1_reorient.nii.gz
+        fi
+
+        if [ ! -f ${SESS}/anat_t1_brain.nii.gz ]; then
+            bet \
+                ${SESS}/anat_T1_reorient.nii.gz \
+                ${SESS}/anat_T1_brain.nii.gz \
+                -R
+        fi
+
+

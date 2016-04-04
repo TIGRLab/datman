@@ -1,0 +1,10 @@
+#!/bin/bash
+
+DIR_DATA=`echo ${1}`
+EXPT=`echo ${2}`
+MODE=`echo ${3}`
+ID=`echo ${4}`
+
+cat <<EOF
+epi-qc-motionind ${DIR_DATA} ${EXPT} ${MODE} ${ID}
+EOF

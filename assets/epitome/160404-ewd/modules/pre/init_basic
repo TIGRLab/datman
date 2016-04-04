@@ -1,0 +1,103 @@
+#!/bin/bash
+
+cat <<EOF
+export DATA_QUALITY=${1}
+export DELTR=${2}
+
+EOF
+
+cat <<"EOF"
+echo '*** MODULE: init_basic. Reorients, phys regression, removes init TRs. ***'
+
+# sets some handy AFNI defaults
+export AFNI_NIFTI_TYPE_WARN='NO'
+export AFNI_DECONFLICT=OVERWRITE
+
+# loop through sessions
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+
+    # make the output folder for the paramaters
+    if [ ! -d ${SESS}/PARAMS ]; then
+        mkdir ${SESS}/PARAMS
+    fi
+
+    # loop through runs
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+        FILE=`echo ${RUN}/*.nii*`
+
+        if [ ! -f ${SESS}/func_del.${ID}.${NUM}.nii.gz ]; then
+            # ensure all data is in RAI
+           fslreorient2std \
+               ${FILE} \
+               ${SESS}/func_tmp_RAI.${ID}.${NUM}.nii.gz
+
+            # retain 1st TR from 1st run (prestabilization)
+            if [ ${DATA_QUALITY} = 'low' ] && [ ${NUM} = 01 ]; then
+                3dcalc \
+                    -prefix ${SESS}/anat_EPI_initTR.nii.gz \
+                    -a ${SESS}/func_tmp_RAI.${ID}.${NUM}.nii.gz[0] \
+                    -expr 'a'
+            fi
+
+            # Generate physiological noise regressors if they exist
+            if [ -f ${RUN}/resp.*.phys ] && [ -f ${RUN}/card.*.phys ]; then
+
+                # get x, y, z, t dims, and TR length
+                X=`fslhd ${RUN}/*.nii.gz | sed -n 6p | cut -c 5-`
+                Y=`fslhd ${RUN}/*.nii.gz | sed -n 7p | cut -c 5-`
+                Z=`fslhd ${RUN}/*.nii.gz | sed -n 8p | cut -c 5-`
+                NTRS=`fslhd ${RUN}/*.nii.gz | sed -n 9p | cut -c 5-`
+                TR=`fslhd ${RUN}/*.nii.gz | sed -n 22p | cut -c 9-`
+
+                # find the smallest dimension in x, y, z
+                XYZ=($X $Y $Z)
+                SLICE=`echo ${XYZ[*]} | python -c \
+                      "print sorted(map(int, raw_input().split(' ')))[0]"`
+
+                # get the number of samples in physio logs
+                SAMP=`cat ${RUN}/resp.*.phys | wc -w`
+
+                # compute sampling rate of physio recording
+                UNITS=`fslhd ${RUN}/*.nii.gz | sed -n 14p | cut -c 11- | xargs`
+
+                # convert ms to seconds, if necessary
+                if [ ${UNITS} = 's' ]; then
+                    TIME=`perl -e "print ${NTRS} * ${TR}"`
+                elif [ ${UNITS} = 'ms' ]; then
+                    TIME=`perl -e "print ${NTRS} * ${TR} / 1000"`
+                fi
+
+                # get the sampling rate in Hz
+                FS=`perl -e "print ${SAMP} / ${TIME}"`
+
+                # Run McRetroTS -- Respfile Cardfile VolTR Nslices PhysFS Graph
+                # NB! Right now we are NOT using the slice-wise information,
+                # as the slice-wise information assumes alternating+Z! Jeesh!
+                ${McRetroTS} \
+                    ${RUN}/resp.*.phys ${RUN}/card.*.phys \
+                          ${TR} ${SLICE} ${FS} 0
+
+                # Output both the single-slice and multi-slice data
+                1dcat \
+                    oba.slibase.1D[0..12]{${DELTR}..$} \
+                    > ${SESS}/PARAMS/phys.${ID}.${NUM}.1D
+
+                1dcat \
+                    oba.slibase.1D[0..$]{${DELTR}..$} \
+                    > ${SESS}/PARAMS/phys_slicewise.${ID}.${NUM}.1D
+
+            fi
+
+            # delete initial time points
+            3dcalc \
+                -prefix ${SESS}/func_del.${ID}.${NUM}.nii.gz \
+                -a ${SESS}/func_tmp_RAI.${ID}.${NUM}.nii.gz[${DELTR}..$] \
+                -expr 'a'
+        fi
+    done
+done
+
+EOF

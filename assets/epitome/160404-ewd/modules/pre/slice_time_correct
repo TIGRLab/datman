@@ -1,0 +1,41 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT=$(echo func_${1})
+export TPATTERN=${2}
+
+EOF
+
+cat <<"EOF"
+echo '*** MODULE: slice_time_correct. Corrects slice timing :). ***'
+
+# loop through sessions
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+
+    # loop through runs
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+
+        # slice time correction (can include specified timings)
+        # NB: Physio regression must happen BEFORE NOW
+        if [ ! -f ${SESS}/func_tshift.${ID}.${NUM}.nii.gz ]; then
+            if [ -f ${RUN}/slice_timing.1D ]; then
+                3dTshift \
+                    -prefix ${SESS}/func_tshift.${ID}.${NUM}.nii.gz \
+                    -verbose -Fourier \
+                    -tpattern @ ${RUN}/slice_timing.1D \
+                    ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz
+            else
+                3dTshift \
+                    -prefix ${SESS}/func_tshift.${ID}.${NUM}.nii.gz \
+                    -verbose -Fourier \
+                    -tpattern ${TPATTERN} \
+                    ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz
+            fi
+        fi
+    done
+done
+
+EOF

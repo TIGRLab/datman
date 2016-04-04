@@ -1,0 +1,8 @@
+#!/bin/bash
+
+DIR_DATA=`echo ${1}`
+EXPT=`echo ${2}`
+
+cat <<EOF
+epi-fsexport ${DIR_DATA} ${EXPT}
+EOF

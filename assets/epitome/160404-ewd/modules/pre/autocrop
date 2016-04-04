@@ -1,0 +1,40 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT=$(echo func_${1})
+
+EOF
+
+cat <<"EOF"
+echo '*** MODULE: autocrop. Removes empty areas on a per session basis. *******'
+
+# loop through sessions
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+
+    # loop through runs
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+        FILE=`echo ${RUN}/*.nii.gz`
+
+        if [ ! -f ${SESS}/func_box.${ID}.${NUM}.nii.gz ]; then
+            if [ ${NUM} == '01' ]; then
+                # 3dAutobox run (unconstrained for first run)
+                3dAutobox \
+                    -prefix ${SESS}/func_box.${ID}.${NUM}.nii.gz \
+                    ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz
+
+            else
+                # resample all other runs to match the first run of the session
+                3dresample \
+                   -prefix ${SESS}/func_box.${ID}.${NUM}.nii.gz \
+                   -master ${SESS}/func_box.${ID}.01.nii.gz \
+                   -inset ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz
+            fi
+        fi
+    done
+done
+
+EOF
+

@@ -1,0 +1,196 @@
+#!/usr/bin/env python
+"""
+Prints the tissue classifications from Freesurfer on a T1 and EPI
+underlay from the first session only. 
+
+Usage:
+    epi-qc-fsmasks <path> <expt> <mode>
+
+Arguments:
+    <path>          path to epitome data directory
+    <expt>          experiment to analyze
+    <mode>          image modaility to analyze
+"""
+
+import os, sys
+import datetime
+
+import nibabel as nib
+import numpy as np
+from scipy import ndimage as nd
+
+import matplotlib
+matplotlib.use('Agg')
+
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+
+import epitome as epi
+from epitome.docopt import docopt
+
+def mask_check(path, expt, mode, subj, pdf):
+
+    # resample T1 image to has EPI dimensions
+    modedir = os.path.join(path, expt, subj, mode)
+    EPI = modedir + '/SESS01/anat_EPI_brain.nii.gz'
+    T1 = modedir + '/SESS01/reg_T1_to_EPI.nii.gz'
+    wm = modedir + '/SESS01/anat_wm_ero.nii.gz'
+    dv = modedir + '/SESS01/anat_dv_ero.nii.gz'
+    gm = modedir + '/SESS01/anat_gm.nii.gz'
+    vent = modedir + '/SESS01/anat_vent_ero.nii.gz'
+
+    # load in data
+    EPI = nib.load(EPI).get_data()
+    T1 = nib.load(T1).get_data()
+    wm = nib.load(wm).get_data()
+    dv = nib.load(dv).get_data()
+    gm = nib.load(gm).get_data()
+    vent = nib.load(vent).get_data()
+
+    # reorient all data to radiological
+    EPI = epi.plot.reorient_to_radiological(EPI)
+    T1 = epi.plot.reorient_to_radiological(T1)
+    wm = epi.plot.reorient_to_radiological(wm)
+    dv = epi.plot.reorient_to_radiological(dv)
+    gm = epi.plot.reorient_to_radiological(gm)
+    vent = epi.plot.reorient_to_radiological(vent)
+
+    # get size ratio between over + underlay (EPI & T1 in same space)
+    dsfactor = [a/float(r) for a,r in zip(EPI.shape, wm.shape)]
+    
+    # match over + underlay dimensions
+    wm_to_EPI = nd.interpolation.zoom(wm, zoom=dsfactor)
+    gm_to_EPI = nd.interpolation.zoom(gm, zoom=dsfactor)
+    dv_to_EPI = nd.interpolation.zoom(dv, zoom=dsfactor)
+    vn_to_EPI = nd.interpolation.zoom(vent, zoom=dsfactor)
+    
+    # set small values in overlays to be transparent
+    wm_to_EPI = np.ma.masked_where(wm_to_EPI < 1, wm_to_EPI)
+    gm_to_EPI = np.ma.masked_where(gm_to_EPI < 1, gm_to_EPI)
+    dv_to_EPI = np.ma.masked_where(dv_to_EPI < 1, dv_to_EPI)
+    vn_to_EPI = np.ma.masked_where(vn_to_EPI < 1, vn_to_EPI)
+
+    # define colormaps
+    cmap_bg = plt.cm.gray
+    cmap_wm = plt.cm.BrBG
+    cmap_gm = plt.cm.winter
+    cmap_dv = plt.cm.cool        
+    cmap_vn = plt.cm.RdYlGn
+    
+    # make 0 values transparent in overlays
+    cmap_wm.set_bad('g', 0)
+    cmap_gm.set_bad('g', 0)
+    cmap_dv.set_bad('g', 0)
+    cmap_vn.set_bad('g', 0)
+
+    #######################################################################
+    # EPI
+
+    plt.subplot(2,3,1)
+    mid = np.round(EPI.shape[0] / 2)
+    
+    # plot bg, white matter, grey matter, draining vessels, ventricles
+    plt.imshow(EPI[mid, :, :], cmap=cmap_bg, interpolation='nearest')
+    plt.imshow(wm_to_EPI[mid, :, :], cmap=cmap_wm, interpolation='nearest', alpha=0.5)
+    plt.imshow(gm_to_EPI[mid, :, :], cmap=cmap_gm, interpolation='nearest', alpha=0.5)
+    plt.imshow(dv_to_EPI[mid, :, :], cmap=cmap_dv, interpolation='nearest', alpha=0.5)
+    plt.imshow(vn_to_EPI[mid, :, :], cmap=cmap_vn, interpolation='nearest', alpha=0.5)
+    plt.axis('off')
+
+    plt.subplot(2,3,2)
+    mid = np.round(EPI.shape[1] / 2)
+
+    # plot bg, white matter, grey matter, draining vessels, ventricles
+    plt.imshow(EPI[:, mid, :], cmap=cmap_bg, interpolation='nearest')
+    plt.imshow(wm_to_EPI[:, mid, :], cmap=cmap_wm, interpolation='nearest', alpha=0.5)
+    plt.imshow(gm_to_EPI[:, mid, :], cmap=cmap_gm, interpolation='nearest', alpha=0.5)
+    plt.imshow(dv_to_EPI[:, mid, :], cmap=cmap_dv, interpolation='nearest', alpha=0.5)
+    plt.imshow(vn_to_EPI[:, mid, :], cmap=cmap_vn, interpolation='nearest', alpha=0.5)
+    plt.axis('off')
+
+    plt.subplot(2,3,3)
+    mid = np.round(EPI.shape[2] / 2)
+
+    # plot bg, white matter, grey matter, draining vessels, ventricles
+    plt.imshow(EPI[:, :, mid], cmap=cmap_bg, interpolation='nearest')
+    plt.imshow(wm_to_EPI[:, :, mid], cmap=cmap_wm, interpolation='nearest', alpha=0.5)
+    plt.imshow(gm_to_EPI[:, :, mid], cmap=cmap_gm, interpolation='nearest', alpha=0.5)
+    plt.imshow(dv_to_EPI[:, :, mid], cmap=cmap_dv, interpolation='nearest', alpha=0.5)
+    plt.imshow(vn_to_EPI[:, :, mid], cmap=cmap_vn, interpolation='nearest', alpha=0.5)
+    plt.axis('off')
+
+    #######################################################################
+    # T1
+
+    plt.subplot(2,3,4)
+    mid = np.round(T1.shape[0] / 2)
+    
+    # plot bg, white matter, grey matter, draining vessels, ventricles
+    plt.imshow(T1[mid, :, :], cmap=cmap_bg, interpolation='nearest')
+    plt.imshow(wm_to_EPI[mid, :, :], cmap=cmap_wm, interpolation='nearest', alpha=0.5)
+    plt.imshow(gm_to_EPI[mid, :, :], cmap=cmap_gm, interpolation='nearest', alpha=0.5)
+    plt.imshow(dv_to_EPI[mid, :, :], cmap=cmap_dv, interpolation='nearest', alpha=0.5)
+    plt.imshow(vn_to_EPI[mid, :, :], cmap=cmap_vn, interpolation='nearest', alpha=0.5)
+    plt.axis('off')
+
+    plt.subplot(2,3,5)
+    mid = np.round(T1.shape[1] / 2)
+
+    # plot bg, white matter, grey matter, draining vessels, ventricles
+    plt.imshow(T1[:, mid, :], cmap=cmap_bg, interpolation='nearest')
+    plt.imshow(wm_to_EPI[:, mid, :], cmap=cmap_wm, interpolation='nearest', alpha=0.5)
+    plt.imshow(gm_to_EPI[:, mid, :], cmap=cmap_gm, interpolation='nearest', alpha=0.5)
+    plt.imshow(dv_to_EPI[:, mid, :], cmap=cmap_dv, interpolation='nearest', alpha=0.5)
+    plt.imshow(vn_to_EPI[:, mid, :], cmap=cmap_vn, interpolation='nearest', alpha=0.5)
+    plt.axis('off')
+
+    plt.subplot(2,3,6)
+    mid = np.round(T1.shape[2] / 2)
+
+    # plot bg, white matter, grey matter, draining vessels, ventricles
+    plt.imshow(T1[:, :, mid], cmap=cmap_bg, interpolation='nearest')
+    plt.imshow(wm_to_EPI[:, :, mid], cmap=cmap_wm, interpolation='nearest', alpha=0.5)
+    plt.imshow(gm_to_EPI[:, :, mid], cmap=cmap_gm, interpolation='nearest', alpha=0.5)
+    plt.imshow(dv_to_EPI[:, :, mid], cmap=cmap_dv, interpolation='nearest', alpha=0.5)
+    plt.imshow(vn_to_EPI[:, :, mid], cmap=cmap_vn, interpolation='nearest', alpha=0.5)
+    plt.axis('off')
+
+    plt.suptitle(str(expt) + ' ' + str(mode) + ': ' + str(subj))
+    plt.tight_layout()
+    plt.savefig(pdf, format='pdf')
+    plt.close()
+
+    return pdf
+
+def main():
+    arguments = docopt(__doc__)
+    path      = arguments['<path>']
+    expt      = arguments['<expt>']
+    mode      = arguments['<mode>']
+
+    # get subject numbers
+    subjects = epi.utilities.get_subj(os.path.join(path, expt))
+
+    # loop through all subjects
+    pdf = PdfPages(os.path.join(path, expt, 'qc_masks_{}.pdf'.format(mode)))
+    for subj in subjects:
+
+        try:
+            pdf = mask_check(path, expt, mode, subj, pdf)
+
+        except:
+            print('ERROR: data error for {}, skipping.',format(subj))
+            continue
+
+    # Add some metadata and close the PDF object
+    d = pdf.infodict()
+    d['Title'] = 'Quality Control: Correctness of the Tissue Masks'
+    d['Author'] = u'Joseph D Viviano\xe4nen'
+    d['Subject'] = 'Quality Control'
+    d['Keywords'] = 'QC EPI Tissue Masks'
+    d['CreationDate'] = datetime.datetime.today()
+    d['ModDate'] = datetime.datetime.today()
+    pdf.close()
+
+if __name__ == "__main__":
+    main()

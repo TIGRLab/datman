@@ -1,0 +1,289 @@
+#!/usr/bin/env python
+"""
+This plots a trace of the framewise displacement measure and DVARS measure
+for each participant (Power et al. 2012). Participants are sorted in the
+plot from best to worst behaved, and thresholds are printed to facilitate
+qualitative participant rejection, if that's how you roll.
+
+Usage:
+    epi-qc-motionind [options] <path> <expt> <mode> <uid>
+
+Arguments:
+    <path>          path to epitome data directory
+    <expt>          experiment name
+    <mode>          image modaility
+    <uid>           unique identifier for a given run
+
+Options:
+  --no-DVARS        DVARS was not calculated for this project
+  --FD-thres float  Threshold [default: 0.5] plotted as red line in FD plots
+  --DV-thres float  Threshold [default: 10.0] plotted as red line in FD plots
+"""
+
+import os, sys
+import csv
+import glob
+import fnmatch
+import operator
+import datetime
+
+import numpy as np
+import scipy as sp
+
+import matplotlib
+matplotlib.use('Agg')
+
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+
+import epitome as epi
+from epitome.docopt import docopt
+
+## Options: will eventually be set at command line
+head_r = 50   # head diameter in mm
+quality = 0  # set to 1 for dpi = 300, eps output
+blacklist = []  # participants to exclude
+
+def factors(n):
+    """
+    Returns all factors of n.
+    """
+
+    return set(reduce(list.__add__,
+                ([i, n//i] for i in range(1, int(n**0.5) + 1) if n % i == 0)))
+
+def square_factors(fac, num):
+    """
+    Finds the two most square factors of a number from a list of factors.
+    Factors returned with the smallest first.
+    """
+    candidates = []
+    for x in fac:
+        for y in fac:
+            if x*y == num:
+                candidates.append(abs(x-y))
+    most_square = np.min(candidates)
+    for x in fac:
+        for y in fac:
+            if x*y == num:
+                if x-y == most_square:
+                    factor = [x, y]
+    if factor[0] > factor[1]:
+        factor = factor[::-1]
+
+    return factor
+
+def figure_quality(q):
+    """
+    Sets figure quality to be very high if q >=1.
+    """
+    if quality >= 1:
+        size = 12
+        dpi = 300
+    else:
+        size = 8
+        dpi = 72
+
+    return size, dpi
+
+def main():
+    global DVARS
+    arguments = docopt(__doc__)
+    path      = arguments['<path>']
+    expt      = arguments['<expt>']
+    mode      = arguments['<mode>']
+    uid       = arguments['<uid>']
+    NODVARS   = arguments['--no-DVARS']
+    FD_t      = arguments['--FD-thres']
+    DV_t      = arguments['--DV-thres']
+
+    if NODVARS : DVARS=False
+
+    ax_x = 0
+    ax_y = 0
+    flag = 0
+    FD_all = np.array([])
+    if DVARS: DV_all = np.array([])
+    dict_FD = {}
+
+    subjects = epi.utilities.get_subj(os.path.join(path, expt))
+    n_subj = len(subjects)
+
+    # sort subjects by FD lowest to highest
+    for subj in subjects:
+        FD = np.array([])
+        for session in os.walk(os.path.join(path, expt, subj, mode)).next()[1]:
+            d = os.path.join(path, expt, subj, mode, session)
+            for run in np.arange(len(glob.glob(d + '/RUN*'))) + 1:
+                f = epi.stats.FD(os.path.join(d, 'PARAMS/motion.{}.{}.1D'.format(uid, '%02d' % run)), head_r)
+                FD = np.append(FD, f)
+
+            #take total FD over all runs
+            dict_FD[subj] = np.sum(FD) / len(FD)
+
+    # sort dict on normalized FD sum
+    subjects = sorted(dict_FD.iteritems(), key=operator.itemgetter(1))
+
+    # find the most square set of factors for n_subj
+    while flag == 0:
+
+        # get all candidate factors for the current number of subjects
+        f_subj = factors(n_subj)
+        factor = square_factors(f_subj, n_subj)
+
+        # check if solution is 'square enough'
+        if float(factor[1]) / float(factor[0]) <= 1.5:
+            flag = 1
+
+        # if not, try again with a larger number
+        else:
+            n_subj = n_subj + 1
+
+    # init figure
+    figure_size, figure_dpi = figure_quality(quality)
+
+    fig_FD, ax_FD = plt.subplots(nrows=factor[0], ncols=factor[1],
+                                 figsize=(figure_size, figure_size),
+                                 dpi=figure_dpi, facecolor='white')
+
+    if DVARS :
+        fig_DV, ax_DV = plt.subplots(nrows=factor[0], ncols=factor[1],
+                                     figsize=(figure_size, figure_size),
+                                     dpi=figure_dpi, facecolor='white')
+
+    for subj in subjects:
+
+        # skip the blacklist, otherwise find framewise displacement and DVARS
+        if any(s in subj[0] for s in blacklist):
+            pass
+        else:
+            FD = np.array([])
+            if DVARS: DV = np.array([])
+            breaks = np.array([0])
+            for session in os.walk(os.path.join(path, expt, subj[0], mode)).next()[1]:
+                d = os.path.join(path, expt, subj[0], mode, session)
+                for run in np.arange(len(glob.glob(d + '/RUN*'))) + 1:
+                    # framewise displacement
+                    f = epi.stats.FD(os.path.join(d, 'PARAMS/motion.{}.{}.1D'.format(uid, '%02d' % run)), head_r)
+                    FD = np.append(FD, f) #per subject
+                    FD_all= np.append(FD_all, f) # across all subjects
+                    run_length = len(FD)
+                    breaks = np.append(breaks, run_length) # list of run breaks
+
+                    # DVARS
+                    if DVARS:
+                        f = np.genfromtxt(os.path.join(d, 'PARAMS/DVARS.{}.{}.1D'.format(uid, '%02d' % run)))
+                        f = f[1:] / 10 # remove leading 0, conv. to % signal
+                        DV = np.append(DV, f) # per subject
+                        DV_all = np.append(DV_all, f) # across all subjects
+
+            t = np.arange(len(FD)) # time axis
+
+            # add vertical lines demarking runs
+            for b in breaks:
+                ax_FD[ax_y][ax_x].axvline(x=b, ymin=0, ymax=100, color='black')
+
+            ax_FD[ax_y][ax_x].axhline(y=FD_t, xmin=0, xmax=len(t), color='red')
+            ax_FD[ax_y][ax_x].plot(t, FD.T, lw=1, label=subj[0], color='blue')
+            ax_FD[ax_y][ax_x].set_xlim((-3, len(t) + 3))
+
+            # crop subject numbers to the last 6 digits, if it is longer than 6
+            if len(subj[0]) > 6:
+                ax_FD[ax_y][ax_x].set_title(str(subj[0][-6:]), fontsize=6)
+            else:
+                ax_FD[ax_y][ax_x].set_title(str(subj[0]), fontsize=6)
+
+            if DVARS:
+                # add vertical lines demarking runs
+                for b in breaks:
+                    ax_DV[ax_y][ax_x].axvline(x=b, ymin=0, ymax=100, color='black')
+
+                ax_DV[ax_y][ax_x].axhline(y=DV_t, xmin=0, xmax=len(t), color='red')
+                ax_DV[ax_y][ax_x].plot(t, DV.T, lw=1, label=subj[0], color='green')
+                ax_DV[ax_y][ax_x].set_xlim((-3, len(t) + 3))
+
+                # crop subject numbers to the last 6 digits, if it is longer than 6
+                if len(subj[0]) > 6:
+                    ax_DV[ax_y][ax_x].set_title(str(subj[0][-6:]), fontsize=6)
+                else:
+                    ax_DV[ax_y][ax_x].set_title(str(subj[0]), fontsize=6)
+
+            # this keeps us moving through the grid of plots
+            ax_x = ax_x + 1
+            if ax_x > factor[1]-1:
+                ax_x = 0
+                ax_y = ax_y + 1
+
+    ax_x = 0 # reset the axis for a second go
+    ax_y = 0
+    for subj in np.arange(n_subj):
+        if subj < len(subjects):
+            # common y axis maximum
+            ax_FD[ax_y][ax_x].set_ylim((0, np.max(FD_all)))
+
+            # remove unnecessary detail
+            ax_FD[ax_y][ax_x].set_frame_on(False) # remove frame
+            ax_FD[ax_y][ax_x].axes.get_yaxis().set_visible(False) # rm y axis
+            ax_FD[ax_y][ax_x].get_xaxis().tick_bottom() # remove x ticks
+            ax_FD[ax_y][ax_x].axes.get_xaxis().set_ticks([]) # remove x labels
+
+            # add in x line at bottom
+            xmin, xmax = ax_FD[ax_y][ax_x].get_xaxis().get_view_interval()
+            ymin, ymax = ax_FD[ax_y][ax_x].get_yaxis().get_view_interval()
+            ax_FD[ax_y][ax_x].add_artist(plt.Line2D((xmin, xmax), (ymin, ymin), color='black', linewidth=1))
+
+        # delete empty plots
+        if subj >= len(subjects):
+            ax_FD[ax_y][ax_x].axis('off')
+
+        if DVARS:
+            if subj < len(subjects):
+                # common y axis maximum
+                ax_DV[ax_y][ax_x].set_ylim((0, np.max(DV_all)))
+
+                # remove unnecessary detail
+                ax_DV[ax_y][ax_x].set_frame_on(False)
+                ax_DV[ax_y][ax_x].axes.get_yaxis().set_visible(False)
+                ax_DV[ax_y][ax_x].get_xaxis().tick_bottom()
+                ax_DV[ax_y][ax_x].axes.get_xaxis().set_ticks([])
+
+                # add in x line at bottom
+                xmin, xmax = ax_DV[ax_y][ax_x].get_xaxis().get_view_interval()
+                ymin, ymax = ax_DV[ax_y][ax_x].get_yaxis().get_view_interval()
+                ax_DV[ax_y][ax_x].add_artist(plt.Line2D((xmin, xmax), (ymin, ymin), color='black', linewidth=1))
+            # delete empty plots
+            if subj >= len(subjects):
+                ax_DV[ax_y][ax_x].axis('off')
+
+        # this keeps us moving through the grid of plots
+        ax_x = ax_x + 1
+        if ax_x > factor[1]-1:
+            ax_x = 0
+            ax_y = ax_y + 1
+
+    fig_FD.suptitle('Framewise Displacement (mm/TR), threshold = {} mm/TR'.format(FD_t))
+    fig_FD.subplots_adjust(hspace=0.7) # add some breathing room
+
+    if DVARS:
+        fig_DV.suptitle('DVARS (% signal change/TR), line = {}%/TR'.format(DV_t))
+        fig_DV.subplots_adjust(hspace=0.7)
+
+    # export PDF
+    pdf = PdfPages(os.path.join(path, expt, 'qc_{}_motion_individual_{}.pdf'.format(uid, mode)))
+    fig_FD.savefig(pdf, format='pdf')
+    if DVARS: fig_DV.savefig(pdf, format='pdf')
+
+    # Add some metadata and close the PDF object
+    d = pdf.infodict()
+    d['Title'] = 'Quality Control: Individual Subject Motion Paramaters'
+    d['Author'] = u'Joseph D Viviano\xe4nen'
+    d['Subject'] = 'Quality Control'
+    d['Keywords'] = 'QC particpant head motion'
+    d['CreationDate'] = datetime.datetime.today()
+    d['ModDate'] = datetime.datetime.today()
+    pdf.close()
+
+    print('Printed plots to {}.'.format(os.path.join(path, expt)))
+
+if __name__ == "__main__":
+    main()

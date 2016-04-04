@@ -1,0 +1,189 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT=$(echo func_${1})
+export MASKING=${2}
+export MASK_METHOD=${3}
+
+EOF
+
+cat <<"EOF"
+echo '*** MODULE: motion_deskull. Motion correction and brain masking. ***'
+
+# loop through sessions
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+
+    # loop through runs
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+
+        # deoblique, motion correct, and scale data
+        if [ ! -f ${SESS}/func_motion.${ID}.${NUM}.nii.gz ]; then
+
+            # motion correct to 9th sub-brick of 1st run
+            3dvolreg \
+                -prefix ${SESS}/func_motion.${ID}.${NUM}.nii.gz \
+                -base ${SESS}/${INPUT}.${ID}'.01.nii.gz[8]' \
+                -twopass \
+                -twoblur 3 \
+                -twodup \
+                -coarse 10 3 \
+                -Fourier \
+                -zpad 10 \
+                -float \
+                -1Dfile ${SESS}/PARAMS/motion.${ID}.${NUM}.1D \
+                -1Dmatrix_save ${SESS}/PARAMS/3dvolreg.${ID}.${NUM}.aff12.1D \
+                ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz
+
+            # create lagged motion regressors
+            if [ ! -f ${SESS}/PARAMS/lag.motion.${ID}.${NUM}.1D ]; then
+                1dcat \
+                    ${SESS}/PARAMS/motion.${ID}.${NUM}.1D'{0}' > \
+                    ${SESS}/PARAMS/lag.motion.${ID}.${NUM}.1D
+
+                1dcat \
+                    ${SESS}/PARAMS/motion.${ID}.${NUM}.1D'{0..$}' >> \
+                    ${SESS}/PARAMS/lag.motion.${ID}.${NUM}.1D
+            fi
+
+            # create derivative of motion regressors
+            if [ ! -f ${SESS}/PARAMS/dif.motion.${ID}.${NUM}.1D ]; then
+                1d_tool.py \
+                    -infile ${SESS}/PARAMS/motion.${ID}.${NUM}.1D \
+                    -backward_diff \
+                    -write ${SESS}/PARAMS/dif.motion.${ID}.${NUM}.1D
+            fi
+
+            # make a registration volume for low-quality data if required
+            if [ -f ${SESS}/anat_EPI_initTR.nii.gz ] && [ ${NUM} = 01 ] && [ ! -f ${SESS}/anat_EPI_initTR_reg.nii.gz ]; then
+                
+                # deoblique registration volume
+                3dWarp \
+                    -prefix ${SESS}/anat_EPI_initTR_ob.nii.gz \
+                    -deoblique \
+                    -quintic \
+                    -verb \
+                    -gridset ${SESS}/${INPUT}.01.nii.gz \
+                    ${SESS}/anat_EPI_initTR.nii.gz
+
+                # align registration volume with the motion correction TR
+                3dvolreg \
+                    -prefix ${SESS}/anat_EPI_initTR_reg.nii.gz \
+                    -base ${SESS}/${INPUT}.${ID}.'01.nii.gz[8]' \
+                    -twopass \
+                    -twoblur 3 \
+                    -twodup \
+                    -Fourier \
+                    -zpad 2 \
+                    -float \
+                    ${SESS}/anat_EPI_initTR_ob.nii.gz
+            fi
+        fi
+
+        # create TS mean for each run
+        if [ ! -f ${SESS}/anat_EPI_brain.nii.gz ]; then
+            3dTstat \
+                -prefix ${SESS}/anat_EPI_ts_mean.${ID}.${NUM}.nii.gz \
+                ${SESS}/func_motion.${ID}.${NUM}.nii.gz
+        fi
+
+    done
+
+    # create session 3D EPI brain + mask (loosened peels)
+    if [ ! -f ${SESS}/anat_EPI_brain.nii.gz ]; then
+        # create mean over all runs
+        3dMean \
+            -prefix ${SESS}/anat_EPI_tmp_mean.nii.gz \
+            ${SESS}/anat_EPI_ts_mean.${ID}.*.nii.gz
+
+        3dTstat \
+            -prefix ${SESS}/anat_EPI_tmp_vol.nii.gz \
+            ${SESS}/anat_EPI_tmp_mean.nii.gz
+
+        # AFNI
+        if [ ${MASK_METHOD} == 'AFNI' ]; then
+
+            # set masking variables given each preset
+            if [ ${MASKING} == 'loosest' ]; then CLFRAC=0.15; PEELS=1; fi
+            if [ ${MASKING} == 'loose' ]; then CLFRAC=0.2; PEELS=1; fi
+            if [ ${MASKING} == 'normal' ]; then CLFRAC=0.3; PEELS=3; fi
+            if [ ${MASKING} == 'tight' ]; then CLFRAC=0.5; PEELS=3; fi
+
+            # compute the mask using 3dAutomask, dilate
+            3dAutomask \
+                -prefix ${SESS}/anat_EPI_tmp_mask.nii.gz \
+                -clfrac ${CLFRAC} \
+                -peels ${PEELS} \
+                ${SESS}/anat_EPI_tmp_vol.nii.gz
+            3dcalc \
+                -prefix ${SESS}/anat_EPI_mask.nii.gz \
+                -a ${SESS}/anat_EPI_tmp_mask.nii.gz \
+                -b a+i -c a-i -d a+j -e a-j -f a+k -g a-k \
+                -expr 'amongst(1,a,b,c,d,e,f,g)'
+            rm ${SESS}/anat_EPI_tmp_mask.nii.gz
+        fi
+
+        # FSL
+        if [ ${MASK_METHOD} == 'FSL' ]; then
+
+            # set masking variables given each preset
+            if [ ${MASKING} == 'loosest' ]; then FI=0.15; VG=0.4; fi
+            if [ ${MASKING} == 'loose' ]; then FI=0.2; VG=0; fi
+            if [ ${MASKING} == 'normal' ]; then FI=0.3; VG=0; fi
+            if [ ${MASKING} == 'tight' ]; then FI=0.5; VG=0; fi
+
+            # compute the mask using robust BET, dilate
+            bet \
+                ${SESS}/anat_EPI_tmp_vol.nii.gz \
+                ${SESS}/anat_EPI_mask.nii.gz \
+                -R -n -m \
+                -f ${FI} \
+                -g ${VG}
+            fslmaths \
+                ${SESS}/anat_EPI_mask_mask.nii.gz \
+                -dilD \
+                ${SESS}/anat_EPI_mask_mask_dil.nii.gz
+            rm ${SESS}/anat_EPI_mask.nii.gz
+            rm ${SESS}/anat_EPI_mask_mask.nii.gz
+            mv ${SESS}/anat_EPI_mask_mask_dil.nii.gz ${SESS}/anat_EPI_mask.nii.gz
+        fi
+
+        # deskull anat_EPI
+        3dcalc \
+            -prefix ${SESS}/anat_EPI_brain.nii.gz \
+            -a ${SESS}/anat_EPI_tmp_vol.nii.gz \
+            -b ${SESS}/anat_EPI_mask.nii.gz \
+            -expr 'a*b'
+    fi
+
+    # deskull anat_EPI_initTR if required
+    if [ ! -f ${SESS}/anat_EPI_initTR_brain.nii.gz ]; then
+        if [ ${DATA_QUALITY} = 'low' ]; then
+            3dcalc \
+                -prefix ${SESS}/anat_EPI_initTR_brain.nii.gz \
+                -a ${SESS}/anat_EPI_initTR_reg.nii.gz \
+                -b ${SESS}/anat_EPI_mask.nii.gz \
+                -expr 'a*b'
+        fi
+    fi
+
+    # loop through runs
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+
+        # deskull functional data
+        if [ ! -f ${SESS}/func_deskull.${ID}.${NUM}.nii.gz ]; then
+            3dcalc \
+                -prefix ${SESS}/func_deskull.${ID}.${NUM}.nii.gz \
+                -datum float \
+                -a ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz \
+                -b ${SESS}/anat_EPI_mask.nii.gz \
+                -expr "a*b"
+        fi
+    done
+done
+
+EOF
