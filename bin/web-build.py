@@ -7,7 +7,7 @@ up to github. This way, the online dashboards can be updated automatically.
 Usage:
     web-build.py [options] <project>
 
-Arguments: 
+Arguments:
     <project>           Full path to the project directory containing data/.
 
 Options:
@@ -19,7 +19,7 @@ DETAILS
     This finds outputs of qc-phantom.py (and potentially eventually qc.py),
     and syncs them to the website project for rendering on the web.
 
-    This assumes you've set up the website/ folder using the template. 
+    This assumes you've set up the website/ folder using the template.
 
     This message is printed with the -h, --help flags.
 """
@@ -36,8 +36,8 @@ DEBUG   = False
 
 def get_latest_files(base_path):
     """
-    This gets the output .csvs for the adni, fmri, and dti qc plots, and 
-    returns the paths to each. If a type of these outputs does not exist 
+    This gets the output .csvs for the adni, fmri, and dti qc plots, and
+    returns the paths to each. If a type of these outputs does not exist
     for a given study, we return None for that type.
     """
     try:
@@ -60,7 +60,6 @@ def get_latest_files(base_path):
         dti = os.listdir('{}/qc/phantom/dti'.format(base_path))
         dti = filter(lambda x: '_dti_' in x and 'csv' in x, dti)
         dti.sort()
-        dti = dti[-1:]
     except:
         dti = None
 
@@ -92,7 +91,7 @@ def convert_to_web(base_path, files):
         cmd = ('rsync '
                '{base_path}/qc/phantom/{imagetype}/{f} '
                '{base_path}/website/assets/{output}'.format(
-                    base_path=base_path, imagetype=imagetype, 
+                    base_path=base_path, imagetype=imagetype,
                     f=f, output=f[9:]))
         os.system(cmd)
 
@@ -227,11 +226,11 @@ def main():
     if adni:
         print('converting ADNI')
         convert_to_web(project, adni)
-        
+
     if fmri:
         print('updating fMRI')
         convert_to_web(project, fmri)
-        
+
     if dti:
         print('updating DTI')
         convert_to_web(project, dti)
