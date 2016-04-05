@@ -1,0 +1,58 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT=$(echo func_${1})
+export NORMALIZE=${2}
+
+EOF
+
+cat <<"EOF"
+echo '*** MODULE: scale. Normalizes time series. ***'
+
+# loop through sessions
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do    
+
+    # loop through runs
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+
+        if [ ! -f ${SESS}/func_scaled.${ID}.${NUM}.nii.gz ]; then
+            
+            # calculate time series mean
+            3dTstat \
+                -prefix ${SESS}/func_tmp_mean.${ID}.${NUM}.nii.gz \
+                -mean \
+                ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz
+
+            # % SIGNAL CHANGE: mean = 0, 1% == 1 (normalized by mean)... careful using this with event-related designs
+            if [ ${NORMALIZE} == 'pct' ]; then
+                3dcalc \
+                   -prefix ${SESS}/func_scaled.${ID}.${NUM}.nii.gz \
+                   -datum float \
+                   -a ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz \
+                   -b ${SESS}/func_tmp_mean.${ID}.${NUM}.nii.gz \
+                   -c ${SESS}/anat_EPI_mask.nii.gz \
+                   -expr "(a-b)/b*c*100"
+            fi
+ 
+            # SCALE: set global mean = 1000, arbitrary units, no normalization
+            if [ ${NORMALIZE} == 'scale' ]; then
+                MEAN=`3dmaskave \
+                    -quiet \
+                    -mask ${SESS}/anat_EPI_brain.nii.gz \
+                    ${SESS}/func_tmp_mean.${ID}.${NUM}.nii.gz`
+
+                3dcalc \
+                    -prefix ${SESS}/func_scaled.${ID}.${NUM}.nii.gz \
+                    -datum float \
+                    -a ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz \
+                    -b ${SESS}/anat_EPI_mask.nii.gz \
+                    -expr "a*(1000/${MEAN})*b"
+            fi
+        fi
+    done
+done
+
+EOF

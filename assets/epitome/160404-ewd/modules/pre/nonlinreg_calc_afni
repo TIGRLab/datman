@@ -1,0 +1,34 @@
+#!/bin/bash
+
+cat <<"EOF"
+echo '*** MODULE: nonlinreg_calc_afni. Calcs MNI warp from linreg outputs. ****'
+
+# NB: Requires a successful run of linreg_calc to work properly!
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+    SESS=`basename ${SESS}`
+    DIR=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}`
+    DIR_T1=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/T1`
+
+    cd ${DIR}/${SESS}
+    cp ${DIR_DATA}/${DIR_EXPT}/anat_MNI.nii.gz ${DIR}/${SESS}/anat_tmp_MNI.nii.gz
+
+    # calculate the nonlinear warp between the reg_T1_to_TAL and the MNI brain.
+    if [ ! -f ${DIR_T1}/anat_T1_nlinreg_WARP.nii.gz ]; then
+        3dQwarp \
+            -prefix ${DIR}/${SESS}/reg_nlin_TAL \
+            -blur 0 -3 \
+            -iwarp \
+            -allineate \
+            -quiet \
+            -base anat_tmp_MNI.nii.gz \
+            -source ${DIR}/${SESS}/reg_T1_to_TAL.nii.gz
+
+        # copy outputs to NIFTI format
+        if [ ! -f ${DIR}/${SESS}/reg_nlin_TAL.nii.gz ]; then 3dcopy ${DIR}/${SESS}/reg_nlin_TAL+tlrc ${DIR}/${SESS}/reg_nlin_TAL.nii.gz; fi
+        if [ ! -f ${DIR}/${SESS}/reg_nlin_TAL_WARPINV.nii.gz ]; then 3dcopy ${DIR}/${SESS}/reg_nlin_TAL_WARPINV+tlrc ${DIR}/${SESS}/reg_nlin_TAL_WARPINV.nii.gz; fi
+        if [ ! -f ${DIR}/${SESS}/reg_nlin_TAL_WARP.nii.gz ]; then 3dcopy ${DIR}/${SESS}/reg_nlin_TAL_WARP+tlrc ${DIR}/${SESS}/reg_nlin_TAL_WARP.nii.gz; fi
+    fi
+done
+
+EOF

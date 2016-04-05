@@ -1,0 +1,30 @@
+#!/bin/bash
+
+cat <<"EOF"
+echo '*** MODULE: nonlinreg_calc_fsl. Calcs MNI warp from linreg outputs. *****'
+
+# NB: Requires a successful run of linreg_calc to work properly!
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in `basename ${DIR_SESS}`; do
+    DIR=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}`
+    DIR_T1=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/T1`
+
+    # calculate registration of EPI to T1
+    if [ ! -f ${DIR}/${SESS}/reg_nlin_TAL_WARP.nii.gz ]; then
+
+        # fnirt --iout=highres2standard_head --in=highres_head --aff=highres2standard.mat --cout=highres2standard_warp --iout=highres2standard --jout=highres2highres_jac --con+
+        fnirt \
+            --ref=${DIR_DATA}/${DIR_EXPT}/anat_MNI.nii.gz \
+            --refmask=${DIR_DATA}/${DIR_EXPT}/anat_MNI_mask.nii.gz \
+            --in=${DIR}/${SESS}/reg_T1_to_TAL.nii.gz \
+            --config=T1_2_MNI152_2mm \
+            --iout=${DIR}/${SESS}/reg_nlin_TAL.nii.gz \
+            --fout=${DIR}/${SESS}/reg_nlin_TAL_FIELD.nii.gz \
+            --cout=${DIR}/${SESS}/reg_nlin_TAL_WARP.nii.gz \
+            --intout=${DIR}/${SESS}/reg_nlin_TAL_INTOUT.nii.gz \
+            --interp=spline
+    fi
+done
+
+EOF

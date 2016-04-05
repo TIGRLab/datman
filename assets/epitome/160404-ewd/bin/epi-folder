@@ -1,0 +1,160 @@
+#!/usr/bin/env python
+"""
+Allows you to interactively generate an appropriate folder structure for your 
+epitome experiments.
+
+Usage: 
+    epi-folder
+
+DETAILS
+
+    This is a CLI for creating epitome folder structures. You can use this to
+    generate a template subject directory that can be copied around.
+
+    epi-folder -h or --help prints this message.
+"""
+
+import os, sys
+import epitome as epi
+from epitome.docopt import docopt
+from copy import copy
+
+def edit_mode(mode):
+    """
+    Edits single image modalities within a subject folder.
+    """
+    
+    # print options
+    print('\nCurrent sessions: ')
+    epi.utilities.print_dirs(mode)
+
+    # move onto mode/run loop
+    print('\nHow many sessions should there be?')
+
+    sessions = raw_input('Sessions: ' )
+
+    try:
+        sessions = int(sessions)
+        for sess in range(sessions):
+            s = sess+1
+            sess_name = 'SESS' + '%02d' % s
+            os.system('mkdir ' + os.path.join(mode, sess_name))
+
+            print('\nHow many runs in session ' + '%02d' % s + '?')
+            runs = raw_input('Runs: ')
+
+            try:
+                runs = int(runs)
+                for run in range(runs):
+                    r = run+1
+                    run_name = 'RUN' + '%02d' % r 
+                    os.system('mkdir ' + os.path.join(mode, sess_name, 
+                                                             run_name))
+            except:
+                print('Number of runs should be integer!')
+    except:
+        print('Number of sessions should be integer!')
+
+def edit_subject(subject):
+    """
+    generates subject directories. 
+    """
+    
+    # print options
+    print('\nCurrent image modalities:')
+    epi.utilities.print_dirs(subject)
+
+    # move onto modality loop
+    flag = 0
+    while flag == 0:
+        subj_name = os.path.basename(subject)
+        print('\nWhat modality would you like to edit/add for ' + 
+                                             str(subj_name) + '?')
+
+        mode = raw_input('Mode: ')
+
+        # make the modality folder, if it does not exist
+        if os.path.isdir(os.path.join(subject, mode)) == False:
+            os.system('mkdir ' + os.path.join(subject, mode))
+        else:
+            print('Editing existing modality ' + str(mode))
+
+        # edit modality, and check for the escape flag
+        edit_mode(os.path.join(subject, mode))
+
+        print('\nWould you like to continue adding modes? (y/N)')
+        response = raw_input('Continue? ')
+
+        if response in ['Y', 'y']:
+            pass
+        else:
+            print('Finished with ' + str(subject))
+            flag = 1
+
+def main():
+
+    arguments = docopt(__doc__)
+
+    dir_data = epi.config.find_data()
+
+    # make sure we have the appropriate permissions for the top directory
+    if epi.utilities.has_permissions(dir_data) == False:
+        sys.exit()
+
+    # make experiment directory
+    print('\nWhich experiment would you like to edit? ')
+    data_list = [d for d in os.listdir(dir_data) if 
+                            os.path.isdir(os.path.join(dir_data, d)) == True]
+    data_list.append('***NEW***')
+    selection = epi.utilities.selector_list(data_list)
+
+    if selection == '***NEW***':
+        try:
+            print('Input new experiment name:')
+            name = raw_input('Name: ')
+            name = epi.utilities.mangle_string(name)
+            os.system('mkdir ' + os.path.join(dir_data, name))
+            print('Making experiment folder: ' + name)
+        except:
+            print('ERROR: You need permission to write to the data directory.')
+            sys.exit()
+    else:
+        name = copy(selection)
+
+    expt = os.path.join(dir_data, name)
+
+    # ensure we have the appropriate permissions (might be redundant)
+    if epi.utilities.has_permissions(expt) == False:
+        sys.exit()
+
+    # print a list of the subject, if they exist
+    print('Current subjects: ')
+    epi.utilities.print_dirs(expt)
+
+    # move on to a subject loop
+    flag = 0
+    while flag == 0:
+        
+        print('\nInput subject name:')
+
+        subject = raw_input('Subject: ')
+        subject = epi.utilities.mangle_string(subject)
+        print('Editing subject ' + str(subject))
+
+        # make the subject folder, if it does not exist
+        if os.path.isdir(os.path.join(expt, subject)) == False:
+            os.system('mkdir ' + os.path.join(expt, subject))
+
+        # edit subject, and check for the escape flag
+        edit_subject(os.path.join(expt, subject))
+
+        print('\nWould you like to continue adding subjects? (y/N)')
+        response = raw_input('Continue? ')
+
+        if response in ['Y', 'y']:
+            pass
+        else:
+            flag = 1
+
+if __name__ == "__main__":
+    main()

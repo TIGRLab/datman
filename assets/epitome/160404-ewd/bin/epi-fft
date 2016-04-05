@@ -1,0 +1,153 @@
+#!/usr/bin/env python
+"""
+Performs multi-frequency Fourier analysis w/ FDR thresholds.
+
+Accepts detrended, phase-encoded fMRI data with blank TRs deleted.
+
+Usage:
+    epi-fft [options] <func> --cycles=<cycles>... <output>
+
+Arguments:
+    <func>     input pre-processed fMRI nifti to analyze.
+    <output>   output statistical maps in nifti format.
+
+Options:
+    -c --cycles=<cycles>       cycles per run to investigate
+    -m --mask=<mask>           ROI mask (must match func dimensions).
+    -h --harmonics=<harmonics> number of harmonics to protect
+    -q --qfdr=<qfdr>           fdr threshold for output mask [default: 0.05]
+    -f --freq=<freq>           lowpass cutoff frequency for tests in Hz
+
+DETAILS:
+
+    Method based on that described in:
+
+    Interhemispheric interactions of the human thalamic reticular nucleus.
+    Viviano JD, Schneider KA. J Neurosci. 2015 Feb 4;35(5):2026-32.
+"""
+
+import os, sys
+import numpy as np
+import scipy as sp
+import scipy.signal as sig
+import nibabel as nib
+import epitome as epi
+from epitome.docopt import docopt
+
+def main():
+    arguments = docopt(__doc__)
+    func      = arguments['<func>']
+    output    = arguments['<output>']
+    mask      = arguments['--mask']
+    cycles    = arguments['--cycles']
+    qfdr      = arguments['--qfdr']
+    harmonics = arguments['--harmonics']
+    freq      = arguments['--freq']
+
+    # get the input cycles as a list
+    if len(cycles) == 0:
+        print('ERROR: No cycles submitted.')
+        sys.exit()
+    cycles = np.array(cycles).astype(int)
+
+    # protect no harmonics if not defined
+    if harmonics == None: harmonics = 0
+    harmonics = int(harmonics)
+
+    # get the FDR setting (has a default of 5%)
+    qfdr = float(qfdr)
+
+    # import files, check dimensions. don't load a mask if it isn't defined.
+    try:
+        func, aff, hdr, dims = epi.utilities.loadnii(func)
+        if mask:
+            mask, _, _, mdims = epi.utilities.loadnii(mask)
+            if dims[0:3] != mdims[0:3]:
+                sys.exit('ERROR: fMRI and mask dimensions do not match.')
+    except:
+        sys.exit('ERROR: Failed to import data.')
+
+    # mask data, or create a fake index that simply represents all of the voxels
+    if mask:
+        func, idx = epi.utilities.maskdata(func, mask)
+    else:
+        idx = np.arange(dims[0]*dims[1]*dims[2])
+
+    outdata = np.zeros((dims[0]*dims[1]*dims[2], 7*len(cycles)))
+
+    # get the sampling rate in Hz
+    try:
+        samp = hdr['pixdim'][4]
+        if samp > 100:
+            samp = samp / 1000.0 # convert from ms to s
+    except:
+        print('MSG: Sampling rate could not be determined. Assuming 2s.')
+        samp = 2
+    samp = 1/samp # convert to Hz
+    nyq = samp / 2 # calculate nyquist
+
+    # set the lowpass cutoff option to the nyquist if not defined
+    if freq == None: freq = nyq
+    freq = float(freq)
+
+    fft = np.fft.fft(func) # for phase
+    fs, pxx = epi.signal.calculate_spectra(func, samp, olap=0, nseg=1, norm=False)
+
+    # old KS method here for reference only at the moment...
+    # fs = np.arange(np.ceil(dims[3]/2)).astype(int)
+    # pxx = np.abs(fft[:, fs])
+
+    # construct a list of the protected frequencies (using harmonics)
+    protected = cycles
+    if harmonics > 0:
+        for multiplier in np.linspace(2, harmonics+1, harmonics):
+            protected = np.append(protected, cycles*multiplier)
+    # also exclude adjacent bins to protect against spectral leakage
+    protected = np.union1d(np.union1d(protected-1, protected), protected+1)
+
+    # ensure all test frequencies are below cutoff
+    if freq:
+        idx_freqs = np.arange(len(fs) * freq/nyq)
+    else:
+        idx_freqs = np.arange(len(fs))
+    idx_test = np.setdiff1d(idx_freqs, protected).astype(np.int)
+    nbin = len(idx_test)
+
+    for i, cyc in enumerate(cycles):
+
+        # %% r-stats & p-vals: engle 1997
+        phase = np.mod(-np.angle(fft[:, cyc]), 2*np.pi)
+        r = pxx[:, cyc] / np.sqrt(np.sum(pxx**2, axis=1))
+        p1 = 1-sp.stats.ncf.cdf((nbin-1)*r**2, 2, 2*(nbin-1), 1)
+        fdr1 = epi.stats.FDR_mask(p1, q=qfdr)
+
+        # %% r (engle, 1997), F & p : -- not implemented yet
+        # nb: Wei & Craigmile 2010 asks for multitaper spectral method, if
+        # I recall. this needs to be implemented (and isn't easy). for now, this
+        # will conduct the correct the stats they propose for MTM. Cannot
+        # guarantee these are correct otherwise, but they might be.
+        # In this case, we are simply taking a psd using a 'tukey' window
+        # with an alpha of 0.5.
+
+        F = (float(nbin)-1) * pxx[:, cyc]**2 / np.sum(pxx[:, idx_test]**2, axis=1)
+        p2 = 1-sp.stats.ncf.cdf(F, 2, 2*(nbin-1), 1)
+        fdr2 = epi.stats.FDR_mask(p2, q=qfdr)
+
+        outdata[idx, (i*7)+0] = phase
+        outdata[idx, (i*7)+1] = r
+        outdata[idx, (i*7)+2] = 1-p1 # inverted for easy thresholding in viewers
+        outdata[idx, (i*7)+3] = fdr1
+        outdata[idx, (i*7)+4] = F
+        outdata[idx, (i*7)+5] = 1-p2 # inverted for easy thresholding in viewers
+        outdata[idx, (i*7)+6] = fdr2
+
+    dims = (dims[0], dims[1], dims[2], 7*len(cycles))
+
+    outdata = np.reshape(outdata, (dims[0], dims[1], dims[2], dims[3]))
+    #outdata = nib.nifti1.Nifti1Image(outdata, aff, header=hdr)
+    outdata = nib.nifti1.Nifti1Image(outdata, aff)
+    outdata.header_class(extensions=())
+    outdata.to_filename(output)
+
+if __name__ == "__main__":
+    main()

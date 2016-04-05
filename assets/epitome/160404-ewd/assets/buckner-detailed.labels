@@ -1,0 +1,77 @@
+// all coords given in MNI space, labels arbitrary and subject to change
+// use 3dUndump to produce coordinates in MNI Space
+//
+// Below are coordinates taken from Yeo et al. 2011
+//     'The organization of the human cerebral corex estimated by
+//      intrinsic functional connectivity'
+//
+//      Table 1 (pg 1141): 'Locations of the visual cortex seed regions'
+//      Table 2 (pg 1145): 'Locations of seed regions utilized in the sensory-
+//                          motor pathway analysis'
+//      Table 3 (pg 1147): 'Summary of fMRI meta-analysis to obtain 
+//                          coordinates for IPS2, SPL7A, SPL7P, and FEF'
+//      Table 4 (pg 1151): 'Locations of seed regions used for analysis of
+//                          connectivity fingerprints'
+//
+
+// table 1: visual cortex
+-12 -67 -3 1 // V3pv
+-3 -74 -23 2 // ExP
+-16 -74 7 3 // V1p
+-23 -91 -15 4 // V3cv
+-32 -89 -1 5 // ExC
+-13 -100 -8 6 // V1c
+
+// table 2 + 3: sensory-motor
+-44 -72 8 7 // MT+d
+-45 -72 3 8 // MT+
+-45 -79 -1 9 // MT+v
+-51 -64 -2 10 // aMT+
+-18 -70 8 11 // V1pd
+-8 -63 6 12 // V1pv
+-8 -95 3 13 // V1cd
+-8 -92 -5 14 // V1cv
+-17 -92 20 15 // V3A
+-22 -65 -9 16 // V4
+-26 -6 48 17 // FEF
+-50 6 30 18 // PrCv
+-40 -37 42 19 // IPS2
+-31 -48 46 20 // IPS3m
+-28 -61 60 21 // SPL7A
+-14 -68 64 22 // SPL7P
+-46 -49 51 23 // IPS1
+
+// table 4: parietal cortex + posterior cingulate
+-52 -50 49 24 // PGa
+-35 -56 42 25 // IPSC1
+-49 -63 45 26 // PGpd
+-49 -69 28 27 // PGpv
+-51 -57 27 28 // TPJ
+-60 -37 38 29 // PF
+-16 -32 39 30 // 5Ci
+-3 -49 25 31 // PCC
+-10 -57 35 32 // pCun
+
+// table 4: frontal cortex + anterior cingulate
+-41 55 4 33 // PFCla
+-38 33 16 34 // PFCl
+-31 39 30 35 // PFCda
+-45 29 32 36 // PFClp
+-44 15 48 37 // PFCdp
+-55 -24 -13 38 // PFCv
+-55 6 11 39 // 6vr+
+-7 46 -2 40 // PFCm
+-4 49 32 41 // PFCdm
+-5 22 47 42 // PFCmp
+-10 13 40 43 // Cingulate-a
+-5 2 29 44 // Cingulate-m
+
+// table 4: occipital + temporal cortex
+-49 5 -26 45 // STSa
+-55 -10 -16 46 // STS
+-49 -34 -4 47 // STSp
+-59 -53 -14 48 // ITG
+
+// table 4: medial temporal/retrosplenial cortex
+-25 -31 -20 49 // PHC
+-7 -50 7 50 // RSP

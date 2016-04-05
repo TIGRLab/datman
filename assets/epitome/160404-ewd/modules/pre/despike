@@ -1,0 +1,30 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT=$(echo func_${1})
+
+EOF
+
+cat <<"EOF"
+echo '*** MODULE: despike. Removes time series outliers via L1 regression. ****'
+
+# loop through sessions
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+
+    # loop through runs
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+
+        if [ ! -f ${SESS}/func_despike.${ID}.${NUM}.nii.gz ]; then
+	        3dDespike \
+	            -prefix ${SESS}/func_despike.${ID}.${NUM}.nii.gz \
+	            -ssave ${SESS}/PARAMS/spikes.${ID}.${NUM}.nii.gz \
+	            -quiet \
+	             ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz
+        fi
+    done
+done
+
+EOF

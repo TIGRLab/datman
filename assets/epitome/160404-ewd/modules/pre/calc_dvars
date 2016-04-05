@@ -1,0 +1,42 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT=$(echo func_${1})
+
+EOF
+
+cat <<"EOF"
+echo '*** MODULE: calc-dvars. Calculates the DVARS regressors.*****************'
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+
+        # DVARS (Power et. al Neuroimage 2012)
+        if [ ! -f ${SESS}/PARAMS/DVARS.${ID}.${NUM}.1D ]; then
+            3dcalc \
+                -a ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz \
+                -b 'a[0,0,0,-1]' \
+                -expr '(a - b)^2' \
+                -prefix ${SESS}/func_tmp_backdif.${ID}.${NUM}.nii.gz
+
+            3dmaskave \
+                -mask ${SESS}/anat_EPI_mask.nii.gz \
+                -quiet ${SESS}/func_tmp_backdif.${ID}.${NUM}.nii.gz \
+                > ${SESS}/PARAMS/tmp_backdif.${ID}.${NUM}.1D
+
+            1deval \
+                -a ${SESS}/PARAMS/tmp_backdif.${ID}.${NUM}.1D \
+                -expr 'sqrt(a)' > ${SESS}/PARAMS/DVARS.${ID}.${NUM}.1D
+
+            rm ${SESS}/PARAMS/tmp_backdif.${ID}.${NUM}.1D
+            rm ${SESS}/func_tmp_backdif.${ID}.${NUM}.nii.gz
+
+        fi
+    done
+done
+
+EOF
+

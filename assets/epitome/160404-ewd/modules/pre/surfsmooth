@@ -1,0 +1,48 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT=$(echo func_${1})
+export FWHM=${2}
+
+EOF
+
+cat<<"EOF"
+echo '*** MODULE: surfsmooth. Smooths functional data on a cortical surface ***'
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    SESS=`basename ${SESS}`        
+    DIR=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/${SESS}`
+    DIR_T1=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/T1/${SESS}`
+    DIR_FS=`echo ${SUBJECTS_DIR}/${DIR_EXPT}_${SUB}_${SESS}`
+    FS_NAME=`echo ${DIR_EXPT}_${SUB}_${SESS}`
+
+
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+        
+        # smooth data on the cortical surface to FWHM
+        if [ ! -f ${DIR}/func_smooth.L.${ID}.${NUM}.niml.dset ]; then
+            SurfSmooth \
+              -met HEAT_07 \
+              -spec ${DIR_FS}/SUMA/${FS_NAME}_both.spec \
+              -surf_A ${DIR_FS}/SUMA/lh.white.asc \
+              -input ${DIR}/${INPUT}.L.${ID}.${NUM}.niml.dset \
+              -target_fwhm ${FWHM} \
+              -output ${DIR}/func_smooth.L.${ID}.${NUM}.niml.dset
+        fi
+
+        if [ ! -f ${DIR}/func_smooth.R.${ID}.${NUM}.niml.dset ]; then
+            SurfSmooth \
+              -met HEAT_07 \
+              -spec ${DIR_FS}/SUMA/${FS_NAME}_both.spec \
+              -surf_A ${DIR_FS}/SUMA/rh.white.asc \
+              -input ${DIR}/${INPUT}.R.${ID}.${NUM}.niml.dset \
+              -target_fwhm ${FWHM} \
+              -output ${DIR}/func_smooth.R.${ID}.${NUM}.niml.dset
+        fi
+    done
+done
+
+EOF

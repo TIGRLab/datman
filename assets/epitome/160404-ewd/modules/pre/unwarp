@@ -1,0 +1,502 @@
+#!/bin/bash
+#  Requires FSL (version 5.0.6), HCP-gradunwarp (HCP version 1.0.2)
+
+INPUT=$(echo func_${1})
+METHOD=${2}
+UNWARPDIR=${3}
+DWELL=${4} # default dwell time: SIEMENS=0.00133, GE=0.000684
+DELTATE=${5} # default difference in TEs: SIEMENS 2.46 ms, GE 0.002 seconds
+MAG=${6}
+REAL=${7}
+IMAG=${8}
+
+cat <<EOF
+export INPUT=$(echo func_${1})
+export METHOD=${2}
+
+EOF
+
+cat <<""
+echo '*** MODULE: unwarp. Uses fieldmap to unwarp EPI images.******************'
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+
+    SESS=`basename ${SESS}`
+    SESS_FMAP=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/FMAP/${SESS}`
+    SESS_FUNC=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/${SESS}`
+
+    if [ ${METHOD} = 'SIEMENS' ] && [ ! -f ${DIR_DATA}/${DIR_EXPT}/${SUB}/FMAP/${SESS}/anat_fieldmap.nii.gz ]; then
+
+        # reorient images
+        fslreorient2std \
+            ${SESS_FMAP}/RUN01/*.nii* \
+            ${SESS_FMAP}/mag.01.nii.gz
+
+        fslreorient2std \
+            ${SESS_FMAP}/RUN02/*.nii* \
+            ${SESS_FMAP}/mag.02.nii.gz
+
+        fslreorient2std \
+            ${SESS_FMAP}/RUN03/*.nii* \
+            ${SESS_FMAP}/phase.nii.gz
+
+        # brain extract magnitude images
+        bet \
+            ${SESS_FMAP}/mag.01.nii.gz
+            ${SESS_FMAP}/mag_brain \
+            -f 0.35 -m
+        mv ${SESS_FMAP}/mag_brain.nii.gz \
+           ${SESS_FMAP}/mag_brain.01.nii.gz
+        mv ${SESS_FMAP}/mag_brain_mask.nii.gz \
+           ${SESS_FMAP}/mag_brain_mask.01.nii.gz
+
+        bet \
+            ${SESS_FMAP}/mag.02.nii.gz
+            ${SESS_FMAP}/mag_brain \
+            -f 0.35 -m
+        mv ${SESS_FMAP}/mag_brain.nii.gz \
+           ${SESS_FMAP}/mag_brain.02.nii.gz
+        mv ${SESS_FMAP}/mag_brain_mask.nii.gz \
+           ${SESS_FMAP}/mag_brain_mask.02.nii.gz
+
+        # prepares fieldmap
+        fsl_prepare_fieldmap \
+            SIEMENS \
+            ${SESS_FMAP}/phase.nii.gz \
+            ${SESS_FMAP}/mag_brain.02.nii.gz \
+            ${SESS_FMAP}/fieldmap.nii.gz \
+            ${DELTATE}
+
+        # # Extract first volume of fMRI to unwarp
+        # fslroi \
+        #     ${InputFile}.nii.gz \
+        #     ${WD}/${BaseName}_vol1.nii.gz \
+        #     0 1
+
+        # # Calculate
+        # # NB: gradient_unwarp.py *must* have the filename extensions written
+        # #     out explicitly or it will crash
+        # InputCoeffs=`fsl_abspath $InputCoefficients`
+        # ORIGDIR=`pwd`
+        # cd ${WD}
+        # gradient_unwarp.py \
+        #     ${BaseName}_vol1.nii.gz \
+        #     trilinear.nii.gz \
+        #     siemens \
+        #     -g ${InputCoeffs} \
+        #     -n
+        # cd ${ORIGDIR}
+
+        # # Create relative warpfield for functional data and brain mask
+        # convertwarp \
+        #     --abs \
+        #     --ref=${WD}/trilinear.nii.gz \
+        #     --warp1=${WD}/fullWarp_abs.nii.gz \
+        #     --relout \
+        #     --out=${OutputTransform}
+
+        # applywarp \
+        #     --rel \
+        #     --interp=spline \
+        #     -i ${InputFile} \
+        #     -r ${WD}/${BaseName}_vol1.nii.gz \
+        #     -w ${OutputTransform} \
+        #     -o ${OutputFile}
+
+        # applywarp \
+        #     --rel \
+        #     --interp=nn \
+        #     -i ${WD}/Magnitude_brain \
+        #     -r ${WD}/Magnitude_brain \
+        #     -w ${WD}/Magnitude_gdc_warp \
+        #     -o ${WD}/Magnitude_brain_gdc
+
+        # # apply brain mask to magnitude image
+        # fslmaths \
+        #     ${WD}/Magnitude_gdc \
+        #     -mas ${WD}/Magnitude_brain_gdc $\
+        #     {WD}/Magnitude_brain_gdc
+
+        # # double-erode magnitude image
+        # fslmaths \
+        #     ${WD}/Magnitude_brain_gdc \
+        #     -bin \
+        #     -ero -ero \
+        #     ${WD}/Magnitude_brain_gdc_ero
+
+        # # mask fieldmap and dilate 5X
+        # fslmaths \
+        #     ${WD}/FieldMap \
+        #     -mas ${WD}/Magnitude_brain_gdc_ero \
+        #     -dilM -dilM -dilM -dilM -dilM \
+        #     ${WD}/FieldMap_dil
+
+        # applywarp \
+        #     --rel \
+        #     --interp=spline \
+        #     -i ${WD}/FieldMap_dil \
+        #     -r ${WD}/FieldMap_dil \
+        #     -w ${WD}/Magnitude_gdc_warp \
+        #     -o ${WD}/FieldMap_gdc
+
+        # fslmaths \
+        #     ${WD}/FieldMap_gdc \
+        #     -mas ${WD}/Magnitude_brain_gdc \
+        #     ${WD}/FieldMap_gdc
+
+        # imcp ${WD}/Magnitude_gdc ${MagnitudeOutput}
+        # imcp ${WD}/Magnitude_brain_gdc ${MagnitudeBrainOutput}
+        # cp ${WD}/FieldMap_gdc.nii.gz ${FieldMapOutput}.nii.gz
+
+    elif [ ${METHOD} = 'GE' ] && [ ! -f ${SESS_FMAP}/anat_fieldmap.nii.gz ]; then
+
+        # reorient fieldmap
+        fslreorient2std \
+            ${SESS_FMAP}/RUN01/*.nii.gz \
+            ${SESS_FMAP}/combined.01.nii.gz
+
+        fslreorient2std \
+            ${SESS_FMAP}/RUN02/*.nii.gz \
+            ${SESS_FMAP}/combined.02.nii.gz
+
+        # extract magnitude, real, imag from fieldmap
+        fslroi \
+            ${SESS_FMAP}/combined.01.nii.gz \
+            ${SESS_FMAP}/mag.01.nii.gz \
+            ${MAG} 1
+
+        fslroi \
+            ${SESS_FMAP}/combined.01.nii.gz \
+            ${SESS_FMAP}/real.01.nii.gz \
+            ${REAL} 1
+
+        fslroi \
+            ${SESS_FMAP}/combined.01.nii.gz \
+            ${SESS_FMAP}/imag.01.nii.gz \
+            ${IMAG} 1
+
+        fslroi \
+            ${SESS_FMAP}/combined.02.nii.gz \
+            ${SESS_FMAP}/mag.02.nii.gz \
+            ${MAG} 1
+
+        fslroi \
+            ${SESS_FMAP}/combined.02.nii.gz \
+            ${SESS_FMAP}/real.02.nii.gz \
+            ${REAL} 1
+
+        fslroi \
+            ${SESS_FMAP}/combined.02.nii.gz \
+            ${SESS_FMAP}/imag.02.nii.gz \
+            ${IMAG} 1
+
+        # brain extract the magnitude images
+        bet \
+            ${SESS_FMAP}/mag.01.nii.gz \
+            ${SESS_FMAP}/mag_brain \
+            -f 0.35 -m
+        mv ${SESS_FMAP}/mag_brain.nii.gz \
+           ${SESS_FMAP}/mag_brain.01.nii.gz
+        mv ${SESS_FMAP}/mag_brain_mask.nii.gz \
+           ${SESS_FMAP}/mag_brain_mask.01.nii.gz
+
+        bet \
+            ${SESS_FMAP}/mag.02.nii.gz \
+            ${SESS_FMAP}/mag_brain \
+            -f 0.35 -m
+        mv ${SESS_FMAP}/mag_brain.nii.gz \
+           ${SESS_FMAP}/mag_brain.02.nii.gz
+        mv ${SESS_FMAP}/mag_brain_mask.nii.gz \
+            ${SESS_FMAP}/mag_brain_mask.02.nii.gz
+
+        # deskull real / imag files for both TEs
+        fslmaths \
+            ${SESS_FMAP}/real.01.nii.gz \
+            -mul \
+            ${SESS_FMAP}/mag_brain_mask.01.nii.gz \
+            ${SESS_FMAP}/real_brain.01.nii.gz \
+            -odt float
+
+        fslmaths \
+            ${SESS_FMAP}/imag.01.nii.gz \
+            -mul \
+            ${SESS_FMAP}/mag_brain_mask.01.nii.gz \
+            ${SESS_FMAP}/imag_brain.01.nii.gz \
+            -odt float
+
+        fslmaths \
+            ${SESS_FMAP}/real.02.nii.gz \
+            -mul \
+            ${SESS_FMAP}/mag_brain_mask.02.nii.gz \
+            ${SESS_FMAP}/real_brain.02.nii.gz \
+            -odt float
+
+        fslmaths \
+            ${SESS_FMAP}/imag.02.nii.gz \
+            -mul \
+            ${SESS_FMAP}/mag_brain_mask.02.nii.gz \
+            ${SESS_FMAP}/imag_brain.02.nii.gz \
+            -odt float
+
+        # co-register images
+        flirt \
+            -in ${SESS_FMAP}/mag_brain.02.nii.gz \
+            -ref ${SESS_FMAP}/mag_brain.01.nii.gz \
+            -out ${SESS_FMAP}/reg_mag_to_mag.nii.gz \
+            -omat ${SESS_FMAP}/mat_mag_to_mag.mat
+
+        flirt \
+            -in ${SESS_FMAP}/real_brain.02.nii.gz \
+            -ref ${SESS_FMAP}/mag_brain.01.nii.gz \
+            -applyxfm \
+            -init ${SESS_FMAP}/mat_mag_to_mag.mat \
+            -out ${SESS_FMAP}/real_brain_reg.02.nii.gz
+
+        flirt \
+            -in ${SESS_FMAP}/imag_brain.02.nii.gz \
+            -ref ${SESS_FMAP}/mag_brain.01.nii.gz \
+            -applyxfm \
+            -init ${SESS_FMAP}/mat_mag_to_mag.mat \
+            -out ${SESS_FMAP}/imag_brain_reg.02.nii.gz
+
+        # convert to single complex-valued image
+         3dTwotoComplex \
+            -prefix ${SESS_FMAP}/cplx.01.nii.gz \
+            ${SESS_FMAP}/real_brain.01.nii.gz \
+            ${SESS_FMAP}/imag_brain.01.nii.gz
+
+         3dTwotoComplex \
+            -prefix ${SESS_FMAP}/cplx.02.nii.gz \
+            ${SESS_FMAP}/real_brain_reg.02.nii.gz \
+            ${SESS_FMAP}/imag_brain_reg.02.nii.gz
+
+        # calculate magnitude and phase map
+        epi-conj \
+            ${SESS_FMAP}/cplx.01.nii.gz \
+            ${SESS_FMAP}/cplx.02.nii.gz \
+            ${SESS_FMAP}/amp.nii.gz \
+            ${SESS_FMAP}/phase.nii.gz
+
+        # unwrap phase map
+        prelude \
+            -p ${SESS_FMAP}/phase.nii.gz \
+            -a ${SESS_FMAP}/amp.nii.gz \
+            -o ${SESS_FMAP}/phase_uwrap.nii.gz
+
+        # normalize by TE timing difference (in seconds) to create fieldmap
+        3dcalc \
+            -prefix ${SESS_FMAP}/fieldmap.nii.gz \
+            -a ${SESS_FMAP}/phase_uwrap.nii.gz \
+            -expr "a/$DELTATE"
+
+        # below: HCP-method, which we've deviated from ... storing for
+        # posterity until we're sure this fieldmap solution is working
+        # correctly
+
+        # # convert fieldmap to degrees
+        # fslmaths \
+        #     ${WD}/FieldMap_deg.nii.gz \
+        #     -mul 6.28 \
+        #     ${WD}/FieldMap.nii.gz
+
+        # # Extract first volume of fMRI to unwarp
+        # fslroi \
+        #     ${InputFile}.nii.gz \
+        #     ${WD}/${BaseName}_vol1.nii.gz \
+        #     0 1
+
+        # # Calculate
+        # # NB: gradient_unwarp.py *must* have the filename extensions written
+        # #     out explicitly or it will crash
+        # InputCoeffs=`fsl_abspath $InputCoefficients`
+        # ORIGDIR=`pwd`
+        # cd ${WD}
+        # gradient_unwarp.py \
+        #     ${BaseName}_vol1.nii.gz \
+        #     trilinear.nii.gz \
+        #     siemens \
+        #     -g ${InputCoeffs} \
+        #     -n
+        # cd ${ORIGDIR}
+
+        # # Create relative warpfield for functional data and brain mask
+        # convertwarp \
+        #     --abs \
+        #     --ref=${WD}/trilinear.nii.gz \
+        #     --warp1=${WD}/fullWarp_abs.nii.gz \
+        #     --relout \
+        #     --out=${OutputTransform}
+
+        # applywarp \
+        #     --rel \
+        #     --interp=spline \
+        #     -i ${InputFile} \
+        #     -r ${WD}/${BaseName}_vol1.nii.gz \
+        #     -w ${OutputTransform} \
+        #     -o ${OutputFile}
+
+        # applywarp \
+        #     --rel \
+        #     --interp=nn \
+        #     -i ${WD}/Magnitude_brain \
+        #     -r ${WD}/Magnitude_brain \
+        #     -w ${WD}/Magnitude_gdc_warp \
+        #     -o ${WD}/Magnitude_brain_gdc
+
+        # fslmaths \
+        #     ${WD}/Magnitude_gdc \
+        #     -mas ${WD}/Magnitude_brain_gdc \
+        #     ${WD}/Magnitude_brain_gdc
+
+        # fslmaths \
+        #     ${WD}/Magnitude_brain_gdc \
+        #     -bin \
+        #     -ero -ero \
+        #     ${WD}/Magnitude_brain_gdc_ero
+
+        # fslmaths \
+        #     ${WD}/FieldMap \
+        #     -mas ${WD}/Magnitude_brain_gdc_ero \
+        #     -dilM -dilM -dilM -dilM -dilM \
+        #     ${WD}/FieldMap_dil
+
+        # applywarp \
+        #     --rel \
+        #     --interp=spline \
+        #     -i ${WD}/FieldMap_dil \
+        #     -r ${WD}/FieldMap_dil \
+        #     -w ${WD}/Magnitude_gdc_warp \
+        #     -o ${WD}/FieldMap_gdc
+
+        # fslmaths \
+        #     ${WD}/FieldMap_gdc \
+        #     -mas ${WD}/Magnitude_brain_gdc \
+        #     ${WD}/FieldMap_gdc
+
+        # imcp ${WD}/Magnitude_gdc ${MagnitudeOutput}
+        # imcp ${WD}/Magnitude_brain_gdc ${MagnitudeBrainOutput}
+        # cp ${WD}/FieldMap_gdc.nii.gz ${FieldMapOutput}.nii.gz
+
+    fi
+
+    # regularize fieldmap by some amount
+    fugue \
+        --loadfmap=${SESS_FMAP}/fieldmap.nii.gz \
+        -s 4 \
+        --savefmap=${SESS_FMAP}/fieldmap_regularized.nii.gz
+
+    # warp magnitude brain with fieldmap
+    fugue \
+        -i ${SESS_FMAP}/mag_brain.01.nii.gz \
+        --dwell=${DWELL} \
+        --unwarpdir=${UNWARPDIR} \
+        --loadfmap=${SESS_FMAP}/fieldmap_regularized.nii.gz \
+        -w ${SESS_FMAP}/mag_warped.01.nii.gz
+
+    # register forward-warped magnitude image with anat_EPI_brain
+    flirt \
+        -in ${SESS_FMAP}/mag_warped.01.nii.gz \
+        -ref ${SESS_FUNC}/anat_EPI_brain.nii.gz
+        -omat ${SESS_FMAP}/mat_mag_to_epi.mat
+
+    flirt \
+        -in ${SESS_FMAP}/fieldmap_regularized.nii.gz \
+        -ref ${SESS_FUNC}/anat_EPI_brain.nii.gz \
+        -applyxfm -init ${SESS_FMAP}/mat_mag_to_epi.mat \
+        -out ${SESS_FUNC}/anat_fieldmap.nii.gz
+
+    DIR_RUNS=`ls -d -- ${SESS_FUNC}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+
+        if [ ! -f ${SESS_FUNC}/func_unwarped.${ID}.${NUM}.nii.gz ]; then
+
+            # unwarp functional run (regularized using 3 term polynomial)
+            fugue \
+                -i ${SESS_FUNC}/${INPUT}.${ID}.${NUM}.nii.gz \
+                --loadfmap=${SESS_FUNC}/anat_fieldmap.nii.gz \
+                --dwell=${DWELL} \
+                --unwarpdir=${UNWARPDIR} \
+                --icorr \
+                -u ${SESS_FUNC}/func_unwarped.${ID}.${NUM}.nii.gz
+        fi
+    done
+done
+
+
+# More stuff from the HCP pipelines ... not sure why they are unwarping the scout?
+# cp ${ScoutInputName}.nii.gz ${WD}/Scout.nii.gz
+
+# # Test if Magnitude Brain and T1w Brain Are Similar in Size, if not, assume Magnitude Brain Extraction
+# # Failed and Must Be Retried After Removing Bias Field
+# MagnitudeBrainSize=`fslstats ${WD}/Magnitude_brain -V | cut -d " " -f 2`
+# T1wBrainSize=`fslstats ${WD}/${T1wBrainImageFile} -V | cut -d " " -f 2`
+
+# if [[ X`echo "if ( (${MagnitudeBrainSize} / ${T1wBrainSize}) > 1.25 ) {1}" | bc -l` = X1 || X`echo "if ( (${MagnitudeBrainSize} / ${T1wBrainSize}) < 0.75 ) {1}" | bc -l` = X1 ]] ; then
+#     flirt -interp spline -dof 6 -in ${WD}/Magnitude.nii.gz -ref ${T1wImage} -omat "${WD}"/Mag2T1w.mat -out ${WD}/Magnitude2T1w.nii.gz -searchrx -30 30 -searchry -30 30 -searchrz -30 30
+#     convert_xfm -omat "${WD}"/T1w2Mag.mat -inverse "${WD}"/Mag2T1w.mat
+#     applywarp --interp=nn -i ${WD}/${T1wBrainImageFile} -r ${WD}/Magnitude.nii.gz --premat="${WD}"/T1w2Mag.mat -o ${WD}/Magnitude_brain_mask.nii.gz
+#     fslmaths ${WD}/Magnitude_brain_mask.nii.gz -bin ${WD}/Magnitude_brain_mask.nii.gz
+#     fslmaths ${WD}/Magnitude.nii.gz -mas ${WD}/Magnitude_brain_mask.nii.gz ${WD}/Magnitude_brain.nii.gz
+
+#     flirt -interp spline -dof 6 -in ${WD}/Scout.nii.gz -ref ${T1wImage} -omat "${WD}"/Scout2T1w.mat -out ${WD}/Scout2T1w.nii.gz -searchrx -30 30 -searchry -30 30 -searchrz -30 30
+#     convert_xfm -omat "${WD}"/T1w2Scout.mat -inverse "${WD}"/Scout2T1w.mat
+#     applywarp --interp=nn -i ${WD}/${T1wBrainImageFile} -r ${WD}/Scout.nii.gz --premat="${WD}"/T1w2Scout.mat -o ${WD}/Scout_brain_mask.nii.gz
+#     fslmaths ${WD}/Scout_brain_mask.nii.gz -bin ${WD}/Scout_brain_mask.nii.gz
+#     fslmaths ${WD}/Scout.nii.gz -mas ${WD}/Scout_brain_mask.nii.gz ${WD}/Scout_brain.nii.gz
+
+#     # register scout to T1w image using fieldmap
+#     ${HCPPIPEDIR_Global}/epi_reg_dof --dof=${dof} --epi=${WD}/Scout_brain.nii.gz --t1=${T1wImage} --t1brain=${WD}/${T1wBrainImageFile} --out=${WD}/${ScoutInputFile}_undistorted --fmap=${WD}/FieldMap.nii.gz --fmapmag=${WD}/Magnitude.nii.gz --fmapmagbrain=${WD}/Magnitude_brain.nii.gz --echospacing=${DwellTime} --pedir=${UnwarpDir}
+
+# else
+#     # register scout to T1w image using fieldmap
+#     ${HCPPIPEDIR_Global}/epi_reg_dof --dof=${dof} --epi=${WD}/Scout.nii.gz --t1=${T1wImage} --t1brain=${WD}/${T1wBrainImageFile} --out=${WD}/${ScoutInputFile}_undistorted --fmap=${WD}/FieldMap.nii.gz --fmapmag=${WD}/Magnitude.nii.gz --fmapmagbrain=${WD}/Magnitude_brain.nii.gz --echospacing=${DwellTime} --pedir=${UnwarpDir}
+
+# fi
+
+# # create spline interpolated output for scout to T1w + apply bias field correction
+# applywarp --rel --interp=spline -i ${ScoutInputName} -r ${T1wImage} -w ${WD}/${ScoutInputFile}_undistorted_warp.nii.gz -o ${WD}/${ScoutInputFile}_undistorted_1vol.nii.gz
+# fslmaths ${WD}/${ScoutInputFile}_undistorted_1vol.nii.gz -div ${BiasField} ${WD}/${ScoutInputFile}_undistorted_1vol.nii.gz
+# immv ${WD}/${ScoutInputFile}_undistorted_1vol.nii.gz ${WD}/${ScoutInputFile}_undistorted2T1w_init.nii.gz
+
+# # Jacobian Volume FAKED for Regular Fieldmaps (all ones)
+# fslmaths ${T1wImage} -abs -add 1 -bin ${WD}/Jacobian2T1w.nii.gz
+EOF
+
+# from HCP pipeline NEW JAN 15 2016
+#    echo "Registering fieldmap to structural"
+#    if [ $fmapreg = yes ] ; then
+#        # register fmap to structural image
+#    $FSLDIR/bin/flirt -in ${fmapmagbrain} -ref ${vrefbrain} -dof ${dof} -omat ${vout}_fieldmap2str_init.mat
+#    $FSLDIR/bin/flirt -in ${fmapmaghead} -ref ${vrefhead} -dof ${dof} -init ${vout}_fieldmap2str_init.mat -omat ${vout}_fieldmap2str.mat -out ${vout}_fieldmap2str -nosearch
+#    else
+#    $FSLDIR/bin/imcp ${fmapmaghead} ${vout}_fieldmap2str
+#    cp $FSLDIR/etc/flirtsch/ident.mat ${vout}_fieldmap2str.mat
+#    fi
+#    # unmask the fieldmap (necessary to avoid edge effects)
+#    $FSLDIR/bin/fslmaths ${fmapmagbrain} -abs -bin ${vout}_fieldmaprads_mask
+#    $FSLDIR/bin/fslmaths ${fmaprads} -abs -bin -mul ${vout}_fieldmaprads_mask ${vout}_fieldmaprads_mask
+#    $FSLDIR/bin/fugue --loadfmap=${fmaprads} --mask=${vout}_fieldmaprads_mask --unmaskfmap --savefmap=${vout}_fieldmaprads_unmasked --unwarpdir=${fdir}   # the direction here should take into account the initial affine (it needs to be the direction in the EPI)
+#
+#    # the following is a NEW HACK to fix extrapolation when fieldmap is too small
+#    $FSLDIR/bin/applywarp -i ${vout}_fieldmaprads_unmasked -r ${vrefhead} --premat=${vout}_fieldmap2str.mat -o ${vout}_fieldmaprads2str_pad0
+#    $FSLDIR/bin/fslmaths ${vout}_fieldmaprads2str_pad0 -abs -bin ${vout}_fieldmaprads2str_innermask
+#    $FSLDIR/bin/fugue --loadfmap=${vout}_fieldmaprads2str_pad0 --mask=${vout}_fieldmaprads2str_innermask --unmaskfmap --unwarpdir=${fdir} --savefmap=${vout}_fieldmaprads2str_dilated
+#    $FSLDIR/bin/fslmaths ${vout}_fieldmaprads2str_dilated ${vout}_fieldmaprads2str
+#
+#    # run bbr with fieldmap
+#    echo "Running BBR with fieldmap"
+#    if [ $use_weighting = yes ] ; then wopt="-refweight $refweight"; else wopt=""; fi
+#    $FSLDIR/bin/flirt -ref ${vrefhead} -in ${vepi} -dof ${dof} -cost bbr -wmseg ${vout}_fast_wmseg -init ${vout}_init.mat -omat ${vout}.mat -out ${vout}_1vol -schedule ${FSLDIR}/etc/flirtsch/bbr.sch -echospacing ${dwell} -pedir ${pe_dir} -fieldmap ${vout}_fieldmaprads2str $wopt
+#
+#    # make equivalent warp fields
+#    echo "Making warp fields and applying registration to EPI series"
+#    $FSLDIR/bin/convert_xfm -omat ${vout}_inv.mat -inverse ${vout}.mat
+#    $FSLDIR/bin/convert_xfm -omat ${vout}_fieldmaprads2epi.mat -concat ${vout}_inv.mat ${vout}_fieldmap2str.mat
+#    $FSLDIR/bin/applywarp -i ${vout}_fieldmaprads_unmasked -r ${vepi} --premat=${vout}_fieldmaprads2epi.mat -o ${vout}_fieldmaprads2epi
+#    $FSLDIR/bin/fslmaths ${vout}_fieldmaprads2epi -abs -bin ${vout}_fieldmaprads2epi_mask
+#    $FSLDIR/bin/fugue --loadfmap=${vout}_fieldmaprads2epi --mask=${vout}_fieldmaprads2epi_mask --saveshift=${vout}_fieldmaprads2epi_shift --unmaskshift --dwell=${dwell} --unwarpdir=${fdir}
+#    $FSLDIR/bin/convertwarp -r ${vrefhead} -s ${vout}_fieldmaprads2epi_shift --postmat=${vout}.mat -o ${vout}_warp --shiftdir=${fdir} --relout
+#    $FSLDIR/bin/applywarp -i ${vepi} -r ${vrefhead} -o ${vout} -w ${vout}_warp --interp=spline --rel
+

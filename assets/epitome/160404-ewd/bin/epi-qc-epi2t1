@@ -1,0 +1,178 @@
+#!/usr/bin/env python
+"""
+Shows the quality of EPI to T1 registration.
+
+Usage:
+    epi-qc-epi2t1 <path> <expt> <mode>
+
+Arguments:
+    <path>          data path for epitome
+    <expt>          experiment to QC
+    <mode>          datatype to QC
+
+DETAILS:
+
+    For each subject, prints the central slice of the T1 and co-registered + 
+    deskulled EPI, including an edge-detected version of the T1 (requires AFNI).   
+"""
+
+import os, sys
+import datetime
+
+import nibabel as nib
+import numpy as np
+from scipy import ndimage as nd
+
+import matplotlib
+matplotlib.use('Agg')
+
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+
+import epitome as epi
+from epitome.docopt import docopt
+
+def reorient_to_radiological(image):
+    """
+    Reorients input 3D numpy matrix to be the proper orientation for plotting.
+    """
+    
+    image = np.transpose(image, (2,0,1))
+    image = np.rot90(image, 2)
+
+    return image
+
+def process_subject(path, expt, mode, subj, pdf):
+    """
+    Generates edge image, reorients data, and prints overlays to a PDF page.
+    """
+    edge = os.path.join(path, expt, subj, 
+                                   'T1/SESS01/anat_T1_edge.nii.gz')
+    anat = os.path.join(path, expt, subj, 
+                                   'T1/SESS01/anat_T1_brain.nii.gz')
+    reg = os.path.join(path, expt, subj, mode, 
+                                        'SESS01/reg_EPI_to_T1.nii.gz')
+
+    # create edge dataset if it doesn't exist
+    print 'working on subject ' + str(subj)
+    if os.path.isfile(edge) == False:
+        os.system('3dedge3 -input ' + anat + ' -prefix ' + edge)
+
+    # load in data
+    edge = nib.load(edge).get_data()
+    anat = nib.load(anat).get_data()
+    reg = nib.load(reg).get_data()
+
+    # reorient the data to radiological
+    edge = reorient_to_radiological(edge)
+    anat = reorient_to_radiological(anat)
+    reg = reorient_to_radiological(reg)
+
+    # get size ratio between over + underlay
+    dsfactor = [a/float(r) for a,r in zip(anat.shape, reg.shape)]
+
+    # match over + underlay dimensions
+    reg_to_anat = nd.interpolation.zoom(reg, zoom=dsfactor)
+    
+    # set small values in overlay to be transparent
+    reg_to_anat = np.ma.masked_where(reg_to_anat < 50, reg_to_anat)
+    cmap = plt.cm.Reds
+    cmap.set_bad('g', 0)
+
+    # generate the overlay image
+    plt.subplot(2,3,1)
+    mid = np.round(anat.shape[0] / 2)
+    plt.imshow(anat[mid, :, :], cmap=plt.cm.gray,
+                                interpolation='nearest')
+    plt.imshow(reg_to_anat[mid, :, :], cmap=cmap,
+                                       interpolation='nearest',
+                                       alpha=0.5)
+    plt.axis('off')
+
+    plt.subplot(2,3,2)
+    mid = np.round(anat.shape[1] / 2)
+    plt.imshow(anat[:, mid, :], cmap=plt.cm.gray,
+                                interpolation='nearest')
+    plt.imshow(reg_to_anat[:, mid, :], cmap=cmap,
+                                       interpolation='nearest',
+                                       alpha=0.5)
+    plt.axis('off')
+
+    plt.subplot(2,3,3)
+    mid = np.round(anat.shape[2] / 2)
+    plt.imshow(anat[:, :, mid], cmap=plt.cm.gray,
+                                interpolation='nearest')
+    plt.imshow(reg_to_anat[:, :, mid], cmap=cmap,
+                                       interpolation='nearest',
+                                       alpha=0.5)
+    plt.axis('off')
+
+    # set zeros in edge to be transparent
+    edge = np.ma.masked_where(edge == 0, edge)
+    cmap = plt.cm.winter
+    cmap.set_bad('g', 0)
+
+    # generate the edge image
+    plt.subplot(2,3,4)
+    mid = np.round(edge.shape[0] / 2)
+    plt.imshow(reg_to_anat[mid, :, :], cmap=plt.cm.gray,
+                                       interpolation='nearest')
+    plt.imshow(edge[mid, :, :], cmap=cmap,
+                                interpolation='nearest')
+    plt.axis('off')
+
+    plt.subplot(2,3,5)
+    mid = np.round(edge.shape[1] / 2)
+    plt.imshow(reg_to_anat[:, mid, :], cmap=plt.cm.gray,
+                                       interpolation='nearest')
+    plt.imshow(edge[:, mid, :], cmap=cmap,
+                                interpolation='nearest')
+    plt.axis('off')
+
+    plt.subplot(2,3,6)
+    mid = np.round(edge.shape[2] / 2)
+    plt.imshow(reg_to_anat[:, :, mid], cmap=plt.cm.gray,
+                                       interpolation='nearest')
+    plt.imshow(edge[:, :, mid], cmap=cmap,
+                                interpolation='nearest')
+    plt.axis('off')
+
+    plt.suptitle(str(expt) + ' ' + str(mode) + ': ' + str(subj))
+    plt.tight_layout()
+    plt.savefig(pdf, format='pdf')
+    plt.close()
+
+    return pdf
+
+def main():
+    arguments = docopt(__doc__)
+    path      = arguments['<path>']
+    expt      = arguments['<expt>']
+    mode      = arguments['<mode>']
+
+    # get subject numbers
+    subjects = epi.utilities.get_subj(os.path.join(path, expt))
+
+    # loop through all subjects
+    pdf = PdfPages(os.path.join(path, expt, 'qc_reg_EPI_to_T1_' + mode + '.pdf'))
+    for subj in subjects:
+
+        try:
+            pdf = process_subject(path, expt, mode, subj, pdf)
+
+        except:
+            print('ERROR: invalid data found for ' + subj + ', skipping.')
+            continue
+
+    # Add some metadata and close the PDF object
+    d = pdf.infodict()
+    d['Title'] = 'Quality Control: Registration of the EPI template to the T1'
+    d['Author'] = u'Joseph D Viviano\xe4nen'
+    d['Subject'] = 'Quality Control'
+    d['Keywords'] = 'QC registration EPI T1'
+    d['CreationDate'] = datetime.datetime.today()
+    d['ModDate'] = datetime.datetime.today()
+    pdf.close()
+
+if __name__ == "__main__":
+    main()

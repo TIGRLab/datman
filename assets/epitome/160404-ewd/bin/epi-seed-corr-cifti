@@ -1,0 +1,123 @@
+#!/usr/bin/env python
+"""
+Produces a correlation map of the mean time series within the seed with
+every voxel in the supplied mask. This function assumes all supplied
+images are the same size.
+
+Usage:
+    epi-seed-corr-cifti [options] <func> <seed>
+
+Arguments:
+    <func>          functional data
+    <seed>          seed mask
+
+Options:
+    --mask             brainmask
+    --weighted         compute weighted average timeseries from the seed map
+    --use-TRs FILE     Only use the TRs listed in the file provided (TR's in file starts with 1)
+    --output-ts        Also output write the from the seed to text
+    --outputname STR   Specify the output filename
+    --debug            Debug logging
+    -n,--dry-run       Dry run
+
+DETAILS:
+    This function works by converting the func and seed files
+    from cifti ('dtseries.nii', "dscalar.nii") to "fake" nifty files than running
+    epi-seed-corr within a temp directory. The outputs are then converted back to cifti format.
+
+    At the moment, the seed mask only works with a single seed (all nonzero
+    voxels will be pooled.) This outputs a single image with the r-values.
+"""
+
+import sys
+import numpy as np
+import scipy as sp
+import nibabel as nib
+import subprocess
+import os
+import tempfile
+import shutil
+from epitome.docopt import docopt
+
+### Erin's little function for running things in the shell
+def docmd(cmdlist):
+    "sends a command (inputed as a list) to the shell"
+    if DEBUG: print ' '.join(cmdlist)
+    if not DRYRUN: subprocess.call(cmdlist)
+
+def main():
+    global DEBUG
+    global DRYRUN
+
+    arguments = docopt(__doc__)
+    func = arguments['<func>']
+    seed = arguments['<seed>']
+    mask = arguments['--mask']
+    weighted = arguments['--weighted']
+    TRs_plusone_file = arguments['--use-TRs']
+    output_ts = arguments['--output-ts']
+    outbase = arguments['--outputname']
+    DEBUG = arguments['--debug']
+    DRYRUN = arguments['--dry-run']
+
+    ## make the tempdir
+    tempdir = tempfile.mkdtemp()
+
+    ## set tempfile names
+    func_fnifti = os.path.join(tempdir,'func.nii.gz')
+    seed_fnifti = os.path.join(tempdir,'seed.nii.gz')
+    mask_fnifti = os.path.join(tempdir,'mask.nii.gz')
+    out_fnifti = os.path.join(tempdir,'out.nii.gz')
+    out_tempts = os.path.join(tempdir, 'out.txt')
+
+    ## determine outbase if it has not been specified
+    if not outbase:
+        outputdir = os.path.dirname(func)
+        funcbase = os.path.basename(func)
+        if ".dtseries.nii" in funcbase:
+            funcbase = funcbase.replace(".dtseries.nii","")
+        seedbase = os.path.basename(seed)
+        if ".dscalar.nii" in seedbase:
+            seedbase = seedbase.replace(".dscalar.nii","")
+        if ".dtseries.nii" in seedbase:
+            seedbase = seedbase.replace(".dtseries.nii","")
+        outbase = os.path.join(outputdir,funcbase + '_' + seedbase )
+
+    ## convert to nifti
+    docmd(['wb_command','-cifti-convert','-to-nifti',func, func_fnifti])
+    docmd(['wb_command','-cifti-convert','-to-nifti',seed, seed_fnifti])
+
+    ## if mask exists - convert it, if not make one from the func.dscalar.nii
+    if not mask:
+        docmd(['fslmaths', func_fnifti, '-Tmin', '-bin',  mask_fnifti])
+    else:
+        docmd(['wb_command','-cifti-convert', mask, mask_fnifti])
+
+    ##run seed connectome-workbench
+    tmpoutputbase = os.path.join(tempdir,'out')
+    seedcorr_cmdlist = ['epi-seed-corr','--outputname', tmpoutputbase]
+
+    if weighted:
+        seedcorr_cmdlist.append('--weighted')
+    if TRs_plusone_file:
+        seedcorr_cmdlist.extend(['--use-TRs',TRs_plusone_file])
+    if output_ts:
+        seedcorr_cmdlist.append('--output-ts')
+
+    seedcorr_cmdlist.extend([func_fnifti, seed_fnifti, mask_fnifti])
+
+    docmd(seedcorr_cmdlist)
+
+    ## convert back
+    docmd(['wb_command','-cifti-convert','-from-nifti',
+        tmpoutputbase + '.nii.gz', seed, outbase + '.dscalar.nii'])
+
+    ## copy over mean_ts file is asked for
+    if output_ts:
+        docmd(['cp',tmpoutputbase + '_ts.txt', outbase + '_ts.txt'])
+
+    ## remove the tempdirectory
+    shutil.rmtree(tempdir)
+
+if __name__ == '__main__':
+    main()

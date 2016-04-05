@@ -1,0 +1,70 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT=$(echo func_${1})
+export MASK=$(echo anat_${2})
+export FWHM=$(echo ${3})
+export MODE=$(echo ${4})
+
+EOF
+
+cat<<"EOF"
+echo '*** MODULE: volsmooth. Spatially smooths volume data. *******************'
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+
+        # if an old smoothmask is left behind, obliterate
+        if [ -f ${SESS}/anat_tmp_smoothmask.nii.gz ]; then
+            rm ${SESS}/anat_tmp_smoothmask.nii.gz
+        fi
+
+        # resample input mask to match dimensions of first run
+        3dresample \
+            -prefix ${SESS}/anat_tmp_smoothmask.nii.gz \
+            -master ${SESS}/${INPUT}.${ID}.01.nii.gz \
+            -rmode NN \
+            -inset ${SESS}/${MASK}.nii.gz
+
+        # smooth to specified FWHM
+        if [ ! -f ${SESS}/func_volsmooth.${ID}.${NUM}.nii.gz ]; then
+
+            # use 3dBlurToFWHM
+            if [ ${MODE} == 'normal' ]; then
+                # If already run filter, use noise model from it as blurmaster
+                if [ -f ${SESS}/func_noise.${ID}.${NUM}.nii.gz ]; then
+                    echo 'MSG: func_noise found. ensure that the filter module was run in the same space as volsmooth, or this command will fail and complain about grid spacing of the BLURMASTER!'
+                    3dBlurToFWHM \
+                        -quiet \
+                        -prefix ${SESS}/func_volsmooth.${ID}.${NUM}.nii.gz \
+                        -mask ${SESS}/anat_tmp_smoothmask.nii.gz \
+                        -FWHM ${FWHM} \
+                        -blurmaster ${SESS}/func_noise.${ID}.${NUM}.nii.gz \
+                        -input ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz
+                else
+                    3dBlurToFWHM \
+                        -quiet \
+                        -prefix ${SESS}/func_volsmooth.${ID}.${NUM}.nii.gz \
+                        -mask ${SESS}/anat_tmp_smoothmask.nii.gz \
+                        -FWHM ${FWHM} \
+                        -input ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz
+                fi
+
+            # use 3dBlurInMask
+            elif [ ${MODE} == 'multimask' ]; then
+                3dBlurInMask \
+                    -prefix ${SESS}/func_volsmooth.${ID}.${NUM}.nii.gz \
+                    -Mmask ${SESS}/anat_tmp_smoothmask.nii.gz \
+                    -FWHM ${FWHM} \
+                    -quiet -float \
+                    -input ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz
+            fi
+        fi
+    done
+done
+
+EOF
+

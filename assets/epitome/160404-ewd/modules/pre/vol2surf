@@ -1,0 +1,75 @@
+#!/bin/bash
+
+cat <<EOF
+export INPUT=$(echo func_${1})
+
+EOF
+
+cat <<"EOF"
+echo '*** MODULE: vol2surf. Projects functional data onto a cortical surface. *'
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    SESS=`basename ${SESS}`        
+    DIR=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/${SESS}`
+    DIR_T1=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/T1/${SESS}`
+    DIR_FS=`echo ${SUBJECTS_DIR}/${DIR_EXPT}_${SUB}_${SESS}`
+    FS_NAME=`echo ${DIR_EXPT}_${SUB}_${SESS}`
+    
+    # create SUMA folder
+    if [ ! -d ${DIR_FS}/SUMA ]; then
+    @SUMA_Make_Spec_FS \
+        -fspath ${DIR_FS} \
+        -sid ${FS_NAME} \
+        -use_mgz
+    fi
+
+    # Align experimental T1 to FS-exported T1 (might not be required)
+    if [ ! -f ${DIR_FS}/SUMA/${FS_NAME}_SurfVol_Alnd_Exp+orig.BRIK ]; then
+        
+        if [ ! -f ${DIR_FS}/SUMA/anat_T1_brain+orig ]; then 3dcopy ${DIR_T1}/anat_T1_brain.nii.gz ${DIR_FS}/SUMA/anat_T1_brain+orig.; fi
+
+        # note: we have to cd to this directory for the pipeline to work
+        cd ${DIR_FS}/SUMA
+        @SUMA_AlignToExperiment \
+            -exp_anat anat_T1_brain+orig.\
+            -align_centers \
+            -surf_anat ${FS_NAME}_SurfVol+orig.
+        cd ${DIR}
+    fi
+
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+
+        # project volume data --> surface for right and left separately
+        if [ ! -f ${DIR}/func_surface.R.${ID}.${NUM}.niml.dset ]; then
+            3dVol2Surf \
+              -spec ${DIR_FS}/SUMA/${FS_NAME}_both.spec \
+              -surf_A ${DIR_FS}/SUMA/rh.white.asc \
+              -surf_B ${DIR_FS}/SUMA/rh.pial.asc \
+              -sv ${DIR_FS}/SUMA/${FS_NAME}_SurfVol_Alnd_Exp+orig. \
+              -grid_parent ${DIR}/${INPUT}.${ID}.${NUM}.nii.gz \
+              -map_func midpoint \
+              -f_index nodes \
+              -outcols_NSD_format \
+              -out_niml ${DIR}/func_surface.R.${ID}.${NUM}.niml.dset
+        fi
+
+        # project volume data --> surface for right and left separately
+        if [ ! -f ${DIR}/func_surface.L.${ID}.${NUM}.niml.dset ]; then
+            3dVol2Surf \
+              -spec ${DIR_FS}/SUMA/${FS_NAME}_both.spec \
+              -surf_A ${DIR_FS}/SUMA/lh.white.asc \
+              -surf_B ${DIR_FS}/SUMA/lh.pial.asc \
+              -sv ${DIR_FS}/SUMA/${FS_NAME}_SurfVol_Alnd_Exp+orig. \
+              -grid_parent ${DIR}/${INPUT}.${ID}.${NUM}.nii.gz \
+              -map_func midpoint \
+              -f_index nodes \
+              -outcols_NSD_format \
+              -out_niml ${DIR}/func_surface.L.${ID}.${NUM}.niml.dset
+        fi
+    done
+done
+
+EOF

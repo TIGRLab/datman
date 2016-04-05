@@ -1,0 +1,166 @@
+#!/usr/bin/env python
+"""
+Prints the central slice of the T1 and co-registered + deskulled EPI,
+including an edge-detected version of the T1 (requires AFNI).
+
+Usage:
+    epi-qc-epi2t1 <path> <expt> <mode>
+
+Arguement:
+    <path>          path to epitome data directory
+    <expt>          experiment name
+    <mode>          image modaility
+"""
+import os, sys
+import datetime
+
+import nibabel as nib
+import numpy as np
+from scipy import ndimage as nd
+
+import matplotlib
+matplotlib.use('Agg')
+
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+
+import epitome as epi
+from epitome.docopt import docopt
+
+def main():
+    arguments = docopt(__doc__)
+    path      = arguments['<path>']
+    expt      = arguments['<expt>']
+    mode      = arguments['<mode>']
+
+    # get subject numbers
+    subjects = epi.utilities.get_subj(os.path.join(path, expt))
+
+    # MNI brain -- same for everyone
+    anat = os.path.join(path, expt, 'anat_MNI.nii.gz')
+    if not os.path.exists(anat):
+        anat_asset = os.path.join(epi.config.find_epitome(),'assets','MNI152_T1_1mm.nii.gz')
+        os.symlink(anat_asset,anat)
+    #edge = os.path.join(path, expt, 'anat_MNI_edge.nii.gz')
+
+    # # create edge dataset if it doesn't exist
+    # if os.path.isfile(edge) == False:
+    #     os.system('3dedge3 -input ' + anat + ' -prefix ' + edge)
+
+    # load in MNI data
+    #edge = nib.load(edge).get_data()
+    anat = nib.load(anat).get_data()
+
+    # reorient MNI data to radiological
+    #edge = epi.plot.reorient_to_radiological(edge)
+    anat = epi.plot.reorient_to_radiological(anat)
+
+    # set zeros in copy of anat to NaN
+    anat_masked = np.ma.masked_where(anat == 0, anat)
+
+    # loop through all subjects
+    pdf = PdfPages(os.path.join(path, expt, 'qc_reg_T1_to_MNI_' + mode + '.pdf'))
+    for subj in subjects:
+
+        try:
+            reg = os.path.join(path, expt, subj, mode,
+                                                'SESS01/reg_T1_to_TAL.nii.gz')
+        except:
+            print('ERROR: No data found for ' + subj + ', skipping.')
+            continue
+
+        # load in data
+        print('working on subject ' + str(subj))
+        reg = nib.load(reg).get_data()
+
+        # reorient the data to radiological
+        reg = epi.plot.reorient_to_radiological(reg)
+
+        # get size ratio between over + underlay
+        dsfactor = [a/float(r) for a,r in zip(anat.shape, reg.shape)]
+
+        # match over + underlay dimensions
+        reg_to_anat = nd.interpolation.zoom(reg, zoom=dsfactor)
+
+        # set small values in overlay to be transparent
+        reg_to_anat = np.ma.masked_where(reg_to_anat < 1, reg_to_anat)
+        cmap = plt.cm.Reds
+        cmap.set_bad('g', 0)
+
+        # generate the overlay image
+        plt.subplot(2,3,1)
+        mid = np.round(anat.shape[0] / 2)
+        plt.imshow(anat[mid, :, :], cmap=plt.cm.gray,
+                                    interpolation='nearest')
+        plt.imshow(reg_to_anat[mid, :, :], cmap=cmap,
+                                           interpolation='nearest',
+                                           alpha=0.5)
+        plt.axis('off')
+
+        plt.subplot(2,3,2)
+        mid = np.round(anat.shape[1] / 2)
+        plt.imshow(anat[:, mid, :], cmap=plt.cm.gray,
+                                    interpolation='nearest')
+        plt.imshow(reg_to_anat[:, mid, :], cmap=cmap,
+                                           interpolation='nearest',
+                                           alpha=0.5)
+        plt.axis('off')
+
+        plt.subplot(2,3,3)
+        mid = np.round(anat.shape[2] / 2)
+        plt.imshow(anat[:, :, mid], cmap=plt.cm.gray,
+                                    interpolation='nearest')
+        plt.imshow(reg_to_anat[:, :, mid], cmap=cmap,
+                                           interpolation='nearest',
+                                           alpha=0.5)
+        plt.axis('off')
+
+        # define overlay colormap
+        cmap = plt.cm.winter
+        cmap.set_bad('g', 0)
+
+        # generate the edge image
+        plt.subplot(2,3,4)
+        mid = np.round(reg_to_anat.shape[0] / 2)
+        plt.imshow(reg_to_anat[mid, :, :], cmap=plt.cm.gray,
+                                           interpolation='nearest')
+        plt.imshow(anat_masked[mid, :, :], cmap=cmap,
+                                           interpolation='nearest',
+                                           alpha=0.5)
+        plt.axis('off')
+
+        plt.subplot(2,3,5)
+        mid = np.round(reg_to_anat.shape[1] / 2)
+        plt.imshow(reg_to_anat[:, mid, :], cmap=plt.cm.gray,
+                                           interpolation='nearest')
+        plt.imshow(anat_masked[:, mid, :], cmap=cmap,
+                                           interpolation='nearest',
+                                           alpha=0.5)
+        plt.axis('off')
+
+        plt.subplot(2,3,6)
+        mid = np.round(reg_to_anat.shape[2] / 2)
+        plt.imshow(reg_to_anat[:, :, mid], cmap=plt.cm.gray,
+                                           interpolation='nearest')
+        plt.imshow(anat_masked[:, :, mid], cmap=cmap,
+                                           interpolation='nearest',
+                                           alpha=0.5)
+        plt.axis('off')
+
+        plt.suptitle(str(expt) + ' ' + str(mode) + ': ' + str(subj))
+        plt.tight_layout()
+        plt.savefig(pdf, format='pdf')
+        plt.close()
+
+    # Add some metadata and close the PDF object
+    d = pdf.infodict()
+    d['Title'] = 'Quality Control: Registration of the T1 to MNI'
+    d['Author'] = u'Joseph D Viviano\xe4nen'
+    d['Subject'] = 'Quality Control'
+    d['Keywords'] = 'QC registration T1 MNI'
+    d['CreationDate'] = datetime.datetime.today()
+    d['ModDate'] = datetime.datetime.today()
+    pdf.close()
+
+if __name__ == "__main__":
+    main()

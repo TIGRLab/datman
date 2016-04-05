@@ -1,0 +1,44 @@
+#!/bin/bash
+
+cat <<"EOF"
+echo '*** MODULE: linreg_fs2mni_afni. Puts freesurfer atlases in MNI space. ***'
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+    SESS=`basename ${SESS}`        
+    DIR=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/${SESS}`
+
+    # If we have a T1 for each session, we register to the session T1. 
+    # Otherwise, we go to the first session.
+    if [ `ls -l ${DIR} | grep ^d | wc -l` -eq `ls -l ${DIR_T1} | grep ^d | wc -l` ]; then
+        DIR_T1=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/T1/${SESS}`
+    else
+        DIR_T1=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/T1/SESS01`
+    fi
+ 
+    # register aparc atlas to MNI (at same resolution as transformed EPI)
+    if [ ! -f ${DIR}/anat_aparc_reg.nii.gz ]; then
+        3dAllineate \
+            -prefix ${DIR}/anat_aparc_reg.nii.gz \
+            -input ${DIR_T1}/anat_aparc_brain.nii.gz \
+            -1Dmatrix_apply ${DIR}/mat_T1_to_TAL.aff12.1D \
+            -master ${DIR}/anat_EPI_mask_MNI-lin.nii.gz \
+            -float -quiet \
+            -interp NN \
+            -final NN
+    fi
+
+    # register aparc2009 atlas to MNI (at same resolution as transformed EPI)
+    if [ ! -f ${DIR}/anat_aparc2009_reg.nii.gz ]; then
+        3dAllineate \
+            -prefix ${DIR}/anat_aparc2009_reg.nii.gz \
+            -input ${DIR_T1}/anat_aparc2009_brain.nii.gz \
+            -1Dmatrix_apply ${DIR}/mat_T1_to_TAL.aff12.1D \
+            -master ${DIR}/anat_EPI_mask_MNI-lin.nii.gz \
+            -float -quiet \
+            -interp NN \
+            -final NN
+    fi
+done
+
+EOF

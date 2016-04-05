@@ -1,0 +1,43 @@
+#!/usr/bin/env python
+
+"""
+This takes the data from input, and the header from target, and merges them in 
+output. The output file type will always be NIFTI, no matter what you name the 
+output (so maybe make the extension .nii or .nii.gz).
+
+Usage:
+    epi-match-headers <input> <target> <output>
+
+Arguments:
+    <input>         Data of interest.
+    <target>        Header to match.
+    <output>        Output filename. 
+"""
+
+import sys
+import nibabel as nib
+import numpy as np
+from epitome.docopt import docopt
+
+def main(target, infile, output):
+
+    arguments   = docopt(__doc__)
+    infile      = arguments['<input>']
+    target      = arguments['<target>']
+    output      = arguments['<output>']
+
+    trg = nib.load(target)
+    inf = nib.load(infile)
+
+    # get affine, header from target file
+    aff = trg.get_affine()
+    hdr = trg.get_header()
+
+    # get the input data and write out
+    out = inf.get_data()
+    out = nib.nifti1.Nifti1Image(out, aff, header=hdr)
+    out.to_filename(output)
+
+if __name__ == '__main__':
+    main()
+    

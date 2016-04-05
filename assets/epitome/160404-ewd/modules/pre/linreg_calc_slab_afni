@@ -1,0 +1,207 @@
+#!/bin/bash
+
+cat <<EOF
+export DATA_QUALITY=`echo ${1}`
+export COST=`echo ${2}`
+export REG_DOF=`echo ${3}`
+
+EOF
+
+cat <<"EOF"
+echo '*** MODULE: linreg_calc_slab_afni. Calcs EPI <-> WHEPI <-> T1 <-> MNI. **'
+
+# Copy MNI brain to experiment directory
+if [ ! -f ${DIR_DATA}/${DIR_EXPT}/anat_MNI.nii.gz ]; then
+    cp ${DIR_PIPE}/assets/MNI152_T1_1mm_brain.nii.gz ${DIR_DATA}/${DIR_EXPT}/anat_MNI.nii.gz
+    cp ${DIR_PIPE}/assets/MNI152_T1_1mm_brain_mask_dil.nii.gz ${DIR_DATA}/${DIR_EXPT}/anat_MNI_mask.nii.gz
+fi
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+    SESS=`basename ${SESS}`
+    DIR=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}`
+    DIR_T1=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/T1`
+    DIR_WHEPI=`echo ${DIR_DATA}/${DIR_EXPT}/${SUB}/WHEPI`
+
+    cd ${DIR}/${SESS}
+
+    # Set EPI data file (for low vs high quality data).
+    if [ ${DATA_QUALITY} = 'low' ]; then
+        EPI_BRAIN=`echo ${DIR}/${SESS}/anat_EPI_initTR_brain.nii.gz`
+    else
+        EPI_BRAIN=`echo ${DIR}/${SESS}/anat_EPI_brain.nii.gz`
+    fi
+
+    # prepare WHEPI
+    if [ ! -f ${DIR}/${SESS}/anat_WHEPI_brain.nii.gz ]; then
+        3dWarp \
+            -deoblique \
+            -quintic \
+            -prefix ${DIR_WHEPI}/${SESS}/anat_WHEPI_tmp_ob.nii.gz \
+            ${DIR_WHEPI}/${SESS}/RUN01/*.nii.gz
+
+        3dresample \
+            -rmode Cu \
+            -prefix ${DIR_WHEPI}/${SESS}/anat_WHEPI_tmp_resize.nii.gz \
+            -inset ${DIR_WHEPI}/${SESS}/anat_WHEPI_tmp_ob.nii.gz
+
+        3dTstat \
+            -prefix ${DIR_WHEPI}/${SESS}/anat_WHEPI_tmp_vol.nii.gz \
+            ${DIR_WHEPI}/${SESS}/anat_WHEPI_tmp_resize.nii.gz
+
+        bet \
+            ${DIR_WHEPI}/${SESS}/anat_WHEPI_tmp_vol.nii.gz \
+            ${DIR_WHEPI}/${SESS}/anat_WHEPI_tmp.nii.gz \
+            -R -n -m -f 0.3
+        fslmaths \
+            ${DIR_WHEPI}/${SESS}/anat_WHEPI_tmp_mask.nii.gz \
+            -dilD \
+            ${DIR_WHEPI}/${SESS}/anat_WHEPI_tmp_mask_dil.nii.gz
+        mv ${DIR_WHEPI}/${SESS}/anat_WHEPI_tmp_mask_dil.nii.gz ${DIR_WHEPI}/${SESS}/anat_WHEPI_mask.nii.gz
+
+        3dcalc \
+            -prefix ${DIR_WHEPI}/${SESS}/anat_WHEPI_brain.nii.gz \
+            -a ${DIR_WHEPI}/${SESS}/anat_WHEPI_tmp_vol.nii.gz \
+            -b ${DIR_WHEPI}/${SESS}/anat_WHEPI_mask.nii.gz \
+            -expr 'a*b'
+        cp ${DIR_WHEPI}/${SESS}/anat_WHEPI_brain.nii.gz ${DIR}/${SESS}/anat_WHEPI_brain.nii.gz
+        cp ${DIR_WHEPI}/${SESS}/anat_WHEPI_mask.nii.gz ${DIR}/${SESS}/anat_WHEPI_mask.nii.gz
+        rm ${DIR_WHEPI}/${SESS}/*WHEPI_tmp*
+    fi
+
+    # register session EPI to WHEPI
+    if [ ! -f ${DIR}/${SESS}/reg_EPI_to_WHEPI.nii.gz ]; then
+        align_epi_anat.py \
+            -anat anat_WHEPI_brain.nii.gz \
+            -epi anat_EPI_brain.nii.gz \
+            -epi_base 0 -epi2anat -suffix EPI_to_WHEPI \
+            -anat_has_skull no -epi_strip None \
+            -volreg off -tshift off -deoblique off \
+            -giant_move -partial_coverage -ex_mode quiet \
+            -cost lpa
+
+        mv ${DIR}/${SESS}/anat_EPI_brainEPI_to_WHEPI_mat.aff12.1D ${DIR}/${SESS}/mat_EPI_to_WHEPI.aff12.1D
+        mv ${DIR}/${SESS}/anat_WHEPI_brainEPI_to_WHEPI_mat.aff12.1D ${DIR}/${SESS}/mat_WHEPI_to_EPI.aff12.1D
+        3dcopy ${DIR}/${SESS}/anat_EPI_brainEPI_to_WHEPI+orig ${DIR}/${SESS}/reg_EPI_to_WHEPI.nii.gz
+    fi
+
+    if [ ! -f mat_WHEPI_to_T1.aff12.1D ]; then
+
+        # figure out if we are in multisession or single session mode
+        if [ `ls -l ${DIR} | grep ^d | wc -l` -eq `ls -l ${DIR_T1} | grep ^d | wc -l` ]; then
+            multisession=1
+        else
+            multisession=0
+        fi
+
+        # Copy EPI and MNI brain into ${DIR}/${SESS} as AFNI BRIKs
+        if [ ! -f anat_WHEPI_brain+orig* ]; then 3dcopy ${DIR}/${SESS}/anat_WHEPI_brain.nii.gz anat_WHEPI_brain; fi
+        if [ ! -f template* ]; then 3dcopy ${DIR_DATA}/${DIR_EXPT}/anat_MNI.nii.gz template; fi
+        if [ ! -f anat_T1_brain+orig* ]; then
+            # copy the session T1 registration if exists, else, use the first session.
+            if [ ${multisession} -eq 1 ]; then
+                3dcopy ${DIR_T1}/${SESS}/anat_T1_brain.nii.gz anat_T1_brain
+            else
+                3dcopy ${DIR_T1}/SESS01/anat_T1_brain.nii.gz anat_T1_brain
+            fi
+        fi
+
+        # Talarac individual brain, turning off skullstrip.
+        @auto_tlrc \
+            -base template+tlrc \
+            -input anat_T1_brain+orig \
+            -no_ss \
+            -maxite 300 \
+            -OK_maxite \
+            -init_xform AUTO_CENTER
+
+        align_epi_anat.py \
+            -anat anat_T1_brain+orig \
+            -epi anat_WHEPI_brain+orig \
+            -epi_base 0 -epi2anat \
+            -suffix WHEPI_to_T1 \
+            -anat_has_skull no \
+            -epi_strip None \
+            -volreg off \
+            -tshift off \
+            -${REG_DOF} \
+            -tlrc_apar anat_T1_brain+tlrc \
+            -ex_mode quiet \
+            -cost ${COST}
+
+        # Move outputs from /tmp back into data folders folders.
+        mv anat_WHEPI_brainWHEPI_to_T1_tlrc_mat.aff12.1D ${DIR}/${SESS}/mat_WHEPI_to_TAL.aff12.1D
+        mv anat_WHEPI_brainWHEPI_to_T1_mat.aff12.1D ${DIR}/${SESS}/mat_WHEPI_to_T1.aff12.1D
+        mv anat_T1_brainWHEPI_to_T1_mat.aff12.1D ${DIR}/${SESS}/mat_T1_to_WHEPI.aff12.1D
+
+        # create T1 to TAL pathway
+        cat_matvec \
+            ${DIR}/${SESS}/mat_T1_to_WHEPI.aff12.1D \
+            ${DIR}/${SESS}/mat_WHEPI_to_TAL.aff12.1D > \
+            ${DIR}/${SESS}/mat_T1_to_TAL.aff12.1D
+
+        if [ ! -f ${DIR}/${SESS}/reg_T1_to_TAL.nii.gz ]; then
+            3dcopy anat_T1_brain+tlrc ${DIR}/${SESS}/reg_T1_to_TAL.nii.gz
+        fi
+        if [ ! -f ${DIR}/${SESS}/reg_WHEPI_to_T1.nii.gz ]; then
+            3dcopy anat_WHEPI_brainWHEPI_to_T1+orig ${DIR}/${SESS}/reg_WHEPI_to_T1.nii.gz
+        fi
+
+        # create EPI_to_T1 and EPI_to_MNI transforms
+        cat_matvec \
+            ${DIR}/${SESS}/mat_EPI_to_WHEPI.aff12.1D \
+            ${DIR}/${SESS}/mat_WHEPI_to_T1.aff12.1D > \
+            ${DIR}/${SESS}/mat_EPI_to_T1.aff12.1D
+        cat_matvec \
+            ${DIR}/${SESS}/mat_EPI_to_WHEPI.aff12.1D \
+            ${DIR}/${SESS}/mat_WHEPI_to_TAL.aff12.1D > \
+            ${DIR}/${SESS}/mat_EPI_to_TAL.aff12.1D
+    fi
+
+    # Create mat_T1_to_WHEPI and mat_EPI_to_T1
+    if [ ! -f ${DIR}/${SESS}/mat_T1_to_EPI.aff12.1D ]; then
+        # If we have a T1 for each session, we register to the session T1.
+        # Otherwise, we go to the first session.
+        if [ ${multisession} -eq 1 ]; then
+            3dAllineate \
+                -prefix ${DIR}/${SESS}/reg_T1_to_WHEPI.nii.gz \
+                -input ${DIR_T1}/${SESS}/anat_T1_brain.nii.gz \
+                -1Dmatrix_apply ${DIR}/${SESS}/mat_T1_to_WHEPI.aff12.1D \
+                -master ${EPI_BRAIN} \
+                -float -final quintic -quiet
+            3dAllineate \
+                -prefix ${DIR}/${SESS}/reg_EPI_to_T1.nii.gz \
+                -input ${EPI_BRAIN} \
+                -1Dmatrix_apply ${DIR}/${SESS}/mat_EPI_to_T1.aff12.1D \
+                -master ${DIR_T1}/${SESS}/anat_T1_brain.nii.gz \
+                -float -final quintic -quiet
+        else
+            3dAllineate \
+                -prefix ${DIR}/${SESS}/reg_T1_to_WHEPI.nii.gz \
+                -input ${DIR_T1}/SESS01/anat_T1_brain.nii.gz \
+                -1Dmatrix_apply ${DIR}/${SESS}/mat_T1_to_WHEPI.aff12.1D \
+                -master ${EPI_BRAIN} \
+                -float -final quintic -quiet
+            3dAllineate \
+                -prefix ${DIR}/${SESS}/reg_EPI_to_T1.nii.gz \
+                -input ${EPI_BRAIN} \
+                -1Dmatrix_apply ${DIR}/${SESS}/mat_EPI_to_T1.aff12.1D \
+                -master ${DIR_T1}/SESS01/anat_T1_brain.nii.gz \
+                -float -final quintic -quiet
+        fi
+        cat_matvec \
+            ${DIR}/${SESS}/mat_T1_to_WHEPI.aff12.1D \
+            ${DIR}/${SESS}/mat_WHEPI_to_EPI.aff12.1D > \
+            ${DIR}/${SESS}/mat_T1_to_EPI.aff12.1D
+
+        # remove temporary files
+        rm *.BRIK
+        rm *.HEAD
+        rm *WarpDrive.log
+        rm *Xaff12.1D
+        rm *Xat.1D
+        rm *shft.1D
+    fi
+done
+
+EOF

@@ -1,0 +1,63 @@
+#!/usr/bin/env python
+"""
+Calculates a magnitude and phase map from two complex fieldmaps taken
+at different TRs, for unwarping.
+
+Usage:
+    epi-conj <data1> <data2> <magnitude> <phase>
+
+Arguments:
+    <data1>     fieldmap with smaller TE.
+    <data2>     fieldmap with larger TE.
+    <magnitude> output magnitude NIFTI.
+    <phase>     output phase NIFTI.
+
+DETAILS:
+    This program is useful in cases that you do not have a reliable
+    magnitude and phase map from the scanner. In this case, you can
+    calculate a complex-valued image from the real and imagiary
+    components at each TE. This program will combine those two
+    complex images to calculate the magnitude and phase of the
+    field, which can be used to geometically unwarp your data.
+
+"""
+
+import os, sys
+import numpy as np
+import nibabel as nib
+import epitome as epi
+from epitome.docopt import docopt
+
+def main():
+    arguments = docopt(__doc__)
+    data1     = arguments['<data1>']
+    data2     = arguments['<data2>']
+    magnitude = arguments['<magnitude>']
+    phase     = arguments['<phase>']
+
+    # import data
+    try:
+        data1, aff, hdr, dims = epi.utilities.loadnii(data1)
+        data2, _, _, _ = epi.utilities.loadnii(data2)
+    except:
+        sys.exit('ERROR: Failed to import data.')
+
+    # do math
+    mult = np.conjugate(data1)*data2
+    mag = np.abs(mult)
+    pha = np.angle(mult)
+
+    # write out data
+    mag = np.reshape(mag, (dims[0], dims[1], dims[2]))
+    pha = np.reshape(pha, (dims[0], dims[1], dims[2]))
+
+    mag = nib.nifti1.Nifti1Image(mag, aff)
+    mag.header_class(extensions=())
+    mag.to_filename(magnitude)
+
+    pha = nib.nifti1.Nifti1Image(pha, aff)
+    pha.header_class(extensions=())
+    pha.to_filename(phase)
+
+if __name__ == "__main__":
+    main()

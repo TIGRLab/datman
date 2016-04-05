@@ -324,7 +324,7 @@ for i in range(0,len(checklist)):
         if os.path.exists(thicknessdir)== False:
             os.chdir(civet_bin)
             jobname = 'civet_' + subid
-            docmd(['qsub','-o', civet_logs, \
+            docmd(['qsub','-j','y','-o', civet_logs, \
                      '-N', jobname,  \
                      os.path.basename(runcivetsh), subid])
             jobnames.append(jobname)
@@ -346,7 +346,7 @@ if len(jobnames) > 30 : jobnames = jobnames[-30:]
 if len(jobnames) > 0:
     #if any subjects have been submitted - submit an extract consolidation job to run at the end
     os.chdir(civet_bin)
-    docmd(['qsub','-o', civet_logs, \
+    docmd(['qsub','-j','y','-o', civet_logs, \
         '-N', 'civet_qc',  \
         '-hold_jid', ','.join(jobnames), \
         runqcsh ])

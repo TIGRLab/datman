@@ -1,0 +1,16 @@
+// taken from Fornito et al, 2013.  
+// Functional Dysconnectivity of Corticostriatal Circuitry as a Risk Phenotype for Psychosis
+// JAMA Psychiatry 
+
+13  15  9 1  // dorsal caudate 
+-13 15  9 2  // dorsal caudate
+10  14  0 3  // superior ventral caudate
+-10 14  0 4  // superior ventral caudate
+9    9 -8 5  // inferior ventral caudate
+-9   9 -8 6  // inferior ventral caudate
+28   1  3 7  // dorsocaudal putamen
+-28  1  3 8  // dorsocaudal putamen
+25   8  6 9  // dorsorostral putamen
+-25  8  6 10 // dorsorostral putamen
+20  12 -3 11 // ventrorostral putamen
+-20 12 -3 12 // ventrorostral putamen
