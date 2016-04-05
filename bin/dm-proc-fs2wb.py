@@ -56,7 +56,7 @@ def docmd(cmdlist):
     if DEBUG: print ' '.join(cmdlist)
     if not DRYRUN: subprocess.call(cmdlist)
 
-fs2wb_script = '/projects/edickie/code/epitome/bin/fs2hcp'
+epiclone = '/archive/data-2.0/code/datman/assets/epitome/160404-ewd'
 
 ### build a template .sh file that gets submitted to the queue
 def makerunsh(filename):
@@ -64,6 +64,12 @@ def makerunsh(filename):
     builds a script in the target directory (run.sh)
     that gets submitted to the queue for each participant
     """
+
+    bname = os.path.basename(filename)
+    if bname == runconvertsh:
+        thisSTEP = 'Convert'
+    if bname == runPostsh_name:
+        thisSTEP = 'Post'
 
     #open file for writing
     runsh = open(filename,'w')
@@ -76,22 +82,43 @@ def makerunsh(filename):
 
     runsh.write('#source the module system\n')
     runsh.write('source /etc/profile\n')
-    runsh.write('module load FSL/5.0.7 freesurfer/5.3.0 connectome-workbench/1.1.1 hcp-pipelines/3.7.0\n')
+    runsh.write('module load python/2.7.9-anaconda-2.1.0-150119\n')
+    runsh.write('module load python-extras/2.7.9\n')
+    runsh.write('module load freesurfer/5.3.0\n')
+    runsh.write('module load FSL/5.0.7\n')
+    runsh.write('module load AFNI/2014.12.16\n')
+    runsh.write('module load matlab/R2014a\n')
+    runsh.write('module load FIX/1.061\n')
+    runsh.write('module load R/3.1.1 R-extras/3.1.1\n')
+    runsh.write('module load connectome-workbench/1.1.1\n')
+    runsh.write('module load hcp-pipelines/3.7.0\n\n')
+
+    runsh.write('append-path  PATH             {epiclone}/bin\n'.format(epiclone))
+    runsh.write('append-path  PYTHONPATH       {epiclone}/epitome\n\n'.format(epiclone))
 
     runsh.write('## this script was created by dm-proc-fs2wb.py\n\n')
+    runsh.write('export SUBJECTS_DIR=' + inputpath + '\n')
+    runsh.write('export HCP_DATA=' + targetpath +'\n\n')
 
-    ## add a line that will read in the subject id
-    runsh.write('SUBJECT=${1}\n')
-    runsh.write('FSPATH=' + inputpath + '\n')
-    runsh.write('HCPPATH=' + targetpath +'\n\n')
+    if thisSTEP = 'Convert':
+        ## add a line that will read in the subject id
+        runsh.write('SUBJECT=${1}\n')
 
-    #add a line to cd to the CIVET directory
-    runsh.write('cd ${HCPPATH}\n\n')
+        #add a line to cd to the CIVET directory
+        runsh.write('cd ${HCP_DATA}\n\n')
 
-    ## start building the CIVET command
-    runsh.write('bash ' + fs2wb_script + \
-        ' --FSpath=${FSPATH} --HCPpath=${HCPPATH} ' +\
-        '--subject=${SUBJECT}')
+        ## start building the CIVET command
+        runsh.write('fs2hcp '\
+            ' --FSpath=${FSPATH} --HCPpath=${HCP_DATA} ' +\
+            '--subject=${SUBJECT}')
+
+    if thisSTEP = 'Post':
+        if prefix:
+            runsh.write('epi-hcp-qc --subjects-filter {prefix} native\n'.format(prefix))
+            runsh.write('epi-hcp-qc --subjects-filter {prefix} MNIfsaverage32k\n'.format(prefix))
+        else:
+            runsh.write('epi-hcp-qc native\n')
+            runsh.write('epi-hcp-qc MNIfsaverage32k\n')
 
     runsh.close()
 
@@ -128,7 +155,8 @@ subprocess.call(['mkdir','-p',bin_dir])
 # writes a standard CIVET running script for this project (if it doesn't exist)
 # the script requires a $SUBJECT variable - that gets sent if by qsub (-v option)
 runconvertsh = 'fs2hcprun.sh'
-for runfilename in [runconvertsh]:
+runpostsh ='fs2hcpqc.sh'
+for runfilename in [runconvertsh, runpostsh]:
     runsh = os.path.join(bin_dir,runfilename)
     if os.path.isfile(runsh):
         ## create temporary run file and test it against the original
@@ -154,7 +182,11 @@ subids_fs = filter(os.path.isdir, glob.glob(os.path.join(inputpath, '*')))
 for i, subj in enumerate(subids_fs):
     subids_fs[i] = os.path.basename(subj)
 subids_fs = [ v for v in subids_fs if "PHA" not in v ] ## remove the phantoms from the list
-subids_fs = [ v for v in subids_fs if "fsaverage" not in v ] ## remove the fsaverage from the list
+
+not_a_subid = ['logs','bin','QA','fsaverage','rh.EC_average','lh.EC_average']
+for not_subid in not_a_subid:
+    subids_fs = filter(lambda x: not_subid != x, subids_fs)
+
 if prefix != None:
     subids_fs = [ v for v in subids_fs if prefix in v ] ## remove the phantoms from the list
 newsubs = list(set(subids_fs) - set(checklist.id))
@@ -162,13 +194,7 @@ newsubs_df = pd.DataFrame(columns = cols, index = range(len(checklist),len(check
 newsubs_df.id = newsubs
 checklist = checklist.append(newsubs_df)
 
-# # do linking for the T1
-# doCIVETlinking("mnc_t1",T1_TAG , '_t1.mnc')
 
-# #link more files if multimodal
-# if MULTISPECTRAL:
-#     doCIVETlinking("mnc_t2", T2_TAG, '_t2.mnc')
-#     doCIVETlinking("mnc_pd", PD_TAG, '_pd.mnc')
 
 ## now checkoutputs to see if any of them have been run
 #if yes update spreadsheet
@@ -191,27 +217,21 @@ for i in range(0,len(checklist)):
                      runconvertsh, subid])
             jobnames.append(jobname)
             checklist['date_converted'][i] = datetime.date.today()
-        # # if failed logs exist - update the CIVETchecklist
-        # else :
-        #     civetlogs = os.path.join(civet_out,subid,'logs')
-        #     faillogs = glob.glob(civetlogs + '/*.failed')
-        #     if DEBUG: print "Found {} fails for {}: {}".format(len(faillogs),subid,faillogs)
-        #     if len(faillogs) > 0:
-        #         checklist['notes'][i] = "CIVET failed :("
 
-# ##subit a qc pipeline job (kinda silly as a job, but it needs to be dependant, and have right enviroment)
-# ### if more that 30 subjects have been submitted to the queue,
-# ### use only the last 30 submitted as -hold_jid arguments
-# if len(jobnames) > 30 : jobnames = jobnames[-30:]
-# ## if any subjects have been submitted,
-# ## submit a final job that will qc the resutls after they are finished
-# if len(jobnames) > 0:
-#     #if any subjects have been submitted - submit an extract consolidation job to run at the end
-#     os.chdir(civet_bin)
-#     docmd(['qsub','-o', civet_logs, \
-#         '-N', 'civet_qc',  \
-#         '-hold_jid', ','.join(jobnames), \
-#         runqcsh ])
+
+## if any subjects have been submitted,
+## submit a final job that will consolidate the resutls after they are finished
+
+if len(jobnames) > 30 : jobnames = jobnames[-30:]
+## if any subjects have been submitted,
+## submit a final job that will qc the resutls after they are finished
+if len(jobnames) > 0:
+    #if any subjects have been submitted - submit an extract consolidation job to run at the end
+    os.chdir(civet_bin)
+    docmd(['qsub','-o', logs_dir, \
+        '-N', 'hcp_qc_gen',  \
+        '-hold_jid', ','.join(jobnames), \
+        runpostsh ])
 
 ## write the checklist out to a file
 checklist.to_csv(checklistfile, sep=',', columns = cols, index = False)
