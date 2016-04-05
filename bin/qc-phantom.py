@@ -327,7 +327,7 @@ def find_fmri_vals(base_path, subj, phantom):
 
     outputfile = os.path.join(base_path, 'qc/phantom/fmri/', subj + '.csv')
     if os.path.isfile(outputfile) == False:
-        cmd = (r"addpath(genpath('{}')); compute_fbirn('{}','{}','{}')".format(
+        cmd = (r"addpath(genpath('{}')); analyze_fmri_phantom('{}','{}','{}')".format(
                                               qc_code, base_path, subj, phantom))
         os.system('matlab -nodisplay -nosplash -r "' + cmd + '"')
 
@@ -366,18 +366,44 @@ def get_scan_range(timearray):
 
     l = the labels for the given time points
     """
-    minimum = np.min(timearray[:,0])
-    maximum = np.max(timearray[:,-1])
+    # use the derivative to find years
+    first_year_mins = []
+    first_year_maxs = []
+    last_year_maxs = []
+    number_of_years = []
 
-    # deal with cases where we've rolled over to a new year
-    if maximum - minimum < 0:
-        length = maximum + 52 - minimum + 1
-        l1 = np.linspace(minimum, 52, 52-minimum+1)
-        l2 = np.linspace(1, maximum, maximum)
-        l = np.hstack((l1, l2))
+    # collect the number of years, earliest week, latest week from each site
+    for site in timearray:
+        timediff = np.where(np.diff(site) < 1)[0]
+        n_years = len(timediff) # number of year rollovers
+
+        if n_years > 0:
+            first_year = np.split(site, [timediff[0]+1])[0]
+            last_year = np.split(site, [timediff[-1]+1])[-1]
+
+            first_year_mins.append(first_year[0])
+            last_year_maxs.append(last_year[-1])
+            number_of_years.append(n_years)
+
+        else:
+            first_year_mins.append(site[0])
+            first_year_maxs.append(site[0])
+
+    # now construct a timearray spanning the entire range
+    minimum = np.min(first_year_mins)
+    if len(last_year_maxs) == 0:
+        maximum = np.max(first_year_maxs)
+    else:
+        maximum = np.max(last_year_maxs)
+
+    if len(number_of_years) > 0:
+        years = max(number_of_years)
+
+        l = np.hstack((np.linspace(minimum, 51, num=52-minimum),
+                       np.tile(np.linspace(0, 51, 52), years-1),
+                       np.linspace(0, maximum, num=maximum+1)))
 
     else:
-        length = maximum - minimum + 1
         l = np.linspace(minimum, maximum, maximum-minimum+1)
 
     return l
@@ -558,7 +584,7 @@ def main_adni(project, sites, tp):
                     adni = find_adni_t1_vals(project, phantompath)
                 except:
                     print('ERROR: T1 segmentation failed for {}'.format(phantompath))
-                    adni = np.repeat(np.nan, 9)
+                    adni = np.repeat(0, 9)
 
                 # write csv file header='s1,s2,s3,s4,s5,s2/s1,s3/s1,s4/s1,s5/s1')
                 np.savetxt(os.path.join(
@@ -724,7 +750,6 @@ def main_dti(project, sites, tp):
     timearray, discarray = get_time_array(sites, dtype, subjects, data_path, tp)
     l = get_scan_range(timearray)
     cmap = get_discrete_colormap(len(sites), plt.cm.rainbow)
-
     # for each site, for each subject, for each week, get the dti measurements
     array = np.zeros((14, len(sites), tp))
 
@@ -738,7 +763,7 @@ def main_dti(project, sites, tp):
         for j, subj in enumerate(sitesubj):
 
             raw, bval, fa = find_dti_inputs(data_path, subj)
-            data = find_dti_vals(data_path, subj, raw, bval, fa)
+            data = find_dti_vals(project, subj, raw, bval, fa)
             array[:, i, j] = data
 
     for plotnum, plot in enumerate(array):
@@ -776,7 +801,7 @@ def main_dti(project, sites, tp):
                     o.append('')
             output.append(o)
 
-        fname = '{}/qc/phantom/dti/{}_fmri_{}.csv'.format(
+        fname = '{}/qc/phantom/dti/{}_dti_{}.csv'.format(
                               project, time.strftime("%y-%m-%d"), str(plotnum))
         with open(fname, 'wb') as csvfile:
             writer = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
