@@ -64,12 +64,17 @@ def main():
         files = dm.utils.get_files_with_tag(inputpath, 'DTI', fuzzy = True)
         dwifiles = filter(lambda x: x.endswith('.nii.gz'), files)
 
-        log.info("Processing DWI volumes: {}".format(dwifiles))
+        # determine whether to run eddy correct or not on the data
+        if '_PHA_' in subjectname:
+            phantom = 1
+        else
+            phantom = 0
 
+        log.info("Processing DWI volumes: {}".format(dwifiles))
         dm.utils.makedirs(outputpath)
 
         for dwi in dwifiles:
-            if TAG and TAG not in dwi: 
+            if TAG and TAG not in dwi:
                 log.debug("Tag '{}' not found in file {}. Skipping".format(TAG, dwi))
                 continue
 
@@ -80,13 +85,14 @@ def main():
                 log.debug("{} exists. Skipping.".format(dtifit_output))
             else:
                 cmd = "qsub -cwd -o {logdir} -j y -V -b y -N dtifit " \
-                    "{script} {dwi} {outputdir} {ref} {thresh}".format(
+                    "{script} {dwi} {outputdir} {ref} {thresh} {phantom}".format(
                         logdir = logdir,
                         script = script,
                         dwi = dwi,
                         outputdir= outputpath,
                         ref = ref_vol,
-                        thresh = fa_thresh)
+                        thresh = fa_thresh
+                        phantom = phantom)
                 log.debug("exec: {}".format(cmd))
                 dm.utils.run(cmd, dryrun=DRYRUN)
 
