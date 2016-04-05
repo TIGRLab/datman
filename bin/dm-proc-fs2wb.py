@@ -94,7 +94,7 @@ def makerunsh(filename):
     runsh.write('module load hcp-pipelines/3.7.0\n\n')
 
     runsh.write('export  PATH=${{PATH}}:{}/bin\n'.format(epiclone))
-    runsh.write('export  PYTHONPATH=${{PYTHONPATH}}:{}/epitome\n\n'.format(epiclone))
+    runsh.write('export  PYTHONPATH=${{PYTHONPATH}}:{}\n\n'.format(epiclone))
 
     runsh.write('## this script was created by dm-proc-fs2wb.py\n\n')
     runsh.write('export SUBJECTS_DIR=' + inputpath + '\n')
