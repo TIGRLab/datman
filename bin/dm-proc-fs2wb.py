@@ -212,7 +212,7 @@ for i in range(0,len(checklist)):
         if os.path.exists(FS32)== False:
             jobname = 'fs2wb_' + subid
             os.chdir(bin_dir)
-            docmd(['qsub','-o', logs_dir,'-e', logs_dir, \
+            docmd(['qsub','-j','y','-o', logs_dir,'-e', logs_dir, \
                      '-N', jobname,  \
                      runconvertsh, subid])
             jobnames.append(jobname)
@@ -228,7 +228,7 @@ if len(jobnames) > 30 : jobnames = jobnames[-30:]
 if len(jobnames) > 0:
     #if any subjects have been submitted - submit an extract consolidation job to run at the end
     os.chdir(bin_dir)
-    docmd(['qsub','-o', logs_dir, \
+    docmd(['qsub','-j','y','-o', logs_dir, \
         '-N', 'hcp_qc_gen',  \
         '-hold_jid', ','.join(jobnames), \
         runpostsh ])
