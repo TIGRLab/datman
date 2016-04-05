@@ -68,7 +68,7 @@ def makerunsh(filename):
     bname = os.path.basename(filename)
     if bname == runconvertsh:
         thisSTEP = 'Convert'
-    if bname == runPostsh_name:
+    if bname == runpostsh:
         thisSTEP = 'Post'
 
     #open file for writing
@@ -93,14 +93,14 @@ def makerunsh(filename):
     runsh.write('module load connectome-workbench/1.1.1\n')
     runsh.write('module load hcp-pipelines/3.7.0\n\n')
 
-    runsh.write('append-path  PATH             {epiclone}/bin\n'.format(epiclone))
-    runsh.write('append-path  PYTHONPATH       {epiclone}/epitome\n\n'.format(epiclone))
+    runsh.write('append-path  PATH             {}/bin\n'.format(epiclone))
+    runsh.write('append-path  PYTHONPATH       {}/epitome\n\n'.format(epiclone))
 
     runsh.write('## this script was created by dm-proc-fs2wb.py\n\n')
     runsh.write('export SUBJECTS_DIR=' + inputpath + '\n')
     runsh.write('export HCP_DATA=' + targetpath +'\n\n')
 
-    if thisSTEP = 'Convert':
+    if thisSTEP == 'Convert':
         ## add a line that will read in the subject id
         runsh.write('SUBJECT=${1}\n')
 
@@ -112,10 +112,10 @@ def makerunsh(filename):
             ' --FSpath=${FSPATH} --HCPpath=${HCP_DATA} ' +\
             '--subject=${SUBJECT}')
 
-    if thisSTEP = 'Post':
+    if thisSTEP == 'Post':
         if prefix:
-            runsh.write('epi-hcp-qc --subjects-filter {prefix} native\n'.format(prefix))
-            runsh.write('epi-hcp-qc --subjects-filter {prefix} MNIfsaverage32k\n'.format(prefix))
+            runsh.write('epi-hcp-qc --subjects-filter {} native\n'.format(prefix))
+            runsh.write('epi-hcp-qc --subjects-filter {} MNIfsaverage32k\n'.format(prefix))
         else:
             runsh.write('epi-hcp-qc native\n')
             runsh.write('epi-hcp-qc MNIfsaverage32k\n')
@@ -227,7 +227,7 @@ if len(jobnames) > 30 : jobnames = jobnames[-30:]
 ## submit a final job that will qc the resutls after they are finished
 if len(jobnames) > 0:
     #if any subjects have been submitted - submit an extract consolidation job to run at the end
-    os.chdir(civet_bin)
+    os.chdir(bin_dir)
     docmd(['qsub','-o', logs_dir, \
         '-N', 'hcp_qc_gen',  \
         '-hold_jid', ','.join(jobnames), \
