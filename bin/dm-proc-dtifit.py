@@ -67,7 +67,7 @@ def main():
         # determine whether to run eddy correct or not on the data
         if '_PHA_' in subjectname:
             phantom = 1
-        else
+        else:
             phantom = 0
 
         log.info("Processing DWI volumes: {}".format(dwifiles))
@@ -91,7 +91,7 @@ def main():
                         dwi = dwi,
                         outputdir= outputpath,
                         ref = ref_vol,
-                        thresh = fa_thresh
+                        thresh = fa_thresh,
                         phantom = phantom)
                 log.debug("exec: {}".format(cmd))
                 dm.utils.run(cmd, dryrun=DRYRUN)
