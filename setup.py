@@ -21,6 +21,7 @@ setup(
     url="https://github.com/tigrlab/datman",
     long_description=description,
     scripts=glob.glob('bin/*.py') + glob.glob('bin/*.sh') + glob.glob('assests/*.sh'),
+    packages=['datman'],
     classifiers=[
        'Development Status :: 4 - Beta',
        'Environment :: Console',
