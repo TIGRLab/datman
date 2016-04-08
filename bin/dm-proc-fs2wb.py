@@ -109,7 +109,7 @@ def makerunsh(filename):
 
         ## start building the CIVET command
         runsh.write('fs2hcp '\
-            ' --FSpath=${FSPATH} --HCPpath=${HCP_DATA} ' +\
+            ' --FSpath=${SUBJECTS_DIR} --HCPpath=${HCP_DATA} ' +\
             '--subject=${SUBJECT}')
 
     if thisSTEP == 'Post':
