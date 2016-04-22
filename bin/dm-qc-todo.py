@@ -22,21 +22,22 @@ import os
 import os.path
 import re
 
-def get_project_dirs(root, maxdepth=4):
+def get_project_dirs(root, maxdepth=2):
     """
     Search for datman project directories below root.
 
-    A project directory is defined as a directory having data/ and metadata/
-    folders.
+    A project directory is defined as a directory having a
+    metadata/checklist.csv file.
 
     Returns a list of absolute paths to project folders.
     """
     paths = []
     for dirpath, dirs, files in os.walk(root):
-        if 'data' in dirs and 'metadata' in dirs:
+        checklist = os.path.join(dirpath, 'metadata', 'checklist.csv')
+        if os.path.exists(checklist):
             del dirs[:]  # don't descend
             paths.append(dirpath)
-        depth = dirpath.count(os.path.sep) + 1
+        depth = dirpath.count(os.path.sep) - root.count(os.path.sep)
         if depth >= maxdepth:
             del dirs[:]
     return paths
@@ -48,8 +49,6 @@ def main():
 
     for projectdir in get_project_dirs(rootdir):
         checklist = os.path.join(projectdir, 'metadata', 'checklist.csv')
-        if not os.path.exists(checklist):
-            continue
 
         # map qc pdf to comments
         checklistdict = {d[0]: d[1:] for d in [l.strip().split()
@@ -62,7 +61,7 @@ def main():
 
         # check whether data is newer than qc doc or
         # whether qc doc hasn't been signed off on
-        for timepointdir in glob.glob(projectdir + '/data/nii/*'):
+        for timepointdir in sorted(glob.glob(projectdir + '/data/nii/*')):
             if '_PHA_' in timepointdir:
                 continue
 
@@ -71,7 +70,7 @@ def main():
             qcdoc = os.path.join(projectdir, 'qc', timepoint, qcdocname)
 
             data_mtime = max(
-                map(os.path.getmtime, glob.glob(timepointdir + '/*')))
+                map(os.path.getmtime, glob.glob(timepointdir + '/*')+[timepointdir]))
 
             if qcdocname not in checklistdict or not os.path.exists(qcdoc):
                 print 'No QC doc generated for {}'.format(timepointdir)
