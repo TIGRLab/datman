@@ -61,7 +61,7 @@ logging.basicConfig(level=logging.WARN,
 logger = logging.getLogger(os.path.basename(__file__))
 
 DRYRUN = False
-FIGDPI = 144i
+FIGDPI = 144
 
 # adds qascripts to the environment
 ASSETS = '{}/assets'.format(os.path.dirname(dm.utils.script_path()))
@@ -717,7 +717,7 @@ def fmri_qc(fpath, qcpath, qchtml, cur):
            -a {t}/mean.nii.gz -b {t}/std.nii.gz -expr 'a/b'""".format(t=tmpdir))
 
     # output BOLD-contrast qc-pic
-    BOLDpic = os.path.join(qcpath,filestem + '_BOLD.png')
+    BOLDpic = os.path.join(qcpath, filestem + '_BOLD.png')
     montage(fpath, 'BOLD-contrast', filename, BOLDpic, maxval=0.75)
     add_pic_to_html(qchtml, BOLDpic)
 
@@ -741,7 +741,7 @@ def fmri_qc(fpath, qcpath, qchtml, cur):
     # run metrics from qascripts toolchain
     run('ln -s {fpath} {t}/fmri.nii.gz'.format(fpath=fpath, t=tmpdir))
     run('qa_bold_v2.sh {t}/fmri.nii.gz {t}/qc_fmri.csv'.format(t=tmpdir))
-    run('mv {t}/qc_fmri.csv {qcpath}/qascripts_fmri.csv'.format(t=tmpdir, qcpath=qcpath))
+    run('mv {t}/qc_fmri.csv {qcpath}/{filestem}_qascript_fmri.csv'.format(t=tmpdir, filestem=filestem, qcpath=qcpath))
 
     run('rm -r {}'.format(tmpdir))
 
@@ -794,10 +794,10 @@ def dti_qc(fpath, qcpath, qchtml, cur):
     bvalfile = fpath[:-len(datman.utils.get_extension(fpath))] + ".bval"
 
     # load in bvec file
-    logger.debug("fpath = {}, bvec = {}".format(fpath, bvec))
+    logger.debug("fpath = {}, bvec = {}".format(fpath, bvecfile))
 
-    if not os.path.exists(bvec):
-        logger.warn("Expected bvec file not found: {}. Skipping".format(bvec))
+    if not os.path.exists(bvecfile):
+        logger.warn("Expected bvec file not found: {}. Skipping".format(bvecfile))
         return
 
     bvec = np.genfromtxt(bvecfile)
@@ -821,7 +821,7 @@ def dti_qc(fpath, qcpath, qchtml, cur):
     run('ln -s {bvecfile} {t}/dti.bvec'.format(bvecfile=bvecfile, t=tmpdir))
     run('ln -s {bvalfile} {t}/dti.bval'.format(bvalfile=bvalfile, t=tmpdir))
     run('qa_dti_v2.sh {t}/dti.nii.gz {t}/dti.bval {t}/dti.bvec {t}/qc_dti.csv'.format(t=tmpdir))
-    run('mv {t}/qc_dti.csv {qcpath}/qascripts_dti.csv'.format(t=tmpdir, qcpath=qcpath))
+    run('mv {t}/qc_dti.csv {qcpath}/{filestem}_qascript_dti.csv'.format(t=tmpdir, filestem=filestem, qcpath=qcpath))
 
     run('rm -r {}'.format(tmpdir))
 
