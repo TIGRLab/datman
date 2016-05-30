@@ -16,6 +16,7 @@ Options:
                        This script should accept the following arguments:
                             dwifile outputdir ref_vol fa_threshold
     --tag TAG          A string to filter inputs by [ex. site name]
+    --walltime TIME    A walltime to pass to qbatch [default: 0:30:00]
     --quiet            Be quiet
     --verbose          Be chatty
     --debug            Be extra chatty
@@ -42,6 +43,7 @@ def main():
     fa_thresh = arguments['--fa_thresh']
     script    = arguments['--script']
     TAG       = arguments['--tag']
+    walltime  = arguments['--walltime']
     quiet     = arguments['--quiet']
     debug     = arguments['--debug']
     verbose   = arguments['--verbose']
@@ -84,10 +86,11 @@ def main():
             if os.path.exists(dtifit_output):
                 log.debug("{} exists. Skipping.".format(dtifit_output))
             else:
-                cmd = "qsub -cwd -o {logdir} -j y -V -b y -N dtifit " \
-                    "{script} {dwi} {outputdir} {ref} {thresh} {phantom}".format(
-                        logdir = logdir,
+                cmd = "echo {script} {dwi} {outputdir} {ref} {thresh} {phantom} | " \
+                      "qbatch --walltime {walltime} --logdir {logdir} -N dtifit -".format(
                         script = script,
+                        logdir = logdir,
+                        walltime = walltime,
                         dwi = dwi,
                         outputdir= outputpath,
                         ref = ref_vol,
