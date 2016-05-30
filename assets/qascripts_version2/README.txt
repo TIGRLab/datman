@@ -1,0 +1,1 @@
+This is version 2 of the QAscripts release. It includes several bug fixes.It should give similar results to the version 1 release.Downloaded from:http://upenncmroi.wpengine.com/qascripts/on 160525.

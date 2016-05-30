@@ -41,6 +41,12 @@ def get_subject_from_filename(filename):
 
     return filename
 
+def script_path():
+    """
+    Returns the full path to the executing script.
+    """
+    return os.path.abspath(os.path.dirname(sys.argv[0]))
+
 def guess_tag(description, tagmap = SERIES_TAGS_MAP):
     """
     Given a series description return a list of series tags this might be.

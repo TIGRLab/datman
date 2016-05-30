@@ -61,19 +61,14 @@ logging.basicConfig(level=logging.WARN,
 logger = logging.getLogger(os.path.basename(__file__))
 
 DRYRUN = False
+FIGDPI = 144i
 
-FIGDPI = 144
+# adds qascripts to the environment
+ASSETS = '{}/assets'.format(os.path.dirname(dm.utils.script_path()))
+os.environ['PATH'] += os.pathsep + ASSETS + '/qascripts_version2'
 
 class Document:
     pass
-
-class PdfDocument(Document):
-    def __init__(self, pdf_object):
-        self.pdf = pdf_object
-
-    def add_figure(self, fig):
-        """Adds a matplotlib figure/plot to the document"""
-        fig.savefig(self.pdf, format='pdf')
 
 ###############################################################################
 # HELPERS
@@ -173,7 +168,7 @@ def qchtml_writetable(qchtml, exportinfo):
     ##end table
     qchtml.write('</table>\n')
 
-def nifty_basename(fpath):
+def nifti_basename(fpath):
     """
     return basename with out .nii.gz extension
     """
@@ -260,7 +255,7 @@ def add_pic_to_html(qchtml, pic):
 
 def fslslicer_pic(fpath,pic,slicergap,picwidth):
     """
-    Uses FSL's slicer function to generate a pretty montage png from a nifty file
+    Uses FSL's slicer function to generate a pretty montage png from a nifti file
     Then adds a link to that png in the qcthml
 
     Usage:
@@ -271,10 +266,6 @@ def fslslicer_pic(fpath,pic,slicergap,picwidth):
         picwidth    -- width (in pixels) of output image
         pic         -- fullpath to for output image
     """
-    # ### figure out a name for the output image from the input file name
-
-    # pic = os.path.join(qcpath,stem + '.png')
-    ## make the pic using FSL's slicer function
     run("slicer {} -S {} {} {}".format(fpath,slicergap,picwidth,pic))
 
 def load_masked_data(func, mask):
@@ -481,18 +472,13 @@ def montage(image, name, filename, pic, cmaptype='grey', mode='3d', minval=None,
         elif mode == '4d' and i >= image.shape[3]:
             ax.set_axis_off() # removes extra axes from plot
 
-    #plt.subplots_adjust(right=0.8)
-    #plt.subplots_adjust(left=0.1, right=0.8, top=0.9, bottom=0.1)
     plt.subplots_adjust(left=0, right=0.85, top=0.9, bottom=0)
 
     cbar_ax = fig.add_axes([0.88, 0.10, 0.05, 0.7])
     cb = fig.colorbar(im, cax=cbar_ax)
-    #fig.tight_layout()
-    #cb.set_label(name, labelpad=0, y=0.5)
     fig.suptitle(filename + '\n' + name, size=10)
 
     fig.savefig(pic, format='png', dpi=FIGDPI)
-    #doc.add_figure(fig)
     plt.close()
 
 def find_epi_spikes(image, filename, pic, ftype, cur=None, bvec=None):
@@ -597,7 +583,6 @@ def find_epi_spikes(image, filename, pic, ftype, cur=None, bvec=None):
 
 
     fig.savefig(pic, format='png', dpi=FIGDPI)
-    #doc.add_figure(fig)
     plt.close()
 
 def fmri_plots(func, mask, f, filename, pic, cur=None):
@@ -689,10 +674,7 @@ def fmri_plots(func, mask, f, filename, pic, cur=None):
         insert_value(cur, 'fmri', subj, 'corrmean', mean)
         insert_value(cur, 'fmri', subj, 'corrsd', std)
 
-    ##############################################################################
-    # add a final plot?
     plt.suptitle(filename)
-    #doc.add_figure(plt)
     plt.savefig(pic, format='png', dpi=FIGDPI)
     plt.close()
 
@@ -756,6 +738,11 @@ def fmri_qc(fpath, qcpath, qchtml, cur):
     find_epi_spikes(fpath, filename, Spikespic, 'fmri', cur=cur)
     add_pic_to_html(qchtml, Spikespic)
 
+    # run metrics from qascripts toolchain
+    run('ln -s {fpath} {t}/fmri.nii.gz'.format(fpath=fpath, t=tmpdir))
+    run('qa_bold_v2.sh {t}/fmri.nii.gz {t}/qc_fmri.csv'.format(t=tmpdir))
+    run('mv {t}/qc_fmri.csv {qcpath}/qascripts_fmri.csv'.format(t=tmpdir, qcpath=qcpath))
+
     run('rm -r {}'.format(tmpdir))
 
 def rest_qc(fpath, qcpath, qchtml, cur):
@@ -767,35 +754,31 @@ def rest_qc(fpath, qcpath, qchtml, cur):
     fmri_qc(fpath, qcpath, qchtml, cur)
 
 def pdt2_qc(fpath,qcpath, qchtml, cur):
-    ## split it up...
+    ## split PD and T2 image
     pdpath = fpath.replace('_PDT2_','_PD_')
     t2path = fpath.replace('_PDT2_','_T2_')
     pd_qc(pdpath,qcpath, qchtml, cur)
     t2_qc(t2path,qcpath, qchtml, cur)
 
 def t1_qc(fpath, qcpath, qchtml, cur):
-    pic=os.path.join(qcpath, nifty_basename(fpath) + '.png')
+    pic=os.path.join(qcpath, nifti_basename(fpath) + '.png')
     fslslicer_pic(fpath,pic,5,1600)
     add_pic_to_html(qchtml, pic)
-    #montage(fpath, 'T1-contrast', os.path.basename(fpath), doc, maxval=0.25)
 
 def pd_qc(fpath,qcpath, qchtml, cur):
-    pic=os.path.join(qcpath, nifty_basename(fpath) + '.png')
+    pic=os.path.join(qcpath, nifti_basename(fpath) + '.png')
     fslslicer_pic(fpath,pic,2,1600)
     add_pic_to_html(qchtml, pic)
-    #montage(fpath, 'PD-contrast', os.path.basename(fpath), doc, maxval=0.4)
 
 def t2_qc(fpath, qcpath, qchtml, cur):
-    pic=os.path.join(qcpath, nifty_basename(fpath) + '.png')
+    pic=os.path.join(qcpath, nifti_basename(fpath) + '.png')
     fslslicer_pic(fpath,pic,2,1600)
     add_pic_to_html(qchtml, pic)
-    #montage(fpath, 'T2-contrast', os.path.basename(fpath), doc, maxval=0.5)
 
 def flair_qc(fpath,qcpath, qchtml, cur):
-    pic=os.path.join(qcpath, nifty_basename(fpath) + '.png')
+    pic=os.path.join(qcpath, nifti_basename(fpath) + '.png')
     fslslicer_pic(fpath,pic,2,1600)
     add_pic_to_html(qchtml, pic)
-    #montage(fpath, 'FLAIR-contrast', os.path.basename(fpath), doc, maxval=0.3)
 
 def dti_qc(fpath, qcpath, qchtml, cur):
     """
@@ -805,18 +788,19 @@ def dti_qc(fpath, qcpath, qchtml, cur):
     seem to be the safer choice).
     """
     filename = os.path.basename(fpath)
-    filestem = nifty_basename(fpath)
+    filestem = nifti_basename(fpath)
     directory = os.path.dirname(fpath)
+    bvecfile = fpath[:-len(datman.utils.get_extension(fpath))] + ".bvec"
+    bvalfile = fpath[:-len(datman.utils.get_extension(fpath))] + ".bval"
 
     # load in bvec file
-    bvec = fpath[:-len(datman.utils.get_extension(fpath))] + ".bvec"
     logger.debug("fpath = {}, bvec = {}".format(fpath, bvec))
 
     if not os.path.exists(bvec):
         logger.warn("Expected bvec file not found: {}. Skipping".format(bvec))
         return
 
-    bvec = np.genfromtxt(bvec)
+    bvec = np.genfromtxt(bvecfile)
     bvec = np.sum(bvec, axis=0)
 
     B0pic = os.path.join(qcpath,filestem + '_B0.png')
@@ -831,6 +815,16 @@ def dti_qc(fpath, qcpath, qchtml, cur):
     find_epi_spikes(fpath, filename, spikespic, 'dti', cur=cur, bvec=bvec)
     add_pic_to_html(qchtml, spikespic)
 
+    # run metrics from qascripts toolchain
+    tmpdir = tempfile.mkdtemp(prefix='qc-')
+    run('ln -s {fpath} {t}/dti.nii.gz'.format(fpath=fpath, t=tmpdir))
+    run('ln -s {bvecfile} {t}/dti.bvec'.format(bvecfile=bvecfile, t=tmpdir))
+    run('ln -s {bvalfile} {t}/dti.bval'.format(bvalfile=bvalfile, t=tmpdir))
+    run('qa_dti_v2.sh {t}/dti.nii.gz {t}/dti.bval {t}/dti.bvec {t}/qc_dti.csv'.format(t=tmpdir))
+    run('mv {t}/qc_dti.csv {qcpath}/qascripts_dti.csv'.format(t=tmpdir, qcpath=qcpath))
+
+    run('rm -r {}'.format(tmpdir))
+
 def add_header_checks(fpath, qchtml, logdata):
     filestem = os.path.basename(fpath).replace(dm.utils.get_extension(fpath),'')
     lines = [re.sub('^.*?: *','',line) for line in logdata if filestem in line]
@@ -841,10 +835,6 @@ def add_header_checks(fpath, qchtml, logdata):
     for l in lines:
         qchtml.write('<tr><td>{}</td></tr>'.format(line))
     qchtml.write('</table>\n')
-    # fig = plt.figure()
-    # fig.suptitle(filestem + " header differences")
-    # fig.text(.1,.1, ''.join(lines), size='xx-small')
-    # doc.add_figure(fig)
 
 def add_bvec_checks(fpath, qchtml, logdata):
     filestem = os.path.basename(fpath).replace(dm.utils.get_extension(fpath),'')
@@ -858,10 +848,6 @@ def add_bvec_checks(fpath, qchtml, logdata):
     for l in lines:
         qchtml.write('<tr><td>{}</td></tr>'.format(line))
     qchtml.write('</table>\n')
-    # fig = plt.figure()
-    # fig.suptitle(filestem + " bvec/bval differences")
-    # fig.text(.1,.1, text, size='xx-small')
-    # doc.add_figure(fig)
 
 ###############################################################################
 # MAIN
@@ -911,20 +897,11 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
                 '</style></head>\n')
 
     qchtml.write('<h1> QC report for {} <h1/>'.format(subject))
-    # pdf = PdfPages(pdffile)
-    # doc = PdfDocument(pdf)
 
     # add in sites to the database
     insert_value(cur, 'fmri', subject, 'site', subject.split('_')[1])
     insert_value(cur, 'dti', subject, 'site', subject.split('_')[1])
     insert_value(cur, 't1', subject, 'site', subject.split('_')[1])
-
-    # # loop through files, running PDF and databasing as needed on particular file types.
-    # filetypes = ('*.nii.gz', '*.nii')
-    # found_files = []
-    # for filetype in filetypes:
-    #     found_files.extend(glob.glob(scanpath + '/' + filetype))
-    # found_files.sort()
 
     ## now read exportinfo from config_yml
     exportinfo = found_files_df(pconfig, scanpath, subject)
@@ -978,11 +955,6 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
             QC_HANDLERS[tag](fname, qcpath, qchtml, cur)
             qchtml.write('<br>')
 
-    # finally, close the pdf
-    # d = pdf.infodict()
-    # d['CreationDate'] = datetime.datetime.today()
-    # d['ModDate'] = datetime.datetime.today()
-    # pdf.close()
     qchtml.close()
 
 def main():
