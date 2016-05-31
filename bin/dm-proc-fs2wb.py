@@ -11,6 +11,8 @@ Arguments:
 
 Options:
   --prefix STR			   Tag for filtering subject directories
+  --walltime TIME          A walltime to pass to qbatch [default: 5:00:00]
+  --walltime-qc TIME       A walltime for the qc step [default: 2:00:00]
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
   -n,--dry-run             Dry run
@@ -44,6 +46,8 @@ arguments       = docopt(__doc__)
 inputpath       = arguments['<fssubjectsdir>']
 targetpath      = arguments['<hcpdir>']
 prefix          = arguments['--prefix']
+walltime        = arguments['--walltime']
+walltime_qc     = arguments['--walltime-qc']
 VERBOSE         = arguments['--verbose']
 DEBUG           = arguments['--debug']
 DRYRUN          = arguments['--dry-run']
@@ -51,10 +55,10 @@ DRYRUN          = arguments['--dry-run']
 if DEBUG: print arguments
 
 ### Erin's little function for running things in the shell
-def docmd(cmdlist):
+def docmd(cmd):
     "sends a command (inputed as a list) to the shell"
-    if DEBUG: print ' '.join(cmdlist)
-    if not DRYRUN: subprocess.call(cmdlist)
+    if DEBUG: print cmd
+    rtn, out, err = dm.utils.run(cmd, dryrun = DRYRUN)
 
 epiclone = '/archive/data-2.0/code/datman/assets/epitome/160404-ewd'
 
@@ -74,29 +78,10 @@ def makerunsh(filename):
     #open file for writing
     runsh = open(filename,'w')
     runsh.write('#!/bin/bash\n\n')
-
-    runsh.write('# SGE Options\n')
-    runsh.write('#$ -S /bin/bash\n')
-    runsh.write('#$ -q main.q\n')
-    runsh.write('#$ -l mem_free=2G,virtual_free=2G\n\n')
-
-    runsh.write('#source the module system\n')
-    runsh.write('source /etc/profile\n')
-    runsh.write('module load python/2.7.9-anaconda-2.1.0-150119\n')
-    runsh.write('module load python-extras/2.7.9\n')
-    runsh.write('module load freesurfer/5.3.0\n')
-    runsh.write('module load FSL/5.0.7\n')
-    runsh.write('module load AFNI/2014.12.16\n')
-    runsh.write('module load matlab/R2014a\n')
-    runsh.write('module load FIX/1.061\n')
-    runsh.write('module load R/3.1.1 R-extras/3.1.1\n')
-    runsh.write('module load connectome-workbench/1.1.1\n')
-    runsh.write('module load hcp-pipelines/3.7.0\n\n')
-
+    runsh.write('## this script was created by dm-proc-fs2wb.py\n\n')
+    runsh.write("# Loaded modules: " + datman.utils.get_loaded_modules() + "\n\n")
     runsh.write('export  PATH=${{PATH}}:{}/bin\n'.format(epiclone))
     runsh.write('export  PYTHONPATH=${{PYTHONPATH}}:{}\n\n'.format(epiclone))
-
-    runsh.write('## this script was created by dm-proc-fs2wb.py\n\n')
     runsh.write('export SUBJECTS_DIR=' + inputpath + '\n')
     runsh.write('export HCP_DATA=' + targetpath +'\n\n')
 
@@ -121,6 +106,7 @@ def makerunsh(filename):
             runsh.write('epi-hcp-qc MNIfsaverage32k\n')
 
     runsh.close()
+    os.chmod(filename, 0o755)
 
 ### check the template .sh file that gets submitted to the queue to make sure option haven't changed
 def checkrunsh(filename):
@@ -199,39 +185,47 @@ checklist = checklist.append(newsubs_df)
 ## now checkoutputs to see if any of them have been run
 #if yes update spreadsheet
 #if no submits that subject to the queue
-jobnames = []
+jobnameprefix="fs2wb_{}_".format(datetime.datetime.today().strftime("%Y%m%d-%H%M%S"))
+submitted = False
+
 for i in range(0,len(checklist)):
     subid = checklist['id'][i]
     freesurferdone = os.path.join(inputpath,subid,'scripts','recon-all.done')
     # checks that all the input files are there
     FSready = os.path.exists(freesurferdone)
+    FS32 = os.path.join(targetpath,subid,'MNINonLinear','fsaverage_LR32k',subid + '.aparc.32k_fs_LR.dlabel.nii')
     # if all input files are there - check if an output exists
-    if FSready:
-        FS32 = os.path.join(targetpath,subid,'MNINonLinear','fsaverage_LR32k',subid + '.aparc.32k_fs_LR.dlabel.nii')
-        # if no output exists than run civet
-        if os.path.exists(FS32)== False:
-            jobname = 'fs2wb_' + subid
-            os.chdir(bin_dir)
-            docmd(['qsub','-j','y','-o', logs_dir,'-e', logs_dir, \
-                     '-N', jobname,  \
-                     runconvertsh, subid])
-            jobnames.append(jobname)
-            checklist['date_converted'][i] = datetime.date.today()
+    if not FSready or os.path.exists(FS32):
+        continue 
+
+    jobname = jobnameprefix + subid
+    os.chdir(bin_dir)
+    docmd('echo ./{script} {subid} | '
+          'qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
+            script = runconvertsh, 
+            subid = subid,
+            jobname = jobname, 
+            logdir = log_dir,
+            wt = walltime))
+    checklist['date_converted'][i] = datetime.date.today()
+    submitted = True
 
 
 ## if any subjects have been submitted,
 ## submit a final job that will consolidate the resutls after they are finished
 
-if len(jobnames) > 30 : jobnames = jobnames[-30:]
 ## if any subjects have been submitted,
 ## submit a final job that will qc the resutls after they are finished
-if len(jobnames) > 0:
+if submitted:
+    os.chdir(run_dir)
     #if any subjects have been submitted - submit an extract consolidation job to run at the end
-    os.chdir(bin_dir)
-    docmd(['qsub','-j','y','-o', logs_dir, \
-        '-N', 'hcp_qc_gen',  \
-        '-hold_jid', ','.join(jobnames), \
-        runpostsh ])
+    docmd('echo ./{script} | '
+          'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
+            script = runpostsh, 
+            jobname = jobnameprefix + 'hcp_qc', 
+            logdir = log_dir,
+            hold = jobnameprefix + '*',
+            wt = walltime_qc))
 
 ## write the checklist out to a file
 checklist.to_csv(checklistfile, sep=',', columns = cols, index = False)
