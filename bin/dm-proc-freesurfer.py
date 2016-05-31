@@ -22,6 +22,8 @@ Options:
   --run-version STR        A version string that is appended to 'run_freesurfer_<tag>.sh' for mutliple versions
   --QC-transfer QCFILE     QC checklist file - if this option is given than only QCed participants will be processed.
   --prefix STR             A prefix string (used by the ENIGMA Extract) to filter to subject ids.
+  --walltime TIME          A walltime for the FS stage [default: 12:00:00]
+  --walltime-post TIME     A walltime for the final stage [default: 2:00:00]
   --use-test-datman        Use the version of datman in Erin's test environment. (default is '/archive/data-2.0/code/datman.module')
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
@@ -57,11 +59,7 @@ outputs show up in the same folder in the end). The run version string is append
 to the freesurfer_run.sh script name. Which allows for mutliple freesurfer_run.sh
 scripts to exists in the bin folder.
 
-
-
-Will load freesurfer in queue:
-module load freesurfer/5.3.0
-(also requires the datmat python enviroment)
+Requires freesurfer and datman in the environment
 
 Written by Erin W Dickie, Sep 30 2015
 Adapted from old dm-proc-freesurfer.py
@@ -96,6 +94,8 @@ FS_option       = arguments['--FS-option']
 prefix          = arguments['--prefix']
 NO_POST         = arguments['--no-postFS']
 POSTFS_ONLY     = arguments['--postFS-only']
+walltime        = arguments['--walltime']
+walltime_post   = arguments['--walltime-post']
 TESTDATMAN      = arguments['--use-test-datman']
 VERBOSE         = arguments['--verbose']
 DEBUG           = arguments['--debug']
@@ -120,10 +120,10 @@ runPostsh_name = 'postfreesurfer.sh'
 ## two silly little things to find for the run script
 
 ### Erin's little function for running things in the shell
-def docmd(cmdlist):
+def docmd(cmd):
     "sends a command (inputed as a list) to the shell"
-    if DEBUG: print ' '.join(cmdlist)
-    if not DRYRUN: subprocess.call(cmdlist)
+    if DEBUG: print cmd
+    rtn, out, err = dm.utils.run(cmd, dryrun = DRYRUN)
 
 # need to find the t1 weighted scan and update the checklist
 def find_T1images(archive_tag):
@@ -174,23 +174,6 @@ def makeFreesurferrunsh(filename):
     #open file for writing
     Freesurfersh = open(filename,'w')
     Freesurfersh.write('#!/bin/bash\n\n')
-
-    Freesurfersh.write('# SGE Options\n')
-    Freesurfersh.write('#$ -S /bin/bash\n')
-    Freesurfersh.write('#$ -q main.q\n')
-    Freesurfersh.write('#$ -j y \n')
-    Freesurfersh.write('#$ -o '+ log_dir + ' \n')
-    Freesurfersh.write('#$ -e '+ log_dir + ' \n')
-    Freesurfersh.write('#$ -l mem_free=6G,virtual_free=6G\n\n')
-
-    Freesurfersh.write('#source the module system\n')
-    Freesurfersh.write('source /etc/profile\n\n')
-
-    Freesurfersh.write('## this script was created by dm-proc-freesurfer.py\n\n')
-    ## can add section here that loads chosen CIVET enviroment
-    Freesurfersh.write('##load the Freesurfer enviroment\n')
-    Freesurfersh.write('module load freesurfer/5.3.0\n\n')
-
     Freesurfersh.write('export SUBJECTS_DIR=' + subjectsdir + '\n\n')
     ## write the freesurfer running bit
     if FS_STEP == 'FS':
@@ -225,6 +208,7 @@ def makeFreesurferrunsh(filename):
 
     #and...don't forget to close the file
     Freesurfersh.close()
+    os.chmod(filename, 0o755)
 
 ### check the template .sh file that gets submitted to the queue to make sure option haven't changed
 def checkrunsh(filename):
@@ -349,24 +333,13 @@ checklist = loadchecklist(checklistfile,subids_in_nii)
 # look for new subs using T1_tag and tag2
 find_T1images(T1_tag)
 
-# fetch a list of the jobs that are already in the queue
-###qstat -xml | tr '\n' ' ' | sed 's#<job_list[^>]*>#\n#g'   | sed 's#<[^>]*>##g' | grep FS_STO | awk -F " " '{print $3}'
-qstatcmd="qstat -xml | tr '\\n' ' '" + \
-    " | sed 's#<job_list[^>]*>#\\n#g'   | sed 's#<[^>]*>##g' | grep FS_" + \
-    prefix + " | awk -F \" \" '{print $3}'"
-qstatcall = subprocess.Popen(qstatcmd,shell=True,stdout=subprocess.PIPE)
-joblist, err = qstatcall.communicate()
-if DEBUG:
-    if len(joblist) > 0:
-        print("Already submitted jobs for this project are {}".format(joblist))
-    else:
-        print("No jobs for this project are already sitting in the queue")
-
 ## now checkoutputs to see if any of them have been run
 #if yes update spreadsheet
 #if no submits that subject to the queue
-#jobnames = []
 ## should be in the right run dir so that it submits without the full path
+
+jobnameprefix="FS_{}_".format(datetime.datetime.today().strftime("%Y%m%d-%H%M%S"))
+submitted = False
 
 os.chdir(run_dir)
 if not POSTFS_ONLY:
@@ -374,61 +347,62 @@ if not POSTFS_ONLY:
         subid = checklist['id'][i]
 
         # make sure that is TAG2 was called - only the tag2s are going to queue
-        if (TAG2 != None):
-            if (TAG2 not in subid):
-                continue
+        if TAG2 and TAG2 not in subid:
+            continue
 
         ## make sure that a T1 has been selected for this subject
         if pd.isnull(checklist['T1_nii'][i]):
             continue
 
-        ## make sure that this subject is not sitting in the queue
-        jobname = 'FS_' + subid
-        if jobname in joblist:
-            continue
+        jobname = jobnameprefix + subid
 
         ## check if this subject has already been completed - or started and halted
         FScomplete = os.path.join(subjectsdir,subid,'scripts','recon-all.done')
         FSrunningglob = glob.glob(os.path.join(subjectsdir,subid,'scripts','IsRunning*'))
         FSrunning = FSrunningglob[0] if len(FSrunningglob) > 0 else ''
         # if no output exists than run engima-dti
-        if os.path.isfile(FScomplete)== False:
-            if os.path.isfile(FSrunning):
-                checklist['notes'][i] = "FS halted at {}".format(os.path.basename(FSrunning))
-            else:
-                ## format contents of T1 column into recon-all command input
-                smap = checklist['T1_nii'][i]
-                if ';' in smap:
-                    base_smaps = smap.split(';')
-                else: base_smaps = [smap]
-                T1s = []
-                for basemap in base_smaps:
-                    T1s.append('-i')
-                    T1s.append(os.path.join(inputdir,subid,basemap))
+        if os.path.isfile(FScomplete):
+            continue
 
-                ## submit this subject to the queue
-                docmd(['qsub','-N', jobname,  \
-                         runFSsh_name, \
-                         subid, ' '.join(T1s)])
-                ## add today date to the checklist
-                checklist['date_ran'][i] = datetime.date.today()
+        if os.path.isfile(FSrunning):
+            checklist['notes'][i] = "FS halted at {}".format(os.path.basename(FSrunning))
+        else:
+            ## format contents of T1 column into recon-all command input
+            smap = checklist['T1_nii'][i]
+            if ';' in smap:
+                base_smaps = smap.split(';')
+            else: base_smaps = [smap]
+            T1s = []
+            for basemap in base_smaps:
+                T1s.append('-i')
+                T1s.append(os.path.join(inputdir,subid,basemap))
+
+            ## submit this subject to the queue
+            docmd('echo ./{script} {subid} {T1s} | '
+                  'qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
+                    script = runFSsh_name,
+                    subid = subid, 
+                    T1s = ' '.join(T1s),
+                    jobname = jobname, 
+                    logdir = log_dir,
+                    wt = walltime))
+
+            ## add today date to the checklist
+            checklist['date_ran'][i] = datetime.date.today()
+
+            submitted = True
 
 ## if any subjects have been submitted,
 ## submit a final job that will consolidate the resutls after they are finished
-if not NO_POST:
-    ## This will get all the jobids of using a prefix...
-    time.sleep(5) ## sleep 5 seconds to make sure that everything is in the queue
-    qstatcall = subprocess.Popen(qstatcmd,shell=True,stdout=subprocess.PIPE)
-    joblist, err = qstatcall.communicate()
-    post_jobname = 'postFS_'+ prefix
-    if ((len(joblist) > 0) & (post_jobname not in joblist)) :
-        joblist = joblist.replace('\n',',')
-        if joblist[-1] == ',': joblist = joblist[0:-1]
-        #if any subjects have been submitted - submit an extract consolidation job to run at the end
-        os.chdir(run_dir)
-        docmd(['qsub', '-N', post_jobname,  \
-            '-hold_jid', joblist, \
-            runPostsh_name])
+if not NO_POST and submitted:
+    os.chdir(run_dir)
+    docmd('echo ./{script} | '
+          'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
+            script = runPostsh_name,
+            jobname = jobnameprefix + 'post', 
+            logdir = log_dir,
+            hold = jobnameprefix + '*',
+            wt = walltime_post))
 
 ## write the checklist out to a file
 checklist.to_csv(checklistfile, sep=',', index = False)
