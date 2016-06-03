@@ -1,0 +1,25 @@
+// all coords given in MNI space, labels arbitrary and subject to change
+// use 3dUndump to produce coordinates in MNI Space
+// 
+// 3dUndump -master path/to/mni.nii.gz -xyz -srad 6 da-dmn.labels
+//
+// Below are coordinates taken from Yeo et al. 2011
+//     'The organization of the human cerebral corex estimated by
+//      intrinsic functional connectivity'
+//
+//      Table 5 (pg 1154): 'Locations of seed regions used for the analysis of 
+//                          parallel networks in association cortex'
+//
+
+-22 -8 54 1 // Dorsal-attention-A
+-34 -38 44 2 // Dorsal-attention-B
+-18 -69 51 3 // Dorsal-attention-C
+-51 -64 -2 4 // Dorsal-attention-D
+-8 -63 57 5 // Dorsal-attention-E
+-49 3 34 6 // Dorsal-attention-F
+-27 23 48 7 // Default-A
+-41 -60 29 8 // Default-B
+-64 -20 -9 9 // Default-C
+-7 49 18 10 // Default-D
+-25 -32 -18 11 // Default-E
+-7 -52 26 12 // Default-F
