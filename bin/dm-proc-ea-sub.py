@@ -74,28 +74,12 @@ def log_parser(log):
 
     # write out files from stringio blobs into numpy genfromtxt
     pic = np.genfromtxt(io.StringIO(''.join(pic)), delimiter='\t', 
-                             dtype=[('subject', '|S64'), 
-                                    ('trial', 'i32'),
-                                    ('eventtype', '|S64'),
-                                    ('code', '|S64'),
-                                    ('time', 'i32'),
-                                    ('ttime', 'i32'),
-                                    ('uncertainty1', 'i32'),
-                                    ('duration', 'i32'),
-                                    ('uncertainty2', 'i32'),
-                                    ('reqtime', 'i32'),
-                                    ('reqduration', 'i32'),
-                                    ('stimtype', '|S64'),
-                                    ('pairindex', 'i32')])
+        names=['subject', 'trial', 'eventtype', 'code', 'time', 'ttime', 'uncertainty1', 'duration', 'uncertainty2', 'reqtime', 'reqduration', 'stimtype', 'pairindex'],
+        dtype=['|S64'   , int    , '|S64'     , '|S64', int   , int    , int           , int       , int           , int      , int          , '|S64'    , int])
 
     vid = np.genfromtxt(io.StringIO(''.join(vid)), delimiter='\t',
-                             dtype=[('subject', '|S64'), 
-                                    ('trial', 'i32'),
-                                    ('eventtype', '|S64'),
-                                    ('code', '|S64'),
-                                    ('time', 'i32'),
-                                    ('ttime', 'i32'),
-                                    ('uncertainty1', 'i32')])
+        names=['subject', 'trial', 'eventtype', 'code', 'time', 'ttime', 'uncertainty1'],
+        dtype=['|S64'   , int    , '|S64'     , '|S64', int   , int    , int])
 
     # ensure our inputs contain a 'MRI_start' string.
     if pic[0][3] != 'MRI_start':
@@ -601,7 +585,7 @@ def main():
 
     # preprocess
     if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_preproc-complete.log'.format(sub=sub))):
-        logger.debug("Scan {} has already been preprocessed. Skipping", sub)
+        logger.debug("Scan {} has already been preprocessed. Skipping".format(sub))
     else:
         try: 
             tempdir = process_functional_data(sub, data_path, log_path, tmp_path, script)
@@ -627,7 +611,7 @@ def main():
             logs = filter(lambda x: '.log' in x and 'UCLAEmpAcc' in x, resources)
             logs.sort()
         except:
-            logger.error('No BEHAV data for {}.'.format(sub))
+            logger.exception('No BEHAV data for {}.'.format(sub))
             sys.exit(1)
 
         if len(logs) != 3:
@@ -645,7 +629,7 @@ def main():
                 corr_all.extend(corr)
                 push_all.extend(push)
         except Exception, e:
-            logger.error('Failed to parse logs for {}, log={}.'.format(sub, log))
+            logger.exception('Failed to parse logs for {}, log={}.'.format(sub, log))
             sys.exit(1)
 
         # write data to stimulus timing file for AFNI, and a QC csv
@@ -664,7 +648,7 @@ def main():
                 f2.write('{r:.2f},{p}\n'.format(r=corr_all[i], p=push_all[i]))
             f1.write('\n') # add newline at the end of each run (up to 3 runs.)
         except:
-            logger.error('Failed to open block_times & corr_push for {}'.format(sub))
+            logger.exception('Failed to open block_times & corr_push for {}'.format(sub))
             sys.exit(1)
         finally:
             f1.close()
@@ -676,6 +660,7 @@ def main():
             dm.utils.run('bash {func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub))
             dm.utils.run('touch {func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub))
         except:
+            logger.exception('Failed analyze {}'.format(sub))
             sys.exit(1)
 
 if __name__ == "__main__":
