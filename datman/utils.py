@@ -362,13 +362,13 @@ def run(cmd, dryrun=False, echo=False):
     """
     if dryrun:
         return 0, "", ""
-
-    stdout = echo and None or proc.PIPE
-    stderr = echo and None or proc.PIPE
-
-    p = proc.Popen(cmd, shell=True, stdout=stdout, stderr=stderr)
-    out, err = p.communicate()
-    return p.returncode, out, err
+    elif echo:
+        p = proc.call(cmd, shell=True)
+        return p, "", ""
+    else:
+        p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
+        out, err = p.communicate()
+        return p.returncode, out, err
 
 def get_files_with_tag(parentdir, tag, fuzzy = False):
     """

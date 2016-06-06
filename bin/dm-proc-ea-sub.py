@@ -1,31 +1,36 @@
 #!/usr/bin/env python
 """
-This analyzes empathic accuracy behavioural data.
-
-If a <subject> is not supplied, a job is submitted for each subject not yet
-processed. 
+This analyzes empathic accuracy behavioural data for a single subject. 
 
 Usage:
-    dm-proc-ea.py [options] <project> <script> <assets> [<subject>]
+    dm-proc-ea.py [options] <project> <script> <assets> <subject>
 
 Arguments: 
     <project>           Full path to the project directory containing data/.
     <script>            Full path to an epitome-style script.
     <assets>            Full path to an assets folder containing 
-                             EA-timing.csv, EA-vid-lengths.csv.
+                                              EA-timing.csv, EA-vid-lengths.csv.
     <subject>           Subject timepoint to process
 
 Options:
-    --walltime TIME    Walltime for each subject job [default: 4:00:00]
-    -v,--verbose       Verbose logging
-    --debug            Debug logging
-    --dry-run          Don't do anything.
+    -v,--verbose             Verbose logging
+    --debug                  Debug logging
 
 DETAILS
+
+    1) Preprocesses MRI data.
+    2) Produces an AFNI-compatible GLM file with the event timing. 
+    3) Runs the GLM analysis at the single-subject level.
 
     Each subject is run through this pipeline if the outputs do not already exist.
 
 DEPENDENCIES
+
+    + python
+    + matlab
+    + afni
+    + fsl
+    + epitome
 
     Requires dm-proc-freesurfer.py to be completed.
 
@@ -35,8 +40,8 @@ This message is printed with the -h, --help flags.
 from datman.docopt import docopt
 from random import choice
 from string import ascii_uppercase, digits
+import StringIO as io
 import copy
-import datetime
 import datman as dm
 import glob
 import logging
@@ -44,14 +49,12 @@ import nibabel as nib
 import numpy as np
 import os
 import scipy.interpolate as interpolate
-import StringIO as io
 import sys
 import tempfile
 
 logging.basicConfig(level=logging.WARN, 
     format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
-
 
 def log_parser(log):
     """
@@ -307,7 +310,7 @@ def process_behav_data(log, assets, func_path, sub, trial_type):
 
         corr = np.corrcoef(subj_rate, gold_rate)[1][0]
 
-        if np.isnan(corr):
+        if np.isnan(corr) == True:
             corr = 0  # this happens when we get no responses
 
         corr = r2z(corr) # z score correlations
@@ -413,7 +416,7 @@ def process_functional_data(sub, data_path, log_path, tmp_path, script):
         raise ValueError
 
     # check if output already exists
-    if os.path.isfile('{func_path}/{sub}/{sub}_preproc-complete'.format(func_path=func_path, sub=sub)):
+    if os.path.isfile('{func_path}/{sub}/{sub}_preproc-complete'.format(func_path=func_path, sub=sub)) == True:
         raise ValueError
 
     tmpfolder = dm.utils.define_folder(os.path.join(tmp_path, sub))
@@ -471,7 +474,7 @@ def export_data(sub, tmpfolder, func_path):
     dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.02.1D >> {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
     dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.03.1D >> {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
    
-    if not os.path.isfile('{out_path}/{sub}_motion.1D'.format(out_path=out_path, sub=sub)):
+    if os.path.isfile('{out_path}/{sub}_motion.1D'.format(out_path=out_path, sub=sub)) == False:
         logger.error('Failed to export {}_motion.1D'.format(sub))
         raise ValueError
 
@@ -546,10 +549,14 @@ def generate_analysis_script(sub, func_path):
 """.format(input_data=input_data, func_path=func_path, sub=sub))
     f.close()
 
-
 def main():
     """
-    Finds subjects that have not been processed and runs dm-proc-ea-sub.py on them. 
+    1) Runs functional data through a custom epitome script.
+    2) Extracts block onsets, durations, and parametric modulators from
+       behavioual log files collected at the scanner (and stored in RESOURCES).
+    3) Writes out AFNI-formatted timing files as well as a GLM script per
+       subject.
+    4) Executes this script, producing beta-weights for each subject.
     """
 
     arguments  = docopt(__doc__)
@@ -557,8 +564,6 @@ def main():
     script     = arguments['<script>']
     assets     = arguments['<assets>']
     sub        = arguments['<subject>']
-    walltime   = arguments['--walltime']
-    dryrun     = arguments['--dry-run']
     verbose    = arguments['--verbose']
     debug      = arguments['--debug']
 
@@ -568,134 +573,95 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
 
     data_path = dm.utils.define_folder(os.path.join(project, 'data'))
-    nii_path = dm.utils.define_folder(os.path.join(project, 'data', data_path, 'nii'))
+    nii_path = dm.utils.define_folder(os.path.join(data_path, 'nii'))
     func_path = dm.utils.define_folder(os.path.join(data_path, 'ea'))
+    tmp_path = tempfile.mkdtemp()
     _ = dm.utils.define_folder(os.path.join(project, 'logs'))
     log_path = dm.utils.define_folder(os.path.join(project, 'logs/ea'))
 
-    # process a single subject
-    if sub:
-        if dm.scanid.is_phantom(sub): 
-            logger.debug("Scan {} is a phantom. Skipping", sub)
-            sys.exit(0)
+    if dm.scanid.is_phantom(sub): 
+        logger.debug("Scan {} is a phantom. Skipping", sub)
+        sys.exit(0)
 
-        # preprocess
-        if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_preproc-complete.log'.format(sub=sub))):
-            logger.debug("Scan {} has already been preprocessed. Skipping".format(sub))
-        else:
-            try: 
-                tmp_path = tempfile.mkdtemp()
-                tempdir = process_functional_data(sub, data_path, log_path, tmp_path, script)
-                export_data(sub, tempdir, func_path)
-            except Exception, e:
-                logger.exception("Error during preprocessing. Exiting")
-                sys.exit(1)
-                
+    # preprocess
+    if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_preproc-complete.log'.format(sub=sub))):
+        logger.debug("Scan {} has already been preprocessed. Skipping".format(sub))
+    else:
+        try: 
+            tempdir = process_functional_data(sub, data_path, log_path, tmp_path, script)
+            export_data(sub, tempdir, func_path)
+        except Exception, e:
+            logger.exception("Error during preprocessing. Exiting")
+            sys.exit(1)
+            
 
-        # analyze
-        if os.path.isfile('{func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub)):
-            logger.debug("Scan {} has already been analyzed. Skipping", sub)
-        else:
-            # get all the log files for a subject
-            try:
-                resdirs = glob.glob(os.path.join(data_path, 'RESOURCES', sub + '_??'))
-                resources = []
-                for resdir in resdirs:
-                    resfiles = [os.path.join(dp, f) for 
-                                          dp, dn, fn in os.walk(resdir) for f in fn]
-                    resources.extend(resfiles)
+    # analyze
+    if os.path.isfile('{func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub)):
+        logger.debug("Scan {} has already been analyzed. Skipping", sub)
+    else:
+        # get all the log files for a subject
+        try:
+            resdirs = glob.glob(os.path.join(data_path, 'RESOURCES', sub + '_??'))
+            resources = []
+            for resdir in resdirs:
+                resfiles = [os.path.join(dp, f) for 
+                                      dp, dn, fn in os.walk(resdir) for f in fn]
+                resources.extend(resfiles)
 
-                logs = filter(lambda x: '.log' in x and 'UCLAEmpAcc' in x, resources)
-                logs.sort()
-            except:
-                logger.exception('No BEHAV data for {}.'.format(sub))
-                sys.exit(1)
+            logs = filter(lambda x: '.log' in x and 'UCLAEmpAcc' in x, resources)
+            logs.sort()
+        except:
+            logger.exception('No BEHAV data for {}.'.format(sub))
+            sys.exit(1)
 
-            if len(logs) != 3:
-                logger.error('Did not find exactly 3 logs for {}.'.format(sub))
-                sys.exit(1)
+        if len(logs) != 3:
+            logger.error('Did not find exactly 3 logs for {}.'.format(sub))
+            sys.exit(1)
 
-            # exract all of the data from the logs
-            on_all, dur_all, corr_all, push_all = [], [], [], []
+        # exract all of the data from the logs
+        on_all, dur_all, corr_all, push_all = [], [], [], []
 
-            try:
-                for log in logs:
-                    on, dur, corr, push = process_behav_data(log, assets, func_path, sub, 'vid')
-                    on_all.extend(on)
-                    dur_all.extend(dur)
-                    corr_all.extend(corr)
-                    push_all.extend(push)
-            except Exception, e:
-                logger.exception('Failed to parse logs for {}, log={}.'.format(sub, log))
-                sys.exit(1)
+        try:
+            for log in logs:
+                on, dur, corr, push = process_behav_data(log, assets, func_path, sub, 'vid')
+                on_all.extend(on)
+                dur_all.extend(dur)
+                corr_all.extend(corr)
+                push_all.extend(push)
+        except Exception, e:
+            logger.exception('Failed to parse logs for {}, log={}.'.format(sub, log))
+            sys.exit(1)
 
-            # write data to stimulus timing file for AFNI, and a QC csv
-            try:
-                # write each stimulus time:
-                #         [start_time]*[amplitude],[buttonpushes]:[block_length]
-                #         30*5,0.002:12
+        # write data to stimulus timing file for AFNI, and a QC csv
+        try:
+            # write each stimulus time:
+            #         [start_time]*[amplitude],[buttonpushes]:[block_length]
+            #         30*5,0.002:12
 
-                # OFFSET 4 TRs == 8 Seconds!
-                # on = on - 8.0
-                f1 = open('{func_path}/{sub}/{sub}_block-times_ea.1D'.format(func_path=func_path, sub=sub), 'wb') # stim timing file
-                f2 = open('{func_path}/{sub}/{sub}_corr_push.csv'.format(func_path=func_path, sub=sub), 'wb') # r values and num pushes / minute
-                f2.write('correlation,n-pushes-per-minute\n')
-                for i in range(len(on_all)):
-                    f1.write('{o:.2f}*{r:.2f},{p}:{d:.2f} '.format(o=on_all[i]-8.0, r=corr_all[i], p=push_all[i], d=dur_all[i]))
-                    f2.write('{r:.2f},{p}\n'.format(r=corr_all[i], p=push_all[i]))
-                f1.write('\n') # add newline at the end of each run (up to 3 runs.)
-            except:
-                logger.exception('Failed to open block_times & corr_push for {}'.format(sub))
-                sys.exit(1)
-            finally:
-                f1.close()
-                f2.close()
+            # OFFSET 4 TRs == 8 Seconds!
+            # on = on - 8.0
+            f1 = open('{func_path}/{sub}/{sub}_block-times_ea.1D'.format(func_path=func_path, sub=sub), 'wb') # stim timing file
+            f2 = open('{func_path}/{sub}/{sub}_corr_push.csv'.format(func_path=func_path, sub=sub), 'wb') # r values and num pushes / minute
+            f2.write('correlation,n-pushes-per-minute\n')
+            for i in range(len(on_all)):
+                f1.write('{o:.2f}*{r:.2f},{p}:{d:.2f} '.format(o=on_all[i]-8.0, r=corr_all[i], p=push_all[i], d=dur_all[i]))
+                f2.write('{r:.2f},{p}\n'.format(r=corr_all[i], p=push_all[i]))
+            f1.write('\n') # add newline at the end of each run (up to 3 runs.)
+        except:
+            logger.exception('Failed to open block_times & corr_push for {}'.format(sub))
+            sys.exit(1)
+        finally:
+            f1.close()
+            f2.close()
 
-            # analyze the data
-            try:
-                generate_analysis_script(sub, func_path)
-                dm.utils.run('bash {func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub))
-                dm.utils.run('touch {func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub))
-            except:
-                logger.exception('Failed analyze {}'.format(sub))
-                sys.exit(1)
-
-    # process all subjects
-    else: 
-        commands = []
-        for sub in dm.utils.get_subjects(nii_path):
-            if dm.scanid.is_phantom(sub): 
-                logger.debug("Scan {} is a phantom. Skipping", sub)
-                continue
-            if os.path.isfile('{func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub)):
-                continue
-            commands.append('dm-proc-ea.py {opts} {prj} {script} {assets} {sub}'.format(
-                opts = (verbose and ' -v' or '') + (debug and ' --debug' or ''),
-                prj = project,
-                script = script,
-                assets = assets,
-                sub = sub))
-
-        if commands: 
-            logger.debug("queueing up the following commands:\n"+'\n'.join(commands))
-            jobname = "dm_ea_{}_{}".format(
-                os.path.basename(os.path.realpath(project)),
-                datetime.datetime.today().strftime("%Y%m%d-%H%M%S"))
-           
-            fd, path = tempfile.mkstemp() 
-            os.write(fd, '\n'.join(commands))
-            os.close(fd)
-
-            rtn, out, err = dm.utils.run('qbatch --logdir {logdir} -N {name} --walltime {wt} {cmds}'.format(
-                logdir = log_path,
-                name = jobname,
-                wt = walltime, 
-                cmds = path), dryrun = dryrun)
-
-            if rtn != 0:
-                logger.error("Job submission failed. Output follows.")
-                logger.error("stdout: {}\nstderr: {}".format(out,err))
-                sys.exit(1)
+        # analyze the data
+        try:
+            generate_analysis_script(sub, func_path)
+            dm.utils.run('bash {func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub))
+            dm.utils.run('touch {func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub))
+        except:
+            logger.exception('Failed analyze {}'.format(sub))
+            sys.exit(1)
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,161 @@
+x,y,z,ROI,NETWORK
+6,64,3,vmPFC,default
+29,57,18,aPFC,fronto-parietal
+-29,57,10,aPFC,fronto-parietal
+0,51,32,mPFC,default
+-25,51,27,aPFC,default
+9,51,16,vmPFC,default
+-6,50,-1,vmPFC,default
+27,49,26,aPFC,cingulo-opercular
+42,48,-3,vent aPFC,fronto-parietal
+-43,47,2,vent aPFC,fronto-parietal
+-11,45,17,vmPFC,default
+39,42,16,vlPFC,fronto-parietal
+8,42,-5,vmPFC,default
+9,39,20,ACC,default
+46,39,-15,vlPFC,default
+40,36,29,dlPFC,fronto-parietal
+23,33,47,sup frontal,default
+34,32,7,vPFC,cingulo-opercular
+-2,30,27,ACC,cingulo-opercular
+-16,29,54,sup frontal,default
+-1,28,40,ACC,fronto-parietal
+46,28,31,dlPFC,fronto-parietal
+-52,28,17,vPFC,fronto-parietal
+-44,27,33,dlPFC,fronto-parietal
+51,23,8,vFC,cingulo-opercular
+38,21,-1,ant insula,cingulo-opercular
+9,20,34,dACC,cingulo-opercular
+-36,18,2,ant insula,cingulo-opercular
+40,17,40,dFC,fronto-parietal
+-6,17,34,basal ganglia,cingulo-opercular
+0,15,45,mFC,cingulo-opercular
+58,11,14,frontal,sensorimotor
+-46,10,14,vFC,cingulo-opercular
+44,8,34,dFC,fronto-parietal
+60,8,34,dFC,sensorimotor
+-42,7,36,dFC,fronto-parietal
+-55,7,23,vFC,sensorimotor
+-20,6,7,basal ganglia,cingulo-opercular
+14,6,7,basal ganglia,cingulo-opercular
+-48,6,1,vFC,cingulo-opercular
+10,5,51,pre-SMA,sensorimotor
+43,1,12,vFC,sensorimotor
+0,-1,52,SMA,sensorimotor
+37,-2,-3,mid insula,cingulo-opercular
+53,-3,32,frontal,sensorimotor
+58,-3,17,precentral gyrus,sensorimotor
+-12,-3,13,thalamus,cingulo-opercular
+-42,-3,11,mid insula,sensorimotor
+-44,-6,49,precentral gyrus,sensorimotor
+-26,-8,54,parietal,sensorimotor
+46,-8,24,precentral gyrus,sensorimotor
+-54,-9,23,precentral gyrus,sensorimotor
+44,-11,38,precentral gyrus,sensorimotor
+-47,-12,36,parietal,sensorimotor
+33,-12,16,mid insula,sensorimotor
+-36,-12,15,mid insula,sensorimotor
+-12,-12,6,thalamus,cingulo-opercular
+11,-12,6,thalamus,cingulo-opercular
+32,-12,2,mid insula,cingulo-opercular
+59,-13,8,temporal,sensorimotor
+-30,-14,1,mid insula,cingulo-opercular
+-38,-15,59,parietal,sensorimotor
+52,-15,-13,inf temporal,default
+-47,-18,50,parietal,sensorimotor
+46,-20,45,parietal,sensorimotor
+-55,-22,38,parietal,sensorimotor
+-54,-22,22,precentral gyrus,sensorimotor
+-54,-22,9,temporal,sensorimotor
+41,-23,55,parietal,sensorimotor
+42,-24,17,post insula,sensorimotor
+11,-24,2,basal ganglia,cingulo-opercular
+-59,-25,-15,inf temporal,default
+1,-26,31,post cingulate,default
+18,-27,62,parietal,sensorimotor
+-38,-27,60,parietal,sensorimotor
+-30,-28,9,post insula,cingulo-opercular
+-24,-30,64,parietal,sensorimotor
+51,-30,5,temporal,cingulo-opercular
+-41,-31,48,post parietal,sensorimotor
+-4,-31,-4,post cingulate,cingulo-opercular
+54,-31,-18,fusiform,cingulo-opercular
+-41,-37,16,temporal,sensorimotor
+-53,-37,13,temporal,sensorimotor
+28,-37,-15,fusiform,default
+-3,-38,45,precuneus,default
+34,-39,65,sup parietal,sensorimotor
+8,-40,50,precuneus,cingulo-opercular
+-41,-40,42,IPL,fronto-parietal
+58,-41,20,parietal,cingulo-opercular
+-8,-41,3,post cingulate,default
+-61,-41,-2,inf temporal,default
+-28,-42,-11,occipital,default
+-5,-43,25,post cingulate,default
+9,-43,25,precuneus,default
+43,-43,8,temporal,cingulo-opercular
+54,-44,43,IPL,fronto-parietal
+-55,-44,30,parietal,cingulo-opercular
+-28,-44,-25,lat cerebellum,cerebellum
+-35,-46,48,post parietal,fronto-parietal
+42,-46,21,sup temporal,cingulo-opercular
+-48,-47,49,IPL,fronto-parietal
+-41,-47,29,angular gyrus,cingulo-opercular
+-59,-47,11,temporal,cingulo-opercular
+-53,-50,39,IPL,fronto-parietal
+5,-50,33,precuneus,default
+-18,-50,1,occipital,occipital
+44,-52,47,IPL,fronto-parietal
+-5,-52,17,post cingulate,default
+-24,-54,-21,lat cerebellum,cerebellum
+-37,-54,-37,inf cerebellum,cerebellum
+10,-55,17,post cingulate,default
+-6,-56,29,precuneus,default
+-34,-57,-24,lat cerebellum,cerebellum
+-32,-58,46,IPS,fronto-parietal
+-11,-58,17,post cingulate,default
+32,-59,41,IPS,fronto-parietal
+51,-59,34,angular gyrus,default
+-34,-60,-5,occipital,occipital
+36,-60,-8,occipital,occipital
+-6,-60,-15,med cerebellum,cerebellum
+-25,-60,-34,inf cerebellum,cerebellum
+32,-61,-31,inf cerebellum,cerebellum
+46,-62,5,temporal,occipital
+-48,-63,35,angular gyrus,default
+-52,-63,15,TPJ,cingulo-opercular
+-44,-63,-7,occipital,occipital
+-16,-64,-21,med cerebellum,cerebellum
+21,-64,-22,lat cerebellum,cerebellum
+19,-66,-1,occipital,occipital
+1,-66,-24,med cerebellum,cerebellum
+-34,-67,-29,inf cerebellum,cerebellum
+11,-68,42,precuneus,default
+17,-68,20,occipital,occipital
+-36,-69,40,IPS,default
+39,-71,13,occipital,occipital
+-9,-72,41,occipital,default
+45,-72,29,occipital,default
+-11,-72,-14,med cerebellum,cerebellum
+29,-73,29,occipital,occipital
+33,-73,-30,inf cerebellum,cerebellum
+-2,-75,32,occipital,default
+-29,-75,28,occipital,occipital
+5,-75,-11,med cerebellum,cerebellum
+14,-75,-21,med cerebellum,cerebellum
+-16,-76,33,occipital,occipital
+-42,-76,26,occipital,default
+9,-76,14,occipital,occipital
+15,-77,32,occipital,occipital
+20,-78,-2,occipital,occipital
+-21,-79,-33,inf cerebellum,cerebellum
+-6,-79,-33,inf cerebellum,cerebellum
+-5,-80,9,post occipital,occipital
+29,-81,14,post occipital,occipital
+33,-81,-2,post occipital,occipital
+18,-81,-33,inf cerebellum,cerebellum
+-37,-83,-2,post occipital,occipital
+-29,-88,8,post occipital,occipital
+13,-91,2,post occipital,occipital
+27,-91,2,post occipital,occipital
+-4,-94,12,post occipital,occipital

@@ -22,7 +22,7 @@ Options:
   --run-version STR        A version string that is appended to 'run_freesurfer_<tag>.sh' for mutliple versions
   --QC-transfer QCFILE     QC checklist file - if this option is given than only QCed participants will be processed.
   --prefix STR             A prefix string (used by the ENIGMA Extract) to filter to subject ids.
-  --walltime TIME          A walltime for the FS stage [default: 12:00:00]
+  --walltime TIME          A walltime for the FS stage [default: 24:00:00]
   --walltime-post TIME     A walltime for the final stage [default: 2:00:00]
   --use-test-datman        Use the version of datman in Erin's test environment. (default is '/archive/data-2.0/code/datman.module')
   -v,--verbose             Verbose logging
@@ -60,7 +60,9 @@ to the freesurfer_run.sh script name. Which allows for mutliple freesurfer_run.s
 scripts to exists in the bin folder.
 
 Requires freesurfer and datman in the environment
-The nifty conversion (sink) processing steps requires AFNI and datman in the environment
+
+The nifty conversion (sink) processing steps requires
+AFNI and datman in the environment
 
 Written by Erin W Dickie, Sep 30 2015
 Adapted from old dm-proc-freesurfer.py

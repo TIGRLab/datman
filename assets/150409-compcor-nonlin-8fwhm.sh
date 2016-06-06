@@ -13,32 +13,34 @@
 # volsmooth (blur2FWHM)
 # nonlinreg_to_MNI
 
-module load matlab/R2013b_concurrent
-module load FSL/5.0.7
-module load FIX/1.061
-module load R/3.1.1
-module load R-extras/3.1.1
-module load AFNI/2014.12.16
-module load freesurfer/5.3.0
-module load python/2.7.9-anaconda-2.1.0-150119
-module load python-extras/2.7.8
+# module load matlab/R2013b_concurrent
+# module load FSL/5.0.7
+# module load FIX/1.061
+# module load R/3.1.1
+# module load R-extras/3.1.1
+# module load AFNI/2014.12.16
+# module load freesurfer/5.3.0
+# module load python/2.7.9-anaconda-2.1.0-150119
+# module load python-extras/2.7.8
+
+set -e 
 
 export DIR_DATA=${1}
 export DELTR=${2}
 
-export DIR_PIPE='/archive/data-2.0/code/datman/assets/epitome/150331-spins'
+export DIR_PIPE="${DATMAN_ASSETSDIR}/epitome/150331-spins"
 
 # adds epitome and ninet to path
-export PATH=${DIR_PIPE}'/bin':$PATH
-export PATH=/archive/data-2.0/code/datman/assets/ninet/bin:$PATH
-export PYTHONPATH=/archive/data-2.0/code/datman/assets/ninet:$PYTHONPATH
+export PATH=${DIR_PIPE}/bin:$PATH
+export PATH=${DATMAN_ASSETSDIR}/ninet/bin:$PATH
+export PYTHONPATH=${DATMAN_ASSETSDIR}/ninet:$PYTHONPATH
 
-export DIR_AFNI=/opt/quarantine/AFNI/2014.12.16/build
+export DIR_AFNI=$(dirname $(which 3daxialize))
 export DIR_EXPT=TEMP
 export DATA_TYPE=FUNC
 export ID=DATMAN
 export SUB=SUBJ
-McRetroTS=${SCRIPTDIR}'/epitome/150331-spins/bin/run_McRetroTS.sh /opt/quarantine/matlab/matlab_concurrent_all/MATLAB_R2013b'
+#McRetroTS=${SCRIPTDIR}'/epitome/150331-spins/bin/run_McRetroTS.sh /opt/quarantine/matlab/matlab_concurrent_all/MATLAB_R2013b'
 
 ##############################################################################
 export DATA_QUALITY=high
@@ -46,6 +48,8 @@ export DESPIKE=on
 export TPATTERN=alt+z
 export NORMALIZE=scale
 export MASKING=loose
+
+set -u 
 
 echo '************************************************************************'
 echo '                  General pre-processing for all fMRI data'
@@ -367,9 +371,9 @@ for SESS in ${DIR_SESS}; do
 
         fi
     done
-    rm ${SESS}/anat_EPI_tmp*.nii.gz >& /dev/null
-    rm ${SESS}/func_tmp*.nii.gz >& /dev/null
-    rm ${SESS}/PARAMS/tmp*.1D >& /dev/null
+    rm -f ${SESS}/anat_EPI_tmp*.nii.gz >& /dev/null
+    rm -f ${SESS}/func_tmp*.nii.gz >& /dev/null
+    rm -f ${SESS}/PARAMS/tmp*.1D >& /dev/null
 done
 
 export DATA_QUALITY=high
@@ -483,10 +487,10 @@ for SESS in `basename ${DIR_SESS}`; do
     fi
 
     # Clean up leftovers in /tmp
-    rm anat_*
-    rm __tt*
-    rm template*
-    rm pre.*
+    rm -f anat_*
+    rm -f __tt*
+    rm -f template*
+    rm -f pre.*
 done
 
 
@@ -530,10 +534,10 @@ for SESS in `basename ${DIR_SESS}`; do
     fi
 
     # Clean up leftovers in /tmp
-    rm anat_*
-    rm __tt*
-    rm template*
-    rm pre.*
+    rm -f anat_*
+    rm -f __tt*
+    rm -f template*
+    rm -f pre.*
 done
 
 
@@ -963,7 +967,7 @@ for SESS in ${DIR_SESS}; do
         fi
 
     done
-    rm ${SESS}/func_tmp_*
+    rm -f ${SESS}/func_tmp_*
 done
 
 export INPUT=func_filtered

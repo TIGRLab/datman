@@ -216,7 +216,6 @@ export PATH=$PATH:${PROJECTDIR}/bin
     git add metadata/checklist.csv
     git add metadata/checklist.yaml
     git diff --quiet HEAD || git commit -m "Autoupdating QC documents"
-    git push --quiet
   )
      ''')
 
@@ -229,7 +228,6 @@ export PATH=$PATH:${PROJECTDIR}/bin
     cd ${PROJECTDIR}/website
     git add .
     git commit -m "Updating QC plots"
-    git push --quiet
   )
         ''')
 

@@ -1,0 +1,80 @@
+#!/usr/bin/env python
+
+import sys
+import numpy as np
+import scipy as sp
+import nibabel as nib
+
+def seed_stats(stat, seed, mask):
+    """
+    seed-stats
+    ---------
+
+    Produces a .csv of the average statistics series within the seed with
+    every voxel in the supplied mask. This function assumes all supplied
+    images are the same size.
+
+    Usage:
+
+        seed-stats functional.nii.gz seed-mask.nii.gz brian-mask.nii.gz
+
+    """
+
+    # determine the filenames
+    if stat[-7:] == '.nii.gz':
+        statname = stat[:-7]
+    elif stat[-4:] == '.nii' or stat[-4:] == '.mnc':
+        statname = stat[:-4]
+
+    if seed[-7:] == '.nii.gz':
+        seedname = seed[:-7]
+    elif seed[-4:] == '.nii' or seed[-4:] == '.mnc':
+        seedname = seed[:-4]
+
+    filename = 'corr_' + seedname + '_' + statname + '.csv'
+
+    # import template, store the output paramaters
+    seed = nib.load(seed)
+    outA = seed.get_affine()
+    outH = seed.get_header()
+
+    # import data
+    seed = seed.get_data()
+    stat = nib.load(stat).get_data()
+    mask = nib.load(mask).get_data()
+
+    # move to 2D
+    dims = stat.shape
+    stat = stat.reshape((dims[0]*dims[1]*dims[2], 1))
+    seed = seed.reshape((dims[0]*dims[1]*dims[2], 1))
+    mask = mask.reshape((dims[0]*dims[1]*dims[2], 1))
+
+    # init output vector
+    out = np.array([])
+
+    # get mean seed statistic from each, append to output
+    for s in np.unique(seed)[1:]:    
+        idx_seed = np.where(seed >= s)[0]
+        idx_mask = np.where(mask >= 1)[0]
+        idx = np.intersect1d(idx_seed, idx_mask)
+        seed_stat = stat[idx, :]
+        seed_stat = np.mean(seed_stat, axis=0)
+        out = np.concatenate((out[...,:], seed_stat))
+
+    # write out csv
+    np.savetxt(filename, out, delimiter=",")
+
+    print('*** Completed ' + filename + '***')
+
+
+if __name__ == '__main__':
+    
+    # check if the user needs help
+    if len(sys.argv) == 4:
+        seed_stats(sys.argv[1], sys.argv[2], sys.argv[3])
+
+    elif sys.argv[1] == '-h' or sys.argv[1] == '--help':
+        print seed_stats.__doc__
+
+    else:
+        print('seed-stats -h or --help for help.')
