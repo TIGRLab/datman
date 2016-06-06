@@ -60,6 +60,7 @@ to the freesurfer_run.sh script name. Which allows for mutliple freesurfer_run.s
 scripts to exists in the bin folder.
 
 Requires freesurfer and datman in the environment
+The nifty conversion (sink) processing steps requires AFNI and datman in the environment
 
 Written by Erin W Dickie, Sep 30 2015
 Adapted from old dm-proc-freesurfer.py
@@ -190,15 +191,9 @@ def makeFreesurferrunsh(filename):
 
     ## write the post freesurfer bit
     if FS_STEP == 'Post':
-        # The dm-freesurfer-sink.py bit requires datman
-        if TESTDATMAN:
-            Freesurfersh.write('module load /projects/edickie/privatemodules/datman/edickie\n\n')
-        else:
-            Freesurfersh.write('module load /archive/data-2.0/code/datman.module\n\n')
 
         ## to the sinking - unless told not to
         if not NO_SINK:
-            Freesurfersh.write('module load AFNI/2014.12.16\n')
             Freesurfersh.write('T1SINK=' + T1sinkdir + ' \n\n')
             Freesurfersh.write('dm-freesurfer-sink.py ${SUBJECTS_DIR} ${T1SINK}\n\n')
 
@@ -381,9 +376,9 @@ if not POSTFS_ONLY:
             docmd('echo ./{script} {subid} {T1s} | '
                   'qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
                     script = runFSsh_name,
-                    subid = subid, 
+                    subid = subid,
                     T1s = ' '.join(T1s),
-                    jobname = jobname, 
+                    jobname = jobname,
                     logdir = log_dir,
                     wt = walltime))
 
@@ -399,7 +394,7 @@ if not NO_POST and submitted:
     docmd('echo ./{script} | '
           'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
             script = runPostsh_name,
-            jobname = jobnameprefix + 'post', 
+            jobname = jobnameprefix + 'post',
             logdir = log_dir,
             hold = jobnameprefix + '*',
             wt = walltime_post))
