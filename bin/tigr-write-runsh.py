@@ -228,7 +228,8 @@ export PATH=$PATH:${PROJECTDIR}/bin
     cd ${PROJECTDIR}/website
     git add .
     git commit -m "Updating QC plots"
-  )
+    git push --quiet
+  ) > /dev/null
         ''')
 
     ### tee out a log
