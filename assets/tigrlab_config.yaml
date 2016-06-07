@@ -1,9 +1,14 @@
 ### configuration of all run.sh scripts in TIGR lab server
 ---
 PipelineSettings:
-  - 'dm-sftp-sync.sh' :
+  - 'sshpass' :
       message: Get new scans
       arguments:
+        - '-f ${PROJECTDIR}/metadata/mrftppass.txt'
+        - 'sftp'
+        - '-qra'
+        - '${MRUSER}@mrftp.camhpet.ca:${MRUSER}*MR/*'
+        - '${PROJECTDIR}/data/zips/'
         - '${MRUSER}@mrftp.camhpet.ca'
         - '"${MRFOLDER}"'
         - '${PROJECTDIR}/data/zips'
@@ -31,7 +36,7 @@ PipelineSettings:
         - '--datadir ${PROJECTDIR}/data'
         - '--exportinfo ${PROJECTDIR}/metadata/exportinfo.csv'
         - '${XNAT_ARCHIVE_<site>}/*'
-      modules: slicer/4.4.0 mricron/0.20140804 minc-toolkit/1.0.01
+      modules: [slicer, mricron, minc-toolkit]
 
   - 'dm-check-headers.py' :
       message: Checking DICOM headers
@@ -61,15 +66,15 @@ PipelineSettings:
       runif: '"PDT2" in ScanTypes'
       runInsideSubShell : Yes
       arguments: ['${PROJECTDIR}/data/nii/*/*_PDT2_*.nii.gz']
-      modules: FSL/5.0.7
+      modules: [FSL]
 
-  - 'qc.py' :
+  - 'qc-html.py' :
       message: Generating QC documents
       arguments:
         - '--datadir ${PROJECTDIR}/data/'
         - '--qcdir ${PROJECTDIR}/qc'
-        - '--dbdir ${PROJECTDIR}/qc'
-      modules: AFNI/2014.12.16 FSL/5.0.7 matlab/R2013b_concurrent
+        - '--project-settings ${PROJECTDIR}/metadata/project_settings.yml'
+      modules: [AFNI, FSL, matlab]
 
   - 'qc-report.py' :
       arguments: ['${PROJECTDIR}']
@@ -77,18 +82,14 @@ PipelineSettings:
   - 'qc-phantom.py' :
       message: Updating phantom plots
       runif: 'len(SiteNames) > 1'
-      modules: AFNI/2014.12.16 FSL/5.0.7 matlab/R2013b_concurrent
+      modules: AFNI FSL matlab
       arguments:
         - ${PROJECTDIR}
-        - '40'
-        - '/archive/data-2.0/code/datman/assets/'
+        - '53'
         - '${SITES}'
         - '--adni'
         - '--fmri'
-
-  - 'web-build.py':
-      runif: 'len(SiteNames) > 1'
-      arguments: ['${PROJECTDIR}']
+        - '--dti'
 
   - 'dm-proc-dtifit.py' :
       message: 'Running dtifit'
@@ -96,7 +97,7 @@ PipelineSettings:
       arguments:
         - '--inputdir ${PROJECTDIR}/data/nii'
         - '--outputdir ${PROJECTDIR}/data/dtifit'
-      modules: FSL/5.0.7
+      modules: FSL
 
   - 'dtifit-qc.py' :
       message: 'Running ditfit qc'
@@ -104,7 +105,7 @@ PipelineSettings:
       arguments:
         - '--tag DTI60'
         - '${PROJECTDIR}/data/dtifit/'
-      modules: FSL/5.0.7
+      modules: FSL
 
   - 'dm-proc-enigmadti.py' :
       message: 'Running enignmaDTI'
@@ -115,7 +116,7 @@ PipelineSettings:
         - '--QC-transfer ${PROJECTDIR}/metadata/checklist.csv'
         - '${PROJECTDIR}/data/dtifit'
         - '${PROJECTDIR}/data/enigmaDTI'
-      modules: FSL/5.0.7
+      modules: [FSL, R, ENIGMA-DTI]
 
   - 'dm-proc-freesurfer.py' :
       message: 'Running freesurfer'
@@ -124,42 +125,50 @@ PipelineSettings:
        - '--QC-transfer ${PROJECTDIR}/metadata/checklist.csv '
        - '${PROJECTDIR}/data/nii/'
        - '${PROJECTDIR}/data/freesurfer/'
-      modules: freesurfer/5.3.0
+      modules: freesurfer
       enviroment: 'export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer'
+
+  - 'dm-proc-fs2wb.py' :
+      message: "Converting freesurfer to HCP..."
+      runif: "'T1' in ScanTypes"
+      arguments:
+        - '${PROJECTDIR}/data/freesurfer/'
+        - '${PROJECTDIR}/data/hcp/'
+      modules:
+        - freesurfer
+        - FSL
+        - connectome-workbench
+        - hcp-pipelines
 
   - 'dm-proc-ea.py' :
       message: 'Analyzing empathic accuracy data'
       runif: "'EMP' in ScanTypes"
       arguments:
         - '${PROJECTDIR}'
-        - '/scratch/clevis'
-        - '/archive/data-2.0/code/datman/assets/150409-compcor-nonlin-8fwhm.sh'
+        - '${DATMAN_ASSETSDIR}/150409-compcor-nonlin-8fwhm.sh'
         - '${PROJECTDIR}/metadata/design'
-      modules: freesurfer/5.3.0 AFNI/2014.12.16 FSL/5.0.7 matlab/R2013b_concurrent
+      modules: [freesurfer, AFNI, FSL, matlab]
       enviroment: 'export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer'
 
   - 'dm-proc-imob.py' :
       message: 'Analyzing imitate observe data'
       runif: "('IMI' in ScanTypes) & ('OBS' in ScanTypes)"
       arguments:
-       - '${PROJECTDIR}'
-       - '/scratch/clevis'
-       - '/archive/data-2.0/code/datman/assets/150409-compcor-nonlin-8fwhm.sh'
-       - '${PROJECTDIR}/metadata/design'
-      modules: freesurfer/5.3.0 AFNI/2014.12.16 FSL/5.0.7 matlab/R2013b_concurrent
+        - '${PROJECTDIR}'
+        - '${DATMAN_ASSETSDIR}/150409-compcor-nonlin-8fwhm.sh'
+        - '${PROJECTDIR}/metadata/design'
+      modules: [freesurfer, AFNI, FSL, matlab]
       enviroment: 'export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer'
 
   - 'dm-proc-rest.py' :
       message: 'Analyzing resting state data'
       runif: "'RST' in ScanTypes"
       arguments:
-        - '${PROJECTDIR}'
-        - '/scratch/clevis'
-        - '/archive/data-2.0/code/datman/assets/151012-tedmethod-compcor-lowpass-nonlin-10fwhm.sh'
-        - '/archive/data-2.0/code/datman/assets/shen_1mm_268_parcellation.nii.gz'
-        - 'RST'
-        - 'SPRL'
-      modules: freesurfer/5.3.0 AFNI/2014.12.16 FSL/5.0.7 matlab/R2013b_concurrent
+        - '--tags=RST,SPRL'
+        - '--${PROJECTDIR}'
+        - '${DATMAN_ASSETSDIR}/151012-tedmethod-compcor-lowpass-nonlin-10fwhm.sh'
+        - '${DATMAN_ASSETSDIR}/shen_1mm_268_parcellation.nii.gz'
+      modules: [freesurfer, AFNI, FSL, matlab]
       enviroment: 'export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer'
 
 ExportSettings:
@@ -188,14 +197,52 @@ ExportSettings:
   MRS-sgACC:  {'nii', 'dcm'}
 
 Projects:
-  ANDT:     '/archive/data-2.0/ANDT'
-  ASDD:     '/archive/data-2.0/ASDD'
-  COGBDO:   '/archive/data-2.0/COGBDO'
-  COGBDY:   '/archive/data-2.0/COGBDY'
-  DTI_CMH:  '/archive/data-2.0/DTI/CMH'
-  PACTMD:   '/archive/data-2.0/PACTMD'
-  PRELAPSE: '/archive/data-2.0/PRELAPSE'
-  RTMSWM:   '/archive/data-2.0/RTMSWM'
-  STOPPD:   '/archive/data-2.0/STOPPD'
-  SPINS:    '/archive/data-2.0/SPINS'
-  VIPR:     '/archive/data-2.0/VIPR'
+  ANDT:     '<DATMAN_PROJECTSDIR>/ANDT'
+  ASDD:     '<DATMAN_PROJECTSDIR>/ASDD'
+  COGBDO:   '<DATMAN_PROJECTSDIR>/COGBDO'
+  COGBDY:   '<DATMAN_PROJECTSDIR>/COGBDY'
+  DCDB:     '<DATMAN_PROJECTSDIR>/DCDB'
+  DTI_CMH:  '<DATMAN_PROJECTSDIR>/DTI/CMH'
+  PACTMD:   '<DATMAN_PROJECTSDIR>/PACTMD'
+  PRELAPSE: '<DATMAN_PROJECTSDIR>/PRELAPSE'
+  RTMSWM:   '<DATMAN_PROJECTSDIR>/RTMSWM'
+  STOPPD:   '<DATMAN_PROJECTSDIR>/STOPPD'
+  SPINS:    '<DATMAN_PROJECTSDIR>/SPINS'
+  VIPR:     '<DATMAN_PROJECTSDIR>/VIPR'
+
+SystemSettings:
+  kimel:
+    hostname: 'camhres.ca'
+    DATMAN_PROJECTSDIR: '/archive/data-2.0'
+    DATMAN_ASSETSDIR: '/archive/data-2.0/code/datman/assets'
+    XNAT_ARCHIVEDIR: '/mnt/xnat/spred/archive'
+    Software:
+      AFNI:       {module: AFNI/2014.12.16, env_sh: None}
+      freesurfer: {module: freesurfer/5.3.0, bash_cmd: None}
+      FSL:        {module: FSL/5.0.7, bash_cmd: None}
+      matlab:     {module: matlab/R2013b_concurrent, bash_cmd: None}
+      slicer:     {module: slicer/4.4.0, bash_cmd: None}
+      minc-toolkit: {module: minc-toolkit/1.0.01, bash_cmd: None}
+      mricron:      {module: mricron/0.20140804, bash_cmd: None}
+      R:            {module: 'R/3.2.4 R-extras/3.2.4', bash_cmd: None}
+      ENIGMA-DTI:   {module: ENIGMA-DTI/2015.01, bash_cmd: None}
+      connectome-workbench: {module: connectome-workbench/1.1.1, bash_cmd: None}
+      hcp-pipelines: {module: hcp-pipelines/3.7.0, bash_cmd: None}
+  scc:
+    hostname: 'scc.camh.net'
+    DATMAN_ASSETSDIR: '/imaging/scratch/kimel/jpipitone/datman-test/datman/assets'
+    DATMAN_PROJECTSDIR: '/imaging/scratch/kimel/jpipitone/datman-test'
+    XNAT_ARCHIVEDIR: '/external/rprshnas01/tigrlab/xnat/spred/archive'
+    Software:
+      AFNI:       {module: AFNI/2016.05.03 , env_sh: None}
+      freesurfer: {module: freesurfer/5.3.0, bash_cmd: None}
+      FSL:        {module: FSL/5.0.9, bash_cmd: None}
+      matlab:     {module: MATLAB/R2014b, bash_cmd: None}
+      slicer:     {module: slicer/4.5.0, bash_cmd: None}
+      minc-toolkit: {module: minc-toolkit/1.0.07, bash_cmd: None}
+      mricron:      {module: mricron/30APR2016, bash_cmd: None}
+      R:            {module: R/3.2.5, bash_cmd: None}
+      ENIGMA-DTI:   {module: ENIGMA-DTI/2015.01, bash_cmd: None}
+      connectome-workbench: {module: connectome-workbench/1.1.1 ,bash_cmd: None}
+      hcp-pipelines: {module: hcp-pipelines/3.15.1, bash_cmd: None}
+      FIX:           {module: FIX/1.061, bash_cmd: None}
