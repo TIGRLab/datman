@@ -4,13 +4,16 @@ Reads from yml config file and export info to determine what to put in run.sh fo
 Then writes run.sh file.
 
 Usage:
-    tigr-write-runsh.py [options] <config.yml>
+    tigr-write-runsh [options] <config.yml>
 
 Arguments:
     <config.yml>             Configuration file in yml format
 
 Options:
     --outputpath <path>      Full path to top of output tree
+    --project NAME           Specify the name of the project to write run script for (default will write all)
+    --local-system STR       Specify the system current system to read project metadata from
+    --dest-system STR        Specitfy the system where you want to run your analysis
     --quiet                  Don't print warnings
     --verbose                Print warnings
     --help                   Print help
@@ -20,6 +23,15 @@ DETAILS
 
 Reads from yml config file and export info to determine what to put in run.sh for this project.
 Then writes run.sh file.
+
+The systems given in the --local-system and --dest-system flags should match the
+keys of the SystemSetting Dictionary within the config_yml.
+    Example: to write run scripts on the tigrlab cluster
+                that are too be run on the scc
+    tigr-write-runsh
+        --local-system kimel \
+        --dest-system scc \
+        ${DATMAN_ASSETSDIR}/tigrlab_config.yaml
 
 """
 from docopt import docopt
@@ -36,9 +48,33 @@ import difflib
 
 arguments       = docopt(__doc__)
 config_yml      = arguments['<config.yml>']
+project         = arguments['--project']
+dest_system     = arguments['--dest-system']
+local_system    = arguments['--local-system']
 outputpath      = arguments['--outputpath']
 VERBOSE         = arguments['--verbose']
 QUIET           = arguments['--quiet']
+
+def write_software_loading(software_packages,runsh, SystemSettingsDest):
+    '''
+    parses the SystemSettingsDest dictionary to figure out what bash line
+    to write in order to load software then prints that line to runsh handle
+    '''
+    module_load_cmd = 'module load'
+    software_bash = ''
+    for software_package in software_packages:
+        if software_package in SystemSettingsDest['Software'].keys():
+            if 'module' SystemSettingsDest['Software'][software_package].keys():
+                 module_load_cmd += ' {}'.format(
+                        SystemSettingsDest['Software'][software_package]['module'])
+            if 'bash_cmd' in SystemSettingsDest['Software'][software_package].keys():
+               if SystemSettingsDest['Software']['bash_cmd']:
+                 software_bash += '{}\n'.format(
+                        SystemSettingsDest['Software'][software_package]['bash_cmd'])
+        else:
+            sys.exit("{} software not found in {}".format(software_package, config_yml))
+    runsh.write(module_load_cmd)
+    runsh.write('\n{}'.format(software_bash))
 
 ## Read in the configuration yaml file
 if not os.path.isfile(config_yml):
@@ -49,7 +85,7 @@ with open(config_yml, 'r') as stream:
     config = yaml.load(stream)
 
 ## check that the expected keys are there
-ExpectedKeys = ['PipelineSettings', 'Projects', 'ExportSettings']
+ExpectedKeys = ['PipelineSettings', 'Projects', 'ExportSettings', 'SystemSettings']
 diffs = set(ExpectedKeys) - set(config.keys())
 if len(diffs) > 0:
     sys.exit("configuration file missing {}".format(diffs))
@@ -58,13 +94,47 @@ GeneralPipelineSettings = config['PipelineSettings']
 print("Id of GeneralPipelineSettings is {}".format(id(GeneralPipelineSettings)))
 ExportSettings = config['ExportSettings']
 
-for Project in config['Projects'].keys():
+ExpectedSysKeys = ['DATMAN_ASSETSDIR','DATMAN_PROJECTSDIR','Software']
+if dest_system:
+    if dest_system in config['SystemSettings'].keys():
+        SystemSettingsDest = config['SystemSettings'][dest_system]
+else:
+    SystemSettingsDest = config['SystemSettings']
+diffs = set(ExpectedSysKeysDest) - set(SystemSettings.keys())
+if len(diffs) > 0:
+    sys.exit("Destination System Setting {} not read \n.You might need to specify the system with the --dest-system option".format(diffs))
+
+if local_system:
+    if local_system in config['SystemSettings'].keys():
+        SystemSettingsLocal = config['SystemSettings'][local_system]
+else:
+    SystemSettingsLocal = SystemSettingsDest
+diffs = set(ExpectedSysKeysLocal) - set(SystemSettings.keys())
+if len(diffs) > 0:
+    sys.exit("Local System Setting {} not read \n.You might need to specify the system with the --local-system option".format(diffs))
+
+#get the project names
+Projects = [project] if project else config['Projects'].keys()
+
+for Project in Projects:
     print("Working on Project {}".format(Project))
-    ProjectSettings = config['Projects'][Project]
+    projectdir = config['Projects'][Project]
+    projectdir_dest = projectdir.replace('<DATMAN_PROJECTSDIR>',
+                                    SystemSettingsDest['DATMAN_PROJECTSDIR'])
     ## check that the projectdir exists
-    projectdir =  os.path.normpath(ProjectSettings['PROJECTDIR'])
-    if not os.path.exists(projectdir):
-        print("WARNING: PROJECTDIR {} does not exist".format(projectdir))
+    projectdir_dest =  os.path.normpath(projectdir_dest)
+
+    projectdir_local = projectdir.replace('<DATMAN_PROJECTSDIR>',
+                                    SystemSettingsLocal['DATMAN_PROJECTSDIR'])
+
+    ## read in the project settings
+    project_settings = os.path.join(projectdir_local, 'metadata', 'project_settings.yml')
+    if not os.path.isfile(project_settings):
+        sys.exit("{} file not found. Try again.".format('project_settings'))
+
+    ## load the yml file
+    with open(project_settings, 'r') as stream:
+        ProjectSettings = yaml.load(stream)
 
     ## read in the site names as a list
     SiteNames = []
@@ -111,11 +181,11 @@ for Project in config['Projects'].keys():
 
     ## unless an outputfile is specified, set the output to ${PROJECTDIR}/bin/run.sh
     if outputpath == None:
-        ouputfile = os.path.join(projectdir,'bin','run.sh')
+        ouputfile = os.path.join(projectdir_local,'bin','run_{}.sh'.format(dest_system))
     else:
         projectoutput = os.path.join(outputpath,Project)
         dm.utils.makedirs(projectoutput)
-        outputfile = os.path.join(projectoutput,'run.sh')
+        outputfile = os.path.join(projectoutput,'run_{}.sh'.format(dest_system))
 
     #open file for writing
     runsh = open(outputfile,'w')
@@ -133,11 +203,14 @@ for Project in config['Projects'].keys():
     ''')
 
     ## write the top bit
-    runsh.write('\n\nexport STUDYNAME=' + Project + '     # Data archive study name\n')
+    runsh.write('\n\nexport DATMAN_PROJECTSDIR=' + SystemSettingsDest['DATMAN_PROJECTSDIR'] + '     # Top path of data structure\n')
+    runsh.write('export DATMAN_ASSETSDIR=' + SystemSettingsDest['DATMAN_ASSETSDIR'] + '     # path to <datman>/assets/ \n')
+    runsh.write('export XNAT_ARCHIVEDIR=' + SystemSettingsDest['XNAT_ARCHIVEDIR'] + '     # path to XNAT archive\n')
+    runsh.write('export STUDYNAME=' + Project + '     # Data archive study name\n')
     runsh.write('export XNAT_PROJECT=' + XNAT_PROJECT + '  # XNAT project name\n')
     runsh.write('export MRUSER=' + MRUSER +'         # MR Unit FTP user\n')
     runsh.write('export MRFOLDER="'+ MRFOLDER +'"         # MR Unit FTP folder\n')
-    runsh.write('export PROJECTDIR='+ projectdir +'\n')
+    runsh.write('export PROJECTDIR='+ projectdir_dest +'\n')
     runsh.write('export PREFIX='+ PREFIX +'\n')
     runsh.write('export SITES=('+ ' '.join(SiteNames) +')\n\n')
     ## write the export from XNAT
@@ -159,12 +232,13 @@ for Project in config['Projects'].keys():
     runsh.write('''
 args="$@"                           # commence ugly opt handling
 DATESTAMP=$(date +%Y%m%d)
+''')
 
-source /etc/profile
-module load /archive/data-2.0/code/datman.module
-export PATH=$PATH:${PROJECTDIR}/bin
+    if 'to_load_quarantine' in SystemSettingsDest.keys():
+        runsh.write('{}\n'.format(SystemSettingsDest['to_load_quarantine']))
 
-    ''')
+    write_software_loading(['datman'],runsh, SystemSettingsDest)
+    runsh.write('export PATH=$PATH:${PROJECTDIR}/bin\n')
 
     ## define the message function
     runsh.write('function message () { [[ "$args" =~ "--quiet" ]] || echo "$(date): $1"; }\n')
@@ -183,10 +257,9 @@ export PATH=$PATH:${PROJECTDIR}/bin
             if not eval(cmd[cmdname]['runif']): continue
         if 'message' in cmd[cmdname].keys():
             runsh.write('\n  message "'+ cmd[cmdname]['message']+ '..."\n')
-        if 'runInsideSubShell' in cmd[cmdname].keys():
-            runsh.write('(\n')
+        runsh.write('(\n')
         if 'modules' in cmd[cmdname].keys():
-            runsh.write('  module load '+ cmd[cmdname]['modules']+'\n')
+            write_software_loading(cmd[cmdname]['modules'],runsh, SystemSettingsDest)
         if 'enviroment' in cmd[cmdname].keys():
             runsh.write('  '+ cmd[cmdname]['enviroment']+'\n')
         if 'CallMultipleTimes' in cmd[cmdname].keys():
@@ -202,10 +275,7 @@ export PATH=$PATH:${PROJECTDIR}/bin
                     runsh.write(thiscmd)
             else:
                 runsh.write(fullcmd)
-        if 'modules' in cmd[cmdname].keys():
-            runsh.write('  module unload '+ cmd[cmdname]['modules']+'\n')
-        if 'runInsideSubShell' in cmd[cmdname].keys():
-            runsh.write(')\n')
+        runsh.write(')\n')
     ## pushing stuff to git hub
     runsh.write(
     '''

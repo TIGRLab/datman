@@ -216,6 +216,7 @@ SystemSettings:
     DATMAN_PROJECTSDIR: '/archive/data-2.0'
     DATMAN_ASSETSDIR: '/archive/data-2.0/code/datman/assets'
     XNAT_ARCHIVEDIR: '/mnt/xnat/spred/archive'
+    to_load_quarantine: 'source /etc/profile'
     Software:
       AFNI:       {module: AFNI/2014.12.16, env_sh: None}
       freesurfer: {module: freesurfer/5.3.0, bash_cmd: None}
@@ -228,6 +229,7 @@ SystemSettings:
       ENIGMA-DTI:   {module: ENIGMA-DTI/2015.01, bash_cmd: None}
       connectome-workbench: {module: connectome-workbench/1.1.1, bash_cmd: None}
       hcp-pipelines: {module: hcp-pipelines/3.7.0, bash_cmd: None}
+      datman:        {module: /archive/data-2.0/code/datman.module, bash_cmd: None}
   scc:
     hostname: 'scc.camh.net'
     DATMAN_ASSETSDIR: '/imaging/scratch/kimel/jpipitone/datman-test/datman/assets'
@@ -246,3 +248,4 @@ SystemSettings:
       connectome-workbench: {module: connectome-workbench/1.1.1 ,bash_cmd: None}
       hcp-pipelines: {module: hcp-pipelines/3.15.1, bash_cmd: None}
       FIX:           {module: FIX/1.061, bash_cmd: None}
+      datman:        {module: datman/latest, bash_cmd: None}
