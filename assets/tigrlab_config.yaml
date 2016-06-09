@@ -7,10 +7,7 @@ PipelineSettings:
         - '-f ${PROJECTDIR}/metadata/mrftppass.txt'
         - 'sftp'
         - '-qra'
-        - '${MRUSER}@mrftp.camhpet.ca:${MRUSER}*MR/*'
-        - '${PROJECTDIR}/data/zips/'
-        - '${MRUSER}@mrftp.camhpet.ca'
-        - '"${MRFOLDER}"'
+        - '${MRUSER}@mrftp.camhpet.ca:${MRFOLDER}'
         - '${PROJECTDIR}/data/zips'
 
   - 'link.py' :
@@ -68,6 +65,12 @@ PipelineSettings:
       arguments: ['${PROJECTDIR}/data/nii/*/*_PDT2_*.nii.gz']
       dependancies: [FSL]
 
+  - 'dm-reslice.py' :
+      message: 'Reslicing DTI60 images...'
+      runif: "'DTI60-1000' in ScanTypes"
+      arguments: [ '${PROJECTDIR}/data/nii/*/*DTI60-1000*.nii.gz' ]
+      dependancies: [ AFNI ]
+
   - 'qc-html.py' :
       message: Generating QC documents
       arguments:
@@ -82,7 +85,7 @@ PipelineSettings:
   - 'qc-phantom.py' :
       message: Updating phantom plots
       runif: 'len(SiteNames) > 1'
-      dependancies: AFNI FSL matlab
+      dependancies: [AFNI, FSL, matlab]
       arguments:
         - ${PROJECTDIR}
         - '53'
@@ -101,18 +104,16 @@ PipelineSettings:
 
   - 'dtifit-qc.py' :
       message: 'Running ditfit qc'
-      runif: '"DTI60-1000" in ScanTypes'
+      runif: 'len([s for s in ScanTypes if "DTI" in s]) > 1'
       arguments:
-        - '--tag DTI60'
         - '${PROJECTDIR}/data/dtifit/'
       dependancies: FSL
 
   - 'dm-proc-enigmadti.py' :
       message: 'Running enignmaDTI'
-      runif: "'DTI60-1000' in ScanTypes"
+      runif: 'len([s for s in ScanTypes if "DTI" in s]) > 1'
       arguments:
         - '--calc-all'
-        - '--tag2 DTI60'
         - '--QC-transfer ${PROJECTDIR}/metadata/checklist.csv'
         - '${PROJECTDIR}/data/dtifit'
         - '${PROJECTDIR}/data/enigmaDTI'
@@ -125,7 +126,7 @@ PipelineSettings:
        - '--QC-transfer ${PROJECTDIR}/metadata/checklist.csv '
        - '${PROJECTDIR}/data/nii/'
        - '${PROJECTDIR}/data/freesurfer/'
-      dependancies: freesurfer
+      dependancies: [freesurfer, AFNI, FSL, datman]
       environment: 'export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer'
 
   - 'dm-proc-fs2wb.py' :
@@ -162,7 +163,7 @@ PipelineSettings:
 
   - 'dm-proc-rest.py' :
       message: 'Analyzing resting state data'
-      runif: "'RST' in ScanTypes"
+      runif: "'RST' in ScanTypes or 'SPRL in ScanTypes'"
       arguments:
         - '--tags=RST,SPRL'
         - '--${PROJECTDIR}'
