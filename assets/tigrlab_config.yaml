@@ -126,7 +126,7 @@ PipelineSettings:
        - '${PROJECTDIR}/data/nii/'
        - '${PROJECTDIR}/data/freesurfer/'
       dependancies: freesurfer
-      enviroment: 'export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer'
+      environment: 'export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer'
 
   - 'dm-proc-fs2wb.py' :
       message: "Converting freesurfer to HCP..."
@@ -148,7 +148,7 @@ PipelineSettings:
         - '${DATMAN_ASSETSDIR}/150409-compcor-nonlin-8fwhm.sh'
         - '${PROJECTDIR}/metadata/design'
       dependancies: [freesurfer, AFNI, FSL, matlab]
-      enviroment: 'export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer'
+      environment: 'export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer'
 
   - 'dm-proc-imob.py' :
       message: 'Analyzing imitate observe data'
@@ -158,7 +158,7 @@ PipelineSettings:
         - '${DATMAN_ASSETSDIR}/150409-compcor-nonlin-8fwhm.sh'
         - '${PROJECTDIR}/metadata/design'
       dependancies: [freesurfer, AFNI, FSL, matlab]
-      enviroment: 'export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer'
+      environment: 'export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer'
 
   - 'dm-proc-rest.py' :
       message: 'Analyzing resting state data'
@@ -169,7 +169,7 @@ PipelineSettings:
         - '${DATMAN_ASSETSDIR}/151012-tedmethod-compcor-lowpass-nonlin-10fwhm.sh'
         - '${DATMAN_ASSETSDIR}/shen_1mm_268_parcellation.nii.gz'
       dependancies: [freesurfer, AFNI, FSL, matlab]
-      enviroment: 'export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer'
+      environment: 'export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer'
 
 ExportSettings:
   T1:         {'nii', 'dcm', 'mnc'}
