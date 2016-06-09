@@ -26,12 +26,9 @@ Then writes run.sh file.
 
 The systems given in the --local-system and --dest-system flags should match the
 keys of the SystemSetting Dictionary within the config_yml.
-    Example: to write run scripts on the tigrlab cluster
-                that are too be run on the scc
-    tigr-write-runsh
-        --local-system kimel \
-        --dest-system scc \
-        ${DATMAN_ASSETSDIR}/tigrlab_config.yaml
+Example: to write run scripts on the tigrlab cluster
+            that are too be run on the scc
+    tigr-write-runsh --local-system kimel --dest-system scc ${DATMAN_ASSETSDIR}/tigrlab_config.yaml
 
 """
 from docopt import docopt
@@ -55,20 +52,21 @@ outputpath      = arguments['--outputpath']
 VERBOSE         = arguments['--verbose']
 QUIET           = arguments['--quiet']
 
-def write_software_loading(software_packages,runsh, SystemSettingsDest):
+def write_software_loading(software_packages,runsh, SystemSettingsDest, indent = '  '):
     '''
     parses the SystemSettingsDest dictionary to figure out what bash line
     to write in order to load software then prints that line to runsh handle
     '''
-    module_load_cmd = 'module load'
+    module_load_cmd = '{}module load'.format(indent)
     software_bash = ''
     for software_package in software_packages:
-        if software_package in SystemSettingsDest['Software'].keys():
-            if 'module' SystemSettingsDest['Software'][software_package].keys():
+        if software_package in list(SystemSettingsDest['Software'].keys()):
+            if 'module' in SystemSettingsDest['Software'][software_package].keys():
+                if SystemSettingsDest['Software'][software_package]['module'] != 'None':
                  module_load_cmd += ' {}'.format(
                         SystemSettingsDest['Software'][software_package]['module'])
             if 'bash_cmd' in SystemSettingsDest['Software'][software_package].keys():
-               if SystemSettingsDest['Software']['bash_cmd']:
+               if SystemSettingsDest['Software'][software_package]['bash_cmd'] != 'None':
                  software_bash += '{}\n'.format(
                         SystemSettingsDest['Software'][software_package]['bash_cmd'])
         else:
@@ -94,13 +92,14 @@ GeneralPipelineSettings = config['PipelineSettings']
 print("Id of GeneralPipelineSettings is {}".format(id(GeneralPipelineSettings)))
 ExportSettings = config['ExportSettings']
 
+## load systems setting and check that the expected fields are present
 ExpectedSysKeys = ['DATMAN_ASSETSDIR','DATMAN_PROJECTSDIR','Software']
 if dest_system:
     if dest_system in config['SystemSettings'].keys():
         SystemSettingsDest = config['SystemSettings'][dest_system]
 else:
     SystemSettingsDest = config['SystemSettings']
-diffs = set(ExpectedSysKeysDest) - set(SystemSettings.keys())
+diffs = set(ExpectedSysKeys) - set(SystemSettingsDest.keys())
 if len(diffs) > 0:
     sys.exit("Destination System Setting {} not read \n.You might need to specify the system with the --dest-system option".format(diffs))
 
@@ -109,7 +108,7 @@ if local_system:
         SystemSettingsLocal = config['SystemSettings'][local_system]
 else:
     SystemSettingsLocal = SystemSettingsDest
-diffs = set(ExpectedSysKeysLocal) - set(SystemSettings.keys())
+diffs = set(ExpectedSysKeys) - set(SystemSettingsLocal.keys())
 if len(diffs) > 0:
     sys.exit("Local System Setting {} not read \n.You might need to specify the system with the --local-system option".format(diffs))
 
@@ -136,10 +135,17 @@ for Project in Projects:
     with open(project_settings, 'r') as stream:
         ProjectSettings = yaml.load(stream)
 
-    ## read in the site names as a list
+    ## read in the site names as a list and the ScanTypes from their exportinfo field
     SiteNames = []
+    ScanTypes = []
     for site in ProjectSettings['Sites']:
-        SiteNames.append(site.keys()[0])
+        SiteName = site.keys()[0]
+        SiteNames.append(SiteName)
+        ## read export info for each site
+        for ScanType in site[SiteName]['ExportInfo']:
+            ScanTypes.append(ScanType.keys()[0])
+    ## take the unique scan types as an unordered list
+    ScanTypes = list(set(ScanTypes))
 
     ## sets some variables using defaults if not given
     if 'XNAT_PROJECT' in ProjectSettings.keys():
@@ -162,9 +168,6 @@ for Project in Projects:
     else:
         MRFOLDER = '${MRUSER}*/*'
 
-    ## read export info
-    ScanTypes = ProjectSettings['ExportInfo'].keys()
-
     ## Update the General Settings with Project Specific Settings
     QC_Phantoms = True ## set QC_Phatoms to true (it gets set to False if indicated)
 
@@ -183,7 +186,7 @@ for Project in Projects:
     if outputpath == None:
         ouputfile = os.path.join(projectdir_local,'bin','run_{}.sh'.format(dest_system))
     else:
-        projectoutput = os.path.join(outputpath,Project)
+        projectoutput = os.path.join(outputpath,Project,'bin')
         dm.utils.makedirs(projectoutput)
         outputfile = os.path.join(projectoutput,'run_{}.sh'.format(dest_system))
 
@@ -213,20 +216,22 @@ for Project in Projects:
     runsh.write('export PROJECTDIR='+ projectdir_dest +'\n')
     runsh.write('export PREFIX='+ PREFIX +'\n')
     runsh.write('export SITES=('+ ' '.join(SiteNames) +')\n\n')
+
     ## write the export from XNAT
     for siteinfo in ProjectSettings['Sites']:
         site = siteinfo.keys()[0]
         xnat = siteinfo[site]['XNAT_Archive']
         runsh.write('export XNAT_ARCHIVE_' + site + '=' + xnat + '\n')
     runsh.write('\n')
+
     ## write the gold standard info
     if len(SiteNames) == 1:
         runsh.write('export ' + site + '_STANDARD=')
-        runsh.write(projectdir + '/metadata/gold_standards/\n')
+        runsh.write(projectdir_dest + '/metadata/gold_standards/\n')
     else:
         for site in SiteNames:
             runsh.write('export ' + site + '_STANDARD=')
-            runsh.write(projectdir + '/metadata/gold_standards/' + site + '\n')
+            runsh.write(projectdir_dest + '/metadata/gold_standards/' + site + '\n')
 
     ## set some settings and load datman module
     runsh.write('''
@@ -237,11 +242,11 @@ DATESTAMP=$(date +%Y%m%d)
     if 'to_load_quarantine' in SystemSettingsDest.keys():
         runsh.write('{}\n'.format(SystemSettingsDest['to_load_quarantine']))
 
-    write_software_loading(['datman'],runsh, SystemSettingsDest)
+    write_software_loading(['datman'],runsh, SystemSettingsDest, indent = '')
     runsh.write('export PATH=$PATH:${PROJECTDIR}/bin\n')
 
     ## define the message function
-    runsh.write('function message () { [[ "$args" =~ "--quiet" ]] || echo "$(date): $1"; }\n')
+    runsh.write('function message () { [[ "$args" =~ "--quiet" ]] || echo "$(date): $1"; }\n\n')
 
     ## start running stuff
     runsh.write('{\n')
@@ -257,25 +262,27 @@ DATESTAMP=$(date +%Y%m%d)
             if not eval(cmd[cmdname]['runif']): continue
         if 'message' in cmd[cmdname].keys():
             runsh.write('\n  message "'+ cmd[cmdname]['message']+ '..."\n')
-        runsh.write('(\n')
-        if 'modules' in cmd[cmdname].keys():
-            write_software_loading(cmd[cmdname]['modules'],runsh, SystemSettingsDest)
+        runsh.write('  (\n')
+        if 'dependancies' in cmd[cmdname].keys():
+            dependancies = cmd[cmdname]['dependancies']
+            if type(dependancies) is str: dependancies = [dependancies]
+            write_software_loading(dependancies,runsh, SystemSettingsDest)
         if 'enviroment' in cmd[cmdname].keys():
             runsh.write('  '+ cmd[cmdname]['enviroment']+'\n')
         if 'CallMultipleTimes' in cmd[cmdname].keys():
             for subcmd in cmd[cmdname]['CallMultipleTimes'].keys():
                 arglist = cmd[cmdname]['CallMultipleTimes'][subcmd]['arguments']
-                thiscmd = '  ' + cmdname + ' ' + ' '.join(arglist) + '\n'
+                thiscmd = '  ' + cmdname + ' \\\n    ' + ' \\\n    '.join(arglist) + '\n'
                 runsh.write(thiscmd)
         else:
-            fullcmd = '  ' + cmdname + ' ' + ' '.join(cmd[cmdname]['arguments']) + '\n'
+            fullcmd = '  ' + cmdname + ' \\\n    ' + ' \\\n    '.join(cmd[cmdname]['arguments']) + '\n'
             if 'IterateOverSites' in cmd[cmdname].keys():
                 for site in SiteNames:
                     thiscmd = fullcmd.replace('<site>',site)
                     runsh.write(thiscmd)
             else:
                 runsh.write(fullcmd)
-        runsh.write(')\n')
+        runsh.write('  )\n')
     ## pushing stuff to git hub
     runsh.write(
     '''
