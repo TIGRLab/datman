@@ -99,14 +99,14 @@ PipelineSettings:
       runif: 'len([s for s in ScanTypes if "DTI" in s]) > 1'
       arguments:
         - '--inputdir ${PROJECTDIR}/data/nii'
-        - '--outputdir ${PROJECTDIR}/data/dtifit'
+        - '--outputdir ${PROJECTDIR}/pipelines/dtifit'
       dependancies: FSL
 
   - 'dtifit-qc.py' :
       message: 'Running ditfit qc'
       runif: 'len([s for s in ScanTypes if "DTI" in s]) > 1'
       arguments:
-        - '${PROJECTDIR}/data/dtifit/'
+        - '${PROJECTDIR}/pipelines/dtifit/'
       dependancies: FSL
 
   - 'dm-proc-enigmadti.py' :
@@ -115,8 +115,8 @@ PipelineSettings:
       arguments:
         - '--calc-all'
         - '--QC-transfer ${PROJECTDIR}/metadata/checklist.csv'
-        - '${PROJECTDIR}/data/dtifit'
-        - '${PROJECTDIR}/data/enigmaDTI'
+        - '${PROJECTDIR}/pipelines/dtifit'
+        - '${PROJECTDIR}/pipelines/enigmaDTI'
       dependancies: [FSL, R, ENIGMA-DTI]
 
   - 'dm-proc-freesurfer.py' :
@@ -125,7 +125,7 @@ PipelineSettings:
       arguments:
        - '--QC-transfer ${PROJECTDIR}/metadata/checklist.csv '
        - '${PROJECTDIR}/data/nii/'
-       - '${PROJECTDIR}/data/freesurfer/'
+       - '${PROJECTDIR}/pipelines/freesurfer/'
       dependancies: [freesurfer, AFNI, FSL, datman]
       environment: 'export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer'
 
@@ -133,8 +133,8 @@ PipelineSettings:
       message: "Converting freesurfer to HCP..."
       runif: "'T1' in ScanTypes"
       arguments:
-        - '${PROJECTDIR}/data/freesurfer/'
-        - '${PROJECTDIR}/data/hcp/'
+        - '${PROJECTDIR}/pipelines/freesurfer/'
+        - '${PROJECTDIR}/pipelines/hcp/'
       dependancies:
         - freesurfer
         - FSL
@@ -219,34 +219,34 @@ SystemSettings:
     XNAT_ARCHIVEDIR: '/mnt/xnat/spred/archive'
     to_load_quarantine: 'source /etc/profile'
     Software:
-      AFNI:       {module: AFNI/2014.12.16, env_sh: None}
-      freesurfer: {module: freesurfer/5.3.0, bash_cmd: None}
-      FSL:        {module: FSL/5.0.7, bash_cmd: None}
-      matlab:     {module: matlab/R2013b_concurrent, bash_cmd: None}
-      slicer:     {module: slicer/4.4.0, bash_cmd: None}
-      minc-toolkit: {module: minc-toolkit/1.0.01, bash_cmd: None}
-      mricron:      {module: mricron/0.20140804, bash_cmd: None}
-      R:            {module: 'R/3.2.4 R-extras/3.2.4', bash_cmd: None}
-      ENIGMA-DTI:   {module: ENIGMA-DTI/2015.01, bash_cmd: None}
-      connectome-workbench: {module: connectome-workbench/1.1.1, bash_cmd: None}
-      hcp-pipelines: {module: hcp-pipelines/3.7.0, bash_cmd: None}
-      datman:        {module: /archive/data-2.0/code/datman.module, bash_cmd: None}
+      AFNI:       {module: AFNI/2014.12.16, bash_cmd: null}
+      freesurfer: {module: freesurfer/5.3.0, bash_cmd: null}
+      FSL:        {module: FSL/5.0.7, bash_cmd: null}
+      matlab:     {module: matlab/R2013b_concurrent, bash_cmd: null}
+      slicer:     {module: slicer/4.4.0, bash_cmd: null}
+      minc-toolkit: {module: minc-toolkit/1.0.01, bash_cmd: null}
+      mricron:      {module: mricron/0.20140804, bash_cmd: null}
+      R:            {module: 'R/3.2.4 R-extras/3.2.4', bash_cmd: null}
+      ENIGMA-DTI:   {module: ENIGMA-DTI/2015.01, bash_cmd: null}
+      connectome-workbench: {module: connectome-workbench/1.1.1, bash_cmd: null}
+      hcp-pipelines: {module: hcp-pipelines/3.7.0, bash_cmd: null}
+      datman:        {module: /archive/data-2.0/code/datman.module, bash_cmd: null}
   scc:
     hostname: 'scc.camh.net'
     DATMAN_ASSETSDIR: '/imaging/scratch/kimel/jpipitone/datman-test/datman/assets'
     DATMAN_PROJECTSDIR: '/imaging/scratch/kimel/jpipitone/datman-test'
     XNAT_ARCHIVEDIR: '/external/rprshnas01/tigrlab/xnat/spred/archive'
     Software:
-      AFNI:       {module: AFNI/2016.05.03 , env_sh: None}
-      freesurfer: {module: freesurfer/5.3.0, bash_cmd: None}
-      FSL:        {module: FSL/5.0.9, bash_cmd: None}
-      matlab:     {module: MATLAB/R2014b, bash_cmd: None}
-      slicer:     {module: slicer/4.5.0, bash_cmd: None}
-      minc-toolkit: {module: minc-toolkit/1.0.07, bash_cmd: None}
-      mricron:      {module: mricron/30APR2016, bash_cmd: None}
-      R:            {module: R/3.2.5, bash_cmd: None}
-      ENIGMA-DTI:   {module: ENIGMA-DTI/2015.01, bash_cmd: None}
-      connectome-workbench: {module: connectome-workbench/1.1.1 ,bash_cmd: None}
-      hcp-pipelines: {module: hcp-pipelines/3.15.1, bash_cmd: None}
-      FIX:           {module: FIX/1.061, bash_cmd: None}
-      datman:        {module: datman/latest, bash_cmd: None}
+      AFNI:       {module: AFNI/2016.05.03 , bash_cmd: null}
+      freesurfer: {module: freesurfer/5.3.0, bash_cmd: null}
+      FSL:        {module: FSL/5.0.9, bash_cmd: null}
+      matlab:     {module: MATLAB/R2014b, bash_cmd: null}
+      slicer:     {module: slicer/4.5.0, bash_cmd: null}
+      minc-toolkit: {module: minc-toolkit/1.0.07, bash_cmd: null}
+      mricron:      {module: mricron/30APR2016, bash_cmd: null}
+      R:            {module: R/3.2.5, bash_cmd: null}
+      ENIGMA-DTI:   {module: ENIGMA-DTI/2015.01, bash_cmd: null}
+      connectome-workbench: {module: connectome-workbench/1.1.1 ,bash_cmd: null}
+      hcp-pipelines: {module: hcp-pipelines/3.15.1, bash_cmd: null}
+      FIX:           {module: FIX/1.061, bash_cmd: null}
+      datman:        {module: datman/latest, bash_cmd: null}
