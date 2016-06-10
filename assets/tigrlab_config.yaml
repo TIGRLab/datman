@@ -1,6 +1,10 @@
 ### configuration of all run.sh scripts in TIGR lab server
 ---
-
+### Projects is a dictionary of all the projects that we are current on the server
+## The keys are the project name
+## The values are the location of the project in the filesystem
+## <DATMAN_PROJECTSDIR> is a reference to the DATMAN_PROJECTSDIR path given in the
+##  SystemSettings Section below
 Projects:
   ANDT:     '<DATMAN_PROJECTSDIR>/ANDT'
   ASDD:     '<DATMAN_PROJECTSDIR>/ASDD'
@@ -15,6 +19,37 @@ Projects:
   SPINS:    '<DATMAN_PROJECTSDIR>/SPINS'
   VIPR:     '<DATMAN_PROJECTSDIR>/VIPR'
 
+### the SystemsSettings is hold paths specific you your system
+### as well as information for loading software packages
+## Keys:
+## The first (optional level is a knickname for the system
+## (if your running datman) on multiple computer systems.
+## If you are not using multiple systems, this level can be omitted
+##
+## The next level is has 5 sections:
+##  hostname : a pattern common to the hostnames of all computers on the system
+##  DATMAN_PROJECTSDIR: the path to the top level of your data structure
+##                      this will be substituted for <DATMAN_PROJECTSDIR>
+##                      in the path Projects list above
+##  DATMAN_ASSETSDIR:   the location of the "assets" directory that comes with the datman package
+##  XNAT_ARCHIVEDIR:    the path to the XNAT archive
+##  to_load_quarantine: any envoroment bash command that needs to be run before
+##                      any software can be loaded in a new shell
+##                      (example: 'source /etc/profile or module load quarantine')
+##
+##  Software:           A dictionary of specific software loading commands
+##
+##    Each key is the knickname of a software packages that one or more steps
+##    in the processing pipeline rely's on.
+##    These should match the "dependancies" field in the PipelineSettings given below
+##    For each software package you can specify a:
+##       module: the system has a 'module' software system,
+##               the module to load in order to use this software package
+##               (For more information of module systems see: http://modules.sourceforge.net/)
+##       bash_cmd: if you are not using a module system,
+##                 but, instead have some shell scripts or commands that should
+##                 be run in order to load a software enviroment, they can be given here
+##                 (example: 'source ${HOME}/freesurfer_env.sh')
 SystemSettings:
   kimel:
     hostname: 'camhres.ca'
@@ -182,7 +217,7 @@ PipelineSettings:
        - '${PROJECTDIR}/data/nii/'
        - '${PROJECTDIR}/pipelines/freesurfer/'
       dependancies: [freesurfer, AFNI, FSL, datman]
-      environment: 'export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer'
+      environment: 'export SUBJECTS_DIR=${PROJECTDIR}/pipelines/freesurfer'
 
   - 'dm-proc-fs2wb.py' :
       message: "Converting freesurfer to HCP..."
@@ -204,7 +239,7 @@ PipelineSettings:
         - '${DATMAN_ASSETSDIR}/150409-compcor-nonlin-8fwhm.sh'
         - '${PROJECTDIR}/metadata/design'
       dependancies: [freesurfer, AFNI, FSL, matlab]
-      environment: 'export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer'
+      environment: 'export SUBJECTS_DIR=${PROJECTDIR}/pipelines/freesurfer'
 
   - 'dm-proc-imob.py' :
       message: 'Analyzing imitate observe data'
@@ -214,7 +249,7 @@ PipelineSettings:
         - '${DATMAN_ASSETSDIR}/150409-compcor-nonlin-8fwhm.sh'
         - '${PROJECTDIR}/metadata/design'
       dependancies: [freesurfer, AFNI, FSL, matlab]
-      environment: 'export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer'
+      environment: 'export SUBJECTS_DIR=${PROJECTDIR}/pipelines/freesurfer'
 
   - 'dm-proc-rest.py' :
       message: 'Analyzing resting state data'
@@ -225,7 +260,7 @@ PipelineSettings:
         - '${DATMAN_ASSETSDIR}/151012-tedmethod-compcor-lowpass-nonlin-10fwhm.sh'
         - '${DATMAN_ASSETSDIR}/shen_1mm_268_parcellation.nii.gz'
       dependancies: [freesurfer, AFNI, FSL, matlab]
-      environment: 'export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer'
+      environment: 'export SUBJECTS_DIR=${PROJECTDIR}/pipelines/freesurfer'
 
 
 ExportSettings:
