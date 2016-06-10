@@ -1,5 +1,60 @@
 ### configuration of all run.sh scripts in TIGR lab server
 ---
+
+Projects:
+  ANDT:     '<DATMAN_PROJECTSDIR>/ANDT'
+  ASDD:     '<DATMAN_PROJECTSDIR>/ASDD'
+  COGBDO:   '<DATMAN_PROJECTSDIR>/COGBDO'
+  COGBDY:   '<DATMAN_PROJECTSDIR>/COGBDY'
+  DBDC:     '<DATMAN_PROJECTSDIR>/DBDC'
+  DTI_CMH:  '<DATMAN_PROJECTSDIR>/DTI/CMH'
+  PACTMD:   '<DATMAN_PROJECTSDIR>/PACTMD'
+  PRELAPSE: '<DATMAN_PROJECTSDIR>/PRELAPSE'
+  RTMSWM:   '<DATMAN_PROJECTSDIR>/RTMSWM'
+  STOPPD:   '<DATMAN_PROJECTSDIR>/STOPPD'
+  SPINS:    '<DATMAN_PROJECTSDIR>/SPINS'
+  VIPR:     '<DATMAN_PROJECTSDIR>/VIPR'
+
+SystemSettings:
+  kimel:
+    hostname: 'camhres.ca'
+    DATMAN_PROJECTSDIR: '/archive/data-2.0'
+    DATMAN_ASSETSDIR: '/archive/data-2.0/code/datman/assets'
+    XNAT_ARCHIVEDIR: '/mnt/xnat/spred/archive'
+    to_load_quarantine: 'source /etc/profile'
+    Software:
+      AFNI:       {module: AFNI/2014.12.16, bash_cmd: null}
+      freesurfer: {module: freesurfer/5.3.0, bash_cmd: null}
+      FSL:        {module: FSL/5.0.7, bash_cmd: null}
+      matlab:     {module: matlab/R2013b_concurrent, bash_cmd: null}
+      slicer:     {module: slicer/4.4.0, bash_cmd: null}
+      minc-toolkit: {module: minc-toolkit/1.0.01, bash_cmd: null}
+      mricron:      {module: mricron/0.20140804, bash_cmd: null}
+      R:            {module: 'R/3.2.4 R-extras/3.2.4', bash_cmd: null}
+      ENIGMA-DTI:   {module: ENIGMA-DTI/2015.01, bash_cmd: null}
+      connectome-workbench: {module: connectome-workbench/1.1.1, bash_cmd: null}
+      hcp-pipelines: {module: hcp-pipelines/3.7.0, bash_cmd: null}
+      datman:        {module: /archive/data-2.0/code/datman.module, bash_cmd: null}
+  scc:
+    hostname: 'scc.camh.net'
+    DATMAN_ASSETSDIR: '/imaging/scratch/kimel/jpipitone/datman-test/datman/assets'
+    DATMAN_PROJECTSDIR: '/imaging/scratch/kimel/jpipitone/datman-test'
+    XNAT_ARCHIVEDIR: '/external/rprshnas01/tigrlab/xnat/spred/archive'
+    Software:
+      AFNI:       {module: AFNI/2016.05.03 , bash_cmd: null}
+      freesurfer: {module: freesurfer/5.3.0, bash_cmd: null}
+      FSL:        {module: FSL/5.0.9, bash_cmd: null}
+      matlab:     {module: MATLAB/R2014b, bash_cmd: null}
+      slicer:     {module: slicer/4.5.0, bash_cmd: null}
+      minc-toolkit: {module: minc-toolkit/1.0.07, bash_cmd: null}
+      mricron:      {module: mricron/30APR2016, bash_cmd: null}
+      R:            {module: R/3.2.5, bash_cmd: null}
+      ENIGMA-DTI:   {module: ENIGMA-DTI/2015.01, bash_cmd: null}
+      connectome-workbench: {module: connectome-workbench/1.1.1 ,bash_cmd: null}
+      hcp-pipelines: {module: hcp-pipelines/3.15.1, bash_cmd: null}
+      FIX:           {module: FIX/1.061, bash_cmd: null}
+      datman:        {module: datman/latest, bash_cmd: null}
+
 PipelineSettings:
   - 'sshpass' :
       message: Get new scans
@@ -172,6 +227,7 @@ PipelineSettings:
       dependancies: [freesurfer, AFNI, FSL, matlab]
       environment: 'export SUBJECTS_DIR=${PROJECTDIR}/data/freesurfer'
 
+
 ExportSettings:
   T1:         {'nii', 'dcm', 'mnc'}
   PDT2:       {'nii', 'dcm'}
@@ -196,57 +252,3 @@ ExportSettings:
   FMAP:       {'nii', 'dcm'}
   MRS-DLPFC:  {'nii', 'dcm'}
   MRS-sgACC:  {'nii', 'dcm'}
-
-Projects:
-  ANDT:     '<DATMAN_PROJECTSDIR>/ANDT'
-  ASDD:     '<DATMAN_PROJECTSDIR>/ASDD'
-  COGBDO:   '<DATMAN_PROJECTSDIR>/COGBDO'
-  COGBDY:   '<DATMAN_PROJECTSDIR>/COGBDY'
-  DBDC:     '<DATMAN_PROJECTSDIR>/DBDC'
-  DTI_CMH:  '<DATMAN_PROJECTSDIR>/DTI/CMH'
-  PACTMD:   '<DATMAN_PROJECTSDIR>/PACTMD'
-  PRELAPSE: '<DATMAN_PROJECTSDIR>/PRELAPSE'
-  RTMSWM:   '<DATMAN_PROJECTSDIR>/RTMSWM'
-  STOPPD:   '<DATMAN_PROJECTSDIR>/STOPPD'
-  SPINS:    '<DATMAN_PROJECTSDIR>/SPINS'
-  VIPR:     '<DATMAN_PROJECTSDIR>/VIPR'
-
-SystemSettings:
-  kimel:
-    hostname: 'camhres.ca'
-    DATMAN_PROJECTSDIR: '/archive/data-2.0'
-    DATMAN_ASSETSDIR: '/archive/data-2.0/code/datman/assets'
-    XNAT_ARCHIVEDIR: '/mnt/xnat/spred/archive'
-    to_load_quarantine: 'source /etc/profile'
-    Software:
-      AFNI:       {module: AFNI/2014.12.16, bash_cmd: null}
-      freesurfer: {module: freesurfer/5.3.0, bash_cmd: null}
-      FSL:        {module: FSL/5.0.7, bash_cmd: null}
-      matlab:     {module: matlab/R2013b_concurrent, bash_cmd: null}
-      slicer:     {module: slicer/4.4.0, bash_cmd: null}
-      minc-toolkit: {module: minc-toolkit/1.0.01, bash_cmd: null}
-      mricron:      {module: mricron/0.20140804, bash_cmd: null}
-      R:            {module: 'R/3.2.4 R-extras/3.2.4', bash_cmd: null}
-      ENIGMA-DTI:   {module: ENIGMA-DTI/2015.01, bash_cmd: null}
-      connectome-workbench: {module: connectome-workbench/1.1.1, bash_cmd: null}
-      hcp-pipelines: {module: hcp-pipelines/3.7.0, bash_cmd: null}
-      datman:        {module: /archive/data-2.0/code/datman.module, bash_cmd: null}
-  scc:
-    hostname: 'scc.camh.net'
-    DATMAN_ASSETSDIR: '/imaging/scratch/kimel/jpipitone/datman-test/datman/assets'
-    DATMAN_PROJECTSDIR: '/imaging/scratch/kimel/jpipitone/datman-test'
-    XNAT_ARCHIVEDIR: '/external/rprshnas01/tigrlab/xnat/spred/archive'
-    Software:
-      AFNI:       {module: AFNI/2016.05.03 , bash_cmd: null}
-      freesurfer: {module: freesurfer/5.3.0, bash_cmd: null}
-      FSL:        {module: FSL/5.0.9, bash_cmd: null}
-      matlab:     {module: MATLAB/R2014b, bash_cmd: null}
-      slicer:     {module: slicer/4.5.0, bash_cmd: null}
-      minc-toolkit: {module: minc-toolkit/1.0.07, bash_cmd: null}
-      mricron:      {module: mricron/30APR2016, bash_cmd: null}
-      R:            {module: R/3.2.5, bash_cmd: null}
-      ENIGMA-DTI:   {module: ENIGMA-DTI/2015.01, bash_cmd: null}
-      connectome-workbench: {module: connectome-workbench/1.1.1 ,bash_cmd: null}
-      hcp-pipelines: {module: hcp-pipelines/3.15.1, bash_cmd: null}
-      FIX:           {module: FIX/1.061, bash_cmd: null}
-      datman:        {module: datman/latest, bash_cmd: null}
