@@ -23,7 +23,7 @@
 # module load python/2.7.9-anaconda-2.1.0-150119
 # module load python-extras/2.7.8
 
-set -e 
+set -eu -o pipefail
 
 export DIR_DATA=${1}
 export DELTR=${2}
@@ -31,9 +31,9 @@ export DELTR=${2}
 export DIR_PIPE="${DATMAN_ASSETSDIR}/epitome/150331-spins"
 
 # adds epitome and ninet to path
-export PATH=${DIR_PIPE}/bin:$PATH
-export PATH=${DATMAN_ASSETSDIR}/ninet/bin:$PATH
-export PYTHONPATH=${DATMAN_ASSETSDIR}/ninet:$PYTHONPATH
+export PATH=${DIR_PIPE}/bin:${PATH:-}
+export PATH=${DATMAN_ASSETSDIR}/ninet/bin:${PATH:-}
+export PYTHONPATH=${DATMAN_ASSETSDIR}/ninet:${PYTHONPATH:-}
 
 export DIR_AFNI=$(dirname $(which 3daxialize))
 export DIR_EXPT=TEMP
@@ -48,8 +48,6 @@ export DESPIKE=on
 export TPATTERN=alt+z
 export NORMALIZE=scale
 export MASKING=loose
-
-set -u 
 
 echo '************************************************************************'
 echo '                  General pre-processing for all fMRI data'
