@@ -5,10 +5,12 @@ ROIs in MNI space (6 mm spheres). This data is returned as the time series, a fu
 matrix, and a partial correlation matrix (all in .csv format).
 
 Usage:
-    dm-proc-rest.py [options] <project> <script> <atlas> [<subject>...]
+    dm-proc-rest.py [options] <datadir> <fsdir> <outputdir> <script> <atlas> [<subject>...]
 
 Arguments:
-    <project>           Full path to the project directory containing data/.
+    <datadir>           Path to the datman data/ folder containing nii/ and RESOURCES/
+    <fsdir>             Path to freesurfer output folder containing t1/
+    <outputdir>         Path to output folder
     <script>            Full path to an epitome-style script.
     <atlas>             Full path to a NIFTI atlas in MNI space.
     <subject>           Subject name to run on, e.g. SPN01_CMH_0020_01. If not
@@ -16,9 +18,11 @@ Arguments:
                         be processed.
 
 Options:
+    --walltime TIME     Walltime for each subject job [default: 2:00:00]
     --tags LIST         DATMAN tags to run pipeline on. (comma delimited) [default: RST]
     -v,--verbose        Verbose logging
     --debug             Debug logging
+    --dry-run          Don't do anything.
 
 DETAILS
 
@@ -167,7 +171,7 @@ def proc_data(sub, data, log_path, tmpfolder, script):
 
     cmd = '{} {} 4'.format(script, tmpfolder)
     logger.debug('exec: {}'.format(cmd))
-    rtn, out, err = dm.utils.run(cmd)
+    rtn, out, err = dm.utils.run(cmd, echo = True)
     output = '\n'.join([out, err]).replace('\n', '\n\t')
     if rtn != 0:
         logger.error(output)
@@ -267,7 +271,7 @@ def is_complete(projectdir, subject):
     return os.path.isfile(complete_file)
 
 
-def get_required_data(projectdir, sub, tags):
+def get_required_data(data_path, fsdir, sub, tags):
     """Finds the necessary data for processing this subject.
 
     If the necessary data can't be found, a MissingDataException is
@@ -280,8 +284,8 @@ def get_required_data(projectdir, sub, tags):
     - tags : parallel list of tags for each scan
     """
 
-    nii_path = os.path.join(projectdir, 'data', 'nii')
-    t1_path = os.path.join(projectdir, 'data', 'freesurfer', 't1')
+    nii_path = os.path.join(data_path, 'nii')
+    t1_path = os.path.join(fsdir, 't1')
 
     # find freesurfer data
     t1 = '{path}/{sub}_T1.nii.gz'.format(path=t1_path, sub=sub)
@@ -323,12 +327,7 @@ def get_required_data(projectdir, sub, tags):
             'tags': taglist}
 
 
-def process_subject(project, data, sub, tags, atlas, script):
-    data_path = dm.utils.define_folder(os.path.join(project, 'data'))
-    func_path = dm.utils.define_folder(os.path.join(data_path, 'rest'))
-    _ = dm.utils.define_folder(os.path.join(project, 'logs'))
-    log_path = dm.utils.define_folder(os.path.join(project, 'logs/rest'))
-
+def process_subject(func_path, log_path, data, sub, tags, atlas, script):
     tempfolder = tempfile.mkdtemp(prefix='rest-')
     try:
         if os.path.isfile(os.path.join(func_path, sub, '{sub}_preproc-complete.log'.format(sub=sub))):
@@ -341,7 +340,7 @@ def process_subject(project, data, sub, tags, atlas, script):
 
         if not os.path.isdir(os.path.join(func_path, sub)):
             logger.error(
-                "Subject's rest folder not present after preproc.".format(sub))
+                "Subject's {} rest folder not present after preproc.".format(sub))
             return False
 
         analyze_data(sub, atlas, func_path)
@@ -365,13 +364,17 @@ def main():
     """
 
     arguments = docopt(__doc__)
-    project = arguments['<project>']
+    datadir    = arguments['<datadir>']
+    outputdir  = arguments['<outputdir>']
+    fsdir      = arguments['<fsdir>']
     script = arguments['<script>']
     atlas = arguments['<atlas>']
     subjects = arguments['<subject>']
+    walltime   = arguments['--walltime']
     tags = arguments['--tags'].split(',')
     verbose = arguments['--verbose']
     debug = arguments['--debug']
+    dryrun     = arguments['--dry-run']
 
     if verbose:
         logger.setLevel(logging.INFO)
@@ -387,17 +390,15 @@ def main():
         logger.error("Epitome script {} does not exist".format(script))
         sys.exit(-1)
 
-    # submit jobs if not working on single subject
-    submit_mode = len(subjects) == 0
-    logger.debug("Subjects: {}".format(subjects))
-    logger.debug("Submit mode: {}".format(submit_mode))
+    data_path = dm.utils.define_folder(datadir)
+    nii_path = os.path.join(data_path, 'nii')
+    func_path = dm.utils.define_folder(outputdir)
+    log_path = dm.utils.define_folder(os.path.join(outputdir, 'logs'))
 
-    nii_path = os.path.join(project, 'data', 'nii')
-    subjects = subjects or dm.utils.get_subjects(nii_path)
-
-    for subject in subjects:
-        if is_complete(project, subject):
-            logger.info("Subject {} processed. Skipping.".format(subject))
+    commands = []
+    for subject in (subjects or dm.utils.get_subjects(nii_path)):
+        if is_complete(outputdir, subject):
+            logger.info("Subject {} already processed. Skipping.".format(subject))
             continue
 
         if dm.scanid.is_phantom(subject):
@@ -405,44 +406,60 @@ def main():
             continue
 
         try:
-            data = get_required_data(project, subject, tags)
+            data = get_required_data(data_path, fsdir, subject, tags)
         except MissingDataException, e:
             logger.error(e.message)
             continue
+        
+        # if this command was called with an explicit list of subjects, process
+        # them now
+        if subjects: 
+            logger.info("Processing subject {}".format(subject))
+            if not dryrun:
+                process_subject(func_path, log_path, data, subject, tags, atlas, script)
 
-        if submit_mode:
-            opts = ''
-            opts += verbose and ' --verbose' or ''
-            opts += debug and ' --debug' or ''
-            opts += tags and ' --tags=' + ','.join(tags) or ''
 
-            cmd = "{me} {opts} {project} {script} {atlas} {subject}".format(
-                me=__file__,
-                opts=opts,
-                project=project,
-                script=script,
-                atlas=atlas,
-                subject=subject)
-            job_name = 'dm_rest_{}'.format(subject)
-            memopts = 'h_vmem=3G,mem_free=3G,virtual_free=3G'
-            stamp = time.strftime("%Y%m%d-%H%M%S")
-            logfile = '{name}-{stamp}.log'.format(name=job_name, stamp=stamp)
-
-            # ensure logpath exists
-            logpath = dm.utils.define_folder(os.path.join(project, 'logs', 'rest'))
-            # add in the logfile
-            logpath = os.path.join(logpath, logfile)
-
-            qsub = 'qsub -V -N {name} -l {memopts} -o {logpath} -j y -b y {cmd}'.format(
-                name=job_name,
-                memopts=memopts,
-                logpath=logpath,
-                cmd=cmd)
-
-            logger.debug('exec: {}'.format(qsub))
-            dm.utils.run(qsub)
+        # otherwise, submit a list of calls to ourself, one per subject
         else:
-            process_subject(project, data, subject, tags, atlas, script)
+            opts = '{verbose} {debug} {tags}'.format(
+                verbose = (verbose and ' --verbose' or ''),
+                debug = (debug and ' --debug' or ''),
+                tags = (tags and ' --tags=' + ','.join(tags) or ''))
+
+            commands.append(" ".join([__file__, opts, datadir, fsdir,
+                outputdir, script, atlas, subject]))
+
+    if commands:
+        logger.debug("queueing up the following commands:\n"+'\n'.join(commands))
+        jobname = "dm_rest_{}".format(time.strftime("%Y%m%d-%H%M%S"))
+        log_path = dm.utils.define_folder(os.path.join(outputdir, 'logs'))
+
+        fd, path = tempfile.mkstemp() 
+        os.write(fd, '\n'.join(commands))
+        os.close(fd)
+
+        # using qbatch -i (individual jobs) rather than the default array
+        # job to work around interaction between epitome scripts and PBS
+        # tempdir names.
+        #  
+        # Specifically, PBS makes a parent tempdir for array jobs that
+        # include the array element in the name, like so: 
+        #    /tmp/150358[1].mgmt2.scc.camh.net/tmp1H2Une 
+        # 
+        # Epitome scripts do not properly escape the DIR_DATA when used, so
+        # references to this path do not parse correctly (square brackets
+        # being patterns in bash).
+        rtn, out, err = dm.utils.run('qbatch -i --logdir {logdir} -N {name} --walltime {wt} {cmds}'.format(
+            logdir = log_path,
+            name = jobname,
+            wt = walltime, 
+            cmds = path), dryrun = dryrun)
+
+        if rtn != 0:
+            logger.error("Job submission failed. Output follows.")
+            logger.error("stdout: {}\nstderr: {}".format(out,err))
+            sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

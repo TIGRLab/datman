@@ -1,6 +1,4 @@
 #!/bin/bash -l
-set -e
-                                                                              
 # This is a slightly-modified epitome script.                                   
 # More on epitome here: https://github.com/josephdviviano/epitome               
 # script generated on 2015-15-12                                          
@@ -15,30 +13,33 @@ set -e
 # volsmooth (blur2FWHM 10 mm)                                          
 # nonlinreg_to_MNI (3 mm ISO)
 
-module load matlab/R2013b_concurrent                                            
-module load FSL/5.0.7                                                           
-module load FIX/1.061                                                           
-module load R/3.1.1                                                             
-module load R-extras/3.1.1                                                      
-module load AFNI/2014.12.16                                                     
-module load freesurfer/5.3.0                                                    
-module load python/2.7.9-anaconda-2.1.0-150119                                  
-module load python-extras/2.7.8 
+#module load matlab/R2013b_concurrent                                            
+#module load FSL/5.0.7                                                           
+#module load FIX/1.061                                                           
+#module load R/3.1.1                                                             
+#module load R-extras/3.1.1                                                      
+#module load AFNI/2014.12.16                                                     
+#module load freesurfer/5.3.0                                                    
+#module load python/2.7.9-anaconda-2.1.0-150119                                  
+#module load python-extras/2.7.8 
+
+set -eu -o pipefail
 
 export DIR_DATA=${1}                                                            
 export DELTR=${2}                                                               
                                                                                 
 # adds epitome to path
-export DIR_PIPE='/archive/data-2.0/code/datman/assets/epitome/151012-spins'     
-export PATH=${DIR_PIPE}'/bin':$PATH                        
-export PYTHONPATH=${DIR_PIPE}:$PYTHONPATH
+export DIR_PIPE="${DATMAN_ASSETSDIR}/epitome/151012-spins"
+export PATH=${DIR_PIPE}/bin:${PATH:-}
+export PATH=${DATMAN_ASSETSDIR}/ninet/bin:${PATH:-}
+export PYTHONPATH=${DATMAN_ASSETSDIR}/ninet:${DIR_PIPE}:${PYTHONPATH:-}
 
-export DIR_AFNI=/opt/quarantine/AFNI/2014.12.16/build
+export DIR_AFNI=$(dirname $(which 3daxialize))
 export DIR_EXPT=TEMP
 export DATA_TYPE=FUNC
 export ID=DATMAN
 export SUB=SUBJ
-McRetroTS='/home/jdv/epitome/151012-spins/bin/run_McRetroTS.sh /opt/quarantine/matlab/matlab_concurrent_all/MATLAB_R2014b/build'
+#McRetroTS='/home/jdv/epitome/151012-spins/bin/run_McRetroTS.sh /opt/quarantine/matlab/matlab_concurrent_all/MATLAB_R2014b/build'
 
 export DATA_QUALITY=high
 export DESPIKE=on

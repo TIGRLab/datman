@@ -6,20 +6,22 @@ If a <subject> is not supplied, a job is submitted for each subject not yet
 processed. 
 
 Usage:
-    dm-proc-ea.py [options] <project> <script> <assets> [<subject>]
+    dm-proc-ea.py [options] <datadir> <fsdir> <outputdir> <script> <assets> [<subject>]
 
 Arguments: 
-    <project>           Full path to the project directory containing data/.
-    <script>            Full path to an epitome-style script.
-    <assets>            Full path to an assets folder containing 
-                             EA-timing.csv, EA-vid-lengths.csv.
+    <datadir>           Path to the datman data/ folder containing nii/ and RESOURCES/
+    <fsdir>             Path to freesurfer output folder containing t1/
+    <outputdir>         Path to output folder
+    <script>            Path to an epitome-style script
+    <assets>            Path to an assets folder containing 
+                             EA-timing.csv, EA-vid-lengths.csv
     <subject>           Subject timepoint to process
 
 Options:
     --walltime TIME    Walltime for each subject job [default: 2:00:00]
     -v,--verbose       Verbose logging
     --debug            Debug logging
-    --dry-run          Don't do anything.
+    --dry-run          Don't do anything
 
 DETAILS
 
@@ -213,7 +215,7 @@ def zscore(data):
     try:
         data = (data - np.mean(data)) / np.std(data)
     except:
-        data = np.zeros(datalen)
+        data = np.zeros(datalength)
 
     return data
 
@@ -350,11 +352,9 @@ def process_behav_data(log, assets, func_path, sub, trial_type):
 
     return onsets_used, durations, correlations, button_pushes
 
-def process_functional_data(sub, data_path, log_path, tmp_path, script):
+def process_functional_data(sub, nii_path, fsdir, func_path, log_path, tmp_path, script):
 
-    nii_path = os.path.join(data_path, 'nii')
-    t1_path = os.path.join(data_path, 't1')
-    func_path = os.path.join(data_path, 'ea')
+    t1_path = os.path.join(fsdir, 't1')
 
     # functional data
     try:
@@ -553,7 +553,9 @@ def main():
     """
 
     arguments  = docopt(__doc__)
-    project    = arguments['<project>']
+    datadir    = arguments['<datadir>']
+    fsdir      = arguments['<fsdir>']
+    outputdir  = arguments['<outputdir>']
     script     = arguments['<script>']
     assets     = arguments['<assets>']
     sub        = arguments['<subject>']
@@ -567,16 +569,15 @@ def main():
     if debug: 
         logging.getLogger().setLevel(logging.DEBUG)
 
-    data_path = dm.utils.define_folder(os.path.join(project, 'data'))
-    nii_path = dm.utils.define_folder(os.path.join(project, 'data', data_path, 'nii'))
-    func_path = dm.utils.define_folder(os.path.join(data_path, 'ea'))
-    _ = dm.utils.define_folder(os.path.join(project, 'logs'))
-    log_path = dm.utils.define_folder(os.path.join(project, 'logs/ea'))
+    data_path = dm.utils.define_folder(datadir)
+    nii_path = dm.utils.define_folder(os.path.join(data_path, 'nii'))
+    func_path = dm.utils.define_folder(outputdir)
+    log_path = dm.utils.define_folder(os.path.join(outputdir, 'logs'))
 
     # process a single subject
     if sub:
         if dm.scanid.is_phantom(sub): 
-            logger.debug("Scan {} is a phantom. Skipping", sub)
+            logger.debug("Scan {} is a phantom. Skipping".format(sub))
             sys.exit(0)
 
         # preprocess
@@ -586,7 +587,7 @@ def main():
             try: 
                 logger.info("Preprocessing subject {}".format(sub))
                 tmp_path = tempfile.mkdtemp()
-                tempdir = process_functional_data(sub, data_path, log_path, tmp_path, script)
+                tempdir = process_functional_data(sub, nii_path, fsdir, func_path, log_path, tmp_path, script)
                 export_data(sub, tempdir, func_path)
             except Exception, e:
                 logger.exception("Error during preprocessing. Exiting")
@@ -594,7 +595,7 @@ def main():
                 
         # analyze
         if os.path.isfile('{func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub)):
-            logger.debug("Scan {} has already been analyzed. Skipping", sub)
+            logger.debug("Scan {} has already been analyzed. Skipping".format(sub))
         else:
             # get all the log files for a subject
             try:
@@ -665,24 +666,18 @@ def main():
         commands = []
         for sub in dm.utils.get_subjects(nii_path):
             if dm.scanid.is_phantom(sub): 
-                logger.debug("Scan {} is a phantom. Skipping", sub)
+                logger.debug("Scan {} is a phantom. Skipping".format(sub))
                 continue
             if os.path.isfile('{func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub)):
                 continue
-            commands.append('{me} {opts} {prj} {script} {assets} {sub}'.format(
-                me = __file__,
-                opts = (verbose and ' -v' or '') + (debug and ' --debug' or ''),
-                prj = project,
-                script = script,
-                assets = assets,
-                sub = sub))
+
+            opts = (verbose and ' -v' or '') + (debug and ' --debug' or '')
+            commands.append(" ".join([__file__, opts, datadir, fsdir,
+                outputdir, script, assets, sub]))
 
         if commands: 
             logger.debug("queueing up the following commands:\n"+'\n'.join(commands))
-            jobname = "dm_ea_{}_{}".format(
-                os.path.basename(os.path.realpath(project)),
-                time.strftime("%Y%m%d-%H%M%S"))
-           
+            jobname = "dm_ea_{}".format(time.strftime("%Y%m%d-%H%M%S"))
             fd, path = tempfile.mkstemp() 
             os.write(fd, '\n'.join(commands))
             os.close(fd)
