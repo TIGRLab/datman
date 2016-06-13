@@ -30,6 +30,8 @@ import datman as dm
 import datman.utils
 import datman.scanid
 import os
+import tempfile
+import time
 
 DRYRUN = False
 
@@ -60,6 +62,7 @@ def main():
     ## get the list of subjects
     subjectnames = dm.utils.get_subjects(nii_dir)
 
+    commands = []
     for subjectname in subjectnames:
         inputpath  = os.path.join(nii_dir, subjectname)
         outputpath = os.path.join(outputdir, subjectname)
@@ -86,18 +89,22 @@ def main():
             if os.path.exists(dtifit_output):
                 log.debug("{} exists. Skipping.".format(dtifit_output))
             else:
-                cmd = "echo {script} {dwi} {outputdir} {ref} {thresh} {phantom} | " \
-                      "qbatch --walltime {walltime} --logdir {logdir} -N dtifit -".format(
-                        script = script,
-                        logdir = logdir,
-                        walltime = walltime,
-                        dwi = dwi,
-                        outputdir= outputpath,
-                        ref = ref_vol,
-                        thresh = fa_thresh,
-                        phantom = phantom)
-                log.debug("exec: {}".format(cmd))
-                dm.utils.run(cmd, dryrun=DRYRUN)
+                commands.append("{script} {dwi} {output} {ref} {fa} {pha}".format(
+                    script = script, dwi = dwi, output = outputpath, ref = ref_vol,
+                    fa = fa_thresh, pha = phantom))
+
+    if commands:
+        log.debug("queueing up the following commands:\n"+'\n'.join(commands))
+        jobname = "dm_dtifit_{}".format(time.strftime("%Y%m%d-%H%M%S"))
+        with tempfile.NamedTemporaryFile() as tmp:
+            tmp.write('\n'.join(commands))
+            tmp.flush()
+            cmd = "qbatch --walltime {wt} --logdir {logdir} -N {name} {file} ".format(
+                wt = walltime,
+                logdir = logdir,
+                name = jobname,
+                file = tmp.name)
+            dm.utils.run(cmd, dryrun=DRYRUN)
 
 
 if __name__ == '__main__':
