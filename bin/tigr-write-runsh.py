@@ -169,7 +169,7 @@ for Project in Projects:
         MRFOLDER = '${MRUSER}*/*'
 
     ## Update the General Settings with Project Specific Settings
-    QC_Phantoms = True ## set QC_Phatoms to true (it gets set to False if indicated)
+    QC_Phantoms = False ## set QC_Phatoms to False
 
     ## the next section seems to to updating the original no matter how hard I try...
     with open(config_yml, 'r') as stream:
@@ -255,11 +255,10 @@ DATESTAMP=$(date +%Y%m%d)
     ## get the scans from the camh server
     for cmd in PipelineSettings:
         cmdname = cmd.keys()[0]
-        if cmd[cmdname] == False:
-            if cmdname == 'qc-phantom.py': QC_Phantoms = False
-            continue
+        if cmd[cmdname] == False: continue
         if 'runif' in cmd[cmdname].keys():
             if not eval(cmd[cmdname]['runif']): continue
+        if cmdname == 'qc-phantom.py': QC_Phantoms = True
         if 'message' in cmd[cmdname].keys():
             runsh.write('\n  message "'+ cmd[cmdname]['message']+ '..."\n')
         runsh.write('  (\n')
@@ -267,8 +266,8 @@ DATESTAMP=$(date +%Y%m%d)
             dependancies = cmd[cmdname]['dependancies']
             if type(dependancies) is str: dependancies = [dependancies]
             write_software_loading(dependancies,runsh, SystemSettingsDest)
-        if 'enviroment' in cmd[cmdname].keys():
-            runsh.write('  '+ cmd[cmdname]['enviroment']+'\n')
+        if 'environment' in cmd[cmdname].keys():
+            runsh.write('  '+ cmd[cmdname]['environment']+'\n')
         if 'CallMultipleTimes' in cmd[cmdname].keys():
             for subcmd in cmd[cmdname]['CallMultipleTimes'].keys():
                 arglist = cmd[cmdname]['CallMultipleTimes'][subcmd]['arguments']
