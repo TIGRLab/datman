@@ -303,7 +303,8 @@ if QCedTranfer:
 
 # check if we have any work to do, exit if not
 if len(subids_in_nii) == 0:
-    sys.exit('MSG: No outstanding scans to process.')
+    print('MSG: No outstanding scans to process.')
+    sys.exit()
 
 # grab the prefix from the subid if not given
 if prefix == None:
