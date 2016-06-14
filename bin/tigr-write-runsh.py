@@ -62,11 +62,11 @@ def write_software_loading(software_packages,runsh, SystemSettingsDest, indent =
     for software_package in software_packages:
         if software_package in list(SystemSettingsDest['Software'].keys()):
             if 'module' in SystemSettingsDest['Software'][software_package].keys():
-                if SystemSettingsDest['Software'][software_package]['module'] != 'None':
+                if SystemSettingsDest['Software'][software_package]['module']:
                  module_load_cmd += ' {}'.format(
                         SystemSettingsDest['Software'][software_package]['module'])
             if 'bash_cmd' in SystemSettingsDest['Software'][software_package].keys():
-               if SystemSettingsDest['Software'][software_package]['bash_cmd'] != 'None':
+               if SystemSettingsDest['Software'][software_package]['bash_cmd']:
                  software_bash += '{}\n'.format(
                         SystemSettingsDest['Software'][software_package]['bash_cmd'])
         else:
@@ -89,7 +89,7 @@ if len(diffs) > 0:
     sys.exit("configuration file missing {}".format(diffs))
 
 GeneralPipelineSettings = config['PipelineSettings']
-print("Id of GeneralPipelineSettings is {}".format(id(GeneralPipelineSettings)))
+
 ExportSettings = config['ExportSettings']
 
 ## load systems setting and check that the expected fields are present
@@ -194,7 +194,7 @@ for Project in Projects:
     runsh = open(outputfile,'w')
 
     runsh.write('''\
-#!/bin/bash
+#!/bin/bash -l
 # Runs pipelines like a bro
 #
 # Usage:
@@ -203,6 +203,9 @@ for Project in Projects:
 # Options:
 #   --quiet     Do not be chatty (does nnt apply to pipeline stages)
 #
+
+set -e  # fail on error
+set -u  # fail on unset variable
     ''')
 
     ## write the top bit
@@ -268,6 +271,9 @@ DATESTAMP=$(date +%Y%m%d)
             write_software_loading(dependancies,runsh, SystemSettingsDest)
         if 'environment' in cmd[cmdname].keys():
             runsh.write('  '+ cmd[cmdname]['environment']+'\n')
+        if 'qbatch' in cmd[cmdname].keys():
+            qbatchcmd = '  qbatchsub.sh ' + ' '.join(cmd[cmdname]['qbatch']) + ' -- \\\n'
+            runsh.write(qbatchcmd)
         if 'CallMultipleTimes' in cmd[cmdname].keys():
             for subcmd in cmd[cmdname]['CallMultipleTimes'].keys():
                 arglist = cmd[cmdname]['CallMultipleTimes'][subcmd]['arguments']
