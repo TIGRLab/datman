@@ -833,7 +833,7 @@ def add_header_checks(fpath, qchtml, logdata):
 
     qchtml.write('<h3> {} header differences </h3>\n<table>'.format(filestem))
     for l in lines:
-        qchtml.write('<tr><td>{}</td></tr>'.format(line))
+        qchtml.write('<tr><td>{}</td></tr>'.format(l))
     qchtml.write('</table>\n')
 
 def add_bvec_checks(fpath, qchtml, logdata):
@@ -846,7 +846,7 @@ def add_bvec_checks(fpath, qchtml, logdata):
 
     qchtml.write('<h3> {} bvec/bval differences </h3>\n<table>'.format(filestem))
     for l in lines:
-        qchtml.write('<tr><td>{}</td></tr>'.format(line))
+        qchtml.write('<tr><td>{}</td></tr>'.format(l))
     qchtml.write('</table>\n')
 
 ###############################################################################
