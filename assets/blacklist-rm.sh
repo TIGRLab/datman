@@ -2,23 +2,41 @@
 #
 # Finds and removes anything listed on the given blacklist.
 #
-# Author: Dawn E.A. Smith     Email: Dawn.Smith@camh.ca
+# Author: Dawn E.A. Smith     Email: d.eileensmith@gmail.com
 
 function usage() {
 echo "
 Usage:
-    blacklist-rm.sh <datadir> <blacklist>
+    blacklist-rm.sh [options] <datadir> <blacklist>
 
     All inputs should be full paths.
 
-    <datadir> is the location of the parent directory of all data
-    being managed for this project (e.g. /archive/data-2.0/ANDT/data).
+Arguments:
+    <datadir>     The location of the parent directory of all data
+                  being managed for this project (e.g.
+                  /archive/data-2.0/ANDT/data).
 
-    <blacklist> is the full path to the blacklist.csv file
-    (e.g. /archive/data-2.0/ANDT/metadata/blacklist.csv).
+    <blacklist>   is the full path to the blacklist.csv file
+                  (e.g. /archive/data-2.0/ANDT/metadata/blacklist.csv).
+
+Options:
+    -v            Verbose. Output message indicating name of every file
+                  being deleted.
 "
 exit
 }
+
+VERBOSE=0
+
+while getopts "v" OPTION
+do
+  case $OPTION in
+    v)
+      VERBOSE=1
+      shift
+      ;;
+  esac
+done
 
 if [ $# -ne 2 ]
 then
@@ -43,8 +61,16 @@ done < $bl
 
 while read fname
 do
-  echo "Deleting $fname"
-  rm "$fname"
+  # If blacklist accidentally lists same series twice, will
+  # attempt to remove it twice. This stops "file does not exist" error
+  if [ -e $fname ]
+  then
+    if [ $VERBOSE == 1 ]
+    then
+      echo "Deleting $fname"
+    fi
+    rm "$fname"
+  fi
 done < "$tmp"
 
 rm "$tmp"
