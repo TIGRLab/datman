@@ -2,13 +2,13 @@
 """
 Extracts data from xnat archive folders into a few well-known formats.
 
-Usage: 
+Usage:
     extract.py [options] <archivedir>...
 
 Arguments:
     <archivedir>            Path to scan folder within the XNAT archive
 
-Options: 
+Options:
     --datadir DIR           Parent folder to extract to [default: ./data]
     --exportinfo FILE       Table listing acquisitions to export by format
                             [default: ./metadata/exportinfo.csv]
@@ -20,57 +20,57 @@ Options:
 INPUT FOLDERS
     The <archivedir> is the XNAT archive directory to extract from. This should
     point to a single scan folder, and the folder should be named according to
-    our data naming scheme. For example, 
+    our data naming scheme. For example,
 
         /xnat/spred/archive/SPINS/arc001/SPN01_CMH_0001_01_01
 
-    This folder is expected to have the following subfolders: 
+    This folder is expected to have the following subfolders:
 
     SPN01_CMH_0001_01_01/
       RESOURCES/                    (optional)
         *                           (optional non-dicom data)
       SCANS/
         001/                        (series #)
-          DICOM/       
-            *                       (dicom files, usually named *.dcm) 
+          DICOM/
+            *                       (dicom files, usually named *.dcm)
             scan_001_catalog.xml
         002/
         ...
 
 OUTPUT FOLDERS
     Each dicom series will be converted and placed into a subfolder of the
-    datadir named according to the converted filetype and subject ID, e.g. 
+    datadir named according to the converted filetype and subject ID, e.g.
 
         data/
             nifti/
                 SPN01_CMH_0001_01/
                     (all nifti acquisitions for this subject-timepoint)
-    
+
 OUTPUT FILE NAMING
-    Each dicom series will be and named according to the following schema: 
+    Each dicom series will be and named according to the following schema:
 
         <scanid>_<tag>_<series#>_<description>.<ext>
 
-    Where, 
+    Where,
         <scanid>  = the scan id from the file name, eg. DTI_CMH_H001_01_01
         <tag>     = a short code indicating the data type (e.g. T1, DTI, etc..)
         <series#> = the dicom series number in the exam
-        <descr>   = the dicom series description 
+        <descr>   = the dicom series description
         <ext>     = appropriate filetype extension
 
-    For example, a T1 in nifti format might be named: 
-        
+    For example, a T1 in nifti format might be named:
+
         DTI_CMH_H001_01_01_T1_11_Sag-T1-BRAVO.nii.gz
 
     The <tag> field is looked up in the export info table (e.g.
-    protocols.csv), see below. 
-    
+    protocols.csv), see below.
+
 EXPORT TABLE FORMAT
     This export table (specified by --exportinfo) file should contain lookup
     table that supplies a pattern to match against the DICOM SeriesDescription
     header and corresponding tag name. Additionally, the export table should
     contain a column for each export filetype with "yes" if the series should
-    be exported to that format. 
+    be exported to that format.
 
     For example:
 
@@ -93,18 +93,18 @@ EXPORT TABLE FORMAT
 NON-DICOM DATA
     XNAT puts "other" (i.e. non-DICOM data) into the RESOURCES folder. This
     data will be copied to a subfolder of the data directory named
-    resources/<scanid>, for example: 
+    resources/<scanid>, for example:
 
         resources/SPN01_CMH_0001_01_01/
-    
+
     In addition to the data in RESOURCES, the *_catalog.xml file from each scan
     series will be placed in the resources folder with the output file naming
-    listed above, e.g. 
+    listed above, e.g.
 
         resources/SPN01_CMH_0001_01_01/
             SPN01_CMH_0001_01_01_CAT_001_catalog.xml
             SPN01_CMH_0001_01_01_CAT_002_catalog.xml
-            ... 
+            ...
 
 EXAMPLES
 
@@ -127,18 +127,18 @@ DEBUG  = False
 VERBOSE= False
 DRYRUN = False
 
-def log(message): 
+def log(message):
     print message
     sys.stdout.flush()
 
-def error(message): 
+def error(message):
     log("ERROR: " + message)
 
-def verbose(message): 
+def verbose(message):
     if not(VERBOSE or DEBUG): return
     log(message)
 
-def debug(message): 
+def debug(message):
     if not DEBUG: return
     log("DEBUG: " + message)
 
@@ -148,10 +148,10 @@ def makedirs(path):
 
 def run(cmd):
     debug("exec: {}".format(cmd))
-    if not DRYRUN: 
+    if not DRYRUN:
         p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
-        out, err = p.communicate() 
-        if p.returncode != 0: 
+        out, err = p.communicate()
+        if p.returncode != 0:
             log("Error {} while executing: {}".format(p.returncode, cmd))
             out and log("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
             err and log("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
@@ -161,7 +161,7 @@ def run(cmd):
             err and debug("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
 
 def main():
-    global DEBUG 
+    global DEBUG
     global DRYRUN
     global VERBOSE
     arguments = docopt(__doc__)
@@ -173,11 +173,19 @@ def main():
     DEBUG          = arguments['--debug']
     DRYRUN         = arguments['--dry-run']
 
-    exportinfo = pd.read_table(exportinfofile, sep='\s*', engine="python")
+    try:
+        exportinfo = pd.read_table(exportinfofile, sep='\s*', engine="python")
+    except IOError, _:
+        error("{} does not exist".format(exportinfofile))
+        return
 
-    if blacklist: 
-        bl = pd.read_table(blacklist, sep='\s*', engine="python")
-        blacklist = bl["series"].tolist()
+    if blacklist:
+        try:
+            bl = pd.read_table(blacklist, sep='\s*', engine="python")
+        except IOError, _:
+            debug("{} does not exist. Running on all series".format(
+                    blacklist))
+            bl = []
 
     for archivepath in archives:
         verbose("Exporting {}".format(archivepath))
@@ -190,11 +198,11 @@ def extract_archive(exportinfo, archivepath, exportdir, blacklist):
 
     The <archivepath> is the XNAT archive directory to extract from. This
     should point to a single scan folder, and the folder should be named
-    according to our data naming scheme. 
+    according to our data naming scheme.
 
     This function searches through the SCANS subfolder (archivepath) for series
     and converts each series, placing them in an appropriately named folder
-    under exportdir. 
+    under exportdir.
     """
 
     archivepath = os.path.normpath(archivepath)
@@ -216,7 +224,7 @@ def extract_archive(exportinfo, archivepath, exportdir, blacklist):
     fmts         = get_formats_from_exportinfo(exportinfo)
     unknown_fmts = [fmt for fmt in fmts if fmt not in exporters]
 
-    if len(unknown_fmts) > 0: 
+    if len(unknown_fmts) > 0:
         error("Unknown formats requested for export of {}: {}. " \
               "Skipping.".format(archivepath, ",".join(unknown_fmts)))
         return
@@ -226,13 +234,13 @@ def extract_archive(exportinfo, archivepath, exportdir, blacklist):
 
     stem  = str(scanid)
     for src, header in dm.utils.get_archive_headers(archivepath).items():
-        export_series(exportinfo, src, header, fmts, timepoint, stem, 
+        export_series(exportinfo, src, header, fmts, timepoint, stem,
                 exportdir, blacklist)
 
     # export non dicom resources
     export_resources(archivepath, exportdir, scanid)
 
-def export_series(exportinfo, src, header, formats, timepoint, stem, 
+def export_series(exportinfo, src, header, formats, timepoint, stem,
         exportdir, blacklist):
     """
     Exports the given DICOM folder into the given formats.
@@ -248,10 +256,10 @@ def export_series(exportinfo, src, header, formats, timepoint, stem,
         src, description, series, tag))
 
     if not tag:
-        verbose("No matching export pattern for {}, descr: {}. Skipping".format( 
+        verbose("No matching export pattern for {}, descr: {}. Skipping".format(
             src, description))
-        return 
-    elif type(tag) is list: 
+        return
+    elif type(tag) is list:
         error("Multiple export patterns match for {}, descr: {}, tags: {}".format(
             src, description, tag))
         return
@@ -259,11 +267,11 @@ def export_series(exportinfo, src, header, formats, timepoint, stem,
     tag_exportinfo = exportinfo[exportinfo['tag'] == tag]
 
     # update the filestem with _tag_series_description
-    stem  += "_" + "_".join([tag,series,mangled_descr]) 
+    stem  += "_" + "_".join([tag,series,mangled_descr])
 
     if blacklist and stem in blacklist:
         debug("{} in blacklist. Skipping.".format(stem))
-        return 
+        return
 
     for fmt in formats:
         if all(tag_exportinfo['export_'+fmt] == 'no'):
@@ -281,7 +289,7 @@ def get_formats_from_exportinfo(dataframe):
     Gets the export formats from the column names in an exportinfo table.
 
     Columns that begin with "export_" are extracted, and the format identifier
-    from each column is returned, as a list. 
+    from each column is returned, as a list.
     """
 
     columns = dataframe.columns.values.tolist()
@@ -341,7 +349,7 @@ def export_nii_command(seriesdir,outputdir,stem):
     for f in glob.glob("{}/*".format(tmpdir)):
         bn = os.path.basename(f)
         ext = dm.utils.get_extension(f)
-        if bn.startswith("o") or bn.startswith("co"): 
+        if bn.startswith("o") or bn.startswith("co"):
             continue
         else:
             run("mv {} {}/{}{}".format(f, outputdir, stem, ext))
@@ -380,11 +388,11 @@ def export_dcm_command(seriesdir,outputdir,stem):
     for path in glob.glob(seriesdir + '/*'):
         try:
             dicom.read_file(path)
-            dcmfile = path            
+            dcmfile = path
             break
         except dicom.filereader.InvalidDicomError, e:
             pass
-    
+
     assert dcmfile is not None, "No dicom files found in {}".format(seriesdir)
     verbose("Exporting a dcm file from {} to {}".format(seriesdir, outputfile))
     cmd = 'cp {} {}'.format(dcmfile, outputfile)
