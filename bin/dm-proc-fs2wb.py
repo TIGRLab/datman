@@ -199,7 +199,7 @@ for i in range(0,len(checklist)):
         continue
 
     jobname = jobnameprefix + subid
-    os.chdir(run_dir)
+    os.chdir(bin_dir)
     docmd('echo ./{script} {subid} | '
           'qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
             script = runconvertsh,
@@ -217,7 +217,7 @@ for i in range(0,len(checklist)):
 ## if any subjects have been submitted,
 ## submit a final job that will qc the resutls after they are finished
 if submitted:
-    os.chdir(run_dir)
+    os.chdir(bin_dir)
     #if any subjects have been submitted - submit an extract consolidation job to run at the end
     docmd('echo ./{script} | '
           'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
