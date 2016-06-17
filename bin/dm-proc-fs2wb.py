@@ -60,7 +60,7 @@ def docmd(cmd):
     if DEBUG: print cmd
     rtn, out, err = dm.utils.run(cmd, dryrun = DRYRUN)
 
-epiclone = '/archive/data-2.0/code/datman/assets/epitome/160404-ewd'
+epiclone = os.path.join(os.environ['DATMAN_ASSETSDIR'],'epitome','160404-ewd')
 
 ### build a template .sh file that gets submitted to the queue
 def makerunsh(filename):
@@ -196,16 +196,16 @@ for i in range(0,len(checklist)):
     FS32 = os.path.join(targetpath,subid,'MNINonLinear','fsaverage_LR32k',subid + '.aparc.32k_fs_LR.dlabel.nii')
     # if all input files are there - check if an output exists
     if not FSready or os.path.exists(FS32):
-        continue 
+        continue
 
     jobname = jobnameprefix + subid
     os.chdir(bin_dir)
     docmd('echo ./{script} {subid} | '
           'qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
-            script = runconvertsh, 
+            script = runconvertsh,
             subid = subid,
-            jobname = jobname, 
-            logdir = log_dir,
+            jobname = jobname,
+            logdir = logs_dir,
             wt = walltime))
     checklist['date_converted'][i] = datetime.date.today()
     submitted = True
@@ -221,8 +221,8 @@ if submitted:
     #if any subjects have been submitted - submit an extract consolidation job to run at the end
     docmd('echo ./{script} | '
           'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
-            script = runpostsh, 
-            jobname = jobnameprefix + 'hcp_qc', 
+            script = runpostsh,
+            jobname = jobnameprefix + 'hcp_qc',
             logdir = log_dir,
             hold = jobnameprefix + '*',
             wt = walltime_qc))
