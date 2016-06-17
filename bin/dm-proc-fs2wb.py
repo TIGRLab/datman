@@ -199,7 +199,7 @@ for i in range(0,len(checklist)):
         continue
 
     jobname = jobnameprefix + subid
-    os.chdir(bin_dir)
+    os.chdir(run_dir)
     docmd('echo ./{script} {subid} | '
           'qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
             script = runconvertsh,
