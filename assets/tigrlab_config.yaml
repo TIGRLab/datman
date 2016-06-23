@@ -72,8 +72,8 @@ SystemSettings:
       datman:        {module: /archive/data-2.0/code/datman.module, bash_cmd: null}
   scc:
     hostname: 'scc.camh.net'
-    DATMAN_ASSETSDIR: '/imaging/scratch/kimel/jpipitone/datman-test/datman/assets'
-    DATMAN_PROJECTSDIR: '/imaging/scratch/kimel/jpipitone/datman-test'
+    DATMAN_ASSETSDIR: '/KIMEL/quarantine/datman/latest/src/datman/assets'
+    DATMAN_PROJECTSDIR: '/external/rprshnas01/tigrlab/archive/data-2.0'
     XNAT_ARCHIVEDIR: '/external/rprshnas01/tigrlab/xnat/spred/archive'
     Software:
       AFNI:       {module: AFNI/2016.05.03 , bash_cmd: null}
@@ -156,7 +156,7 @@ PipelineSettings:
       dependancies: [FSL]
 
   - 'dm-reslice.py' :
-      message: 'Reslicing DTI60 images...'
+      message: 'Reslicing DTI60 images'
       runif: "'DTI60-1000' in ScanTypes"
       arguments: [ '${PROJECTDIR}/data/nii/*/*DTI60-1000*.nii.gz' ]
       dependancies: [ AFNI ]
@@ -168,9 +168,15 @@ PipelineSettings:
         - '--qcdir ${PROJECTDIR}/qc'
         - '--project-settings ${PROJECTDIR}/metadata/project_settings.yml'
       dependancies: [AFNI, FSL, matlab]
+      qbatch:
+        - '-N qc_${STUDYNAME}_${DATESTAMP}'
+        - '--logdir ${PROJECTDIR}/logs'
 
   - 'qc-report.py' :
       arguments: ['${PROJECTDIR}']
+      qbatch:
+        - '--afterok qc_${STUDYNAME}_${DATESTAMP}'
+        - '--logdir ${PROJECTDIR}/logs'
 
   - 'qc-phantom.py' :
       message: Updating phantom plots
@@ -235,7 +241,9 @@ PipelineSettings:
       message: 'Analyzing empathic accuracy data'
       runif: "'EMP' in ScanTypes"
       arguments:
-        - '${PROJECTDIR}'
+        - '${PROJECTDIR}/data'
+        - '${PROJECTDIR}/pipelines/freesurfer'
+        - '${PROJECTDIR}/pipelines/ea'
         - '${DATMAN_ASSETSDIR}/150409-compcor-nonlin-8fwhm.sh'
         - '${PROJECTDIR}/metadata/design'
       dependancies: [freesurfer, AFNI, FSL, matlab]
@@ -245,7 +253,9 @@ PipelineSettings:
       message: 'Analyzing imitate observe data'
       runif: "('IMI' in ScanTypes) & ('OBS' in ScanTypes)"
       arguments:
-        - '${PROJECTDIR}'
+        - '${PROJECTDIR}/data'
+        - '${PROJECTDIR}/pipelines/freesurfer'
+        - '${PROJECTDIR}/pipelines/imob'
         - '${DATMAN_ASSETSDIR}/150409-compcor-nonlin-8fwhm.sh'
         - '${PROJECTDIR}/metadata/design'
       dependancies: [freesurfer, AFNI, FSL, matlab]
@@ -256,7 +266,9 @@ PipelineSettings:
       runif: "'RST' in ScanTypes or 'SPRL in ScanTypes'"
       arguments:
         - '--tags=RST,SPRL'
-        - '--${PROJECTDIR}'
+        - '${PROJECTDIR}/data'
+        - '${PROJECTDIR}/pipelines/freesurfer'
+        - '${PROJECTDIR}/pipelines/rest'
         - '${DATMAN_ASSETSDIR}/151012-tedmethod-compcor-lowpass-nonlin-10fwhm.sh'
         - '${DATMAN_ASSETSDIR}/shen_1mm_268_parcellation.nii.gz'
       dependancies: [freesurfer, AFNI, FSL, matlab]
