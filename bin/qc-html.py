@@ -167,7 +167,7 @@ def qchtml_writetable(qchtml, exportinfo):
     for row in range(0,len(exportinfo)):
         qchtml.write('<tr><td>{}</td>'.format(exportinfo.loc[row,'tag'])) ## table new row
         qchtml.write('<td><a href="#{}">{}</a></td>'.format(exportinfo.loc[row,'bookmark'],exportinfo.loc[row,'File']))
-        qchtml.write('<td>{}</td></tr>'.format(exportinfo.loc[row,'Note'])) ## table new row
+        qchtml.write('<td><font color="#FF0000">{}</font></td></tr>'.format(exportinfo.loc[row,'Note'])) ## table new row
 
     ##end table
     qchtml.write('</table>\n')
