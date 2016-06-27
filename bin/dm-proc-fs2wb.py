@@ -11,7 +11,7 @@ Arguments:
 
 Options:
   --prefix STR			   Tag for filtering subject directories
-  --walltime TIME          A walltime to pass to qbatch [default: 5:00:00]
+  --walltime TIME          A walltime to pass to qbatch [default: 2:00:00]
   --walltime-qc TIME       A walltime for the qc step [default: 2:00:00]
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
@@ -223,7 +223,7 @@ if submitted:
           'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
             script = runpostsh,
             jobname = jobnameprefix + 'hcp_qc',
-            logdir = log_dir,
+            logdir = logs_dir,
             hold = jobnameprefix + '*',
             wt = walltime_qc))
 
