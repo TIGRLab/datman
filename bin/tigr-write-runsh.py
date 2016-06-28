@@ -111,7 +111,7 @@ else:
 diffs = set(ExpectedSysKeys) - set(SystemSettingsLocal.keys())
 if len(diffs) > 0:
     sys.exit("Local System Setting {} not read \n.You might need to specify the system with the --local-system option".format(diffs))
-
+WorkFlows = SystemSettingsDest['PipelineSettings_torun']
 #get the project names
 Projects = [project] if project else config['Projects'].keys()
 
@@ -174,152 +174,153 @@ for Project in Projects:
     ## the next section seems to to updating the original no matter how hard I try...
     with open(config_yml, 'r') as stream:
         config = yaml.load(stream)
-    PipelineSettings = config['PipelineSettings']
+    for workflow in WorkFlows:
+        PipelineSettings = config['PipelineSettings'][workflow]
 
-    if 'PipelineSettings' in ProjectSettings:
-        for cmdi in ProjectSettings['PipelineSettings']:
-            for cmdj in PipelineSettings:
-                if cmdi.keys()[0] in cmdj.keys()[0]:
-                    cmdj.update(cmdi)
+        if 'PipelineSettings' in ProjectSettings:
+            for cmdi in ProjectSettings['PipelineSettings']:
+                for cmdj in PipelineSettings:
+                    if cmdi.keys()[0] in cmdj.keys()[0]:
+                        cmdj.update(cmdi)
 
-    ## unless an outputfile is specified, set the output to ${PROJECTDIR}/bin/run.sh
-    if outputpath == None:
-        ouputfile = os.path.join(projectdir_local,'bin','run_{}.sh'.format(dest_system))
-    else:
-        projectoutput = os.path.join(outputpath,Project,'bin')
-        dm.utils.makedirs(projectoutput)
-        outputfile = os.path.join(projectoutput,'run_{}.sh'.format(dest_system))
-
-    #open file for writing
-    runsh = open(outputfile,'w')
-
-    runsh.write('''\
-#!/bin/bash -l
-# Runs pipelines like a bro
-#
-# Usage:
-#   run.sh [options]
-#
-# Options:
-#   --quiet     Do not be chatty (does nnt apply to pipeline stages)
-#
-
-set -e  # fail on error
-set -u  # fail on unset variable
-    ''')
-
-    ## write the top bit
-    runsh.write('\n\nexport DATMAN_PROJECTSDIR=' + SystemSettingsDest['DATMAN_PROJECTSDIR'] + '     # Top path of data structure\n')
-    runsh.write('export DATMAN_ASSETSDIR=' + SystemSettingsDest['DATMAN_ASSETSDIR'] + '     # path to <datman>/assets/ \n')
-    runsh.write('export XNAT_ARCHIVEDIR=' + SystemSettingsDest['XNAT_ARCHIVEDIR'] + '     # path to XNAT archive\n')
-    runsh.write('export STUDYNAME=' + Project + '     # Data archive study name\n')
-    runsh.write('export XNAT_PROJECT=' + XNAT_PROJECT + '  # XNAT project name\n')
-    runsh.write('export MRUSER=' + MRUSER +'         # MR Unit FTP user\n')
-    runsh.write('export MRFOLDER="'+ MRFOLDER +'"         # MR Unit FTP folder\n')
-    runsh.write('export PROJECTDIR='+ projectdir_dest +'\n')
-    runsh.write('export PREFIX='+ PREFIX +'\n')
-    runsh.write('export SITES=('+ ' '.join(SiteNames) +')\n\n')
-
-    ## write the export from XNAT
-    for siteinfo in ProjectSettings['Sites']:
-        site = siteinfo.keys()[0]
-        xnat = siteinfo[site]['XNAT_Archive']
-        runsh.write('export XNAT_ARCHIVE_' + site + '=' + xnat + '\n')
-    runsh.write('\n')
-
-    ## write the gold standard info
-    if len(SiteNames) == 1:
-        runsh.write('export ' + site + '_STANDARD=')
-        runsh.write(projectdir_dest + '/metadata/gold_standards/\n')
-    else:
-        for site in SiteNames:
-            runsh.write('export ' + site + '_STANDARD=')
-            runsh.write(projectdir_dest + '/metadata/gold_standards/' + site + '\n')
-
-    ## set some settings and load datman module
-    runsh.write('''
-args="$@"                           # commence ugly opt handling
-DATESTAMP=$(date +%Y%m%d)
-''')
-
-    if 'to_load_quarantine' in SystemSettingsDest.keys():
-        runsh.write('{}\n'.format(SystemSettingsDest['to_load_quarantine']))
-
-    write_software_loading(['datman'],runsh, SystemSettingsDest, indent = '')
-    runsh.write('export PATH=$PATH:${PROJECTDIR}/bin\n')
-
-    ## define the message function
-    runsh.write('function message () { [[ "$args" =~ "--quiet" ]] || echo "$(date): $1"; }\n\n')
-
-    ## start running stuff
-    runsh.write('{\n')
-    runsh.write('  message "Running pipelines for study: $STUDYNAME"\n')
-
-    ## get the scans from the camh server
-    for cmd in PipelineSettings:
-        cmdname = cmd.keys()[0]
-        if cmd[cmdname] == False: continue
-        if 'runif' in cmd[cmdname].keys():
-            if not eval(cmd[cmdname]['runif']): continue
-        if cmdname == 'qc-phantom.py': QC_Phantoms = True
-        if 'message' in cmd[cmdname].keys():
-            runsh.write('\n  message "'+ cmd[cmdname]['message']+ '..."\n')
-        runsh.write('  (\n')
-        if 'dependancies' in cmd[cmdname].keys():
-            dependancies = cmd[cmdname]['dependancies']
-            if type(dependancies) is str: dependancies = [dependancies]
-            write_software_loading(dependancies,runsh, SystemSettingsDest)
-        if 'environment' in cmd[cmdname].keys():
-            runsh.write('  '+ cmd[cmdname]['environment']+'\n')
-        if 'qbatch' in cmd[cmdname].keys():
-            qbatchcmd = '  qbatchsub.sh ' + ' '.join(cmd[cmdname]['qbatch']) + ' -- \\\n'
-            runsh.write(qbatchcmd)
-        if 'CallMultipleTimes' in cmd[cmdname].keys():
-            for subcmd in cmd[cmdname]['CallMultipleTimes'].keys():
-                arglist = cmd[cmdname]['CallMultipleTimes'][subcmd]['arguments']
-                thiscmd = '  ' + cmdname + ' \\\n    ' + ' \\\n    '.join(arglist) + '\n'
-                runsh.write(thiscmd)
+        ## unless an outputfile is specified, set the output to ${PROJECTDIR}/bin/run.sh
+        if outputpath == None:
+            ouputfile = os.path.join(projectdir_local,'bin','run_{}.sh'.format(dest_system))
         else:
-            fullcmd = '  ' + cmdname + ' \\\n    ' + ' \\\n    '.join(cmd[cmdname]['arguments']) + '\n'
-            if 'IterateOverSites' in cmd[cmdname].keys():
-                for site in SiteNames:
-                    thiscmd = fullcmd.replace('<site>',site)
-                    runsh.write(thiscmd)
-            else:
-                runsh.write(fullcmd)
-        runsh.write('  )\n')
-    ## pushing stuff to git hub
-    runsh.write(
-    '''
-  message "Pushing QC documents to github..."
-  ( # subshell invoked to handle directory change
-    cd ${PROJECTDIR}
-    git add qc/
-    git add metadata/checklist.csv
-    git add metadata/checklist.yaml
-    git diff --quiet HEAD || git commit -m "Autoupdating QC documents"
-  )
-     ''')
+            projectoutput = os.path.join(outputpath,Project,'bin')
+            dm.utils.makedirs(projectoutput)
+            outputfile = os.path.join(projectoutput,'run_{}.sh'.format(dest_system))
 
-    ## pushing website ness
-    if (QC_Phantoms == True) & (len(SiteNames) > 1):
-        runsh.write(
-        '''
-  message "Pushing website data to github..."
-  (
-    cd ${PROJECTDIR}/website
-    git add .
-    git commit -m "Updating QC plots"
-    git push --quiet
-  ) > /dev/null
+        #open file for writing
+        runsh = open(outputfile,'w')
+
+        runsh.write('''\
+    #!/bin/bash -l
+    # Runs pipelines like a bro
+    #
+    # Usage:
+    #   run.sh [options]
+    #
+    # Options:
+    #   --quiet     Do not be chatty (does nnt apply to pipeline stages)
+    #
+
+    set -e  # fail on error
+    set -u  # fail on unset variable
         ''')
 
-    ### tee out a log
-    runsh.write('  message "Done."\n')
-    runsh.write('} | tee -a ${PROJECTDIR}/logs/run-all-${DATESTAMP}.log\n')
+        ## write the top bit
+        runsh.write('\n\nexport DATMAN_PROJECTSDIR=' + SystemSettingsDest['DATMAN_PROJECTSDIR'] + '     # Top path of data structure\n')
+        runsh.write('export DATMAN_ASSETSDIR=' + SystemSettingsDest['DATMAN_ASSETSDIR'] + '     # path to <datman>/assets/ \n')
+        runsh.write('export XNAT_ARCHIVEDIR=' + SystemSettingsDest['XNAT_ARCHIVEDIR'] + '     # path to XNAT archive\n')
+        runsh.write('export STUDYNAME=' + Project + '     # Data archive study name\n')
+        runsh.write('export XNAT_PROJECT=' + XNAT_PROJECT + '  # XNAT project name\n')
+        runsh.write('export MRUSER=' + MRUSER +'         # MR Unit FTP user\n')
+        runsh.write('export MRFOLDER="'+ MRFOLDER +'"         # MR Unit FTP folder\n')
+        runsh.write('export PROJECTDIR='+ projectdir_dest +'\n')
+        runsh.write('export PREFIX='+ PREFIX +'\n')
+        runsh.write('export SITES=('+ ' '.join(SiteNames) +')\n\n')
 
-    ## close the file
-    runsh.close()
+        ## write the export from XNAT
+        for siteinfo in ProjectSettings['Sites']:
+            site = siteinfo.keys()[0]
+            xnat = siteinfo[site]['XNAT_Archive']
+            runsh.write('export XNAT_ARCHIVE_' + site + '=' + xnat + '\n')
+        runsh.write('\n')
+
+        ## write the gold standard info
+        if len(SiteNames) == 1:
+            runsh.write('export ' + site + '_STANDARD=')
+            runsh.write(projectdir_dest + '/metadata/gold_standards/\n')
+        else:
+            for site in SiteNames:
+                runsh.write('export ' + site + '_STANDARD=')
+                runsh.write(projectdir_dest + '/metadata/gold_standards/' + site + '\n')
+
+        ## set some settings and load datman module
+        runsh.write('''
+    args="$@"                           # commence ugly opt handling
+    DATESTAMP=$(date +%Y%m%d)
+    ''')
+
+        if 'to_load_quarantine' in SystemSettingsDest.keys():
+            runsh.write('{}\n'.format(SystemSettingsDest['to_load_quarantine']))
+
+        write_software_loading(['datman'],runsh, SystemSettingsDest, indent = '')
+        runsh.write('export PATH=$PATH:${PROJECTDIR}/bin\n')
+
+        ## define the message function
+        runsh.write('function message () { [[ "$args" =~ "--quiet" ]] || echo "$(date): $1"; }\n\n')
+
+        ## start running stuff
+        runsh.write('{\n')
+        runsh.write('  message "Running pipelines for study: $STUDYNAME"\n')
+
+        ## get the scans from the camh server
+        for cmd in PipelineSettings:
+            cmdname = cmd.keys()[0]
+            if cmd[cmdname] == False: continue
+            if 'runif' in cmd[cmdname].keys():
+                if not eval(cmd[cmdname]['runif']): continue
+            if cmdname == 'qc-phantom.py': QC_Phantoms = True
+            if 'message' in cmd[cmdname].keys():
+                runsh.write('\n  message "'+ cmd[cmdname]['message']+ '..."\n')
+            runsh.write('  (\n')
+            if 'dependancies' in cmd[cmdname].keys():
+                dependancies = cmd[cmdname]['dependancies']
+                if type(dependancies) is str: dependancies = [dependancies]
+                write_software_loading(dependancies,runsh, SystemSettingsDest)
+            if 'environment' in cmd[cmdname].keys():
+                runsh.write('  '+ cmd[cmdname]['environment']+'\n')
+            if 'qbatch' in cmd[cmdname].keys():
+                qbatchcmd = '  qbatchsub.sh ' + ' '.join(cmd[cmdname]['qbatch']) + ' -- \\\n'
+                runsh.write(qbatchcmd)
+            if 'CallMultipleTimes' in cmd[cmdname].keys():
+                for subcmd in cmd[cmdname]['CallMultipleTimes'].keys():
+                    arglist = cmd[cmdname]['CallMultipleTimes'][subcmd]['arguments']
+                    thiscmd = '  ' + cmdname + ' \\\n    ' + ' \\\n    '.join(arglist) + '\n'
+                    runsh.write(thiscmd)
+            else:
+                fullcmd = '  ' + cmdname + ' \\\n    ' + ' \\\n    '.join(cmd[cmdname]['arguments']) + '\n'
+                if 'IterateOverSites' in cmd[cmdname].keys():
+                    for site in SiteNames:
+                        thiscmd = fullcmd.replace('<site>',site)
+                        runsh.write(thiscmd)
+                else:
+                    runsh.write(fullcmd)
+            runsh.write('  )\n')
+        ## pushing stuff to git hub
+        runsh.write(
+        '''
+      message "Pushing QC documents to github..."
+      ( # subshell invoked to handle directory change
+        cd ${PROJECTDIR}
+        git add qc/
+        git add metadata/checklist.csv
+        git add metadata/checklist.yaml
+        git diff --quiet HEAD || git commit -m "Autoupdating QC documents"
+      )
+         ''')
+
+        ## pushing website ness
+        if (QC_Phantoms == True) & (len(SiteNames) > 1):
+            runsh.write(
+            '''
+      message "Pushing website data to github..."
+      (
+        cd ${PROJECTDIR}/website
+        git add .
+        git commit -m "Updating QC plots"
+        git push --quiet
+      ) > /dev/null
+            ''')
+
+        ### tee out a log
+        runsh.write('  message "Done."\n')
+        runsh.write('} | tee -a ${PROJECTDIR}/logs/run-all-${DATESTAMP}.log\n')
+
+        ## close the file
+        runsh.close()
     del(PipelineSettings)
 #
 # ### change anything that needs to be changed with Find and Replace
