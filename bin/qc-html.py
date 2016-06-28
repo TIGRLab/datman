@@ -11,6 +11,7 @@ Options:
     --dbdir DIR             Folder for the database (default, same as --qcdir)
     --project-settings YML  File with project settings (to read expected file list from)
     --subject SCANID        Scan ID to QC for. E.g. DTI_CMH_H001_01_01
+    --rewrite               Rewrite the html of an existing qc page
     --verbose               Be chatty
     --debug                 Be extra chatty
     --dry-run               Don't actually do any work
@@ -60,8 +61,11 @@ logging.basicConfig(level=logging.WARN,
     format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
+DEBUG = False
+VERBOSE = False
 DRYRUN = False
 FIGDPI = 144
+REWRITE = False
 
 # adds qascripts to the environment
 ASSETS = '{}/assets'.format(os.path.dirname(dm.utils.script_path()))
@@ -163,7 +167,7 @@ def qchtml_writetable(qchtml, exportinfo):
     for row in range(0,len(exportinfo)):
         qchtml.write('<tr><td>{}</td>'.format(exportinfo.loc[row,'tag'])) ## table new row
         qchtml.write('<td><a href="#{}">{}</a></td>'.format(exportinfo.loc[row,'bookmark'],exportinfo.loc[row,'File']))
-        qchtml.write('<td>{}</td></tr>'.format(exportinfo.loc[row,'Note'])) ## table new row
+        qchtml.write('<td><font color="#FF0000">{}</font></td></tr>'.format(exportinfo.loc[row,'Note'])) ## table new row
 
     ##end table
     qchtml.write('</table>\n')
@@ -698,9 +702,9 @@ def fmri_qc(fpath, qcpath, qchtml, cur):
 
     if ntrs < 20:
         return
-
+    
     filename = os.path.basename(fpath)
-    filestem = filename.replace('.nii.gz','')
+    filestem = nifti_basename(fpath)
     tmpdir = tempfile.mkdtemp(prefix='qc-')
 
     run('3dvolreg \
@@ -848,7 +852,28 @@ def add_bvec_checks(fpath, qchtml, logdata):
     for l in lines:
         qchtml.write('<tr><td>{}</td></tr>'.format(l))
     qchtml.write('</table>\n')
-
+    
+def add_old_image(fpath, qcpath, qchtml, tag):
+    fname = nifti_basename(fpath)
+    fname = os.path.join(qcpath, fname)
+    
+    if os.path.exists(fname + '.png'):
+        add_pic_to_html(qchtml, fname + '.png')
+        return
+    elif os.path.exists(fname + '_BOLD.png'):
+        add_pic_to_html(qchtml, fname + '_BOLD.png')
+        add_pic_to_html(qchtml, fname + '_fmriplots.png')
+        add_pic_to_html(qchtml, fname + '_SNR.png')
+        add_pic_to_html(qchtml, fname + '_Spikes.png')
+    elif os.path.exists(fname + '_B0.png'):
+        add_pic_to_html(qchtml, fname + '_B0.png')
+        add_pic_to_html(qchtml, fname + '_dti4d.png')
+        add_pic_to_html(qchtml, fname + '_spikes.png')
+    elif tag == 'PDT2':
+        add_pic_to_html(qchtml, fname.replace('_PDT2_','_PD_') + '.png')
+        add_pic_to_html(qchtml, fname.replace('_PDT2_', '_T2_') + '.png')
+        
+        
 ###############################################################################
 # MAIN
 
@@ -868,9 +893,15 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
     qcpath = dm.utils.define_folder(os.path.join(qcdir,subject))
 
     htmlfile = os.path.join(qcpath, 'qc_{}.html'.format(subject))
-    if os.path.exists(htmlfile):
+    if os.path.exists(htmlfile) and not REWRITE:
         logger.debug("{} exists, skipping.".format(htmlfile))
         return
+
+    if REWRITE:
+        try: 
+            os.remove(htmlfile)
+        except:
+            print("{} does not exist. Reconstructing html file from any images present.".format(htmlfile))
 
     qchtml = open(htmlfile,'a')
     qchtml.write('<HTML><TITLE>{} qc</TITLE>\n'.format(subject))
@@ -952,7 +983,12 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
                 add_header_checks(fname, qchtml, header_check_log)
             if bvecs_check_log:
                 add_bvec_checks(fname, qchtml, bvecs_check_log)
-            QC_HANDLERS[tag](fname, qcpath, qchtml, cur)
+                
+            if not REWRITE:    
+                QC_HANDLERS[tag](fname, qcpath, qchtml, cur)
+            else:
+                add_old_image(fname, qcpath, qchtml, tag)
+                
             qchtml.write('<br>')
 
     qchtml.close()
@@ -964,6 +1000,7 @@ def main():
     global VERBOSE
     global DEBUG
     global DRYRUN
+    global REWRITE
 
     QC_HANDLERS = {   # map from tag to QC function
             "T1"            : t1_qc,
@@ -1006,13 +1043,14 @@ def main():
     dbdir     = arguments['--dbdir']
     ymlfile   = arguments['--project-settings']
     scanid    = arguments['--subject']
-    verbose   = arguments['--verbose']
-    debug     = arguments['--debug']
+    REWRITE   = arguments['--rewrite']
+    VERBOSE   = arguments['--verbose']
+    DEBUG     = arguments['--debug']
     DRYRUN    = arguments['--dry-run']
 
-    if verbose:
+    if VERBOSE:
         logging.getLogger().setLevel(logging.INFO)
-    if debug:
+    if DEBUG:
         logging.getLogger().setLevel(logging.DEBUG)
 
     if scanid:
