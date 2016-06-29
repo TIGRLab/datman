@@ -181,11 +181,11 @@ def main():
 
     if blacklist:
         try:
-            bl = pd.read_table(blacklist, sep='\s*', engine="python")
+            blacklist = pd.read_table(blacklist, sep='\s*', engine="python")
         except IOError, _:
             debug("{} does not exist. Running on all series".format(
                     blacklist))
-            bl = []
+            blacklist = []
 
     for archivepath in archives:
         verbose("Exporting {}".format(archivepath))
@@ -269,7 +269,7 @@ def export_series(exportinfo, src, header, formats, timepoint, stem,
     # update the filestem with _tag_series_description
     stem  += "_" + "_".join([tag,series,mangled_descr])
 
-    if blacklist and stem in blacklist:
+    if len(blacklist) != 0 and stem in blacklist:
         debug("{} in blacklist. Skipping.".format(stem))
         return
 
