@@ -77,6 +77,7 @@ SystemSettings:
     DATMAN_PROJECTSDIR: '/external/rprshnas01/tigrlab/archive/data-2.0'
     XNAT_ARCHIVEDIR: '/external/rprshnas01/tigrlab/xnat/spred/archive'
     PipelineSettings_torun: ['pipelines']
+    to_load_quarantine: 'module load /KIMEL/quarantine/modules/quarantine'
     Software:
       AFNI:       {module: AFNI/2016.05.03 , bash_cmd: null}
       freesurfer: {module: freesurfer/5.3.0, bash_cmd: null}
@@ -205,7 +206,7 @@ PipelineSettings:
 
     - 'dm-proc-dtifit.py' :
         message: 'Running dtifit'
-        runif: 'len([s for s in ScanTypes if "DTI" in s]) > 1'
+        runif: 'any("DTI" in s for s in ScanTypes)'
         arguments:
           - '--inputdir ${PROJECTDIR}/data/nii'
           - '--outputdir ${PROJECTDIR}/pipelines/dtifit'
@@ -213,14 +214,14 @@ PipelineSettings:
 
     - 'dtifit-qc.py' :
         message: 'Running ditfit qc'
-        runif: 'len([s for s in ScanTypes if "DTI" in s]) > 1'
+        runif: 'any("DTI" in s for s in ScanTypes)'
         arguments:
           - '${PROJECTDIR}/pipelines/dtifit/'
         dependancies: FSL
 
     - 'dm-proc-enigmadti.py' :
         message: 'Running enignmaDTI'
-        runif: 'len([s for s in ScanTypes if "DTI" in s]) > 1'
+        runif: 'any("DTI" in s for s in ScanTypes)'
         arguments:
           - '--calc-all'
           - '--QC-transfer ${PROJECTDIR}/metadata/checklist.csv'
@@ -276,7 +277,7 @@ PipelineSettings:
 
     - 'dm-proc-rest.py' :
         message: 'Analyzing resting state data'
-        runif: "'RST' in ScanTypes or 'SPRL in ScanTypes'"
+        runif: "'RST' in ScanTypes or 'SPRL' in ScanTypes"
         arguments:
           - '--tags=RST,SPRL'
           - '${PROJECTDIR}/data'

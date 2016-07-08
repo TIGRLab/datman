@@ -184,29 +184,30 @@ for Project in Projects:
                         cmdj.update(cmdi)
 
         ## unless an outputfile is specified, set the output to ${PROJECTDIR}/bin/run.sh
-        if outputpath == None:
-            ouputfile = os.path.join(projectdir_local,'bin','run_{}.sh'.format(dest_system))
+        if not outputpath:
+            outputfile = os.path.join(projectdir_local,'bin','run_{}_{}.sh'.format(workflow,dest_system))
         else:
             projectoutput = os.path.join(outputpath,Project,'bin')
             dm.utils.makedirs(projectoutput)
-            outputfile = os.path.join(projectoutput,'run_{}.sh'.format(dest_system))
+            outputfile = os.path.join(projectoutput,'run_{}_{}.sh'.format(workflow,dest_system))
 
+        # print("ScanTypes are {}".format(ScanTypes))
         #open file for writing
         runsh = open(outputfile,'w')
 
         runsh.write('''\
-    #!/bin/bash -l
-    # Runs pipelines like a bro
-    #
-    # Usage:
-    #   run.sh [options]
-    #
-    # Options:
-    #   --quiet     Do not be chatty (does nnt apply to pipeline stages)
-    #
+#!/bin/bash -l
+# Runs pipelines like a bro
+#
+# Usage:
+#   run.sh [options]
+#
+# Options:
+#   --quiet     Do not be chatty (does nnt apply to pipeline stages)
+#
 
-    set -e  # fail on error
-    set -u  # fail on unset variable
+set -e  # fail on error
+set -u  # fail on unset variable
         ''')
 
         ## write the top bit
@@ -239,8 +240,8 @@ for Project in Projects:
 
         ## set some settings and load datman module
         runsh.write('''
-    args="$@"                           # commence ugly opt handling
-    DATESTAMP=$(date +%Y%m%d)
+args="$@"                           # commence ugly opt handling
+DATESTAMP=$(date +%Y%m%d)
     ''')
 
         if 'to_load_quarantine' in SystemSettingsDest.keys():
@@ -289,31 +290,33 @@ for Project in Projects:
                 else:
                     runsh.write(fullcmd)
             runsh.write('  )\n')
-        ## pushing stuff to git hub
-        runsh.write(
-        '''
-      message "Pushing QC documents to github..."
-      ( # subshell invoked to handle directory change
-        cd ${PROJECTDIR}
-        git add qc/
-        git add metadata/checklist.csv
-        git add metadata/checklist.yaml
-        git diff --quiet HEAD || git commit -m "Autoupdating QC documents"
-      )
-         ''')
 
-        ## pushing website ness
-        if (QC_Phantoms == True) & (len(SiteNames) > 1):
+        if workflow is "data":
+            ## pushing stuff to git hub
             runsh.write(
             '''
-      message "Pushing website data to github..."
-      (
-        cd ${PROJECTDIR}/website
-        git add .
-        git commit -m "Updating QC plots"
-        git push --quiet
-      ) > /dev/null
-            ''')
+          message "Pushing QC documents to github..."
+          ( # subshell invoked to handle directory change
+            cd ${PROJECTDIR}
+            git add qc/
+            git add metadata/checklist.csv
+            git add metadata/checklist.yaml
+            git diff --quiet HEAD || git commit -m "Autoupdating QC documents"
+          )
+             ''')
+
+            ## pushing website ness
+            if (QC_Phantoms == True) & (len(SiteNames) > 1):
+                runsh.write(
+                '''
+          message "Pushing website data to github..."
+          (
+            cd ${PROJECTDIR}/website
+            git add .
+            git commit -m "Updating QC plots"
+            git push --quiet
+          ) > /dev/null
+                ''')
 
         ### tee out a log
         runsh.write('  message "Done."\n')
@@ -321,6 +324,7 @@ for Project in Projects:
 
         ## close the file
         runsh.close()
+        os.chmod(outputfile,775)
     del(PipelineSettings)
 #
 # ### change anything that needs to be changed with Find and Replace
