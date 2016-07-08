@@ -94,6 +94,7 @@ def main():
                     fa = fa_thresh, pha = phantom))
 
     if commands:
+        os.chdir(outputdir)
         log.debug("queueing up the following commands:\n"+'\n'.join(commands))
         jobname = "dm_dtifit_{}".format(time.strftime("%Y%m%d-%H%M%S"))
         with tempfile.NamedTemporaryFile() as tmp:
