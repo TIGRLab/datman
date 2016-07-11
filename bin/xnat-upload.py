@@ -2,17 +2,17 @@
 """
 Uploads a scan archive to XNAT
 
-Usage: 
+Usage:
     xnat-upload.py [options] -u USER <project> <archive>
     xnat-upload.py [options] -c FILE <project> <archive>
 
 Arguments:
-    <project>             Study/Project name 
+    <project>             Study/Project name
     <archive>             Properly named zip file
 
-Options: 
+Options:
     --server URL          XNAT server to connect to
-                          [default: http://da55.pet.utoronto.ca:5004]
+                          [default: https://xnat.imaging-genetics.camh.ca/]
 
     -c,--credfile FILE    File containing XNAT username and password. The
                           username should be on the first line, and password
@@ -46,11 +46,11 @@ CREATE_URL = "{server}/REST/projects/{project}/subjects/{subject}"
 
 UPLOAD_URL = "{server}/data/services/import?" \
              "project={project}&subject={subject}&session={session}" \
-             "&overwrite=delete&prearchive=false&inbody=true" 
+             "&overwrite=delete&prearchive=false&inbody=true"
 
 ATTACH_URL = "{server}/data/archive/projects/{project}/subjects/{subject}" \
              "/experiments/{session}/files/{filename}?" \
-             "inbody=true" 
+             "inbody=true"
 
 dcm_exts = ('dcm','img')
 
@@ -66,7 +66,7 @@ def main():
     if verbose:
         logger.setLevel(logging.INFO)
 
-    if username: 
+    if username:
         password = getpass.getpass()
     else:
         lines = open(credfile).readlines()
@@ -81,7 +81,7 @@ def main():
 
     subject = scanid
     session = scanid
-    auth = (username, password) 
+    auth = (username, password)
     url_params = { 'server'  : server,
                    'project' : project,
                    'subject' : subject,
@@ -92,16 +92,16 @@ def main():
     # create the subject
     logger.info("Creating subject {}".format(subject))
     r = requests.put(CREATE_URL.format(**url_params), auth=auth)
-    
+
     r.raise_for_status()
 
     # NOTE: If your project is not set to auto archive, then this will end up in the prearchive
     logger.info("Uploading dicom data...")
-    r = requests.post(UPLOAD_URL.format(**url_params), 
-            auth=auth, 
+    r = requests.post(UPLOAD_URL.format(**url_params),
+            auth=auth,
             headers={'Content-Type' : 'application/zip'},
             data=open(archive))
-            
+
     r.raise_for_status()
 
     # upload non-dicom stuff
@@ -125,7 +125,7 @@ def main():
         r = None
         try:
             r = requests.post(ATTACH_URL.format(filename=uploadname, **url_params), data=zf.read(f), auth=auth)
-            r.raise_for_status() 
+            r.raise_for_status()
 
         except requests.exceptions.HTTPError, e:
             logger.error("ERROR uploading file {}".format(f))
