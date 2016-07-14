@@ -12,7 +12,7 @@ Arguments:
 
 Options:
     --server URL          XNAT server to connect to
-                          [default: https://xnat.imaging-genetics.camh.ca/]
+                          [default: https://xnat.imaging-genetics.camh.ca:443]
 
     -c,--credfile FILE    File containing XNAT username and password. The
                           username should be on the first line, and password
