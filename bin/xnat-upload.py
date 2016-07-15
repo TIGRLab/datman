@@ -93,7 +93,8 @@ def main():
     logger.info("Creating subject {}".format(subject))
     r = requests.put(CREATE_URL.format(**url_params), auth=auth)
 
-    r.raise_for_status()
+    if r.status_code is not 200:
+        logger.error("{} http client error at folder creation: {}".format(scanid,r.status_code))
 
     # NOTE: If your project is not set to auto archive, then this will end up in the prearchive
     logger.info("Uploading dicom data...")
@@ -102,7 +103,8 @@ def main():
             headers={'Content-Type' : 'application/zip'},
             data=open(archive))
 
-    r.raise_for_status()
+    if r.status_code is not 200:
+        logger.error("{} http client error dicom data upload: {}".format(scanid,r.status_code))
 
     # upload non-dicom stuff
     logger.info("Scanning for non-dicom data...")
