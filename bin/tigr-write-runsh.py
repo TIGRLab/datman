@@ -242,7 +242,7 @@ set -u  # fail on unset variable
         runsh.write('''
 args="$@"                           # commence ugly opt handling
 DATESTAMP=$(date +%Y%m%d)
-    ''')
+''')
 
         if 'to_load_quarantine' in SystemSettingsDest.keys():
             runsh.write('{}\n'.format(SystemSettingsDest['to_load_quarantine']))
