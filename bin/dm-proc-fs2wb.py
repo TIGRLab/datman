@@ -79,7 +79,7 @@ def makerunsh(filename):
     runsh = open(filename,'w')
     runsh.write('#!/bin/bash\n\n')
     runsh.write('## this script was created by dm-proc-fs2wb.py\n\n')
-    runsh.write("# Loaded modules: " + datman.utils.get_loaded_modules() + "\n\n")
+    runsh.write('## Prints loaded modules to the log\nmodule list\n\n')
     runsh.write('export  PATH=${{PATH}}:{}/bin\n'.format(epiclone))
     runsh.write('export  PYTHONPATH=${{PYTHONPATH}}:{}\n\n'.format(epiclone))
     runsh.write('export SUBJECTS_DIR=' + inputpath + '\n')
