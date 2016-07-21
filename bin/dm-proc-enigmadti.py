@@ -154,7 +154,7 @@ def makeENIGMArunsh(filename):
 
     enigmash.write('## this script was created by dm-proc-engimadti.py\n\n')
     ## can add section here that loads chosen CIVET enviroment
-    enigmash.write("# Loaded modules: " + datman.utils.get_loaded_modules() + "\n\n")
+    enigmash.write('## Prints loaded modules to the log\nmodule list\n\n')
 
     if ENGIMASTEP == 'doInd':
         enigmash.write('OUTDIR=${1}\n')
@@ -304,17 +304,17 @@ for i in range(0,len(checklist)):
     # if all input files are found - check if an output exists
     if pd.isnull(checklist['FA_nii'][i]) or os.path.exists(ROIout) or NO_NEWSUBS:
         continue
-    
+
     os.chdir(run_dir)
     soutput = os.path.join(outputdir,subid)
     smap = checklist['FA_nii'][i]
     jobname = jobnameprefix + subid
     docmd('echo ./{script} {output} {inputdir} | '
           'qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
-            script = runenigmash_name, 
+            script = runenigmash_name,
             output = soutput,
-            inputdir = os.path.join(dtifit_dir,subid,smap), 
-            jobname = jobname, 
+            inputdir = os.path.join(dtifit_dir,subid,smap),
+            jobname = jobname,
             logdir = log_dir,
             wt = walltime))
 
@@ -328,8 +328,8 @@ if submitted:
     os.chdir(run_dir)
     docmd('echo ./{script} | '
           'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
-            script = runconcatsh_name, 
-            jobname = jobnameprefix + 'concat', 
+            script = runconcatsh_name,
+            jobname = jobnameprefix + 'concat',
             logdir = log_dir,
             hold = jobnameprefix + '*',
             wt = walltime_final))

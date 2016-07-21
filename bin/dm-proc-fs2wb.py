@@ -11,7 +11,7 @@ Arguments:
 
 Options:
   --prefix STR			   Tag for filtering subject directories
-  --walltime TIME          A walltime to pass to qbatch [default: 5:00:00]
+  --walltime TIME          A walltime to pass to qbatch [default: 2:00:00]
   --walltime-qc TIME       A walltime for the qc step [default: 2:00:00]
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
@@ -79,7 +79,7 @@ def makerunsh(filename):
     runsh = open(filename,'w')
     runsh.write('#!/bin/bash\n\n')
     runsh.write('## this script was created by dm-proc-fs2wb.py\n\n')
-    runsh.write("# Loaded modules: " + datman.utils.get_loaded_modules() + "\n\n")
+    runsh.write('## Prints loaded modules to the log\nmodule list\n\n')
     runsh.write('export  PATH=${{PATH}}:{}/bin\n'.format(epiclone))
     runsh.write('export  PYTHONPATH=${{PYTHONPATH}}:{}\n\n'.format(epiclone))
     runsh.write('export SUBJECTS_DIR=' + inputpath + '\n')
@@ -223,7 +223,7 @@ if submitted:
           'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
             script = runpostsh,
             jobname = jobnameprefix + 'hcp_qc',
-            logdir = log_dir,
+            logdir = logs_dir,
             hold = jobnameprefix + '*',
             wt = walltime_qc))
 

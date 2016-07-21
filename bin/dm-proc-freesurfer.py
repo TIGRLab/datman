@@ -178,6 +178,8 @@ def makeFreesurferrunsh(filename):
     Freesurfersh = open(filename,'w')
     Freesurfersh.write('#!/bin/bash\n\n')
     Freesurfersh.write('export SUBJECTS_DIR=' + subjectsdir + '\n\n')
+    Freesurfersh.write('## Prints loaded modules to the log\nmodule list\n\n')
+
     ## write the freesurfer running bit
     if FS_STEP == 'FS':
 
