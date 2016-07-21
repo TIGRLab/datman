@@ -324,7 +324,7 @@ DATESTAMP=$(date +%Y%m%d)
 
         ## close the file
         runsh.close()
-        os.chmod(path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IROTH) ## chmod 774 in python
+        os.chmod(outputfile, 0o774) ## chmod 774 in python
     del(PipelineSettings)
 #
 # ### change anything that needs to be changed with Find and Replace
