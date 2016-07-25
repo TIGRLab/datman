@@ -291,35 +291,35 @@ DATESTAMP=$(date +%Y%m%d)
                     runsh.write(fullcmd)
             runsh.write('  )\n')
 
-        if workflow is "data":
+        if workflow == "data":
             ## pushing stuff to git hub
             runsh.write(
             '''
-          message "Pushing QC documents to github..."
-          ( # subshell invoked to handle directory change
-            cd ${PROJECTDIR}
-            git add qc/
-            git add metadata/checklist.csv
-            git add metadata/checklist.yaml
-            git diff --quiet HEAD || git commit -m "Autoupdating QC documents"
-          )
-             ''')
+  message "Pushing QC documents to github..."
+  ( # subshell invoked to handle directory change
+    cd ${PROJECTDIR}
+    git add qc/
+    git add metadata/checklist.csv
+    git add metadata/checklist.yaml
+    git diff --quiet HEAD || git commit -m "Autoupdating QC documents"
+  )
+  ''')
 
             ## pushing website ness
             if (QC_Phantoms == True) & (len(SiteNames) > 1):
                 runsh.write(
                 '''
-          message "Pushing website data to github..."
-          (
-            cd ${PROJECTDIR}/website
-            git add .
-            git commit -m "Updating QC plots"
-            git push --quiet
-          ) > /dev/null
-                ''')
+  message "Pushing website data to github..."
+  (
+    cd ${PROJECTDIR}/website
+    git add .
+    git commit -m "Updating QC plots"
+    git push --quiet
+  ) > /dev/null
+  ''')
 
         ### tee out a log
-        runsh.write('  message "Done."\n')
+        runsh.write('\n  message "Done."\n')
         runsh.write('} | tee -a ${PROJECTDIR}/logs/run-all-${DATESTAMP}.log\n')
 
         ## close the file
