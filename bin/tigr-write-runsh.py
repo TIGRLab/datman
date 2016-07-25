@@ -206,7 +206,6 @@ for Project in Projects:
 #   --quiet     Do not be chatty (does nnt apply to pipeline stages)
 #
 
-set -e  # fail on error
 set -u  # fail on unset variable
         ''')
 
