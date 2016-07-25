@@ -196,7 +196,7 @@ for Project in Projects:
         runsh = open(outputfile,'w')
 
         runsh.write('''\
-#!/bin/bash
+#!/bin/bash -l
 # Runs pipelines like a bro
 #
 # Usage:
