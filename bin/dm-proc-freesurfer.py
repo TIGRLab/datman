@@ -11,7 +11,6 @@ Arguments:
     <FS_subjectsdir>          Top directory for the Freesurfer output
 
 Options:
-  --do-not-sink            Do not convert a data to nifty for epitome
   --T1-sinkdir PATH        Full path to the location of the 't1' (epitome) directory
   --no-postFS              Do not submit postprocessing script to the queue
   --postFS-only            Only run the post freesurfer analysis
@@ -24,7 +23,6 @@ Options:
   --prefix STR             A prefix string (used by the ENIGMA Extract) to filter to subject ids.
   --walltime TIME          A walltime for the FS stage [default: 24:00:00]
   --walltime-post TIME     A walltime for the final stage [default: 2:00:00]
-  --use-test-datman        Use the version of datman in Erin's test environment. (default is '/archive/data-2.0/code/datman.module')
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
   -n,--dry-run             Dry run
@@ -88,7 +86,6 @@ inputdir        = arguments['<inputdir>']
 subjectsdir     = arguments['<FS_subjectsdir>']
 rawQCfile       = arguments['--QC-transfer']
 MULTI_T1        = arguments['--multiple-inputs']
-NO_SINK         = arguments['--do-not-sink']
 T1sinkdir       = arguments['--T1-sinkdir']
 T1_tag          = arguments['--T1-tag']
 TAG2            = arguments['--tag2']
@@ -99,7 +96,6 @@ NO_POST         = arguments['--no-postFS']
 POSTFS_ONLY     = arguments['--postFS-only']
 walltime        = arguments['--walltime']
 walltime_post   = arguments['--walltime-post']
-TESTDATMAN      = arguments['--use-test-datman']
 VERBOSE         = arguments['--verbose']
 DEBUG           = arguments['--debug']
 DRYRUN          = arguments['--dry-run']
@@ -109,9 +105,6 @@ if DEBUG: print arguments
 if T1_tag == None: T1_tag = '_T1_'
 QCedTranfer = False if rawQCfile == None else True
 USE_TAG2 = False if TAG2 == None else True # if tag2 is given, use it
-
-## if T1 sink directory is not specified - put it in the default place
-if T1sinkdir == None: T1sinkdir = os.path.join(os.path.dirname(subjectsdir),'t1')
 
 ## set the basenames of the two run scripts
 if RUN_TAG == None:
@@ -144,7 +137,10 @@ def find_T1images(archive_tag):
             sfiles = []
             for fname in os.listdir(sdir):
                 if archive_tag in fname:
-                    sfiles.append(fname)
+                    if TAG2:
+                        if TAG2 in fname:
+                            sfiles.append(fname)
+                else: sfiles.append(fname)  
 
             if DEBUG: print "Found {} {} in {}".format(len(sfiles),archive_tag,sdir)
             if len(sfiles) == 1:
@@ -197,7 +193,7 @@ def makeFreesurferrunsh(filename):
     if FS_STEP == 'Post':
 
         ## to the sinking - unless told not to
-        if not NO_SINK:
+        if T1sinkdir:
             Freesurfersh.write('T1SINK=' + T1sinkdir + ' \n\n')
             Freesurfersh.write('dm-freesurfer-sink.py ${SUBJECTS_DIR} ${T1SINK}\n\n')
 
