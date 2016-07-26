@@ -242,7 +242,7 @@ PipelineSettings:
          - '--QC-transfer ${PROJECTDIR}/metadata/checklist.csv '
          - '${PROJECTDIR}/data/nii/'
          - '${PROJECTDIR}/pipelines/freesurfer/'
-        dependancies: [freesurfer, AFNI, FSL, datman]
+        dependancies: [freesurfer, AFNI, datman]
         environment: 'export SUBJECTS_DIR=${PROJECTDIR}/pipelines/freesurfer'
 
     - 'dm-proc-fs2wb.py' :
@@ -257,42 +257,42 @@ PipelineSettings:
           - connectome-workbench
           - hcp-pipelines
 
-    - 'dm-proc-ea.py' :
-        message: 'Analyzing empathic accuracy data'
-        runif: "'EMP' in ScanTypes"
-        arguments:
-          - '${PROJECTDIR}/data'
-          - '${PROJECTDIR}/pipelines/freesurfer'
-          - '${PROJECTDIR}/pipelines/ea'
-          - '${DATMAN_ASSETSDIR}/150409-compcor-nonlin-8fwhm.sh'
-          - '${PROJECTDIR}/metadata/design'
-        dependancies: [freesurfer, AFNI, FSL, matlab]
-        environment: 'export SUBJECTS_DIR=${PROJECTDIR}/pipelines/freesurfer'
-
-    - 'dm-proc-imob.py' :
-        message: 'Analyzing imitate observe data'
-        runif: "('IMI' in ScanTypes) & ('OBS' in ScanTypes)"
-        arguments:
-          - '${PROJECTDIR}/data'
-          - '${PROJECTDIR}/pipelines/freesurfer'
-          - '${PROJECTDIR}/pipelines/imob'
-          - '${DATMAN_ASSETSDIR}/150409-compcor-nonlin-8fwhm.sh'
-          - '${PROJECTDIR}/metadata/design'
-        dependancies: [freesurfer, AFNI, FSL, matlab]
-        environment: 'export SUBJECTS_DIR=${PROJECTDIR}/pipelines/freesurfer'
-
-    - 'dm-proc-rest.py' :
-        message: 'Analyzing resting state data'
-        runif: "'RST' in ScanTypes or 'SPRL' in ScanTypes"
-        arguments:
-          - '--tags=RST,SPRL'
-          - '${PROJECTDIR}/data'
-          - '${PROJECTDIR}/pipelines/freesurfer'
-          - '${PROJECTDIR}/pipelines/rest'
-          - '${DATMAN_ASSETSDIR}/151012-tedmethod-compcor-lowpass-nonlin-10fwhm.sh'
-          - '${DATMAN_ASSETSDIR}/shen_1mm_268_parcellation.nii.gz'
-        dependancies: [freesurfer, AFNI, FSL, matlab]
-        environment: 'export SUBJECTS_DIR=${PROJECTDIR}/pipelines/freesurfer'
+    # - 'dm-proc-ea.py' :
+    #     message: 'Analyzing empathic accuracy data'
+    #     runif: "'EMP' in ScanTypes"
+    #     arguments:
+    #       - '${PROJECTDIR}/data'
+    #       - '${PROJECTDIR}/pipelines/freesurfer'
+    #       - '${PROJECTDIR}/pipelines/ea'
+    #       - '${DATMAN_ASSETSDIR}/150409-compcor-nonlin-8fwhm.sh'
+    #       - '${PROJECTDIR}/metadata/design'
+    #     dependancies: [freesurfer, AFNI, FSL, matlab]
+    #     environment: 'export SUBJECTS_DIR=${PROJECTDIR}/pipelines/freesurfer'
+    #
+    # - 'dm-proc-imob.py' :
+    #     message: 'Analyzing imitate observe data'
+    #     runif: "('IMI' in ScanTypes) & ('OBS' in ScanTypes)"
+    #     arguments:
+    #       - '${PROJECTDIR}/data'
+    #       - '${PROJECTDIR}/pipelines/freesurfer'
+    #       - '${PROJECTDIR}/pipelines/imob'
+    #       - '${DATMAN_ASSETSDIR}/150409-compcor-nonlin-8fwhm.sh'
+    #       - '${PROJECTDIR}/metadata/design'
+    #     dependancies: [freesurfer, AFNI, FSL, matlab]
+    #     environment: 'export SUBJECTS_DIR=${PROJECTDIR}/pipelines/freesurfer'
+    #
+    # - 'dm-proc-rest.py' :
+    #     message: 'Analyzing resting state data'
+    #     runif: "'RST' in ScanTypes or 'SPRL' in ScanTypes"
+    #     arguments:
+    #       - '--tags=RST,SPRL'
+    #       - '${PROJECTDIR}/data'
+    #       - '${PROJECTDIR}/pipelines/freesurfer'
+    #       - '${PROJECTDIR}/pipelines/rest'
+    #       - '${DATMAN_ASSETSDIR}/151012-tedmethod-compcor-lowpass-nonlin-10fwhm.sh'
+    #       - '${DATMAN_ASSETSDIR}/shen_1mm_268_parcellation.nii.gz'
+    #     dependancies: [freesurfer, AFNI, FSL, matlab]
+    #     environment: 'export SUBJECTS_DIR=${PROJECTDIR}/pipelines/freesurfer'
 
 
 ExportSettings:
