@@ -374,8 +374,9 @@ if not POSTFS_ONLY:
                 T1s.append(os.path.join(inputdir,subid,basemap))
 
             ## submit this subject to the queue
-            docmd('echo ./{script} {subid} {T1s} | '
+            docmd('echo {rundir}/{script} {subid} {T1s} | '
                   'qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
+                    rundir = run_dir,
                     script = runFSsh_name,
                     subid = subid,
                     T1s = ' '.join(T1s),
@@ -392,8 +393,9 @@ if not POSTFS_ONLY:
 ## submit a final job that will consolidate the resutls after they are finished
 if not NO_POST and submitted:
     os.chdir(run_dir)
-    docmd('echo ./{script} | '
+    docmd('echo {rundir}/{script} | '
           'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
+            rundir = run_dir,
             script = runPostsh_name,
             jobname = jobnameprefix + 'post',
             logdir = log_dir,
