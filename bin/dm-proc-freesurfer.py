@@ -131,16 +131,16 @@ def find_T1images(archive_tag):
     checklist -- the checklist pandas dataframe to update
     """
     for i in range(0,len(checklist)):
+        # make sure that is TAG2 was called - only the tag2s are going to queue
+        if TAG2 and TAG2 not in subid:
+            continue
         sdir = os.path.join(inputdir,checklist['id'][i])
 	    #if T1 name not in checklist
         if pd.isnull(checklist['T1_nii'][i]):
             sfiles = []
             for fname in os.listdir(sdir):
                 if archive_tag in fname:
-                    if TAG2:
-                        if TAG2 in fname:
-                            sfiles.append(fname)
-                else: sfiles.append(fname)  
+                    sfiles.append(fname)
 
             if DEBUG: print "Found {} {} in {}".format(len(sfiles),archive_tag,sdir)
             if len(sfiles) == 1:
