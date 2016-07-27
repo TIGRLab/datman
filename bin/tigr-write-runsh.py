@@ -299,7 +299,7 @@ DATESTAMP=$(date +%Y%m%d)
     cd ${PROJECTDIR}
     git add qc/
     git add metadata/checklist.csv
-    git add metadata/checklist.yaml
+    git add metadata/blacklist.csv
     git diff --quiet HEAD || git commit -m "Autoupdating QC documents"
   )
   ''')
