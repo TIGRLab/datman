@@ -204,7 +204,7 @@ PipelineSettings:
         message: 'Running CIVET'
         runif: "'T1' in ScanTypes"
         arguments:
-         - '--QC-transfer ${PROJECTDIR}/metadata/checklist.csv '
+         - '--QCed-transfer ${PROJECTDIR}/metadata/checklist.csv '
          - '${PROJECTDIR}/data/mnc/'
          - '${PROJECTDIR}/data/civet/'
          - '${PREFIX}'
