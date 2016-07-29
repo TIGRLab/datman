@@ -6,7 +6,6 @@ A collection of statistical routines for MRI analysis.
 
 import os, sys
 import numpy as np
-import sklearn as sk
 
 def partial_corr(C):
     """
