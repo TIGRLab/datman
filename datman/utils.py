@@ -68,12 +68,10 @@ def guess_tag(description, tagmap = SERIES_TAGS_MAP):
 
 def mangle_basename(base_path):
     """
-    strip off final slash to get the appropriate basename if nessicary.
+    strip off final slash to get the appropriate basename if necessary.
     """
-    if base_path[-1] == '/':
-        base = os.path.basename(base_path[0:-1]).lower()
-    else:
-        base = os.path.basename(base_path).lower()
+    base_path = os.path.normpath(base_path)
+    base = os.path.basename(base_path).lower()
 
     return base
 
@@ -81,6 +79,9 @@ def mangle(string):
     """Mangles a string to conform with the naming scheme.
 
     Mangling is roughly: convert runs of non-alphanumeric characters to a dash.
+
+    Does not convert '.' to avoid accidentally mangling extensions and does
+    not convert '+'
     """
     if not string:
         string = ""
@@ -439,11 +440,11 @@ def check_returncode(returncode):
     if returncode != 0:
         raise ValueError
 
-def get_loaded_modules(): 
+def get_loaded_modules():
     """Returns a space separated list of loaded modules
 
     These are modules loaded by the environment-modules system. This function
-    just looks in the LOADEDMODULES environment variable for the list. 
+    just looks in the LOADEDMODULES environment variable for the list.
     """
     return " ".join(os.environ.get("LOADEDMODULES","").split(":"))
 
