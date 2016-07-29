@@ -1,0 +1,16 @@
+name: datman-env
+dependencies:
+- python=2.7
+- docopt
+- matplotlib
+- numpy
+- pandas
+- pip
+- requests
+- scipy
+- scikit-image
+- scikit-learn
+- pyyaml
+- pip: 
+  - nibabel
+  - pydicom

@@ -20,7 +20,7 @@ setup(
     license='Apache 2.0',
     url="https://github.com/tigrlab/datman",
     long_description=description,
-    scripts=glob.glob('bin/*.py') + glob.glob('bin/*.sh') + glob.glob('assests/*.sh'),
+    scripts=glob.glob('bin/*.py') + glob.glob('bin/*.sh') + glob.glob('assets/*.sh'),
     packages=['datman'],
     classifiers=[
        'Development Status :: 4 - Beta',
@@ -28,5 +28,5 @@ setup(
        'Intended Audience :: Science/Research',
     ],
     install_requires=['docopt', 'matplotlib', 'numpy', 'pandas', 'requests',
-        'scipy', 'scikit-image', 'pyyaml', 'nibabel', 'pydicom'],
+        'scipy', 'scikit-image', 'pyyaml', 'nibabel', 'pydicom', 'qbatch'],
  )

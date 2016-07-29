@@ -16,6 +16,7 @@ Options:
                        This script should accept the following arguments:
                             dwifile outputdir ref_vol fa_threshold
     --tag TAG          A string to filter inputs by [ex. site name]
+    --walltime TIME    A walltime to pass to qbatch [default: 0:30:00]
     --quiet            Be quiet
     --verbose          Be chatty
     --debug            Be extra chatty
@@ -29,6 +30,8 @@ import datman as dm
 import datman.utils
 import datman.scanid
 import os
+import tempfile
+import time
 
 DRYRUN = False
 
@@ -42,6 +45,7 @@ def main():
     fa_thresh = arguments['--fa_thresh']
     script    = arguments['--script']
     TAG       = arguments['--tag']
+    walltime  = arguments['--walltime']
     quiet     = arguments['--quiet']
     debug     = arguments['--debug']
     verbose   = arguments['--verbose']
@@ -58,6 +62,7 @@ def main():
     ## get the list of subjects
     subjectnames = dm.utils.get_subjects(nii_dir)
 
+    commands = []
     for subjectname in subjectnames:
         inputpath  = os.path.join(nii_dir, subjectname)
         outputpath = os.path.join(outputdir, subjectname)
@@ -84,17 +89,23 @@ def main():
             if os.path.exists(dtifit_output):
                 log.debug("{} exists. Skipping.".format(dtifit_output))
             else:
-                cmd = "qsub -cwd -o {logdir} -j y -V -b y -N dtifit " \
-                    "{script} {dwi} {outputdir} {ref} {thresh} {phantom}".format(
-                        logdir = logdir,
-                        script = script,
-                        dwi = dwi,
-                        outputdir= outputpath,
-                        ref = ref_vol,
-                        thresh = fa_thresh,
-                        phantom = phantom)
-                log.debug("exec: {}".format(cmd))
-                dm.utils.run(cmd, dryrun=DRYRUN)
+                commands.append("{script} {dwi} {output} {ref} {fa} {pha}".format(
+                    script = script, dwi = dwi, output = outputpath, ref = ref_vol,
+                    fa = fa_thresh, pha = phantom))
+
+    if commands:
+        os.chdir(outputdir)
+        log.debug("queueing up the following commands:\n"+'\n'.join(commands))
+        jobname = "dm_dtifit_{}".format(time.strftime("%Y%m%d-%H%M%S"))
+        with tempfile.NamedTemporaryFile() as tmp:
+            tmp.write('\n'.join(commands))
+            tmp.flush()
+            cmd = "qbatch --walltime {wt} --logdir {logdir} -N {name} {file} ".format(
+                wt = walltime,
+                logdir = logdir,
+                name = jobname,
+                file = tmp.name)
+            dm.utils.run(cmd, dryrun=DRYRUN)
 
 
 if __name__ == '__main__':

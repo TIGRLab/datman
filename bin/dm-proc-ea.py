@@ -1,37 +1,33 @@
 #!/usr/bin/env python
 """
-This analyzes empathic accuracy behavioural data.It could be generalized
-to analyze any rapid event-related design experiment fairly easily.
+This analyzes empathic accuracy behavioural data.
+
+If a <subject> is not supplied, a job is submitted for each subject not yet
+processed. 
 
 Usage:
-    dm-proc-ea.py [options] <project> <tmppath> <script> <assets>
+    dm-proc-ea.py [options] <datadir> <fsdir> <outputdir> <script> <assets> [<subject>]
 
 Arguments: 
-    <project>           Full path to the project directory containing data/.
-    <tmppath>           Full path to a shared folder to run 
-    <script>            Full path to an epitome-style script.
-    <assets>            Full path to an assets folder containing 
-                                              EA-timing.csv, EA-vid-lengths.csv.
+    <datadir>           Path to the datman data/ folder containing nii/ and RESOURCES/
+    <fsdir>             Path to freesurfer output folder containing t1/
+    <outputdir>         Path to output folder
+    <script>            Path to an epitome-style script
+    <assets>            Path to an assets folder containing 
+                             EA-timing.csv, EA-vid-lengths.csv
+    <subject>           Subject timepoint to process
 
 Options:
-    -v,--verbose             Verbose logging
-    --debug                  Debug logging
+    --walltime TIME    Walltime for each subject job [default: 2:00:00]
+    -v,--verbose       Verbose logging
+    --debug            Debug logging
+    --dry-run          Don't do anything
 
 DETAILS
-
-    1) Preprocesses MRI data.
-    2) Produces an AFNI-compatible GLM file with the event timing. 
-    3) Runs the GLM analysis at the single-subject level.
 
     Each subject is run through this pipeline if the outputs do not already exist.
 
 DEPENDENCIES
-
-    + python
-    + matlab
-    + afni
-    + fsl
-    + epitome
 
     Requires dm-proc-freesurfer.py to be completed.
 
@@ -41,8 +37,8 @@ This message is printed with the -h, --help flags.
 from datman.docopt import docopt
 from random import choice
 from string import ascii_uppercase, digits
-import StringIO as io
 import copy
+import time
 import datman as dm
 import glob
 import logging
@@ -50,12 +46,14 @@ import nibabel as nib
 import numpy as np
 import os
 import scipy.interpolate as interpolate
+import StringIO as io
 import sys
 import tempfile
 
 logging.basicConfig(level=logging.WARN, 
     format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
+
 
 def log_parser(log):
     """
@@ -75,28 +73,12 @@ def log_parser(log):
 
     # write out files from stringio blobs into numpy genfromtxt
     pic = np.genfromtxt(io.StringIO(''.join(pic)), delimiter='\t', 
-                             dtype=[('subject', '|S64'), 
-                                    ('trial', 'i32'),
-                                    ('eventtype', '|S64'),
-                                    ('code', '|S64'),
-                                    ('time', 'i32'),
-                                    ('ttime', 'i32'),
-                                    ('uncertainty1', 'i32'),
-                                    ('duration', 'i32'),
-                                    ('uncertainty2', 'i32'),
-                                    ('reqtime', 'i32'),
-                                    ('reqduration', 'i32'),
-                                    ('stimtype', '|S64'),
-                                    ('pairindex', 'i32')])
+        names=['subject', 'trial', 'eventtype', 'code', 'time', 'ttime', 'uncertainty1', 'duration', 'uncertainty2', 'reqtime', 'reqduration', 'stimtype', 'pairindex'],
+        dtype=['|S64'   , int    , '|S64'     , '|S64', int   , int    , int           , int       , int           , int      , int          , '|S64'    , int])
 
     vid = np.genfromtxt(io.StringIO(''.join(vid)), delimiter='\t',
-                             dtype=[('subject', '|S64'), 
-                                    ('trial', 'i32'),
-                                    ('eventtype', '|S64'),
-                                    ('code', '|S64'),
-                                    ('time', 'i32'),
-                                    ('ttime', 'i32'),
-                                    ('uncertainty1', 'i32')])
+        names=['subject', 'trial', 'eventtype', 'code', 'time', 'ttime', 'uncertainty1'],
+        dtype=['|S64'   , int    , '|S64'     , '|S64', int   , int    , int])
 
     # ensure our inputs contain a 'MRI_start' string.
     if pic[0][3] != 'MRI_start':
@@ -233,7 +215,7 @@ def zscore(data):
     try:
         data = (data - np.mean(data)) / np.std(data)
     except:
-        data = np.zeros(datalen)
+        data = np.zeros(datalength)
 
     return data
 
@@ -282,9 +264,9 @@ def process_behav_data(log, assets, func_path, sub, trial_type):
 
     try:
         pic, vid, mri_start = log_parser(log)
-    except:
-        logger.error('Failed to parse log file: {}'.format(log))
-        raise ValueError
+    except Exception, e:
+        logger.exception('Failed to parse log file: {}'.format(log))
+        raise e
 
     blocks, onsets = find_blocks(vid, mri_start)
     
@@ -327,7 +309,7 @@ def process_behav_data(log, assets, func_path, sub, trial_type):
 
         corr = np.corrcoef(subj_rate, gold_rate)[1][0]
 
-        if np.isnan(corr) == True:
+        if np.isnan(corr):
             corr = 0  # this happens when we get no responses
 
         corr = r2z(corr) # z score correlations
@@ -370,11 +352,9 @@ def process_behav_data(log, assets, func_path, sub, trial_type):
 
     return onsets_used, durations, correlations, button_pushes
 
-def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script):
+def process_functional_data(sub, nii_path, fsdir, func_path, log_path, tmp_path, script):
 
-    nii_path = os.path.join(data_path, 'nii')
-    t1_path = os.path.join(data_path, 't1')
-    func_path = os.path.join(data_path, 'ea')
+    t1_path = os.path.join(fsdir, 't1')
 
     # functional data
     try:
@@ -433,80 +413,71 @@ def process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
         raise ValueError
 
     # check if output already exists
-    if os.path.isfile('{func_path}/{sub}/{sub}_preproc-complete'.format(func_path=func_path, sub=sub)) == True:
+    if os.path.isfile('{func_path}/{sub}/{sub}_preproc-complete'.format(func_path=func_path, sub=sub)):
         raise ValueError
 
-    try:
-        tmpfolder = tempfile.mkdtemp(prefix='ea-', dir=tmp_path)
-        tmpdict[sub] = tmpfolder
-        dm.utils.make_epitome_folders(tmpfolder, 3)
-        returncode, _, _ = dm.utils.run('cp {}/{} {}/TEMP/SUBJ/T1/SESS01/anat_T1_brain.nii.gz'.format(t1_path, t1_data, tmpfolder))
-        dm.utils.check_returncode(returncode)
-        returncode, _, _ = dm.utils.run('cp {}/{} {}/TEMP/SUBJ/T1/SESS01/anat_aparc_brain.nii.gz'.format(t1_path, aparc, tmpfolder))
-        dm.utils.check_returncode(returncode)
-        returncode, _, _ = dm.utils.run('cp {}/{} {}/TEMP/SUBJ/T1/SESS01/anat_aparc2009_brain.nii.gz'.format(t1_path, aparc2009, tmpfolder))
-        dm.utils.check_returncode(returncode)
-        returncode, _, _ = dm.utils.run('cp {}/{}/{} {}/TEMP/SUBJ/FUNC/SESS01/RUN01/FUNC01.nii.gz'.format(nii_path, sub, str(EA_data[0]), tmpfolder))
-        dm.utils.check_returncode(returncode)
-        returncode, _, _ = dm.utils.run('cp {}/{}/{} {}/TEMP/SUBJ/FUNC/SESS01/RUN02/FUNC02.nii.gz'.format(nii_path, sub, str(EA_data[1]), tmpfolder))
-        dm.utils.check_returncode(returncode)
-        returncode, _, _ = dm.utils.run('cp {}/{}/{} {}/TEMP/SUBJ/FUNC/SESS01/RUN03/FUNC03.nii.gz'.format(nii_path, sub, str(EA_data[2]), tmpfolder))
-        dm.utils.check_returncode(returncode)
+    tmpfolder = dm.utils.define_folder(os.path.join(tmp_path, sub))
+    dm.utils.make_epitome_folders(tmpfolder, 3)
+    returncode, _, _ = dm.utils.run('cp {}/{} {}/TEMP/SUBJ/T1/SESS01/anat_T1_brain.nii.gz'.format(t1_path, t1_data, tmpfolder))
+    dm.utils.check_returncode(returncode)
+    returncode, _, _ = dm.utils.run('cp {}/{} {}/TEMP/SUBJ/T1/SESS01/anat_aparc_brain.nii.gz'.format(t1_path, aparc, tmpfolder))
+    dm.utils.check_returncode(returncode)
+    returncode, _, _ = dm.utils.run('cp {}/{} {}/TEMP/SUBJ/T1/SESS01/anat_aparc2009_brain.nii.gz'.format(t1_path, aparc2009, tmpfolder))
+    dm.utils.check_returncode(returncode)
+    returncode, _, _ = dm.utils.run('cp {}/{}/{} {}/TEMP/SUBJ/FUNC/SESS01/RUN01/FUNC01.nii.gz'.format(nii_path, sub, str(EA_data[0]), tmpfolder))
+    dm.utils.check_returncode(returncode)
+    returncode, _, _ = dm.utils.run('cp {}/{}/{} {}/TEMP/SUBJ/FUNC/SESS01/RUN02/FUNC02.nii.gz'.format(nii_path, sub, str(EA_data[1]), tmpfolder))
+    dm.utils.check_returncode(returncode)
+    returncode, _, _ = dm.utils.run('cp {}/{}/{} {}/TEMP/SUBJ/FUNC/SESS01/RUN03/FUNC03.nii.gz'.format(nii_path, sub, str(EA_data[2]), tmpfolder))
+    dm.utils.check_returncode(returncode)
 
-        # submit to queue
-        uid = ''.join(choice(ascii_uppercase + digits) for _ in range(6))
-        cmd = '{} {} 4 '.format(script, tmpfolder)
-        name = 'dm_ea_{}_{}'.format(sub, uid)
-        log = os.path.join(log_path, name + '.log')
-        opts = 'h_vmem=3G,mem_free=3G,virtual_free=3G'
+    # run epitome
+    cmd = '{} {} 4 '.format(script, tmpfolder)
+    logger.debug('Running command: {}'.format(cmd))
+    rtn, out, err = dm.utils.run(cmd)
 
-        cmd = 'qsub -o {log} -V -cwd -N {name} -l {opts} -j y {cmd}'.format(cmd=cmd, log=log, name=name, opts=opts)
-        logger.debug('Running command: {}'.format(cmd))
-        dm.utils.run(cmd)
+    if rtn != 0: 
+        logger.error("Error running command: {}".format(cmd))
+        logger.error("stdout: {}\nstderr: {}".format(out, err))
+        raise Exception("Job submission for preprocessing {} failed".format(sub))
 
-        return name, tmpdict
+    return tmpfolder
     
-    except:
-        raise ValueError
 
 def export_data(sub, tmpfolder, func_path):
 
     tmppath = os.path.join(tmpfolder, 'TEMP', 'SUBJ', 'FUNC', 'SESS01')
 
-    try:
-        # make directory
-        out_path = dm.utils.define_folder(os.path.join(func_path, sub))
+    # make directory
+    out_path = dm.utils.define_folder(os.path.join(func_path, sub))
 
-        # export data
-        dm.utils.run('cp {tmppath}/func_MNI-nonlin.DATMAN.01.nii.gz {out_path}/{sub}_func_MNI-nonlin.EA.01.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
-        dm.utils.run('cp {tmppath}/func_MNI-nonlin.DATMAN.02.nii.gz {out_path}/{sub}_func_MNI-nonlin.EA.02.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
-        dm.utils.run('cp {tmppath}/func_MNI-nonlin.DATMAN.03.nii.gz {out_path}/{sub}_func_MNI-nonlin.EA.03.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
-        dm.utils.run('cp {tmppath}/anat_EPI_mask_MNI-nonlin.nii.gz {out_path}/{sub}_anat_EPI_mask_MNI.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
-        dm.utils.run('cp {tmppath}/reg_T1_to_TAL.nii.gz {out_path}/{sub}_reg_T1_to_MNI-lin.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
-        dm.utils.run('cp {tmppath}/reg_nlin_TAL.nii.gz {out_path}/{sub}_reg_nlin_MNI.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
-        
-        # check outputs
-        outputs = ('nonlin.EA.01', 'nonlin.EA.02', 'nonlin.EA.03', 'nlin_MNI', 'MNI-lin', 'mask_MNI')
-        for out in outputs:
-            if len(filter(lambda x: out in x, os.listdir(out_path))) == 0:
-                logger.error('Failed to export {}'.format(out))
-                raise ValueError
+    # export data
+    dm.utils.run('cp {tmppath}/func_MNI-nonlin.DATMAN.01.nii.gz {out_path}/{sub}_func_MNI-nonlin.EA.01.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+    dm.utils.run('cp {tmppath}/func_MNI-nonlin.DATMAN.02.nii.gz {out_path}/{sub}_func_MNI-nonlin.EA.02.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+    dm.utils.run('cp {tmppath}/func_MNI-nonlin.DATMAN.03.nii.gz {out_path}/{sub}_func_MNI-nonlin.EA.03.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+    dm.utils.run('cp {tmppath}/anat_EPI_mask_MNI-nonlin.nii.gz {out_path}/{sub}_anat_EPI_mask_MNI.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+    dm.utils.run('cp {tmppath}/reg_T1_to_TAL.nii.gz {out_path}/{sub}_reg_T1_to_MNI-lin.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+    dm.utils.run('cp {tmppath}/reg_nlin_TAL.nii.gz {out_path}/{sub}_reg_nlin_MNI.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+    
+    # check outputs
+    outputs = ('nonlin.EA.01', 'nonlin.EA.02', 'nonlin.EA.03', 'nlin_MNI', 'MNI-lin', 'mask_MNI')
+    print "------------"
+    print os.listdir(out_path), ':', out_path, tmppath
+    for out in outputs:
+        if len(filter(lambda x: out in x, os.listdir(out_path))) == 0:
+            raise Exception('Failed to export {}'.format(out))
 
-        dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.01.1D > {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
-        dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.02.1D >> {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
-        dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.03.1D >> {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
-       
-        if os.path.isfile('{out_path}/{sub}_motion.1D'.format(out_path=out_path, sub=sub)) == False:
-            logger.error('Failed to export {}_motion.1D'.format(sub))
-            raise ValueError
-
-        # mark as done, clean up   
-        dm.utils.run('touch {out_path}/{sub}_preproc-complete.log'.format(out_path=out_path, sub=sub))
-        dm.utils.run('rm -r {}'.format(tmpfolder))
-        
-    except:
+    dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.01.1D > {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+    dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.02.1D >> {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+    dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.03.1D >> {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
+   
+    if not os.path.isfile('{out_path}/{sub}_motion.1D'.format(out_path=out_path, sub=sub)):
+        logger.error('Failed to export {}_motion.1D'.format(sub))
         raise ValueError
 
+    # mark as done, clean up   
+    dm.utils.run('touch {out_path}/{sub}_preproc-complete.log'.format(out_path=out_path, sub=sub))
+    dm.utils.run('rm -r {}'.format(tmpfolder))
     # TODO
     #
     # # copy out QC images of registration
@@ -575,21 +546,21 @@ def generate_analysis_script(sub, func_path):
 """.format(input_data=input_data, func_path=func_path, sub=sub))
     f.close()
 
+
 def main():
     """
-    1) Runs functional data through a custom epitome script.
-    2) Extracts block onsets, durations, and parametric modulators from
-       behavioual log files collected at the scanner (and stored in RESOURCES).
-    3) Writes out AFNI-formatted timing files as well as a GLM script per
-       subject.
-    4) Executes this script, producing beta-weights for each subject.
+    Finds subjects that have not been processed and runs dm-proc-ea-sub.py on them. 
     """
 
     arguments  = docopt(__doc__)
-    project    = arguments['<project>']
-    tmp_path   = arguments['<tmppath>']
+    datadir    = arguments['<datadir>']
+    fsdir      = arguments['<fsdir>']
+    outputdir  = arguments['<outputdir>']
     script     = arguments['<script>']
     assets     = arguments['<assets>']
+    sub        = arguments['<subject>']
+    walltime   = arguments['--walltime']
+    dryrun     = arguments['--dry-run']
     verbose    = arguments['--verbose']
     debug      = arguments['--debug']
 
@@ -598,116 +569,140 @@ def main():
     if debug: 
         logging.getLogger().setLevel(logging.DEBUG)
 
-    data_path = dm.utils.define_folder(os.path.join(project, 'data'))
+    data_path = dm.utils.define_folder(datadir)
     nii_path = dm.utils.define_folder(os.path.join(data_path, 'nii'))
-    func_path = dm.utils.define_folder(os.path.join(data_path, 'ea'))
-    tmp_path = dm.utils.define_folder(tmp_path)
-    _ = dm.utils.define_folder(os.path.join(project, 'logs'))
-    log_path = dm.utils.define_folder(os.path.join(project, 'logs/ea'))
+    func_path = dm.utils.define_folder(outputdir)
+    log_path = dm.utils.define_folder(os.path.join(outputdir, 'logs'))
 
-    list_of_names = []
-    tmpdict = {}
+    # process a single subject
+    if sub:
+        if dm.scanid.is_phantom(sub): 
+            logger.debug("Scan {} is a phantom. Skipping".format(sub))
+            sys.exit(0)
 
-    # preprocess
-    subjects = dm.utils.get_subjects(nii_path)
-    for sub in subjects:
-        if dm.scanid.is_phantom(sub) == True: 
-            continue
-        if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_preproc-complete.log'.format(sub=sub))) == True:
-            continue
-        try:
-            name, tmpdict = process_functional_data(sub, data_path, log_path, tmp_path, tmpdict, script)
-            list_of_names.append(name)
-
-        except ValueError as ve:
-            continue
-
-    if len(list_of_names) > 0:
-        dm.utils.run_dummy_q(list_of_names)
-
-    # export
-    for sub in tmpdict:
-        if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_preproc-complete.log'.format(sub=sub))) == True:
-            continue
-        try:
-            export_data(sub, tmpdict[sub], func_path)
-        except:
-            logger.error('Failed to export {}'.format(sub))
-            continue
+        # preprocess
+        if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_preproc-complete.log'.format(sub=sub))):
+            logger.debug("Scan {} has already been preprocessed. Skipping".format(sub))
         else:
-            continue
+            try: 
+                logger.info("Preprocessing subject {}".format(sub))
+                tmp_path = tempfile.mkdtemp()
+                tempdir = process_functional_data(sub, nii_path, fsdir, func_path, log_path, tmp_path, script)
+                export_data(sub, tempdir, func_path)
+            except Exception, e:
+                logger.exception("Error during preprocessing. Exiting")
+                sys.exit(1)
+                
+        # analyze
+        if os.path.isfile('{func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub)):
+            logger.debug("Scan {} has already been analyzed. Skipping".format(sub))
+        else:
+            # get all the log files for a subject
+            try:
+                resdirs = glob.glob(os.path.join(data_path, 'RESOURCES', sub + '_??'))
+                resources = []
+                for resdir in resdirs:
+                    resfiles = [os.path.join(dp, f) for 
+                                          dp, dn, fn in os.walk(resdir) for f in fn]
+                    resources.extend(resfiles)
 
-    # analyze
-    subjects = dm.utils.get_subjects(func_path)
+                logs = filter(lambda x: '.log' in x and 'UCLAEmpAcc' in x, resources)
+                logs.sort()
+            except:
+                logger.exception('No BEHAV data for {}.'.format(sub))
+                sys.exit(1)
 
-    for sub in subjects:
-        if dm.scanid.is_phantom(sub) == True: 
-            continue
-        if os.path.isfile('{func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub)) == True:
-            continue
-        
-        # get all the log files for a subject
-        try:
-            resdirs = glob.glob(os.path.join(data_path, 'RESOURCES', sub + '_??'))
-            resources = []
-            for resdir in resdirs:
-                resfiles = [os.path.join(dp, f) for 
-                                      dp, dn, fn in os.walk(resdir) for f in fn]
-                resources.extend(resfiles)
+            if len(logs) != 3:
+                logger.error('Did not find exactly 3 logs for {}.'.format(sub))
+                sys.exit(1)
 
-            logs = filter(lambda x: '.log' in x and 'UCLAEmpAcc' in x, resources)
-            logs.sort()
-        except:
-            logger.error('No BEHAV data for {}.'.format(sub))
-            continue
+            # exract all of the data from the logs
+            on_all, dur_all, corr_all, push_all = [], [], [], []
 
-        if len(logs) != 3:
-            logger.error('Did not find exactly 3 logs for {}.'.format(sub))
-            continue
+            try:
+                for log in logs:
+                    on, dur, corr, push = process_behav_data(log, assets, func_path, sub, 'vid')
+                    on_all.extend(on)
+                    dur_all.extend(dur)
+                    corr_all.extend(corr)
+                    push_all.extend(push)
+            except Exception, e:
+                logger.exception('Failed to parse logs for {}, log={}.'.format(sub, log))
+                sys.exit(1)
 
-        # exract all of the data from the logs
-        on_all, dur_all, corr_all, push_all = [], [], [], []
+            # write data to stimulus timing file for AFNI, and a QC csv
+            try:
+                # write each stimulus time:
+                #         [start_time]*[amplitude],[buttonpushes]:[block_length]
+                #         30*5,0.002:12
 
-        try:
-            for log in logs:
-                on, dur, corr, push = process_behav_data(log, assets, func_path, sub, 'vid')
-                on_all.extend(on)
-                dur_all.extend(dur)
-                corr_all.extend(corr)
-                push_all.extend(push)
-        except Exception, e:
-            logger.error('Failed to parse logs for {}, log={}.'.format(sub, log))
-            continue
+                # OFFSET 4 TRs == 8 Seconds!
+                # on = on - 8.0
+                f1 = open('{func_path}/{sub}/{sub}_block-times_ea.1D'.format(func_path=func_path, sub=sub), 'wb') # stim timing file
+                f2 = open('{func_path}/{sub}/{sub}_corr_push.csv'.format(func_path=func_path, sub=sub), 'wb') # r values and num pushes / minute
+                f2.write('correlation,n-pushes-per-minute\n')
+                for i in range(len(on_all)):
+                    f1.write('{o:.2f}*{r:.2f},{p}:{d:.2f} '.format(o=on_all[i]-8.0, r=corr_all[i], p=push_all[i], d=dur_all[i]))
+                    f2.write('{r:.2f},{p}\n'.format(r=corr_all[i], p=push_all[i]))
+                f1.write('\n') # add newline at the end of each run (up to 3 runs.)
+            except:
+                logger.exception('Failed to open block_times & corr_push for {}'.format(sub))
+                sys.exit(1)
+            finally:
+                f1.close()
+                f2.close()
 
-        # write data to stimulus timing file for AFNI, and a QC csv
-        try:
-            # write each stimulus time:
-            #         [start_time]*[amplitude],[buttonpushes]:[block_length]
-            #         30*5,0.002:12
+            # analyze the data
+            try:
+                generate_analysis_script(sub, func_path)
+                dm.utils.run('bash {func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub))
+                dm.utils.run('touch {func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub))
+            except:
+                logger.exception('Failed analyze {}'.format(sub))
+                sys.exit(1)
 
-            # OFFSET 4 TRs == 8 Seconds!
-            # on = on - 8.0
-            f1 = open('{func_path}/{sub}/{sub}_block-times_ea.1D'.format(func_path=func_path, sub=sub), 'wb') # stim timing file
-            f2 = open('{func_path}/{sub}/{sub}_corr_push.csv'.format(func_path=func_path, sub=sub), 'wb') # r values and num pushes / minute
-            f2.write('correlation,n-pushes-per-minute\n')
-            for i in range(len(on_all)):
-                f1.write('{o:.2f}*{r:.2f},{p}:{d:.2f} '.format(o=on_all[i]-8.0, r=corr_all[i], p=push_all[i], d=dur_all[i]))
-                f2.write('{r:.2f},{p}\n'.format(r=corr_all[i], p=push_all[i]))
-            f1.write('\n') # add newline at the end of each run (up to 3 runs.)
-        except:
-            logger.error('Failed to open block_times & corr_push for {}'.format(sub))
-            continue
-        finally:
-            f1.close()
-            f2.close()
+    # process all subjects
+    else: 
+        commands = []
+        for sub in dm.utils.get_subjects(nii_path):
+            if dm.scanid.is_phantom(sub): 
+                logger.debug("Scan {} is a phantom. Skipping".format(sub))
+                continue
+            if os.path.isfile('{func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub)):
+                continue
 
-        # analyze the data
-        try:
-            generate_analysis_script(sub, func_path)
-            dm.utils.run('bash {func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub))
-            dm.utils.run('touch {func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub))
-        except:
-            continue
+            opts = (verbose and ' -v' or '') + (debug and ' --debug' or '')
+            commands.append(" ".join([__file__, opts, datadir, fsdir,
+                outputdir, script, assets, sub]))
+
+        if commands: 
+            logger.debug("queueing up the following commands:\n"+'\n'.join(commands))
+            jobname = "dm_ea_{}".format(time.strftime("%Y%m%d-%H%M%S"))
+            fd, path = tempfile.mkstemp() 
+            os.write(fd, '\n'.join(commands))
+            os.close(fd)
+
+            # using qbatch -i (individual jobs) rather than the default array
+            # job to work around interaction between epitome scripts and PBS
+            # tempdir names.
+            #  
+            # Specifically, PBS makes a parent tempdir for array jobs that
+            # include the array element in the name, like so: 
+            #    /tmp/150358[1].mgmt2.scc.camh.net/tmp1H2Une 
+            # 
+            # Epitome scripts do not properly escape the DIR_DATA when used, so
+            # references to this path do not parse correctly (square brackets
+            # being patterns in bash).
+            rtn, out, err = dm.utils.run('qbatch -i --logdir {logdir} -N {name} --walltime {wt} {cmds}'.format(
+                logdir = log_path,
+                name = jobname,
+                wt = walltime, 
+                cmds = path), dryrun = dryrun)
+
+            if rtn != 0:
+                logger.error("Job submission failed. Output follows.")
+                logger.error("stdout: {}\nstderr: {}".format(out,err))
+                sys.exit(1)
 
 if __name__ == "__main__":
     main()

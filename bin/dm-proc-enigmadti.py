@@ -18,6 +18,8 @@ Options:
   --QC-transfer QCFILE     QC checklist file - if this option is given than only QCed participants will be processed.
   --no-newsubs             Do not link or submit new subjects - (depricated)
   --use-test-datman        Use the version of datman in Erin's test environment. (default is '/archive/data-2.0/code/datman.module')
+  --walltime TIME          A walltime for the enigma stage [default: 2:00:00]
+  --walltime-final TIME    A walltime for the final concat stage [default: 0:10:00]
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
   -n,--dry-run             Dry run
@@ -70,6 +72,7 @@ import shutil
 import filecmp
 import difflib
 
+
 arguments       = docopt(__doc__)
 dtifit_dir      = arguments['<input-dtifit-dir>']
 outputdir       = arguments['<outputdir>']
@@ -80,6 +83,8 @@ CALC_MD         = arguments['--calc-MD']
 CALC_ALL        = arguments['--calc-all']
 NO_NEWSUBS      = arguments['--no-newsubs']
 TESTDATMAN      = arguments['--use-test-datman']
+walltime        = arguments['--walltime']
+walltime_final  = arguments['--walltime-final']
 VERBOSE         = arguments['--verbose']
 DEBUG           = arguments['--debug']
 DRYRUN          = arguments['--dry-run']
@@ -94,10 +99,10 @@ runenigmash_name = 'run_engimadti.sh'
 runconcatsh_name = 'concatresults.sh'
 
 ### Erin's little function for running things in the shell
-def docmd(cmdlist):
+def docmd(cmd):
     "sends a command (inputed as a list) to the shell"
-    if DEBUG: print ' '.join(cmdlist)
-    if not DRYRUN: subprocess.call(cmdlist)
+    if DEBUG: print cmd
+    rtn, out, err = dm.utils.run(cmd, dryrun = DRYRUN)
 
 # need to find the t1 weighted scan and update the checklist
 def find_FAimages(archive_tag,archive_tag2):
@@ -147,25 +152,9 @@ def makeENIGMArunsh(filename):
     enigmash = open(filename,'w')
     enigmash.write('#!/bin/bash\n\n')
 
-    enigmash.write('# SGE Options\n')
-    enigmash.write('#$ -S /bin/bash\n')
-    enigmash.write('#$ -q main.q\n')
-    enigmash.write('#$ -j y \n')
-    enigmash.write('#$ -o '+ log_dir + ' \n')
-    enigmash.write('#$ -e '+ log_dir + ' \n')
-    enigmash.write('#$ -l mem_free=1G,virtual_free=1G\n\n')
-
-    enigmash.write('#source the module system\n')
-    enigmash.write('source /etc/profile\n\n')
-
     enigmash.write('## this script was created by dm-proc-engimadti.py\n\n')
     ## can add section here that loads chosen CIVET enviroment
-    enigmash.write('##load the ENIGMA DTI enviroment\n')
-    enigmash.write('module load FSL/5.0.7 R/3.1.1 ENIGMA-DTI/2015.01\n\n')
-    if TESTDATMAN:
-        enigmash.write('module load /projects/edickie/privatemodules/datman/edickie\n\n')
-    else:
-        enigmash.write('module load /archive/data-2.0/code/datman.module\n\n')
+    enigmash.write('## Prints loaded modules to the log\nmodule list\n\n')
 
     if ENGIMASTEP == 'doInd':
         enigmash.write('OUTDIR=${1}\n')
@@ -193,6 +182,7 @@ def makeENIGMArunsh(filename):
 
     #and...don't forget to close the file
     enigmash.close()
+    os.chmod(filename, 0o755)
 
 ### check the template .sh file that gets submitted to the queue to make sure option haven't changed
 def checkrunsh(filename):
@@ -304,38 +294,45 @@ find_FAimages(FA_tag,TAG2)
 ## now checkoutputs to see if any of them have been run
 #if yes update spreadsheet
 #if no submits that subject to the queue
-jobnames = []
+jobnameprefix="edti_{}_".format(datetime.datetime.today().strftime("%Y%m%d-%H%M%S"))
+submitted = False
+
 for i in range(0,len(checklist)):
     subid = checklist['id'][i]
+    ROIout = os.path.join(outputdir,subid,'ROI')
+
     # if all input files are found - check if an output exists
-    if pd.isnull(checklist['FA_nii'][i])==False:
-        ROIout = os.path.join(outputdir,subid,'ROI')
-        # if no output exists than run engima-dti
-        if os.path.exists(ROIout)== False:
-            if NO_NEWSUBS == False:
-                os.chdir(run_dir)
-                soutput = os.path.join(outputdir,subid)
-                smap = checklist['FA_nii'][i]
-                jobname = 'edti_' + subid
-                docmd(['qsub','-N', jobname,  \
-                         runenigmash_name, \
-                         soutput, \
-                         os.path.join(dtifit_dir,subid,smap)])
-                checklist['date_ran'][i] = datetime.date.today()
-                jobnames.append(jobname)
+    if pd.isnull(checklist['FA_nii'][i]) or os.path.exists(ROIout) or NO_NEWSUBS:
+        continue
+
+    os.chdir(run_dir)
+    soutput = os.path.join(outputdir,subid)
+    smap = checklist['FA_nii'][i]
+    jobname = jobnameprefix + subid
+    docmd('echo ./{script} {output} {inputdir} | '
+          'qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
+            script = runenigmash_name,
+            output = soutput,
+            inputdir = os.path.join(dtifit_dir,subid,smap),
+            jobname = jobname,
+            logdir = log_dir,
+            wt = walltime))
+
+    checklist['date_ran'][i] = datetime.date.today()
+    submitted = True
 
 
-### if more that 30 subjects have been submitted to the queue,
-### use only the last 30 submitted as -hold_jid arguments
-if len(jobnames) > 30 : jobnames = jobnames[-30:]
 ## if any subjects have been submitted,
 ## submit a final job that will consolidate the resutls after they are finished
-if len(jobnames) > 0:
-    #if any subjects have been submitted - submit an extract consolidation job to run at the end
+if submitted:
     os.chdir(run_dir)
-    docmd(['qsub', '-N', 'edti_results',  \
-        '-hold_jid', ','.join(jobnames), \
-        runconcatsh_name])
+    docmd('echo ./{script} | '
+          'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
+            script = runconcatsh_name,
+            jobname = jobnameprefix + 'concat',
+            logdir = log_dir,
+            hold = jobnameprefix + '*',
+            wt = walltime_final))
 
 ## write the checklist out to a file
 checklist.to_csv(checklistfile, sep=',', index = False)

@@ -25,7 +25,6 @@ fi
 
 if [ -z "$FSLDIR" ]; then
     echo "FSLDIR environment variable is undefined. Try again."
-    echo "(ﾉಥ益ಥ）ﾉ ┻━┻"
     exit 1;
 fi
 
