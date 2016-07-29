@@ -29,19 +29,10 @@ DETAILS
 """
 
 import os
-import sys
-import datetime
 import glob
-import numpy as np
-import scipy as sp
-import scipy.signal as sig
-import dicom as dcm
-import nibabel as nib
 import datman as dm
 import datman.utils
 import datman.scanid
-import subprocess as proc
-from copy import copy
 from docopt import docopt
 
 VERBOSE = False
