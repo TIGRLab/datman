@@ -129,72 +129,6 @@ def find_T1images(archive_tag):
             elif len(sfiles) < 1:
                 checklist['notes'][i] = "No {} found.".format(archive_tag)
 
-
-### build a template .sh file that gets submitted to the queue
-def makeFreesurferrunsh(filename):
-    """
-    builds a script in the output_dir (run.sh)
-    that gets submitted to the queue for each participant (in the case of 'doInd')
-    or that gets held for all participants and submitted once they all end (the concatenating one)
-    """
-    bname = os.path.basename(filename)
-    if bname == runFSsh_name:
-        FS_STEP = 'FS'
-    if bname == runPostsh_name:
-        FS_STEP = 'Post'
-
-    #open file for writing
-    Freesurfersh = open(filename,'w')
-    Freesurfersh.write('#!/bin/bash\n\n')
-    Freesurfersh.write('export SUBJECTS_DIR=' + output_dir + '\n\n')
-    Freesurfersh.write('## Prints loaded modules to the log\nmodule list\n\n')
-
-    ## write the freesurfer running bit
-    if FS_STEP == 'FS':
-
-        Freesurfersh.write('SUBJECT=${1}\n')
-        Freesurfersh.write('shift\n')
-        Freesurfersh.write('T1MAPS=${@}\n')
-        ## add the engima-dit command
-
-        Freesurfersh.write('\nrecon-all -all ')
-        if FS_option != None:
-            Freesurfersh.write(FS_option + ' ')
-        Freesurfersh.write('-subjid ${SUBJECT} ${T1MAPS}' + ' -qcache\n')
-
-    ## write the post freesurfer bit
-    if FS_STEP == 'Post':
-
-        ## add the engima-extract bits
-        Freesurfersh.write('ENGIMA_ExtractCortical.sh ${SUBJECTS_DIR} '+ prefix + '\n')
-        Freesurfersh.write('ENGIMA_ExtractSubcortical.sh ${SUBJECTS_DIR} '+ prefix + '\n')
-
-    #and...don't forget to close the file
-    Freesurfersh.close()
-    os.chmod(filename, 0o755)
-
-### check the template .sh file that gets submitted to the queue to make sure option haven't changed
-def checkrunsh(filename):
-    """
-    write a temporary (run.sh) file and than checks it againts the run.sh file already there
-    This is used to double check that the pipeline is not being called with different options
-    """
-    tempdir = tempfile.mkdtemp()
-    tmprunsh = os.path.join(tempdir,os.path.basename(filename))
-    makeFreesurferrunsh(tmprunsh)
-    if filecmp.cmp(filename, tmprunsh):
-        if DEBUG: print("{} already written - using it".format(filename))
-    else:
-        # If the two files differ - then we use difflib package to print differences to screen
-        print('#############################################################\n')
-        print('# Found differences in {} these are marked with (+) '.format(filename))
-        print('#############################################################')
-        with open(filename) as f1, open(tmprunsh) as f2:
-            differ = difflib.Differ()
-            print(''.join(differ.compare(f1.readlines(), f2.readlines())))
-        sys.exit("\nOld {} doesn't match parameters of this run....Exiting".format(filename))
-    shutil.rmtree(tempdir)
-
 ####set checklist dataframe structure here
 #because even if we do not create it - it will be needed for newsubs_df (line 80)
 def loadchecklist(checklistfile,subjectlist):
@@ -230,7 +164,7 @@ def main():
     arguments       = docopt(__doc__)
     input_dir       = arguments['<inputdir>']
     output_dir      = arguments['<FS_subjectsdir>']
-    rawQCfile       = arguments['--QC-transfer']
+    QC_file         = arguments['--QC-transfer']
     MULTI_T1        = arguments['--multiple-inputs']
     T1_tag          = arguments['--T1-tag']
     TAG2            = arguments['--tag2']
@@ -253,45 +187,30 @@ def main():
     dm.utils.makedirs(run_dir)
 
     if DEBUG: print arguments
-    #set default tag values
+
     if T1_tag == None: T1_tag = '_T1_'
-    USE_TAG2 = False if TAG2 == None else True # if tag2 is given, use it
 
-    ## set the basenames of the two run scripts
-    if RUN_TAG == None:
-        runFSsh_name = 'run_freesurfer.sh'
-    else:
-        runFSsh_name = 'run_freesurfer_' + RUN_TAG + '.sh'
-    runPostsh_name = 'postfreesurfer.sh'
+    if post_settings_conflict(NO_POST, POSTFS_ONLY):
+        sys.exit("--no-postFS and --postFS-only cannot both be set")
 
-    subids_in_nii = get_subject_list(input_dir, TAG2, rawQCfile)
+    subjects = get_subject_list(input_dir, TAG2, QC_file)
 
-    # # check if we have any work to do, exit if not
-    # if len(subids_in_nii) == 0:
-    # print('MSG: No outstanding scans to process.')
-    # sys.exit()
-    #
-    # # grab the prefix from the subid if not given
-    # if prefix == None:
-    # prefix = subids_in_nii[0][0:3]
-    #
-    # ## writes a standard Freesurfer-DTI running script for this project (if it doesn't exist)
-    # ## the script requires a OUTDIR and MAP_BASE variables - as arguments $1 and $2
-    # ## also write a standard script to concatenate the results at the end (script is held while subjects run)
-    # runscripts = [runFSsh_name,runPostsh_name]
-    # if POSTFS_ONLY: runscripts = [runPostsh_name]
-    # for runfilename in runscripts:
-    # runsh = os.path.join(run_dir,runfilename)
-    # if os.path.isfile(runsh):
-    #     ## create temporary run file and test it against the original
-    #     checkrunsh(runsh)
-    # else:
-    #     ## if it doesn't exist, write it now
-    #     makeFreesurferrunsh(runsh)
-    #
+    # check if we have any work to do, exit if not
+    if len(subjects) == 0:
+        print('MSG: No outstanding scans to process.')
+        sys.exit()
+
+    # grab the prefix from the subid if not given
+    if prefix == None:
+        prefix = subjects[0][0:3]
+
+    run_scripts = get_run_script_names(RUN_TAG, POSTFS_ONLY, NO_POST)
+    generate_run_scripts(run_scripts, run_dir)
+
+
     # # create an checklist for the T1 maps
     # checklistfile = os.path.normpath(output_dir+'/freesurfer-checklist.csv')
-    # checklist = loadchecklist(checklistfile,subids_in_nii)
+    # checklist = loadchecklist(checklistfile,subjects)
     #
     # # look for new subs using T1_tag and tag2
     # find_T1images(T1_tag)
@@ -372,28 +291,38 @@ def main():
     # ## write the checklist out to a file
     # checklist.to_csv(checklistfile, sep=',', index = False)
 
-def get_subject_list(subjects_dir, TAG2, raw_QC_file):
+def post_settings_conflict(NO_POST, POSTFS_ONLY):
+    conflict = False
+    if NO_POST and POSTFS_ONLY:
+        conflict = True
+    return conflict
+
+def get_subject_list(input_dir, TAG2, QC_file):
     """
-    Returns a list of subjects in subjects_dir, minus any phantoms or already
+    Returns a list of subjects in input_dir, minus any phantoms or already
     qc'd subjects.
     """
-
-    new_subs = dm.utils.get_subjects(subjects_dir)
-
-    # remove phantoms
-    new_subs = [ subid for subid in new_subs if "PHA" not in subid ]
-
-    # Remove all subs with TAG2 if it was specified
+    subject_list = dm.utils.get_subjects(input_dir)
+    subject_list = remove_phantoms(subject_list)
     if TAG2 is not None:
-        new_subs = [ subid for subid in new_subs if TAG2 in subid ]
+        subject_list = remove_untagged_subjects(subject_list, TAG2)
+    if QC_file is not None:
+        subject_list = remove_unqced_subjects(subject_list, QC_file)
 
-    # if a QC checklist exists, then read it and only process those
-    # participants who passed QC
-    if raw_QC_file is not None:
-        qced_list = get_qced_subject_list(raw_QC_file)
-        new_subs = list(set(new_subs) & set(qced_list))
+    return subject_list
 
-    return new_subs
+def remove_phantoms(subject_list):
+    subject_list = [ subid for subid in subject_list if "PHA" not in subid ]
+    return subject_list
+
+def remove_untagged_subjects(subject_list, TAG2):
+    subject_list = [ subid for subid in subject_list if TAG2 in subid ]
+    return subject_list
+
+def remove_unqced_subjects(subject_list, QC_file):
+    qced_list = get_qced_subject_list(QC_file)
+    subject_list = list(set(subject_list) & set(qced_list))
+    return subject_list
 
 def get_qced_subject_list(qc_list):
     """
@@ -412,7 +341,7 @@ def get_qced_subject_list(qc_list):
                 qc_file_name = fields[0]
                 subid = get_qced_subid(qc_file_name)
                 qced_subs.append(subid)
-    ## return the qcedlist (as a list)
+
     return qced_subs
 
 def get_qced_subid(qc_file_name):
@@ -420,6 +349,104 @@ def get_qced_subid(qc_file_name):
     subid = subid.replace('.html','')
     subid = subid.replace('qc_', '')
     return subid
+
+def get_run_script_names(RUN_TAG, POSTFS_ONLY, NO_POST):
+    """
+    Return a list of script names for run scripts needed
+    """
+    ## set the basenames of the two run scripts
+    if RUN_TAG == None:
+        runFSsh_name = 'run_freesurfer.sh'
+    else:
+        runFSsh_name = 'run_freesurfer_' + RUN_TAG + '.sh'
+
+    runPostsh_name = 'postfreesurfer.sh'
+
+    if POSTFS_ONLY:
+        run_scripts = [runPostsh_name]
+    elif NO_POST:
+        run_scripts = [runFSsh_name]
+    else:
+        run_scripts = [runFSsh_name,runPostsh_name]
+
+    return run_scripts
+
+def generate_run_scripts(script_names, run_dir):
+    """
+    Write Freesurfer-DTI run scripts for this project if they don't
+    already exist.
+    """
+    for name in script_names:
+        runsh = os.path.join(run_dir, name)
+        if os.path.isfile(runsh):
+            ## create temporary run file and test it against the original
+            check_runsh(runsh)
+        else:
+            ## if it doesn't exist, write it now
+            make_Freesurfer_runsh(runsh)
+
+def check_runsh(file_name):
+    """
+    Writes a temporary (run.sh) file and then checks it against
+    the existing run script.
+
+    This is used to double check that the pipeline is not being called
+    with different options
+    """
+    with dm.utils.make_temp_directory() as temp_dir:
+        tmp_runsh = os.path.join(temp_dir,os.path.basename(file_name))
+        make_Freesurfer_runsh(tmp_runsh)
+        if filecmp.cmp(file_name, tmp_runsh):
+            if DEBUG: print("{} already written - using it".format(file_name))
+        else:
+            # If the two files differ - then we use difflib package to print differences to screen
+            print('#############################################################\n')
+            print('# Found differences in {} these are marked with (+) '.format(file_name))
+            print('#############################################################')
+            with open(file_name) as f1, open(tmp_runsh) as f2:
+                differ = difflib.Differ()
+                print(''.join(differ.compare(f1.readlines(), f2.readlines())))
+            sys.exit("\nOld {} doesn't match parameters of this run....Exiting".format(file_name))
+
+def make_Freesurfer_runsh(file_name):
+    """
+    Builds a Freesurfer-DTI run script
+    """
+    bname = os.path.basename(file_name)
+    if bname == runFSsh_name:
+        FS_STEP = 'FS'
+    if bname == runPostsh_name:
+        FS_STEP = 'Post'
+
+    #open file for writing
+    Freesurfersh = open(file_name,'w')
+    Freesurfersh.write('#!/bin/bash\n\n')
+    Freesurfersh.write('export SUBJECTS_DIR=' + output_dir + '\n\n')
+    Freesurfersh.write('## Prints loaded modules to the log\nmodule list\n\n')
+
+    ## write the freesurfer running bit
+    if FS_STEP == 'FS':
+
+        Freesurfersh.write('SUBJECT=${1}\n')
+        Freesurfersh.write('shift\n')
+        Freesurfersh.write('T1MAPS=${@}\n')
+        ## add the engima-dit command
+
+        Freesurfersh.write('\nrecon-all -all ')
+        if FS_option != None:
+            Freesurfersh.write(FS_option + ' ')
+        Freesurfersh.write('-subjid ${SUBJECT} ${T1MAPS}' + ' -qcache\n')
+
+    ## write the post freesurfer bit
+    if FS_STEP == 'Post':
+
+        ## add the engima-extract bits
+        Freesurfersh.write('ENGIMA_ExtractCortical.sh ${output_dir} '+ prefix + '\n')
+        Freesurfersh.write('ENGIMA_ExtractSubcortical.sh ${output_dir} '+ prefix + '\n')
+
+    #and...don't forget to close the file
+    Freesurfersh.close()
+    os.chmod(file_name, 0o755)
 
 if __name__ == '__main__':
     main()

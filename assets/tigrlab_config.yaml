@@ -154,6 +154,11 @@ PipelineSettings:
         runif : '"SPRL" in ScanTypes'
         arguments: ['${PROJECTDIR}/data']
 
+    - 'dm-link-vn-sprl.sh' :
+        message: 'Linking Spiral VR Scans'
+        runif : '"VN-SPRL" in ScanTypes'
+        arguments: ['${PROJECTDIR}/data']
+
     - 'dm-proc-split-pdt2.py' :
         message: 'Split the PDT2 images'
         runif: '"PDT2" in ScanTypes'

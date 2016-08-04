@@ -14,6 +14,7 @@ import logging
 import subprocess as proc
 import scanid
 import nibabel as nib
+import contextlib
 
 SERIES_TAGS_MAP = {
 "T1"         :  "T1",
@@ -447,5 +448,14 @@ def get_loaded_modules():
     just looks in the LOADEDMODULES environment variable for the list.
     """
     return " ".join(os.environ.get("LOADEDMODULES","").split(":"))
+
+@contextlib.contextmanager
+def make_temp_directory():
+    temp_dir = tempfile.mkdtemp()
+    try:
+        yield temp_dir
+    finally:
+        shutil.rmtree(temp_dir)
+
 
 # vim: ts=4 sw=4 sts=4:

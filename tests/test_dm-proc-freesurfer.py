@@ -62,89 +62,25 @@ def test_get_subject_list_QC_file_returns_only_qced_subjects():
     assert "STUDY_SITE_CODE_01" in subjects
     assert "STUDY_CAMH_CODE_01" in subjects
 
+### Make integration tests on main?
+def test_get_run_script_names():
+    tag = 'TAG'
+    only_post = False
+    no_post = False
 
-#########################################################################
-# makeFreesurferrunsh
+    run_scripts = fs.get_run_script_names(tag, only_post, no_post)
+    assert run_scripts == ['run_freesurfer_TAG.sh', 'postfreesurfer.sh']
+    tag = None
 
-# def test_make_fs_runsh():
-#     ## If the correct way to write the run scripts changes the fixtures
-#     ## must be updated
-#
-#     ## Call makeFreesurferrunsh with FS
-#     ## call with post
-#
-#     ## 1. New default runscript = fixture.
-#     fix_sh = os.join(FIXTURE_DIR, "run_scripts_outputs_08032016/default_options/run_freesurfer.sh")
-#     new_sh = fs.makeFreesurferrunsh("run_freesurfer.sh")
-#     cmd = "diff {} {}".format(fix_sh, new_sh)
-#     p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
-#     out, err = p.communicate()
-#     # No diffs, no output. None? empty list?
-#     assert out == ""
-#
-#     ## 2. New post = fixture post
-#     fix_sh = os.join(FIXTURE_DIR, "run_scripts_outputs_08032016/default_options/postfreesurfer.sh")
-#     new_sh = fs.makeFreesurferrunsh("postfreesurfer.sh")
-#     cmd = "diff {} {}".format(fix_sh, new_sh)
-#     p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
-#     out, err = p.communicate()
-#     # No diffs, no output. None? empty list?
-#     assert out == ""
+    only_post = True
+    run_scripts = fs.get_run_script_names(tag, only_post, no_post)
+    assert run_scripts == ['postfreesurfer.sh']
+    only_post = False
 
-    ## 3. New options set as
-    # python ../bin/dm-proc-freesurfer.py --FS-option "-nondefault1 -nondefault2" --T1 /projects/dawn/current/datman/tests/fixture_dm-proc-freesurfer/data/nii /projects/dawn/current/datman/tests/fixture_dm-proc-freesurfer/output2
-    ## equals the output for fixture fs_options
+    no_post = True
+    run_scripts = fs.get_run_script_names(tag, only_post, no_post)
+    assert run_scripts == ['run_freesurfer.sh']
 
-    ## 4. outputs are executable
-
-#########################################################################
-# generate run scripts
-
-    # 1. respects POSTFS_ONLY (i.e. only creates post script)
-    # 2. If old scripts, doesn't change them.
-
-#########################################################################
-# checkrunsh
-
-    # If options differ returns message (equivalent to exit status == 1)
-    # If no difference returns 0 (passes None)
-
-#########################################################################
-# RUN_TAG
-
-#########################################################################
-# POSTFS_ONLY
-
-#########################################################################
-# loadchecklist
-
-    ## 1. No existing checklist. Check that dataframe id column == sublist (defaults)
-    ## 2. Existing checklist passed in : make dataframe from it.
-    ##      2a. Checklist == total sublist == no change to dataframe
-    ##          (not to other columns either)
-    ##      2b. Checklist == sublist of eligible subjects = old unchanged, new added.
-    ##      2c. when tag2 set, checklist only updated with camh pt
-
-#########################################################################
-# find_T1images
-
-    ## 1. If tag2 set, dataframe should only have file added for camh person
-    ## 2.
-
-
-# find_T1images:
-    # If Tag2: doesn't add subid even if new if Tag2 not in nifti name
-    # If nii field is empty, finds all new niftis and if multi allowed all added
-
-# If postFS-only called, block that submits first job is skipped
-    # Else
-        # If has completed previously, does nothing (recon-all present)
-        # If halted previously, adds checklist notes
-        # Creates T1 array with -i fullpath to image for each image in T1_nii field
-
-        # Check the command output... ?
-        # Ensure date ran field is updated properly
-
-# Post: check the command submitted
-
-# Check output?
+@raises(SystemExit)
+def test_postFS_settings_resolved():
+    assert True == False
