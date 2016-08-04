@@ -200,8 +200,9 @@ for i in range(0,len(checklist)):
 
     jobname = jobnameprefix + subid
     os.chdir(bin_dir)
-    docmd('echo ./{script} {subid} | '
+    docmd('echo bash -l {rundir}/{script} {subid} | '
           'qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
+            rundir = bin_dir,
             script = runconvertsh,
             subid = subid,
             jobname = jobname,
@@ -219,8 +220,9 @@ for i in range(0,len(checklist)):
 if submitted:
     os.chdir(bin_dir)
     #if any subjects have been submitted - submit an extract consolidation job to run at the end
-    docmd('echo ./{script} | '
+    docmd('echo bash -l {run_dir}/{script} | '
           'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
+            run_dir = bin_dir,
             script = runpostsh,
             jobname = jobnameprefix + 'hcp_qc',
             logdir = logs_dir,

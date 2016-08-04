@@ -309,8 +309,9 @@ for i in range(0,len(checklist)):
     soutput = os.path.join(outputdir,subid)
     smap = checklist['FA_nii'][i]
     jobname = jobnameprefix + subid
-    docmd('echo ./{script} {output} {inputdir} | '
+    docmd('echo bash -l {rundir}/{script} {output} {inputdir} | '
           'qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
+            rundir = run_dir,
             script = runenigmash_name,
             output = soutput,
             inputdir = os.path.join(dtifit_dir,subid,smap),
@@ -326,8 +327,9 @@ for i in range(0,len(checklist)):
 ## submit a final job that will consolidate the resutls after they are finished
 if submitted:
     os.chdir(run_dir)
-    docmd('echo ./{script} | '
+    docmd('echo bash -l {rundir}/{script} | '
           'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
+            rundir = run_dir,
             script = runconcatsh_name,
             jobname = jobnameprefix + 'concat',
             logdir = log_dir,
