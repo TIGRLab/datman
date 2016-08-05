@@ -132,7 +132,7 @@ def find_T1images(archive_tag):
     """
     for i in range(0,len(checklist)):
         # make sure that is TAG2 was called - only the tag2s are going to queue
-        if TAG2 and TAG2 not in subid:
+        if TAG2 and TAG2 not in checklist['id'][i]:
             continue
         sdir = os.path.join(inputdir,checklist['id'][i])
 	    #if T1 name not in checklist
