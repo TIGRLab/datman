@@ -15,6 +15,8 @@ import subprocess as proc
 import scanid
 import nibabel as nib
 import contextlib
+import tempfile
+import shutil
 
 SERIES_TAGS_MAP = {
 "T1"         :  "T1",

@@ -84,81 +84,11 @@ VERBOSE = False
 DEBUG = False
 DRYRUN = False
 
-
-
-## two silly little things to find for the run script
-
 ### Erin's little function for running things in the shell
 def docmd(cmd):
     "sends a command (inputed as a list) to the shell"
     if DEBUG: print cmd
     rtn, out, err = dm.utils.run(cmd, dryrun = DRYRUN)
-
-# need to find the t1 weighted scan and update the checklist
-def find_T1images(archive_tag):
-    """
-    will look for new files in the input_dir
-    and add them to a list for the processing
-
-    archive_tag -- filename tag that can be used for search (i.e. '_T1_')
-    checklist -- the checklist pandas dataframe to update
-    """
-    for i in range(0,len(checklist)):
-        # make sure that is TAG2 was called - only the tag2s are going to queue
-        if TAG2 and TAG2 not in subid:
-            continue
-        sdir = os.path.join(input_dir,checklist['id'][i])
-	    #if T1 name not in checklist
-        if pd.isnull(checklist['T1_nii'][i]):
-            sfiles = []
-            for fname in os.listdir(sdir):
-                if archive_tag in fname:
-                    sfiles.append(fname)
-
-            if DEBUG: print "Found {} {} in {}".format(len(sfiles),archive_tag,sdir)
-            if len(sfiles) == 1:
-                checklist['T1_nii'][i] = sfiles[0]
-            elif len(sfiles) > 1:
-                if MULTI_T1:
-                    '''
-                    if multiple T1s are allowed (as per --multiple-inputs flag) - add to T1 file
-                    '''
-                    checklist['T1_nii'][i] = ';'.join(sfiles)
-                else:
-                    checklist['notes'][i] = "> 1 {} found".format(archive_tag)
-            elif len(sfiles) < 1:
-                checklist['notes'][i] = "No {} found.".format(archive_tag)
-
-####set checklist dataframe structure here
-#because even if we do not create it - it will be needed for newsubs_df (line 80)
-def loadchecklist(checklistfile,subjectlist):
-    """
-    Reads the checklistfile (normally called Freesurfer-DTI-checklist.csv)
-    if the checklist csv file does not exit, it will be created.
-
-    This also checks if any subjects in the subjectlist are missing from the checklist,
-    (checklist.id column)
-    If so, they are appended to the bottom of the dataframe.
-    """
-
-    cols = ['id', 'T1_nii', 'date_ran','qc_rator', 'qc_rating', 'notes']
-
-    # if the checklist exists - open it, if not - create the dataframe
-    if os.path.isfile(checklistfile):
-    	checklist = pd.read_csv(checklistfile, sep=',', dtype=str, comment='#')
-    else:
-    	checklist = pd.DataFrame(columns = cols)
-
-    # new subjects are those of the subject list that are not in checklist.id
-    newsubs = list(set(subjectlist) - set(checklist.id))
-
-    # add the new subjects to the bottom of the dataframe
-    newsubs_df = pd.DataFrame(columns = cols, index = range(len(checklist),len(checklist)+len(newsubs)))
-    newsubs_df.id = newsubs
-    checklist = checklist.append(newsubs_df)
-
-    # return the checklist as a pandas dataframe
-    return(checklist)
 
 def main():
     arguments       = docopt(__doc__)
@@ -204,92 +134,90 @@ def main():
     if prefix == None:
         prefix = subjects[0][0:3]
 
-    run_scripts = get_run_script_names(RUN_TAG, POSTFS_ONLY, NO_POST)
-    generate_run_scripts(run_scripts, run_dir)
+    script_names = get_run_script_names(RUN_TAG, POSTFS_ONLY, NO_POST)
+    prepare_run_scripts(script_names, run_dir, output_dir, FS_option, prefix)
 
+    checklist_file = os.path.normpath(output_dir + '/freesurfer-checklist.csv')
+    checklist = load_checklist(checklist_file)
+    checklist = add_new_subjects_to_checklist(subjects, checklist)
+    # Update checklist for subjects with no T1 listed under T1_nii
+    checklist = find_T1_images(checklist, T1_tag, TAG2, input_dir, MULTI_T1)
 
-    # # create an checklist for the T1 maps
-    # checklistfile = os.path.normpath(output_dir+'/freesurfer-checklist.csv')
-    # checklist = loadchecklist(checklistfile,subjects)
-    #
-    # # look for new subs using T1_tag and tag2
-    # find_T1images(T1_tag)
-    #
-    # ## now checkoutputs to see if any of them have been run
-    # #if yes update spreadsheet
-    # #if no submits that subject to the queue
-    # ## should be in the right run dir so that it submits without the full path
-    #
-    # jobnameprefix="FS_{}_".format(datetime.datetime.today().strftime("%Y%m%d-%H%M%S"))
-    # submitted = False
-    #
-    # os.chdir(run_dir)
-    # if not POSTFS_ONLY:
-    # for i in range(0,len(checklist)):
-    #     subid = checklist['id'][i]
-    #
-    #     # make sure that is TAG2 was called - only the tag2s are going to queue
-    #     if TAG2 and TAG2 not in subid:
-    #         continue
-    #
-    #     ## make sure that a T1 has been selected for this subject
-    #     if pd.isnull(checklist['T1_nii'][i]):
-    #         continue
-    #
-    #     jobname = jobnameprefix + subid
-    #
-    #     ## check if this subject has already been completed - or started and halted
-    #     FScomplete = os.path.join(output_dir,subid,'scripts','recon-all.done')
-    #     FSrunningglob = glob.glob(os.path.join(output_dir,subid,'scripts','IsRunning*'))
-    #     FSrunning = FSrunningglob[0] if len(FSrunningglob) > 0 else ''
-    #     # if no output exists than run engima-dti
-    #     if os.path.isfile(FScomplete):
-    #         continue
-    #
-    #     if os.path.isfile(FSrunning):
-    #         checklist['notes'][i] = "FS halted at {}".format(os.path.basename(FSrunning))
-    #     else:
-    #         ## format contents of T1 column into recon-all command input
-    #         smap = checklist['T1_nii'][i]
-    #         if ';' in smap:
-    #             base_smaps = smap.split(';')
-    #         else: base_smaps = [smap]
-    #         T1s = []
-    #         for basemap in base_smaps:
-    #             T1s.append('-i')
-    #             T1s.append(os.path.join(input_dir,subid,basemap))
-    #
-    #         ## submit this subject to the queue
-    #         docmd('echo {rundir}/{script} {subid} {T1s} | '
-    #               'qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
-    #                 rundir = run_dir,
-    #                 script = runFSsh_name,
-    #                 subid = subid,
-    #                 T1s = ' '.join(T1s),
-    #                 jobname = jobname,
-    #                 logdir = log_dir,
-    #                 wt = walltime))
-    #
-    #         ## add today date to the checklist
-    #         checklist['date_ran'][i] = datetime.date.today()
-    #
-    #         submitted = True
-    #
-    # ## if any subjects have been submitted,
-    # ## submit a final job that will consolidate the resutls after they are finished
-    # if not NO_POST and submitted:
-    # os.chdir(run_dir)
-    # docmd('echo {rundir}/{script} | '
-    #       'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
-    #         rundir = run_dir,
-    #         script = runPostsh_name,
-    #         jobname = jobnameprefix + 'post',
-    #         logdir = log_dir,
-    #         hold = jobnameprefix + '*',
-    #         wt = walltime_post))
-    #
-    # ## write the checklist out to a file
-    # checklist.to_csv(checklistfile, sep=',', index = False)
+    ## now checkoutputs to see if any of them have been run
+    #if yes update spreadsheet
+    #if no submits that subject to the queue
+    ## should be in the right run dir so that it submits without the full path
+
+    jobnameprefix="FS_{}_".format(datetime.datetime.today().strftime("%Y%m%d-%H%M%S"))
+    submitted = False
+
+    os.chdir(run_dir)
+    if not POSTFS_ONLY:
+        for i in range(0,len(checklist)):
+            subid = checklist['id'][i]
+
+            # make sure that if TAG2 was called only the tag2s are going to queue
+            if TAG2 and TAG2 not in subid:
+                continue
+
+            ## make sure that a T1 has been selected for this subject
+            if pd.isnull(checklist['T1_nii'][i]):
+                continue
+
+            jobname = jobnameprefix + subid
+
+            ## check if this subject has already been completed - or started and halted
+            FScomplete = os.path.join(output_dir,subid,'scripts','recon-all.done')
+            FSrunningglob = glob.glob(os.path.join(output_dir,subid,'scripts','IsRunning*'))
+            FSrunning = FSrunningglob[0] if len(FSrunningglob) > 0 else ''
+            # if no output exists then run engima-dti
+            if os.path.isfile(FScomplete):
+                continue
+
+            if os.path.isfile(FSrunning):
+                checklist['notes'][i] = "FS halted at {}".format(os.path.basename(FSrunning))
+            else:
+                ## format contents of T1 column into recon-all command input
+                smap = checklist['T1_nii'][i]
+                if ';' in smap:
+                    base_smaps = smap.split(';')
+                else: base_smaps = [smap]
+                T1s = []
+                for basemap in base_smaps:
+                    T1s.append('-i')
+                    T1s.append(os.path.join(input_dir,subid,basemap))
+
+                ## submit this subject to the queue
+                docmd('echo bash -l {rundir}/{script} {subid} {T1s} | '
+                      'qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
+                        rundir = run_dir,
+                        script = runFSsh_name,
+                        subid = subid,
+                        T1s = ' '.join(T1s),
+                        jobname = jobname,
+                        logdir = log_dir,
+                        wt = walltime))
+
+                ## add today date to the checklist
+                checklist['date_ran'][i] = datetime.date.today()
+
+                submitted = True
+
+    ## if any subjects have been submitted,
+    ## submit a final job that will consolidate the results after they are finished
+    if not NO_POST and submitted:
+        os.chdir(run_dir)
+        docmd('echo bash -l {rundir}/{script} | '
+              'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
+                rundir = run_dir,
+                script = runPostsh_name,
+                jobname = jobnameprefix + 'post',
+                logdir = log_dir,
+                hold = jobnameprefix + '*',
+                wt = walltime_post))
+
+    ## write the checklist out to a file
+    checklist.to_csv(checklist_file, sep=',', index = False)
 
 def post_settings_conflict(NO_POST, POSTFS_ONLY):
     conflict = False
@@ -320,11 +248,11 @@ def remove_untagged_subjects(subject_list, TAG2):
     return subject_list
 
 def remove_unqced_subjects(subject_list, QC_file):
-    qced_list = get_qced_subject_list(QC_file)
+    qced_list = get_qced_subjects(QC_file)
     subject_list = list(set(subject_list) & set(qced_list))
     return subject_list
 
-def get_qced_subject_list(qc_list):
+def get_qced_subjects(qc_list):
     """
     reads the QC_list and returns a list of all subjects who have passed QC
     """
@@ -371,7 +299,7 @@ def get_run_script_names(RUN_TAG, POSTFS_ONLY, NO_POST):
 
     return run_scripts
 
-def generate_run_scripts(script_names, run_dir):
+def prepare_run_scripts(script_names, run_dir, output_dir, FS_option, prefix):
     """
     Write Freesurfer-DTI run scripts for this project if they don't
     already exist.
@@ -380,12 +308,12 @@ def generate_run_scripts(script_names, run_dir):
         runsh = os.path.join(run_dir, name)
         if os.path.isfile(runsh):
             ## create temporary run file and test it against the original
-            check_runsh(runsh)
+            check_runsh(runsh, output_dir, FS_option, prefix)
         else:
             ## if it doesn't exist, write it now
-            make_Freesurfer_runsh(runsh)
+            make_Freesurfer_runsh(runsh, output_dir, FS_option, prefix)
 
-def check_runsh(file_name):
+def check_runsh(old_script, output_dir, FS_option, prefix):
     """
     Writes a temporary (run.sh) file and then checks it against
     the existing run script.
@@ -394,59 +322,117 @@ def check_runsh(file_name):
     with different options
     """
     with dm.utils.make_temp_directory() as temp_dir:
-        tmp_runsh = os.path.join(temp_dir,os.path.basename(file_name))
-        make_Freesurfer_runsh(tmp_runsh)
-        if filecmp.cmp(file_name, tmp_runsh):
-            if DEBUG: print("{} already written - using it".format(file_name))
+        tmp_runsh = os.path.join(temp_dir, os.path.basename(old_script))
+        make_Freesurfer_runsh(tmp_runsh, output_dir, FS_option, prefix)
+        if filecmp.cmp(old_script, tmp_runsh):
+            if DEBUG: print("{} already written - using it".format(old_script))
         else:
             # If the two files differ - then we use difflib package to print differences to screen
             print('#############################################################\n')
-            print('# Found differences in {} these are marked with (+) '.format(file_name))
+            print('# Found differences in {} these are marked with (+) '.format(old_script))
             print('#############################################################')
-            with open(file_name) as f1, open(tmp_runsh) as f2:
+            with open(old_script) as f1, open(tmp_runsh) as f2:
                 differ = difflib.Differ()
                 print(''.join(differ.compare(f1.readlines(), f2.readlines())))
-            sys.exit("\nOld {} doesn't match parameters of this run....Exiting".format(file_name))
+            sys.exit("\nOld {} doesn't match parameters of this run....Exiting".format(old_script))
 
-def make_Freesurfer_runsh(file_name):
+def make_Freesurfer_runsh(file_name, output_dir, FS_option, prefix):
     """
     Builds a Freesurfer-DTI run script
     """
     bname = os.path.basename(file_name)
-    if bname == runFSsh_name:
-        FS_STEP = 'FS'
-    if bname == runPostsh_name:
-        FS_STEP = 'Post'
 
-    #open file for writing
-    Freesurfersh = open(file_name,'w')
-    Freesurfersh.write('#!/bin/bash\n\n')
-    Freesurfersh.write('export SUBJECTS_DIR=' + output_dir + '\n\n')
-    Freesurfersh.write('## Prints loaded modules to the log\nmodule list\n\n')
+    with open(file_name,'w') as Freesurfersh:
+        Freesurfersh.write('#!/bin/bash\n\n')
+        Freesurfersh.write('export SUBJECTS_DIR=' + output_dir + '\n\n')
+        Freesurfersh.write('## Prints loaded modules to the log\nmodule list\n\n')
 
-    ## write the freesurfer running bit
-    if FS_STEP == 'FS':
+        if not 'post' in bname:
+            ## Write a FS run script
+            Freesurfersh.write('SUBJECT=${1}\n')
+            Freesurfersh.write('shift\n')
+            Freesurfersh.write('T1MAPS=${@}\n')
+            Freesurfersh.write('\nrecon-all -all ')
+            if FS_option is not None:
+                Freesurfersh.write(FS_option + ' ')
+            Freesurfersh.write('-subjid ${SUBJECT} ${T1MAPS}' + ' -qcache\n')
+        else:
+            ## Write a Post FS run script
+            Freesurfersh.write('ENGIMA_ExtractCortical.sh ${SUBJECTS_DIR} '+ prefix + '\n')
+            Freesurfersh.write('ENGIMA_ExtractSubcortical.sh ${SUBJECTS_DIR} '+ prefix + '\n')
 
-        Freesurfersh.write('SUBJECT=${1}\n')
-        Freesurfersh.write('shift\n')
-        Freesurfersh.write('T1MAPS=${@}\n')
-        ## add the engima-dit command
-
-        Freesurfersh.write('\nrecon-all -all ')
-        if FS_option != None:
-            Freesurfersh.write(FS_option + ' ')
-        Freesurfersh.write('-subjid ${SUBJECT} ${T1MAPS}' + ' -qcache\n')
-
-    ## write the post freesurfer bit
-    if FS_STEP == 'Post':
-
-        ## add the engima-extract bits
-        Freesurfersh.write('ENGIMA_ExtractCortical.sh ${output_dir} '+ prefix + '\n')
-        Freesurfersh.write('ENGIMA_ExtractSubcortical.sh ${output_dir} '+ prefix + '\n')
-
-    #and...don't forget to close the file
-    Freesurfersh.close()
     os.chmod(file_name, 0o755)
+
+def load_checklist(checklist_file):
+    """
+    Reads the checklist file (normally called Freesurfer-DTI-checklist.csv).
+    If the checklist csv file does not exist, it will be created.
+    """
+
+    cols = ['id', 'T1_nii', 'date_ran','qc_rator', 'qc_rating', 'notes']
+
+    # if the checklist exists - open it, if not - create the dataframe
+    if os.path.isfile(checklist_file):
+    	checklist = pd.read_csv(checklist_file, sep=',', dtype=str, comment='#')
+    else:
+    	checklist = pd.DataFrame(columns = cols)
+
+    return checklist
+
+def add_new_subjects_to_checklist(subject_list, checklist):
+    """
+    If any subjects are not in the checklist, appends them to the end of
+    the data frame.
+    """
+    # new subjects are those of the subject list that are not in checklist.id
+    newsubs = list(set(subject_list) - set(checklist.id))
+
+    cols = ['id', 'T1_nii', 'date_ran','qc_rator', 'qc_rating', 'notes']
+
+    # add the new subjects to the bottom of the dataframe
+    newsubs_df = pd.DataFrame(columns = cols, index = range(len(checklist),
+                              len(checklist)+len(newsubs)))
+    newsubs_df.id = newsubs
+    checklist = checklist.append(newsubs_df)
+
+    return checklist
+
+def find_T1_images(checklist, T1_tag, TAG2, input_dir, MULTI_T1):
+    """
+    Looks for T1 files in input_dir for subjects that have none listed
+    and updates the checklist.
+    """
+    for row in range(0,len(checklist)):
+
+        # make sure that if TAG2 was called - only the tag2s are going to queue
+        if TAG2 and TAG2 not in checklist['id'][row]:
+            continue
+
+        subject_dir = os.path.join(input_dir,checklist['id'][row])
+
+	    #if no T1 file listed for this row
+        if pd.isnull(checklist['T1_nii'][row]):
+            T1_files = []
+            for fname in os.listdir(subject_dir):
+                if T1_tag in fname:
+                    T1_files.append(fname)
+
+            if DEBUG: print "Found {} {} in {}".format(len(T1_files),
+                                                T1_tag, subject_dir)
+            if len(T1_files) == 1:
+                checklist['T1_nii'][row] = T1_files[0]
+            elif len(T1_files) > 1:
+                if MULTI_T1:
+                    # if multiple T1s are allowed (as per --multiple-inputs flag)
+                    # add all to checklist
+                    checklist['T1_nii'][row] = ';'.join(T1_files)
+                else:
+                    checklist['notes'][row] = "> 1 {} found".format(T1_tag)
+            elif len(T1_files) < 1:
+                checklist['notes'][row] = "No {} found.".format(T1_tag)
+
+    return checklist
+
 
 if __name__ == '__main__':
     main()

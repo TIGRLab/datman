@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export SUBJECTS_DIR=/projects/dawn/current/datman/tests/fixture_dm-proc-freesurfer/output2
+export SUBJECTS_DIR=tests/fixture_dm-proc-freesurfer/run_scripts_outputs_08032016/FS_option
 
 ## Prints loaded modules to the log
 module list
