@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-This run freesurfer pipeline on T1 images.
+This runs the freesurfer pipeline on T1 images.
 Also now extracts some volumes and converts some files to nifty for epitome
 
 Usage:
@@ -17,7 +17,7 @@ Options:
   --tag2 STR               Optional tag used (as well as '--T1-tag') to filter for correct input
   --multiple-inputs        Allow multiple input T1 files to Freesurfersh
   --FS-option STR          A quoted string of an non-default freesurfer option to add.
-  --run-version STR        A version string that is appended to 'run_freesurfer_<tag>.sh' for mutliple versions
+  --run-version STR        A version string that is appended to 'run_freesurfer_<tag>.sh' for multiple versions
   --QC-transfer QCFILE     QC checklist file - if this option is given than only QCed participants will be processed.
   --prefix STR             A prefix string (used by the ENIGMA Extract) to filter to subject ids.
   --walltime TIME          A walltime for the FS stage [default: 24:00:00]
@@ -28,13 +28,12 @@ Options:
   -h, --help               Show help
 
 DETAILS
-This run freesurfer pipeline on T1 images maps after conversion to nifty.
-Also submits a dm-freesurfer-sink.py and some extraction scripts as a held job.
+This runs the freesurfer pipeline on T1 images maps after conversion to nifty.
 
 This script will look search inside the "inputdir" folder for T1 images to process.
-If uses the '--T1-tag' string (which is '_T1_' by default) to do so.
-If this optional argument (('--tag2') is given, this string will be used to refine
-the search, if more than one T1 file is found inside the participants directory.
+It uses the '--T1-tag' string (which is '_T1_' by default) to identify them.
+If the optional argument '--tag2' is given, this string will be used to refine
+the search if more than one T1 file is found inside the participant's directory.
 
 The T1 image found for each participant in printed in the 'T1_nii' column
 of "freesurfer-checklist.csv". If no T1 image is found, or more than one T1 image
@@ -67,28 +66,20 @@ Adapted from old dm-proc-freesurfer.py
 from docopt import docopt
 import pandas as pd
 import datman as dm
-import datman.utils
-import datman.scanid
 import glob
 import os
 import time
 import sys
-import subprocess
 import datetime
 import tempfile
 import shutil
 import filecmp
 import difflib
+import contextlib
 
 VERBOSE = False
 DEBUG = False
 DRYRUN = False
-
-### Erin's little function for running things in the shell
-def docmd(cmd):
-    "sends a command (inputed as a list) to the shell"
-    if DEBUG: print cmd
-    rtn, out, err = dm.utils.run(cmd, dryrun = DRYRUN)
 
 def main():
     arguments       = docopt(__doc__)
@@ -135,7 +126,7 @@ def main():
         prefix = subjects[0][0:3]
 
     script_names = get_run_script_names(RUN_TAG, POSTFS_ONLY, NO_POST)
-    prepare_run_scripts(script_names, run_dir, output_dir, FS_option, prefix)
+    write_run_scripts(script_names, run_dir, output_dir, FS_option, prefix)
 
     checklist_file = os.path.normpath(output_dir + '/freesurfer-checklist.csv')
     checklist = load_checklist(checklist_file)
@@ -143,14 +134,10 @@ def main():
     # Update checklist for subjects with no T1 listed under T1_nii
     checklist = find_T1_images(checklist, T1_tag, TAG2, input_dir, MULTI_T1)
 
-    ## now checkoutputs to see if any of them have been run
-    #if yes update spreadsheet
-    #if no submits that subject to the queue
-    ## should be in the right run dir so that it submits without the full path
-
-    jobnameprefix="FS_{}_".format(datetime.datetime.today().strftime("%Y%m%d-%H%M%S"))
+    job_name_prefix="FS_{}_".format(datetime.datetime.today().strftime("%Y%m%d-%H%M%S"))
     submitted = False
 
+    ## Change dir so it can be submitted without the full path
     os.chdir(run_dir)
     if not POSTFS_ONLY:
         for i in range(0,len(checklist)):
@@ -164,60 +151,53 @@ def main():
             if pd.isnull(checklist['T1_nii'][i]):
                 continue
 
-            jobname = jobnameprefix + subid
+            if subject_previously_completed(output_dir, subid):
+                continue
 
-            ## check if this subject has already been completed - or started and halted
-            FScomplete = os.path.join(output_dir,subid,'scripts','recon-all.done')
+            ## Check if subject was previously run and halted
             FSrunningglob = glob.glob(os.path.join(output_dir,subid,'scripts','IsRunning*'))
             FSrunning = FSrunningglob[0] if len(FSrunningglob) > 0 else ''
-            # if no output exists then run engima-dti
-            if os.path.isfile(FScomplete):
-                continue
 
             if os.path.isfile(FSrunning):
                 checklist['notes'][i] = "FS halted at {}".format(os.path.basename(FSrunning))
             else:
                 ## format contents of T1 column into recon-all command input
                 smap = checklist['T1_nii'][i]
-                if ';' in smap:
-                    base_smaps = smap.split(';')
-                else: base_smaps = [smap]
+                base_smaps = smap.split(';')
                 T1s = []
                 for basemap in base_smaps:
                     T1s.append('-i')
                     T1s.append(os.path.join(input_dir,subid,basemap))
 
-                ## submit this subject to the queue
-                docmd('echo bash -l {rundir}/{script} {subid} {T1s} | '
-                      'qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
-                        rundir = run_dir,
-                        script = runFSsh_name,
-                        subid = subid,
-                        T1s = ' '.join(T1s),
-                        jobname = jobname,
-                        logdir = log_dir,
-                        wt = walltime))
+                # If POSTFS_ONLY == False, the run script will be the first or
+                # only name in the list
+                script = script_names[0]
+                FS_cmd = make_FS_command(run_dir, script, job_name_prefix, log_dir, walltime, subid, T1s)
+                print(FS_cmd)
+                # docmd(FS_cmd)
 
-                ## add today date to the checklist
+                ## add today's date to the checklist
                 checklist['date_ran'][i] = datetime.date.today()
 
                 submitted = True
 
     ## if any subjects have been submitted,
     ## submit a final job that will consolidate the results after they are finished
-    if not NO_POST and submitted:
-        os.chdir(run_dir)
-        docmd('echo bash -l {rundir}/{script} | '
-              'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
-                rundir = run_dir,
-                script = runPostsh_name,
-                jobname = jobnameprefix + 'post',
-                logdir = log_dir,
-                hold = jobnameprefix + '*',
-                wt = walltime_post))
+    os.chdir(run_dir)
+    if POSTFS_ONLY:
+        script = script_names[0]
+        post_FS_cmd = make_FS_command(run_dir, script, job_name_prefix, log_dir, walltime_post)
+        print(post_FS_cmd)
+        # docmd(post_FS_cmd)
+    elif not NO_POST and submitted:
+        script = script_names[1]
+        post_FS_cmd = make_FS_command(run_dir, script, job_name_prefix, log_dir, walltime_post)
+        print(post_FS_cmd)
+        # docmd(post_FS_cmd)
 
-    ## write the checklist out to a file
-    checklist.to_csv(checklist_file, sep=',', index = False)
+    if not DRYRUN:
+        ## write the checklist out to a file
+        checklist.to_csv(checklist_file, sep=',', index = False)
 
 def post_settings_conflict(NO_POST, POSTFS_ONLY):
     conflict = False
@@ -299,7 +279,7 @@ def get_run_script_names(RUN_TAG, POSTFS_ONLY, NO_POST):
 
     return run_scripts
 
-def prepare_run_scripts(script_names, run_dir, output_dir, FS_option, prefix):
+def write_run_scripts(script_names, run_dir, output_dir, FS_option, prefix):
     """
     Write Freesurfer-DTI run scripts for this project if they don't
     already exist.
@@ -321,7 +301,7 @@ def check_runsh(old_script, output_dir, FS_option, prefix):
     This is used to double check that the pipeline is not being called
     with different options
     """
-    with dm.utils.make_temp_directory() as temp_dir:
+    with make_temp_directory() as temp_dir:
         tmp_runsh = os.path.join(temp_dir, os.path.basename(old_script))
         make_Freesurfer_runsh(tmp_runsh, output_dir, FS_option, prefix)
         if filecmp.cmp(old_script, tmp_runsh):
@@ -347,7 +327,7 @@ def make_Freesurfer_runsh(file_name, output_dir, FS_option, prefix):
         Freesurfersh.write('export SUBJECTS_DIR=' + output_dir + '\n\n')
         Freesurfersh.write('## Prints loaded modules to the log\nmodule list\n\n')
 
-        if not 'post' in bname:
+        if not 'postfreesurfer' in bname:
             ## Write a FS run script
             Freesurfersh.write('SUBJECT=${1}\n')
             Freesurfersh.write('shift\n')
@@ -433,6 +413,49 @@ def find_T1_images(checklist, T1_tag, TAG2, input_dir, MULTI_T1):
 
     return checklist
 
+def subject_previously_completed(output_dir, subject):
+    FS_completed = os.path.join(output_dir, subject, 'scripts', 'recon-all.done')
+    if os.path.isfile(FS_completed):
+        return True
+    return False
+
+def make_FS_command(run_dir, sh_name, job_name_prefix, log_dir, wall_time, subid=None, T1s=None):
+    if subid is not None:
+        # make FS command for subject
+        cmd = 'echo bash -l {rundir}/{script} {subid} {T1s} | '\
+              'qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
+                    rundir = run_dir,
+                    script = sh_name,
+                    subid = subid,
+                    T1s = ' '.join(T1s),
+                    jobname = job_name_prefix + subid,
+                    logdir = log_dir,
+                    wt = wall_time)
+    else:
+        # make post FS command
+        cmd = 'echo bash -l {rundir}/{script} | '\
+              'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
+                        rundir = run_dir,
+                        script = sh_name,
+                        jobname = job_name_prefix + 'post',
+                        logdir = log_dir,
+                        hold = job_name_prefix + '*',
+                        wt = wall_time)
+    return cmd
+
+@contextlib.contextmanager
+def make_temp_directory():
+    temp_dir = tempfile.mkdtemp()
+    try:
+        yield temp_dir
+    finally:
+        shutil.rmtree(temp_dir)
+
+### Erin's little function for running things in the shell
+def docmd(cmd):
+    "sends a command (inputed as a list) to the shell"
+    if DEBUG: print cmd
+    rtn, out, err = dm.utils.run(cmd, dryrun = DRYRUN)
 
 if __name__ == '__main__':
     main()

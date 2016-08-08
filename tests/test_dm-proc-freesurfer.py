@@ -3,6 +3,7 @@ import unittest
 import importlib
 import nose.tools
 from nose.tools import raises
+import mock
 import subprocess as proc
 import datman.utils
 import pandas as pd
@@ -219,20 +220,10 @@ def test_update_T1_images_respects_MULTI_tag():
     actual = checklist.T1_nii.dropna().tolist()
     assert actual == expected
 
-@unittest.skip("TODO")
-def test_main_function():
-    assert True == False
-
-@unittest.skip("TODO")
-@raises(SystemExit)
-def test_postFS_settings_resolved():
-    assert True == False
-
 ##########################################################################
 ### Helper functions
 
-def make_scripts_and_check_diff(script_name, test_runsh_dir, fixture_path,
-                                FS_option, prefix):
+def make_scripts_and_check_diff(script_name, test_runsh_dir, fixture_path, FS_option, prefix):
     test_runsh = os.path.join(test_runsh_dir, script_name)
     correct_runsh = os.path.join(fixture_path, script_name)
     fs.make_Freesurfer_runsh(test_runsh, fixture_path, FS_option, prefix)
