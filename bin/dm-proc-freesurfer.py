@@ -173,8 +173,7 @@ def main():
                 # only name in the list
                 script = script_names[0]
                 FS_cmd = make_FS_command(run_dir, script, job_name_prefix, log_dir, walltime, subid, T1s)
-                print(FS_cmd)
-                # docmd(FS_cmd)
+                docmd(FS_cmd)
 
                 ## add today's date to the checklist
                 checklist['date_ran'][i] = datetime.date.today()
@@ -187,13 +186,11 @@ def main():
     if POSTFS_ONLY:
         script = script_names[0]
         post_FS_cmd = make_FS_command(run_dir, script, job_name_prefix, log_dir, walltime_post)
-        print(post_FS_cmd)
-        # docmd(post_FS_cmd)
+        docmd(post_FS_cmd)
     elif not NO_POST and submitted:
         script = script_names[1]
         post_FS_cmd = make_FS_command(run_dir, script, job_name_prefix, log_dir, walltime_post)
-        print(post_FS_cmd)
-        # docmd(post_FS_cmd)
+        docmd(post_FS_cmd)
 
     if not DRYRUN:
         ## write the checklist out to a file
