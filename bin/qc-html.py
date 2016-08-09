@@ -702,7 +702,7 @@ def fmri_qc(fpath, qcpath, qchtml, cur):
 
     if ntrs < 20:
         return
-    
+
     filename = os.path.basename(fpath)
     filestem = nifti_basename(fpath)
     tmpdir = tempfile.mkdtemp(prefix='qc-')
@@ -837,7 +837,11 @@ def add_header_checks(fpath, qchtml, logdata):
 
     qchtml.write('<h3> {} header differences </h3>\n<table>'.format(filestem))
     for l in lines:
-        qchtml.write('<tr><td>{}</td></tr>'.format(l))
+        fields = l.split(',')
+        qchtml.write('<tr>')
+        for item in fields:
+            qchtml.write('<td align="center">{}</td>'.format(item))
+        qchtml.write('</tr>')
     qchtml.write('</table>\n')
 
 def add_bvec_checks(fpath, qchtml, logdata):
@@ -850,13 +854,17 @@ def add_bvec_checks(fpath, qchtml, logdata):
 
     qchtml.write('<h3> {} bvec/bval differences </h3>\n<table>'.format(filestem))
     for l in lines:
-        qchtml.write('<tr><td>{}</td></tr>'.format(l))
+        fields = l.split(',')
+        qchtml.write('<tr>')
+        for item in fields:
+            qchtml.write('<td align="center">{}</td>'.format(item))
+        qchtml.write('</tr>')
     qchtml.write('</table>\n')
-    
+
 def add_old_image(fpath, qcpath, qchtml, tag):
     fname = nifti_basename(fpath)
     fname = os.path.join(qcpath, fname)
-    
+
     if os.path.exists(fname + '.png'):
         add_pic_to_html(qchtml, fname + '.png')
         return
@@ -872,8 +880,8 @@ def add_old_image(fpath, qcpath, qchtml, tag):
     elif tag == 'PDT2':
         add_pic_to_html(qchtml, fname.replace('_PDT2_','_PD_') + '.png')
         add_pic_to_html(qchtml, fname.replace('_PDT2_', '_T2_') + '.png')
-        
-        
+
+
 ###############################################################################
 # MAIN
 
@@ -898,7 +906,7 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
         return
 
     if REWRITE:
-        try: 
+        try:
             os.remove(htmlfile)
         except:
             print("{} does not exist. Reconstructing html file from any images present.".format(htmlfile))
@@ -983,12 +991,12 @@ def qc_folder(scanpath, subject, qcdir, cur, pconfig, QC_HANDLERS):
                 add_header_checks(fname, qchtml, header_check_log)
             if bvecs_check_log:
                 add_bvec_checks(fname, qchtml, bvecs_check_log)
-                
-            if not REWRITE:    
+
+            if not REWRITE:
                 QC_HANDLERS[tag](fname, qcpath, qchtml, cur)
             else:
                 add_old_image(fname, qcpath, qchtml, tag)
-                
+
             qchtml.write('<br>')
 
     qchtml.close()
