@@ -214,6 +214,8 @@ PipelineSettings:
          - '${PROJECTDIR}/data/civet/'
          - '${PREFIX}'
 
+    - 'scan-date-report.py' : off
+
   pipelines:
 
     - 'dm-proc-dtifit.py' :
