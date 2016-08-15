@@ -152,13 +152,12 @@ def get_qced_subjectlist(qcchecklist):
                 line = line.strip()
                 if len(line.split(' ')) > 1:
                     pdf = line.split(' ')[0]
-                    subid = pdf.replace('.pdf','')[3:]
+                    subid = pdf.replace('.pdf','').replace('.html','')[3:]
                     qcedlist.append(subid)
     else:
         sys.exit("QC file for transfer not found. Try again.")
     ## return the qcedlist (as a list)
     return qcedlist
-
 
 ######## NOW START the 'main' part of the script ##################
 ## make the putput directory if it doesn't exist
