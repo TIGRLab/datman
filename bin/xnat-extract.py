@@ -175,16 +175,20 @@ def main():
 
     try:
         exportinfo = pd.read_table(exportinfofile, sep='\s*', engine="python")
-    except IOError, _:
+    except:
         error("{} does not exist".format(exportinfofile))
         return
 
     if blacklist:
         try:
             bl = pd.read_table(blacklist, sep='\s*', engine="python")
-        except IOError, _:
+        except IOError:
             debug("{} does not exist. Running on all series".format(
                     blacklist))
+            bl = []
+        except ValueError:
+            error("{} cannot be read. Check that no entries"\
+                  " contain white space.".format(blacklist))
             bl = []
 
     for archivepath in archives:
@@ -269,7 +273,10 @@ def export_series(exportinfo, src, header, formats, timepoint, stem,
     # update the filestem with _tag_series_description
     stem  += "_" + "_".join([tag,series,mangled_descr])
 
-    if blacklist and stem in blacklist:
+    series_list = blacklist.columns.tolist()[0]
+    blacklisted_series = blacklist[series_list].values.tolist()
+
+    if stem in blacklisted_series:
         debug("{} in blacklist. Skipping.".format(stem))
         return
 
