@@ -94,7 +94,10 @@ SystemSettings:
       FIX:           {module: FIX/1.061, bash_cmd: null}
       datman:        {module: datman/latest, bash_cmd: null}
 
-
+## PipelineSettings holds the default workflows (i.e. pipeline) that we want to run
+## The first level is the name of the workflow.
+## see https://github.com/TIGRLab/admin/wiki/data-organization-and-config-files#pipelinesettings
+## for more info
 PipelineSettings:
   data:
     - 'sshpass' :
@@ -213,6 +216,8 @@ PipelineSettings:
          - '${PROJECTDIR}/data/mnc/'
          - '${PROJECTDIR}/data/civet/'
          - '${PREFIX}'
+
+    - 'scan-date-report.py' : off
 
   pipelines:
 
