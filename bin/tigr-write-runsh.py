@@ -28,7 +28,7 @@ The systems given in the --local-system and --dest-system flags should match the
 keys of the SystemSetting Dictionary within the config_yml.
 Example: to write run scripts on the tigrlab cluster
             that are too be run on the scc
-    tigr-write-runsh --local-system kimel --dest-system scc ${DATMAN_ASSETSDIR}/tigrlab_config.yaml
+    tigr-write-runsh.py --local-system kimel --dest-system scc ${DATMAN_ASSETS}/tigrlab_config.yaml
 
 """
 from docopt import docopt
