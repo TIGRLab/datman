@@ -168,7 +168,7 @@ def main():
     archives       = arguments['<archivedir>']
     exportinfofile = arguments['--exportinfo']
     datadir        = arguments['--datadir']
-    blacklist      = arguments['--blacklist'] or []
+    blacklist      = arguments['--blacklist']
     VERBOSE        = arguments['--verbose']
     DEBUG          = arguments['--debug']
     DRYRUN         = arguments['--dry-run']
@@ -178,18 +178,6 @@ def main():
     except:
         error("{} does not exist".format(exportinfofile))
         return
-
-    if blacklist:
-        try:
-            bl = pd.read_table(blacklist, sep='\s*', engine="python")
-        except IOError:
-            debug("{} does not exist. Running on all series".format(
-                    blacklist))
-            bl = []
-        except ValueError:
-            error("{} cannot be read. Check that no entries"\
-                  " contain white space.".format(blacklist))
-            bl = []
 
     for archivepath in archives:
         verbose("Exporting {}".format(archivepath))
@@ -273,8 +261,8 @@ def export_series(exportinfo, src, header, formats, timepoint, stem,
     # update the filestem with _tag_series_description
     stem  += "_" + "_".join([tag,series,mangled_descr])
 
-    series_list = blacklist.columns.tolist()[0]
-    blacklisted_series = blacklist[series_list].values.tolist()
+    # Will be [] if --blacklist is not set
+    blacklisted_series = read_blacklist(blacklist)
 
     if stem in blacklisted_series:
         debug("{} in blacklist. Skipping.".format(stem))
@@ -290,6 +278,25 @@ def export_series(exportinfo, src, header, formats, timepoint, stem,
         if not os.path.exists(outputdir): makedirs(outputdir)
 
         exporters[fmt](src,outputdir,stem)
+
+def read_blacklist(blacklist_csv):
+    """
+    If --blacklist is set, reads the given csv and returns a list of series
+    which are blacklisted. Otherwise returns an empty list.
+    """
+    if blacklist_csv:
+        try:
+            blacklist = pd.read_table(blacklist_csv, sep='\s*', engine="python")
+            series_list = blacklist.columns.tolist()[0]
+            blacklisted_series = blacklist[series_list].values.tolist()
+            return backlisted_series
+        except IOError:
+            debug("{} does not exist. Running on all series".format(
+                    blacklist_csv))
+        except ValueError:
+            error("{} cannot be read. Check that no entries"\
+                  " contain white space.".format(blacklist_csv))
+    return []
 
 def get_formats_from_exportinfo(dataframe):
     """
