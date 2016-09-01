@@ -222,7 +222,6 @@ def compare_headers(stdhdr, cmphdr, tolerances=None, ignore_headers=None):
 
     return mismatches
 
-
 def compare_exam_headers(stdmap, examdir, ignore_headers, tolerances=None):
     """
     Compares headers for each series in an exam against gold standards
@@ -250,7 +249,6 @@ def compare_exam_headers(stdmap, examdir, ignore_headers, tolerances=None):
             all_mismatches[cmppath] = mismatches
 
     return all_mismatches
-
 
 def main():
     arguments = docopt(__doc__)
@@ -292,6 +290,9 @@ def main():
 
         logfile = os.path.join(logsdir, "dm-check-headers-{}.log".format(
             os.path.basename(os.path.normpath(examdir))))
+
+        if os.path.isfile(logfile):
+            continue
 
         all_mismatches = compare_exam_headers(stdmap, examdir, ignore_headers)
         if not all_mismatches:
