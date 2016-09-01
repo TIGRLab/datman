@@ -1,0 +1,23 @@
+#!/bin/bash
+#
+#  usage:
+#    compile-logs directory pattern report
+#
+#  pattern: common pattern in all logs (e.g., 'check-headers')
+#  directory: directory containing logs
+#  report: output report filename
+
+directory=${1}
+pattern=${2}
+report=${3}
+
+# find files from the last week
+matched=$(find ${directory}/*${pattern}* -type f -mtime -7)
+
+# generate report
+echo "# report generated: $(date)\n" > ${report}
+
+for f in ${matched}; do
+    cat ${f} >> ${report}
+done
+
