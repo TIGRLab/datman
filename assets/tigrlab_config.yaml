@@ -19,6 +19,8 @@ Projects:
   STOPPD:   '<DATMAN_PROJECTSDIR>/STOPPD'
   SPINS:    '<DATMAN_PROJECTSDIR>/SPINS'
   VIPR:     '<DATMAN_PROJECTSDIR>/VIPR'
+  PASD:     '<DATMAN_PROJECTSDIR>/PASD'
+  PASD01:   '<DATMAN_PROJECTSDIR>/PASD01'
 
 ### the SystemsSettings is hold paths specific you your system
 ### as well as information for loading software packages
