@@ -1,5 +1,4 @@
 # paths to various packages required by datman
 ---
 phantom-qc: /archive/data-2.0/code/phantom-qc/
-adni-template: /archive/data-2.0/code/datman/assets/adni-template.nii.gz
 assets-dir: /archive/data-2.0/code/datman/assets
