@@ -40,8 +40,7 @@ import textwrap
 import yaml
 import pandas as pd
 
-logging.basicConfig(level=logging.WARN,
-    format="[%(name)s] %(levelname)s: %(message)s")
+logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
 DEBUG = False
@@ -92,10 +91,6 @@ PHANTOM_HANDLERS = { # map from tag to QC function
     "DTI60-1000"    : phantom_dti_qc,
 }
 
-# adds qascripts to the environment
-ASSETS = '{}/assets'.format(os.path.dirname(dm.utils.script_path()))
-os.environ['PATH'] += os.pathsep + ASSETS + '/qascripts_version2'
-
 class Document:
     pass
 
@@ -130,48 +125,12 @@ def slicer(fpath, pic, slicergap, picwidth):
     """
     run("slicer {} -S {} {} {}".format(fpath,slicergap,picwidth,pic))
 
-def get_scan_date(data_path, subject):
-    """
-    This finds the 'imageactualdate' field and converts it to week number.
-    If we don't find this date, we return -1.
-    """
-    dcm_path = os.path.join(data_path, 'dcm', subject)
-    dicoms = os.listdir(dcm_path)
-    trys = ['imageactualdate', 'seriesdate']
-    for dicom in dicoms:
-        # read in the dicom header
-        d = dcm.read_file(os.path.join(dcm_path, dicom))
-
-        for t in trys:
-            if t == 'imageactualdate':
-                try:
-                    imgdate = d['0009','1027'].value
-                    disc = datetime.datetime.fromtimestamp(float(imgdate)).strftime("%Y %B %d")
-                    imgdate = datetime.datetime.fromtimestamp(float(imgdate)).strftime("%U")
-                    return int(imgdate), disc
-                except:
-                    pass
-
-            if t == 'seriesdate':
-                try:
-                    imgdate = d['0008','0021'].value
-                    disc = datetime.datetime.strptime(imgdate, '%Y%m%d').strftime("%Y %B %d")
-                    imgdate = datetime.datetime.strptime(imgdate, '%Y%m%d').strftime("%U")
-                    return int(imgdate), disc
-                except:
-                    pass
-
-    # if we don't find a date, return -1. This won't break the code, but
-    # will raise the alarm that somthing is wrong.
-    print("ERROR: No DICOMs with valid date field found for {} !".format(subject))
-    return -1, 'NA'
-
 def found_files_df(config, scanpath, subject):
-    '''
+    """
     reads in the export info from the config file and
     compares it to the contents of the subjects nii folder (scanpath)
     write the results out info a pandas dataframe
-    '''
+    """
     allfiles = []
     for filetype in ('*.nii.gz', '*.nii'):
         allfiles.extend(glob.glob(scanpath + '/*' + filetype))
@@ -249,9 +208,9 @@ def nifti_basename(fpath):
     return(stem)
 
 def add_pic_to_html(qchtml, pic):
-    '''
+    """
     Adds a pic to an html page with this handler "qchtml"
-    '''
+    """
     relpath = os.path.relpath(pic,os.path.dirname(qchtml.name))
     qchtml.write('<a href="'+ relpath + '" >')
     qchtml.write('<img src="' + relpath + '" > ')
@@ -265,97 +224,48 @@ def ignore(fpath, qcpath, qchtml, cur):
     pass
 
 def phantom_fmri_qc:
-    datman_config = os.getenv('datman_config')
-    if datman_config:
-        qc_code = parse_config(datman_config, 'phantom-qc')
-    else:
-        sys.exit('ERROR: datman_config env variable is not defined.')
-
-    outputfile = os.path.join(base_path, 'qc/phantom/fmri/', subj + '.csv')
-    if os.path.isfile(outputfile) == False:
-        cmd = (r"addpath(genpath('{}')); analyze_fmri_phantom('{}','{}','{}')".format(qc_code, base_path, subj, phantom))
-        os.system('matlab -nodisplay -nosplash -r "' + cmd + '"')
-
-    data = np.genfromtxt(outputfile, delimiter=',',dtype=np.float, skip_header=1)
+    # qc-fbirn-fmri
 
 def phantom_dti_qc:
-
-    datman_config = os.getenv('datman_config')
-    if datman_config:
-        qc_code = parse_config(datman_config, 'phantom-qc')
-    else:
-        sys.exit('ERROR: datman_config env variable is not defined.')
-
-    output = os.path.join(base_path, 'qc/phantom/dti/', subj)
-    dm.utils.makedirs(output)
-    outputfile = os.path.join(output, 'main_stats.csv')
-
-    # NB: generate FA file to run
-    if os.path.isfile(outputfile) == False:
-        cmd = (r"addpath(genpath('{}')); analyze_dti_phantom('{}','{}','{}', '{}', {})".format(
-                                               qc_code, raw, fa, bval, output, 1))
-        os.system('matlab -nodisplay -nosplash -r "' + cmd + '"')
-
-    data = np.genfromtxt(outputfile, delimiter=',',dtype=np.float, skip_header=1)
-
-    return data
+    # qc-fbirn-dti
 
 def phantom_anat_qc:
+    # qc-adni
 
 def fmri_qc(fpath, qcpath, qchtml):
 
-    # if the number of TRs is too little, we skip the pipeline
-    ntrs = check_n_trs(fpath)
-
-    # check scan length
-    qc-scanlength
+    # qc-scanlength
+    # qc-fmri
+    # slicer-raw
+    fslslicer_pic(fpath, pic, 5, 1600)
+    # slicer-sfnr
+    # slicer-corr
 
     filename = os.path.basename(fpath)
     filestem = nifti_basename(fpath)
 
     # BOLD-contrast
-    add_pic_to_html(qchtml, BOLDpic)
-
-    # sfnr
-    add_pic_to_html(qchtml, SNR)
-
-    # spikes
-    add_pic_to_html(qchtml, spikespic)
-
-    # run metrics from qascripts toolchain
-    run('ln -s {fpath} {t}/fmri.nii.gz'.format(fpath=fpath, t=tmpdir))
-    run('qa_bold_v2.sh {t}/fmri.nii.gz {t}/qc_fmri.csv'.format(t=tmpdir))
-    run('mv {t}/qc_fmri.csv {qcpath}/{filestem}_qascript_fmri.csv'.format(t=tmpdir, filestem=filestem, qcpath=qcpath))
-    run('rm -r {}'.format(tmpdir))
+    add_pic_to_html(qchtml, raw)
+    add_pic_to_html(qchtml, sfnr)
+    add_pic_to_html(qchtml, corr)
 
 def anat_qc(fpath, qcpath, qchtml):
+
     pic = os.path.join(qcpath, nifti_basename(fpath) + '.png')
     fslslicer_pic(fpath, pic, 5, 1600)
     add_pic_to_html(qchtml, pic)
 
 def dti_qc(fpath, qcpath, qchtml):
-    filestem = nifti_basename(fpath)
-    directory = os.path.dirname(fpath)
-    bvec = fpath[:-len(datman.utils.get_extension(fpath))] + ".bvec"
-    bval = fpath[:-len(datman.utils.get_extension(fpath))] + ".bval"
+
+    # qc-scanlength
+    # qc-dti
+    # qc-spikecount
+    # slicer-b0
 
     # first B0
-    b0pic = os.path.join(qcpath, filestem + '_B0.png')
+    b0pic = os.path.join(qcpath, filestem + '_b0.png')
     slicer(fpath, b0pic, 2, 1600)
-    add_pic_to_html(qchtml, B0pic)
-
-    # spikes
-    add_pic_to_html(qchtml, spikespic)
-
-    # run metrics from qascripts toolchain
-    tmpdir = tempfile.mkdtemp(prefix='qc-')
-    run('ln -s {fpath} {t}/dti.nii.gz'.format(fpath=fpath, t=tmpdir))
-    run('ln -s {bvec} {t}/dti.bvec'.format(bvecfile=bvec, t=tmpdir))
-    run('ln -s {bval} {t}/dti.bval'.format(bvalfile=bval, t=tmpdir))
-    run('qa_dti_v2.sh {t}/dti.nii.gz {t}/dti.bval {t}/dti.bvec {t}/qc_dti.csv'.format(t=tmpdir))
-    run('mv {t}/qc_dti.csv {qcpath}/{filestem}_qascript_dti.csv'.format(t=tmpdir, filestem=filestem, qcpath=qcpath))
-
-    run('rm -r {}'.format(tmpdir))
+    add_pic_to_html(qchtml, b0pic)
 
 def header_qc(fpath, qchtml, logdata):
     filestem = os.path.basename(fpath).replace(dm.utils.get_extension(fpath),'')
@@ -364,19 +274,6 @@ def header_qc(fpath, qchtml, logdata):
         return
 
     qchtml.write('<h3> {} header differences </h3>\n<table>'.format(filestem))
-    for l in lines:
-        qchtml.write('<tr><td>{}</td></tr>'.format(l))
-    qchtml.write('</table>\n')
-
-def bvec_qc(fpath, qchtml, logdata):
-    filestem = os.path.basename(fpath).replace(dm.utils.get_extension(fpath),'')
-    lines = [re.sub('^.*'+filestem,'',line) for line in logdata if filestem in line]
-    if not lines:
-        return
-
-    #text ='\n'.join(['\n'.join(textwrap.wrap(l,width=120,subsequent_indent=" "*4)) for l in lines])
-
-    qchtml.write('<h3> {} bvec/bval differences </h3>\n<table>'.format(filestem))
     for l in lines:
         qchtml.write('<tr><td>{}</td></tr>'.format(l))
     qchtml.write('</table>\n')
@@ -453,14 +350,6 @@ def qc_subject(scanpath, subject, qcdir, pconfig):
     for logfile in header_check_logs:
         header_check_log += open(logfile).readlines()
     add_header_checks(fname, qchtml, header_check_log)
-
-    # !!! RUN BVEC/BVAL CHECK HERE !!! #
-    # load up any header/bvec check log files for the subjectt
-    bvecs_check_logs = glob.glob(os.path.join(qcdir, 'logs', 'dm-check-bvecs-{}*'.format(subject)))
-    bvecs_check_log = []
-    for logfile in bvecs_check_logs:
-        bvecs_check_log += open(logfile).readlines()
-    add_bvec_checks(fname, qchtml, bvecs_check_log)
 
     for idx in range(0,len(exportinfo)):
         bname = exportinfo.loc[idx,'File']
