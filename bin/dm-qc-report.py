@@ -3,7 +3,7 @@
 Generates quality control reports on defined MRI data types.
 
 usage:
-    dm-qc-report.py <config>
+    dm-qc-report.py [options] <config>
 
 Options:
     --subject SCANID        Scan ID to QC for. E.g. DTI_CMH_H001_01_01
@@ -100,48 +100,6 @@ VERBOSE = False
 DRYRUN = False
 FIGDPI = 144
 REWRITE = False
-
-SUBJECT_HANDLERS = {   # map from tag to QC function
-    "T1"            : anat_qc,
-    "T2"            : anat_qc,
-    "PD"            : anat_qc,
-    "PDT2"          : anat_qc,
-    "FLAIR"         : anat_qc,
-    "FMAP"          : ignore,
-    "FMAP-6.5"      : ignore,
-    "FMAP-8.5"      : ignore,
-    "RST"           : fmri_qc,
-    "EPI"           : fmri_qc,
-    "SPRL"          : fmri_qc,
-    "OBS"           : fmri_qc,
-    "IMI"           : fmri_qc,
-    "NBK"           : fmri_qc,
-    "EMP"           : fmri_qc,
-    "VN-SPRL"       : fmri_qc,
-    "SID"           : fmri_qc,
-    "MID"           : fmri_qc,
-    "DTI"           : dti_qc,
-    "DTI21"         : dti_qc,
-    "DTI22"         : dti_qc,
-    "DTI23"         : dti_qc,
-    "DTI60-29-1000" : dti_qc,
-    "DTI60-20-1000" : dti_qc,
-    "DTI60-1000"    : dti_qc,
-    "DTI60-b1000"   : dti_qc,
-    "DTI33-1000"    : dti_qc,
-    "DTI33-b1000"   : dti_qc,
-    "DTI33-3000"    : dti_qc,
-    "DTI33-b3000"   : dti_qc,
-    "DTI33-4500"    : dti_qc,
-    "DTI33-b4500"   : dti_qc,
-
-}
-
-PHANTOM_HANDLERS = { # map from tag to QC function
-    "T1"            : phanton_anat_qc,
-    "RST"           : phantom_fmri_qc,
-    "DTI60-1000"    : phantom_dti_qc,
-}
 
 class Document:
     pass
@@ -248,16 +206,18 @@ def nifti_basename(fpath):
     """
     basefpath = os.path.basename(fpath)
     stem = basefpath.replace('.nii.gz','')
+
     return(stem)
 
 def add_image(qchtml, image):
     """
     Adds an image to the report.
     """
-    relpath = os.path.relpath(pic,os.path.dirname(qchtml.name))
+    relpath = os.path.relpath(image, os.path.dirname(qchtml.name))
     qchtml.write('<a href="'+ relpath + '" >')
     qchtml.write('<img src="' + relpath + '" > ')
     qchtml.write('</a><br>\n')
+
     return qchtml
 
 def add_header_qc(fpath, qchtml, logdata):
@@ -274,7 +234,6 @@ def add_header_qc(fpath, qchtml, logdata):
         qchtml.write('<tr><td>{}</td></tr>'.format(l))
     qchtml.write('</table>\n')
 
-
 # PIPELINES
 def ignore(fpath, qcpath, qchtml):
     pass
@@ -288,7 +247,7 @@ def phantom_fmri_qc(fileName, outputDir):
     outputFile = os.path.join(outputDir, '{}_stats.csv'.format(basename))
     outputPrefix = os.path.join(outputDir, basename)
     if not os.path.isfile(outputFile):
-        dm.utils.run('qc-fbirn-fmri {} {}'.format(fileName, outputPrefix)
+        dm.utils.run('qc-fbirn-fmri {} {}'.format(fileName, outputPrefix))
 
 def phantom_dti_qc(fileName, outputDir):
     """
@@ -320,7 +279,7 @@ def fmri_qc(fileName, qcDir, report):
     basename = nifti_basename(fileName)
 
     dm.utils.run('qc-scanlength {} {}'.format(fileName, os.path.join(qcDir, basename + '_scanlengths.csv')))
-    dm.utils.run('qc-fmri {} {}'.format(fileName, os.path.join(qcDir, basename))
+    dm.utils.run('qc-fmri {} {}'.format(fileName, os.path.join(qcDir, basename)))
 
     imageRaw = os.path.join(qcDir, basename + '_raw.png')
     imageSfnr = os.path.join(qcDir, basename + '_sfnr.png')
@@ -337,7 +296,7 @@ def fmri_qc(fileName, qcDir, report):
 def anat_qc(fileName, qcDir, report):
     image = os.path.join(qcDir, nifti_basename(fileName) + '.png')
     slicer(fileName, image, 5, 1600)
-    add_image(report, pic)
+    add_image(report, image)
 
 def dti_qc(fileName, qcDir, report):
     dirname = os.path.dirname(fileName)
@@ -361,8 +320,8 @@ def run_header_qc(dicomDir, standardDir, logfile):
     are written to logfile.
     """
 
-    dicoms = glob.glob(os.path.join(dicomDir, '*')
-    standards = glob.glob(os.path.join(standardDir, '*')
+    dicoms = glob.glob(os.path.join(dicomDir, '*'))
+    standards = glob.glob(os.path.join(standardDir, '*'))
 
     site = dm.scanid.parse_filename(dicoms[0])[0].site
 
@@ -381,7 +340,7 @@ def run_header_qc(dicomDir, standardDir, logfile):
             continue
 
         # run header check for dicom
-        dm.utils.run('qc-headers {} {} {}'.format(d, s, logfile))
+        run('qc-headers {} {} {}'.format(d, s, logfile))
 
 # MAIN FUNCTIONS
 def qc_phantom(scanpath, subject, config):
@@ -390,6 +349,12 @@ def qc_phantom(scanpath, subject, config):
     written to outputdir. No report is generated for phantom data. config is
     loaded from the project_settings.yml file.
     """
+    HANDLERS = { # map from tag to QC function
+        "T1"            : phantom_anat_qc,
+        "RST"           : phantom_fmri_qc,
+        "DTI60-1000"    : phantom_dti_qc,
+    }
+
     qcDir = dm.utils.define_folder(config['paths']['qc'])
     qcDir = dm.utils.define_folder(os.path.join(qcDir, subject))
 
@@ -398,17 +363,52 @@ def qc_phantom(scanpath, subject, config):
     for nifti in niftis:
         ident, tag, series, description = dm.scanid.parse_filename(nifti)
 
-        if tag not in PHANTOM_HANDLERS:
+        if tag not in HANDLERS:
             logger.info("MSG: No QC tag {} for scan {}. Skipping.".format(tag, nifti))
             continue
 
-        PHANTOM_HANDLERS[tag](nifti, qcDir)
+        HANDLERS[tag](nifti, qcDir)
 
 def qc_subject(scanpath, subject, config):
     """
     QC all the images in a folder (scanpath) for a human participant. Report
     written to  outputdir. config is loaded from the project_settings.yml file.
     """
+    HANDLERS = {   # map from tag to QC function
+        "T1"            : anat_qc,
+        "T2"            : anat_qc,
+        "PD"            : anat_qc,
+        "PDT2"          : anat_qc,
+        "FLAIR"         : anat_qc,
+        "FMAP"          : ignore,
+        "FMAP-6.5"      : ignore,
+        "FMAP-8.5"      : ignore,
+        "RST"           : fmri_qc,
+        "EPI"           : fmri_qc,
+        "SPRL"          : fmri_qc,
+        "OBS"           : fmri_qc,
+        "IMI"           : fmri_qc,
+        "NBK"           : fmri_qc,
+        "EMP"           : fmri_qc,
+        "VN-SPRL"       : fmri_qc,
+        "SID"           : fmri_qc,
+        "MID"           : fmri_qc,
+        "DTI"           : dti_qc,
+        "DTI21"         : dti_qc,
+        "DTI22"         : dti_qc,
+        "DTI23"         : dti_qc,
+        "DTI60-29-1000" : dti_qc,
+        "DTI60-20-1000" : dti_qc,
+        "DTI60-1000"    : dti_qc,
+        "DTI60-b1000"   : dti_qc,
+        "DTI33-1000"    : dti_qc,
+        "DTI33-b1000"   : dti_qc,
+        "DTI33-3000"    : dti_qc,
+        "DTI33-b3000"   : dti_qc,
+        "DTI33-4500"    : dti_qc,
+        "DTI33-b4500"   : dti_qc,
+    }
+
     qcDir = dm.utils.define_folder(config['paths']['qc'])
     qcDir = dm.utils.define_folder(os.path.join(qcDir, subject))
     report = os.path.join(qcDir, 'qc_{}.html'.format(subject))
@@ -461,10 +461,9 @@ def qc_subject(scanpath, subject, config):
 
     # header diff
     dcmSubj = os.path.join(config['paths']['dcm'], subject)
-    headerDiff = os.path.join(qcdir, subject, 'header-diff.log'.format(subject))
+    headerDiff = os.path.join(qcDir, 'header-diff.log'.format(subject))
     if not os.path.isfile(headerDiff):
         run_header_qc(dcmSubj, config['paths']['std'], headerDiff)
-    add_header_qc(fname, report, headerDiff)
 
     # run QC pipieline on each scan
     for idx in range(0,len(exportinfo)):
@@ -475,11 +474,13 @@ def qc_subject(scanpath, subject, config):
             ident, tag, series, description = dm.scanid.parse_filename(fname)
             report.write('<h2 id="{}">{}</h2>\n'.format(exportinfo.loc[idx,'bookmark'], name))
 
-            if tag not in SUBJECT_HANDLERS:
+            if tag not in HANDLERS:
                 logger.info("MSG: No QC tag {} for scan {}. Skipping.".format(tag, fname))
                 continue
 
-            SUBJECT_HANDLERS[tag](fname, qcpath, report)
+            add_header_qc(fname, report, headerDiff)
+
+            HANDLERS[tag](fname, qcDir, report)
             report.write('<br>')
 
     report.close()
