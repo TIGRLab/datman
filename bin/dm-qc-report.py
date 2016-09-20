@@ -52,27 +52,23 @@ Details:
      folder, and expected set of scans are read from the supplied configuration
      file with the following structure:
 
+     paths:
+       dcm: '/archive/data/SPINS/data/dcm'
+       nii: '/archive/data/SPINS/data/nii'
+       qc:  '/archive/data/SPINS/qc'
+       std: '/archive/data/SPINS/metadata/standards'
+
      Sites:
-         - site1:
-             XNAT_Archive: '/path/to/arc001'
-             Phantoms: Y/N
-             StandardsDir: '/path/to/gold_standards/site1'
-             DicomDir: '/path/to/dicoms'
-             NiftiDir: '/path/to/niftis'
-             QcDir:    '/path/to/qc'
-             ExportInfo:
-               - T1:  {Pattern: {'regex1', 'regex2'}, Count: n_expected}
-               - DTI: {Pattern: {'regex1', 'regex2'}, Count: n_expected}
-         - site2 :
-             XNAT_Archive: '/path/to/arc001'
-             Phantoms: Y/N
-             StandardsDir: '/path/to/gold_standards/site2'
-             DicomDir: '/path/to/dicoms'
-             NiftiDir: '/path/to/niftis'
-             QcDir:    '/path/to/qc'
-             ExportInfo:
-               - T1:  {Pattern: {'regex1', 'regex2'}, Count: n_expected}
-               - DTI: {Pattern: {'regex1', 'regex2'}, Count: n_expected}
+       site1:
+         XNAT_Archive: '/path/to/arc001'
+         ExportInfo:
+           - T1:  {Pattern: {'regex1', 'regex2'}, Count: n_expected}
+           - DTI: {Pattern: {'regex1', 'regex2'}, Count: n_expected}
+       site2 :
+         XNAT_Archive: '/path/to/arc001'
+         ExportInfo:
+           - T1:  {Pattern: {'regex1', 'regex2'}, Count: n_expected}
+           - DTI: {Pattern: {'regex1', 'regex2'}, Count: n_expected}
 Requires:
     FSL
     QCMON
