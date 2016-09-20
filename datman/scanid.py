@@ -50,18 +50,24 @@ class Identifier:
         ident = self.get_full_subjectid()
         if self.timepoint:
             ident += "_"+self.timepoint
-        return ident 
+        return ident
+
+    def get_full_subjectid_with_timepoint_session(self):
+        ident = self.get_full_subjectid_with_timepoint()
+        if self.session:
+            ident += "_"+self.session
+        return ident
 
     def __str__(self):
         if self.timepoint:
-            return "_".join([self.study, 
-                             self.site, 
-                             self.subject, 
+            return "_".join([self.study,
+                             self.site,
+                             self.subject,
                              self.timepoint,
                              self.session])
         else:  # it's a phantom, so no timepoints
-            return self.get_full_subjectid() 
-                  
+            return self.get_full_subjectid()
+
 def parse(identifier):
     if type(identifier) is not str: raise ParseException()
 
@@ -69,7 +75,7 @@ def parse(identifier):
     if not match: match = SCANID_PHA_PATTERN.match(identifier)
     if not match: raise ParseException()
 
-    ident = Identifier(study    = match.group("study"), 
+    ident = Identifier(study    = match.group("study"),
                        site     = match.group("site"),
                        subject  = match.group("subject"),
                        timepoint= match.group("timepoint"),
@@ -83,7 +89,7 @@ def parse_filename(path):
     if not match: match = FILENAME_PATTERN.match(fname)
     if not match: raise ParseException()
 
-    ident = Identifier(study    = match.group("study"), 
+    ident = Identifier(study    = match.group("study"),
                        site     = match.group("site"),
                        subject  = match.group("subject"),
                        timepoint= match.group("timepoint"),
@@ -96,17 +102,17 @@ def parse_filename(path):
 
 def make_filename(ident, tag, series, description, ext = None):
     filename = "_".join([str(ident), tag, series, description])
-    if ext: 
+    if ext:
         filename += ext
     return filename
 
 def is_scanid(identifier):
-    try: 
+    try:
         parse(identifier)
         return True
     except ParseException:
         return False
-  
+
 def is_phantom(identifier):
     try:
         x = parse(identifier)
