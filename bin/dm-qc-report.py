@@ -247,7 +247,7 @@ def phantom_fmri_qc(fileName, outputDir):
     outputFile = os.path.join(outputDir, '{}_stats.csv'.format(basename))
     outputPrefix = os.path.join(outputDir, basename)
     if not os.path.isfile(outputFile):
-        dm.utils.run('qc-fbirn-fmri {} {}'.format(fileName, outputPrefix))
+        run('qc-fbirn-fmri {} {}'.format(fileName, outputPrefix))
 
 def phantom_dti_qc(fileName, outputDir):
     """
@@ -263,40 +263,56 @@ def phantom_dti_qc(fileName, outputDir):
     if not os.path.isfile(outputFile):
         bvec = os.path.join(dirname, basename + '.bvec')
         bval = os.path.join(dirname, basename + '.bval')
-        dm.utils.run('qc-fbirn-dti {} {} {} {} n'.format(fileName, bvec, bval, outputPrefix))
+        run('qc-fbirn-dti {} {} {} {} n'.format(fileName, bvec, bval, outputPrefix))
 
 def phantom_anat_qc(fileName, outputDir):
     """
     Runs the ADNI pipeline on input phantom data if the outputs don't already
     exist.
     """
-    outputFile = os.path.join(outputDir, 'adni-contrasts.csv')
+    basename = nifti_basename(fileName)
+    outputFile = os.path.join(outputDir, '{}_adni-contrasts.csv'.format(basename))
     if not os.path.isfile(outputFile):
-        dm.utils.run('qc-adni {} {}'.format(fileName, outputFile))
+        run('qc-adni {} {}'.format(fileName, outputFile))
 
 def fmri_qc(fileName, qcDir, report):
     dirname = os.path.dirname(fileName)
     basename = nifti_basename(fileName)
 
-    dm.utils.run('qc-scanlength {} {}'.format(fileName, os.path.join(qcDir, basename + '_scanlengths.csv')))
-    dm.utils.run('qc-fmri {} {}'.format(fileName, os.path.join(qcDir, basename)))
+    # check scan length
+    outputFile = os.path.join(qcDir, basename + '_scanlengths.csv')
+    if not os.path.isfile(output):
+        dm.utils.run('qc-scanlength {} {}'.format(fileName, outputFile))
+
+    # check fmri signal
+    outputPrefix = os.path.join(qcDir, basename)
+    outputFile = outputPrefix + '_stats.csv'
+    if not os.path.isfile(outputFile):
+        dm.utils.run('qc-fmri {} {}'.format(fileName, outputPrefix))
 
     imageRaw = os.path.join(qcDir, basename + '_raw.png')
     imageSfnr = os.path.join(qcDir, basename + '_sfnr.png')
     imageCorr = os.path.join(qcDir, basename + '_corr.png')
 
-    slicer(fileName, imageRaw, 5, 1600)
-    slicer(os.path.join(qcDir, basename + '_sfnr.nii.gz'), imageSfnr, 5, 1600)
-    slicer(os.path.join(qcDir, basename + '_corr.nii.gz'), imageCorr, 5, 1600)
+    if not os.path.isfile(imageRaw):
+        slicer(fileName, imageRaw, 2, 1600)
+        add_image(report, imageRaw)
 
-    add_image(report, imageRaw)
-    add_image(report, imageSfnr)
-    add_image(report, imageCorr)
+    if not os.path.isfile(imageSfnr):
+        slicer(os.path.join(qcDir, basename + '_sfnr.nii.gz'), imageSfnr, 2, 1600)
+        add_image(report, imageSfnr)
+
+    if not os.path.isfile(imageCorr):
+        slicer(os.path.join(qcDir, basename + '_corr.nii.gz'), imageCorr, 2, 1600)
+        add_image(report, imageCorr)
 
 def anat_qc(fileName, qcDir, report):
+
     image = os.path.join(qcDir, nifti_basename(fileName) + '.png')
-    slicer(fileName, image, 5, 1600)
-    add_image(report, image)
+
+    if not os.path.isfile(image):
+        slicer(fileName, image, 5, 1600)
+        add_image(report, image)
 
 def dti_qc(fileName, qcDir, report):
     dirname = os.path.dirname(fileName)
@@ -305,13 +321,19 @@ def dti_qc(fileName, qcDir, report):
     bvec = os.path.join(dirname, basename + '.bvec')
     bval = os.path.join(dirname, basename + '.bval')
 
-    dm.utils.run('qc-scanlength {} {}'.format(fileName, os.path.join(qcDir, basename + '_scanlengths.csv')))
-    dm.utils.run('qc-dti {} {} {} {}'.format(fileName, bvec, bval, os.path.join(qcDir, basename)))
-    dm.utils.run('qc-spikecount {} {} {}'.format(fileName, os.path.join(qcDir, basename + '_spikecount.csv'), bval))
+    outputPrefix = os.path.join(qcDir, basename)
+    outputFile = outputPrefix + '_stats.csv'
+    if not os.path.isfile(outputFile):
+        dm.utils.run('qc-dti {} {} {} {}'.format(fileName, bvec, bval, outputPrefix))
+
+    outputFile = os.path.join(qcDir, basename + '_spikecount.csv')
+    if not os.path.isfile(outputFile):
+        dm.utils.run('qc-spikecount {} {} {}'.format(fileName, os.path.join(qcDir, basename + '_spikecount.csv'), bval))
 
     image = os.path.join(qcDir, basename + '_b0.png')
-    slicer(fileName, image, 2, 1600)
-    add_image(report, image)
+    if not os.path.isfile(image):
+        slicer(fileName, image, 2, 1600)
+        add_image(report, image)
 
 def run_header_qc(dicomDir, standardDir, logfile):
     """
@@ -349,7 +371,7 @@ def qc_phantom(scanpath, subject, config):
     written to outputdir. No report is generated for phantom data. config is
     loaded from the project_settings.yml file.
     """
-    HANDLERS = { # map from tag to QC function
+    HANDLERS = {
         "T1"            : phantom_anat_qc,
         "RST"           : phantom_fmri_qc,
         "DTI60-1000"    : phantom_dti_qc,
@@ -358,15 +380,13 @@ def qc_phantom(scanpath, subject, config):
     qcDir = dm.utils.define_folder(config['paths']['qc'])
     qcDir = dm.utils.define_folder(os.path.join(qcDir, subject))
 
-    niftis = glob.glob(os.path.join(scanpath, subject, '*.nii.gz'))
+    niftis = glob.glob(os.path.join(scanpath, '*.nii.gz'))
 
     for nifti in niftis:
         ident, tag, series, description = dm.scanid.parse_filename(nifti)
-
         if tag not in HANDLERS:
             logger.info("MSG: No QC tag {} for scan {}. Skipping.".format(tag, nifti))
             continue
-
         HANDLERS[tag](nifti, qcDir)
 
 def qc_subject(scanpath, subject, config):
