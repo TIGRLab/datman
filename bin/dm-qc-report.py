@@ -302,10 +302,11 @@ def fmri_qc(fileName, qcDir, report):
         slicer(os.path.join(qcDir, basename + '_corr.nii.gz'), imageCorr, 2, 1600)
         add_image(report, imageCorr)
 
+
+
 def anat_qc(fileName, qcDir, report):
 
     image = os.path.join(qcDir, nifti_basename(fileName) + '.png')
-
     if not os.path.isfile(image):
         slicer(fileName, image, 5, 1600)
         add_image(report, image)
@@ -354,7 +355,7 @@ def run_header_qc(dicomDir, standardDir, logfile):
         try:
             s = standardDict[tag]
         except:
-            print('WARNING: No standard with tag {} found in {}'.format(tag, StandardDir))
+            print('WARNING: No standard with tag {} found in {}'.format(tag, standardDir))
             continue
 
         # run header check for dicom
