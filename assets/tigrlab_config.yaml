@@ -22,6 +22,26 @@ Projects:
   PASD:     '<DATMAN_PROJECTSDIR>/PASD'
   PASD01:   '<DATMAN_PROJECTSDIR>/PASD01'
 
+## Translate Projectid's to XNAT projects
+XNATProjects:
+  ANDT:     ['ANDT']
+  ASDD:     ['ASDD']
+  COGBDO:   ['COGBDO']
+  COGBDY:   ['COGBDY']
+  DBDC:     ['DBDC']
+  DTI_CMH:  ['DTI']
+  PACTMD:   ['PACTMD']
+  PRELAPSE: ['PRE01', 'PRE05', 'PRE07']
+  PNSC:     ['PNS']
+  RTMSWM:   ['RTMSWM']
+  STOPDD:   ['STOPPD']
+  SPINS:    ['SPIN01', 'SPN01']
+  VIPR:     ['VIPR']
+  PASD:     ['PASD']
+
+
+
+
 ### the SystemsSettings is hold paths specific you your system
 ### as well as information for loading software packages
 ## Keys:
