@@ -3,17 +3,17 @@
 This analyzes empathic accuracy behavioural data.
 
 If a <subject> is not supplied, a job is submitted for each subject not yet
-processed. 
+processed.
 
 Usage:
     dm-proc-ea.py [options] <datadir> <fsdir> <outputdir> <script> <assets> [<subject>]
 
-Arguments: 
+Arguments:
     <datadir>           Path to the datman data/ folder containing nii/ and RESOURCES/
     <fsdir>             Path to freesurfer output folder containing t1/
     <outputdir>         Path to output folder
     <script>            Path to an epitome-style script
-    <assets>            Path to an assets folder containing 
+    <assets>            Path to an assets folder containing
                              EA-timing.csv, EA-vid-lengths.csv
     <subject>           Subject timepoint to process
 
@@ -50,7 +50,7 @@ import StringIO as io
 import sys
 import tempfile
 
-logging.basicConfig(level=logging.WARN, 
+logging.basicConfig(level=logging.WARN,
     format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
@@ -72,7 +72,7 @@ def log_parser(log):
     vid = filter(lambda s: 'Video' in s, log)
 
     # write out files from stringio blobs into numpy genfromtxt
-    pic = np.genfromtxt(io.StringIO(''.join(pic)), delimiter='\t', 
+    pic = np.genfromtxt(io.StringIO(''.join(pic)), delimiter='\t',
         names=['subject', 'trial', 'eventtype', 'code', 'time', 'ttime', 'uncertainty1', 'duration', 'uncertainty2', 'reqtime', 'reqduration', 'stimtype', 'pairindex'],
         dtype=['|S64'   , int    , '|S64'     , '|S64', int   , int    , int           , int       , int           , int      , int          , '|S64'    , int])
 
@@ -105,7 +105,7 @@ def find_blocks(vid, mri_start):
         block_name = v[3]
 
         # all time in 10000s of a sec.
-        block_start = (v[4]) 
+        block_start = (v[4])
 
         # generate compressed video list
         blocks.append((block_number, block_name, block_start))
@@ -118,7 +118,7 @@ def find_ratings(pic, blk_start, blk_end, blk_start_time, duration):
     Takes the response and picture tuple lists and the beginning of the current
     and next videos. This will search through all of the responses [vid_start
     < x < vid_end] and grab their timestamps. For each, it will find the
-    corresponding picture rating and save that as an integer. 
+    corresponding picture rating and save that as an integer.
 
     All times in 10,000s of a second.
 
@@ -137,7 +137,7 @@ def find_ratings(pic, blk_start, blk_end, blk_start_time, duration):
     # refine trial list to include only the first, last, and button presses
     responses = np.array(filter(lambda s: s[1] in trial_list, pic))
     responses = np.array(filter(lambda s: 'rating' in s[3], responses))
-    
+
     # if the participant dosen't respond at all, freak out.
     if len(responses) == 0:
         ratings = np.array([5])
@@ -173,15 +173,15 @@ def find_column_data(blk_name, rating_file):
     Returns the data from the column of specified file with the specified name.
     """
     # read in column names, convert to lowercase, compare with block name
-    column_names = np.genfromtxt(rating_file, delimiter=',', 
+    column_names = np.genfromtxt(rating_file, delimiter=',',
                                               dtype=str)[0].tolist()
     column_names = map(lambda x: x.lower(), column_names)
     column_number = np.where(np.array(column_names) == blk_name.lower())[0]
 
     # read in actor ratings from the selected column, strip nans
-    column_data = np.genfromtxt(rating_file, delimiter=',', 
+    column_data = np.genfromtxt(rating_file, delimiter=',',
                                               dtype=float, skip_header=2)
-    
+
     # deal with a single value
     if len(np.shape(column_data)) == 1:
         column_data = column_data[column_number]
@@ -229,29 +229,29 @@ def r2z(data):
 
 def process_behav_data(log, assets, func_path, sub, trial_type):
     """
-    This parses the behavioural log files for a given trial type (either 
+    This parses the behavioural log files for a given trial type (either
     'vid' for the empathic-accuracy videos, or 'cvid' for the circles task.
 
     First, the logs are parsed into list of 'picture', 'response', and 'video'
     events, as they contain a different number of columns and carry different
     information. The 'video' list is then used to find the start of each block.
 
-    Within each block, this script goes about parsing the ratings made by 
-    the particpant using 'find_ratings'. The timing is extracted from the 
-    'response' list, and the actual rating is extracted from the 'picture' 
+    Within each block, this script goes about parsing the ratings made by
+    the particpant using 'find_ratings'. The timing is extracted from the
+    'response' list, and the actual rating is extracted from the 'picture'
     list.
 
-    This is then compared with the hard-coded 'gold-standard' rating kept in 
-    a column of the specified .csv file. The lengths of these vectors are 
+    This is then compared with the hard-coded 'gold-standard' rating kept in
+    a column of the specified .csv file. The lengths of these vectors are
     mached using linear interpolaton, and finally correlated. This correlation
     value is used as an amplitude modulator of the stimulus box-car. Another
     set of amplitude-modulated regressor of no interest is added using the
-    number of button presses per run. 
+    number of button presses per run.
 
-    The relationship between these ratings are written out to a .pdf file for 
+    The relationship between these ratings are written out to a .pdf file for
     visual inspection, however, the onsets, durations, and correlation values
-    are only returned for the specified trial type. This should allow you to 
-    easily write out a GLM timing file with the onsets, lengths, 
+    are only returned for the specified trial type. This should allow you to
+    easily write out a GLM timing file with the onsets, lengths,
     correlations, and number of button-pushes split across trial types.
     """
 
@@ -269,7 +269,7 @@ def process_behav_data(log, assets, func_path, sub, trial_type):
         raise e
 
     blocks, onsets = find_blocks(vid, mri_start)
-    
+
     durations = []
     correlations = []
     onsets_used = []
@@ -330,15 +330,15 @@ def process_behav_data(log, assets, func_path, sub, trial_type):
         # skip the 'other' kind of task
         if trial_type == 'vid' and blocks[i][1][0] == 'c':
             continue
-        
+
         elif trial_type == 'cvid' and blocks[i][1][0] == 'v':
             continue
-        
+
         # otherwise, save the output vectors in seconds
         else:
             onsets_used.append(onsets[i] - mri_start/10000.0)
             durations.append(duration.tolist())
-            
+
             if type(corr) == int:
                 correlations.append(corr)
             else:
@@ -436,13 +436,13 @@ def process_functional_data(sub, nii_path, fsdir, func_path, log_path, tmp_path,
     logger.debug('Running command: {}'.format(cmd))
     rtn, out, err = dm.utils.run(cmd)
 
-    if rtn != 0: 
+    if rtn != 0:
         logger.error("Error running command: {}".format(cmd))
         logger.error("stdout: {}\nstderr: {}".format(out, err))
         raise Exception("Job submission for preprocessing {} failed".format(sub))
 
     return tmpfolder
-    
+
 
 def export_data(sub, tmpfolder, func_path):
 
@@ -458,7 +458,7 @@ def export_data(sub, tmpfolder, func_path):
     dm.utils.run('cp {tmppath}/anat_EPI_mask_MNI-nonlin.nii.gz {out_path}/{sub}_anat_EPI_mask_MNI.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
     dm.utils.run('cp {tmppath}/reg_T1_to_TAL.nii.gz {out_path}/{sub}_reg_T1_to_MNI-lin.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
     dm.utils.run('cp {tmppath}/reg_nlin_TAL.nii.gz {out_path}/{sub}_reg_nlin_MNI.nii.gz'.format(tmppath=tmppath, out_path=out_path, sub=sub))
-    
+
     # check outputs
     outputs = ('nonlin.EA.01', 'nonlin.EA.02', 'nonlin.EA.03', 'nlin_MNI', 'MNI-lin', 'mask_MNI')
     print "------------"
@@ -470,12 +470,12 @@ def export_data(sub, tmpfolder, func_path):
     dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.01.1D > {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
     dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.02.1D >> {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
     dm.utils.run('cat {tmppath}/PARAMS/motion.DATMAN.03.1D >> {out_path}/{sub}_motion.1D'.format(tmppath=tmppath, out_path=out_path, sub=sub))
-   
+
     if not os.path.isfile('{out_path}/{sub}_motion.1D'.format(out_path=out_path, sub=sub)):
         logger.error('Failed to export {}_motion.1D'.format(sub))
         raise ValueError
 
-    # mark as done, clean up   
+    # mark as done, clean up
     dm.utils.run('touch {out_path}/{sub}_preproc-complete.log'.format(out_path=out_path, sub=sub))
     dm.utils.run('rm -r {}'.format(tmpfolder))
     # TODO
@@ -498,7 +498,7 @@ def generate_analysis_script(sub, func_path):
     the participant and the actor from each video to generate an amplitude-
     modulated box-car model to be fit to each time-series. This model is
     convolved with an HRF, and is run alongside a standard boxcar. This allows
-    us to detect regions that modulate their 'activation strength' with 
+    us to detect regions that modulate their 'activation strength' with
     empathic accruacy, and those that generally track the watching of
     emotionally-valenced videos (but do not parametrically modulate).
 
@@ -549,7 +549,7 @@ def generate_analysis_script(sub, func_path):
 
 def main():
     """
-    Finds subjects that have not been processed and runs dm-proc-ea-sub.py on them. 
+    Finds subjects that have not been processed and runs dm-proc-ea-sub.py on them.
     """
 
     arguments  = docopt(__doc__)
@@ -564,9 +564,9 @@ def main():
     verbose    = arguments['--verbose']
     debug      = arguments['--debug']
 
-    if verbose: 
+    if verbose:
         logging.getLogger().setLevel(logging.INFO)
-    if debug: 
+    if debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
     data_path = dm.utils.define_folder(datadir)
@@ -576,7 +576,7 @@ def main():
 
     # process a single subject
     if sub:
-        if dm.scanid.is_phantom(sub): 
+        if dm.scanid.is_phantom(sub):
             logger.debug("Scan {} is a phantom. Skipping".format(sub))
             sys.exit(0)
 
@@ -584,15 +584,16 @@ def main():
         if os.path.isfile(os.path.join(func_path, '{sub}/{sub}_preproc-complete.log'.format(sub=sub))):
             logger.debug("Scan {} has already been preprocessed. Skipping".format(sub))
         else:
-            try: 
+            try:
                 logger.info("Preprocessing subject {}".format(sub))
                 tmp_path = tempfile.mkdtemp()
+                logger.info("Using tmp folder {}".format(str(tmp_path)))
                 tempdir = process_functional_data(sub, nii_path, fsdir, func_path, log_path, tmp_path, script)
                 export_data(sub, tempdir, func_path)
             except Exception, e:
                 logger.exception("Error during preprocessing. Exiting")
                 sys.exit(1)
-                
+
         # analyze
         if os.path.isfile('{func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub)):
             logger.debug("Scan {} has already been analyzed. Skipping".format(sub))
@@ -602,7 +603,7 @@ def main():
                 resdirs = glob.glob(os.path.join(data_path, 'RESOURCES', sub + '_??'))
                 resources = []
                 for resdir in resdirs:
-                    resfiles = [os.path.join(dp, f) for 
+                    resfiles = [os.path.join(dp, f) for
                                           dp, dn, fn in os.walk(resdir) for f in fn]
                     resources.extend(resfiles)
 
@@ -662,10 +663,10 @@ def main():
                 sys.exit(1)
 
     # process all subjects
-    else: 
+    else:
         commands = []
         for sub in dm.utils.get_subjects(nii_path):
-            if dm.scanid.is_phantom(sub): 
+            if dm.scanid.is_phantom(sub):
                 logger.debug("Scan {} is a phantom. Skipping".format(sub))
                 continue
             if os.path.isfile('{func_path}/{sub}/{sub}_analysis-complete.log'.format(func_path=func_path, sub=sub)):
@@ -675,28 +676,28 @@ def main():
             commands.append(" ".join([__file__, opts, datadir, fsdir,
                 outputdir, script, assets, sub]))
 
-        if commands: 
+        if commands:
             logger.debug("queueing up the following commands:\n"+'\n'.join(commands))
             jobname = "dm_ea_{}".format(time.strftime("%Y%m%d-%H%M%S"))
-            fd, path = tempfile.mkstemp() 
+            fd, path = tempfile.mkstemp()
             os.write(fd, '\n'.join(commands))
             os.close(fd)
 
             # using qbatch -i (individual jobs) rather than the default array
             # job to work around interaction between epitome scripts and PBS
             # tempdir names.
-            #  
+            #
             # Specifically, PBS makes a parent tempdir for array jobs that
-            # include the array element in the name, like so: 
-            #    /tmp/150358[1].mgmt2.scc.camh.net/tmp1H2Une 
-            # 
+            # include the array element in the name, like so:
+            #    /tmp/150358[1].mgmt2.scc.camh.net/tmp1H2Une
+            #
             # Epitome scripts do not properly escape the DIR_DATA when used, so
             # references to this path do not parse correctly (square brackets
             # being patterns in bash).
             rtn, out, err = dm.utils.run('qbatch -i --logdir {logdir} -N {name} --walltime {wt} {cmds}'.format(
                 logdir = log_path,
                 name = jobname,
-                wt = walltime, 
+                wt = walltime,
                 cmds = path), dryrun = dryrun)
 
             if rtn != 0:

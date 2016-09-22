@@ -122,6 +122,8 @@ import subprocess as proc
 import tempfile
 import glob
 import shutil
+##
+import yaml
 
 DEBUG  = False
 VERBOSE= False
@@ -175,6 +177,7 @@ def main():
 
     try:
         exportinfo = pd.read_table(exportinfofile, sep='\s*', engine="python")
+
     except:
         error("{} does not exist".format(exportinfofile))
         return
@@ -213,6 +216,7 @@ def extract_archive(exportinfo, archivepath, exportdir, blacklist):
               "Skipping.".format(scanspath))
         return
 
+    #TODO: Extract formats from YAML file
     fmts         = get_formats_from_exportinfo(exportinfo)
     unknown_fmts = [fmt for fmt in fmts if fmt not in exporters]
 
@@ -289,7 +293,7 @@ def read_blacklist(blacklist_csv):
             blacklist = pd.read_table(blacklist_csv, sep='\s*', engine="python")
             series_list = blacklist.columns.tolist()[0]
             blacklisted_series = blacklist[series_list].values.tolist()
-            return backlisted_series
+            return blacklisted_series
         except IOError:
             debug("{} does not exist. Running on all series".format(
                     blacklist_csv))
@@ -305,6 +309,7 @@ def get_formats_from_exportinfo(dataframe):
     Columns that begin with "export_" are extracted, and the format identifier
     from each column is returned, as a list.
     """
+
 
     columns = dataframe.columns.values.tolist()
     formats = [c.split("_")[1] for c in columns if c.startswith("export_")]

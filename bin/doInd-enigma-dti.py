@@ -53,7 +53,6 @@ import os
 import sys
 import subprocess
 
-
 arguments       = docopt(__doc__)
 outputdir       = arguments['<outputdir>']
 FAmap           = arguments['<FAmap>']
@@ -63,13 +62,8 @@ VERBOSE         = arguments['--verbose']
 DEBUG           = arguments['--debug']
 DRYRUN          = arguments['--dry-run']
 
-if DEBUG: print arguments
-
-### Erin's little function for running things in the shell
-def docmd(cmdlist):
-    "sends a command (inputed as a list) to the shell"
-    if DEBUG: print ' '.join(cmdlist)
-    if not DRYRUN: subprocess.call(cmdlist)
+if DEBUG:
+    print arguments
 
 # check that ENIGMAHOME environment variable exists
 ENIGMAHOME = os.getenv('ENIGMAHOME')

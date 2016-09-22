@@ -76,7 +76,7 @@ def write_software_loading(software_packages,runsh, SystemSettingsDest, indent =
 
 ## Read in the configuration yaml file
 if not os.path.isfile(config_yml):
-    sys.exit("configuration file not found. Try again.")
+    sys.exit("configuration file {} not found. Try again.".format(config_yml))
 
 ## load the yml file
 with open(config_yml, 'r') as stream:

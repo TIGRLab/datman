@@ -4,7 +4,7 @@ This run ENIGMA DTI pipeline on FA maps after DTI-fit has been run.
 Calls (or submits) doInd-enigma-dti.py for each subject in order to do so.
 
 Usage:
-  dm-proc-enigmadti.py [options] <input-dtifit-dir> <outputdir>
+  dm-proc-enigma.py [options] <input-dtifit-dir> <outputdir>
 
 Arguments:
     <input-dtifit-dir>        Top directory for dti-fit output
@@ -16,10 +16,7 @@ Options:
   --calc-all               Also calculate values for MD, AD, and RD
   --tag2 STR               Optional second used (as well as '--FA-tag', ex. 'DTI-60')) to identify the maps within DTI-fit input
   --QC-transfer QCFILE     QC checklist file - if this option is given than only QCed participants will be processed.
-  --no-newsubs             Do not link or submit new subjects - (depricated)
-  --use-test-datman        Use the version of datman in Erin's test environment. (default is '/archive/data-2.0/code/datman.module')
   --walltime TIME          A walltime for the enigma stage [default: 2:00:00]
-  --walltime-final TIME    A walltime for the final concat stage [default: 0:10:00]
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
   -n,--dry-run             Dry run
@@ -72,77 +69,37 @@ import shutil
 import filecmp
 import difflib
 
-
-arguments       = docopt(__doc__)
-dtifit_dir      = arguments['<input-dtifit-dir>']
-outputdir       = arguments['<outputdir>']
-rawQCfile       = arguments['--QC-transfer']
-FA_tag          = arguments['--FA-tag']
-TAG2            = arguments['--tag2']
-CALC_MD         = arguments['--calc-MD']
-CALC_ALL        = arguments['--calc-all']
-NO_NEWSUBS      = arguments['--no-newsubs']
-TESTDATMAN      = arguments['--use-test-datman']
-walltime        = arguments['--walltime']
-walltime_final  = arguments['--walltime-final']
-VERBOSE         = arguments['--verbose']
-DEBUG           = arguments['--debug']
-DRYRUN          = arguments['--dry-run']
-
-if DEBUG: print arguments
-#set default tag values
-if FA_tag == None: FA_tag = '_FA.nii.gz'
-QCedTranfer = False if rawQCfile == None else True
-
-## set the basenames of the two run scripts
-runenigmash_name = 'run_engimadti.sh'
-runconcatsh_name = 'concatresults.sh'
-
-### Erin's little function for running things in the shell
-def docmd(cmd):
-    "sends a command (inputed as a list) to the shell"
-    if DEBUG: print cmd
-    rtn, out, err = dm.utils.run(cmd, dryrun = DRYRUN)
-
-# need to find the t1 weighted scan and update the checklist
-def find_FAimages(archive_tag,archive_tag2):
+def add_images(tag):
     """
-    will look for new files in the inputdir
-    and add them to a list for the processing
+    finds new files in the inputdir and add them to a list for the processing
 
     archive_tag -- filename tag that can be used for search (i.e. '_T1_')
     archive_tag2 -- second tag that is also need (i.e. 'DTI-60')
-    checklist -- the checklist pandas dataframe to update
     """
     for i in range(0,len(checklist)):
-        sdir = os.path.join(dtifit_dir,checklist['id'][i])
-	    #if FA name not in checklist
+        sdir = os.path.join(dtifit_dir, checklist['id'][i])
         if pd.isnull(checklist['FA_nii'][i]):
             sfiles = []
             for fname in os.listdir(sdir):
-                if archive_tag in fname:
-                    if archive_tag2 != None:
-                        if archive_tag2 in fname:
-                            sfiles.append(fname)
-                    else:
-                        sfiles.append(fname)
-            if DEBUG: print "Found {} {} in {}".format(len(sfiles),archive_tag,sdir)
+                if tag in fname:
+                    sfiles.append(fname)
+
+            if DEBUG:
+                print "Found {} {} in {}".format(len(sfiles), tag, sdir)
+
+
             if len(sfiles) == 1:
                 checklist['FA_nii'][i] = sfiles[0]
             elif len(sfiles) > 1:
-                checklist['notes'][i] = "> 1 {} found".format(archive_tag)
+                checklist['notes'][i] = "> 1 {} found".format(tag)
             elif len(sfiles) < 1:
-                checklist['notes'][i] = "No {} found.".format(archive_tag)
+                checklist['notes'][i] = "No {} found.".format(tag)
 
-
-### build a template .sh file that gets submitted to the queue
-def makeENIGMArunsh(filename):
+def make_script(filename):
     """
     builds a script in the outputdir (run.sh)
-    that gets submitted to the queue for each participant (in the case of 'doInd')
-    or that gets held for all participants and submitted once they all end (the concatenating one)
     """
-    bname = os.path.basename(filename)
+    filename = os.path.basename(filename)
     if bname == runenigmash_name:
         ENGIMASTEP = 'doInd'
     if bname == runconcatsh_name:
@@ -255,14 +212,37 @@ def get_qced_subjectlist(qcchecklist):
     ## return the qcedlist (as a list)
     return qcedlist
 
+def main()
+    arguments       = docopt(__doc__)
+    dtifit_dir      = arguments['<input-dtifit-dir>']
+    outputdir       = arguments['<outputdir>']
+    rawQCfile       = arguments['--QC-transfer']
+    FA_tag          = arguments['--FA-tag']
+    TAG2            = arguments['--tag2']
+    CALC_MD         = arguments['--calc-MD']
+    CALC_ALL        = arguments['--calc-all']
+    walltime        = arguments['--walltime']
+    walltime_final  = arguments['--walltime-final']
+    VERBOSE         = arguments['--verbose']
+    DEBUG           = arguments['--debug']
+    DRYRUN          = arguments['--dry-run']
 
-######## NOW START the 'main' part of the script ##################
-## make the putput directory if it doesn't exist
-outputdir = os.path.abspath(outputdir)
-log_dir = os.path.join(outputdir,'logs')
-run_dir = os.path.join(outputdir,'bin')
-dm.utils.makedirs(log_dir)
-dm.utils.makedirs(run_dir)
+    if DEBUG:
+        print arguments
+
+    #set default tag values
+    if FA_tag == None:
+        FA_tag = '_FA.nii.gz'
+
+    QCedTranfer = False if rawQCfile == None else True
+
+    runenigmash_name = 'run_engimadti.sh'
+    runconcatsh_name = 'concatresults.sh'
+    outputdir = os.path.abspath(outputdir)
+    log_dir = os.path.join(outputdir,'logs')
+    run_dir = os.path.join(outputdir,'bin')
+    dm.utils.makedirs(log_dir)
+    dm.utils.makedirs(run_dir)
 
 ## writes a standard ENIGMA-DTI running script for this project (if it doesn't exist)
 ## the script requires a OUTDIR and MAP_BASE variables - as arguments $1 and $2
@@ -276,24 +256,18 @@ for runfilename in [runenigmash_name,runconcatsh_name]:
         ## if it doesn't exist, write it now
         makeENIGMArunsh(runsh)
 
-## find those subjects in input who have not been processed yet
+# find those subjects in input who have not been processed yet
 subids_in_dtifit = dm.utils.get_subjects(dtifit_dir)
-subids_in_dtifit = [ v for v in subids_in_dtifit if "PHA" not in v ] ## remove the phantoms from the list
+subids_in_dtifit = [ v for v in subids_in_dtifit if "PHA" not in v ]
 if QCedTranfer:
-    # if a QC checklist exists, than read it and only process those participants who passed QC
     qcedlist = get_qced_subjectlist(rawQCfile)
-    subids_in_dtifit = list(set(subids_in_dtifit) & set(qcedlist)) ##now only add it to the filelist if it has been QCed
+    subids_in_dtifit = list(set(subids_in_dtifit) & set(qcedlist))
 
-## create an checklist for the FA maps
-checklistfile = os.path.normpath(outputdir+'/ENIGMA-DTI-checklist.csv')
-checklist = loadchecklist(checklistfile,subids_in_dtifit)
+checklist = os.path.normpath(outputdir + '/ENIGMA-DTI-checklist.csv')
+checklist = loadchecklist(checklistfile, subids_in_dtifit)
 
-## look for new subs using FA_tag and tag2
 find_FAimages(FA_tag,TAG2)
 
-## now checkoutputs to see if any of them have been run
-#if yes update spreadsheet
-#if no submits that subject to the queue
 jobnameprefix="edti_{}_".format(datetime.datetime.today().strftime("%Y%m%d-%H%M%S"))
 submitted = False
 
@@ -301,20 +275,18 @@ for i in range(0,len(checklist)):
     subid = checklist['id'][i]
     ROIout = os.path.join(outputdir,subid,'ROI')
 
-    # if all input files are found - check if an output exists
-    if pd.isnull(checklist['FA_nii'][i]) or os.path.exists(ROIout) or NO_NEWSUBS:
+    if pd.isnull(checklist['FA_nii'][i]) or os.path.exists(ROIout):
         continue
 
     os.chdir(run_dir)
     soutput = os.path.join(outputdir,subid)
     smap = checklist['FA_nii'][i]
     jobname = jobnameprefix + subid
-    docmd('echo bash -l {rundir}/{script} {output} {inputdir} | '
-          'qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
+    dm.utils.run('echo bash -l {rundir}/{script} {output} {inputdir} | qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
             rundir = run_dir,
             script = runenigmash_name,
             output = soutput,
-            inputdir = os.path.join(dtifit_dir,subid,smap),
+            inputdir = os.path.join(dtifit_dir, subid, smap),
             jobname = jobname,
             logdir = log_dir,
             wt = walltime))
@@ -322,19 +294,15 @@ for i in range(0,len(checklist)):
     checklist['date_ran'][i] = datetime.date.today()
     submitted = True
 
-
-## if any subjects have been submitted,
-## submit a final job that will consolidate the resutls after they are finished
+# submit a final job that will consolidate the results after they are finished
 if submitted:
     os.chdir(run_dir)
-    docmd('echo bash -l {rundir}/{script} | '
-          'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
+    dm.utils.run('echo bash -l {rundir}/{script} | qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
             rundir = run_dir,
             script = runconcatsh_name,
             jobname = jobnameprefix + 'concat',
             logdir = log_dir,
             hold = jobnameprefix + '*',
-            wt = walltime_final))
+            wt = '00:10:00'))
 
-## write the checklist out to a file
 checklist.to_csv(checklistfile, sep=',', index = False)
