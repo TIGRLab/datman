@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 """
-Generates quality control reports on defined MRI data types.
+Generates quality control reports on defined MRI data types. If no subject is
+given, all subjects are submitted individually to the queue.
 
 usage:
     dm-qc-report.py [options] <config>
 
 Options:
     --subject SCANID        Scan ID to QC for. E.g. DTI_CMH_H001_01_01
+    --walltime              Walltime for batch mode jobs [default: 1:00:00]
     --rewrite               Rewrite the html of an existing qc page
-    --verbose               Be chatty
     --debug                 Be extra chatty
     --dry-run               Don't actually do any work
 
@@ -76,15 +77,13 @@ Requires:
 
 import os, sys
 import glob
+import time
 import logging
-import datetime
 import datman as dm
 import subprocess as proc
-from copy import copy
 from datman.docopt import docopt
-import re
+#import re
 import tempfile
-import textwrap
 import yaml
 import pandas as pd
 
@@ -504,48 +503,67 @@ def qc_subject(scanpath, subject, config):
 
 def main():
 
-    global VERBOSE
     global DEBUG
     global DRYRUN
     global REWRITE
 
     arguments = docopt(__doc__)
 
-    configfile = arguments['<config>']
+    config_file = arguments['<config>']
     scanid     = arguments['--subject']
+    walltime   = arguments['--walltime']
     REWRITE    = arguments['--rewrite']
-    VERBOSE    = arguments['--verbose']
     DEBUG      = arguments['--debug']
     DRYRUN     = arguments['--dry-run']
 
-    with open(configfile, 'r') as stream:
+    with open(config_file, 'r') as stream:
         config = yaml.load(stream)
 
     for k in ['dcm', 'nii', 'qc', 'std']:
         if k not in config['paths']:
             sys.exit("ERROR: paths:{} not defined in {}".format(k, configfile))
 
-    if VERBOSE:
-        logging.getLogger().setLevel(logging.INFO)
     if DEBUG:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    niiDir = config['paths']['nii']
+    nii_dir = config['paths']['nii']
 
     if scanid:
-        timepoint_glob = '{}/{}'.format(niiDir, scanid)
-    else:
-        timepoint_glob = '{}/*'.format(niiDir)
-
-    for path in glob.glob(timepoint_glob):
-        subject = os.path.basename(path)
+        path = os.path.join(nii_dir, scanid)
 
         if 'PHA' in subject:
             logger.info("MSG: qc phantom {}".format(path))
-            qc_phantom(path, subject, config)
+            qc_phantom(path, scanid, config)
         else:
             logger.info("MSG: qc {}".format(path))
-            qc_subject(path, subject, config)
+            qc_subject(path, scanid, config)
+
+    # run in batch mode
+    else:
+        commands = []
+        for path in glob.glob('{}/*'.format(nii_dir)):
+            subject = os.path.basename(path)
+
+            if REWRITE:
+                commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)], REWRITE))
+            else:
+                commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
+
+        if commands:
+            jobname = "dm_qc_report_{}".format(time.strftime("%Y%m%d-%H%M%S"))
+            fd, path = tempfile.mkstemp()
+            os.write(fd, '\n'.join(commands))
+            os.close(fd)
+
+            rtn, out, err = dm.utils.run('qbatch -i -N {name} --walltime {wt} {cmds}'.format(
+                name = jobname,
+                wt = walltime,
+                cmds = path), dryrun = DRYRUN)
+
+            if rtn != 0:
+                logger.error("Job submission failed.")
+                logger.error("stdout: {}\nstderr: {}".format(out,err))
+                sys.exit(1)
 
 if __name__ == "__main__":
     main()
