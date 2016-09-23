@@ -217,10 +217,13 @@ def nifti_basename(fpath):
 
     return(stem)
 
-def add_image(qchtml, image):
+def add_image(qchtml, image, title=None):
     """
     Adds an image to the report.
     """
+    if title:
+        qchtml.write('<center> {} </center>'.format(title))
+
     relpath = os.path.relpath(image, os.path.dirname(qchtml.name))
     qchtml.write('<a href="'+ relpath + '" >')
     qchtml.write('<img src="' + relpath + '" > ')
@@ -304,15 +307,15 @@ def fmri_qc(filename, qc_dir, report):
 
     if not os.path.isfile(image_raw):
         slicer(filename, image_raw, 2, 1600)
-    add_image(report, image_raw)
+    add_image(report, image_raw, title='BOLD montage')
 
     if not os.path.isfile(image_sfnr):
         slicer(os.path.join(qc_dir, basename + '_sfnr.nii.gz'), image_sfnr, 2, 1600)
-    add_image(report, image_sfnr)
+    add_image(report, image_sfnr, title='SFNR map')
 
     if not os.path.isfile(image_corr):
         slicer(os.path.join(qc_dir, basename + '_corr.nii.gz'), image_corr, 2, 1600)
-    add_image(report, image_corr)
+    add_image(report, image_corr, title='correlation map')
 
 def anat_qc(filename, qc_dir, report):
 
@@ -340,7 +343,8 @@ def dti_qc(filename, qc_dir, report):
     image = os.path.join(qc_dir, basename + '_b0.png')
     if not os.path.isfile(image):
         slicer(filename, image, 2, 1600)
-    add_image(report, image)
+    add_image(report, image, title='b0 montage')
+    add_image(report, os.path.join(qc_dir, basename + '_directions.png'), title='bvec directions')
 
 def run_header_qc(dicomDir, standard_dir, logfile):
     """
@@ -556,7 +560,7 @@ def main():
             subject = os.path.basename(path)
 
             if REWRITE:
-                commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)], REWRITE))
+                commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject), '--rewrite']))
             else:
                 commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
 
