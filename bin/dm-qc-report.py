@@ -82,7 +82,7 @@ import logging
 import datman as dm
 import subprocess as proc
 from datman.docopt import docopt
-#import re
+import numpy as np
 import tempfile
 import yaml
 import pandas as pd
@@ -128,58 +128,71 @@ def slicer(fpath, pic, slicergap, picwidth):
     """
     run("slicer {} -S {} {} {}".format(fpath,slicergap,picwidth,pic))
 
+def sort_scans(filenames):
+    """
+    Takes a list of filenames, and orders them by sequence number.
+    """
+    sorted_series = []
+    for fn in filenames:
+        sorted_series.append(int(dm.scanid.parse_filename(fn)[2]))
+
+    idx = np.argsort(sorted_series)
+    sorted_names = np.asarray(filenames)[idx].tolist()
+
+    return sorted_names
+
 def find_expected_files(config, scanpath, subject):
     """
     Reads in the export info from the config file and compares it to the
     contents of the nii folder. Data written to a pandas dataframe.
     """
+    site = dm.scanid.parse(subject + '_01').site # add artificial repeat number
+
     allpaths = []
+    allfiles = []
     for filetype in ('*.nii.gz', '*.nii'):
         allpaths.extend(glob.glob(scanpath + '/*' + filetype))
+    for path in allpaths:
+        allfiles.append(os.path.basename(path))
+    allfiles = sort_scans(allfiles)
 
-    allfiles = []
-    for f in allpaths:
-        allfiles.append(os.path.basename(f))
 
-    cols = ['tag', 'File', 'bookmark', 'Note']
-    exportinfo = pd.DataFrame(columns=cols)
+    # build a tag count dict
+    tag_counts = {}
+    for tag in config['Sites'][site]['ExportInfo'].keys():
+        tag_counts[tag] = 0
+
+    # init output pandas data frame, counter
+    exportinfo = pd.DataFrame(columns=['tag', 'File', 'bookmark', 'Note'])
     idx = 0
 
-    for sitedict in config['Sites']:
-        site = sitedict.keys()[0]
+    # tabulate found data in the order they were acquired
+    for fn in allfiles:
+        tag = dm.scanid.parse_filename(fn)[1]
 
-        if site in subject:
-            for row in sitedict[site]['ExportInfo']:
-                tag = row.keys()[0]
-                expected_count = row[tag]['Count']
-                tagstring = "_{}_".format(tag)
-                files = [k for k in allfiles if tagstring in k]
-                files.sort()
-                filenum = 1
+        # only check data that is defined in the config file
+        if tag in config['Sites'][site]['ExportInfo'].keys():
+            expected_count = config['Sites'][site]['ExportInfo'][tag]['Count']
+        else:
+            continue
 
-                for f in files:
-                    bookmark = tag + str(filenum)
-                    notes = 'Repeated Scan' if filenum > expected_count else ''
-                    exportinfo.loc[idx] = [tag, f, bookmark, notes]
-                    idx += 1
-                    filenum += 1
-
-                if filenum < (expected_count + 1):
-                    notes = 'missing({})'.format(expected_count - filenum + 1)
-                    exportinfo.loc[idx] = [tag, '', '', notes]
-                    idx += 1
-
-    # TODEPRICATE: hacks for 'other' scantypes
-    exportinfoFiles = exportinfo.File.tolist()
-    PDT2scans = [k for k in exportinfoFiles if '_PDT2_' in k]
-    if len(PDT2scans) > 0:
-        for PDT2scan in PDT2scans:
-            exportinfoFiles.append(PDT2scan.replace('_PDT2_','_T2_'))
-            exportinfoFiles.append(PDT2scan.replace('_PDT2_','_PD_'))
-    otherscans = list(set(allfiles) - set(exportinfoFiles))
-    for scan in otherscans:
-        exportinfo.loc[idx] = ['unknown', scan, '', 'extra scan']
+        tag_counts[tag] += 1
+        bookmark = tag + str(tag_counts[tag])
+        if tag_counts[tag] > expected_count:
+            notes = 'Repeated Scan'
+        else:
+            notes = ''
+        exportinfo.loc[idx] = [tag, fn, bookmark, notes]
         idx += 1
+
+    # note any missing data
+    for tag in config['Sites'][site]['ExportInfo'].keys():
+        expected_count = config['Sites'][site]['ExportInfo'][tag]['Count']
+        if tag_counts[tag] < expected_count:
+            n_missing = expected_count - tag_counts[tag]
+            notes = 'missing({})'.format(expected_count - tag_counts[tag])
+            exportinfo.loc[idx] = [tag, '', '', notes]
+            idx += 1
 
     return(exportinfo)
 
@@ -233,105 +246,103 @@ def add_header_qc(fpath, qchtml, logdata):
 def ignore(fpath, qcpath, qchtml):
     pass
 
-def phantom_fmri_qc(fileName, outputDir):
+def phantom_fmri_qc(filename, outputDir):
     """
     Runs the fbirn fMRI pipeline on input phantom data if the outputs don't
     already exist.
     """
-    basename = nifti_basename(fileName)
-    outputFile = os.path.join(outputDir, '{}_stats.csv'.format(basename))
-    outputPrefix = os.path.join(outputDir, basename)
-    if not os.path.isfile(outputFile):
-        run('qc-fbirn-fmri {} {}'.format(fileName, outputPrefix))
+    basename = nifti_basename(filename)
+    output_file = os.path.join(outputDir, '{}_stats.csv'.format(basename))
+    output_prefix = os.path.join(outputDir, basename)
+    if not os.path.isfile(output_file):
+        run('qc-fbirn-fmri {} {}'.format(filename, output_prefix))
 
-def phantom_dti_qc(fileName, outputDir):
+def phantom_dti_qc(filename, outputDir):
     """
     Runs the fbirn DTI pipeline on input phantom data if the outputs don't
     already exist.
     """
-    dirname = os.path.dirname(fileName)
-    basename = nifti_basename(fileName)
+    dirname = os.path.dirname(filename)
+    basename = nifti_basename(filename)
 
-    outputFile = os.path.join(outputDir, '{}_stats.csv'.format(basename))
-    outputPrefix = os.path.join(outputDir, basename)
+    output_file = os.path.join(outputDir, '{}_stats.csv'.format(basename))
+    output_prefix = os.path.join(outputDir, basename)
 
-    if not os.path.isfile(outputFile):
+    if not os.path.isfile(output_file):
         bvec = os.path.join(dirname, basename + '.bvec')
         bval = os.path.join(dirname, basename + '.bval')
-        run('qc-fbirn-dti {} {} {} {} n'.format(fileName, bvec, bval, outputPrefix))
+        run('qc-fbirn-dti {} {} {} {} n'.format(filename, bvec, bval, output_prefix))
 
-def phantom_anat_qc(fileName, outputDir):
+def phantom_anat_qc(filename, outputDir):
     """
     Runs the ADNI pipeline on input phantom data if the outputs don't already
     exist.
     """
-    basename = nifti_basename(fileName)
-    outputFile = os.path.join(outputDir, '{}_adni-contrasts.csv'.format(basename))
-    if not os.path.isfile(outputFile):
-        run('qc-adni {} {}'.format(fileName, outputFile))
+    basename = nifti_basename(filename)
+    output_file = os.path.join(outputDir, '{}_adni-contrasts.csv'.format(basename))
+    if not os.path.isfile(output_file):
+        run('qc-adni {} {}'.format(filename, output_file))
 
-def fmri_qc(fileName, qcDir, report):
-    dirname = os.path.dirname(fileName)
-    basename = nifti_basename(fileName)
+def fmri_qc(filename, qc_dir, report):
+    dirname = os.path.dirname(filename)
+    basename = nifti_basename(filename)
 
     # check scan length
-    outputFile = os.path.join(qcDir, basename + '_scanlengths.csv')
-    if not os.path.isfile(output):
-        dm.utils.run('qc-scanlength {} {}'.format(fileName, outputFile))
+    output_file = os.path.join(qc_dir, basename + '_scanlengths.csv')
+    if not os.path.isfile(output_file):
+        dm.utils.run('qc-scanlength {} {}'.format(filename, output_file))
 
     # check fmri signal
-    outputPrefix = os.path.join(qcDir, basename)
-    outputFile = outputPrefix + '_stats.csv'
-    if not os.path.isfile(outputFile):
-        dm.utils.run('qc-fmri {} {}'.format(fileName, outputPrefix))
+    output_prefix = os.path.join(qc_dir, basename)
+    output_file = output_prefix + '_stats.csv'
+    if not os.path.isfile(output_file):
+        dm.utils.run('qc-fmri {} {}'.format(filename, output_prefix))
 
-    imageRaw = os.path.join(qcDir, basename + '_raw.png')
-    imageSfnr = os.path.join(qcDir, basename + '_sfnr.png')
-    imageCorr = os.path.join(qcDir, basename + '_corr.png')
+    image_raw = os.path.join(qc_dir, basename + '_raw.png')
+    image_sfnr = os.path.join(qc_dir, basename + '_sfnr.png')
+    image_corr = os.path.join(qc_dir, basename + '_corr.png')
 
-    if not os.path.isfile(imageRaw):
-        slicer(fileName, imageRaw, 2, 1600)
-        add_image(report, imageRaw)
+    if not os.path.isfile(image_raw):
+        slicer(filename, image_raw, 2, 1600)
+    add_image(report, image_raw)
 
-    if not os.path.isfile(imageSfnr):
-        slicer(os.path.join(qcDir, basename + '_sfnr.nii.gz'), imageSfnr, 2, 1600)
-        add_image(report, imageSfnr)
+    if not os.path.isfile(image_sfnr):
+        slicer(os.path.join(qc_dir, basename + '_sfnr.nii.gz'), image_sfnr, 2, 1600)
+    add_image(report, image_sfnr)
 
-    if not os.path.isfile(imageCorr):
-        slicer(os.path.join(qcDir, basename + '_corr.nii.gz'), imageCorr, 2, 1600)
-        add_image(report, imageCorr)
+    if not os.path.isfile(image_corr):
+        slicer(os.path.join(qc_dir, basename + '_corr.nii.gz'), image_corr, 2, 1600)
+    add_image(report, image_corr)
 
+def anat_qc(filename, qc_dir, report):
 
-
-def anat_qc(fileName, qcDir, report):
-
-    image = os.path.join(qcDir, nifti_basename(fileName) + '.png')
+    image = os.path.join(qc_dir, nifti_basename(filename) + '.png')
     if not os.path.isfile(image):
-        slicer(fileName, image, 5, 1600)
-        add_image(report, image)
+        slicer(filename, image, 5, 1600)
+    add_image(report, image)
 
-def dti_qc(fileName, qcDir, report):
-    dirname = os.path.dirname(fileName)
-    basename = nifti_basename(fileName)
+def dti_qc(filename, qc_dir, report):
+    dirname = os.path.dirname(filename)
+    basename = nifti_basename(filename)
 
     bvec = os.path.join(dirname, basename + '.bvec')
     bval = os.path.join(dirname, basename + '.bval')
 
-    outputPrefix = os.path.join(qcDir, basename)
-    outputFile = outputPrefix + '_stats.csv'
-    if not os.path.isfile(outputFile):
-        dm.utils.run('qc-dti {} {} {} {}'.format(fileName, bvec, bval, outputPrefix))
+    output_prefix = os.path.join(qc_dir, basename)
+    output_file = output_prefix + '_stats.csv'
+    if not os.path.isfile(output_file):
+        dm.utils.run('qc-dti {} {} {} {}'.format(filename, bvec, bval, output_prefix))
 
-    outputFile = os.path.join(qcDir, basename + '_spikecount.csv')
-    if not os.path.isfile(outputFile):
-        dm.utils.run('qc-spikecount {} {} {}'.format(fileName, os.path.join(qcDir, basename + '_spikecount.csv'), bval))
+    output_file = os.path.join(qc_dir, basename + '_spikecount.csv')
+    if not os.path.isfile(output_file):
+        dm.utils.run('qc-spikecount {} {} {}'.format(filename, os.path.join(qc_dir, basename + '_spikecount.csv'), bval))
 
-    image = os.path.join(qcDir, basename + '_b0.png')
+    image = os.path.join(qc_dir, basename + '_b0.png')
     if not os.path.isfile(image):
-        slicer(fileName, image, 2, 1600)
-        add_image(report, image)
+        slicer(filename, image, 2, 1600)
+    add_image(report, image)
 
-def run_header_qc(dicomDir, standardDir, logfile):
+def run_header_qc(dicomDir, standard_dir, logfile):
     """
     For each .dcm file found in 'dicoms', find the matching site/tag file in
     'standards', and run qc-headers (from qcmon) on these files. Any
@@ -339,7 +350,7 @@ def run_header_qc(dicomDir, standardDir, logfile):
     """
 
     dicoms = glob.glob(os.path.join(dicomDir, '*'))
-    standards = glob.glob(os.path.join(standardDir, '*'))
+    standards = glob.glob(os.path.join(standard_dir, '*'))
 
     site = dm.scanid.parse_filename(dicoms[0])[0].site
 
@@ -354,7 +365,7 @@ def run_header_qc(dicomDir, standardDir, logfile):
         try:
             s = standardDict[tag]
         except:
-            print('WARNING: No standard with tag {} found in {}'.format(tag, standardDir))
+            print('WARNING: No standard with tag {} found in {}'.format(tag, standard_dir))
             continue
 
         # run header check for dicom
@@ -373,8 +384,8 @@ def qc_phantom(scanpath, subject, config):
         "DTI60-1000"    : phantom_dti_qc,
     }
 
-    qcDir = dm.utils.define_folder(config['paths']['qc'])
-    qcDir = dm.utils.define_folder(os.path.join(qcDir, subject))
+    qc_dir = dm.utils.define_folder(config['paths']['qc'])
+    qc_dir = dm.utils.define_folder(os.path.join(qc_dir, subject))
 
     niftis = glob.glob(os.path.join(scanpath, '*.nii.gz'))
 
@@ -383,7 +394,7 @@ def qc_phantom(scanpath, subject, config):
         if tag not in HANDLERS:
             logger.info("MSG: No QC tag {} for scan {}. Skipping.".format(tag, nifti))
             continue
-        HANDLERS[tag](nifti, qcDir)
+        HANDLERS[tag](nifti, qc_dir)
 
 def qc_subject(scanpath, subject, config):
     """
@@ -425,9 +436,9 @@ def qc_subject(scanpath, subject, config):
         "DTI33-b4500"   : dti_qc,
     }
 
-    qcDir = dm.utils.define_folder(config['paths']['qc'])
-    qcDir = dm.utils.define_folder(os.path.join(qcDir, subject))
-    report = os.path.join(qcDir, 'qc_{}.html'.format(subject))
+    qc_dir = dm.utils.define_folder(config['paths']['qc'])
+    qc_dir = dm.utils.define_folder(os.path.join(qc_dir, subject))
+    report = os.path.join(qc_dir, 'qc_{}.html'.format(subject))
 
     if os.path.isfile(report) and not REWRITE:
         logger.debug("MSG: {} exists, skipping.".format(report))
@@ -477,7 +488,7 @@ def qc_subject(scanpath, subject, config):
 
     # header diff
     dcmSubj = os.path.join(config['paths']['dcm'], subject)
-    headerDiff = os.path.join(qcDir, 'header-diff.log'.format(subject))
+    headerDiff = os.path.join(qc_dir, 'header-diff.log'.format(subject))
     if not os.path.isfile(headerDiff):
         run_header_qc(dcmSubj, config['paths']['std'], headerDiff)
 
@@ -496,7 +507,7 @@ def qc_subject(scanpath, subject, config):
 
             add_header_qc(fname, report, headerDiff)
 
-            HANDLERS[tag](fname, qcDir, report)
+            HANDLERS[tag](fname, qc_dir, report)
             report.write('<br>')
 
     report.close()
@@ -531,7 +542,7 @@ def main():
     if scanid:
         path = os.path.join(nii_dir, scanid)
 
-        if 'PHA' in subject:
+        if 'PHA' in scanid:
             logger.info("MSG: qc phantom {}".format(path))
             qc_phantom(path, scanid, config)
         else:
