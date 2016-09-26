@@ -50,14 +50,15 @@ Details:
      **configuration file**
 
      The locations of the dicom folder, nifti folder, qc folder, gold standards
-     folder, and expected set of scans are read from the supplied configuration
-     file with the following structure:
+     folder, log folder, and expected set of scans are read from the supplied
+     configuration file with the following structure:
 
      paths:
        dcm: '/archive/data/SPINS/data/dcm'
        nii: '/archive/data/SPINS/data/nii'
        qc:  '/archive/data/SPINS/qc'
        std: '/archive/data/SPINS/metadata/standards'
+       log: '/archive/data/SPINS/log'
 
      Sites:
        site1:
@@ -542,6 +543,7 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
 
     nii_dir = config['paths']['nii']
+    log_dir = dm.utils.define_folder(config['paths']['log'])
 
     if scanid:
         path = os.path.join(nii_dir, scanid)
@@ -570,7 +572,8 @@ def main():
             os.write(fd, '\n'.join(commands))
             os.close(fd)
 
-            rtn, out, err = dm.utils.run('qbatch -i -N {name} --walltime {wt} {cmds}'.format(
+            rtn, out, err = dm.utils.run('qbatch -i --logdir {logdir} -N {name} --walltime {wt} {cmds}'.format(
+                logdir = log_dir,
                 name = jobname,
                 wt = walltime,
                 cmds = path), dryrun = DRYRUN)
