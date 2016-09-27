@@ -581,11 +581,10 @@ def main():
             os.close(fd)
 
             for i, cmd in enumerate(commands):
-                jobname = "dm_qc_report_{}_{}".format(time.strftime("%Y%m%d-%H%M%S"), i)
-                logfile = os.path.join(log_dir, '{}.log'.format(jobname))
-                errfile = os.path.join(log_dir, '{}.err'.format(jobname))
+                jobname = "qc_report_{}_{}".format(time.strftime("%Y%m%d-%H%M%S"), i)
+                logfile = '/tmp/{}.log'.format(jobname)
+                errfile = '/tmp/{}.err'.format(jobname)
                 #rtn, out, err = dm.utils.run('qbatch -i --logdir {logdir} -N {name} --walltime {wt} {cmds}'.format(logdir = log_dir, name = jobname, wt = walltime, cmds = path), dryrun = DRYRUN)
-                print('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
                 rtn, out, err = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(
                     cmd, logfile, errfile, jobname), dryrun = DRYRUN)
 
