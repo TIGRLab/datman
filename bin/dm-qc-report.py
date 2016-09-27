@@ -544,6 +544,7 @@ def main():
 
     nii_dir = config['paths']['nii']
     log_dir = dm.utils.define_folder(config['paths']['log'])
+    qc_dir = dm.utils.define_folder(config['paths']['qc'])
 
     if scanid:
         path = os.path.join(nii_dir, scanid)
@@ -558,7 +559,15 @@ def main():
     # run in batch mode
     else:
         commands = []
-        for path in glob.glob('{}/*'.format(nii_dir)):
+        nii_dirs = glob.glob('{}/*'.format(nii_dir))
+        qc_dirs = glob.glob('{}/*'.format(qc_dir))
+
+        if REWRITE:
+            todo = nii_dirs
+        else:
+            todo = list(set(nii_dirs) - set(qc_dirs))
+
+        for path in todo:
             subject = os.path.basename(path)
 
             if REWRITE:
@@ -567,16 +576,18 @@ def main():
                 commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
 
         if commands:
-            jobname = "dm_qc_report_{}".format(time.strftime("%Y%m%d-%H%M%S"))
             fd, path = tempfile.mkstemp()
             os.write(fd, '\n'.join(commands))
             os.close(fd)
 
-            rtn, out, err = dm.utils.run('qbatch -i --logdir {logdir} -N {name} --walltime {wt} {cmds}'.format(
-                logdir = log_dir,
-                name = jobname,
-                wt = walltime,
-                cmds = path), dryrun = DRYRUN)
+            for i, cmd in enumerate(commands):
+                jobname = "dm_qc_report_{}_{}".format(time.strftime("%Y%m%d-%H%M%S"), i)
+                logfile = os.path.join(log_dir, '{}.log'.format(jobname))
+                errfile = os.path.join(log_dir, '{}.err'.format(jobname))
+                #rtn, out, err = dm.utils.run('qbatch -i --logdir {logdir} -N {name} --walltime {wt} {cmds}'.format(logdir = log_dir, name = jobname, wt = walltime, cmds = path), dryrun = DRYRUN)
+                print('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
+                rtn, out, err = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(
+                    cmd, logfile, errfile, jobname), dryrun = DRYRUN)
 
             if rtn != 0:
                 logger.error("Job submission failed.")
