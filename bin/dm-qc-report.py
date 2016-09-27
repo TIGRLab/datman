@@ -543,7 +543,6 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
 
     nii_dir = config['paths']['nii']
-    log_dir = dm.utils.define_folder(config['paths']['log'])
     qc_dir = dm.utils.define_folder(config['paths']['qc'])
 
     if scanid:
