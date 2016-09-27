@@ -545,6 +545,13 @@ def main():
     nii_dir = config['paths']['nii']
     qc_dir = dm.utils.define_folder(config['paths']['qc'])
 
+    # remove empty files
+    for root, dirs, files in os.walk(qc_dir):
+        for f in files:
+            filename = os.path.join(root, f)
+            if os.path.getsize(filename) == 0:
+                os.remove(filename)
+
     if scanid:
         path = os.path.join(nii_dir, scanid)
 
