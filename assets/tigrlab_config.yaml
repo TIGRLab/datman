@@ -197,18 +197,12 @@ PipelineSettings:
     #     arguments: [ '${PROJECTDIR}/data/nii/*/*DTI60-1000*.nii.gz' ]
     #     dependancies: [ AFNI ]
 
-    - 'qc-html.py' :
+    - 'dm-qc-report.py' :
         message: Generating QC documents
         arguments:
-          - '--datadir ${PROJECTDIR}/data/'
-          - '--qcdir ${PROJECTDIR}/qc'
-          - '--project-settings ${PROJECTDIR}/metadata/project_settings.yml'
+          - '${PROJECTDIR}/metadata/project_settings.yml'
         dependancies: [AFNI, FSL, matlab]
         runInsideSubShell : Yes
-        # qbatch:
-        #   - '-c 1'
-        #   - '-N qc_${STUDYNAME}_${DATESTAMP}'
-        #   - '--logdir ${PROJECTDIR}/logs'
 
     - 'qc-report.py' :
         arguments: ['${PROJECTDIR}']
