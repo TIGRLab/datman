@@ -18,7 +18,7 @@ Arguments:
     <subject>           Subject timepoint to process
 
 Options:
-    --walltime TIME    Walltime for each subject job [default: 2:00:00]
+    --walltime TIME    Walltime for each subject job [default: 4:00:00]
     -v,--verbose       Verbose logging
     --debug            Debug logging
     --dry-run          Don't do anything
@@ -682,7 +682,6 @@ def main():
             fd, path = tempfile.mkstemp()
             os.write(fd, '\n'.join(commands))
             os.close(fd)
-
             # using qbatch -i (individual jobs) rather than the default array
             # job to work around interaction between epitome scripts and PBS
             # tempdir names.
