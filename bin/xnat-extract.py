@@ -15,15 +15,12 @@ Options:
     -n, --dry-run       Do nothing
 
 INPUT FOLDERS
-    The <archivedir> is the XNAT archive directory to extract from. This should
-    point to a single scan folder, and the folder should be named according to
-    our data naming scheme. For example,
-
-        /xnat/spred/archive/SPINS/arc001/SPN01_CMH_0001_01_01
+    The <archivedir> is the XNAT archive directory to extract from. This is
+    defined in site:XNAT_Archive.
 
     This folder is expected to have the following subfolders:
 
-    SPN01_CMH_0001_01_01/
+    SPN01_CMH_0001_01_01/           (subject name following DATMAN convention)
       RESOURCES/                    (optional)
         *                           (optional non-dicom data)
       SCANS/
@@ -59,53 +56,19 @@ OUTPUT FILE NAMING
 
         DTI_CMH_H001_01_01_T1_11_Sag-T1-BRAVO.nii.gz
 
-    The <tag> field is looked up in the export info table (e.g.
-    protocols.csv), see below.
-
-EXPORT TABLE FORMAT
-    This export table (specified by --exportinfo) file should contain lookup
-    table that supplies a pattern to match against the DICOM SeriesDescription
-    header and corresponding tag name. Additionally, the export table should
-    contain a column for each export filetype with "yes" if the series should
-    be exported to that format.
-
-    For example:
-
-    pattern       tag     export_mnc  export_nii  export_nrrd  count
-    Localiser     LOC     no          no          no           1
-    Calibration   CAL     no          no          no           1
-    Aniso         ANI     no          no          no           1
-    HOS           HOS     no          no          no           1
-    T1            T1      yes         yes         yes          1
-    T2            T2      yes         yes         yes          1
-    FLAIR         FLAIR   yes         yes         yes          1
-    Resting       RES     no          yes         no           1
-    Observe       OBS     no          yes         no           1
-    Imitate       IMI     no          yes         no           1
-    DTI-60        DTI-60  no          yes         yes          3
-    DTI-33-b4500  b4500   no          yes         yes          1
-    DTI-33-b3000  b3000   no          yes         yes          1
-    DTI-33-b1000  b1000   no          yes         yes          1
+    The <tag> is determined from project_settings.yml
 
 NON-DICOM DATA
-    XNAT puts "other" (i.e. non-DICOM data) into the RESOURCES folder. This
+    XNAT puts "other" (i.e. non-DICOM data) into the RESOURCES folder, defined
+    in paths:resources.
+
     data will be copied to a subfolder of the data directory named
-    resources/<scanid>, for example:
+    paths:resources/<scanid>, for example:
 
-        resources/SPN01_CMH_0001_01_01/
+        /path/to/resources/SPN01_CMH_0001_01_01/
 
-    In addition to the data in RESOURCES, the *_catalog.xml file from each scan
-    series will be placed in the resources folder with the output file naming
-    listed above, e.g.
-
-        resources/SPN01_CMH_0001_01_01/
-            SPN01_CMH_0001_01_01_CAT_001_catalog.xml
-            SPN01_CMH_0001_01_01_CAT_002_catalog.xml
-            ...
-
-EXAMPLES
-
-    xnat-extract.py /xnat/spred/archive/SPINS/arc001/SPN01_CMH_0001_01_01
+DEPENDENCIES
+    dcm2nii
 
 """
 from docopt import docopt
