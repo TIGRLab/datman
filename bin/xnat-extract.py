@@ -126,13 +126,6 @@ DEBUG  = False
 VERBOSE= False
 DRYRUN = False
 
-exporters = {
-    "mnc" : export_mnc_command,
-    "nii" : export_nii_command,
-    "nrrd": export_nrrd_command,
-    "dcm" : export_dcm_command,
-}
-
 def log(message):
     print message
     sys.stdout.flush()
@@ -218,10 +211,8 @@ def export_series(exportinfo, src, header, timepoint, stem, config, blacklist):
         error("Multiple export patterns match for {}, descr: {}, tags: {}".format(src, description, tag))
         return
 
-    tag_exportinfo = exportinfo[exportinfo['tag'] == tag]
-
     # update the filestem with _tag_series_description
-    stem  += "_" + "_".join([tag,series,mangled_descr])
+    stem  += "_" + "_".join([tag, series, mangled_descr])
 
     if blacklist:
         if stem in read_blacklist(blacklist):
@@ -230,6 +221,13 @@ def export_series(exportinfo, src, header, timepoint, stem, config, blacklist):
 
     nii_dir = dm.utils.define_folder(config['paths']['nii'])
     dcm_dir = dm.utils.define_folder(config['paths']['dcm'])
+
+    exporters = {
+        "mnc" : export_mnc_command,
+        "nii" : export_nii_command,
+        "nrrd": export_nrrd_command,
+        "dcm" : export_dcm_command,
+    }
 
     exporters['nii'](src, os.path.join(nii_dir, timepoint), stem)
     exporters['dcm'](src, os.path.join(dcm_dir, timepoint), stem)
@@ -376,8 +374,7 @@ def main():
     global DRYRUN
     global VERBOSE
     arguments = docopt(__doc__)
-    config         = arguments['<config>']
-    datadir        = arguments['--datadir']
+    config_file    = arguments['<config>']
     blacklist      = arguments['--blacklist']
     VERBOSE        = arguments['--verbose']
     DEBUG          = arguments['--debug']
@@ -393,13 +390,13 @@ def main():
     sites = config['Sites'].keys()
 
     for site in sites:
-        archive_path = config[site]['XNAT_Archive']
-        exportinfo = parse_exportinfo(config[site]['ExportInfo'])
+        archive_path = config['Sites'][site]['XNAT_Archive']
+        exportinfo = parse_exportinfo(config['Sites'][site]['ExportInfo'])
 
-        archives = glob.glob(os.path.join(archive_path, '/*'))
+        archives = glob.glob(os.path.join(archive_path, '*'))
 
-        for archive in archices:
-            verbose("Exporting {}".format(archivepath))
+        for archive in archives:
+            verbose("Exporting {}".format(archive))
             extract_archive(exportinfo, archive,  config, blacklist=blacklist)
 
 if __name__ == '__main__':
