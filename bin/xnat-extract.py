@@ -192,7 +192,7 @@ def export_series(exportinfo, src, header, timepoint, stem, config, blacklist):
         "dcm" : export_dcm_command,
     }
     exporters['nii'](src, nii_dir, stem)
-    exporters['dcm'](src, nii_dir, stem)
+    exporters['dcm'](src, dcm_dir, stem)
 
 def read_blacklist(blacklist):
     """
