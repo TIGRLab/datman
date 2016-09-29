@@ -182,8 +182,8 @@ def export_series(exportinfo, src, header, timepoint, stem, config, blacklist):
             debug("{} in blacklist. Skipping.".format(stem))
             return
 
-    nii_dir = dm.utils.define_folder(config['paths']['nii'])
-    dcm_dir = dm.utils.define_folder(config['paths']['dcm'])
+    nii_dir = dm.utils.define_folder(os.path.join(config['paths']['nii'], timepoint))
+    dcm_dir = dm.utils.define_folder(os.path.join(config['paths']['dcm'], timepoint))
 
     exporters = {
         "mnc" : export_mnc_command,
@@ -191,9 +191,8 @@ def export_series(exportinfo, src, header, timepoint, stem, config, blacklist):
         "nrrd": export_nrrd_command,
         "dcm" : export_dcm_command,
     }
-
-    exporters['nii'](src, os.path.join(nii_dir, timepoint), stem)
-    exporters['dcm'](src, os.path.join(dcm_dir, timepoint), stem)
+    exporters['nii'](src, nii_dir, stem)
+    exporters['dcm'](src, nii_dir, stem)
 
 def read_blacklist(blacklist):
     """
