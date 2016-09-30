@@ -439,11 +439,11 @@ def check_returncode(returncode):
     if returncode != 0:
         raise ValueError
 
-def get_loaded_modules(): 
+def get_loaded_modules():
     """Returns a space separated list of loaded modules
 
     These are modules loaded by the environment-modules system. This function
-    just looks in the LOADEDMODULES environment variable for the list. 
+    just looks in the LOADEDMODULES environment variable for the list.
     """
     return " ".join(os.environ.get("LOADEDMODULES","").split(":"))
 
