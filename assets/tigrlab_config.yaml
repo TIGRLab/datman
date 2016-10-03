@@ -39,9 +39,6 @@ XNATProjects:
   VIPR:     ['VIPR']
   PASD:     ['PASD']
 
-
-
-
 ### the SystemsSettings is hold paths specific you your system
 ### as well as information for loading software packages
 ## Keys:
@@ -77,7 +74,7 @@ SystemSettings:
   kimel:
     hostname: 'camhres.ca'
     DATMAN_PROJECTSDIR: '/archive/data-2.0'
-    DATMAN_ASSETSDIR: '/archive/data-2.0/code/datman/assets'
+    DATMAN_ASSETSDIR: '/archive/code/datman/assets'
     XNAT_ARCHIVEDIR: '/mnt/xnat/spred/archive'
     to_load_quarantine: 'module load SGE-extras'
     PipelineSettings_torun: ['data']
