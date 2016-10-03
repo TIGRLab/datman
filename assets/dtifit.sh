@@ -3,10 +3,10 @@ function usage {
 echo "
 Runs eddy_correct, bet and dtifit on a dwi image
 
-If phantom = 1, we skip eddy_correct.
+This is only meant for human data.
 
 Usage:
-   dtifit.sh <dwifile.nii.gz> <outputdir> <ref_vol> <fa_thresh> <phantom>
+   dtifit.sh <dwifile.nii.gz> <outputdir> <ref_vol> <fa_thresh>
 
 "
 }
@@ -16,7 +16,6 @@ dwifile="$1"
 outputdir="$2"
 ref_vol="$3"
 fa_thresh="$4"
-phantom="$5"
 
 if [ $# -ne 5 ]; then
   usage;
@@ -41,15 +40,9 @@ bet=${b0}_bet
 mask=${bet}_mask
 dtifit=${eddy}_dtifit
 
-if [ ${phantom} -ne 1 ]; then
-    echo "MSG: analyzing ${dwifile} as a Human."
-    input=${eddy}
-    if [ ! -e ${eddy}.nii.gz ]; then
-        eddy_correct ${dwifile} ${eddy} ${ref_vol}
-    fi
-else
-    echo "MSG: analyzing ${dwifile} as a Phantom."
-    input=${dwifile}
+input=${eddy}
+if [ ! -e ${eddy}.nii.gz ]; then
+    eddy_correct ${dwifile} ${eddy} ${ref_vol}
 fi
 
 if [ ! -e ${b0}.nii.gz ]; then

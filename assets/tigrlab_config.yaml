@@ -19,6 +19,25 @@ Projects:
   STOPPD:   '<DATMAN_PROJECTSDIR>/STOPPD'
   SPINS:    '<DATMAN_PROJECTSDIR>/SPINS'
   VIPR:     '<DATMAN_PROJECTSDIR>/VIPR'
+  PASD:     '<DATMAN_PROJECTSDIR>/PASD'
+  PASD01:   '<DATMAN_PROJECTSDIR>/PASD01'
+
+## Translate Projectid's to XNAT projects
+XNATProjects:
+  ANDT:     ['ANDT']
+  ASDD:     ['ASDD']
+  COGBDO:   ['COGBDO']
+  COGBDY:   ['COGBDY']
+  DBDC:     ['DBDC']
+  DTI_CMH:  ['DTI']
+  PACTMD:   ['PACTMD']
+  PRELAPSE: ['PRE01', 'PRE05', 'PRE07']
+  PNSC:     ['PNS']
+  RTMSWM:   ['RTMSWM']
+  STOPDD:   ['STOPPD']
+  SPINS:    ['SPIN01', 'SPN01']
+  VIPR:     ['VIPR']
+  PASD:     ['PASD']
 
 ### the SystemsSettings is hold paths specific you your system
 ### as well as information for loading software packages
@@ -55,7 +74,7 @@ SystemSettings:
   kimel:
     hostname: 'camhres.ca'
     DATMAN_PROJECTSDIR: '/archive/data-2.0'
-    DATMAN_ASSETSDIR: '/archive/data-2.0/code/datman/assets'
+    DATMAN_ASSETSDIR: '/archive/code/datman/assets'
     XNAT_ARCHIVEDIR: '/mnt/xnat/spred/archive'
     to_load_quarantine: 'module load SGE-extras'
     PipelineSettings_torun: ['data']
@@ -175,18 +194,12 @@ PipelineSettings:
     #     arguments: [ '${PROJECTDIR}/data/nii/*/*DTI60-1000*.nii.gz' ]
     #     dependancies: [ AFNI ]
 
-    - 'qc-html.py' :
+    - 'dm-qc-report.py' :
         message: Generating QC documents
         arguments:
-          - '--datadir ${PROJECTDIR}/data/'
-          - '--qcdir ${PROJECTDIR}/qc'
-          - '--project-settings ${PROJECTDIR}/metadata/project_settings.yml'
+          - '${PROJECTDIR}/metadata/project_settings.yml'
         dependancies: [AFNI, FSL, matlab]
         runInsideSubShell : Yes
-        # qbatch:
-        #   - '-c 1'
-        #   - '-N qc_${STUDYNAME}_${DATESTAMP}'
-        #   - '--logdir ${PROJECTDIR}/logs'
 
     - 'qc-report.py' :
         arguments: ['${PROJECTDIR}']
