@@ -456,7 +456,7 @@ def qc_subject(scanpath, subject, config):
 
     if os.path.isfile(report_name) and not REWRITE:
         logger.debug("MSG: {} exists, skipping.".format(report_name))
-        return(report_name)
+        return
 
     if os.path.isfile(report_name) and REWRITE:
         os.remove(report_name)
@@ -572,8 +572,9 @@ def main():
         else:
             logger.info("MSG: qc {}".format(path))
             report_name = qc_subject(path, scanid, config)
-            with open(os.path.join(meta_dir, checklist_file), "a") as checklist:
-                checklist.write(os.path.basename(report_name))
+            if report_name:
+                with open(os.path.join(meta_dir, checklist_file), "a") as checklist:
+                    checklist.write(os.path.basename(report_name))
 
     # run in batch mode
     else:
