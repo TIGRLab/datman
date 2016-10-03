@@ -19,7 +19,7 @@ from docopt import docopt
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARN)
 
-ARGUMENTS = docopt(__doc__)
+
 
 class config:
     site_config = None
@@ -60,3 +60,5 @@ class config:
             self.study_config = self.load_yaml(os.path.join(project_path,
                                                             'metadata',
                                                             'project_settings.yml'))
+if __name__ == '__main__':
+    ARGUMENTS = docopt(__doc__)
