@@ -6,12 +6,15 @@ given, all subjects are submitted individually to the queue.
 usage:
     dm-qc-report.py [options] <config>
 
+Arguments:
+    <config>           Project configuration file
+
 Options:
-    --subject SCANID        Scan ID to QC for. E.g. DTI_CMH_H001_01_01
-    --walltime              Walltime for batch mode jobs [default: 1:00:00]
-    --rewrite               Rewrite the html of an existing qc page
-    --debug                 Be extra chatty
-    --dry-run               Don't actually do any work
+    --subject SCANID   Scan ID to QC for. E.g. DTI_CMH_H001_01_01
+    --walltime         Walltime for batch mode jobs [default: 1:00:00]
+    --rewrite          Rewrite the html of an existing qc page
+    --debug            Be extra chatty
+    --dry-run          Don't actually do any work
 
 Details:
     This program QCs the data contained in <NiftiDir> and <DicomDir>, and
