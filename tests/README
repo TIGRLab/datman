@@ -1,0 +1,8 @@
+In order to use the tests in this directory that import code from outside of datman/datman
+(e.g. modules in datman/bin) the following must be true:
+
+	1. __init__.py must be present in the directory with the modules being imported
+	2. nosetests must be run from the datman folder OR the path to datman must be in 
+	   PYTHONPATH
+
+Otherwise these tests will cause an ImportError to be thrown.
