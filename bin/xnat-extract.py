@@ -3,30 +3,24 @@
 Extracts data from xnat archive folders into a few well-known formats.
 
 Usage:
-    extract.py [options] <archivedir>...
+    xnat-extract.py [options] <config>
 
 Arguments:
-    <archivedir>            Path to scan folder within the XNAT archive
+    <config>            Project configuration file.
 
 Options:
-    --datadir DIR           Parent folder to extract to [default: ./data]
-    --exportinfo FILE       Table listing acquisitions to export by format
-                            [default: ./metadata/exportinfo.csv]
-    --blacklist FILE        Table listing series to ignore
-    -v, --verbose           Show intermediate steps
-    --debug                 Show debug messages
-    -n, --dry-run           Do nothing
+    --blacklist FILE    Table listing series to ignore
+    -v, --verbose       Show intermediate steps
+    --debug             Show debug messages
+    -n, --dry-run       Do nothing
 
 INPUT FOLDERS
-    The <archivedir> is the XNAT archive directory to extract from. This should
-    point to a single scan folder, and the folder should be named according to
-    our data naming scheme. For example,
-
-        /xnat/spred/archive/SPINS/arc001/SPN01_CMH_0001_01_01
+    The <archivedir> is the XNAT archive directory to extract from. This is
+    defined in site:XNAT_Archive.
 
     This folder is expected to have the following subfolders:
 
-    SPN01_CMH_0001_01_01/
+    SPN01_CMH_0001_01_01/           (subject name following DATMAN convention)
       RESOURCES/                    (optional)
         *                           (optional non-dicom data)
       SCANS/
@@ -62,56 +56,23 @@ OUTPUT FILE NAMING
 
         DTI_CMH_H001_01_01_T1_11_Sag-T1-BRAVO.nii.gz
 
-    The <tag> field is looked up in the export info table (e.g.
-    protocols.csv), see below.
-
-EXPORT TABLE FORMAT
-    This export table (specified by --exportinfo) file should contain lookup
-    table that supplies a pattern to match against the DICOM SeriesDescription
-    header and corresponding tag name. Additionally, the export table should
-    contain a column for each export filetype with "yes" if the series should
-    be exported to that format.
-
-    For example:
-
-    pattern       tag     export_mnc  export_nii  export_nrrd  count
-    Localiser     LOC     no          no          no           1
-    Calibration   CAL     no          no          no           1
-    Aniso         ANI     no          no          no           1
-    HOS           HOS     no          no          no           1
-    T1            T1      yes         yes         yes          1
-    T2            T2      yes         yes         yes          1
-    FLAIR         FLAIR   yes         yes         yes          1
-    Resting       RES     no          yes         no           1
-    Observe       OBS     no          yes         no           1
-    Imitate       IMI     no          yes         no           1
-    DTI-60        DTI-60  no          yes         yes          3
-    DTI-33-b4500  b4500   no          yes         yes          1
-    DTI-33-b3000  b3000   no          yes         yes          1
-    DTI-33-b1000  b1000   no          yes         yes          1
+    The <tag> is determined from project_settings.yml
 
 NON-DICOM DATA
-    XNAT puts "other" (i.e. non-DICOM data) into the RESOURCES folder. This
+    XNAT puts "other" (i.e. non-DICOM data) into the RESOURCES folder, defined
+    in paths:resources.
+
     data will be copied to a subfolder of the data directory named
-    resources/<scanid>, for example:
+    paths:resources/<scanid>, for example:
 
-        resources/SPN01_CMH_0001_01_01/
+        /path/to/resources/SPN01_CMH_0001_01_01/
 
-    In addition to the data in RESOURCES, the *_catalog.xml file from each scan
-    series will be placed in the resources folder with the output file naming
-    listed above, e.g.
-
-        resources/SPN01_CMH_0001_01_01/
-            SPN01_CMH_0001_01_01_CAT_001_catalog.xml
-            SPN01_CMH_0001_01_01_CAT_002_catalog.xml
-            ...
-
-EXAMPLES
-
-    xnat-extract.py /xnat/spred/archive/SPINS/arc001/SPN01_CMH_0001_01_01
+DEPENDENCIES
+    dcm2nii
 
 """
 from docopt import docopt
+import dicom
 import pandas as pd
 import datman as dm
 import datman.utils
@@ -122,6 +83,7 @@ import subprocess as proc
 import tempfile
 import glob
 import shutil
+import yaml
 
 DEBUG  = False
 VERBOSE= False
@@ -142,10 +104,6 @@ def debug(message):
     if not DEBUG: return
     log("DEBUG: " + message)
 
-def makedirs(path):
-    debug("makedirs: {}".format(path))
-    if not DRYRUN: os.makedirs(path)
-
 def run(cmd):
     debug("exec: {}".format(cmd))
     if not DRYRUN:
@@ -160,39 +118,8 @@ def run(cmd):
             out and debug("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
             err and debug("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
 
-def main():
-    global DEBUG
-    global DRYRUN
-    global VERBOSE
-    arguments = docopt(__doc__)
-    archives       = arguments['<archivedir>']
-    exportinfofile = arguments['--exportinfo']
-    datadir        = arguments['--datadir']
-    blacklist      = arguments['--blacklist'] or []
-    VERBOSE        = arguments['--verbose']
-    DEBUG          = arguments['--debug']
-    DRYRUN         = arguments['--dry-run']
 
-    try:
-        exportinfo = pd.read_table(exportinfofile, sep='\s*', engine="python")
-    except IOError, _:
-        error("{} does not exist".format(exportinfofile))
-        return
-
-    if blacklist:
-        try:
-            bl = pd.read_table(blacklist, sep='\s*', engine="python")
-        except IOError, _:
-            debug("{} does not exist. Running on all series".format(
-                    blacklist))
-            bl = []
-
-    for archivepath in archives:
-        verbose("Exporting {}".format(archivepath))
-        extract_archive(exportinfo, archivepath, datadir, blacklist)
-
-
-def extract_archive(exportinfo, archivepath, exportdir, blacklist):
+def extract_archive(exportinfo, archivepath, config, blacklist=None):
     """
     Exports an XNAT archive to various file formats.
 
@@ -211,108 +138,94 @@ def extract_archive(exportinfo, archivepath, exportdir, blacklist):
     try:
         scanid = datman.scanid.parse(basename)
     except datman.scanid.ParseException, e:
-        error("{} folder is not named according to the data naming policy. " \
-              "Skipping".format(archivepath))
+        error("{} folder is not named according to the data naming policy. Skipping".format(archivepath))
         return
 
     scanspath = os.path.join(archivepath,'SCANS')
     if not os.path.isdir(scanspath):
-        error("{} doesn't exist. Not an XNAT archive. "\
-              "Skipping.".format(scanspath))
+        error("{} doesn't exist. Not an XNAT archive. Skipping.".format(scanspath))
         return
 
-    fmts         = get_formats_from_exportinfo(exportinfo)
-    unknown_fmts = [fmt for fmt in fmts if fmt not in exporters]
-
-    if len(unknown_fmts) > 0:
-        error("Unknown formats requested for export of {}: {}. " \
-              "Skipping.".format(archivepath, ",".join(unknown_fmts)))
-        return
-
-    # export each series to datadir/fmt/subject/
+    # export data to datadir/fmt/subject/
     timepoint = scanid.get_full_subjectid_with_timepoint()
 
     stem  = str(scanid)
     for src, header in dm.utils.get_archive_headers(archivepath).items():
-        export_series(exportinfo, src, header, fmts, timepoint, stem,
-                exportdir, blacklist)
+        export_series(exportinfo, src, header, timepoint, stem, config, blacklist)
 
     # export non dicom resources
-    export_resources(archivepath, exportdir, scanid)
+    export_resources(archivepath, config, scanid)
 
-def export_series(exportinfo, src, header, formats, timepoint, stem,
-        exportdir, blacklist):
+def export_series(exportinfo, src, header, timepoint, stem, config, blacklist):
     """
     Exports the given DICOM folder into the given formats.
     """
     description   = header.get("SeriesDescription")
     mangled_descr = dm.utils.mangle(description)
     series        = str(header.get("SeriesNumber")).zfill(2)
-    tagmap        = dict(zip(exportinfo['pattern'].tolist(),
-                             exportinfo['tag'].tolist()))
-    tag           = dm.utils.guess_tag(mangled_descr, tagmap)
+    tag           = dm.utils.guess_tag(mangled_descr, exportinfo)
 
-    debug("{}: description = {}, series = {}, tag = {}".format(
-        src, description, series, tag))
+    debug("{}: description = {}, series = {}, tag = {}".format(src, description, series, tag))
 
     if not tag:
-        verbose("No matching export pattern for {}, descr: {}. Skipping".format(
-            src, description))
+        verbose("No matching export pattern for {}, descr: {}. Skipping".format(src, description))
         return
     elif type(tag) is list:
-        error("Multiple export patterns match for {}, descr: {}, tags: {}".format(
-            src, description, tag))
+        error("Multiple export patterns match for {}, descr: {}, tags: {}".format(src, description, tag))
         return
-
-    tag_exportinfo = exportinfo[exportinfo['tag'] == tag]
 
     # update the filestem with _tag_series_description
-    stem  += "_" + "_".join([tag,series,mangled_descr])
+    stem  += "_" + "_".join([tag, series, mangled_descr])
 
-    if blacklist and stem in blacklist:
-        debug("{} in blacklist. Skipping.".format(stem))
-        return
+    if blacklist:
+        if stem in read_blacklist(blacklist):
+            debug("{} in blacklist. Skipping.".format(stem))
+            return
 
-    for fmt in formats:
-        if all(tag_exportinfo['export_'+fmt] == 'no'):
-            debug("{}: export_{} set to 'no' for tag {} so skipping".format(
-                src, fmt, tag))
-            continue
+    nii_dir = dm.utils.define_folder(os.path.join(config['paths']['nii'], timepoint))
+    dcm_dir = dm.utils.define_folder(os.path.join(config['paths']['dcm'], timepoint))
 
-        outputdir  = os.path.join(exportdir,fmt,timepoint)
-        if not os.path.exists(outputdir): makedirs(outputdir)
+    exporters = {
+        "mnc" : export_mnc_command,
+        "nii" : export_nii_command,
+        "nrrd": export_nrrd_command,
+        "dcm" : export_dcm_command,
+    }
+    exporters['nii'](src, nii_dir, stem)
+    exporters['dcm'](src, dcm_dir, stem)
 
-        exporters[fmt](src,outputdir,stem)
-
-def get_formats_from_exportinfo(dataframe):
+def read_blacklist(blacklist):
     """
-    Gets the export formats from the column names in an exportinfo table.
-
-    Columns that begin with "export_" are extracted, and the format identifier
-    from each column is returned, as a list.
+    If --blacklist is set, reads the given csv and returns a list of series
+    which are blacklisted. Otherwise returns an empty list.
     """
+    try:
+        blacklist = pd.read_table(blacklist, sep='\s*', engine="python")
+        series_list = blacklist.columns.tolist()[0]
+        blacklisted_series = blacklist[series_list].values.tolist()
 
-    columns = dataframe.columns.values.tolist()
-    formats = [c.split("_")[1] for c in columns if c.startswith("export_")]
-    return formats
+        return blacklisted_series
 
-def export_resources(archivepath, exportdir, scanid):
+    except IOError:
+        debug("{} does not exist. Running on all series".format(blacklist))
+    except ValueError:
+        error("{} cannot be read. Check that no entries contain white space.".format(blacklist))
+
+def export_resources(archivepath, config, scanid):
     """
     Exports all the non-dicom resources for an exam archive.
     """
     sourcedir = os.path.join(archivepath, "RESOURCES")
 
     if not os.path.isdir(sourcedir):
-        debug("{} isn't a directory, so won't export resources".format(
-            sourcedir))
+        debug("{} isn't a directory, so won't export resources".format(sourcedir))
         return
 
     debug("Exporting non-dicom stuff from {}".format(archivepath))
-    outputdir = os.path.join(exportdir,"RESOURCES",str(scanid))
-    if not os.path.exists(outputdir): makedirs(outputdir)
-    run("rsync -a {}/ {}/".format(sourcedir, outputdir))
+    resources_dir = dm.utils.define_folder(os.path.join(config['paths']['resources'], str(scanid)))
+    run("rsync -a {}/ {}/".format(sourcedir, resources_dir))
 
-def export_mnc_command(seriesdir,outputdir,stem):
+def export_mnc_command(seriesdir, outputdir, stem):
     """
     Converts a DICOM series to MINC format
     """
@@ -324,11 +237,10 @@ def export_mnc_command(seriesdir,outputdir,stem):
         return
 
     verbose("Exporting series {} to {}".format(seriesdir, outputfile))
-    cmd = 'dcm2mnc -fname {} -dname "" {}/* {}'.format(
-            stem,seriesdir,outputdir)
+    cmd = 'dcm2mnc -fname {} -dname "" {}/* {}'.format(stem, seriesdir, outputdir)
     run(cmd)
 
-def export_nii_command(seriesdir,outputdir,stem):
+def export_nii_command(seriesdir, outputdir, stem):
     """
     Converts a DICOM series to NifTi format
     """
@@ -343,7 +255,7 @@ def export_nii_command(seriesdir,outputdir,stem):
 
     # convert into tempdir
     tmpdir = tempfile.mkdtemp()
-    run('dcm2nii -x n -g y  -o {} {}'.format(tmpdir,seriesdir))
+    run('dcm2nii -x n -g y -o {} {}'.format(tmpdir,seriesdir))
 
     # move nii in tempdir to proper location
     for f in glob.glob("{}/*".format(tmpdir)):
@@ -355,25 +267,24 @@ def export_nii_command(seriesdir,outputdir,stem):
             run("mv {} {}/{}{}".format(f, outputdir, stem, ext))
     shutil.rmtree(tmpdir)
 
-def export_nrrd_command(seriesdir,outputdir,stem):
+def export_nrrd_command(seriesdir, outputdir, stem):
     """
     Converts a DICOM series to NRRD format
     """
     outputfile = os.path.join(outputdir,stem) + ".nrrd"
 
     if os.path.exists(outputfile):
-        debug("{}: output {} exists. skipping.".format(
-            seriesdir, outputfile))
+        debug("{}: output {} exists. skipping.".format(seriesdir, outputfile))
         return
 
     verbose("Exporting series {} to {}".format(seriesdir, outputfile))
 
-    cmd = 'DWIConvert -i {} --conversionMode DicomToNrrd -o {}.nrrd ' \
-          '--outputDirectory {}'.format(seriesdir,stem,outputdir)
+    cmd = 'DWIConvert -i {} --conversionMode DicomToNrrd -o {}.nrrd --outputDirectory {}'.format(
+        seriesdir,stem,outputdir)
 
     run(cmd)
 
-def export_dcm_command(seriesdir,outputdir,stem):
+def export_dcm_command(seriesdir, outputdir, stem):
     """
     Copies a single DICOM from the series.
     """
@@ -383,7 +294,6 @@ def export_dcm_command(seriesdir,outputdir,stem):
             seriesdir, outputfile))
         return
 
-    import dicom
     dcmfile = None
     for path in glob.glob(seriesdir + '/*'):
         try:
@@ -396,16 +306,63 @@ def export_dcm_command(seriesdir,outputdir,stem):
     assert dcmfile is not None, "No dicom files found in {}".format(seriesdir)
     verbose("Exporting a dcm file from {} to {}".format(seriesdir, outputfile))
     cmd = 'cp {} {}'.format(dcmfile, outputfile)
+
     run(cmd)
 
-exporters = {
-    "mnc" : export_mnc_command,
-    "nii" : export_nii_command,
-    "nrrd": export_nrrd_command,
-    "dcm" : export_dcm_command,
-}
+def parse_exportinfo(exportinfo):
+    """
+    Takes the dictionary structure from project_settings.yaml and returns a
+    pattern:tag dictionary.
+
+    If multiple patterns are specified in the configuration file, these are
+    joined with an '|' (OR) symbol.
+    """
+    tags = exportinfo.keys()
+    patterns = [tagtype["Pattern"] for tagtype in exportinfo.values()]
+
+    regex = []
+    for pattern in patterns:
+        if type(pattern) == list:
+            regex.append(("|").join(pattern))
+        else:
+            regex.append(pattern)
+
+    tagmap = dict(zip(regex, tags))
+
+    return tagmap
+
+def main():
+    global DEBUG
+    global DRYRUN
+    global VERBOSE
+    arguments = docopt(__doc__)
+    config_file    = arguments['<config>']
+    blacklist      = arguments['--blacklist']
+    VERBOSE        = arguments['--verbose']
+    DEBUG          = arguments['--debug']
+    DRYRUN         = arguments['--dry-run']
+
+    with open(config_file, 'r') as stream:
+        config = yaml.load(stream)
+
+    for k in ['dcm', 'nii', 'mnc', 'nrrd']:
+        if k not in config['paths']:
+            sys.exit("ERROR: paths:{} n t defined in {}".format(k, configfile))
+
+    sites = config['Sites'].keys()
+
+    for site in sites:
+        archive_path = config['Sites'][site]['XNAT_Archive']
+        exportinfo = parse_exportinfo(config['Sites'][site]['ExportInfo'])
+        if not os.path.isdir(archive_path):
+            sys.exit('ERROR: archive directory {} defined in {} not found'.format(archive_path, config_file))
+
+        archives = glob.glob(os.path.join(archive_path, '*'))
+
+        for archive in archives:
+            verbose("Exporting {}".format(archive))
+            extract_archive(exportinfo, archive,  config, blacklist=blacklist)
 
 if __name__ == '__main__':
     main()
 
-# vim: ts=4 sw=4:

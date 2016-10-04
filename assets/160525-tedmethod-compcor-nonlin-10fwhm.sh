@@ -37,7 +37,6 @@ export DIR_EXPT=TEMP
 export DATA_TYPE=FUNC
 export ID=DATMAN
 export SUB=SUBJ
-McRetroTS='/home/jdv/epitome/151012-spins/bin/run_McRetroTS.sh /opt/quarantine/matlab/matlab_concurrent_all/MATLAB_R2014b/build'
 
 export DATA_QUALITY=high
 export DESPIKE=on

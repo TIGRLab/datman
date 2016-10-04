@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Runs dtifit  (╯°□°）╯︵ ┻━┻
+Runs dtifit (on humans) (╯°□°）╯︵ ┻━┻
 
 Usage:
     dm-proc-dtifit.py [options]
@@ -69,11 +69,9 @@ def main():
         files = dm.utils.get_files_with_tag(inputpath, 'DTI', fuzzy = True)
         dwifiles = filter(lambda x: x.endswith('.nii.gz'), files)
 
-        # determine whether to run eddy correct or not on the data
+        # skip phantoms
         if '_PHA_' in subjectname:
-            phantom = 1
-        else:
-            phantom = 0
+            continue
 
         log.info("Processing DWI volumes: {}".format(dwifiles))
         dm.utils.makedirs(outputpath)
@@ -89,9 +87,8 @@ def main():
             if os.path.exists(dtifit_output):
                 log.debug("{} exists. Skipping.".format(dtifit_output))
             else:
-                commands.append("{script} {dwi} {output} {ref} {fa} {pha}".format(
-                    script = script, dwi = dwi, output = outputpath, ref = ref_vol,
-                    fa = fa_thresh, pha = phantom))
+                commands.append("{script} {dwi} {output} {ref} {fa}".format(
+                    script=script, dwi=dwi, output=outputpath, ref=ref_vol, fa=fa_thresh))
 
     if commands:
         os.chdir(outputdir)

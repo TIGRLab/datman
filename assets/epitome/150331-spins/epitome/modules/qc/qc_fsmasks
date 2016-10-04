@@ -1,9 +1,0 @@
-#!/bin/bash
-
-DIR_DATA=`echo ${1}`
-EXPT=`echo ${2}`
-MODE=`echo ${3}`
-
-cat <<EOF
-epi-qc-fsmasks ${DIR_DATA} ${EXPT} ${MODE}
-EOF

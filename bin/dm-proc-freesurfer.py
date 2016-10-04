@@ -213,7 +213,6 @@ def get_subject_list(input_dir, TAG2, QC_file):
         subject_list = remove_untagged_subjects(subject_list, TAG2)
     if QC_file is not None:
         subject_list = remove_unqced_subjects(subject_list, QC_file)
-
     return subject_list
 
 def remove_phantoms(subject_list):

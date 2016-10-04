@@ -70,7 +70,7 @@ def main():
             qcdoc = os.path.join(projectdir, 'qc', timepoint, qcdocname)
 
             data_mtime = max(
-                map(os.path.getmtime, glob.glob(timepointdir + '/*')+[timepointdir]))
+                map(os.path.getmtime, glob.glob(timepointdir + '/*.nii.gz')+[timepointdir]))
 
             if qcdocname not in checklistdict or not os.path.exists(qcdoc):
                 print 'No QC doc generated for {}'.format(timepointdir)
