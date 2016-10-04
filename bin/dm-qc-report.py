@@ -163,11 +163,17 @@ def find_expected_files(config, scanpath, subject):
 
     # build a tag count dict
     tag_counts = {}
+    expected_position = {}
     for tag in config['Sites'][site]['ExportInfo'].keys():
         tag_counts[tag] = 0
+        # if it exists get the expected position from the config, this will let use sort the output
+        if 'Order' in config['Sites'][site]['ExportInfo'][tag].keys():
+            expected_position[tag] = min([config['Sites'][site]['ExportInfo'][tag]['Order']])
+        else:
+            expected_position[tag] = 0
 
     # init output pandas data frame, counter
-    exportinfo = pd.DataFrame(columns=['tag', 'File', 'bookmark', 'Note'])
+    exportinfo = pd.DataFrame(columns=['tag', 'File', 'bookmark', 'Note', 'Sequence'])
     idx = 0
 
     # tabulate found data in the order they were acquired
@@ -186,7 +192,7 @@ def find_expected_files(config, scanpath, subject):
             notes = 'Repeated Scan'
         else:
             notes = ''
-        exportinfo.loc[idx] = [tag, fn, bookmark, notes]
+        exportinfo.loc[idx] = [tag, fn, bookmark, notes, expected_position[tag]]
         idx += 1
 
     # note any missing data
@@ -195,9 +201,9 @@ def find_expected_files(config, scanpath, subject):
         if tag_counts[tag] < expected_count:
             n_missing = expected_count - tag_counts[tag]
             notes = 'missing({})'.format(expected_count - tag_counts[tag])
-            exportinfo.loc[idx] = [tag, '', '', notes]
+            exportinfo.loc[idx] = [tag, '', '', notes, expected_position[tag]]
             idx += 1
-
+    exportinfo = exportinfo.sort('Sequence')
     return(exportinfo)
 
 def write_table(report, exportinfo):
@@ -446,16 +452,16 @@ def qc_subject(scanpath, subject, config):
 
     qc_dir = dm.utils.define_folder(config['paths']['qc'])
     qc_dir = dm.utils.define_folder(os.path.join(qc_dir, subject))
-    report = os.path.join(qc_dir, 'qc_{}.html'.format(subject))
+    report_name = os.path.join(qc_dir, 'qc_{}.html'.format(subject))
 
-    if os.path.isfile(report) and not REWRITE:
-        logger.debug("MSG: {} exists, skipping.".format(report))
+    if os.path.isfile(report_name) and not REWRITE:
+        logger.debug("MSG: {} exists, skipping.".format(report_name))
         return
 
-    if os.path.isfile(report) and REWRITE:
-        os.remove(report)
+    if os.path.isfile(report_name) and REWRITE:
+        os.remove(report_name)
 
-    report = open(report, 'wb')
+    report = open(report_name, 'wb')
     report.write('<HTML><TITLE>{} qc</TITLE>\n'.format(subject))
     report.write('<head>\n<style>\n'
                 'body { font-family: futura,sans-serif;'
@@ -519,6 +525,7 @@ def qc_subject(scanpath, subject, config):
             report.write('<br>')
 
     report.close()
+    return(report_name)
 
 def main():
 
@@ -538,7 +545,7 @@ def main():
     with open(config_file, 'r') as stream:
         config = yaml.load(stream)
 
-    for k in ['dcm', 'nii', 'qc', 'std']:
+    for k in ['dcm', 'nii', 'qc', 'std', 'meta']:
         if k not in config['paths']:
             sys.exit("ERROR: paths:{} not defined in {}".format(k, configfile))
 
@@ -547,8 +554,10 @@ def main():
 
     nii_dir = config['paths']['nii']
     qc_dir = dm.utils.define_folder(config['paths']['qc'])
+    meta_dir = config['paths']['meta']
+    checklist_file = os.path.join(meta_dir,'checklist.csv')
 
-    ## remove empty files
+    # remove empty files
     #for root, dirs, files in os.walk(qc_dir):
     #    for f in files:
     #        filename = os.path.join(root, f)
@@ -563,7 +572,10 @@ def main():
             qc_phantom(path, scanid, config)
         else:
             logger.info("MSG: qc {}".format(path))
-            qc_subject(path, scanid, config)
+            report_name = qc_subject(path, scanid, config)
+            if report_name:
+                with open(os.path.join(meta_dir, checklist_file), "a") as checklist:
+                    checklist.write(os.path.basename(report_name))
 
     # run in batch mode
     else:
@@ -604,4 +616,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
