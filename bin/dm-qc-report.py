@@ -574,7 +574,7 @@ def main():
             report_name = qc_subject(path, scanid, config)
             if report_name:
                 with open(os.path.join(meta_dir, checklist_file), "a") as checklist:
-                    checklist.write(os.path.basename(report_name))
+                    checklist.write(os.path.basename(report_name) + '\n')
 
     # run in batch mode
     else:
