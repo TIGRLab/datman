@@ -557,12 +557,13 @@ def main():
     meta_dir = config['paths']['meta']
     checklist_file = os.path.join(meta_dir,'checklist.csv')
 
-    # remove empty files
-    #for root, dirs, files in os.walk(qc_dir):
-    #    for f in files:
-    #        filename = os.path.join(root, f)
-    #        if os.path.getsize(filename) == 0:
-    #            os.remove(filename)
+    # remove empty files for a given subject
+    if scanid:
+        for root, dirs, files in os.walk(os.path.join(qc_dir, scanid)):
+            for f in files:
+                filename = os.path.join(root, f)
+                if os.path.getsize(filename) == 0:
+                    os.remove(filename)
 
     if scanid:
         path = os.path.join(nii_dir, scanid)
@@ -616,3 +617,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
