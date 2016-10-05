@@ -527,7 +527,7 @@ def qc_subject(scanpath, subject, config):
             report.write('<br>')
 
     report.close()
-    return(report_name)
+    return report_name
 
 def main():
 
@@ -580,10 +580,14 @@ def main():
 
             # add file name to the checklist, if it isn't already there
             if report_name:
-                with open(os.path.join(meta_dir, checklist_file), 'ra') as checklist:
-                    found_reports = [x.split(' ')[0].strip() for x in checklist.readlines()]
-                    if report_name not in found_reports:
-                        checklist.write(os.path.basename(report_name) + '\n')
+                # remove extension from report name, so we don't double-count old .pdfs vs .html
+                report_name = '.'.join(report_name.split('.')[:-1])
+                checklist = open(os.path.join(meta_dir, checklist_file), 'r')
+                found_reports = [x.split(' ')[0].strip() for x in checklist.readlines()]
+                if report_name not in found_reports:
+                    checklist = open(os.path.join(meta_dir, checklist_file), 'a')
+                    checklist.write(os.path.basename(report_name) + '\n')
+                    checklist.close()
 
     # run in batch mode
     else:
