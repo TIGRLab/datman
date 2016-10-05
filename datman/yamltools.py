@@ -14,7 +14,7 @@ def load_yaml(filename):
             data = yaml.load(stream)
     except:
         print("ERROR: Supplied configuration file {} is not a properly-formatted YAML file.".format(filename))
-        sys.exit()
+        sys.exit(1)
 
     return data
 
@@ -27,11 +27,11 @@ def save_yaml(filename, data):
             yaml.dump(data, f, default_flow_style=False)
     except:
         print('ERROR: Do not have permissions to edit submitted YAML file.')
-        sys.exit()
+        sys.exit(1)
 
 def blacklist_series(filename, stage, series, message):
     """
-    Adds a series to the list of ignored for the defined stage of the pipeline in 
+    Adds a series to the list of ignored for the defined stage of the pipeline in
     the configuration file. It also appends a diagnostic message to the series.
     """
     # kickflip to create a recursive defaultdict, and register it with pyyaml

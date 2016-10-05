@@ -354,6 +354,8 @@ def main():
     for site in sites:
         archive_path = config['Sites'][site]['XNAT_Archive']
         exportinfo = parse_exportinfo(config['Sites'][site]['ExportInfo'])
+        if not os.path.isdir(archive_path):
+            sys.exit('ERROR: archive directory {} defined in {} not found'.format(archive_path, config_file))
 
         archives = glob.glob(os.path.join(archive_path, '*'))
 

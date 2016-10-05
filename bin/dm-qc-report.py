@@ -6,12 +6,15 @@ given, all subjects are submitted individually to the queue.
 usage:
     dm-qc-report.py [options] <config>
 
+Arguments:
+    <config>           Project configuration file
+
 Options:
-    --subject SCANID        Scan ID to QC for. E.g. DTI_CMH_H001_01_01
-    --walltime              Walltime for batch mode jobs [default: 1:00:00]
-    --rewrite               Rewrite the html of an existing qc page
-    --debug                 Be extra chatty
-    --dry-run               Don't actually do any work
+    --subject SCANID   Scan ID to QC for. E.g. DTI_CMH_H001_01_01
+    --walltime         Walltime for batch mode jobs [default: 1:00:00]
+    --rewrite          Rewrite the html of an existing qc page
+    --debug            Be extra chatty
+    --dry-run          Don't actually do any work
 
 Details:
     This program QCs the data contained in <NiftiDir> and <DicomDir>, and
@@ -160,11 +163,17 @@ def find_expected_files(config, scanpath, subject):
 
     # build a tag count dict
     tag_counts = {}
+    expected_position = {}
     for tag in config['Sites'][site]['ExportInfo'].keys():
         tag_counts[tag] = 0
+        # if it exists get the expected position from the config, this will let use sort the output
+        if 'Order' in config['Sites'][site]['ExportInfo'][tag].keys():
+            expected_position[tag] = min([config['Sites'][site]['ExportInfo'][tag]['Order']])
+        else:
+            expected_position[tag] = 0
 
     # init output pandas data frame, counter
-    exportinfo = pd.DataFrame(columns=['tag', 'File', 'bookmark', 'Note'])
+    exportinfo = pd.DataFrame(columns=['tag', 'File', 'bookmark', 'Note', 'Sequence'])
     idx = 0
 
     # tabulate found data in the order they were acquired
@@ -183,7 +192,7 @@ def find_expected_files(config, scanpath, subject):
             notes = 'Repeated Scan'
         else:
             notes = ''
-        exportinfo.loc[idx] = [tag, fn, bookmark, notes]
+        exportinfo.loc[idx] = [tag, fn, bookmark, notes, expected_position[tag]]
         idx += 1
 
     # note any missing data
@@ -192,9 +201,9 @@ def find_expected_files(config, scanpath, subject):
         if tag_counts[tag] < expected_count:
             n_missing = expected_count - tag_counts[tag]
             notes = 'missing({})'.format(expected_count - tag_counts[tag])
-            exportinfo.loc[idx] = [tag, '', '', notes]
+            exportinfo.loc[idx] = [tag, '', '', notes, expected_position[tag]]
             idx += 1
-
+    exportinfo = exportinfo.sort('Sequence')
     return(exportinfo)
 
 def write_table(report, exportinfo):
@@ -439,20 +448,22 @@ def qc_subject(scanpath, subject, config):
         "DTI33-b3000"   : dti_qc,
         "DTI33-4500"    : dti_qc,
         "DTI33-b4500"   : dti_qc,
+        "DTI23-1000"    : dti_qc,
+        "DTI69-1000"    : dti_qc,
     }
 
     qc_dir = dm.utils.define_folder(config['paths']['qc'])
     qc_dir = dm.utils.define_folder(os.path.join(qc_dir, subject))
-    report = os.path.join(qc_dir, 'qc_{}.html'.format(subject))
+    report_name = os.path.join(qc_dir, 'qc_{}.html'.format(subject))
 
-    if os.path.isfile(report) and not REWRITE:
-        logger.debug("MSG: {} exists, skipping.".format(report))
+    if os.path.isfile(report_name) and not REWRITE:
+        logger.debug("MSG: {} exists, skipping.".format(report_name))
         return
 
-    if os.path.isfile(report) and REWRITE:
-        os.remove(report)
+    if os.path.isfile(report_name) and REWRITE:
+        os.remove(report_name)
 
-    report = open(report, 'wb')
+    report = open(report_name, 'wb')
     report.write('<HTML><TITLE>{} qc</TITLE>\n'.format(subject))
     report.write('<head>\n<style>\n'
                 'body { font-family: futura,sans-serif;'
@@ -516,6 +527,7 @@ def qc_subject(scanpath, subject, config):
             report.write('<br>')
 
     report.close()
+    return(report_name)
 
 def main():
 
@@ -535,22 +547,26 @@ def main():
     with open(config_file, 'r') as stream:
         config = yaml.load(stream)
 
-    for k in ['dcm', 'nii', 'qc', 'std']:
+    for k in ['dcm', 'nii', 'qc', 'std', 'meta']:
         if k not in config['paths']:
-            sys.exit("ERROR: paths:{} not defined in {}".format(k, configfile))
+            print("ERROR: paths:{} not defined in {}".format(k, configfile))
+            sys.exit(1)
 
     if DEBUG:
         logging.getLogger().setLevel(logging.DEBUG)
 
     nii_dir = config['paths']['nii']
     qc_dir = dm.utils.define_folder(config['paths']['qc'])
+    meta_dir = config['paths']['meta']
+    checklist_file = os.path.join(meta_dir,'checklist.csv')
 
-    # remove empty files
-    for root, dirs, files in os.walk(qc_dir):
-        for f in files:
-            filename = os.path.join(root, f)
-            if os.path.getsize(filename) == 0:
-                os.remove(filename)
+    # remove empty files for a given subject
+    if scanid:
+        for root, dirs, files in os.walk(os.path.join(qc_dir, scanid)):
+            for f in files:
+                filename = os.path.join(root, f)
+                if os.path.getsize(filename) == 0:
+                    os.remove(filename)
 
     if scanid:
         path = os.path.join(nii_dir, scanid)
@@ -560,7 +576,10 @@ def main():
             qc_phantom(path, scanid, config)
         else:
             logger.info("MSG: qc {}".format(path))
-            qc_subject(path, scanid, config)
+            report_name = qc_subject(path, scanid, config)
+            if report_name:
+                with open(os.path.join(meta_dir, checklist_file), "a") as checklist:
+                    checklist.write(os.path.basename(report_name) + '\n')
 
     # run in batch mode
     else:
@@ -568,10 +587,12 @@ def main():
         nii_dirs = glob.glob('{}/*'.format(nii_dir))
         qc_dirs = glob.glob('{}/*'.format(qc_dir))
 
-        if REWRITE:
-            todo = nii_dirs
-        else:
-            todo = list(set(nii_dirs) - set(qc_dirs))
+        todo = nii_dirs
+        # removed -- causes problems when qc pipeline fails early
+        #if REWRITE:
+        #    todo = nii_dirs
+        #else:
+        #    todo = list(set(nii_dirs) - set(qc_dirs))
 
         for path in todo:
             subject = os.path.basename(path)
@@ -582,10 +603,6 @@ def main():
                 commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
 
         if commands:
-            fd, path = tempfile.mkstemp()
-            os.write(fd, '\n'.join(commands))
-            os.close(fd)
-
             for i, cmd in enumerate(commands):
                 jobname = "qc_report_{}_{}".format(time.strftime("%Y%m%d-%H%M%S"), i)
                 logfile = '/tmp/{}.log'.format(jobname)
