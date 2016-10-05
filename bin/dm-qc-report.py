@@ -449,6 +449,7 @@ def qc_subject(scanpath, subject, config):
         "DTI33-4500"    : dti_qc,
         "DTI33-b4500"   : dti_qc,
         "DTI23-1000"    : dti_qc,
+        "DTI69-1000"    : dti_qc,
     }
 
     qc_dir = dm.utils.define_folder(config['paths']['qc'])
