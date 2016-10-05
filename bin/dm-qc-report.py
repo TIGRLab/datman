@@ -577,9 +577,13 @@ def main():
         else:
             logger.info("MSG: qc {}".format(path))
             report_name = qc_subject(path, scanid, config)
+
+            # add file name to the checklist, if it isn't already there
             if report_name:
-                with open(os.path.join(meta_dir, checklist_file), "a") as checklist:
-                    checklist.write(os.path.basename(report_name) + '\n')
+                with open(os.path.join(meta_dir, checklist_file), 'ra') as checklist:
+                    found_reports = [x.split(' ')[0].strip() for x in checklist.readlines()]
+                    if report_name not in found_reports:
+                        checklist.write(os.path.basename(report_name) + '\n')
 
     # run in batch mode
     else:
