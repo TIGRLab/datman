@@ -70,9 +70,9 @@ def main():
             # notify about missing QC reports or those with no checklist entry
             if qcdocname not in checklistdict:
                 print('No checklist entry for {}'.format(timepointdir))
+                continue
             elif not os.path.exists(qcdoc):
                 print('No QC doc generated for {}'.format(timepointdir))
-            finally:
                 continue
 
             # find QC documents that are older than the most recent data export
