@@ -584,10 +584,12 @@ def main():
         nii_dirs = glob.glob('{}/*'.format(nii_dir))
         qc_dirs = glob.glob('{}/*'.format(qc_dir))
 
-        if REWRITE:
-            todo = nii_dirs
-        else:
-            todo = list(set(nii_dirs) - set(qc_dirs))
+        todo = nii_dirs
+        # removed -- causes problems when qc pipeline fails early
+        #if REWRITE:
+        #    todo = nii_dirs
+        #else:
+        #    todo = list(set(nii_dirs) - set(qc_dirs))
 
         for path in todo:
             subject = os.path.basename(path)
@@ -598,10 +600,6 @@ def main():
                 commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
 
         if commands:
-            fd, path = tempfile.mkstemp()
-            os.write(fd, '\n'.join(commands))
-            os.close(fd)
-
             for i, cmd in enumerate(commands):
                 jobname = "qc_report_{}_{}".format(time.strftime("%Y%m%d-%H%M%S"), i)
                 logfile = '/tmp/{}.log'.format(jobname)
