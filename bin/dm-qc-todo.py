@@ -6,7 +6,6 @@ Usage:
     dm-qc-todo.py [options]
 
 Options:
-    --no-older       Don't check for QC documents older than source data
     --show-newer     Show data files newer than QC doc
     --root PATH      Path to parent folder to all study folders.
                      [default: /archive/data-2.0]
@@ -42,7 +41,6 @@ def get_project_dirs(root, maxdepth=2):
             del dirs[:]
     return paths
 
-
 def main():
     arguments = docopt.docopt(__doc__)
     rootdir = arguments['--root']
@@ -52,15 +50,13 @@ def main():
 
         # map qc pdf to comments
         checklistdict = {d[0]: d[1:] for d in [l.strip().split()
-                                               for l in open(checklist).readlines() if l.strip()]}
+                                     for l in open(checklist).readlines() if l.strip()]}
 
         ## add .html for all .pdf keys
         for k in checklistdict.keys():
             if '.pdf' in k:
                 checklistdict[k.replace('.pdf','.html')] = checklistdict[k]
 
-        # check whether data is newer than qc doc or
-        # whether qc doc hasn't been signed off on
         for timepointdir in sorted(glob.glob(projectdir + '/data/nii/*')):
             if '_PHA_' in timepointdir:
                 continue
@@ -69,24 +65,25 @@ def main():
             qcdocname = 'qc_' + timepoint + '.html'
             qcdoc = os.path.join(projectdir, 'qc', timepoint, qcdocname)
 
-            data_mtime = max(
-                map(os.path.getmtime, glob.glob(timepointdir + '/*.nii.gz')+[timepointdir]))
+            data_mtime = max(map(os.path.getmtime, glob.glob(timepointdir + '/*.nii.gz')+[timepointdir]))
 
-            if qcdocname not in checklistdict or not os.path.exists(qcdoc):
-                print 'No QC doc generated for {}'.format(timepointdir)
+            # notify about missing QC reports or those with no checklist entry
+            if qcdocname not in checklistdict:
+                print('No checklist entry for {}'.format(timepointdir))
+                continue
+            elif not os.path.exists(qcdoc):
+                print('No QC doc generated for {}'.format(timepointdir))
+                continue
 
-            elif not arguments['--no-older'] and data_mtime > os.path.getmtime(qcdoc):
-                print '{}: QC doc is older than data in folder {} {} {}'.format(qcdoc, timepointdir, data_mtime, os.path.getmtime(qcdoc))
-                if arguments['--show-newer']:
-                    newer = filter(lambda x: os.path.getmtime(x) > os.path.getmtime(qcdoc),
-                                   glob.glob(timepointdir + '/*'))
-                    print '\t' + '\n\t'.join(newer)
+            # find QC documents that are older than the most recent data export
+            if arguments['--show-newer'] and data_mtime > os.path.getmtime(qcdoc):
+                print('{}: QC doc is older than data in folder {} {} {}'.format(qcdoc, timepointdir, data_mtime, os.path.getmtime(qcdoc)))
+                newer = filter(lambda x: os.path.getmtime(x) > os.path.getmtime(qcdoc), glob.glob(timepointdir + '/*'))
+                print('\t' + '\n\t'.join(newer))
 
-            elif not checklistdict[qcdocname]:
+            # notify about unchecked QC reports
+            if not checklistdict[qcdocname]:
                 print '{}: QC doc not signed off on'.format(qcdoc)
-
-            else:  # qc doc signed off on
-                pass
 
 if __name__ == '__main__':
     main()
