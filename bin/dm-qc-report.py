@@ -448,6 +448,7 @@ def qc_subject(scanpath, subject, config):
         "DTI33-b3000"   : dti_qc,
         "DTI33-4500"    : dti_qc,
         "DTI33-b4500"   : dti_qc,
+        "DTI23-1000"    : dti_qc,
     }
 
     qc_dir = dm.utils.define_folder(config['paths']['qc'])
@@ -547,7 +548,8 @@ def main():
 
     for k in ['dcm', 'nii', 'qc', 'std', 'meta']:
         if k not in config['paths']:
-            sys.exit("ERROR: paths:{} not defined in {}".format(k, configfile))
+            print("ERROR: paths:{} not defined in {}".format(k, configfile))
+            sys.exit(1)
 
     if DEBUG:
         logging.getLogger().setLevel(logging.DEBUG)

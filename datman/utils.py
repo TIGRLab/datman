@@ -313,10 +313,12 @@ def define_folder(path):
         try:
             os.makedirs(path)
         except:
-            sys.exit()
+            print('ERROR: failed to make directory {}'.format(path))
+            sys.exit(1)
 
     if has_permissions(path) == False:
-        sys.exit()
+        print('ERROR: does not have permissions to access {}'.format(path))
+        sys.exit(1)
 
     return path
 
