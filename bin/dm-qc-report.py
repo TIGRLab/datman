@@ -448,6 +448,8 @@ def qc_subject(scanpath, subject, config):
         "DTI33-b3000"   : dti_qc,
         "DTI33-4500"    : dti_qc,
         "DTI33-b4500"   : dti_qc,
+        "DTI23-1000"    : dti_qc,
+        "DTI69-1000"    : dti_qc,
     }
 
     qc_dir = dm.utils.define_folder(config['paths']['qc'])
@@ -525,7 +527,7 @@ def qc_subject(scanpath, subject, config):
             report.write('<br>')
 
     report.close()
-    return(report_name)
+    return report_name
 
 def main():
 
@@ -547,7 +549,8 @@ def main():
 
     for k in ['dcm', 'nii', 'qc', 'std', 'meta']:
         if k not in config['paths']:
-            sys.exit("ERROR: paths:{} not defined in {}".format(k, configfile))
+            print("ERROR: paths:{} not defined in {}".format(k, configfile))
+            sys.exit(1)
 
     if DEBUG:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -556,12 +559,14 @@ def main():
     qc_dir = dm.utils.define_folder(config['paths']['qc'])
     meta_dir = config['paths']['meta']
     checklist_file = os.path.join(meta_dir,'checklist.csv')
-    # remove empty files
-    for root, dirs, files in os.walk(qc_dir):
-        for f in files:
-            filename = os.path.join(root, f)
-            if os.path.getsize(filename) == 0:
-                os.remove(filename)
+
+    # remove empty files for a given subject
+    if scanid:
+        for root, dirs, files in os.walk(os.path.join(qc_dir, scanid)):
+            for f in files:
+                filename = os.path.join(root, f)
+                if os.path.getsize(filename) == 0:
+                    os.remove(filename)
 
     if scanid:
         path = os.path.join(nii_dir, scanid)
@@ -572,9 +577,17 @@ def main():
         else:
             logger.info("MSG: qc {}".format(path))
             report_name = qc_subject(path, scanid, config)
+
+            # add file name to the checklist, if it isn't already there
             if report_name:
-                with open(os.path.join(meta_dir, checklist_file), "a") as checklist:
-                    checklist.write(os.path.basename(report_name))
+                # remove extension from report name, so we don't double-count old .pdfs vs .html
+                report_name = '.'.join(report_name.split('.')[:-1])
+                checklist = open(os.path.join(meta_dir, checklist_file), 'r')
+                found_reports = [x.split(' ')[0].strip() for x in checklist.readlines()]
+                if report_name not in found_reports:
+                    checklist = open(os.path.join(meta_dir, checklist_file), 'a')
+                    checklist.write(os.path.basename(report_name) + '\n')
+                    checklist.close()
 
     # run in batch mode
     else:
@@ -582,10 +595,12 @@ def main():
         nii_dirs = glob.glob('{}/*'.format(nii_dir))
         qc_dirs = glob.glob('{}/*'.format(qc_dir))
 
-        if REWRITE:
-            todo = nii_dirs
-        else:
-            todo = list(set(nii_dirs) - set(qc_dirs))
+        todo = nii_dirs
+        # removed -- causes problems when qc pipeline fails early
+        #if REWRITE:
+        #    todo = nii_dirs
+        #else:
+        #    todo = list(set(nii_dirs) - set(qc_dirs))
 
         for path in todo:
             subject = os.path.basename(path)
@@ -596,10 +611,6 @@ def main():
                 commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
 
         if commands:
-            fd, path = tempfile.mkstemp()
-            os.write(fd, '\n'.join(commands))
-            os.close(fd)
-
             for i, cmd in enumerate(commands):
                 jobname = "qc_report_{}_{}".format(time.strftime("%Y%m%d-%H%M%S"), i)
                 logfile = '/tmp/{}.log'.format(jobname)
@@ -615,3 +626,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -14,6 +14,9 @@ import logging
 import subprocess as proc
 import scanid
 import nibabel as nib
+import contextlib
+import tempfile
+import shutil
 
 SERIES_TAGS_MAP = {
 "T1"         :  "T1",
@@ -68,12 +71,10 @@ def guess_tag(description, tagmap = SERIES_TAGS_MAP):
 
 def mangle_basename(base_path):
     """
-    strip off final slash to get the appropriate basename if nessicary.
+    strip off final slash to get the appropriate basename if necessary.
     """
-    if base_path[-1] == '/':
-        base = os.path.basename(base_path[0:-1]).lower()
-    else:
-        base = os.path.basename(base_path).lower()
+    base_path = os.path.normpath(base_path)
+    base = os.path.basename(base_path).lower()
 
     return base
 
@@ -81,6 +82,9 @@ def mangle(string):
     """Mangles a string to conform with the naming scheme.
 
     Mangling is roughly: convert runs of non-alphanumeric characters to a dash.
+
+    Does not convert '.' to avoid accidentally mangling extensions and does
+    not convert '+'
     """
     if not string:
         string = ""
@@ -309,10 +313,12 @@ def define_folder(path):
         try:
             os.makedirs(path)
         except:
-            sys.exit()
+            print('ERROR: failed to make directory {}'.format(path))
+            sys.exit(1)
 
     if has_permissions(path) == False:
-        sys.exit()
+        print('ERROR: does not have permissions to access {}'.format(path))
+        sys.exit(1)
 
     return path
 
@@ -446,5 +452,14 @@ def get_loaded_modules():
     just looks in the LOADEDMODULES environment variable for the list.
     """
     return " ".join(os.environ.get("LOADEDMODULES","").split(":"))
+
+@contextlib.contextmanager
+def make_temp_directory():
+    temp_dir = tempfile.mkdtemp()
+    try:
+        yield temp_dir
+    finally:
+        shutil.rmtree(temp_dir)
+
 
 # vim: ts=4 sw=4 sts=4:
