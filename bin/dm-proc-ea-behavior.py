@@ -149,7 +149,7 @@ def find_ratings(pic, blk_start, blk_end, blk_start_time, duration):
     # if the participant dosen't respond at all, freak out.
     if len(responses) == 0:
         ratings = np.array([5])
-        return ratings, 0
+        return ratings, 0, 0
 
     n_pushes = len(responses)
 
@@ -358,11 +358,14 @@ def process_behav_data(log, assets, func_path, sub, trial_type, block_id):
 
         # otherwise, save the output vectors in seconds
         else:
-            for r in ratings:
-                #collate the button push times and correct for mri start_time
-                # the correction should make them compatible with onsets_used
-                        # appending ['new_value', 'time ms', 'block', 'vid_id']
-                all_ratings.append((r[0],r[1] - mri_start, block_id, blocks[i][1]))
+            try:
+                for r in ratings:
+                    #collate the button push times and correct for mri start_time
+                    # the correction should make them compatible with onsets_used
+                            # appending ['new_value', 'time ms', 'block', 'vid_id']
+                    all_ratings.append((r[0],r[1] - mri_start, block_id, blocks[i][1]))
+            except TypeError:
+                logger.warn('No ratings found for block {}'.format(i))
             onsets_used.append((blocks[i][1], onsets[i] - mri_start/10000.0, block_id))
             durations.append(duration.tolist())
 
