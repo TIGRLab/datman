@@ -389,7 +389,8 @@ def process_behav_data(log, assets, func_path, sub, trial_type, block_id):
             for r in ratings:
                 #collate the button push times and correct for mri start_time
                 # the correction should make them compatible with onsets_used
-                all_ratings.append((r[0],r[1], block_id, blocks[i][1]))
+                        # appending ['new_value', 'time ms', 'block', 'vid_id']
+                all_ratings.append((r[0],r[1] - mri_start, block_id, blocks[i][1]))
             onsets_used.append((blocks[i][1], onsets[i] - mri_start/10000.0, block_id))
             durations.append(duration.tolist())
 
