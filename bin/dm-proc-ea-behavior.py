@@ -604,6 +604,7 @@ if __name__=='__main__':
     fh = logging.FileHandler(local_logpath)
     ch = logging.StreamHandler()
     fh.setLevel(logging.ERROR)
+    ch.setLevel(logging.WARN)
 
     if QUIET:
         ch.setLevel(logging.ERROR)
