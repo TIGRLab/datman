@@ -25,34 +25,6 @@ Options:
 
 """
 import sys
-paths = ['',
-        '/archive/code/epitome',
-        '/archive/code/qcmon',
-        '/archive/code/datman',
-        '/archive/code/datman/assets',
-        '/opt/quarantine/python-extras/2.7.9/build/flask_wtf',
-        '/opt/quarantine/python-extras/2.7.9/build/flask_sqlalchemy',
-        '/opt/quarantine/python-extras/2.7.9/build/gradunwarp',
-        '/opt/quarantine/python-extras/2.7.9/build/scikits.audiolab-0.11.0/audiolab',
-        '/opt/quarantine/python-extras/2.7.9/build/scikits.audiolab-0.11.0',
-        '/opt/quarantine/python-extras/2.7.9/build/PyMVPA-debian-2.3.1-2',
-        '/opt/quarantine/python-extras/2.7.9/build/pybrain-0.3.3',
-        '/opt/quarantine/python-extras/2.7.9/build/bioread',
-        '/opt/quarantine/python-extras/2.7.9/build/ez_setup',
-        '/opt/quarantine/python-extras/2.7.9/build',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python27.zip',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python2.7',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python2.7/plat-linux2',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python2.7/lib-tk',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python2.7/lib-old',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python2.7/lib-dynload',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python2.7/site-packages',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python2.7/site-packages/PIL',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python2.7/site-packages/Sphinx-1.2.3-py2.7.egg',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python2.7/site-packages/runipy-0.1.1-py2.7.egg',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python2.7/site-packages/setuptools-11.3.1-py2.7.egg']
-for path in paths:
-    sys.path.append(path)
 import logging
 import os
 import sys
