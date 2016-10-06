@@ -591,38 +591,43 @@ def main():
 
     # run in batch mode
     else:
-        commands = []
+        commands_human = []
+        commands_phantom = []
         nii_dirs = glob.glob('{}/*'.format(nii_dir))
         qc_dirs = glob.glob('{}/*'.format(qc_dir))
 
-        todo = nii_dirs
-        # removed -- causes problems when qc pipeline fails early
-        #if REWRITE:
-        #    todo = nii_dirs
-        #else:
-        #    todo = list(set(nii_dirs) - set(qc_dirs))
-
-        for path in todo:
+        for path in nii_dirs:
             subject = os.path.basename(path)
 
             if REWRITE:
-                commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject), '--rewrite']))
+                if '_PHA_' in subject:
+                    commands_phantom.append(" ".join([__file__, config_file, '--subject {}'.format(subject), '--rewrite']))
+                else:
+                    commands_human.append(" ".join([__file__, config_file, '--subject {}'.format(subject), '--rewrite']))
             else:
-                commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
+                if '_PHA_' in subject:
+                    commands_phantom.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
+                else:
+                    commands_human.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
 
-        if commands:
-            for i, cmd in enumerate(commands):
+        if commands_human:
+            for i, cmd in enumerate(commands_human):
                 jobname = "qc_report_{}_{}".format(time.strftime("%Y%m%d-%H%M%S"), i)
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
-                #rtn, out, err = dm.utils.run('qbatch -i --logdir {logdir} -N {name} --walltime {wt} {cmds}'.format(logdir = log_dir, name = jobname, wt = walltime, cmds = path), dryrun = DRYRUN)
-                rtn, out, err = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(
-                    cmd, logfile, errfile, jobname), dryrun = DRYRUN)
+                rtn, out, err = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname), dryrun = DRYRUN)
 
-            if rtn != 0:
-                logger.error("Job submission failed.")
-                logger.error("stdout: {}\nstderr: {}".format(out,err))
-                sys.exit(1)
+                if rtn != 0:
+                    logger.error("stdout: {}\nstderr: {}".format(out, err))
+                    sys.exit(1)
+
+        if commands_phantom:
+            for cmd in commands_phantom:
+                rtn, out, err = dm.utils.run(cmd, dryrun=DRYRUN)
+
+                if rtn != 0:
+                    logger.error("stdout: {}\nstderr: {}".format(out, err))
+                    sys.exit(1)
 
 if __name__ == "__main__":
     main()
