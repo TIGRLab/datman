@@ -581,12 +581,20 @@ def main():
             # add file name to the checklist, if it isn't already there
             if report_name:
                 # remove extension from report name, so we don't double-count old .pdfs vs .html
-                report_name = '.'.join(report_name.split('.')[:-1])
+                # catch the extension so we can add it back
+                report_name, report_ext = os.path.splitext(report_name)
+                #report_name = '.'.join(report_name.split('.')[:-1])
                 checklist = open(os.path.join(meta_dir, checklist_file), 'r')
-                found_reports = [x.split(' ')[0].strip() for x in checklist.readlines()]
+                found_reports = []
+                for checklist_entry in found_reports:
+                    checklist_entry = checklist_entry.split(' ')[0].strip()
+                    checklist_entry, checklist_ext = os.path.split(checklist_entry)
+                    found_reports.append(checklist_entry)
+                #found_reports = [x.split(' ')[0].strip() for x in checklist.readlines()]
                 if report_name not in found_reports:
                     checklist = open(os.path.join(meta_dir, checklist_file), 'a')
-                    checklist.write(os.path.basename(report_name) + '\n')
+                    # add the report extension back for writing into checklist.csv
+                    checklist.write(os.path.basename(report_name + report_ext) + '\n')
                     checklist.close()
 
     # run in batch mode
@@ -631,4 +639,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
