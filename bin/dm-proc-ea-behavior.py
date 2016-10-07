@@ -287,10 +287,11 @@ def process_behav_data(log, assets, func_path, sub, trial_type, block_id):
     onsets_used = []
     button_pushes = []
     all_ratings = []
+
     # format our output plot
-    # width, height = plt.figaspect(1.0/len(blocks))
-    # fig, axs = plt.subplots(1, len(blocks), figsize=(width, height*0.8))
-    #fig = plt.figure(figsize=(width, height))
+    width, height = plt.figaspect(1.0/len(blocks))
+    fig, axs = plt.subplots(1, len(blocks), figsize=(width, height*0.8))
+    fig = plt.figure(figsize=(width, height))
 
     # Blocks seem to refer to videos within a block
     for i in np.linspace(0, len(blocks)-1, len(blocks)).astype(int).tolist():
@@ -337,17 +338,17 @@ def process_behav_data(log, assets, func_path, sub, trial_type, block_id):
         corr = r2z(corr) # z score correlations
 
         # add our ish to a kewl plot
-        # axs[i].plot(gold_rate, color='black', linewidth=2)
-        # axs[i].plot(subj_rate, color='red', linewidth=2)
-        # axs[i].set_title(blk_name + ': z(r) = ' + str(corr), size=10)
-        # axs[i].set_xlim((0,len(subj_rate)-1))
-        # axs[i].set_xlabel('TR')
-        # axs[i].set_xticklabels([])
-        # axs[i].set_ylim((-3, 3))
-        # if i == 0:
-        #     axs[i].set_ylabel('Rating (z)')
-        # if i == len(blocks) -1:
-        #     axs[i].legend(['Actor', 'Participant'], loc='best', fontsize=10, frameon=False)
+        axs[i].plot(gold_rate, color='black', linewidth=2)
+        axs[i].plot(subj_rate, color='red', linewidth=2)
+        axs[i].set_title(blk_name + ': z(r) = ' + str(corr), size=10)
+        axs[i].set_xlim((0,len(subj_rate)-1))
+        axs[i].set_xlabel('TR')
+        axs[i].set_xticklabels([])
+        axs[i].set_ylim((-3, 3))
+        if i == 0:
+            axs[i].set_ylabel('Rating (z)')
+        if i == len(blocks) -1:
+            axs[i].legend(['Actor', 'Participant'], loc='best', fontsize=10, frameon=False)
 
         # skip the 'other' kind of task
         if trial_type == 'vid' and blocks[i][1][0] == 'c':
@@ -376,9 +377,9 @@ def process_behav_data(log, assets, func_path, sub, trial_type, block_id):
             # button pushes per minute (duration is in seconds)
             button_pushes.append(n_pushes / (duration.tolist() / 60.0))
 
-    # fig.suptitle(log, size=10)
-    # fig.set_tight_layout(True)
-    # fig.savefig('{func_path}/{sub}/{sub}_{logname}.pdf'.format(func_path=func_path, sub=sub, logname=os.path.basename(log)[:-4]))
+    fig.suptitle(log, size=10)
+    fig.set_tight_layout(True)
+    fig.savefig('{func_path}/{sub}/{sub}_{logname}.pdf'.format(func_path=func_path, sub=sub, logname=os.path.basename(log)[:-4]))
 
     return onsets_used, durations, correlations, button_pushes, all_ratings
 
