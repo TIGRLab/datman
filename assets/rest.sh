@@ -6,23 +6,24 @@
 set -e
 
 export DIR_MODULES=/archive/code/epitome/modules
-export DIR_DATA=/archive/code/script-it/data
-export DIR_EXPT=dummy_project
-export DATA_TYPE=rest
+export DIR_EXPT=TEMP
+export DATA_TYPE=FUNC
 export ID=datman
 
 # command line arguments
-export SUB=DATMAN
-export del=${1}
-export tr=${2}
-export dims=${3}
+export SUB=SUBJ
+export DIR_DATA=${1}
+export del=${2}
+export tr=${3}
+export dims=${4}
 
-if [ "$#" -ne 3 ]; then
+if [ "$#" -ne 4 ]; then
     echo "Usage:"
-    echo "    $(basename ${0}) deltr tr dims"
-    echo "        deltr:   number of TRs to remove from the beginning of each run"
-    echo "        tr:      length of TR in seconds (decimals allowed)"
-    echo "        dims:    isotropic voxel dimensions of MNI space data"
+    echo "    $(basename ${0}) directory deltr tr dims"
+    echo "        directory: path to the epitome folder structure"
+    echo "        deltr:     number of TRs to remove from the beginning of each run"
+    echo "        tr:        length of TR in seconds (decimals allowed)"
+    echo "        dims:      isotropic voxel dimensions of MNI space data"
     exit 1
 fi
 
