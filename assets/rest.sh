@@ -7,8 +7,8 @@ set -e
 
 export DIR_MODULES=/archive/code/epitome/modules
 export DIR_DATA=/archive/code/script-it/data
-export DIR_EXPT=dummy-project
-export DATA_TYPE=fmri
+export DIR_EXPT=dummy_project
+export DATA_TYPE=rest
 export ID=datman
 
 # command line arguments
@@ -17,7 +17,7 @@ export del=${1}
 export tr=${2}
 export dims=${3}
 
-if [ "$#" -ne 4 ]; then
+if [ "$#" -ne 3 ]; then
     echo "Usage:"
     echo "    $(basename ${0}) deltr tr dims"
     echo "        deltr:   number of TRs to remove from the beginning of each run"
@@ -141,16 +141,24 @@ export direction=z
 export ascending=yes
 export interleave=yes
 
-if [ ${ascending} = 'no']; then
+if [ ${ascending} = 'no' ]; then
     ascending='--down'
-else;
+else
     ascending=''
 fi
 
-if [ ${interleave} = 'yes']; then
+if [ ${interleave} = 'yes' ]; then
     interleave='--odd'
-else;
+else
     interleave=''
+fi
+
+if [ ${direction} = 'x' ]; then
+    direction=1
+elif [ ${direction} = 'y' ]; then
+    direction=2
+else
+    direction=3
 fi
 
 # loop through sessions
@@ -172,7 +180,7 @@ for SESS in ${DIR_SESS}; do
                     --ocustom @ ${RUN}/slice_timing.1D
             else
                 slicetimer \
-                    -i ${SESS}/${input}.${ID}.${NUM}.nii.gz
+                    -i ${SESS}/${input}.${ID}.${NUM}.nii.gz \
                     -o ${SESS}/func_tshift.${ID}.${NUM}.nii.gz \
                     -r ${tr} -d ${direction} ${ascending} ${interleave}
             fi
