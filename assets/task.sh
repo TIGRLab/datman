@@ -1229,7 +1229,7 @@ for SESS in ${DIR_SESS}; do
 done
 
 echo '*** MODULE: volsmooth. Spatially smooths volume data. ******************'
-export input=func_MNI
+export input=func_MNI-nonlin
 export mask=anat_EPI_mask_MNI-nonlin
 export fwhm=12.0
 export mode=normal
@@ -1260,7 +1260,7 @@ for SESS in ${DIR_SESS}; do
                 # If already run filter, use noise model from it as blurmaster
                 if [ -f ${SESS}/func_noise.${ID}.${NUM}.nii.gz ]; then
                     echo 'MSG: func_noise found. ensure that the filter module was run in the same space as volsmooth, or this command will fail and complain about grid spacing of the BLURMASTER!'
-                    3dBlurTofwhm \
+                    3dBlurToFWHM \
                         -quiet \
                         -prefix ${SESS}/func_volsmooth.${ID}.${NUM}.nii.gz \
                         -mask ${SESS}/anat_tmp_smoothmask.nii.gz \
@@ -1268,7 +1268,7 @@ for SESS in ${DIR_SESS}; do
                         -blurmaster ${SESS}/func_noise.${ID}.${NUM}.nii.gz \
                         -input ${SESS}/${input}.${ID}.${NUM}.nii.gz
                 else
-                    3dBlurTofwhm \
+                    3dBlurToFWHM \
                         -quiet \
                         -prefix ${SESS}/func_volsmooth.${ID}.${NUM}.nii.gz \
                         -mask ${SESS}/anat_tmp_smoothmask.nii.gz \
