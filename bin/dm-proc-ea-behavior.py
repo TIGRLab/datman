@@ -25,34 +25,6 @@ Options:
 
 """
 import sys
-paths = ['',
-        '/archive/code/epitome',
-        '/archive/code/qcmon',
-        '/archive/code/datman',
-        '/archive/code/datman/assets',
-        '/opt/quarantine/python-extras/2.7.9/build/flask_wtf',
-        '/opt/quarantine/python-extras/2.7.9/build/flask_sqlalchemy',
-        '/opt/quarantine/python-extras/2.7.9/build/gradunwarp',
-        '/opt/quarantine/python-extras/2.7.9/build/scikits.audiolab-0.11.0/audiolab',
-        '/opt/quarantine/python-extras/2.7.9/build/scikits.audiolab-0.11.0',
-        '/opt/quarantine/python-extras/2.7.9/build/PyMVPA-debian-2.3.1-2',
-        '/opt/quarantine/python-extras/2.7.9/build/pybrain-0.3.3',
-        '/opt/quarantine/python-extras/2.7.9/build/bioread',
-        '/opt/quarantine/python-extras/2.7.9/build/ez_setup',
-        '/opt/quarantine/python-extras/2.7.9/build',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python27.zip',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python2.7',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python2.7/plat-linux2',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python2.7/lib-tk',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python2.7/lib-old',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python2.7/lib-dynload',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python2.7/site-packages',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python2.7/site-packages/PIL',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python2.7/site-packages/Sphinx-1.2.3-py2.7.egg',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python2.7/site-packages/runipy-0.1.1-py2.7.egg',
-        '/opt/quarantine/python/2.7.9-anaconda-2.1.0-150119/build/lib/python2.7/site-packages/setuptools-11.3.1-py2.7.egg']
-for path in paths:
-    sys.path.append(path)
 import logging
 import os
 import sys
@@ -177,7 +149,7 @@ def find_ratings(pic, blk_start, blk_end, blk_start_time, duration):
     # if the participant dosen't respond at all, freak out.
     if len(responses) == 0:
         ratings = np.array([5])
-        return ratings, 0
+        return ratings, 0, 0
 
     n_pushes = len(responses)
 
@@ -315,10 +287,11 @@ def process_behav_data(log, assets, func_path, sub, trial_type, block_id):
     onsets_used = []
     button_pushes = []
     all_ratings = []
+
     # format our output plot
-    # width, height = plt.figaspect(1.0/len(blocks))
-    # fig, axs = plt.subplots(1, len(blocks), figsize=(width, height*0.8))
-    #fig = plt.figure(figsize=(width, height))
+    width, height = plt.figaspect(1.0/len(blocks))
+    fig, axs = plt.subplots(1, len(blocks), figsize=(width, height*0.8))
+    fig = plt.figure(figsize=(width, height))
 
     # Blocks seem to refer to videos within a block
     for i in np.linspace(0, len(blocks)-1, len(blocks)).astype(int).tolist():
@@ -365,17 +338,17 @@ def process_behav_data(log, assets, func_path, sub, trial_type, block_id):
         corr = r2z(corr) # z score correlations
 
         # add our ish to a kewl plot
-        # axs[i].plot(gold_rate, color='black', linewidth=2)
-        # axs[i].plot(subj_rate, color='red', linewidth=2)
-        # axs[i].set_title(blk_name + ': z(r) = ' + str(corr), size=10)
-        # axs[i].set_xlim((0,len(subj_rate)-1))
-        # axs[i].set_xlabel('TR')
-        # axs[i].set_xticklabels([])
-        # axs[i].set_ylim((-3, 3))
-        # if i == 0:
-        #     axs[i].set_ylabel('Rating (z)')
-        # if i == len(blocks) -1:
-        #     axs[i].legend(['Actor', 'Participant'], loc='best', fontsize=10, frameon=False)
+        axs[i].plot(gold_rate, color='black', linewidth=2)
+        axs[i].plot(subj_rate, color='red', linewidth=2)
+        axs[i].set_title(blk_name + ': z(r) = ' + str(corr), size=10)
+        axs[i].set_xlim((0,len(subj_rate)-1))
+        axs[i].set_xlabel('TR')
+        axs[i].set_xticklabels([])
+        axs[i].set_ylim((-3, 3))
+        if i == 0:
+            axs[i].set_ylabel('Rating (z)')
+        if i == len(blocks) -1:
+            axs[i].legend(['Actor', 'Participant'], loc='best', fontsize=10, frameon=False)
 
         # skip the 'other' kind of task
         if trial_type == 'vid' and blocks[i][1][0] == 'c':
@@ -386,10 +359,14 @@ def process_behav_data(log, assets, func_path, sub, trial_type, block_id):
 
         # otherwise, save the output vectors in seconds
         else:
-            for r in ratings:
-                #collate the button push times and correct for mri start_time
-                # the correction should make them compatible with onsets_used
-                all_ratings.append((r[0],r[1], block_id, blocks[i][1]))
+            try:
+                for r in ratings:
+                    #collate the button push times and correct for mri start_time
+                    # the correction should make them compatible with onsets_used
+                            # appending ['new_value', 'time ms', 'block', 'vid_id']
+                    all_ratings.append((r[0],r[1] - mri_start, block_id, blocks[i][1]))
+            except TypeError:
+                logger.warn('No ratings found for block {}'.format(i))
             onsets_used.append((blocks[i][1], onsets[i] - mri_start/10000.0, block_id))
             durations.append(duration.tolist())
 
@@ -400,9 +377,9 @@ def process_behav_data(log, assets, func_path, sub, trial_type, block_id):
             # button pushes per minute (duration is in seconds)
             button_pushes.append(n_pushes / (duration.tolist() / 60.0))
 
-    # fig.suptitle(log, size=10)
-    # fig.set_tight_layout(True)
-    # fig.savefig('{func_path}/{sub}/{sub}_{logname}.pdf'.format(func_path=func_path, sub=sub, logname=os.path.basename(log)[:-4]))
+    fig.suptitle(log, size=10)
+    fig.set_tight_layout(True)
+    fig.savefig('{func_path}/{sub}/{sub}_{logname}.pdf'.format(func_path=func_path, sub=sub, logname=os.path.basename(log)[:-4]))
 
     return onsets_used, durations, correlations, button_pushes, all_ratings
 
@@ -631,6 +608,7 @@ if __name__=='__main__':
     fh = logging.FileHandler(local_logpath)
     ch = logging.StreamHandler()
     fh.setLevel(logging.ERROR)
+    ch.setLevel(logging.WARN)
 
     if QUIET:
         ch.setLevel(logging.ERROR)
