@@ -1,7 +1,6 @@
 #!/bin/bash -l
 set -e
 
-# This is a slightly-modified epitome script.
 # More on epitome here: https://github.com/josephdviviano/epitome
 # script generated on 2015-15-12
 
