@@ -11,10 +11,8 @@ Arguments:
 
 Options:
     --subject SCANID   Scan ID to QC for. E.g. DTI_CMH_H001_01_01
-    --walltime         Walltime for batch mode jobs [default: 1:00:00]
     --rewrite          Rewrite the html of an existing qc page
     --debug            Be extra chatty
-    --dry-run          Don't actually do any work
 
 Details:
     This program QCs the data contained in <NiftiDir> and <DicomDir>, and
@@ -82,13 +80,13 @@ Requires:
 import os, sys
 import glob
 import time
+import yaml
 import logging
 import datman as dm
 import subprocess as proc
 from datman.docopt import docopt
+
 import numpy as np
-import tempfile
-import yaml
 import pandas as pd
 
 logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
@@ -96,31 +94,20 @@ logger = logging.getLogger(os.path.basename(__file__))
 
 DEBUG = False
 VERBOSE = False
-DRYRUN = False
-FIGDPI = 144
 REWRITE = False
-
-class Document:
-    pass
-
-# HELPERS
-def makedirs(path):
-    logger.debug("makedirs: {}".format(path))
-    if not DRYRUN: os.makedirs(path)
 
 def run(cmd):
     logger.debug("exec: {}".format(cmd))
-    if not DRYRUN:
-        p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
-        out, err = p.communicate()
-        if p.returncode != 0:
-            logger.error("Error {} while executing: {}".format(p.returncode, cmd))
-            out and logger.error("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
-            err and logger.error("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
-        else:
-            logger.debug("rtnval: {}".format(p.returncode))
-            out and logger.debug("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
-            err and logger.debug("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
+    p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
+    out, err = p.communicate()
+    if p.returncode != 0:
+        logger.error("Error {} while executing: {}".format(p.returncode, cmd))
+        out and logger.error("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
+        err and logger.error("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
+    else:
+        logger.debug("rtnval: {}".format(p.returncode))
+        out and logger.debug("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
+        err and logger.debug("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
 
 def slicer(fpath, pic, slicergap, picwidth):
     """
@@ -256,7 +243,7 @@ def add_header_qc(fpath, qchtml, logdata):
     qchtml.write('</table>\n')
 
 # PIPELINES
-def ignore(fpath, qcpath, qchtml):
+def ignore(filename, outputDir):
     pass
 
 def phantom_fmri_qc(filename, outputDir):
@@ -385,7 +372,6 @@ def run_header_qc(dicomDir, standard_dir, logfile):
         # run header check for dicom
         run('qc-headers {} {} {}'.format(d, s, logfile))
 
-# MAIN FUNCTIONS
 def qc_phantom(scanpath, subject, config):
     """
     QC all the images in a folder (scanpath) for a non-human participant. Data
@@ -532,17 +518,14 @@ def qc_subject(scanpath, subject, config):
 def main():
 
     global DEBUG
-    global DRYRUN
     global REWRITE
 
     arguments = docopt(__doc__)
 
     config_file = arguments['<config>']
     scanid     = arguments['--subject']
-    walltime   = arguments['--walltime']
     REWRITE    = arguments['--rewrite']
     DEBUG      = arguments['--debug']
-    DRYRUN     = arguments['--dry-run']
 
     with open(config_file, 'r') as stream:
         config = yaml.load(stream)
@@ -580,17 +563,16 @@ def main():
 
             # add file name to the checklist, if it isn't already there
             if report_name:
-                # remove extension from report name, so we don't double-count old .pdfs vs .html
-                # catch the extension so we can add it back
+                # remove extension from report name, so we don't double-count .pdfs vs .html
                 report_name, report_ext = os.path.splitext(report_name)
-                #report_name = '.'.join(report_name.split('.')[:-1])
                 checklist = open(os.path.join(meta_dir, checklist_file), 'r')
                 found_reports = []
+
                 for checklist_entry in found_reports:
                     checklist_entry = checklist_entry.split(' ')[0].strip()
                     checklist_entry, checklist_ext = os.path.split(checklist_entry)
                     found_reports.append(checklist_entry)
-                #found_reports = [x.split(' ')[0].strip() for x in checklist.readlines()]
+
                 if report_name not in found_reports:
                     checklist = open(os.path.join(meta_dir, checklist_file), 'a')
                     # add the report extension back for writing into checklist.csv
@@ -623,15 +605,18 @@ def main():
                 jobname = "qc_report_{}_{}".format(time.strftime("%Y%m%d-%H%M%S"), i)
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
-                rtn, out, err = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname), dryrun = DRYRUN)
+                rtn, out, err = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
 
                 if rtn != 0:
                     logger.error("stdout: {}\nstderr: {}".format(out, err))
                     sys.exit(1)
 
+                elif rtn == 0:
+                    print(out)
+
         if commands_phantom:
             for cmd in commands_phantom:
-                rtn, out, err = dm.utils.run(cmd, dryrun=DRYRUN)
+                rtn, out, err = dm.utils.run(cmd)
 
                 if rtn != 0:
                     logger.error("stdout: {}\nstderr: {}".format(out, err))
