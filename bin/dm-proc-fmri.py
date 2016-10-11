@@ -24,6 +24,7 @@ DEPENDENCIES
 
 from datman.docopt import docopt
 import datman as dm
+import yaml
 import logging
 import os, sys
 import glob
@@ -41,17 +42,17 @@ class MissingDataException(Exception):
 class ProcessingException(Exception):
     pass
 
-def check_inputs(config, path, expected_tags):
+def check_inputs(config, tag, path, expected_tags):
     """
     Ensures we have the same number of input files as we have defined in
     ExportInfo.
     """
-    if not candidates:
+    if not expected_tags:
         print('ERROR: expected tag {} not found in {}'.format(tag, path))
         sys.exit(1)
-    n_found = len(candidates)
+    n_found = len(expected_tags)
 
-    site = dm.scanid.parse_filename(candidates[0])[0].site
+    site = dm.scanid.parse_filename(expected_tags[0])[0].site
     n_expected = config['Sites'][site]['ExportInfo'][tag]['Count']
 
     if n_found != n_expected:
@@ -121,7 +122,7 @@ def run_epitome(path, config):
         for tag in expected_tags:
             candidates = filter(lambda x: tag in x, files)
             candidates.sort()
-            check_inputs(config, path, candidates)
+            check_inputs(config, tag, path, candidates)
             functionals.extend(candidates)
 
         # locate anatomical data
@@ -145,9 +146,9 @@ def run_epitome(path, config):
 
         # create and populate epitome directory
         epi_dir = tempfile.mkdtemp()
-        dm.utils.make_epitome_folders(epi_dir, len(rest_data))
-        epi_t1_dir = '{}/TEMP/SUBJ/T1/SESS01'.format(tmpfolder)
-        epi_func_dir = '{}/TEMP/SUBJ/FUNC/SESS01'.format(tmpfolder)
+        dm.utils.make_epitome_folders(epi_dir, len(functionals))
+        epi_t1_dir = '{}/TEMP/SUBJ/T1/SESS01'.format(epi_dir)
+        epi_func_dir = '{}/TEMP/SUBJ/FUNC/SESS01'.format(epi_dir)
 
         try:
             shutil.copyfile(anatomicals[0], '{}/anat_aparc_brain.nii.gz'.format(epi_t1_dir))
@@ -170,7 +171,7 @@ def run_epitome(path, config):
         command = '{} {} {} {} {}'.format(pipeline, epi_dir, delete, tr, dims)
 
         # run epitome
-        rtn, out, err = dm.utils.run(command, dryrun=True)
+        rtn, out, err = dm.utils.run(command)
         output = '\n'.join([out, err]).replace('\n', '\n\t')
         if rtn != 0:
             print(output)
@@ -199,7 +200,7 @@ def run_epitome(path, config):
         export_file_list('mat_',  epitome_outputs, output_dir)
 
         # export PARAMS folder
-        export_directory(os.path.join(epi_func_dir, 'PARAMS'), params_dir)
+        export_directory(os.path.join(epi_func_dir, 'PARAMS'), os.path.join(output_dir, 'PARAMS'))
 
         # remove temporary directory
         shutil.rmtree(epi_dir)
