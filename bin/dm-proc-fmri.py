@@ -23,16 +23,11 @@ DEPENDENCIES
 """
 
 from datman.docopt import docopt
-from glob import glob
-from random import choice
-from scipy import stats, linalg
-from string import ascii_uppercase, digits
 import datman as dm
 import logging
-import numpy as np
-import os
+import os, sys
+import glob
 import shutil
-import sys
 import tempfile
 import time
 
@@ -45,37 +40,6 @@ class MissingDataException(Exception):
 
 class ProcessingException(Exception):
     pass
-
-def export_data(sub, data, tmpfolder, func_path):
-    tmppath = os.path.join(tmpfolder, 'TEMP', 'SUBJ', 'FUNC', 'SESS01')
-    try:
-        out_path = dm.utils.define_folder(os.path.join(func_path, sub))
-
-        for i, t in enumerate(data['tags']):
-            idx = '%02d' % (i + 1)
-            shutil.copyfile(
-                '{inpath}/func_MNI-nonlin.DATMAN.{i}.nii.gz'.format(
-                    i=idx, inpath=tmppath),
-                '{outpath}/{sub}_func_MNI-nonlin.{t}.{i}.nii.gz'.format(
-                    i=idx, t=t, outpath=out_path, sub=sub))
-
-        shutil.copyfile(
-            '{}/anat_EPI_mask_MNI-nonlin.nii.gz'.format(tmppath),
-            '{}/{}_anat_EPI_mask_MNI.nii.gz'.format(out_path, sub))
-        shutil.copyfile(
-            '{}/reg_T1_to_TAL.nii.gz'.format(tmppath),
-            '{}/{}_reg_T1_to_MNI-lin.nii.gz'.format(out_path, sub))
-        shutil.copyfile(
-            '{}/reg_nlin_TAL.nii.gz'.format(tmppath),
-            '{}/{}_reg_nlin_MNI.nii.gz'.format(out_path, sub))
-        shutil.copyfile(
-            '{}/PARAMS/motion.DATMAN.01.1D'.format(tmppath),
-            '{}/{}_motion.1D'.format(out_path, sub))
-    except IOError, e:
-        logger.exception("Exception when copying files from temp folder")
-        raise ProcessingException("Problem copying files from temp folder")
-
-    open('{}/{}_preproc-complete.log'.format(out_path, sub), 'a').close()
 
 def check_inputs(config, path, expected_tags):
     """
@@ -94,21 +58,59 @@ def check_inputs(config, path, expected_tags):
         print('ERROR: number of files found with tag {} was {}, expected {}'.format(tag, n_found, n_expected))
         sys.exit(1)
 
+def export_directory(source, destination):
+    """
+    Copies a folder from a source to a destination, throwing an error if it fails.
+    If the destination folder already exists, it will be removed and replaced.
+    """
+    if os.path.isdir(destination):
+        try:
+            shutil.rmtree(destination)
+        except:
+            raise ProcessingException("ERROR: failed to remove existing folder {}".format(destination))
+    try:
+        shutil.copytree(source, destination)
+    except:
+        raise ProcessingException("ERROR: failed to export {} to {}".format(source, destination))
+
+def export_file(source, destination):
+    """
+    Copies a file from a source to a destination, throwing an error if it fails.
+    """
+    if not os.path.isfile(destination):
+        try:
+            shutil.copyfile(source, destination)
+        except IOError, e:
+            raise ProcessingException("Problem exporting {} to {}".format(source, destination))
+
+def export_file_list(pattern, files, output_dir):
+    """
+    Copies, from a list of files, all files containing some substring into
+    an output directory.
+    """
+    matches = filter(lambda x: pattern in x, files)
+    for match in matches:
+        output = os.path.join(output_dir, os.path.basename(match))
+        export_file(match, output)
+
 def run_epitome(path, config):
     """
     Finds the appropriate inputs for input subject, builds a temporary epitome
     folder, runs epitome, and finally copies the outputs to the fmri_dir.
     """
-
+    subject = os.path.basename(path)
     nii_dir = config['paths']['nii']
     t1_dir = config['paths']['hcp']
     fmri_dir = dm.utils.define_folder(config['paths']['fmri'])
     experiments = config['fmri'].keys()
 
-    # collect the files needed for each experiment
+    # run file collection --> epitome --> export for each study
     for exp in experiments:
+
+        # collect the files needed for each experiment
         expected_names = config['fmri'][exp]['export']
         expected_tags = config['fmri'][exp]['tags']
+        output_dir = os.path.join(fmri_dir, exp, subject)
 
         if type(expected_tags) == str:
             expected_tags = [expected_tags]
@@ -132,8 +134,8 @@ def run_epitome(path, config):
                 sys.exit(1)
             anatomicals.append(os.path.join(anat_path, anat))
 
-        # locate outputs
-        files = glob.glob(os.path.join(fmri_dir, exp) + '/*')
+        # locate outputs, exit if we find everything already
+        files = glob.glob(output_dir + '/*')
         found = 0
         for output in expected_names:
             if filter(lambda x: output in x, files):
@@ -160,27 +162,44 @@ def run_epitome(path, config):
         dims = config['fmri'][exp]['dims']
         tr = config['fmri'][exp]['tr']
         delete = config['fmri'][exp]['del']
-        pipeline =  config['fmri'][exp]['type']
-
-        if pipeline == 'rest':
-            pipeline = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir, 'assets/rest.sh'
-        elif pipeline == 'task':
-            pipeline = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir, 'assets/task.sh'
-        else:
+        pipeline =  config['fmri'][exp]['pipeline']
+        pipeline = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir, 'assets/{}'.format(pipeline))
+        if not os.path.isfile(pipeline):
             print('ERROR: invalid pipeline {} defined!'.format(pipeline))
             sys.exit(1)
         command = '{} {} {} {} {}'.format(pipeline, epi_dir, delete, tr, dims)
 
-        # run the command
+        # run epitome
         rtn, out, err = dm.utils.run(command, dryrun=True)
         output = '\n'.join([out, err]).replace('\n', '\n\t')
         if rtn != 0:
             print(output)
-            raise ProcessingException("Trouble running preprocessing data")
+            raise ProcessingException("ERROR: Epitome script failed: {}".format(command))
         else:
             print(output)
 
-        # export outputs
+        # export fmri data
+        epitome_outputs = glob.glob(epi_func_dir + '/*')
+        for name in expected_names:
+            matches = filter(lambda x: name in x, epitome_outputs)
+            matches.sort()
+
+            # attempt to export the defined epitome stages for all runs
+            if len(matches) != len(functionals):
+                print('ERROR: epitome output {} not created for all inputs'.format(name))
+                continue
+            for i, match in enumerate(matches):
+                func_basename = os.path.splitext(os.path.basename(functionals[i]))[0]
+                func_output = os.path.join(output_dir, func_basename + '_{}.nii.gz'.format(name))
+                export_file(match, func_output)
+
+        # export all anatomical / registration information
+        export_file_list('anat_', epitome_outputs, output_dir)
+        export_file_list('reg_',  epitome_outputs, output_dir)
+        export_file_list('mat_',  epitome_outputs, output_dir)
+
+        # export PARAMS folder
+        export_directory(os.path.join(epi_func_dir, 'PARAMS'), params_dir)
 
         # remove temporary directory
         shutil.rmtree(epi_dir)
@@ -202,10 +221,6 @@ def main():
     if debug:
         logger.setLevel(logging.DEBUG)
 
-    if not os.path.isfile(script.split(' ')[0]):
-        logger.error("Epitome script {} does not exist".format(script.split(' ')[0]))
-        sys.exit(1)
-
     with open(config_file, 'r') as stream:
         config = yaml.load(stream)
 
@@ -215,7 +230,7 @@ def main():
             sys.exit(1)
 
     for x in config['fmri'].iteritems():
-        for k in ['dims', 'del', 'type', 'tags', 'export', 'tr']:
+        for k in ['dims', 'del', 'pipeline', 'tags', 'export', 'tr']:
             if k not in x[1].keys():
                 print("ERROR: fmri:{}:{} not defined in {}".format(x[0], k, config_file))
 
@@ -227,60 +242,35 @@ def main():
             sys.exit('Subject {} if a phantom, cannot be analyzed'.format(scanid))
         run_epitome(path, config)
 
+    # run in batch mode
+    else:
     commands = []
-    for subject in
-    for subject in (subjects or dm.utils.get_subjects(nii_path)):
-        if is_complete(outputdir, subject):
-            logger.info("Subject {} already processed. Skipping.".format(subject))
-            continue
+    nii_dirs = glob.glob('{}/*'.format(nii_dir))
+    for path in nii_dirs:
+        subject = os.path.basename(path)
 
         if dm.scanid.is_phantom(subject):
             logger.debug("Subject {} is a phantom. Skipping.".format(subject))
             continue
 
-        try:
-            data = get_required_data(data_path, fsdir, subject, tags)
-        except MissingDataException, e:
-            logger.error(e.message)
-            continue
-
-        # if this command was called with an explicit list of subjects, process
-        # them now
-        if subjects:
-            logger.info("Processing subject {}".format(subject))
-            if not dryrun:
-                process_subject(func_path, log_path, data, subject, tags, atlas, script)
-
-
         # otherwise, submit a list of calls to ourself, one per subject
         else:
-            opts = '{verbose} {debug} {tags}'.format(
-                verbose = (verbose and ' --verbose' or ''),
-                debug = (debug and ' --debug' or ''),
-                tags = (tags and ' --tags=' + ','.join(tags) or ''))
-
-            commands.append(" ".join([__file__, opts, datadir, fsdir,
-                outputdir, script, atlas, subject]))
+            commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
 
     if commands:
         logger.debug("queueing up the following commands:\n"+'\n'.join(commands))
-        jobname = "dm_rest_{}".format(time.strftime("%Y%m%d-%H%M%S"))
-        log_path = dm.utils.define_folder(os.path.join(outputdir, 'logs'))
-
-        fd, path = tempfile.mkstemp()
-        os.write(fd, '\n'.join(commands))
-        os.close(fd)
-
-        rtn, out, err = dm.utils.run('qbatch -i --logdir {logdir} -N {name} --walltime {wt} {cmds}'.format(
-            logdir = log_path,
-            name = jobname,
-            wt = walltime,
-            cmds = path), dryrun = dryrun)
+        jobname = "dm_fmri_{}".format(time.strftime("%Y%m%d-%H%M%S"))
+        logfile = '/tmp/{}.log'.format(jobname)
+        errfile = '/tmp/{}.err'.format(jobname)
+        rtn, out, err = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
 
         if rtn != 0:
             logger.error("Job submission failed. Output follows.")
             logger.error("stdout: {}\nstderr: {}".format(out,err))
             sys.exit(1)
+
+        elif rtn == 0:
+            print(out)
 
 if __name__ == "__main__":
     main()
