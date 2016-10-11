@@ -244,33 +244,33 @@ def main():
 
     # run in batch mode
     else:
-    commands = []
-    nii_dirs = glob.glob('{}/*'.format(nii_dir))
-    for path in nii_dirs:
-        subject = os.path.basename(path)
+        commands = []
+        nii_dirs = glob.glob('{}/*'.format(nii_dir))
+        for path in nii_dirs:
+            subject = os.path.basename(path)
 
-        if dm.scanid.is_phantom(subject):
-            logger.debug("Subject {} is a phantom. Skipping.".format(subject))
-            continue
+            if dm.scanid.is_phantom(subject):
+                logger.debug("Subject {} is a phantom. Skipping.".format(subject))
+                continue
 
-        # otherwise, submit a list of calls to ourself, one per subject
-        else:
-            commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
+            # otherwise, submit a list of calls to ourself, one per subject
+            else:
+                commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
 
-    if commands:
-        logger.debug("queueing up the following commands:\n"+'\n'.join(commands))
-        jobname = "dm_fmri_{}".format(time.strftime("%Y%m%d-%H%M%S"))
-        logfile = '/tmp/{}.log'.format(jobname)
-        errfile = '/tmp/{}.err'.format(jobname)
-        rtn, out, err = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
+        if commands:
+            logger.debug("queueing up the following commands:\n"+'\n'.join(commands))
+            jobname = "dm_fmri_{}".format(time.strftime("%Y%m%d-%H%M%S"))
+            logfile = '/tmp/{}.log'.format(jobname)
+            errfile = '/tmp/{}.err'.format(jobname)
+            rtn, out, err = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
 
-        if rtn != 0:
-            logger.error("Job submission failed. Output follows.")
-            logger.error("stdout: {}\nstderr: {}".format(out,err))
-            sys.exit(1)
+            if rtn != 0:
+                logger.error("Job submission failed. Output follows.")
+                logger.error("stdout: {}\nstderr: {}".format(out,err))
+                sys.exit(1)
 
-        elif rtn == 0:
-            print(out)
+            elif rtn == 0:
+                print(out)
 
 if __name__ == "__main__":
     main()
