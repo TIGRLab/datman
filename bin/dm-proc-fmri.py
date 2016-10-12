@@ -38,7 +38,6 @@ logger = logging.getLogger(os.path.basename(__file__))
 class MissingDataException(Exception):
     pass
 
-
 class ProcessingException(Exception):
     pass
 
@@ -48,16 +47,14 @@ def check_inputs(config, tag, path, expected_tags):
     ExportInfo.
     """
     if not expected_tags:
-        print('ERROR: expected tag {} not found in {}'.format(tag, path))
-        sys.exit(1)
+        raise MissingDataException('ERROR: expected tag {} not found in {}'.format(tag, path))
     n_found = len(expected_tags)
 
     site = dm.scanid.parse_filename(expected_tags[0])[0].site
     n_expected = config['Sites'][site]['ExportInfo'][tag]['Count']
 
     if n_found != n_expected:
-        print('ERROR: number of files found with tag {} was {}, expected {}'.format(tag, n_found, n_expected))
-        sys.exit(1)
+        raise MissingDataException('ERROR: number of files found with tag {} was {}, expected {}'.format(tag, n_found, n_expected))
 
 def export_directory(source, destination):
     """
@@ -84,6 +81,16 @@ def export_file(source, destination):
         except IOError, e:
             raise ProcessingException("Problem exporting {} to {}".format(source, destination))
 
+def splitext(path):
+    """
+    Function that will remove extension, including specially-defined extensions
+    that fool os.path.splitext
+    """
+    for ext in ['.nii.gz', '.mnc.gz']:
+        if path.endswith(ext):
+            return path[:-len(ext)], path[-len(ext):]
+    return os.path.splitext(path)
+
 def export_file_list(pattern, files, output_dir):
     """
     Copies, from a list of files, all files containing some substring into
@@ -92,7 +99,10 @@ def export_file_list(pattern, files, output_dir):
     matches = filter(lambda x: pattern in x, files)
     for match in matches:
         output = os.path.join(output_dir, os.path.basename(match))
-        export_file(match, output)
+        try:
+            export_file(match, output)
+        except:
+            pass
 
 def run_epitome(path, config):
     """
@@ -111,7 +121,7 @@ def run_epitome(path, config):
         # collect the files needed for each experiment
         expected_names = config['fmri'][exp]['export']
         expected_tags = config['fmri'][exp]['tags']
-        output_dir = os.path.join(fmri_dir, exp, subject)
+        output_dir = dm.utils.define_folder(os.path.join(fmri_dir, exp, subject))
 
         if type(expected_tags) == str:
             expected_tags = [expected_tags]
@@ -142,7 +152,8 @@ def run_epitome(path, config):
             if filter(lambda x: output in x, files):
                 found += 1
         if found == len(expected_names):
-            sys.exit('All expected outputs found, exiting')
+            print('MSG: All expected outputs found, skipping experiment {}'.format(exp))
+            continue
 
         # create and populate epitome directory
         epi_dir = tempfile.mkdtemp()
@@ -164,20 +175,21 @@ def run_epitome(path, config):
         tr = config['fmri'][exp]['tr']
         delete = config['fmri'][exp]['del']
         pipeline =  config['fmri'][exp]['pipeline']
+
         pipeline = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir, 'assets/{}'.format(pipeline))
         if not os.path.isfile(pipeline):
             print('ERROR: invalid pipeline {} defined!'.format(pipeline))
             sys.exit(1)
-        command = '{} {} {} {} {}'.format(pipeline, epi_dir, delete, tr, dims)
 
         # run epitome
+        command = '{} {} {} {} {}'.format(pipeline, epi_dir, delete, tr, dims)
         rtn, out, err = dm.utils.run(command)
         output = '\n'.join([out, err]).replace('\n', '\n\t')
         if rtn != 0:
             print(output)
             raise ProcessingException("ERROR: Epitome script failed: {}".format(command))
         else:
-            print(output)
+            pass
 
         # export fmri data
         epitome_outputs = glob.glob(epi_func_dir + '/*')
@@ -190,7 +202,7 @@ def run_epitome(path, config):
                 print('ERROR: epitome output {} not created for all inputs'.format(name))
                 continue
             for i, match in enumerate(matches):
-                func_basename = os.path.splitext(os.path.basename(functionals[i]))[0]
+                func_basename = dm.utils.splitext(os.path.basename(functionals[i]))[0]
                 func_output = os.path.join(output_dir, func_basename + '_{}.nii.gz'.format(name))
                 export_file(match, func_output)
 
@@ -241,7 +253,10 @@ def main():
         path = os.path.join(nii_dir, scanid)
         if '_PHA_' in scanid:
             sys.exit('Subject {} if a phantom, cannot be analyzed'.format(scanid))
-        run_epitome(path, config)
+        try:
+            run_epitome(path, config)
+        except:
+            sys.exit(1)
 
     # run in batch mode
     else:
@@ -259,8 +274,8 @@ def main():
                 commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
 
         if commands:
-            logger.debug("queueing up the following commands:\n"+'\n'.join(commands))
-            jobname = "dm_fmri_{}".format(time.strftime("%Y%m%d-%H%M%S"))
+            logger.debug('queueing up the following commands:\n'+'\n'.join(commands))
+            jobname = 'dm_fmri_{}'.format(time.strftime("%Y%m%d-%H%M%S"))
             logfile = '/tmp/{}.log'.format(jobname)
             errfile = '/tmp/{}.err'.format(jobname)
             rtn, out, err = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
@@ -269,9 +284,6 @@ def main():
                 logger.error("Job submission failed. Output follows.")
                 logger.error("stdout: {}\nstderr: {}".format(out,err))
                 sys.exit(1)
-
-            elif rtn == 0:
-                print(out)
 
 if __name__ == "__main__":
     main()

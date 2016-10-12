@@ -139,7 +139,7 @@ def make_script(filename):
 
     #and...don't forget to close the file
     enigmash.close()
-    os.chmod(filename, 0o755)
+    os.chmod(filename, 0755)
 
 ### check the template .sh file that gets submitted to the queue to make sure option haven't changed
 def checkrunsh(filename):
