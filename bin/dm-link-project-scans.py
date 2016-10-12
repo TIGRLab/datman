@@ -5,14 +5,14 @@ Creates softlinks for scans from a subject in one project to a subject
 in another project. Writes details of the link to a .csv file.
 
 Usage:
-    link-project-scans.py [options] <link_file>
-    link-project-scans.py [options] <link_file> <src_session> <trg_session> [<tags>]
+    dm-link-project-scans.py [options] <link_file>
+    dm-link-project-scans.py [options] <link_file> <src_session> <trg_session> [<tags>]
 
 Arguments:
-    <link_file>     Path to the external-links.csv file.
-    <src_session>   Name of the source session in standard format.
-    <trg_session>   Name of the target session in standard format.
-    <tags>          Comma seperated list of scan tags to link.
+    <link_file>         Path to the external-links.csv file.
+    <src_session>       Name of the source session in standard format.
+    <trg_session>       Name of the target session in standard format.
+    <tags>              Comma seperated list of scan tags to link.
 
 Options:
     -h --help                   Show this screen.
@@ -22,7 +22,7 @@ Options:
     -o                          Path to the output file.
     --dry-run                   Perform a dry run.
     --config-yaml=<yamlfile>    Path to site specific yaml file
-                                    [default: /archive/data/code/datman/assets/tigrlab_config.yaml]
+                                [default: /archive/data/code/datman/assets/tigrlab_config.yaml]
     --system=<system>           System name for settings [default: kimel]
 
 Details:
@@ -42,12 +42,7 @@ import datman as dm
 import datman.scanid
 from docopt import docopt
 
-
-QUIET = False
-VERBOSE = False
-DEBUG = False
 DRYRUN = False
-PROJECTS_DIR = None
 CONFIG = None
 TAGS = None
 LINK_FILE_HEADERS = ['subject', 'target_subject', 'tags']
@@ -97,7 +92,6 @@ def split_multi_ext(filename):
 def write_link_file(link_file, src_session, trg_session):
     """If the link file doesnt exist, create it, if it exists and the entry is
     not present append, otherwise do nothing"""
-    global LINK_FILE_HEADERS
 
     write_headers = not os.path.isfile(link_file)
 
@@ -120,7 +114,6 @@ def write_link_file(link_file, src_session, trg_session):
 
 def read_link_file(link_file):
     """Reads a link_file returns each line"""
-    global LINK_FILE_HEADERS
 
     logger.info('Reading link file {}'.format(link_file))
     with open(link_file,'r') as f:
@@ -131,7 +124,7 @@ def read_link_file(link_file):
             if not line == LINK_FILE_HEADERS:
                 yield(line)
 
-def link_session(src_session, trg_session):
+def link_session(src_session, trg_session, projects_dir):
     # Check the source and target sessions are in the correct format
     logger.debug('Checking for valid sessions.')
     if dm.scanid.is_scanid(src_session):
@@ -139,7 +132,7 @@ def link_session(src_session, trg_session):
         src_study = get_study_from_tag(src_session.study)
         src_project_dir = CONFIG['Projects'][src_study]
         src_project_dir = src_project_dir.replace('<DATMAN_PROJECTSDIR>',
-                                                  PROJECTS_DIR)
+                                                  projects_dir)
     else:
         raise ValueError('Invalid src_session: {}'.format(src_session))
 
@@ -148,7 +141,7 @@ def link_session(src_session, trg_session):
         trg_study = get_study_from_tag(trg_session.study)
         trg_project_dir = CONFIG['Projects'][trg_study]
         trg_project_dir = trg_project_dir.replace('<DATMAN_PROJECTSDIR>',
-                                                  PROJECTS_DIR)
+                                                  projects_dir)
     else:
         raise ValueError('Invalid trg_session: {}'.format(trg_session))
 
@@ -209,7 +202,8 @@ def link_files(src_session, trg_session, src_data_dir, trg_data_dir):
                 except OSError as e:
                     logger.error('Failed to create symlink: {}'.format(e.strerror))
 
-if __name__ == '__main__':
+def main():
+    global DRYRUN, CONFIG
     arguments    = docopt(__doc__)
     link_file    = arguments['<link_file>']
     src_session  = arguments['<src_session>']
@@ -217,18 +211,18 @@ if __name__ == '__main__':
     tags         = arguments['<tags>']
     config_yml   = arguments['--config-yaml']
     system_name  = arguments['--system']
-    VERBOSE      = arguments['--verbose']
-    DEBUG        = arguments['--debug']
+    verbose      = arguments['--verbose']
+    debug        = arguments['--debug']
     DRYRUN       = arguments['--dry-run']
-    QUIET        = arguments['--quiet']
+    quiet        = arguments['--quiet']
 
-    if QUIET:
+    if quiet:
         logger.setLevel(logging.ERROR)
 
-    if VERBOSE:
+    if verbose:
         logger.setLevel(logging.INFO)
 
-    if DEBUG:
+    if debug:
         logger.setLevel(logging.DEBUG)
 
     logging.info('Starting')
@@ -252,8 +246,8 @@ if __name__ == '__main__':
 
     # TODO: this should be more flexibly coded in the yaml file
     try:
-        PROJECTS_DIR = CONFIG['SystemSettings'][system_name]['DATMAN_PROJECTSDIR']
-        logger.debug('Setting project Dir to {}'.format(PROJECTS_DIR))
+        projects_dir = CONFIG['SystemSettings'][system_name]['DATMAN_PROJECTSDIR']
+        logger.debug('Setting project Dir to {}'.format(projects_dir))
     except KeyError:
         logger.error('Projects dir not found in config file:{}'.format(config_yml))
         raise
@@ -263,10 +257,13 @@ if __name__ == '__main__':
     if src_session is not None and trg_session is not None:
         # processing a single session
         set_tags(tags)
-        link_session(src_session, trg_session)
+        link_session(src_session, trg_session, projects_dir)
         write_link_file(link_file, src_session, trg_session)
     else:
         # read the link file and process the entries
         for line in read_link_file(link_file):
             set_tags(line[2])
-            link_session(line[0], line[1])
+            link_session(line[0], line[1], projects_dir)
+
+if __name__ == '__main__':
+    main()
