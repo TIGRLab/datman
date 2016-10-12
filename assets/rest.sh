@@ -189,9 +189,47 @@ for SESS in ${DIR_SESS}; do
     done
 done
 
+echo '*** MODULE: deoblique. Alters image to have no obliquity. **************'
+export input=func_tshift
+
+# loop through sessions
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+
+    # loop through runs
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+        FILE=`echo ${RUN}/*.nii.gz`
+
+        if [ ! -f ${SESS}/func_ob.${ID}.${NUM}.nii.gz ]; then
+            if [ ${NUM} == '01' ]; then
+                # deoblique run (unconstrained for first run)
+                3dWarp \
+                    -prefix ${SESS}/func_ob.${ID}.${NUM}.nii.gz \
+                    -deoblique \
+                    -quintic \
+                    -verb \
+                    ${SESS}/${input}.${ID}.${NUM}.nii.gz > \
+                    ${SESS}/PARAMS/deoblique.${ID}.${NUM}.1D
+
+            else
+                # deoblique run, matching dimensions to first run
+                3dWarp \
+                   -prefix ${SESS}/func_ob.${ID}.${NUM}.nii.gz \
+                   -deoblique \
+                   -quintic \
+                   -verb \
+                   -gridset ${SESS}/func_ob.${ID}.01.nii.gz \
+                   ${SESS}/${input}.${ID}.${NUM}.nii.gz > \
+                   ${SESS}/PARAMS/deoblique.${ID}.${NUM}.1D
+            fi
+        fi
+    done
+done
 
 echo '*** MODULE: motion_deskull. Motion correction and brain masking. ***'
-export input=func_tshift
+export input=func_ob
 export masking=normal
 export method=FSL
 
@@ -1172,7 +1210,7 @@ for SESS in ${DIR_SESS}; do
                         -quiet \
                         -prefix ${SESS}/func_volsmooth.${ID}.${NUM}.nii.gz \
                         -mask ${SESS}/anat_tmp_smoothmask.nii.gz \
-                        -fwhm ${fwhm} \
+                        -FWHM ${fwhm} \
                         -blurmaster ${SESS}/func_noise.${ID}.${NUM}.nii.gz \
                         -input ${SESS}/${input}.${ID}.${NUM}.nii.gz
                 else
@@ -1180,7 +1218,7 @@ for SESS in ${DIR_SESS}; do
                         -quiet \
                         -prefix ${SESS}/func_volsmooth.${ID}.${NUM}.nii.gz \
                         -mask ${SESS}/anat_tmp_smoothmask.nii.gz \
-                        -fwhm ${fwhm} \
+                        -FWHM ${fwhm} \
                         -input ${SESS}/${input}.${ID}.${NUM}.nii.gz
                 fi
 
@@ -1189,7 +1227,7 @@ for SESS in ${DIR_SESS}; do
                 3dBlurInMask \
                     -prefix ${SESS}/func_volsmooth.${ID}.${NUM}.nii.gz \
                     -Mmask ${SESS}/anat_tmp_smoothmask.nii.gz \
-                    -fwhm ${fwhm} \
+                    -FWHM ${fwhm} \
                     -quiet -float \
                     -input ${SESS}/${input}.${ID}.${NUM}.nii.gz
             fi
