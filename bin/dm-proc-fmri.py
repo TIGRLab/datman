@@ -275,15 +275,17 @@ def main():
 
         if commands:
             logger.debug('queueing up the following commands:\n'+'\n'.join(commands))
-            jobname = 'dm_fmri_{}'.format(time.strftime("%Y%m%d-%H%M%S"))
-            logfile = '/tmp/{}.log'.format(jobname)
-            errfile = '/tmp/{}.err'.format(jobname)
-            rtn, out, err = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
 
-            if rtn != 0:
-                logger.error("Job submission failed. Output follows.")
-                logger.error("stdout: {}\nstderr: {}".format(out,err))
-                sys.exit(1)
+            for cmd in commands:
+                jobname = 'dm_fmri_{}'.format(time.strftime("%Y%m%d-%H%M%S"))
+                logfile = '/tmp/{}.log'.format(jobname)
+                errfile = '/tmp/{}.err'.format(jobname)
+                rtn, out, err = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
+
+                if rtn != 0:
+                    logger.error("Job submission failed. Output follows.")
+                    logger.error("stdout: {}\nstderr: {}".format(out,err))
+                    sys.exit(1)
 
 if __name__ == "__main__":
     main()
