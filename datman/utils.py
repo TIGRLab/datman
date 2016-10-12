@@ -453,6 +453,16 @@ def get_loaded_modules():
     """
     return " ".join(os.environ.get("LOADEDMODULES","").split(":"))
 
+def splitext(path):
+    """
+    Function that will remove extension, including specially-defined extensions
+    that fool os.path.splitext
+    """
+    for ext in ['.nii.gz', '.mnc.gz']:
+        if path.endswith(ext):
+            return path[:-len(ext)], path[-len(ext):]
+    return os.path.splitext(path)
+
 @contextlib.contextmanager
 def make_temp_directory():
     temp_dir = tempfile.mkdtemp()
