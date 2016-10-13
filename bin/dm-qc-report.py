@@ -78,6 +78,7 @@ Requires:
 """
 
 import os, sys
+import re
 import glob
 import time
 import yaml
@@ -100,7 +101,7 @@ def run(cmd):
     """
     Runs command, writing to logs if there is an error.
     """
-    rtn, out, err = dm.utils.run(cmd, dryrun=DRYRUN)
+    rtn, out, err = dm.utils.run(cmd)
 
     if rtn != 0:
         logger.error("Error {} while executing: {}".format(rtn, cmd))
@@ -249,7 +250,7 @@ def add_header_qc(fpath, qchtml, logdata):
     qchtml.write('</table>\n')
 
 # PIPELINES
-def ignore(filename, outputDir):
+def ignore(filename, qc_dir, report):
     pass
 
 def phantom_fmri_qc(filename, outputDir):

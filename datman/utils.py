@@ -362,9 +362,7 @@ def run_dummy_q(list_of_names):
 
 def run(cmd, dryrun=False, echo=False):
     """
-    Runs a command in the default shell (so beware!)
-
-    Returns the return code, stdout and stderr.
+    Runscommand in default shell, returning the return code, stdout & stderr.
     """
     if dryrun:
         return 0, "", ""
@@ -374,6 +372,7 @@ def run(cmd, dryrun=False, echo=False):
     else:
         p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
         out, err = p.communicate()
+
         return p.returncode, out, err
 
 def get_files_with_tag(parentdir, tag, fuzzy = False):
