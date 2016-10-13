@@ -78,6 +78,7 @@ Requires:
 """
 
 import os, sys
+import re
 import glob
 import time
 import yaml
@@ -97,17 +98,15 @@ VERBOSE = False
 REWRITE = False
 
 def run(cmd):
-    logger.debug("exec: {}".format(cmd))
-    p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
-    out, err = p.communicate()
-    if p.returncode != 0:
-        logger.error("Error {} while executing: {}".format(p.returncode, cmd))
+    """
+    Runs command, writing to logs if there is an error.
+    """
+    rtn, out, err = dm.utils.run(cmd)
+
+    if rtn != 0:
+        logger.error("Error {} while executing: {}".format(rtn, cmd))
         out and logger.error("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
         err and logger.error("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
-    else:
-        logger.debug("rtnval: {}".format(p.returncode))
-        out and logger.debug("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
-        err and logger.debug("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
 
 def slicer(fpath, pic, slicergap, picwidth):
     """
@@ -232,8 +231,16 @@ def add_header_qc(fpath, qchtml, logdata):
     """
     Adds header diff infortmation to the report.
     """
+    # get the filename of the nifti in question
     filestem = os.path.basename(fpath).replace(dm.utils.get_extension(fpath),'')
-    lines = [re.sub('^.*?: *','',line) for line in logdata if filestem in line]
+
+    # read the log
+    with open(logdata, 'r') as f:
+        f = f.readlines()
+
+    # find lines in said log that pertain to the nifti
+    lines = [re.sub('^.*?: *','',line) for line in f if filestem in line]
+
     if not lines:
         return
 
@@ -243,7 +250,7 @@ def add_header_qc(fpath, qchtml, logdata):
     qchtml.write('</table>\n')
 
 # PIPELINES
-def ignore(filename, outputDir):
+def ignore(filename, qc_dir, report):
     pass
 
 def phantom_fmri_qc(filename, outputDir):
