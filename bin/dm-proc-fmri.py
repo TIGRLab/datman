@@ -132,7 +132,11 @@ def run_epitome(path, config):
         for tag in expected_tags:
             candidates = filter(lambda x: tag in x, files)
             candidates.sort()
-            check_inputs(config, tag, path, candidates)
+            try:
+                check_inputs(config, tag, path, candidates)
+            except MissingDataException as m:
+                print('ERROR: {}'.format(m))
+                continue
             functionals.extend(candidates)
 
         # locate anatomical data
@@ -152,7 +156,7 @@ def run_epitome(path, config):
             if filter(lambda x: output in x, files):
                 found += 1
         if found == len(expected_names):
-            print('MSG: All expected outputs found, skipping experiment {}'.format(exp))
+            print('MSG: outputs found for experiment {}'.format(exp))
             continue
 
         # create and populate epitome directory
@@ -168,7 +172,8 @@ def run_epitome(path, config):
             for i, d in enumerate(functionals):
                 shutil.copyfile(d, '{}/RUN{}/FUNC.nii.gz'.format(epi_func_dir, '%02d' % (i + 1)))
         except IOError, e:
-            raise ProcessingException("Problem copying files to epitome temp folder")
+            print("ERROR: unable to copy files to {}".format(epi_dir))
+            continue
 
         # collect command line options
         dims = config['fmri'][exp]['dims']
@@ -194,25 +199,30 @@ def run_epitome(path, config):
         # export fmri data
         epitome_outputs = glob.glob(epi_func_dir + '/*')
         for name in expected_names:
-            matches = filter(lambda x: name in x, epitome_outputs)
-            matches.sort()
+            try:
+                matches = filter(lambda x: name in x, epitome_outputs)
+                matches.sort()
 
-            # attempt to export the defined epitome stages for all runs
-            if len(matches) != len(functionals):
-                print('ERROR: epitome output {} not created for all inputs'.format(name))
+                # attempt to export the defined epitome stages for all runs
+                if len(matches) != len(functionals):
+                    print('ERROR: epitome output {} not created for all inputs'.format(name))
+                    continue
+                for i, match in enumerate(matches):
+                    func_basename = dm.utils.splitext(os.path.basename(functionals[i]))[0]
+                    func_output = os.path.join(output_dir, func_basename + '_{}.nii.gz'.format(name))
+                    export_file(match, func_output)
+
+                # export all anatomical / registration information
+                export_file_list('anat_', epitome_outputs, output_dir)
+                export_file_list('reg_',  epitome_outputs, output_dir)
+                export_file_list('mat_',  epitome_outputs, output_dir)
+
+                # export PARAMS folder
+                export_directory(os.path.join(epi_func_dir, 'PARAMS'), os.path.join(output_dir, 'PARAMS'))
+
+            except ProcessingError as p:
+                print('ERROR: {}'.format(p))
                 continue
-            for i, match in enumerate(matches):
-                func_basename = dm.utils.splitext(os.path.basename(functionals[i]))[0]
-                func_output = os.path.join(output_dir, func_basename + '_{}.nii.gz'.format(name))
-                export_file(match, func_output)
-
-        # export all anatomical / registration information
-        export_file_list('anat_', epitome_outputs, output_dir)
-        export_file_list('reg_',  epitome_outputs, output_dir)
-        export_file_list('mat_',  epitome_outputs, output_dir)
-
-        # export PARAMS folder
-        export_directory(os.path.join(epi_func_dir, 'PARAMS'), os.path.join(output_dir, 'PARAMS'))
 
         # remove temporary directory
         shutil.rmtree(epi_dir)
