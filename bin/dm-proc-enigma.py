@@ -146,7 +146,8 @@ def main():
     ## Change dir so it can be submitted without the full path
     os.chdir(run_dir)
     if not POST_ONLY:
-        cmds_to_submit = []
+        with make_temp_directory() as temp_dir:
+                cmds_to_submit = []
         for i in range(0,len(checklist)):
             subid = checklist['id'][i]
 
@@ -261,7 +262,7 @@ def write_run_script(filename, output_dir, CALC_MD, CALC_ALL):
 
     #and...don't forget to close the file
     enigmash.close()
-    os.chmod(filename, 0o755)
+    os.chmod(filename, 0755)
 
 
 ### check the template .sh file that gets submitted to the queue to make sure option haven't changed

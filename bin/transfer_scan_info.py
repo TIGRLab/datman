@@ -23,24 +23,28 @@ Options:
 import sys
 import requests
 import pyxnat as xnat
+import logging
 from docopt import docopt
 from contextlib import contextmanager
 
-VERBOSE = False
+logging.basicConfig(level=logging.WARN, format='%(levelname)s:%(message)s')
+LOGGER = logging.getLogger(__name__)
 
 def main():
-    global VERBOSE
     arguments   = docopt(__doc__)
     cred_file   = arguments['<credential_file>']
     redcap_url  = arguments['--redcap']
     xnat_url    = arguments['--xnat']
-    VERBOSE     = arguments['--verbose']
+    verbose     = arguments['--verbose']
+
+    if verbose:
+        LOGGER.setLevel(logging.INFO)
 
     token, user_name, password = read_credentials(cred_file)
     scan_complete_surveys = get_redcap_records(token, redcap_url)
 
-    with xnat_connection(user_name, password, xnat_url) as connection:
-        for record in scan_complete_surveys:
+    for record in scan_complete_surveys:
+        with xnat_connection(user_name, password, xnat_url) as connection:
             add_record_to_xnat(connection, record)
 
 def read_credentials(cred_file):
@@ -90,7 +94,7 @@ def add_record_to_xnat(xnat_connection, record):
     matching_projects = get_projects_containing_id(xnat_connection, subject_id)
 
     if matching_projects is None:
-        print("ERROR: no records in the given database have subject id "\
+        LOGGER.error("no records in the given database have subject id "\
               "{}".format(subject_id))
         return
 
@@ -100,36 +104,34 @@ def add_record_to_xnat(xnat_connection, record):
         experiment = get_experiment(subject)
 
         if experiment is None:
-            print("Skipping {}".format(subject_id))
+            LOGGER.info("Skipping {}".format(subject_id))
             return
 
-        if VERBOSE:
-            print("Working on {} in project {}".format(subject_id, project_name))
-
+        LOGGER.info("Working on {} in project {}".format(subject_id, project_name))
 
         # Handle comment field update
         if comment:
+            LOGGER.info("{} has comment {}".format(subject_id, comment))
             try:
                 experiment.attrs.set('note', comment)
                 subject.attrs.set("xnat:subjectData/fields/field[name='comments']/field",
-                              'See MR Scan notes')
-                if VERBOSE:
-                    print("{} comment field updated".format(subject_id))
+                              "See MR Scan notes")
+                LOGGER.info("{} comment field updated".format(subject_id))
             except xnat.core.errors.DatabaseError:
-                print('ERROR: {} scan comment is too long for notes field. Adding ' \
+                LOGGER.error('{} scan comment is too long for notes field. Adding ' \
                       'note to check redcap record instead.'.format(subject_id))
                 subject.attrs.set("xnat:subjectData/fields/field[name='comments']/field",
                             'Comment too long, refer to REDCap record.')
 
         # Handle sharedIds field update
         if shared_ids:
+            LOGGER.info("{} has alternate ids {}".format(subject_id, shared_ids))
             try:
                 subject.attrs.set("xnat:subjectData/fields/field[name='sharedids']/field",
                           shared_ids)
-                if VERBOSE:
-                    print("{} sharedIds field updated".format(subject_id))
+                LOGGER.info("{} sharedIds field updated".format(subject_id))
             except xnat.core.errors.DatabaseError:
-                print('ERROR: {} shared id list too long for xnat field, adding note '\
+                LOGGER.error('{} shared id list too long for xnat field, adding note '\
                       'to check REDCap record instead.'.format(subject_id))
                 subject.attrs.set("xnat:subjectData/fields/field[name='sharedids']/field",
                           'ID list too long, refer to REDCap record.')
@@ -169,10 +171,10 @@ def get_experiment(subject):
     experiment_names = subject.experiments().get()
 
     if len(experiment_names) == 0:
-        print("ERROR: {} does not have any MR scans.".format(subject_id))
+        LOGGER.error("{} does not have any MR scans.".format(subject))
         return None
     elif len(experiment_names) > 1:
-        print("ERROR: {} has more than one MR scan.".format(subject_id))
+        LOGGER.error("{} has more than one MR scan.".format(subject))
         return None
 
     return subject.experiment(experiment_names[0])

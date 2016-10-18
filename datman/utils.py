@@ -365,9 +365,7 @@ def run_dummy_q(list_of_names):
 
 def run(cmd, dryrun=False, echo=False):
     """
-    Runs a command in the default shell (so beware!)
-
-    Returns the return code, stdout and stderr.
+    Runscommand in default shell, returning the return code, stdout & stderr.
     """
     if dryrun:
         logger.info('Doing a dryrun')
@@ -378,8 +376,12 @@ def run(cmd, dryrun=False, echo=False):
     else:
         p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
         out, err = p.communicate()
+<<<<<<< HEAD
         if p.returncode:
             logger.error('Failed with returncode {}. Excuse:{}'.format(p.returncode, err))
+=======
+
+>>>>>>> 02a0c4c637746f827321110dc225550540fde805
         return p.returncode, out, err
 
 def get_files_with_tag(parentdir, tag, fuzzy = False):
@@ -458,6 +460,16 @@ def get_loaded_modules():
     just looks in the LOADEDMODULES environment variable for the list.
     """
     return " ".join(os.environ.get("LOADEDMODULES","").split(":"))
+
+def splitext(path):
+    """
+    Function that will remove extension, including specially-defined extensions
+    that fool os.path.splitext
+    """
+    for ext in ['.nii.gz', '.mnc.gz']:
+        if path.endswith(ext):
+            return path[:-len(ext)], path[-len(ext):]
+    return os.path.splitext(path)
 
 @contextlib.contextmanager
 def make_temp_directory():

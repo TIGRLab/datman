@@ -1,465 +1,161 @@
 #!/usr/bin/env python
 """
-This pre-processes resting state data and extracts the mean time series from the defined
-ROIs in MNI space (6 mm spheres). This data is returned as the time series, a full correlation
-matrix, and a partial correlation matrix (all in .csv format).
+This extracts the mean time series from the defined ROIs in MNI space (6 mm
+spheres). This data is returned as the time series & a full correlation matrix,
+in .csv format).
 
 Usage:
-    dm-proc-rest.py [options] <datadir> <fsdir> <outputdir> <script> <atlas> [<subject>...]
+    dm-proc-rest.py [options] <config>
 
 Arguments:
-    <datadir>           Path to the datman data/ folder containing nii/ and RESOURCES/
-    <fsdir>             Path to freesurfer output folder containing t1/
-    <outputdir>         Path to output folder
-    <script>            Full path to an epitome-style script.
-    <atlas>             Full path to a NIFTI atlas in MNI space.
-    <subject>           Subject name to run on, e.g. SPN01_CMH_0020_01. If not
-                        provided, all subjects matching the given --tags will
-                        be processed.
+    <config>            Configuration file
 
 Options:
-    --walltime TIME     Walltime for each subject job [default: 2:00:00]
-    --tags LIST         DATMAN tags to run pipeline on. (comma delimited) [default: RST]
-    -v,--verbose        Verbose logging
+    --subject SUBJID    Subject ID to run
     --debug             Debug logging
-    --dry-run          Don't do anything.
 
 DETAILS
 
-    1) Preprocesses fMRI data using the defined epitome-style script.
-    2) Produces a CSV of the ROI time series from the MNI-space atlas NIFTI in assets/.
-    3) Produces a correlation matrix of these same time series.
-
-    Each subject is run through this pipeline if the outputs do not already exist.
-    Outputs are placed in <project>/data/rest
-    Logs in <project>/logs/rest
-
-DEPENDENCIES
-
-    + python
-    + matlab
-    + afni
-    + fsl
-    + epitome
-
-    Requires dm-proc-freesurfer.py to be completed.
-
-This message is printed with the -h, --help flags.
+    1) Produces a CSV of the ROI time series from the MNI-space atlas NIFTI in assets/.
+    2) Produces a correlation matrix of these same time series.
 """
 
 from datman.docopt import docopt
-from glob import glob
-from random import choice
-from scipy import stats, linalg
-from string import ascii_uppercase, digits
 import datman as dm
 import logging
+import glob
 import numpy as np
-import os
-import shutil
-import sys
-import tempfile
+import os, sys
 import time
+import yaml
 
-logging.basicConfig(level=logging.WARN,
-                    format="[%(name)s] %(levelname)s: %(message)s")
+logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
-
 
 class MissingDataException(Exception):
     pass
 
-
 class ProcessingException(Exception):
     pass
 
-
-def partial_corr(C):
+def run_analysis(scanid, config):
     """
-    Partial Correlation in Python (clone of Matlab's partialcorr)
-    from https://gist.github.com/fabianp/9396204419c7b638d38f
-
-    This uses the linear regression approach to compute the partial
-    correlation (might be slow for a huge number of variables). The
-    algorithm is detailed here:
-
-        http://en.wikipedia.org/wiki/Partial_correlation#Using_linear_regression
-
-    Taking X and Y two variables of interest and Z the matrix with all the variable minus {X, Y},
-    the algorithm can be summarized as
-
-        1) perform a normal linear least-squares regression with X as the target and Z as the predictor
-        2) calculate the residuals in Step #1
-        3) perform a normal linear least-squares regression with Y as the target and Z as the predictor
-        4) calculate the residuals in Step #3
-        5) calculate the correlation coefficient between the residuals from Steps #2 and #4;
-
-    The result is the partial correlation between X and Y while controlling for the effect of Z
-
-    Returns the sample linear partial correlation coefficients between pairs of variables in C, controlling
-    for the remaining variables in C.
-
-
-    Parameters
-    ----------
-    C : array-like, shape (n, p)
-        Array with the different variables. Each column of C is taken as a variable
-
-
-    Returns
-    -------
-    P : array-like, shape (p, p)
-        P[i, j] contains the partial correlation of C[:, i] and C[:, j] controlling
-        for the remaining variables in C.
+    Extracts: time series, correlation matricies using defined atlas.
     """
+    fmri_dir = config['paths']['fmri']
+    experiments = config['fmri'].keys()
+    atlas = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir, 'assets/shen_2mm_268_parcellation.nii.gz')
 
-    C = np.asarray(C)
-    p = C.shape[1]
-    P_corr = np.zeros((p, p), dtype=np.float)
-    for i in range(p):
-        P_corr[i, i] = 1
-        for j in range(i + 1, p):
-            idx = np.ones(p, dtype=np.bool)
-            idx[i] = False
-            idx[j] = False
-            beta_i = linalg.lstsq(C[:, idx], C[:, j])[0]
-            beta_j = linalg.lstsq(C[:, idx], C[:, i])[0]
+    if not os.path.isfile(atlas):
+        print('ERROR: atlas file {} not found'.format(atlas))
+        sys.exit(1)
 
-            res_j = C[:, j] - C[:, idx].dot(beta_i)
-            res_i = C[:, i] - C[:, idx].dot(beta_j)
+    for exp in experiments:
+        path = os.path.join(fmri_dir, exp, scanid)
 
-            corr = stats.pearsonr(res_i, res_j)[0]
-            P_corr[i, j] = corr
-            P_corr[j, i] = corr
+        # get filetypes to analyze, ignoring ROI files
+        target_filetypes = config['fmri'][exp]['conn']
+        if type(target_filetypes) == str:
+            target_filetypes = [target_filetypes]
+        inputs = []
+        candidates = glob.glob('{}/{}_*.nii.gz'.format(path, scanid))
+        for filetype in target_filetypes:
+            inputs.extend(filter(lambda x: filetype + '.nii.gz' in x, candidates))
 
-    return P_corr
+        for filename in inputs:
+            basename = os.path.basename(dm.utils.splitext(filename)[0])
 
+            # if the final correlation matrix exists, skip processing
+            if os.path.isfile(os.path.join(path, basename + '_roi-corrs.csv')):
+                continue
 
-def proc_data(sub, data, log_path, tmpfolder, script):
-    """
-    Copies functional data into epitome-compatible structure, then runs the
-    associated epitome script on the data. Finally, we copy the outputs into
-    the 'rest' directory.
+            # generate ROI file in register with subject's data
+            roi_file = os.path.join(path, basename + '_rois.nii.gz')
+            if not os.path.isfile(roi_file):
+                rtn, out, err = dm.utils.run('3dresample -master {} -prefix {} -inset {}'.format(filename, roi_file, atlas))
+                output = '\n'.join([out, err]).replace('\n', '\n\t')
+                if rtn != 0:
+                    logger.error(output)
+                    raise ProcessingException('Error resampling atlas {} to match {}.'.format(atlas, filename))
+                else:
+                    logger.info(output)
 
-    A ProcessingException is raised if there are any errors during preprocessing.
-    """
+            rois, _, _, _ = dm.utils.loadnii(roi_file)
+            data, _, _, _ = dm.utils.loadnii(filename)
 
-    t1_data = data['T1']
-    aparc = data['aparc']
-    aparc2009 = data['aparc2009']
-    rest_data = data['resting']
-    taglist = data['tags']
+            n_rois = len(np.unique(rois[rois > 0]))
+            dims = np.shape(data)
 
-    # setup and run preprocessing
-    # copy data into temporary epitome structure
-    dm.utils.make_epitome_folders(tmpfolder, len(rest_data))
-    epi_t1_dir = '{}/TEMP/SUBJ/T1/SESS01'.format(tmpfolder)
-    epi_func_dir = '{}/TEMP/SUBJ/FUNC/SESS01'.format(tmpfolder)
+            # loop through all ROIs, extracting mean timeseries.
+            output = np.zeros((n_rois, dims[1]))
 
-    try:
-        shutil.copyfile(t1_data, '{}/anat_T1_brain.nii.gz'.format(epi_t1_dir))
-        shutil.copyfile(aparc, '{}/anat_aparc_brain.nii.gz'.format(epi_t1_dir))
-        shutil.copyfile(
-            aparc2009, '{}/anat_aparc2009_brain.nii.gz'.format(epi_t1_dir))
-        for i, d in enumerate(rest_data):
-            shutil.copyfile(
-                d, '{}/RUN{}/FUNC.nii.gz'.format(epi_func_dir, '%02d' % (i + 1)))
-    except IOError, e:
-        logger.exception("Exception when copying files to epitome temp folder")
-        raise ProcessingException(
-            "Problem copying files to epitome temp folder")
+            for i, roi in enumerate(np.unique(rois[rois > 0])):
+                idx = np.where(rois == roi)[0]
 
-    cmd = '{} {} 4'.format(script, tmpfolder)
-    logger.debug('exec: {}'.format(cmd))
-    rtn, out, err = dm.utils.run(cmd, echo = True)
-    output = '\n'.join([out, err]).replace('\n', '\n\t')
-    if rtn != 0:
-        logger.error(output)
-        raise ProcessingException("Trouble running preprocessing data")
-    else:
-        logger.info(output)
+                if len(idx) > 0:
+                    output[i, :] = np.mean(data[idx, :], axis=0)
 
-def export_data(sub, data, tmpfolder, func_path):
-    tmppath = os.path.join(tmpfolder, 'TEMP', 'SUBJ', 'FUNC', 'SESS01')
-    try:
-        out_path = dm.utils.define_folder(os.path.join(func_path, sub))
+            # save the raw time series
+            np.savetxt(os.path.join(path, basename + '_roi-timeseries.csv'), output.transpose(), delimiter=',')
 
-        for i, t in enumerate(data['tags']):
-            idx = '%02d' % (i + 1)
-            shutil.copyfile(
-                '{inpath}/func_MNI-nonlin.DATMAN.{i}.nii.gz'.format(
-                    i=idx, inpath=tmppath),
-                '{outpath}/{sub}_func_MNI-nonlin.{t}.{i}.nii.gz'.format(
-                    i=idx, t=t, outpath=out_path, sub=sub))
-
-        shutil.copyfile(
-            '{}/anat_EPI_mask_MNI-nonlin.nii.gz'.format(tmppath),
-            '{}/{}_anat_EPI_mask_MNI.nii.gz'.format(out_path, sub))
-        shutil.copyfile(
-            '{}/reg_T1_to_TAL.nii.gz'.format(tmppath),
-            '{}/{}_reg_T1_to_MNI-lin.nii.gz'.format(out_path, sub))
-        shutil.copyfile(
-            '{}/reg_nlin_TAL.nii.gz'.format(tmppath),
-            '{}/{}_reg_nlin_MNI.nii.gz'.format(out_path, sub))
-        shutil.copyfile(
-            '{}/PARAMS/motion.DATMAN.01.1D'.format(tmppath),
-            '{}/{}_motion.1D'.format(out_path, sub))
-    except IOError, e:
-        logger.exception("Exception when copying files from temp folder")
-        raise ProcessingException("Problem copying files from temp folder")
-
-    open('{}/{}_preproc-complete.log'.format(out_path, sub), 'a').close()
-
-
-def analyze_data(sub, atlas, func_path):
-    """
-    Extracts: time series, correlation / partial correlation matricies using labels defined
-    in 'rsfc.labels' in assets/. This file should be formatted for 3dUndump.
-    """
-
-    # get an input file list
-    filelist = glob(
-        '{func_path}/{sub}/{sub}_func_MNI*'.format(func_path=func_path, sub=sub))
-
-    for f in filelist:
-
-        # strips off extension and folder structure from input filename
-        basename = '.'.join(os.path.basename(f).split('.')[:-2])
-
-        rtn, out, err = dm.utils.run(
-            '3dresample -master {f} -prefix {func_path}/{sub}/{basename}_rois.nii.gz -inset {atlas}'.format(
-                f=f, func_path=func_path, basename=basename, sub=sub, atlas=atlas))
-        output = '\n'.join([out, err]).replace('\n', '\n\t')
-        if rtn != 0:
-            logger.error(output)
-            raise ProcessingException("Error resampling atlas.")
-        else:
-            logger.info(output)
-
-        rois, _, _, _ = dm.utils.loadnii(
-            '{func_path}/{sub}/{basename}_rois.nii.gz'.format(func_path=func_path, sub=sub, basename=basename))
-        data, _, _, _ = dm.utils.loadnii(f)
-
-        n_rois = len(np.unique(rois[rois > 0]))
-        dims = np.shape(data)
-
-        # loop through all ROIs, extracting mean timeseries.
-        output = np.zeros((n_rois, dims[1]))
-
-        for i, roi in enumerate(np.unique(rois[rois > 0])):
-            idx = np.where(rois == roi)[0]
-
-            if len(idx) > 0:
-                output[i, :] = np.mean(data[idx, :], axis=0)
-
-        # save the raw time series
-        np.savetxt('{func_path}/{sub}/{basename}_roi-timeseries.csv'.format(
-            func_path=func_path, sub=sub, basename=basename), output.transpose(), delimiter=',')
-
-        # save the full correlation matrix
-        corrs = np.corrcoef(output)
-        np.savetxt('{func_path}/{sub}/{basename}_roi-corrs.csv'.format(
-            func_path=func_path, sub=sub, basename=basename), corrs, delimiter=',')
-
-    open('{path}/{sub}/{sub}_analysis-complete.log'.format(path=func_path,
-                                                           sub=sub), 'a').close()
-
-
-def is_complete(projectdir, subject):
-    complete_file = os.path.join(projectdir, 'data', 'rest', subject,
-                                 '{sub}_analysis-complete.log'.format(sub=subject))
-    return os.path.isfile(complete_file)
-
-
-def get_required_data(data_path, fsdir, sub, tags):
-    """Finds the necessary data for processing this subject.
-
-    If the necessary data can't be found, a MissingDataException is
-    raised. Otherwise, a dict is returned with:
-
-    - T1 : path to the T1 data
-    - aparc : path to the aparc atlas
-    - aparc2009 : path to the aparc2009 atlas
-    - resting : list of paths to the resting state scans
-    - tags : parallel list of tags for each scan
-    """
-
-    nii_path = os.path.join(data_path, 'nii')
-    t1_path = os.path.join(fsdir, 't1')
-
-    # find freesurfer data
-    t1 = '{path}/{sub}_T1.nii.gz'.format(path=t1_path, sub=sub)
-    aparc = '{path}/{sub}_APARC.nii.gz'.format(path=t1_path, sub=sub)
-    aparc2009 = '{path}/{sub}_APARC2009.nii.gz'.format(path=t1_path, sub=sub)
-
-    if not os.path.exists(t1):
-        raise MissingDataException(
-            'No T1 found for sub {}. Skipping.'.format(sub))
-
-    if not os.path.exists(aparc):
-        raise MissingDataException(
-            'No aparc atlas found for sub {}. Skipping.'.format(sub))
-
-    if not os.path.exists(aparc2009):
-        raise MissingDataException(
-            'No aparc 2009 atlas found for sub {}. Skipping.'.format(sub))
-
-    # find resting state data
-    rest_data = [glob('{path}/{sub}/*_{tag}_*.nii*'.format(
-        path=nii_path, sub=sub, tag=tag)) for tag in tags]
-    rest_data = reduce(lambda x, y: x + y, rest_data)  # merge lists
-
-    if not rest_data:
-        raise MissingDataException('No REST data found for ' + str(sub))
-
-    logger.debug("Found REST data for subject {}: {}".format(sub, rest_data))
-
-    # keep track of the tags of the input files, as we will need the name the
-    # epitome outputs with them
-    taglist = []
-    for d in rest_data:
-        taglist.append(dm.utils.scanid.parse_filename(d)[1])
-
-    return {'T1': t1,
-            'aparc': aparc,
-            'aparc2009': aparc2009,
-            'resting': rest_data,
-            'tags': taglist}
-
-
-def process_subject(func_path, log_path, data, sub, tags, atlas, script):
-    tempfolder = tempfile.mkdtemp(prefix='rest-')
-    try:
-        if os.path.isfile(os.path.join(func_path, sub, '{sub}_preproc-complete.log'.format(sub=sub))):
-            logger.info(
-                "Subject {} preprocessing already complete.".format(sub))
-        else:
-            logger.info("Preprocessing subject {}".format(sub))
-            proc_data(sub, data, log_path, tempfolder, script)
-            export_data(sub, data, tempfolder, func_path)
-
-        if not os.path.isdir(os.path.join(func_path, sub)):
-            logger.error(
-                "Subject's {} rest folder not present after preproc.".format(sub))
-            return False
-
-        analyze_data(sub, atlas, func_path)
-    except ProcessingException, e:
-        logger.error(e.message)
-        return False
-    finally:
-        if os.path.exists(tempfolder):
-            shutil.rmtree(tempfolder)
-
+            # save the full correlation matrix
+            corrs = np.corrcoef(output)
+            np.savetxt(os.path.join(path, basename + '_roi-corrs.csv'), corrs, delimiter=',')
 
 def main():
-    """
-    Essentially, analyzes the resting-state data.
 
-    1) Runs functional data through a defined epitome script.
-    2) Extracts time series from the cortex using MRI-space ROIs.
-    3) Generates a correlation matrix for each subject.
-    4) Generates an experiment-wide correlation matrix.
-    5) Generates a set of graph metrics for each subject.
-    """
+    arguments   = docopt(__doc__)
+    config_file = arguments['<config>']
+    scanid      = arguments['--subject']
+    debug       = arguments['--debug']
 
-    arguments = docopt(__doc__)
-    datadir    = arguments['<datadir>']
-    outputdir  = arguments['<outputdir>']
-    fsdir      = arguments['<fsdir>']
-    script = arguments['<script>']
-    atlas = arguments['<atlas>']
-    subjects = arguments['<subject>']
-    walltime   = arguments['--walltime']
-    tags = arguments['--tags'].split(',')
-    verbose = arguments['--verbose']
-    debug = arguments['--debug']
-    dryrun     = arguments['--dry-run']
-
-    if verbose:
-        logger.setLevel(logging.INFO)
     if debug:
         logger.setLevel(logging.DEBUG)
 
-    # check inputs
-    if not os.path.isfile(atlas):
-        logger.error("Atlas {} does not exist".format(atlas))
-        sys.exit(-1)
+    with open(config_file, 'r') as stream:
+        config = yaml.load(stream)
 
-    if not os.path.isfile(script):
-        logger.error("Epitome script {} does not exist".format(script))
-        sys.exit(-1)
+    if 'fmri' not in config['paths']:
+        print("ERROR: paths:fmri not defined in {}".format(config_file))
+        sys.exit(1)
 
-    data_path = dm.utils.define_folder(datadir)
-    nii_path = os.path.join(data_path, 'nii')
-    func_path = dm.utils.define_folder(outputdir)
-    log_path = dm.utils.define_folder(os.path.join(outputdir, 'logs'))
+    fmri_dir = config['paths']['fmri']
 
-    commands = []
-    for subject in (subjects or dm.utils.get_subjects(nii_path)):
-        if is_complete(outputdir, subject):
-            logger.info("Subject {} already processed. Skipping.".format(subject))
-            continue
-
-        if dm.scanid.is_phantom(subject):
-            logger.debug("Subject {} is a phantom. Skipping.".format(subject))
-            continue
-
+    if scanid:
+        path = os.path.join(fmri_dir, scanid)
         try:
-            data = get_required_data(data_path, fsdir, subject, tags)
-        except MissingDataException, e:
-            logger.error(e.message)
-            continue
-        
-        # if this command was called with an explicit list of subjects, process
-        # them now
-        if subjects: 
-            logger.info("Processing subject {}".format(subject))
-            if not dryrun:
-                process_subject(func_path, log_path, data, subject, tags, atlas, script)
-
-
-        # otherwise, submit a list of calls to ourself, one per subject
-        else:
-            opts = '{verbose} {debug} {tags}'.format(
-                verbose = (verbose and ' --verbose' or ''),
-                debug = (debug and ' --debug' or ''),
-                tags = (tags and ' --tags=' + ','.join(tags) or ''))
-
-            commands.append(" ".join([__file__, opts, datadir, fsdir,
-                outputdir, script, atlas, subject]))
-
-    if commands:
-        logger.debug("queueing up the following commands:\n"+'\n'.join(commands))
-        jobname = "dm_rest_{}".format(time.strftime("%Y%m%d-%H%M%S"))
-        log_path = dm.utils.define_folder(os.path.join(outputdir, 'logs'))
-
-        fd, path = tempfile.mkstemp() 
-        os.write(fd, '\n'.join(commands))
-        os.close(fd)
-
-        # using qbatch -i (individual jobs) rather than the default array
-        # job to work around interaction between epitome scripts and PBS
-        # tempdir names.
-        #  
-        # Specifically, PBS makes a parent tempdir for array jobs that
-        # include the array element in the name, like so: 
-        #    /tmp/150358[1].mgmt2.scc.camh.net/tmp1H2Une 
-        # 
-        # Epitome scripts do not properly escape the DIR_DATA when used, so
-        # references to this path do not parse correctly (square brackets
-        # being patterns in bash).
-        rtn, out, err = dm.utils.run('qbatch -i --logdir {logdir} -N {name} --walltime {wt} {cmds}'.format(
-            logdir = log_path,
-            name = jobname,
-            wt = walltime, 
-            cmds = path), dryrun = dryrun)
-
-        if rtn != 0:
-            logger.error("Job submission failed. Output follows.")
-            logger.error("stdout: {}\nstderr: {}".format(out,err))
+            run_analysis(scanid, config)
+        except:
+            print('ERROR: :(')
             sys.exit(1)
 
+    # run in batch mode
+    else:
+        subjects = []
+        for exp in config['fmri'].keys():
+            fmri_dirs = glob.glob('{}/*'.format(os.path.join(fmri_dir, exp)))
+            for path in fmri_dirs:
+                subjects.append(os.path.basename(path))
+
+        subjects = list(set(subjects))
+
+        commands = []
+        for subject in subjects:
+            commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
+
+        if commands:
+            logger.debug('queueing up the following commands:\n'+'\n'.join(commands))
+
+            for cmd in commands:
+                jobname = 'dm_rest_{}'.format(time.strftime("%Y%m%d-%H%M%S"))
+                logfile = '/tmp/{}.log'.format(jobname)
+                errfile = '/tmp/{}.err'.format(jobname)
+                rtn, out, err = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
+
+                if rtn != 0:
+                    logger.error("Job submission failed. Output follows.")
+                    logger.error("stdout: {}\nstderr: {}".format(out,err))
+                    sys.exit(1)
 
 if __name__ == "__main__":
     main()

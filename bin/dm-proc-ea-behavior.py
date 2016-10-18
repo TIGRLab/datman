@@ -581,6 +581,60 @@ def main(local_outdir, arguments):
         return(0)
 
 
+def generate_analysis_script(sub, func_path):
+    """
+    NOT YET WORKING.
+
+    This writes the analysis script to replicate the methods in Harvey et al
+    2013 Schizophrenia Bulletin. It expects timing files to exist.
+
+    Briefly, this method uses the correlation between the empathic ratings of
+    the participant and the actor from each video to generate an amplitude-
+    modulated box-car model to be fit to each time-series. This model is
+    convolved with an HRF, and is run alongside a standard boxcar. This allows
+    us to detect regions that modulate their 'activation strength' with
+    empathic accruacy, and those that generally track the watching of
+    emotionally-valenced videos (but do not parametrically modulate).
+    Since each video is of a different length, each block is encoded as such
+    in the stimulus-timing file (all times in seconds):
+        [start_time]*[amplitude]:[block_length]
+        30*5:12
+    See '-stim_times_AM2' in AFNI's 3dDeconvolve 'help' for more.
+    """
+    # first, determine input functional files
+    niftis = filter(lambda x: 'nii.gz' in x and sub + '_func' in x, os.listdir(os.path.join(func_path, sub)))
+    niftis.sort()
+
+    input_data = ''
+
+    for nifti in niftis:
+        input_data = input_data + os.path.join(func_path, sub, nifti) + ' '
+
+    # open up the master script, write common variables
+    f = open('{func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub), 'wb')
+    f.write("""#!/bin/bash
+# Empathic accuracy GLM for {sub}.
+3dDeconvolve \\
+    -input {input_data} \\
+    -mask {func_path}/{sub}/{sub}_anat_EPI_mask_MNI.nii.gz \\
+    -ortvec {func_path}/{sub}/{sub}_motion.1D motion_paramaters \\
+    -polort 4 \\
+    -num_stimts 1 \\
+    -local_times \\
+    -jobs 8 \\
+    -x1D {func_path}/{sub}/{sub}_glm_1stlevel_design.mat \\
+    -stim_times_AM2 1 {func_path}/{sub}/{sub}_block-times_ea.1D \'dmBLOCK(1)\' \\
+    -stim_label 1 empathic_accuracy \\
+    -fitts {func_path}/{sub}/{sub}_glm_1stlevel_explained.nii.gz \\
+    -errts {func_path}/{sub}/{sub}_glm_1stlevel_residuals.nii.gz \\
+    -bucket {func_path}/{sub}/{sub}_glm_1stlevel.nii.gz \\
+    -cbucket {func_path}/{sub}/{sub}_glm_1stlevel_coeffs.nii.gz \\
+    -fout \\
+    -tout \\
+    -xjpeg {func_path}/{sub}/{sub}_glm_1stlevel_matrix.jpg
+""".format(input_data=input_data, func_path=func_path, sub=sub))
+    f.close()
+
 if __name__=='__main__':
 
     arguments  = docopt(__doc__)

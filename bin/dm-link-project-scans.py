@@ -5,14 +5,14 @@ Creates softlinks for scans from a subject in one project to a subject
 in another project. Writes details of the link to a .csv file.
 
 Usage:
-    link-project-scans.py [options] <link_file>
-    link-project-scans.py [options] <link_file> <src_session> <trg_session> [<tags>]
+    dm-link-project-scans.py [options] <link_file>
+    dm-link-project-scans.py [options] <link_file> <src_session> <trg_session> [<tags>]
 
 Arguments:
-    <link_file>     Path to the external-links.csv file.
-    <src_session>   Name of the source session in standard format.
-    <trg_session>   Name of the target session in standard format.
-    <tags>          Comma seperated list of scan tags to link.
+    <link_file>         Path to the external-links.csv file.
+    <src_session>       Name of the source session in standard format.
+    <trg_session>       Name of the target session in standard format.
+    <tags>              Comma seperated list of scan tags to link.
 
 Options:
     -h --help                   Show this screen.
@@ -22,16 +22,16 @@ Options:
     -o                          Path to the output file.
     --dry-run                   Perform a dry run.
     --config-yaml=<yamlfile>    Path to site specific yaml file
-                                    [default: /archive/data/code/datman/assets/tigrlab_config.yaml]
+                                [default: /archive/data/code/datman/assets/tigrlab_config.yaml]
     --system=<system>           System name for settings [default: kimel]
 
 Details:
     Parses all nii files in the src_session, if a files tags match <tags>
     a softlink is created in trg_session. If <tags> are not provided files
     matching tags defined in config-yaml are linked.
-    A config file (default tigrlab_config.yaml) is read to determine the project
-    folders. If the tag is defined in this file the ExportSettings node is used
-    to determine which file types to link.
+    A config file (default tigrlab_config.yaml) is read to determine the
+    project folders. If the tag is defined in this file the ExportSettings
+    node is used to determine which file types to link.
 """
 import os
 import logging
@@ -39,21 +39,16 @@ import yaml
 import csv
 import re
 import datman as dm
-import datman.scanid
 from docopt import docopt
 
-
-QUIET = False
-VERBOSE = False
-DEBUG = False
 DRYRUN = False
-PROJECTS_DIR = None
 CONFIG = None
 TAGS = None
 LINK_FILE_HEADERS = ['subject', 'target_subject', 'tags']
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARN)
+
 
 def get_file_types_for_tag(tag):
     """Check which file types should be processed for each tag"""
@@ -62,20 +57,18 @@ def get_file_types_for_tag(tag):
     except:
         return None
 
+
 def find_files(directory):
     """generator function to list files in a directory"""
     for root, dirs, files in os.walk(directory):
         for filename in files:
             yield(os.path.join(root, filename))
 
+
 def get_study_from_tag(tag):
     """Identify the study from the filename study tag"""
-    for project_tag in CONFIG['XNATProjects'].keys():
-        if tag in CONFIG['XNATProjects'][project_tag]:
-            logger.debug('Mapping filename tag: {} to study: {}'.format(tag, project_tag))
-            return project_tag
-    logger.warning('Failed to identify filename tag:{}'.format(tag))
-    return None
+    return dm.config.map_xnat_archive_to_project(tag)
+
 
 def set_tags(tagstring):
     global TAGS
@@ -83,6 +76,7 @@ def set_tags(tagstring):
         TAGS = [tag.upper() for tag in tagstring.split(',')]
     else:
         TAGS = CONFIG['ExportSettings'].keys()
+
 
 def split_multi_ext(filename):
     """Split multiple file extensions from a filename"""
@@ -94,10 +88,10 @@ def split_multi_ext(filename):
         multi_ext.append(ext)
         filename = name
 
+
 def write_link_file(link_file, src_session, trg_session):
     """If the link file doesnt exist, create it, if it exists and the entry is
     not present append, otherwise do nothing"""
-    global LINK_FILE_HEADERS
 
     write_headers = not os.path.isfile(link_file)
 
@@ -118,12 +112,12 @@ def write_link_file(link_file, src_session, trg_session):
                 logger.info('Writing to link file')
                 spamwriter.writerow([src_session, trg_session, ','.join(TAGS)])
 
+
 def read_link_file(link_file):
     """Reads a link_file returns each line"""
-    global LINK_FILE_HEADERS
 
     logger.info('Reading link file {}'.format(link_file))
-    with open(link_file,'r') as f:
+    with open(link_file, 'r') as f:
         for line in f:
             # Doing it this way so the file can be human readable
             line = re.split('\\s*', line)
@@ -131,7 +125,8 @@ def read_link_file(link_file):
             if not line == LINK_FILE_HEADERS:
                 yield(line)
 
-def link_session(src_session, trg_session):
+
+def link_session(src_session, trg_session, projects_dir):
     # Check the source and target sessions are in the correct format
     logger.debug('Checking for valid sessions.')
     if dm.scanid.is_scanid(src_session):
@@ -139,7 +134,7 @@ def link_session(src_session, trg_session):
         src_study = get_study_from_tag(src_session.study)
         src_project_dir = CONFIG['Projects'][src_study]
         src_project_dir = src_project_dir.replace('<DATMAN_PROJECTSDIR>',
-                                                  PROJECTS_DIR)
+                                                  projects_dir)
     else:
         raise ValueError('Invalid src_session: {}'.format(src_session))
 
@@ -148,7 +143,7 @@ def link_session(src_session, trg_session):
         trg_study = get_study_from_tag(trg_session.study)
         trg_project_dir = CONFIG['Projects'][trg_study]
         trg_project_dir = trg_project_dir.replace('<DATMAN_PROJECTSDIR>',
-                                                  PROJECTS_DIR)
+                                                  projects_dir)
     else:
         raise ValueError('Invalid trg_session: {}'.format(trg_session))
 
@@ -159,10 +154,9 @@ def link_session(src_session, trg_session):
             # needed for unrecognised filetypes
             dirs_to_search.append('data')
         else:
-            for item in [os.path.join('data',filetype) for filetype in filetypes]:
+            for item in [os.path.join('data', filetype) for filetype in filetypes]:
                 dirs_to_search.append(item)
     dirs_to_search = set(dirs_to_search)
-
 
     # Loop through all the possible files and perform linking
     for directory in dirs_to_search:
@@ -171,10 +165,12 @@ def link_session(src_session, trg_session):
                    os.path.join(src_project_dir, directory),
                    os.path.join(trg_project_dir, directory))
 
+
 def link_files(src_session, trg_session, src_data_dir, trg_data_dir):
     """Check the tags list to see if a file should be linked,
         if true link the file
-        x_data_dir should be the path to the folder containing all subject data"""
+        x_data_dir should be the path to the folder containing all subject data
+        """
 
     src_dir = os.path.join(src_data_dir,
                            src_session.get_full_subjectid_with_timepoint())
@@ -192,24 +188,29 @@ def link_files(src_session, trg_session, src_data_dir, trg_data_dir):
             if tag in TAGS:
                 # need to create the link
                 ## first need to capture the file extension
-                basename , ext = split_multi_ext(filename)
+                basename, ext = split_multi_ext(filename)
 
-                trg_name = dm.scanid.make_filename(trg_session, tag, series, description)
+                trg_name = dm.scanid.make_filename(trg_session, tag,
+                                                   series, description)
                 src_file = os.path.join(root, filename)
                 trg_file = os.path.join(trg_dir, trg_name) + ext
 
                 logger.info('Linking {} to {}'.format(src_file, trg_file))
                 try:
                     if not os.path.isdir(os.path.dirname(trg_file)):
-                        logger.info('Creating target dir: {}'.format(os.path.dirname(trg_file)))
+                        logger.info('Creating target dir: {}'
+                                    .format(os.path.dirname(trg_file)))
                         if not DRYRUN:
                             os.makedirs(os.path.dirname(trg_file))
                     if not DRYRUN:
                         os.symlink(src_file, trg_file)
                 except OSError as e:
-                    logger.error('Failed to create symlink: {}'.format(e.strerror))
+                    logger.error('Failed to create symlink: {}'
+                                 .format(e.strerror))
 
-if __name__ == '__main__':
+
+def main():
+    global DRYRUN, CONFIG
     arguments    = docopt(__doc__)
     link_file    = arguments['<link_file>']
     src_session  = arguments['<src_session>']
@@ -217,18 +218,18 @@ if __name__ == '__main__':
     tags         = arguments['<tags>']
     config_yml   = arguments['--config-yaml']
     system_name  = arguments['--system']
-    VERBOSE      = arguments['--verbose']
-    DEBUG        = arguments['--debug']
+    verbose      = arguments['--verbose']
+    debug        = arguments['--debug']
     DRYRUN       = arguments['--dry-run']
-    QUIET        = arguments['--quiet']
+    quiet        = arguments['--quiet']
 
-    if QUIET:
+    if quiet:
         logger.setLevel(logging.ERROR)
 
-    if VERBOSE:
+    if verbose:
         logger.setLevel(logging.INFO)
 
-    if DEBUG:
+    if debug:
         logger.setLevel(logging.DEBUG)
 
     logging.info('Starting')
@@ -238,22 +239,24 @@ if __name__ == '__main__':
 
     ## Read in the configuration yaml file
     if not os.path.isfile(config_yml):
-        raise ValueError("configuration file {} not found. Try again.".format(config_yml))
+        raise ValueError("configuration file {} not found. Try again."
+                         .format(config_yml))
 
     ## load the yml file
     with open(config_yml, 'r') as stream:
         CONFIG = yaml.load(stream)
 
     ## check that the expected keys are there
-    ExpectedKeys = ['Projects', 'ExportSettings', 'SystemSettings', 'XNATProjects']
+    ExpectedKeys = ['Projects', 'ExportSettings',
+                    'SystemSettings', 'XNATProjects']
     diffs = set(ExpectedKeys) - set(CONFIG.keys())
     if len(diffs) > 0:
         raise ImportError("configuration file missing {}".format(diffs))
 
     # TODO: this should be more flexibly coded in the yaml file
     try:
-        PROJECTS_DIR = CONFIG['SystemSettings'][system_name]['DATMAN_PROJECTSDIR']
-        logger.debug('Setting project Dir to {}'.format(PROJECTS_DIR))
+        projects_dir = CONFIG['SystemSettings'][system_name]['DATMAN_PROJECTSDIR']
+        logger.debug('Setting project Dir to {}'.format(projects_dir))
     except KeyError:
         logger.error('Projects dir not found in config file:{}'.format(config_yml))
         raise
@@ -263,10 +266,13 @@ if __name__ == '__main__':
     if src_session is not None and trg_session is not None:
         # processing a single session
         set_tags(tags)
-        link_session(src_session, trg_session)
+        link_session(src_session, trg_session, projects_dir)
         write_link_file(link_file, src_session, trg_session)
     else:
         # read the link file and process the entries
         for line in read_link_file(link_file):
             set_tags(line[2])
-            link_session(line[0], line[1])
+            link_session(line[0], line[1], projects_dir)
+
+if __name__ == '__main__':
+    main()

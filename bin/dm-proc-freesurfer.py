@@ -118,8 +118,7 @@ def main():
 
     # check if we have any work to do, exit if not
     if len(subjects) == 0:
-        print('MSG: No outstanding scans to process.')
-        sys.exit()
+        sys.exit('MSG: No outstanding scans to process.')
 
     # grab the prefix from the subid if not given
     if prefix == None:
