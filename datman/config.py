@@ -14,13 +14,14 @@ Options:
 import logging
 import yaml
 import os
+from . import scanid
 from docopt import docopt
 
+logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARN)
 
 
-class config:
+class config(object):
     site_config = None
     study_config = None
     system_name = None
@@ -61,25 +62,78 @@ class config:
             config_path = system_settings[self.system_name]['CONFIG_DIR']
 
             project_settings_file = os.path.join(config_path,
-                self.site_config['ProjectSettings'][project_name]['basedir'],
                 self.site_config['ProjectSettings'][project_name]['config_file'])
 
             self.study_config = self.load_yaml(project_settings_file)
 
+    def map_xnat_archive_to_project(self, filename):
+        """Maps the XNAT tag (e.g. SPN01) to the project name e.g. SPINS
+        Can either supply a full filename in which case only the first part
+        is considered or just a tag
+        """
+        try:
+            parts = scanid.parse(filename)
+            tag = parts.study
+        except scanid.ParseException:
+            parts = filename.split('_')
+            tag = parts[0]
 
-def map_xnat_archive_to_project(archive, **kwargs):
-    """Maps the XNAT tag (e.g. SPN01) to the project name e.g. SPINS"""
-    cfg = config(**kwargs)
+        for project in self.site_config['ProjectSettings'].keys():
+            self.set_study_config(project)
+            # Check the study_config contains a 'Sites' key
+            site_tags = []
+            if 'Sites' in self.study_config.keys():
+                for key, site_cfg in self.study_config['Sites'].iteritems():
+                    try:
+                        site_tags = [t.lower() for t in site_cfg['SITE_IDS']]
+                    except KeyError:
+                        pass
 
-    for project in cfg.site_config['ProjectSettings'].keys():
-        cfg.set_study_config(project)
-        for site in cfg.study_config['Sites']:
-            if site['XNAT_ID'].lower() == archive.lower():
+            site_tags = site_tags + [self.study_config['STUDY_ID'].lower()]
+
+            if tag.lower() in site_tags:
+                if project.lower() == 'DTI':
+                    # could be DTI15T or DTI3T
+                    if type(parts) is list:
+                        try:
+                            site = parts[1]
+                        except KeyError:
+                            logger.error('Detected project DTI but '
+                                         ' failed to identify using site')
+                            return
+                    else:
+                        site = parts.site
+
+                    if site == 'TGH':
+                        project = 'DTI15T'
+                    else:
+                        project = 'DTI3T'
+
                 return(project)
-    # didn't find a match throw a worning
-    logger.warn('Failed to find a valid project for xnat id:{}'
-                .format(archive))
-    return
+        # didn't find a match throw a worning
+        logger.warn('Failed to find a valid project for xnat id:{}'
+                    .format(tag))
+        return
+
+    def get_if_exists(self, scope, key):
+        """Check the yaml file specified by scope for a key.
+        Return the value if the key exists, None otherwise.
+        Scope [site | study]
+        """
+        if scope == 'site':
+            # make a copy of the original yaml
+            result = self.site_config
+        else:
+            result = self.study_config
+
+        for val in key:
+            try:
+                result = result[val]
+            except KeyError:
+                return None
+
+        return(result)
+
 
 if __name__ == '__main__':
     ARGUMENTS = docopt(__doc__)
