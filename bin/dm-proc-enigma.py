@@ -147,45 +147,44 @@ def main():
     os.chdir(run_dir)
     if not POST_ONLY:
         with make_temp_directory() as temp_dir:
-                cmds_to_submit = []
-        for i in range(0,len(checklist)):
-            subid = checklist['id'][i]
+            cmds_file = os.path.join(temp_dir,'commands.txt')
+            with open(os.path.join(temp_dir,'commands.txt'), 'w') as cmdlist:
+                for i in range(0,len(checklist)):
+                    subid = checklist['id'][i]
 
-            # make sure that second filter is being applied to the qsub bit
-            if subject_filter and subject_filter not in subid:
-                continue
+                    # make sure that second filter is being applied to the qsub bit
+                    if subject_filter and subject_filter not in subid:
+                        continue
 
-            ## make sure that a T1 has been selected for this subject
-            if pd.isnull(checklist['FA_nii'][i]):
-                continue
+                    ## make sure that a T1 has been selected for this subject
+                    if pd.isnull(checklist['FA_nii'][i]):
+                        continue
 
-            ## format contents of T1 column into recon-all command input
-            smap = checklist['FA_nii'][i]
+                    ## format contents of T1 column into recon-all command input
+                    smap = checklist['FA_nii'][i]
 
-            if subject_previously_completed(output_dir, subid, smap):
-                continue
+                    if subject_previously_completed(output_dir, subid, smap):
+                        continue
 
-            # If POSTFS_ONLY == False, the run script will be the first or
-            # only name in the list
-            this_cmd = "bash -l {rundir}/{script} {output} {inputFA}".format(
-                            rundir = run_dir,
-                            script = script_names[0],
-                            output = os.path.join(output_dir,subid),
-                            inputFA = os.path.join(input_dir, subid, smap))
+                    # If POSTFS_ONLY == False, the run script will be the first or
+                    # only name in the list
+                    cmdlist.write("bash -l {rundir}/{script} {output} {inputFA}\n".format(
+                                    rundir = run_dir,
+                                    script = script_names[0],
+                                    output = os.path.join(output_dir,subid),
+                                    inputFA = os.path.join(input_dir, subid, smap)))
 
-            cmds_to_submit.append(this_cmd)
+                    ## add today's date to the checklist
+                    checklist['date_ran'][i] = datetime.date.today()
 
-            ## add today's date to the checklist
-            checklist['date_ran'][i] = datetime.date.today()
+                    submit_edti = True
 
-            submit_edti = True
-
-        if submit_edti:
-            qbatch_run_cmd = dm.proc.get_qbatch_cmd(cmds_to_submit,
-                                                    job_name_prefix,
-                                                    log_dir, walltime)
-            os.chdir(run_dir)
-            docmd(qbatch_run_cmd, DEBUG, DRYRUN)
+            if submit_edti:
+                qbatch_run_cmd = dm.proc.qbatchcmd_file(cmds_file,
+                                                        job_name_prefix,
+                                                        log_dir, walltime)
+                os.chdir(run_dir)
+                docmd(qbatch_run_cmd, DEBUG, DRYRUN)
     ## if any subjects have been submitted,
     ## submit a final job that will consolidate the results after they are finished
     os.chdir(run_dir)
@@ -193,8 +192,8 @@ def main():
                     rundir = run_dir,
                     script = script_names[1])
     if submit_edti:
-        qbatch_post_cmd = dm.proc.get_qbatch_cmd(post_edit_cmd,
-                                                job_name_prefix,
+        qbatch_post_cmd = dm.proc.qbatchcmd_pipe(post_edit_cmd,
+                                                '{}_post'.format(job_name_prefix),
                                                 log_dir,
                                                 walltime_post,
                                                 afterok = job_name_prefix)

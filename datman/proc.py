@@ -150,26 +150,22 @@ def find_images(checklist, checklist_col, input_dir, tag,
 
     return checklist
 
-def get_qbatch_cmd(joblist, job_name_prefix, log_dir, wall_time, afterok = False):
+def qbatchcmd_pipe(job_cmd, job_name_prefix, log_dir, wall_time, afterok = False):
     '''
     submits jobs (i.e. pipelines) to qbatch
     Arguments:
-       joblist:    A string or list of commands for qbatch to submitt as array job
+       joblist:    A string or the command for qbatch to submit
        job_name:   The array jobs' Name (i.e. what you will see in qstat)
        log_dir:    The array jobs logging directory
        wall_time:  The walltime for the job.
        afterok:    If using the "afterok" option, the job name that will be held for
 
     '''
-    if type(joblist) is str:
-        job_cmds = joblist
-    elif type(joblist) is list:
-        job_cmds = '\n'.join(joblist)
 
     # make FS command for subject
-    cmd = 'echo "{job_cmds}" | '\
+    cmd = 'echo "{job_cmd}" | '\
           'qbatch -N {jobname} --logdir {logdir} --walltime {wt} '.format(
-                job_cmds = job_cmds,
+                job_cmd = job_cmd,
                 jobname = job_name_prefix,
                 logdir = log_dir,
                 wt = wall_time)
@@ -178,5 +174,31 @@ def get_qbatch_cmd(joblist, job_name_prefix, log_dir, wall_time, afterok = False
         cmd = cmd + '--afterok {} '.format(afterok)
 
     cmd = cmd + '-'
+
+    return cmd
+
+def qbatchcmd_file(jobs_txt, job_name_prefix, log_dir, wall_time, afterok = False):
+    '''
+    submits jobs (i.e. pipelines) to qbatch
+    Arguments:
+       jobs_txt:   A text file containing a list of commands to run
+       job_name:   The array jobs' Name (i.e. what you will see in qstat)
+       log_dir:    The array jobs logging directory
+       wall_time:  The walltime for the job.
+       afterok:    If using the "afterok" option, the job name that will be held for
+
+    '''
+
+    # make FS command for subject
+    cmd = 'qbatch -N {jobname} --logdir {logdir} --walltime {wt} '.format(
+                job_cmd = job_cmd,
+                jobname = job_name_prefix,
+                logdir = log_dir,
+                wt = wall_time)
+
+    if afterok:
+        cmd = cmd + '--afterok {} '.format(afterok)
+
+    cmd = cmd + jobs_txt
 
     return cmd
