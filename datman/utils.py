@@ -376,12 +376,8 @@ def run(cmd, dryrun=False, echo=False):
     else:
         p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
         out, err = p.communicate()
-<<<<<<< HEAD
         if p.returncode:
             logger.error('Failed with returncode {}. Excuse:{}'.format(p.returncode, err))
-=======
-
->>>>>>> 02a0c4c637746f827321110dc225550540fde805
         return p.returncode, out, err
 
 def get_files_with_tag(parentdir, tag, fuzzy = False):

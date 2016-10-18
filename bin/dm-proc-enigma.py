@@ -148,7 +148,7 @@ def main():
     if not POST_ONLY:
         with make_temp_directory() as temp_dir:
             cmds_file = os.path.join(temp_dir,'commands.txt')
-            with open(os.path.join(temp_dir,'commands.txt'), 'w') as cmdlist:
+            with open(cmds_file, 'w') as cmdlist:
                 for i in range(0,len(checklist)):
                     subid = checklist['id'][i]
 
@@ -184,7 +184,7 @@ def main():
                                                         job_name_prefix,
                                                         log_dir, walltime)
                 os.chdir(run_dir)
-                docmd(qbatch_run_cmd, DEBUG, DRYRUN)
+                dm.utils.run(qbatch_run_cmd, DRYRUN, DEBUG)
     ## if any subjects have been submitted,
     ## submit a final job that will consolidate the results after they are finished
     os.chdir(run_dir)
@@ -197,7 +197,7 @@ def main():
                                                 log_dir,
                                                 walltime_post,
                                                 afterok = job_name_prefix)
-        docmd(qbatch_post_cmd, DEBUG, DRYRUN)
+        dm.utils.run(qbatch_post_cmd, DRYRUN, DEBUG)
 
     if not DRYRUN:
         ## write the checklist out to a file
@@ -305,7 +305,7 @@ def make_temp_directory():
 def docmd(cmd, DEBUG, DRYRUN):
     "sends a command (inputed as a list) to the shell"
     if DEBUG: print cmd
-    if not DRYRUN: subprocess.call(cmd)
+    if not DRYRUN: subprocess.call([cmd])
 
 ## runs the main function
 if __name__ == "__main__":

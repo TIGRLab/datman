@@ -191,7 +191,6 @@ def qbatchcmd_file(jobs_txt, job_name_prefix, log_dir, wall_time, afterok = Fals
 
     # make FS command for subject
     cmd = 'qbatch -N {jobname} --logdir {logdir} --walltime {wt} '.format(
-                job_cmd = job_cmd,
                 jobname = job_name_prefix,
                 logdir = log_dir,
                 wt = wall_time)
