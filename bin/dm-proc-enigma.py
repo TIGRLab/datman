@@ -14,9 +14,13 @@ Options:
   --FA-tag STR             String used to identify FA maps within DTI-fit input (default = '_FA.nii.gz'))
   --calc-MD                Also calculate values for MD,
   --calc-all               Also calculate values for MD, AD, and RD
-  --tag2 STR               Optional second used (as well as '--FA-tag', ex. 'DTI-60')) to identify the maps within DTI-fit input
+  --subject-filter STR     String used to filter subject ID (i.e. a site tag?)
+  --FA-filter STR          Optional second filter used (as well as '--FA-tag', ex. 'DTI-60')) to identify the maps within DTI-fit input
   --QC-transfer QCFILE     QC checklist file - if this option is given than only QCed participants will be processed.
   --walltime TIME          A walltime for the enigma stage [default: 2:00:00]
+  --walltime-post TIME     A walltime for the post-engima stage [default: 2:00:00]
+  --no-post                Do not submitt the post-processing (concatenation) script
+  --post-only              Submit the post-processing (concatenation) script by itself
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
   -n,--dry-run             Dry run
@@ -57,8 +61,6 @@ Adapted from ENIGMA_MASTER.sh - Generalized October 2nd David Rotenberg Updated 
 from docopt import docopt
 import pandas as pd
 import datman as dm
-import datman.utils
-import datman.scanid
 import glob
 import os
 import sys
@@ -68,48 +70,168 @@ import tempfile
 import shutil
 import filecmp
 import difflib
+import contextlib
+import logging
 
-def add_images(tag):
+VERBOSE = False
+DEBUG = False
+DRYRUN = False
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+def main():
+
+    global DEBUG
+    global VERBOSE
+    global DRYRUN
+
+    arguments       = docopt(__doc__)
+    input_dir       = arguments['<input-dtifit-dir>']
+    output_dir      = arguments['<outputdir>']
+    QC_file         = arguments['--QC-transfer']
+    FA_tag          = arguments['--FA-tag']
+    subject_filter  = arguments['--subject-filter']
+    FA_filter       = arguments['--FA-filter']
+    CALC_MD         = arguments['--calc-MD']
+    CALC_ALL        = arguments['--calc-all']
+    walltime        = arguments['--walltime']
+    walltime_post  = arguments['--walltime-post']
+    POST_ONLY      = arguments['--post-only']
+    NO_POST        = arguments['--no-post']
+    VERBOSE         = arguments['--verbose']
+    DEBUG           = arguments['--debug']
+    DRYRUN          = arguments['--dry-run']
+
+    ## make the output directory if it doesn't exist
+    output_dir = os.path.abspath(output_dir)
+    log_dir = os.path.join(output_dir,'logs')
+    run_dir = os.path.join(output_dir,'bin')
+    dm.utils.makedirs(log_dir)
+    dm.utils.makedirs(run_dir)
+
+    if DEBUG: print arguments
+
+    if FA_tag == None: FA_tag = '_FA.nii.gz'
+
+    subjects = dm.proc.get_subject_list(input_dir, subject_filter, QC_file)
+
+    # check if we have any work to do, exit if not
+    if len(subjects) == 0:
+        print('MSG: No outstanding scans to process.')
+        sys.exit()
+
+    # grab the prefix from the subid if not given
+    prefix = subjects[0][0:3]
+
+    ## write and check the run scripts
+    script_names = ['run_engimadti.sh','concatresults.sh']
+    write_run_scripts(script_names, run_dir, output_dir, CALC_MD, CALC_ALL, DEBUG)
+
+    checklist_file = os.path.normpath(output_dir + '/ENIGMA-DTI-checklist.csv')
+    checklist_cols = ['id', 'FA_nii', 'date_ran','qc_rator', 'qc_rating', 'notes']
+    checklist = dm.proc.load_checklist(checklist_file, checklist_cols)
+    checklist = dm.proc.add_new_subjects_to_checklist(subjects,
+                                                      checklist, checklist_cols)
+
+    # Update checklist with new FA files to process listed under FA_nii column
+    checklist = dm.proc.find_images(checklist, 'FA_nii', input_dir, FA_tag,
+                                    subject_filter = subject_filter,
+                                    image_filter = FA_filter,
+                                    DEBUG = DEBUG)
+
+    job_name_prefix="edti{}_{}".format(prefix,datetime.datetime.today().strftime("%Y%m%d-%H%M%S"))
+    submit_edti = False
+
+    ## Change dir so it can be submitted without the full path
+    os.chdir(run_dir)
+    if not POST_ONLY:
+        cmds_to_submit = []
+        for i in range(0,len(checklist)):
+            subid = checklist['id'][i]
+
+            # make sure that second filter is being applied to the qsub bit
+            if subject_filter and subject_filter not in subid:
+                continue
+
+            ## make sure that a T1 has been selected for this subject
+            if pd.isnull(checklist['FA_nii'][i]):
+                continue
+
+            ## format contents of T1 column into recon-all command input
+            smap = checklist['FA_nii'][i]
+
+            if subject_previously_completed(output_dir, subid, smap):
+                continue
+
+            # If POSTFS_ONLY == False, the run script will be the first or
+            # only name in the list
+            this_cmd = "bash -l {rundir}/{script} {output} {inputFA}".format(
+                            rundir = run_dir,
+                            script = script_names[0],
+                            output = os.path.join(output_dir,subid),
+                            inputFA = os.path.join(input_dir, subid, smap))
+
+            cmds_to_submit.append(this_cmd)
+
+            ## add today's date to the checklist
+            checklist['date_ran'][i] = datetime.date.today()
+
+            submit_edti = True
+
+        if submit_edti:
+            qbatch_run_cmd = dm.proc.get_qbatch_cmd(cmds_to_submit,
+                                                    job_name_prefix,
+                                                    log_dir, walltime)
+            os.chdir(run_dir)
+            docmd(qbatch_run_cmd, DEBUG, DRYRUN)
+    ## if any subjects have been submitted,
+    ## submit a final job that will consolidate the results after they are finished
+    os.chdir(run_dir)
+    post_edit_cmd = 'echo bash -l {rundir}/{script}'.format(
+                    rundir = run_dir,
+                    script = script_names[1])
+    if submit_edti:
+        qbatch_post_cmd = dm.proc.get_qbatch_cmd(post_edit_cmd,
+                                                job_name_prefix,
+                                                log_dir,
+                                                walltime_post,
+                                                afterok = job_name_prefix)
+        docmd(qbatch_post_cmd, DEBUG, DRYRUN)
+
+    if not DRYRUN:
+        ## write the checklist out to a file
+        checklist.to_csv(checklist_file, sep=',', index = False)
+
+def write_run_scripts(script_names, run_dir, output_dir, CALC_MD, CALC_ALL, DEBUG):
     """
-    finds new files in the inputdir and add them to a list for the processing
-
-    archive_tag -- filename tag that can be used for search (i.e. '_T1_')
-    archive_tag2 -- second tag that is also need (i.e. 'DTI-60')
+    Write DTI run scripts for this project if they don't
+    already exist.
     """
-    for i in range(0,len(checklist)):
-        sdir = os.path.join(dtifit_dir, checklist['id'][i])
-        if pd.isnull(checklist['FA_nii'][i]):
-            sfiles = []
-            for fname in os.listdir(sdir):
-                if tag in fname:
-                    sfiles.append(fname)
+    for name in script_names:
+        runsh = os.path.join(run_dir, name)
+        if os.path.isfile(runsh):
+            ## create temporary run file and test it against the original
+            check_runsh(runsh, output_dir, CALC_MD, CALC_ALL, DEBUG)
+        else:
+            ## if it doesn't exist, write it now
+            write_run_script(runsh, output_dir, CALC_MD, CALC_ALL)
 
-            if DEBUG:
-                print "Found {} {} in {}".format(len(sfiles), tag, sdir)
-
-
-            if len(sfiles) == 1:
-                checklist['FA_nii'][i] = sfiles[0]
-            elif len(sfiles) > 1:
-                checklist['notes'][i] = "> 1 {} found".format(tag)
-            elif len(sfiles) < 1:
-                checklist['notes'][i] = "No {} found.".format(tag)
-
-def make_script(filename):
+def write_run_script(filename, output_dir, CALC_MD, CALC_ALL):
     """
     builds a script in the outputdir (run.sh)
     """
-    filename = os.path.basename(filename)
-    if bname == runenigmash_name:
+    bname = os.path.basename(filename)
+    if bname == 'run_engimadti.sh':
         ENGIMASTEP = 'doInd'
-    if bname == runconcatsh_name:
+    if bname == 'concatresults.sh':
         ENGIMASTEP = 'concat'
 
     #open file for writing
     enigmash = open(filename,'w')
     enigmash.write('#!/bin/bash\n\n')
 
-    enigmash.write('## this script was created by dm-proc-engimadti.py\n\n')
+    enigmash.write('## this script was created by dm-proc-engima.py\n\n')
     ## can add section here that loads chosen CIVET enviroment
     enigmash.write('## Prints loaded modules to the log\nmodule list\n\n')
 
@@ -123,16 +245,16 @@ def make_script(filename):
         enigmash.write('${OUTDIR} ${FAMAP} \n')
 
     if ENGIMASTEP == 'concat':
-        enigmash.write('OUTDIR=' + outputdir + ' \n')
+        enigmash.write('OUTDIR=' + output_dir + ' \n')
         ## add the engima-concat command
-        enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR} "FA" "${OUTDIR}/enigmaDTI-FA-results.csv"\n')
+        enigmash.write('\ndm-proc-enigma-concat.py ${OUTDIR} "FA" "${OUTDIR}/enigmaDTI-FA-results.csv"\n')
         if CALC_MD | CALC_ALL:
-             enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR} "MD" "${OUTDIR}/enigmaDTI-MD-results.csv"\n')
+             enigmash.write('\ndm-proc-enigma-concat.py ${OUTDIR} "MD" "${OUTDIR}/enigmaDTI-MD-results.csv"\n')
         if CALC_ALL:
-             enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR} "AD" "${OUTDIR}/enigmaDTI-AD-results.csv"\n')
-             enigmash.write('\nconcatcsv-enigmadti.py ${OUTDIR} "RD" "${OUTDIR}/enigmaDTI-RD-results.csv"\n')
+             enigmash.write('\ndm-proc-enigma-concat.py ${OUTDIR} "AD" "${OUTDIR}/enigmaDTI-AD-results.csv"\n')
+             enigmash.write('\ndm-proc-enigma-concat.py ${OUTDIR} "RD" "${OUTDIR}/enigmaDTI-RD-results.csv"\n')
         # now with a qc step
-        enigmash.write('\nenigmadti-qc.py ')
+        enigmash.write('\ndm-qc-enigma.py ')
         if CALC_MD: enigmash.write('--calc-MD ')
         if CALC_ALL: enigmash.write('--calc-all ')
         enigmash.write('${OUTDIR} \n')
@@ -141,168 +263,50 @@ def make_script(filename):
     enigmash.close()
     os.chmod(filename, 0o755)
 
+
 ### check the template .sh file that gets submitted to the queue to make sure option haven't changed
-def checkrunsh(filename):
+def check_runsh(filename, output_dir, CALC_MD, CALC_ALL, DEBUG):
     """
     write a temporary (run.sh) file and than checks it againts the run.sh file already there
     This is used to double check that the pipeline is not being called with different options
     """
-    tempdir = tempfile.mkdtemp()
-    tmprunsh = os.path.join(tempdir,os.path.basename(filename))
-    makeENIGMArunsh(tmprunsh)
-    if filecmp.cmp(filename, tmprunsh):
-        if DEBUG: print("{} already written - using it".format(filename))
-    else:
-        # If the two files differ - then we use difflib package to print differences to screen
-        print('#############################################################\n')
-        print('# Found differences in {} these are marked with (+) '.format(filename))
-        print('#############################################################')
-        with open(filename) as f1, open(tmprunsh) as f2:
-            differ = difflib.Differ()
-            print(''.join(differ.compare(f1.readlines(), f2.readlines())))
-        sys.exit("\nOld {} doesn't match parameters of this run....Exiting".format(filename))
-    shutil.rmtree(tempdir)
+    with make_temp_directory() as temp_dir:
+        tmprunsh = os.path.join(temp_dir,os.path.basename(filename))
+        write_run_script(tmprunsh, output_dir, CALC_MD, CALC_ALL)
+        if filecmp.cmp(filename, tmprunsh):
+            if DEBUG: print("{} already written - using it".format(filename))
+        else:
+            # If the two files differ - then we use difflib package to print differences to screen
+            print('#############################################################\n')
+            print('# Found differences in {} these are marked with (+) '.format(filename))
+            print('#############################################################')
+            with open(filename) as f1, open(tmprunsh) as f2:
+                differ = difflib.Differ()
+                print(''.join(differ.compare(f1.readlines(), f2.readlines())))
+            sys.exit("\nOld {} doesn't match parameters of this run....Exiting".format(filename))
 
-####set checklist dataframe structure here
-#because even if we do not create it - it will be needed for newsubs_df (line 80)
-def loadchecklist(checklistfile,subjectlist):
-    """
-    Reads the checklistfile (normally called ENIGMA-DTI-checklist.csv)
-    if the checklist csv file does not exit, it will be created.
+def subject_previously_completed(output_dir, subid, FA_img):
+    edti_completed = os.path.join(output_dir, subid, 'ROI',
+                                  '{}skel_ROIout_avg.csv'.format(
+                                  FA_img.replace('.nii','').replace('.gz','')))
+    if os.path.isfile(edti_completed):
+        return True
+    return False
 
-    This also checks if any subjects in the subjectlist are missing from the checklist,
-    (checklist.id column)
-    If so, they are appended to the bottom of the dataframe.
-    """
+@contextlib.contextmanager
+def make_temp_directory():
+    temp_dir = tempfile.mkdtemp()
+    try:
+        yield temp_dir
+    finally:
+        shutil.rmtree(temp_dir)
 
-    cols = ['id', 'FA_nii', 'date_ran','qc_rator', 'qc_rating', 'notes']
+### Erin's little function for running things in the shell
+def docmd(cmd, DEBUG, DRYRUN):
+    "sends a command (inputed as a list) to the shell"
+    if DEBUG: print cmd
+    if not DRYRUN: subprocess.call(cmd)
 
-    # if the checklist exists - open it, if not - create the dataframe
-    if os.path.isfile(checklistfile):
-    	checklist = pd.read_csv(checklistfile, sep=',', dtype=str, comment='#')
-    else:
-    	checklist = pd.DataFrame(columns = cols)
-
-    # new subjects are those of the subject list that are not in checklist.id
-    newsubs = list(set(subjectlist) - set(checklist.id))
-
-    # add the new subjects to the bottom of the dataframe
-    newsubs_df = pd.DataFrame(columns = cols, index = range(len(checklist),len(checklist)+len(newsubs)))
-    newsubs_df.id = newsubs
-    checklist = checklist.append(newsubs_df)
-
-    # return the checklist as a pandas dataframe
-    return(checklist)
-
-def get_qced_subjectlist(qcchecklist):
-    """
-    reads the QC checklist and returns a list of all subjects who have passed QC
-    """
-    qcedlist = []
-    if os.path.isfile(rawQCfile):
-        with open(rawQCfile) as f:
-            for line in f:
-                line = line.strip()
-                if len(line.split(' ')) > 1:
-                    pdf = line.split(' ')[0]
-                    subid = pdf.replace('.pdf','').replace('.html','')[3:]
-                    qcedlist.append(subid)
-    else:
-        sys.exit("QC file for transfer not found. Try again.")
-    ## return the qcedlist (as a list)
-    return qcedlist
-
-def main()
-    arguments       = docopt(__doc__)
-    dtifit_dir      = arguments['<input-dtifit-dir>']
-    outputdir       = arguments['<outputdir>']
-    rawQCfile       = arguments['--QC-transfer']
-    FA_tag          = arguments['--FA-tag']
-    TAG2            = arguments['--tag2']
-    CALC_MD         = arguments['--calc-MD']
-    CALC_ALL        = arguments['--calc-all']
-    walltime        = arguments['--walltime']
-    walltime_final  = arguments['--walltime-final']
-    VERBOSE         = arguments['--verbose']
-    DEBUG           = arguments['--debug']
-    DRYRUN          = arguments['--dry-run']
-
-    if DEBUG:
-        print arguments
-
-    #set default tag values
-    if FA_tag == None:
-        FA_tag = '_FA.nii.gz'
-
-    QCedTranfer = False if rawQCfile == None else True
-
-    runenigmash_name = 'run_engimadti.sh'
-    runconcatsh_name = 'concatresults.sh'
-    outputdir = os.path.abspath(outputdir)
-    log_dir = os.path.join(outputdir,'logs')
-    run_dir = os.path.join(outputdir,'bin')
-    dm.utils.makedirs(log_dir)
-    dm.utils.makedirs(run_dir)
-
-## writes a standard ENIGMA-DTI running script for this project (if it doesn't exist)
-## the script requires a OUTDIR and MAP_BASE variables - as arguments $1 and $2
-## also write a standard script to concatenate the results at the end (script is held while subjects run)
-for runfilename in [runenigmash_name,runconcatsh_name]:
-    runsh = os.path.join(run_dir,runfilename)
-    if os.path.isfile(runsh):
-        ## create temporary run file and test it against the original
-        checkrunsh(runsh)
-    else:
-        ## if it doesn't exist, write it now
-        makeENIGMArunsh(runsh)
-
-# find those subjects in input who have not been processed yet
-subids_in_dtifit = dm.utils.get_subjects(dtifit_dir)
-subids_in_dtifit = [ v for v in subids_in_dtifit if "PHA" not in v ]
-if QCedTranfer:
-    qcedlist = get_qced_subjectlist(rawQCfile)
-    subids_in_dtifit = list(set(subids_in_dtifit) & set(qcedlist))
-
-checklist = os.path.normpath(outputdir + '/ENIGMA-DTI-checklist.csv')
-checklist = loadchecklist(checklistfile, subids_in_dtifit)
-
-find_FAimages(FA_tag,TAG2)
-
-jobnameprefix="edti_{}_".format(datetime.datetime.today().strftime("%Y%m%d-%H%M%S"))
-submitted = False
-
-for i in range(0,len(checklist)):
-    subid = checklist['id'][i]
-    ROIout = os.path.join(outputdir,subid,'ROI')
-
-    if pd.isnull(checklist['FA_nii'][i]) or os.path.exists(ROIout):
-        continue
-
-    os.chdir(run_dir)
-    soutput = os.path.join(outputdir,subid)
-    smap = checklist['FA_nii'][i]
-    jobname = jobnameprefix + subid
-    dm.utils.run('echo bash -l {rundir}/{script} {output} {inputdir} | qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
-            rundir = run_dir,
-            script = runenigmash_name,
-            output = soutput,
-            inputdir = os.path.join(dtifit_dir, subid, smap),
-            jobname = jobname,
-            logdir = log_dir,
-            wt = walltime))
-
-    checklist['date_ran'][i] = datetime.date.today()
-    submitted = True
-
-# submit a final job that will consolidate the results after they are finished
-if submitted:
-    os.chdir(run_dir)
-    dm.utils.run('echo bash -l {rundir}/{script} | qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
-            rundir = run_dir,
-            script = runconcatsh_name,
-            jobname = jobnameprefix + 'concat',
-            logdir = log_dir,
-            hold = jobnameprefix + '*',
-            wt = '00:10:00'))
-
-checklist.to_csv(checklistfile, sep=',', index = False)
+## runs the main function
+if __name__ == "__main__":
+    main()

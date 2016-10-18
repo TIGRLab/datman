@@ -17,6 +17,9 @@ import nibabel as nib
 import contextlib
 import tempfile
 import shutil
+import logging
+
+logger = logging.getLogger(__name__)
 
 SERIES_TAGS_MAP = {
 "T1"         :  "T1",
@@ -367,6 +370,7 @@ def run(cmd, dryrun=False, echo=False):
     Returns the return code, stdout and stderr.
     """
     if dryrun:
+        logger.info('Doing a dryrun')
         return 0, "", ""
     elif echo:
         p = proc.call(cmd, shell=True)
@@ -374,6 +378,8 @@ def run(cmd, dryrun=False, echo=False):
     else:
         p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
         out, err = p.communicate()
+        if p.returncode:
+            logger.error('Failed with returncode {}. Excuse:{}'.format(p.returncode, err))
         return p.returncode, out, err
 
 def get_files_with_tag(parentdir, tag, fuzzy = False):
