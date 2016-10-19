@@ -65,6 +65,9 @@ class config(object):
                 self.site_config['ProjectSettings'][project_name]['config_file'])
 
             self.study_config = self.load_yaml(project_settings_file)
+        else:
+            logger.error('Invalid project:{}'.format(project_name))
+            raise KeyError
 
     def map_xnat_archive_to_project(self, filename):
         """Maps the XNAT tag (e.g. SPN01) to the project name e.g. SPINS
@@ -79,13 +82,16 @@ class config(object):
             tag = parts[0]
 
         for project in self.site_config['ProjectSettings'].keys():
+            logger.debug('Searching project:{}'.format(project))
             self.set_study_config(project)
             # Check the study_config contains a 'Sites' key
             site_tags = []
             if 'Sites' in self.study_config.keys():
                 for key, site_cfg in self.study_config['Sites'].iteritems():
                     try:
-                        site_tags = [t.lower() for t in site_cfg['SITE_IDS']]
+                        site_tags = site_tags + [t.lower()
+                                                 for t
+                                                 in site_cfg['SITE_IDS']]
                     except KeyError:
                         pass
 
@@ -114,6 +120,26 @@ class config(object):
         logger.warn('Failed to find a valid project for xnat id:{}'
                     .format(tag))
         return
+
+    def key_exists(self, scope, key):
+        """Check the yaml file specified by scope for a key.
+        Return the True if the key exists, False otherwise.
+        Scope [site | study]
+        """
+        if scope == 'site':
+            # make a copy of the original yaml
+            result = self.site_config
+        else:
+            result = self.study_config
+
+        for val in key:
+            try:
+                result = result[val]
+            except KeyError:
+                return(False)
+
+        return(True)
+
 
     def get_if_exists(self, scope, key):
         """Check the yaml file specified by scope for a key.
