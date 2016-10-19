@@ -201,15 +201,16 @@ def post_settings_conflict(NO_POST, POSTFS_ONLY):
         conflict = True
     return conflict
 
-def get_subject_list(input_dir, TAG2, QC_file):
+def get_subject_list(input_dir, subject_filter, QC_file):
     """
-    Returns a list of subjects in input_dir, minus any phantoms or already
-    qc'd subjects.
+    Returns a list of subjects in input_dir,
+    minus any phantoms or not qced subjects,
+    Also removes any subject ids that do not contain the subject_filter string
     """
     subject_list = dm.utils.get_subjects(input_dir)
     subject_list = remove_phantoms(subject_list)
-    if TAG2 is not None:
-        subject_list = remove_untagged_subjects(subject_list, TAG2)
+    if subject_filter is not None:
+        subject_list = remove_untagged_subjects(subject_list, subject_filter)
     if QC_file is not None:
         subject_list = remove_unqced_subjects(subject_list, QC_file)
     return subject_list
@@ -218,8 +219,8 @@ def remove_phantoms(subject_list):
     subject_list = [ subid for subid in subject_list if "PHA" not in subid ]
     return subject_list
 
-def remove_untagged_subjects(subject_list, TAG2):
-    subject_list = [ subid for subid in subject_list if TAG2 in subid ]
+def remove_untagged_subjects(subject_list, subject_filter):
+    subject_list = [ subid for subid in subject_list if subject_filter in subid ]
     return subject_list
 
 def remove_unqced_subjects(subject_list, QC_file):
@@ -450,7 +451,7 @@ def make_temp_directory():
 def docmd(cmd):
     "sends a command (inputed as a list) to the shell"
     if DEBUG: print cmd
-    rtn, out, err = dm.utils.run(cmd, dryrun = DRYRUN)
+    if not DRYRUN: subprocess.call(cmd)
 
 if __name__ == '__main__':
     main()

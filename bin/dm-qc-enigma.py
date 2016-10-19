@@ -3,7 +3,7 @@
 Run QC -stuff for enigma dti pipeline.
 
 Usage:
-  enigmadti-qc.py [options] <outputdir>
+  dm-qc-enigma.py [options] <outputdir>
 
 Arguments:
     <outputdir>        Top directory for the output file structure

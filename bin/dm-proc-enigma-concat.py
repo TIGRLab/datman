@@ -4,7 +4,7 @@ Combines the outputs of enigma dti into one file.
 By default the resutls are put in <outputdir>/ENIGMA-DTI-results.csv
 
 Usage:
-  concatcsv-enigmadti.py [options] <outputdir> <postfix> <resultsfile>
+  dm-proc-enigma-concat.py [options] <outputdir> <postfix> <resultsfile>
 
 Arguments:
     <outputdir>        Top directory for the output file structure
