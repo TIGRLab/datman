@@ -69,6 +69,20 @@ class config(object):
             logger.error('Invalid project:{}'.format(project_name))
             raise KeyError
 
+    def get_study_base(self, study=None):
+        """Return the base directory for a study"""
+        proj_dir = self.site_config['SystemSettings'][self.system_name]['DATMAN_PROJECTSDIR']
+        if not study or self.study_config:
+            logger.warning('Study not set')
+            return(proj_dir)
+        if not self.key_exists('site', ['ProjectSettings',
+                                        study.upper(),
+                                        'basedir']):
+            logger.error('Invalid study:{}'.format(study))
+            return(proj_dir)
+        return(os.path.join(proj_dir,
+                            self.site_config['ProjectSettings'][study.upper()]['basedir']))
+
     def map_xnat_archive_to_project(self, filename):
         """Maps the XNAT tag (e.g. SPN01) to the project name e.g. SPINS
         Can either supply a full filename in which case only the first part
