@@ -81,16 +81,6 @@ def export_file(source, destination):
         except IOError, e:
             raise ProcessingException("Problem exporting {} to {}".format(source, destination))
 
-def splitext(path):
-    """
-    Function that will remove extension, including specially-defined extensions
-    that fool os.path.splitext
-    """
-    for ext in ['.nii.gz', '.mnc.gz']:
-        if path.endswith(ext):
-            return path[:-len(ext)], path[-len(ext):]
-    return os.path.splitext(path)
-
 def export_file_list(pattern, files, output_dir):
     """
     Copies, from a list of files, all files containing some substring into
@@ -200,7 +190,7 @@ def run_epitome(path, config):
         epitome_outputs = glob.glob(epi_func_dir + '/*')
         for name in expected_names:
             try:
-                matches = filter(lambda x: name in x, epitome_outputs)
+                matches = filter(lambda x: 'func_' + name in x, epitome_outputs)
                 matches.sort()
 
                 # attempt to export the defined epitome stages for all runs
