@@ -81,20 +81,19 @@ import os, sys
 import re
 import glob
 import time
-import yaml
 import logging
-import datman as dm
 import subprocess as proc
-from datman.docopt import docopt
 
 import numpy as np
 import pandas as pd
+import yaml
+
+import datman as dm
+from datman.docopt import docopt
 
 logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
-DEBUG = False
-VERBOSE = False
 REWRITE = False
 
 def run(cmd):
@@ -373,7 +372,7 @@ def run_header_qc(dicomDir, standard_dir, logfile):
         try:
             s = standardDict[tag]
         except:
-            print('WARNING: No standard with tag {} found in {}'.format(tag, standard_dir))
+            logger.debug('WARNING: No standard with tag {} found in {}'.format(tag, standard_dir))
             continue
 
         # run header check for dicom
@@ -497,7 +496,7 @@ def qc_subject(scanpath, subject, config):
 
     # header diff
     dcmSubj = os.path.join(config['paths']['dcm'], subject)
-    headerDiff = os.path.join(qc_dir, 'header-diff.log'.format(subject))
+    headerDiff = os.path.join(qc_dir, 'header-diff.log')
     if not os.path.isfile(headerDiff):
         run_header_qc(dcmSubj, config['paths']['std'], headerDiff)
 
@@ -524,7 +523,6 @@ def qc_subject(scanpath, subject, config):
 
 def main():
 
-    global DEBUG
     global REWRITE
 
     arguments = docopt(__doc__)
@@ -532,18 +530,18 @@ def main():
     config_file = arguments['<config>']
     scanid     = arguments['--subject']
     REWRITE    = arguments['--rewrite']
-    DEBUG      = arguments['--debug']
+    debug      = arguments['--debug']
+
+    if debug:
+        logging.getLogger().setLevel(logging.DEBUG)
 
     with open(config_file, 'r') as stream:
         config = yaml.load(stream)
 
     for k in ['dcm', 'nii', 'qc', 'std', 'meta']:
         if k not in config['paths']:
-            print("ERROR: paths:{} not defined in {}".format(k, configfile))
+            logging.error("paths:{} not defined in {}".format(k, configfile))
             sys.exit(1)
-
-    if DEBUG:
-        logging.getLogger().setLevel(logging.DEBUG)
 
     nii_dir = config['paths']['nii']
     qc_dir = dm.utils.define_folder(config['paths']['qc'])
@@ -575,7 +573,7 @@ def main():
                 checklist = open(os.path.join(meta_dir, checklist_file), 'r')
                 found_reports = []
 
-                for checklist_entry in found_reports:
+                for checklist_entry in checklist:
                     checklist_entry = checklist_entry.split(' ')[0].strip()
                     checklist_entry, checklist_ext = os.path.split(checklist_entry)
                     found_reports.append(checklist_entry)
@@ -619,7 +617,7 @@ def main():
                     sys.exit(1)
 
                 elif rtn == 0:
-                    print(out)
+                    logger.debug(out)
 
         if commands_phantom:
             for cmd in commands_phantom:
