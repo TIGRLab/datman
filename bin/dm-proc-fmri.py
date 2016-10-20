@@ -11,7 +11,6 @@ Arguments:
 
 Options:
     --subject SUBJID subject name to run on
-    -v,--verbose     verbose logging
     --debug          debug logging
     --dry-run        don't do anything
 
@@ -125,7 +124,7 @@ def run_epitome(path, config):
             try:
                 check_inputs(config, tag, path, candidates)
             except MissingDataException as m:
-                print('ERROR: {}'.format(m))
+                logger.debug('ERROR: {}'.format(m))
                 continue
             functionals.extend(candidates)
 
@@ -135,7 +134,7 @@ def run_epitome(path, config):
         anatomicals = []
         for anat in ['aparc+aseg.nii.gz', 'aparc.a2009s+aseg.nii.gz', 'T1w_brain.nii.gz']:
             if not filter(lambda x: anat in x, files):
-                print('ERROR: expected anatomical {} not found in {}'.format(anat, anat_path))
+                logger.debug('ERROR: expected anatomical {} not found in {}'.format(anat, anat_path))
                 sys.exit(1)
             anatomicals.append(os.path.join(anat_path, anat))
 
@@ -146,7 +145,7 @@ def run_epitome(path, config):
             if filter(lambda x: output in x, files):
                 found += 1
         if found == len(expected_names):
-            print('MSG: outputs found for experiment {}'.format(exp))
+            logger.debug('MSG: outputs found for experiment {}'.format(exp))
             continue
 
         # create and populate epitome directory
@@ -162,7 +161,7 @@ def run_epitome(path, config):
             for i, d in enumerate(functionals):
                 shutil.copyfile(d, '{}/RUN{}/FUNC.nii.gz'.format(epi_func_dir, '%02d' % (i + 1)))
         except IOError, e:
-            print("ERROR: unable to copy files to {}".format(epi_dir))
+            logger.debug("ERROR: unable to copy files to {}".format(epi_dir))
             continue
 
         # collect command line options
@@ -173,16 +172,15 @@ def run_epitome(path, config):
 
         pipeline = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir, 'assets/{}'.format(pipeline))
         if not os.path.isfile(pipeline):
-            print('ERROR: invalid pipeline {} defined!'.format(pipeline))
-            sys.exit(1)
+            raise ProcessingException('ERROR: invalid pipeline {} defined!'.format(pipeline))
 
         # run epitome
         command = '{} {} {} {} {}'.format(pipeline, epi_dir, delete, tr, dims)
         rtn, out, err = dm.utils.run(command)
         output = '\n'.join([out, err]).replace('\n', '\n\t')
         if rtn != 0:
-            print(output)
-            raise ProcessingException("ERROR: Epitome script failed: {}".format(command))
+            logger.debug("ERROR: Epitome script failed: {}\n{}".format(command, output))
+            continue
         else:
             pass
 
@@ -195,7 +193,7 @@ def run_epitome(path, config):
 
                 # attempt to export the defined epitome stages for all runs
                 if len(matches) != len(functionals):
-                    print('ERROR: epitome output {} not created for all inputs'.format(name))
+                    logger.debug('ERROR: epitome output {} not created for all inputs'.format(name))
                     continue
                 for i, match in enumerate(matches):
                     func_basename = dm.utils.splitext(os.path.basename(functionals[i]))[0]
@@ -211,7 +209,7 @@ def run_epitome(path, config):
                 export_directory(os.path.join(epi_func_dir, 'PARAMS'), os.path.join(output_dir, 'PARAMS'))
 
             except ProcessingError as p:
-                print('ERROR: {}'.format(p))
+                logger.debug('ERROR: {}'.format(p))
                 continue
 
         # remove temporary directory
@@ -225,12 +223,9 @@ def main():
 
     config_file = arguments['<config>']
     scanid      = arguments['--subject']
-    verbose     = arguments['--verbose']
     debug       = arguments['--debug']
     dryrun      = arguments['--dry-run']
 
-    if verbose:
-        logger.setLevel(logging.INFO)
     if debug:
         logger.setLevel(logging.DEBUG)
 
@@ -246,6 +241,7 @@ def main():
         for k in ['dims', 'del', 'pipeline', 'tags', 'export', 'tr']:
             if k not in x[1].keys():
                 print("ERROR: fmri:{}:{} not defined in {}".format(x[0], k, config_file))
+                sys.exit(1)
 
     nii_dir = config['paths']['nii']
 
