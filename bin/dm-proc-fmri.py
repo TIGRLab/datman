@@ -35,10 +35,10 @@ logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(mess
 logger = logging.getLogger(os.path.basename(__file__))
 
 class MissingDataException(Exception):
-    pass
+    raise
 
 class ProcessingException(Exception):
-    pass
+    raise
 
 def check_inputs(config, tag, path, expected_tags):
     """
@@ -134,7 +134,7 @@ def run_epitome(path, config):
         anatomicals = []
         for anat in ['aparc+aseg.nii.gz', 'aparc.a2009s+aseg.nii.gz', 'T1w_brain.nii.gz']:
             if not filter(lambda x: anat in x, files):
-                logger.debug('ERROR: expected anatomical {} not found in {}'.format(anat, anat_path))
+                logger.error('ERROR: expected anatomical {} not found in {}'.format(anat, anat_path))
                 sys.exit(1)
             anatomicals.append(os.path.join(anat_path, anat))
 
@@ -160,8 +160,8 @@ def run_epitome(path, config):
             shutil.copyfile(anatomicals[2], '{}/anat_T1_brain.nii.gz'.format(epi_t1_dir))
             for i, d in enumerate(functionals):
                 shutil.copyfile(d, '{}/RUN{}/FUNC.nii.gz'.format(epi_func_dir, '%02d' % (i + 1)))
-        except IOError, e:
-            logger.debug("ERROR: unable to copy files to {}".format(epi_dir))
+        except IOError as e:
+            logger.error("ERROR: unable to copy files to {}\n{}".format(epi_dir, e))
             continue
 
         # collect command line options
@@ -172,14 +172,14 @@ def run_epitome(path, config):
 
         pipeline = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir, 'assets/{}'.format(pipeline))
         if not os.path.isfile(pipeline):
-            raise ProcessingException('ERROR: invalid pipeline {} defined!'.format(pipeline))
+            raise ProcessingException('invalid pipeline {} defined!'.format(pipeline))
 
         # run epitome
         command = '{} {} {} {} {}'.format(pipeline, epi_dir, delete, tr, dims)
         rtn, out, err = dm.utils.run(command)
         output = '\n'.join([out, err]).replace('\n', '\n\t')
         if rtn != 0:
-            logger.debug("ERROR: Epitome script failed: {}\n{}".format(command, output))
+            logger.debug("epitome script failed: {}\n{}".format(command, output))
             continue
         else:
             pass
@@ -193,7 +193,7 @@ def run_epitome(path, config):
 
                 # attempt to export the defined epitome stages for all runs
                 if len(matches) != len(functionals):
-                    logger.debug('ERROR: epitome output {} not created for all inputs'.format(name))
+                    logger.error('epitome output {} not created for all inputs'.format(name))
                     continue
                 for i, match in enumerate(matches):
                     func_basename = dm.utils.splitext(os.path.basename(functionals[i]))[0]
@@ -209,7 +209,7 @@ def run_epitome(path, config):
                 export_directory(os.path.join(epi_func_dir, 'PARAMS'), os.path.join(output_dir, 'PARAMS'))
 
             except ProcessingError as p:
-                logger.debug('ERROR: {}'.format(p))
+                logger.error('ERROR: {}'.format(p))
                 continue
 
         # remove temporary directory
@@ -226,6 +226,8 @@ def main():
     debug       = arguments['--debug']
     dryrun      = arguments['--dry-run']
 
+    # configure logging
+    logging.info('Starting')
     if debug:
         logger.setLevel(logging.DEBUG)
 
@@ -251,7 +253,8 @@ def main():
             sys.exit('Subject {} if a phantom, cannot be analyzed'.format(scanid))
         try:
             run_epitome(path, config)
-        except:
+        except ProcessingException as e:
+            logging.error(e)
             sys.exit(1)
 
     # run in batch mode
@@ -270,8 +273,6 @@ def main():
                 commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
 
         if commands:
-            logger.debug('queueing up the following commands:\n'+'\n'.join(commands))
-
             for cmd in commands:
                 jobname = 'dm_fmri_{}'.format(time.strftime("%Y%m%d-%H%M%S"))
                 logfile = '/tmp/{}.log'.format(jobname)
