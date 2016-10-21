@@ -33,10 +33,10 @@ logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(mess
 logger = logging.getLogger(os.path.basename(__file__))
 
 class MissingDataException(Exception):
-    pass
+    raise
 
 class ProcessingException(Exception):
-    pass
+    raise
 
 def run_analysis(scanid, config):
     """
@@ -109,6 +109,7 @@ def main():
     scanid      = arguments['--subject']
     debug       = arguments['--debug']
 
+    logging.info('Starting')
     if debug:
         logger.setLevel(logging.DEBUG)
 
@@ -125,8 +126,8 @@ def main():
         path = os.path.join(fmri_dir, scanid)
         try:
             run_analysis(scanid, config)
-        except:
-            print('ERROR: :(')
+        except ProcessingException as e:
+            logger.error(e)
             sys.exit(1)
 
     # run in batch mode
