@@ -34,26 +34,20 @@ import time
 logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
-class MissingDataException(Exception):
-    raise
-
-class ProcessingException(Exception):
-    raise
-
 def check_inputs(config, tag, path, expected_tags):
     """
     Ensures we have the same number of input files as we have defined in
     ExportInfo.
     """
     if not expected_tags:
-        raise MissingDataException('ERROR: expected tag {} not found in {}'.format(tag, path))
+        raise Exception('ERROR: expected tag {} not found in {}'.format(tag, path))
     n_found = len(expected_tags)
 
     site = dm.scanid.parse_filename(expected_tags[0])[0].site
     n_expected = config['Sites'][site]['ExportInfo'][tag]['Count']
 
     if n_found != n_expected:
-        raise MissingDataException('ERROR: number of files found with tag {} was {}, expected {}'.format(tag, n_found, n_expected))
+        raise Exception('ERROR: number of files found with tag {} was {}, expected {}'.format(tag, n_found, n_expected))
 
 def export_directory(source, destination):
     """
@@ -64,11 +58,11 @@ def export_directory(source, destination):
         try:
             shutil.rmtree(destination)
         except:
-            raise ProcessingException("ERROR: failed to remove existing folder {}".format(destination))
+            raise Exception("failed to remove existing folder {}".format(destination))
     try:
         shutil.copytree(source, destination)
     except:
-        raise ProcessingException("ERROR: failed to export {} to {}".format(source, destination))
+        raise Exception("ERROR: failed to export {} to {}".format(source, destination))
 
 def export_file(source, destination):
     """
@@ -78,7 +72,7 @@ def export_file(source, destination):
         try:
             shutil.copyfile(source, destination)
         except IOError, e:
-            raise ProcessingException("Problem exporting {} to {}".format(source, destination))
+            raise Exception('Problem exporting {} to {}'.format(source, destination))
 
 def export_file_list(pattern, files, output_dir):
     """
@@ -92,6 +86,24 @@ def export_file_list(pattern, files, output_dir):
             export_file(match, output)
         except:
             pass
+
+def outputs_exist(output_dir, expected_names):
+    """
+    Returns True if all expected outputs exist in the target directory,
+    otherwise, returns false.
+    """
+    files = glob.glob(output_dir + '/*')
+    found = 0
+
+    for output in expected_names:
+        if filter(lambda x: output in x, files):
+            found += 1
+
+    if found == len(expected_names):
+        logger.debug('outputs found for output directory {}'.format(output_dir))
+        return True
+
+    return False
 
 def run_epitome(path, config):
     """
@@ -123,7 +135,7 @@ def run_epitome(path, config):
             candidates.sort()
             try:
                 check_inputs(config, tag, path, candidates)
-            except MissingDataException as m:
+            except Exception as m:
                 logger.debug('ERROR: {}'.format(m))
                 continue
             functionals.extend(candidates)
@@ -138,14 +150,8 @@ def run_epitome(path, config):
                 sys.exit(1)
             anatomicals.append(os.path.join(anat_path, anat))
 
-        # locate outputs, exit if we find everything already
-        files = glob.glob(output_dir + '/*')
-        found = 0
-        for output in expected_names:
-            if filter(lambda x: output in x, files):
-                found += 1
-        if found == len(expected_names):
-            logger.debug('MSG: outputs found for experiment {}'.format(exp))
+        # don't run if the outputs of epitome already exist
+        if outputs_exist(output_dir, expected_names):
             continue
 
         # create and populate epitome directory
@@ -172,7 +178,7 @@ def run_epitome(path, config):
 
         pipeline = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir, 'assets/{}'.format(pipeline))
         if not os.path.isfile(pipeline):
-            raise ProcessingException('invalid pipeline {} defined!'.format(pipeline))
+            raise Exception('invalid pipeline {} defined!'.format(pipeline))
 
         # run epitome
         command = '{} {} {} {} {}'.format(pipeline, epi_dir, delete, tr, dims)
@@ -253,14 +259,16 @@ def main():
             sys.exit('Subject {} if a phantom, cannot be analyzed'.format(scanid))
         try:
             run_epitome(path, config)
-        except ProcessingException as e:
+        except Exception as e:
             logging.error(e)
             sys.exit(1)
 
     # run in batch mode
     else:
-        commands = []
+        subjects = []
         nii_dirs = glob.glob('{}/*'.format(nii_dir))
+
+        # find subjects where at least one expected output does not exist
         for path in nii_dirs:
             subject = os.path.basename(path)
 
@@ -268,11 +276,23 @@ def main():
                 logger.debug("Subject {} is a phantom. Skipping.".format(subject))
                 continue
 
-            # otherwise, submit a list of calls to ourself, one per subject
-            else:
-                commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
+            fmri_dir = dm.utils.define_folder(config['paths']['fmri'])
+            for exp in config['fmri'].keys():
+                expected_names = config['fmri'][exp]['export']
+                subj_dir = os.path.join(fmri_dir, exp, subject)
+                if not outputs_exist(subj_dir, expected_names):
+                    subjects.append(subject)
+                    break
+
+        subjects = list(set(subjects))
+
+        # submit a list of calls to ourself, one per subject
+        commands = []
+        for subject in subjects:
+            commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
 
         if commands:
+            logger.debug('queueing up the following commands:\n'+'\n'.join(commands))
             for cmd in commands:
                 jobname = 'dm_fmri_{}'.format(time.strftime("%Y%m%d-%H%M%S"))
                 logfile = '/tmp/{}.log'.format(jobname)
