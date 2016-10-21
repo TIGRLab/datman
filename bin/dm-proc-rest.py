@@ -32,12 +32,6 @@ import yaml
 logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
-class MissingDataException(Exception):
-    raise
-
-class ProcessingException(Exception):
-    raise
-
 def get_inputs(config, path, scanid):
     """
     Finds the epitome exports matching the connectivity tag specified in the
@@ -89,7 +83,7 @@ def run_analysis(scanid, config):
                 output = '\n'.join([out, err]).replace('\n', '\n\t')
                 if rtn != 0:
                     logger.error(output)
-                    raise ProcessingException('Error resampling atlas {} to match {}.'.format(atlas, filename))
+                    raise Exception('Error resampling atlas {} to match {}.'.format(atlas, filename))
                 else:
                     logger.info(output)
 
@@ -139,7 +133,7 @@ def main():
         path = os.path.join(fmri_dir, scanid)
         try:
             run_analysis(scanid, config)
-        except ProcessingException as e:
+        except Exception as e:
             logger.error(e)
             sys.exit(1)
 
@@ -157,8 +151,9 @@ def main():
                 candidates = glob.glob('{}/*'.format(subj_dir))
                 for filetype in expected_files:
                     # add subject if outputs don't already exist
-                    if not filter(lambda x: '{}_roi-corrs.csv'.format(filetype) in x, candidates)
+                    if not filter(lambda x: '{}_roi-corrs.csv'.format(filetype) in x, candidates):
                         subjects.append(os.path.basename(subj_dir))
+                        break
 
         # collapse found subjects (do not double-count) and create a list of commands
         commands = []
