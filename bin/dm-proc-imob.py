@@ -25,15 +25,11 @@ DEPENDENCIES
     + afni
 """
 
+import datman as dm
 from datman.docopt import docopt
 import glob
-from random import choice
-from string import ascii_uppercase, digits
-import datman as dm
 import logging
-import os
-import shutil
-import sys
+import os, sys
 import tempfile
 import time
 import yaml
@@ -137,12 +133,13 @@ def get_inputs(files, config):
     for exported in config['fmri']['imob']['glm']:
         candidates = filter(lambda x: '{}.nii.gz'.format(exported) in x, files)
         tagged_candidates = []
+
         for tag in config['fmri']['imob']['tags']:
             tagged_candidates.extend(filter(lambda x: '_{}_'.format(tag) in x, candidates))
+
         if len(tagged_candidates) == 2:
             inputs[exported] = tagged_candidates
         else:
-            print(len(candidates))
             raise Exception(candidates)
 
     return inputs
@@ -186,9 +183,21 @@ def main():
         commands = []
         for path in glob.glob('{}/*'.format(imob_dir)):
             subject = os.path.basename(path)
-            commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
 
-        print(commands)
+            # add subject if any of the expected outputs do not exist
+            files = glob.glob(os.path.join(imob_dir, subject) + '/*.nii.gz')
+            try:
+                inputs = get_inputs(files, config)
+            except:
+                logger.debug('Invalid inputs for {}'.format(subject))
+                continue
+            expected = inputs.keys()
+
+            for exp in expected:
+                if not filter(lambda x: '{}_glm_IM_1stlvl_{}'.format(subject, exp) in x, files):
+                    commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
+                    break
+
         if commands:
             logger.debug("queueing up the following commands:\n"+'\n'.join(commands))
             #fd, path = tempfile.mkstemp()

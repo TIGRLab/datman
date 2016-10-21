@@ -32,11 +32,24 @@ import yaml
 logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
-class MissingDataException(Exception):
-    raise
+def get_inputs(config, path, scanid):
+    """
+    Finds the epitome exports matching the connectivity tag specified in the
+    settings file
+    """
+    inputs = []
 
-class ProcessingException(Exception):
-    raise
+    # get target epitome exports
+    target_filetypes = config['fmri'][exp]['conn']
+    if type(target_filetypes) == str:
+        target_filetypes = [target_filetypes]
+
+    # find the matching pre-processed output files
+    candidates = glob.glob('{}/{}_*.nii.gz'.format(path, scanid))
+    for filetype in target_filetypes:
+        inputs.extend(filter(lambda x: filetype + '.nii.gz' in x, candidates))
+
+    return inputs
 
 def run_analysis(scanid, config):
     """
@@ -54,13 +67,7 @@ def run_analysis(scanid, config):
         path = os.path.join(fmri_dir, exp, scanid)
 
         # get filetypes to analyze, ignoring ROI files
-        target_filetypes = config['fmri'][exp]['conn']
-        if type(target_filetypes) == str:
-            target_filetypes = [target_filetypes]
-        inputs = []
-        candidates = glob.glob('{}/{}_*.nii.gz'.format(path, scanid))
-        for filetype in target_filetypes:
-            inputs.extend(filter(lambda x: filetype + '.nii.gz' in x, candidates))
+        inputs = get_inputs(config, path, scanid)
 
         for filename in inputs:
             basename = os.path.basename(dm.utils.splitext(filename)[0])
@@ -76,7 +83,7 @@ def run_analysis(scanid, config):
                 output = '\n'.join([out, err]).replace('\n', '\n\t')
                 if rtn != 0:
                     logger.error(output)
-                    raise ProcessingException('Error resampling atlas {} to match {}.'.format(atlas, filename))
+                    raise Exception('Error resampling atlas {} to match {}.'.format(atlas, filename))
                 else:
                     logger.info(output)
 
@@ -126,21 +133,31 @@ def main():
         path = os.path.join(fmri_dir, scanid)
         try:
             run_analysis(scanid, config)
-        except ProcessingException as e:
+        except Exception as e:
             logger.error(e)
             sys.exit(1)
 
     # run in batch mode
     else:
+        # look for subjects with at least one fmri type missing outputs
         subjects = []
+
+        # loop through fmri experiments defined
         for exp in config['fmri'].keys():
+            expected_files = config['fmri'][exp]['conn']
             fmri_dirs = glob.glob('{}/*'.format(os.path.join(fmri_dir, exp)))
-            for path in fmri_dirs:
-                subjects.append(os.path.basename(path))
 
-        subjects = list(set(subjects))
+            for subj_dir in fmri_dirs:
+                candidates = glob.glob('{}/*'.format(subj_dir))
+                for filetype in expected_files:
+                    # add subject if outputs don't already exist
+                    if not filter(lambda x: '{}_roi-corrs.csv'.format(filetype) in x, candidates):
+                        subjects.append(os.path.basename(subj_dir))
+                        break
 
+        # collapse found subjects (do not double-count) and create a list of commands
         commands = []
+        subjects = list(set(subjects))
         for subject in subjects:
             commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
 
