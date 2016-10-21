@@ -140,7 +140,6 @@ def get_inputs(files, config):
         if len(tagged_candidates) == 2:
             inputs[exported] = tagged_candidates
         else:
-            print(len(candidates))
             raise Exception(candidates)
 
     return inputs
@@ -187,7 +186,11 @@ def main():
 
             # add subject if any of the expected outputs do not exist
             files = glob.glob(os.path.join(imob_dir, subject) + '/*.nii.gz')
-            inputs = get_inputs(files, config)
+            try:
+                inputs = get_inputs(files, config)
+            except:
+                logger.debug('Invalid inputs for {}'.format(subject))
+                continue
             expected = inputs.keys()
 
             for exp in expected:
@@ -195,7 +198,6 @@ def main():
                     commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
                     break
 
-        print(commands)
         if commands:
             logger.debug("queueing up the following commands:\n"+'\n'.join(commands))
             #fd, path = tempfile.mkstemp()
