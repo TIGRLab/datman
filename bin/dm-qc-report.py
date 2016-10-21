@@ -548,15 +548,8 @@ def main():
     meta_dir = config['paths']['meta']
     checklist_file = os.path.join(meta_dir,'checklist.csv')
 
-    # remove empty files for a given subject
     if scanid:
-        for root, dirs, files in os.walk(os.path.join(qc_dir, scanid)):
-            for f in files:
-                filename = os.path.join(root, f)
-                if os.path.getsize(filename) == 0:
-                    os.remove(filename)
-
-    if scanid:
+        dm.utils.remove_empty_files(os.path.join(qc_dir, scanid))
         path = os.path.join(nii_dir, scanid)
 
         if 'PHA' in scanid:
