@@ -621,9 +621,13 @@ def main():
 
     else:
         # batch mode
-        subjects = glob.glob('{}/*'.format(os.path.join(datadir, 'nii')))
-        opts = (DEBUG and ' --debug' or '')
+        subjects = glob.glob('{}/*'.format(nii_dir))
         commands = []
+
+        if debug:
+            opts = '--debug'
+        else:
+            opts = ''
 
         for path in subjects:
             subject = os.path.basename(path)
