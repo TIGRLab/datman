@@ -25,7 +25,6 @@ import datman as dm
 import datman.utils
 import datman.scanid
 import os.path
-import subprocess
 import sys
 import datetime
 
@@ -47,11 +46,6 @@ if DEBUG:
     print "output is {}".format(output)
     print "tmpdir is: {}".format(tmpdir)
 
-def docmd(cmdlist):
-    "sends a command (inputed as a list) to the shell"
-    if DEBUG: print ' '.join(cmdlist)
-    if not DRYRUN: subprocess.call(cmdlist)
-
 ## make the tmpdir
 dm.utils.makedirs(tmpdir)
 
@@ -63,7 +57,7 @@ MEANcmd = ['mincaverage',inputs[0]]
 for i in range(1,len(inputs)):
     thistmpmnc = os.path.join(tmpdir,'tmp' + str(i) + '.mnc')
     #runs bestlinreg.pl for each image
-    docmd(['bestlinreg.pl', inputs[i], inputs[0],
+    dm.utils.run(['bestlinreg.pl', inputs[i], inputs[0],
         os.path.join(tmpdir,'tmp' + str(i) + '.xfm'), thistmpmnc])
     MEANcmd.append(thistmpmnc) #add the resampled output to the list of stuff to mean
 
@@ -71,7 +65,7 @@ for i in range(1,len(inputs)):
 MEANcmd.append(output)
 
 #now run the mincmean command
-docmd(MEANcmd)
+dm.utils.run(MEANcmd)
 
 #remove the tmpdir if not for debugging
-docmd(['rm', '-rf', tmpdir])
+dm.utils.run(['rm', '-rf', tmpdir])

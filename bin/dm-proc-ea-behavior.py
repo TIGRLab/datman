@@ -472,15 +472,15 @@ def main(local_outdir, arguments):
             os.write(fd, '\n'.join(commands))
             os.close(fd)
 
-            rtn, out, err = dm.utils.run('qbatch -i --logdir {ld} -N {name} --walltime {wt} {cmds}'.format(
+            rtn, out = dm.utils.run('qbatch -i --logdir {ld} -N {name} --walltime {wt} {cmds}'.format(
                 ld = logdir,
                 name = jobname,
                 wt = walltime,
                 cmds = path),dryrun = dryrun)
 
-            if rtn != 0:
+            if rtn:
                 logger.error("Job submission failed. Output follows.")
-                logger.error("stdout: {}\nstderr: {}".format(out,err))
+                logger.error("stdout: {}".format(out))
                 sys.exit("Job submission failed.")
             #for command in commands:
             #    logger.info('Submitting job: {}, command:{}'.format(jobname,command))

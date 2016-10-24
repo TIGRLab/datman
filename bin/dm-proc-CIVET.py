@@ -61,7 +61,6 @@ import datman.scanid
 import glob
 import os.path
 import sys
-import subprocess
 import datetime
 import tempfile
 import shutil
@@ -89,12 +88,6 @@ if T1_TAG == None: T1_TAG = '_T1_'
 if T2_TAG == None: T2_TAG = '_T2_'
 if PD_TAG == None: PD_TAG = '_PD_'
 QCedTranfer = False if rawQCfile == None else True
-
-### Erin's little function for running things in the shell
-def docmd(cmdlist):
-    "sends a command (inputed as a list) to the shell"
-    if DEBUG: print ' '.join(cmdlist)
-    if not DRYRUN: subprocess.call(cmdlist)
 
 # need to find the t1 weighted scan and update the checklist
 def doCIVETlinking(colname, archive_tag, civet_ext):
@@ -324,7 +317,7 @@ for i in range(0,len(checklist)):
         if os.path.exists(thicknessdir)== False:
             os.chdir(civet_bin)
             jobname = 'civet_' + subid
-            docmd(['qsub','-j','y','-o', civet_logs, \
+            dm.utils.run(['qsub','-j','y','-o', civet_logs, \
                      '-N', jobname,  \
                      os.path.basename(runcivetsh), subid])
             jobnames.append(jobname)
@@ -346,7 +339,7 @@ if len(jobnames) > 30 : jobnames = jobnames[-30:]
 if len(jobnames) > 0:
     #if any subjects have been submitted - submit an extract consolidation job to run at the end
     os.chdir(civet_bin)
-    docmd(['qsub','-j','y','-o', civet_logs, \
+    dm.utils.run(['qsub','-j','y','-o', civet_logs, \
         '-N', 'civet_qc',  \
         '-hold_jid', ','.join(jobnames), \
         runqcsh ])

@@ -79,9 +79,9 @@ def run_analysis(scanid, config):
             # generate ROI file in register with subject's data
             roi_file = os.path.join(path, basename + '_rois.nii.gz')
             if not os.path.isfile(roi_file):
-                rtn, out, err = dm.utils.run('3dresample -master {} -prefix {} -inset {}'.format(filename, roi_file, atlas))
+                rtn, out = dm.utils.run('3dresample -master {} -prefix {} -inset {}'.format(filename, roi_file, atlas))
                 output = '\n'.join([out, err]).replace('\n', '\n\t')
-                if rtn != 0:
+                if rtn:
                     logger.error(output)
                     raise Exception('Error resampling atlas {} to match {}.'.format(atlas, filename))
                 else:
@@ -118,13 +118,13 @@ def main():
 
     logging.info('Starting')
     if debug:
-        logger.setLevel(logging.DEBUG)
+        logging.getLogger().setLevel(logging.DEBUG)
 
     with open(config_file, 'r') as stream:
         config = yaml.load(stream)
 
     if 'fmri' not in config['paths']:
-        print("ERROR: paths:fmri not defined in {}".format(config_file))
+        logger.error("paths:fmri not defined in {}".format(config_file))
         sys.exit(1)
 
     fmri_dir = config['paths']['fmri']
@@ -168,13 +168,12 @@ def main():
                 jobname = 'dm_rest_{}'.format(time.strftime("%Y%m%d-%H%M%S"))
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
-                rtn, out, err = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
+                rtn, out = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
 
-                if rtn != 0:
+                if rtn:
                     logger.error("Job submission failed. Output follows.")
-                    logger.error("stdout: {}\nstderr: {}".format(out,err))
+                    logger.error("stdout: {}".format(out))
                     sys.exit(1)
 
 if __name__ == "__main__":
     main()
-

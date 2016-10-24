@@ -35,7 +35,6 @@ import datman.scanid
 import glob
 import os.path
 import sys
-import subprocess
 import datetime
 import tempfile
 import shutil
@@ -53,12 +52,6 @@ DEBUG           = arguments['--debug']
 DRYRUN          = arguments['--dry-run']
 
 if DEBUG: print arguments
-
-### Erin's little function for running things in the shell
-def docmd(cmd):
-    "sends a command (inputed as a list) to the shell"
-    if DEBUG: print cmd
-    rtn, out, err = dm.utils.run(cmd, dryrun = DRYRUN)
 
 epiclone = os.path.join(os.environ['DATMAN_ASSETSDIR'],'epitome','160404-ewd')
 
@@ -135,8 +128,8 @@ def checkrunsh(filename):
 targetpath = os.path.normpath(targetpath)
 logs_dir  = os.path.join(targetpath+'/logs/')
 bin_dir  = os.path.join(targetpath+'/bin/')
-subprocess.call(['mkdir','-p',logs_dir])
-subprocess.call(['mkdir','-p',bin_dir])
+dm.utils.run(['mkdir','-p',logs_dir])
+dm.utils.run(['mkdir','-p',bin_dir])
 
 # writes a standard CIVET running script for this project (if it doesn't exist)
 # the script requires a $SUBJECT variable - that gets sent if by qsub (-v option)
@@ -200,7 +193,7 @@ for i in range(0,len(checklist)):
 
     jobname = jobnameprefix + subid
     os.chdir(bin_dir)
-    docmd('echo bash -l {rundir}/{script} {subid} | '
+    dm.utils.run('echo bash -l {rundir}/{script} {subid} | '
           'qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
             rundir = bin_dir,
             script = runconvertsh,
@@ -220,7 +213,7 @@ for i in range(0,len(checklist)):
 if submitted:
     os.chdir(bin_dir)
     #if any subjects have been submitted - submit an extract consolidation job to run at the end
-    docmd('echo bash -l {run_dir}/{script} | '
+    dm.utils.run('echo bash -l {run_dir}/{script} | '
           'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
             run_dir = bin_dir,
             script = runpostsh,

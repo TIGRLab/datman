@@ -363,22 +363,30 @@ def run_dummy_q(list_of_names):
     run(cmd)
     print('... Done.')
 
-def run(cmd, dryrun=False, echo=False):
+def run(cmd, dryrun=False):
     """
-    Runscommand in default shell, returning the return code, stdout & stderr.
+    Runs the command in default shell, returning STDOUT and a return code.
+    The return code uses the python convention of 0 for success, non-zero for
+    failure
     """
+    # Popen needs a string command.
+    if isinstance(cmd, list):
+        cmd = " ".join(cmd)
+
     if dryrun:
-        logger.info('Doing a dryrun')
-        return 0, "", ""
-    elif echo:
-        p = proc.call(cmd, shell=True)
-        return p, "", ""
-    else:
-        p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
-        out, err = p.communicate()
-        if p.returncode:
-            logger.error('Failed with returncode {}. Excuse:{}'.format(p.returncode, err))
-        return p.returncode, out, err
+        logger.info("Performing dry-run")
+        return 0
+
+    logger.debug("Executing command: {}".format(cmd))
+
+    p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
+    out, err = p.communicate()
+
+    if p.returncode:
+        logger.error('run({}) failed with returncode {}. STDERR: {}'.format(cmd,
+                    p.returncode, err))
+
+    return p.returncode, out
 
 def get_files_with_tag(parentdir, tag, fuzzy = False):
     """

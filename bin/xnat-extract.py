@@ -79,7 +79,6 @@ import datman.utils
 import datman.scanid
 import os.path
 import sys
-import subprocess as proc
 import tempfile
 import glob
 import shutil
@@ -103,21 +102,6 @@ def verbose(message):
 def debug(message):
     if not DEBUG: return
     log("DEBUG: " + message)
-
-def run(cmd):
-    debug("exec: {}".format(cmd))
-    if not DRYRUN:
-        p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
-        out, err = p.communicate()
-        if p.returncode != 0:
-            log("Error {} while executing: {}".format(p.returncode, cmd))
-            out and log("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
-            err and log("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
-        else:
-            debug("rtnval: {}".format(p.returncode))
-            out and debug("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
-            err and debug("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
-
 
 def extract_archive(exportinfo, archivepath, config, blacklist=None):
     """
@@ -223,7 +207,7 @@ def export_resources(archivepath, config, scanid):
 
     debug("Exporting non-dicom stuff from {}".format(archivepath))
     resources_dir = dm.utils.define_folder(os.path.join(config['paths']['resources'], str(scanid)))
-    run("rsync -a {}/ {}/".format(sourcedir, resources_dir))
+    dm.utils.run("rsync -a {}/ {}/".format(sourcedir, resources_dir), DRYRUN)
 
 def export_mnc_command(seriesdir, outputdir, stem):
     """
@@ -238,7 +222,7 @@ def export_mnc_command(seriesdir, outputdir, stem):
 
     verbose("Exporting series {} to {}".format(seriesdir, outputfile))
     cmd = 'dcm2mnc -fname {} -dname "" {}/* {}'.format(stem, seriesdir, outputdir)
-    run(cmd)
+    dm.utils.run(cmd, DRYRUN)
 
 def export_nii_command(seriesdir, outputdir, stem):
     """
@@ -255,7 +239,7 @@ def export_nii_command(seriesdir, outputdir, stem):
 
     # convert into tempdir
     tmpdir = tempfile.mkdtemp()
-    run('dcm2nii -x n -g y -o {} {}'.format(tmpdir,seriesdir))
+    dm.utils.run('dcm2nii -x n -g y -o {} {}'.format(tmpdir,seriesdir), DRYRUN)
 
     # move nii in tempdir to proper location
     for f in glob.glob("{}/*".format(tmpdir)):
@@ -264,7 +248,7 @@ def export_nii_command(seriesdir, outputdir, stem):
         if bn.startswith("o") or bn.startswith("co"):
             continue
         else:
-            run("mv {} {}/{}{}".format(f, outputdir, stem, ext))
+            dm.utils.run("mv {} {}/{}{}".format(f, outputdir, stem, ext), DRYRUN)
     shutil.rmtree(tmpdir)
 
 def export_nrrd_command(seriesdir, outputdir, stem):
@@ -282,7 +266,7 @@ def export_nrrd_command(seriesdir, outputdir, stem):
     cmd = 'DWIConvert -i {} --conversionMode DicomToNrrd -o {}.nrrd --outputDirectory {}'.format(
         seriesdir,stem,outputdir)
 
-    run(cmd)
+    dm.utils.run(cmd, DRYRUN)
 
 def export_dcm_command(seriesdir, outputdir, stem):
     """
@@ -307,7 +291,7 @@ def export_dcm_command(seriesdir, outputdir, stem):
     verbose("Exporting a dcm file from {} to {}".format(seriesdir, outputfile))
     cmd = 'cp {} {}'.format(dcmfile, outputfile)
 
-    run(cmd)
+    dm.utils.run(cmd, DRYRUN)
 
 def parse_exportinfo(exportinfo):
     """
@@ -365,4 +349,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

@@ -65,7 +65,6 @@ import datman as dm
 import glob
 import os
 import sys
-import subprocess
 import datetime
 import tempfile
 import shutil
@@ -77,7 +76,7 @@ import logging
 DRYRUN = False
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARN)
+logging.getLogger().setLevel(logging.WARN)
 
 def main():
     global dryrun
@@ -101,13 +100,13 @@ def main():
     DRYRUN          = arguments['--dry-run']
 
     if quiet:
-        logger.setLevel(logging.ERROR)
+        logging.getLogger().setLevel(logging.ERROR)
 
     if verbose:
-        logger.setLevel(logging.INFO)
+        logging.getLogger().setLevel(logging.INFO)
 
     if debug:
-        logger.setLevel(logging.DEBUG)
+        logging.getLogger().setLevel(logging.DEBUG)
 
     ## make the output directory if it doesn't exist
     output_dir = os.path.abspath(output_dir)
@@ -190,7 +189,7 @@ def main():
                                                         job_name_prefix,
                                                         log_dir, walltime)
                 os.chdir(run_dir)
-                dm.utils.run(qbatch_run_cmd, DRYRUN, DEBUG)
+                dm.utils.run(qbatch_run_cmd, DRYRUN)
     ## if any subjects have been submitted,
     ## submit a final job that will consolidate the results after they are finished
     os.chdir(run_dir)
@@ -203,7 +202,7 @@ def main():
                                                 log_dir,
                                                 walltime_post,
                                                 afterok = job_name_prefix)
-        dm.utils.run(qbatch_post_cmd, DRYRUN, DEBUG)
+        dm.utils.run(qbatch_post_cmd, DRYRUN)
 
     if not DRYRUN:
         ## write the checklist out to a file
@@ -306,12 +305,6 @@ def make_temp_directory():
         yield temp_dir
     finally:
         shutil.rmtree(temp_dir)
-
-### Erin's little function for running things in the shell
-def docmd(cmd, DEBUG, DRYRUN):
-    "sends a command (inputed as a list) to the shell"
-    logger.debug(cmd)
-    if not DRYRUN: subprocess.call([cmd])
 
 ## runs the main function
 if __name__ == "__main__":
