@@ -13,6 +13,30 @@ fs = importlib.import_module('bin.dm-proc-freesurfer')
 
 FIXTURE_DIR = "tests/fixture_dm-proc-all"
 
+def test_make_FS_command():
+    run_dir = FIXTURE_DIR
+    sh_name = "test_command.sh"
+    subid = "SUBJECT_1"
+    T1s = ['T1_map1', 'T1_map2']
+    job_name_prefix = "proc-freesurfer"
+    log_dir = FIXTURE_DIR
+    wall_time = "24:00:00"
+
+    actual_command = fs.make_FS_command(run_dir, sh_name, job_name_prefix,
+                                        log_dir, wall_time, subid, T1s)
+    expected = 'echo "bash -l tests/fixture_dm-proc-all/test_command.sh '\
+               'SUBJECT_1 T1_map1 T1_map2" | qbatch -N proc-freesurferSUBJECT_1 '\
+               '--logdir tests/fixture_dm-proc-all --walltime 24:00:00 -'
+    assert actual_command == expected
+
+    actual_post_command = fs.make_FS_command(run_dir, sh_name, job_name_prefix,
+                                             log_dir, wall_time)
+    expected = 'echo "bash -l tests/fixture_dm-proc-all/test_command.sh" | '\
+               'qbatch -N proc-freesurferpost '\
+               '--logdir tests/fixture_dm-proc-all '\
+               '--walltime 24:00:00 --afterok proc-freesurfer* -'
+    assert actual_post_command == expected
+
 def test_make_Freesurfer_runsh_default_options():
     ## If script format changes, update the fixtures with new examples of
     ## correct run scripts to make this test pass.

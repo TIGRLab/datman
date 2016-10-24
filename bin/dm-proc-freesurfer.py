@@ -316,25 +316,18 @@ def subject_previously_completed(output_dir, subject):
 def make_FS_command(run_dir, sh_name, job_name_prefix, log_dir, wall_time, subid=None, T1s=None):
     if subid is not None:
         # make FS command for subject
-        cmd = 'echo bash -l {rundir}/{script} {subid} {T1s} | '\
-              'qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
-                    rundir = run_dir,
-                    script = sh_name,
-                    subid = subid,
-                    T1s = ' '.join(T1s),
-                    jobname = job_name_prefix + subid,
-                    logdir = log_dir,
-                    wt = wall_time)
+        job_command = "bash -l {}/{} {} {}".format(run_dir, sh_name,
+                subid, ' '.join(T1s))
+        job_name = job_name_prefix + subid
+        cmd = dm.proc.make_piped_qbatch_command(job_command, job_name, log_dir,
+                wall_time)
     else:
         # make post FS command
-        cmd = 'echo bash -l {rundir}/{script} | '\
-              'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
-                        rundir = run_dir,
-                        script = sh_name,
-                        jobname = job_name_prefix + 'post',
-                        logdir = log_dir,
-                        hold = job_name_prefix + '*',
-                        wt = wall_time)
+        job_command = 'bash -l {}/{}'.format(run_dir, sh_name)
+        job_name = job_name_prefix + 'post'
+        hold = job_name_prefix + '*'
+        cmd = dm.proc.make_piped_qbatch_command(job_command, job_name, log_dir,
+                wall_time, afterok=hold)
     return cmd
 
 @contextlib.contextmanager
