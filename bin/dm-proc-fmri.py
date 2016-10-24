@@ -242,13 +242,13 @@ def main():
 
     for k in ['nii', 'fmri', 'hcp']:
         if k not in config['paths']:
-            print("ERROR: paths:{} not defined in {}".format(k, config_file))
+            logger.error("paths:{} not defined in {}".format(k, config_file))
             sys.exit(1)
 
     for x in config['fmri'].iteritems():
         for k in ['dims', 'del', 'pipeline', 'tags', 'export', 'tr']:
             if k not in x[1].keys():
-                print("ERROR: fmri:{}:{} not defined in {}".format(x[0], k, config_file))
+                logger.error("fmri:{}:{} not defined in {}".format(x[0], k, config_file))
                 sys.exit(1)
 
     nii_dir = config['paths']['nii']

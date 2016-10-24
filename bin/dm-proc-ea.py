@@ -1,27 +1,16 @@
 #!/usr/bin/env python
-"""Process empathic accuracy behavioural data.
+"""
+Process empathic accuracy experiment data.
 
 Usage:
-    dm-proc-ea-behaviour.py [options] <datadir> <assets> <outputdir>
-    dm-proc-ea-behaviour.py [options] <datadir> <assets> <outputdir> <session>
+    dm-proc-ea.py [options] <config>
 
 Arguments:
-    <datadir>           Path to the datman data/ folder containing nii/ and RESOURCES/
-    <assets>            Path to an assets folder containing
-                             EA-timing.csv, EA-vid-lengths.csv
-    <outputdir>         Path to output folder
-    <session>           Recording session to process
+    <config>            Configuration file.
 
 Options:
-    -h --help                   Show this screen.
-    -q --quiet                  Suppress output.
-    -v --verbose                Show more output.
-    -d --debug                  Show lots of output.
-    --logdir=<logdir>           Directory to store generated logs
-                                    [default: /archive/logs/dm-proc-ea-behaviour]
-    --walltime TIME             Walltime for each session job [default: 4:00:00]
-    --dryrun                    Perform a dryrun, only observed when session is not provided
-
+    --subject SUBJID    Run on subject.
+    --debug             Show lots of output.
 
 """
 import sys
@@ -36,13 +25,17 @@ import shutil
 import numpy as np
 import StringIO as io
 import scipy.interpolate as interpolate
+import yaml
 import datman as dm
+import matplotlib
+matplotlib.use('Agg')   # Force matplotlib to not use any Xwindows backend
+import matplotlib.pyplot as plt
 from docopt import docopt
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
+logger = logging.getLogger(os.path.basename(__file__))
 
-def check_complete(outputdir, session):
+def check_complete(directory, subject):
     """Checks to see if the output files have been created.
     Returns True if the files exist
     """
@@ -53,14 +46,15 @@ def check_complete(outputdir, session):
                       '{}_cvid_block-times_ea.1D',
                       '{}_cvid_corr_push.csv',
                       '{}_cvid_button-times.csv',
-                      '{}_cvid_vid-onsets.csv']
+                      '{}_cvid_vid-onsets.csv',
+                      '{}_glm_cvid_1stlevel.nii.gz',
+                      '{}_glm_vid_1stlevel.nii.gz']
 
-    all_found = True
     for filename in expected_files:
-        if not os.path.isfile(os.path.join(outputdir, session, \
-                                filename.format(session))):
-            all_found = False
-    return(all_found)
+        if not os.path.isfile(os.path.join(directory, subject, filename.format(subject))):
+            return False
+
+    return True
 
 def log_parser(log):
     """
@@ -231,11 +225,9 @@ def r2z(data):
     """
     Fischer's r-to-z transform on a matrix (elementwise).
     """
-    data = 0.5 * np.log( (1+data) / (1-data) )
+    return(0.5 * np.log((1+data) / (1-data)))
 
-    return data
-
-def process_behav_data(log, assets, func_path, sub, trial_type, block_id):
+def process_behav_data(log, out_path, sub, trial_type, block_id):
     """
     This parses the behavioural log files for a given trial type (either
     'vid' for the empathic-accuracy videos, or 'cvid' for the circles task.
@@ -262,14 +254,12 @@ def process_behav_data(log, assets, func_path, sub, trial_type, block_id):
     easily write out a GLM timing file with the onsets, lengths,
     correlations, and number of button-pushes split across trial types.
     """
-
     logger.debug('Processing behaviour log: {} for: {}'.format(sub,log))
+    assets = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir, 'assets')
 
     # make sure our trial type inputs are valid
     if trial_type not in ['vid', 'cvid']:
-        logger.error(
-                'trial_type input {} is incorrect: invalid vid or cvid'.format(
-                    trial_type))
+        logger.error('trial_type input {} is incorrect: invalid vid or cvid'.format(trial_type))
         raise ValueError
 
     try:
@@ -337,7 +327,7 @@ def process_behav_data(log, assets, func_path, sub, trial_type, block_id):
 
         corr = r2z(corr) # z score correlations
 
-        # add our ish to a kewl plot
+        logger.debug('Adding data to plot')
         axs[i].plot(gold_rate, color='black', linewidth=2)
         axs[i].plot(subj_rate, color='red', linewidth=2)
         axs[i].set_title(blk_name + ': z(r) = ' + str(corr), size=10)
@@ -350,10 +340,9 @@ def process_behav_data(log, assets, func_path, sub, trial_type, block_id):
         if i == len(blocks) -1:
             axs[i].legend(['Actor', 'Participant'], loc='best', fontsize=10, frameon=False)
 
-        # skip the 'other' kind of task
+        logger.debug('Skip the "other" kind of task (if cvid, skip vid)')
         if trial_type == 'vid' and blocks[i][1][0] == 'c':
             continue
-
         elif trial_type == 'cvid' and blocks[i][1][0] == 'v':
             continue
 
@@ -363,7 +352,7 @@ def process_behav_data(log, assets, func_path, sub, trial_type, block_id):
                 for r in ratings:
                     #collate the button push times and correct for mri start_time
                     # the correction should make them compatible with onsets_used
-                            # appending ['new_value', 'time ms', 'block', 'vid_id']
+                    #        appending ['new_value', 'time ms', 'block', 'vid_id']
                     all_ratings.append((r[0],r[1] - mri_start, block_id, blocks[i][1]))
             except TypeError:
                 logger.warn('No ratings found for block {}'.format(i))
@@ -377,214 +366,16 @@ def process_behav_data(log, assets, func_path, sub, trial_type, block_id):
             # button pushes per minute (duration is in seconds)
             button_pushes.append(n_pushes / (duration.tolist() / 60.0))
 
+    plot_name = os.path.splitext(os.path.basename(log))[0]
+    logger.debug('Saving figure {}.pdf'.format(plot_name))
     fig.suptitle(log, size=10)
     fig.set_tight_layout(True)
-    fig.savefig('{func_path}/{sub}/{sub}_{logname}.pdf'.format(func_path=func_path, sub=sub, logname=os.path.basename(log)[:-4]))
+    fig.savefig('{}/{}_{}.pdf'.format(out_path, sub, plot_name))
 
     return onsets_used, durations, correlations, button_pushes, all_ratings
 
-def move_files_from_local(local_outdir, outputdir):
-    if not os.path.isdir(os.path.join(outputdir)):
-        try:
-            os.makedirs(os.path.join(outputdir))
-        except IOError as e:
-            msg = 'Failed to create the output dir: {} with excuse: {}'.format(outputdir, e.strerror)
-            logger.error(msg)
-            return(msg)
-
-    logger.info('Moving data files...')
-    try:
-        root_src_dir = os.path.join(local_outdir)
-        root_dst_dir = os.path.join(outputdir)
-
-        logger.debug('From:{}, To:{}'.format(root_src_dir, root_dst_dir))
-        for src_dir, dirs, files in os.walk(root_src_dir):
-            dst_dir = src_dir.replace(root_src_dir, root_dst_dir)
-            if not os.path.exists(dst_dir):
-                os.makedirs(dst_dir)
-            for filename in files:
-                src_file = os.path.join(src_dir, filename)
-                dst_file = os.path.join(dst_dir, filename)
-                if os.path.exists(dst_file):
-                    os.remove(dst_file)
-                shutil.move(src_file, dst_file)
-    except (IOError, OSError, shutil.Error) as e:
-        logger.error('Failed to move files from {} on system {} to {} with excuse {}'.format(
-            local_outdir, os.uname()[1], outputdir))
-
-
-def main(local_outdir, arguments):
-
-    datadir    = arguments['<datadir>']
-    outputdir  = arguments['<outputdir>']
-    assets     = arguments['<assets>']
-    session    = arguments['<session>']
-
-    walltime   = arguments['--walltime']
-    dryrun     = arguments['--dryrun']
-    logdir     = arguments['--logdir']
-
-
-    if session:
-        if not os.path.isdir(os.path.join(local_outdir, session)):
-            try:
-                os.makedirs(os.path.join(local_outdir, session))
-            except IOError as e:
-                msg = 'Failed to create the local output dir: {} with excuse: {}'.format(local_outdir, e.strerror)
-                logger.error(msg)
-                return(msg)
-    else:
-        local_outdir = outputdir
-
-    if dm.scanid.is_phantom(session):
-        msg = "Scan {} is a phantom. Skipping".format(session)
-        logger.info(msg)
-        return(msg)
-
-    if not session:
-        # process all sessions
-        nii_path = os.path.join(datadir,'nii')
-        sessions = dm.utils.get_subjects(nii_path)
-        phantoms = dm.utils.get_phantoms(nii_path)
-        valid_sessions = set(sessions) - set(phantoms)
-
-        commands = []
-
-        for session in valid_sessions:
-            if check_complete(outputdir, session):
-                msg = 'Session {} has already been analysed. Skipping.'.format(session)
-                logger.info(msg)
-            else:
-                opts = (VERBOSE and ' --verbose' or '') + \
-                       (DEBUG and ' --debug' or '') + \
-                       (QUIET and ' --quiet' or '')
-                opts = opts + ' --logdir {}'.format(arguments['--logdir'])
-
-                commands.append(" ".join([__file__, opts, datadir, assets,
-                                          outputdir, session]))
-
-
-        if commands:
-            logger.info('Queuing up {} commands.'.format(len(commands)))
-            logger.debug("queueing up the following commands:\n"+'\n'.join(commands))
-            jobname = "dm_ea_behave_{}".format(time.strftime("%Y%m%d-%H%M%S"))
-            fd, path = tempfile.mkstemp()
-            os.write(fd, '\n'.join(commands))
-            os.close(fd)
-
-            rtn, out = dm.utils.run('qbatch -i --logdir {ld} -N {name} --walltime {wt} {cmds}'.format(
-                ld = logdir,
-                name = jobname,
-                wt = walltime,
-                cmds = path),dryrun = dryrun)
-
-            if rtn:
-                logger.error("Job submission failed. Output follows.")
-                logger.error("stdout: {}".format(out))
-                sys.exit("Job submission failed.")
-            #for command in commands:
-            #    logger.info('Submitting job: {}, command:{}'.format(jobname,command))
-            #    rtn, out, err = dm.utils.run('qsub -N {name} -V {cmd}'.format(
-            #        name=jobname,
-            #        cmd=command
-            #    ),dryrun = dryrun)
-
-            #    if rtn != 0:
-            #        logger.error('Job:{} out:{}, err:{}'.format(jobname, out, err))
-
-    # process a single session
-    else:
-        # check if session has already been processed
-        if check_complete(outputdir, session):
-            msg = 'Session {} has already been analysed. Skipping.'.format(session)
-            logger.info(msg)
-            return
-        else:
-            # create a temporary output directory on the local node
-
-            try:
-                resdirs = glob.glob(os.path.join(datadir, 'RESOURCES', session + '_??'))
-                resources = []
-                for resdir in resdirs:
-                    resfiles = [os.path.join(dp, f) for
-                                          dp, dn, fn in os.walk(resdir) for f in fn]
-                    resources.extend(resfiles)
-
-                logs = filter(lambda x: '.log' in x and 'UCLAEmpAcc' in x, resources)
-                logs.sort()
-            except:
-                msg = 'No BEHAV data for {}.'.format(session)
-                logger.error(msg)
-                return(msg)
-
-        if len(logs) != 3:
-            msg = 'Did not find exactly 3 logs for {}.'.format(session)
-            logger.error(msg)
-            return(msg)
-
-        for test_type in ['vid','cvid']:
-            # extract all of the data from the logs
-            on_all, dur_all, corr_all, push_all, timings_all = [], [], [], [], []
-
-            try:
-                logger.info('Parsing {} logfiles for session'.format(len(logs), session))
-                for log in logs:
-                    # extract the block id from the logfilename
-                    block_id = os.path.splitext(os.path.basename(log))[0][-1]
-                    on, dur, corr, push, timings = process_behav_data(log, assets, local_outdir, session, test_type, block_id)
-                    on_all.extend(on)
-                    dur_all.extend(dur)
-                    corr_all.extend(corr)
-                    push_all.extend(push)
-                    timings_all.extend(timings)
-            except Exception, e:
-                msg = 'Failed to parse logs for {}, with {}.'.format(session,str(e))
-                logger.error(msg)
-                return(msg)
-
-            timings_all = sorted(timings_all, key=lambda x: (x[2], x[3], x[1]))    # put the responses into order
-            #on_all = sorted(on_all, key=lambda x:x[1])
-            # write data to stimulus timing file for AFNI, and a QC csv
-            try:
-                logger.info('Writing stimulus data')
-                # write each stimulus time:
-                #         [start_time]*[amplitude],[buttonpushes]:[block_length]
-                #         30*5,0.002:12
-
-                # OFFSET 4 TRs == 8 Seconds!
-                # on = on - 8.0
-                f1 = open('{func_path}/{sub}/{sub}_{test}_block-times_ea.1D'.format(func_path=local_outdir, sub=session, test=test_type), 'wb') # stim timing file
-                f2 = open('{func_path}/{sub}/{sub}_{test}_corr_push.csv'.format(func_path=local_outdir, sub=session, test=test_type), 'wb') # r values and num pushes / minute
-                f3 = open('{func_path}/{sub}/{sub}_{test}_button-times.csv'.format(func_path=local_outdir, sub=session, test=test_type), 'wb') # button responses and timings
-                f4 = open('{func_path}/{sub}/{sub}_{test}_vid-onsets.csv'.format(func_path=local_outdir, sub=session, test=test_type), 'wb') # button responses and timings
-                f2.write('correlation,n-pushes-per-minute\n')
-                f3.write('Block_ID,Video,Response,Timing\n')
-                f4.write('Block_ID,Video, Onset\n')
-
-                for i in range(len(on_all)):
-                    f1.write('{o:.2f}*{r:.2f},{p}:{d:.2f} '.format(o=on_all[i][1]-8.0, r=corr_all[i], p=push_all[i], d=dur_all[i]))
-                    f2.write('{r:.2f},{p}\n'.format(r=corr_all[i], p=push_all[i]))
-                for timing in timings_all:
-                    f3.write('{b},{v},{r},{t:.2f}\n'.format(b=timing[2], v=timing[3], r=timing[0], t=timing[1]))
-                for onset in on_all:
-                    f4.write('{b},{r},{t:.2f}\n'.format(b=onset[2], r=onset[0], t=onset[1]))
-                f1.write('\n') # add newline at the end of each run (up to 3 runs.)
-            except IOError as e:
-                msg = 'Failed to open block_times & corr_push for {} with excuse {}'.format(session, e.strerror)
-                logger.error(msg)
-                return(msg)
-            finally:
-                f1.close()
-                f2.close()
-                f3.close()
-                f4.close()
-        return(0)
-
-
-def generate_analysis_script(sub, func_path):
+def generate_analysis_script(subject, inputs, input_type, config):
     """
-    NOT YET WORKING.
-
     This writes the analysis script to replicate the methods in Harvey et al
     2013 Schizophrenia Bulletin. It expects timing files to exist.
 
@@ -601,88 +392,269 @@ def generate_analysis_script(sub, func_path):
         30*5:12
     See '-stim_times_AM2' in AFNI's 3dDeconvolve 'help' for more.
     """
-    # first, determine input functional files
-    niftis = filter(lambda x: 'nii.gz' in x and sub + '_func' in x, os.listdir(os.path.join(func_path, sub)))
-    niftis.sort()
+    subject_dir = os.path.join(config['paths']['fmri'], 'ea', subject)
+    script = '{subject_dir}/{subject}_glm_1stlevel_{input_type}.sh'.format(
+        subject_dir=subject_dir, subject=subject, input_type=input_type)
+
+    # generate full motion paramater file
+    rtn, out = dm.utils.run('cat {d}/PARAMS/motion.datman.01.1D {d}/PARAMS/motion.datman.02.1D {d}/PARAMS/motion.datman.03.1D > {d}/{subject}_motion.1D'.format(
+        d=subject_dir, subject=subject))
+
+    # get input data, turn into a single string
+    input_list = inputs[input_type]
+    input_list.sort()
 
     input_data = ''
-
-    for nifti in niftis:
-        input_data = input_data + os.path.join(func_path, sub, nifti) + ' '
+    for i in input_list:
+        input_data += '{} '.format(i)
 
     # open up the master script, write common variables
-    f = open('{func_path}/{sub}/{sub}_glm_1stlevel_cmd.sh'.format(func_path=func_path, sub=sub), 'wb')
+    f = open(script, 'wb')
     f.write("""#!/bin/bash
-# Empathic accuracy GLM for {sub}.
+
+# clean up
+rm {subject_dir}/*_glm_*
+
+# Empathic accuracy (with amplitude modulation) GLM for {sub}.
 3dDeconvolve \\
     -input {input_data} \\
-    -mask {func_path}/{sub}/{sub}_anat_EPI_mask_MNI.nii.gz \\
-    -ortvec {func_path}/{sub}/{sub}_motion.1D motion_paramaters \\
+    -mask {subject_dir}/anat_EPI_mask_MNI-nonlin.nii.gz \\
+    -ortvec {subject_dir}/{sub}_motion.1D motion_paramaters \\
     -polort 4 \\
     -num_stimts 1 \\
     -local_times \\
-    -jobs 8 \\
-    -x1D {func_path}/{sub}/{sub}_glm_1stlevel_design.mat \\
-    -stim_times_AM2 1 {func_path}/{sub}/{sub}_block-times_ea.1D \'dmBLOCK(1)\' \\
+    -jobs 4 \\
+    -x1D {subject_dir}/{sub}_glm_vid_1stlevel_design.mat \\
+    -stim_times_AM2 1 {subject_dir}/{sub}_vid_block-times_ea.1D \'dmBLOCK(1)\' \\
     -stim_label 1 empathic_accuracy \\
-    -fitts {func_path}/{sub}/{sub}_glm_1stlevel_explained.nii.gz \\
-    -errts {func_path}/{sub}/{sub}_glm_1stlevel_residuals.nii.gz \\
-    -bucket {func_path}/{sub}/{sub}_glm_1stlevel.nii.gz \\
-    -cbucket {func_path}/{sub}/{sub}_glm_1stlevel_coeffs.nii.gz \\
+    -fitts {subject_dir}/{sub}_glm_vid_1stlevel_explained.nii.gz \\
+    -errts {subject_dir}/{sub}_glm_vid_1stlevel_residuals.nii.gz \\
+    -bucket {subject_dir}/{sub}_glm_vid_1stlevel.nii.gz \\
+    -cbucket {subject_dir}/{sub}_glm_vid_1stlevel_coeffs.nii.gz \\
     -fout \\
     -tout \\
-    -xjpeg {func_path}/{sub}/{sub}_glm_1stlevel_matrix.jpg
-""".format(input_data=input_data, func_path=func_path, sub=sub))
+    -xjpeg {subject_dir}/{sub}_glm_vid_1stlevel_matrix.jpg
+
+# Colour disciminiation (with amplitude modulation) GLM for {sub}.
+3dDeconvolve \\
+    -input {input_data} \\
+    -mask {subject_dir}/anat_EPI_mask_MNI-nonlin.nii.gz \\
+    -ortvec {subject_dir}/{sub}_motion.1D motion_paramaters \\
+    -polort 4 \\
+    -num_stimts 1 \\
+    -local_times \\
+    -jobs 4 \\
+    -x1D {subject_dir}/{sub}_glm_cvid_1stlevel_design.mat \\
+    -stim_times_AM2 1 {subject_dir}/{sub}_cvid_block-times_ea.1D \'dmBLOCK(1)\' \\
+    -stim_label 1 color_videos \\
+    -fitts {subject_dir}/{sub}_glm_cvid_1stlevel_explained.nii.gz \\
+    -errts {subject_dir}/{sub}_glm_cvid_1stlevel_residuals.nii.gz \\
+    -bucket {subject_dir}/{sub}_glm_cvid_1stlevel.nii.gz \\
+    -cbucket {subject_dir}/{sub}_glm_cvid_1stlevel_coeffs.nii.gz \\
+    -fout \\
+    -tout \\
+    -xjpeg {subject_dir}/{sub}_glm_cvid_1stlevel_matrix.jpg
+
+""".format(input_data=input_data, subject_dir=subject_dir, sub=subject))
     f.close()
 
-if __name__=='__main__':
+    return script
 
-    arguments  = docopt(__doc__)
+def get_inputs(files, config):
+    """
+    finds the inputs for the ea experiment, 3 for each epitome stage.
+    """
+    inputs = {}
+    for exported in config['fmri']['ea']['glm']:
+        candidates = filter(lambda x: '{}.nii.gz'.format(exported) in x, files)
+        tagged_candidates = []
 
-    VERBOSE      = arguments['--verbose']
-    DEBUG        = arguments['--debug']
-    QUIET        = arguments['--quiet']
+        # if a string entry, convert to a list so we iterate over elements, not letters
+        tags = config['fmri']['ea']['tags']
+        if type(tags) == str:
+            tags = [tags]
 
-    outputdir  = arguments['<outputdir>']
-    session    = arguments['<session>']
+        for tag in tags:
+            logger.debug('searching for inputs with tag _{}_'.format(tag))
+            tagged_candidates.extend(filter(lambda x: '_{}_'.format(tag) in x, candidates))
 
-    # create a local tmpdir
-    tmp_outdir = tempfile.mkdtemp()
+        if len(tagged_candidates) == 3:
+            inputs[exported] = tagged_candidates
+        else:
+            logger.error('did not find exactly 3 inputs')
+            raise Exception(tagged_candidates)
 
-    # Setup the logging
-    if session:
+    return inputs
+
+def analyze_subject(subject, config):
+    """
+    1) finds the behavioural log files
+    2) generates the stimulus timing files from these logs
+    3) finds the pre-processed fmri data
+    4) runs the standard GLM analysis on these data
+    """
+    resources_dir = config['paths']['resources']
+    ea_dir = os.path.join(config['paths']['fmri'], 'ea')
+    subject_dir = dm.utils.define_folder(os.path.join(config['paths']['fmri'], 'ea', subject))
+
+    # check if subject has already been processed
+    if check_complete(ea_dir, subject):
+        msg = '{} already analysed'.format(subject)
+        logger.info(msg)
+        sys.exit(0)
+
+    # find the behavioural data, and exit if we fail to find it
+    try:
+        resdirs = glob.glob(os.path.join(resources_dir, subject + '_??'))
+        resources = []
+        for resdir in resdirs:
+            resfiles = [os.path.join(dp, f) for dp, dn, fn in os.walk(resdir) for f in fn]
+            resources.extend(resfiles)
+        logs = filter(lambda x: '.log' in x and 'UCLAEmpAcc' in x, resources)
+        logs.sort()
+    except:
+        logger.error('No BEHAV data for {}.'.format(subject))
+        sys.exit(1)
+
+    # if we have the wrong number of logs, don't guess which to use, just fail
+    if len(logs) != 3:
+        logger.error('Did not find exactly 3 logs for {}.'.format(subject))
+        sys.exit(1)
+
+    # parse and write the logs seperately for each experiment condition (video or shapes/colours video)
+    for test_type in ['vid','cvid']:
+        # extract all of the data from the logs
+        on_all, dur_all, corr_all, push_all, timings_all = [], [], [], [], []
         try:
-            os.makedirs(os.path.join(tmp_outdir, session))
-        except IOError:
-            raise
-        local_logpath = os.path.join(tmp_outdir, session, 'log.log')
+            logger.info('Parsing {} logfiles for subject'.format(len(logs), subject))
+            for log in logs:
+                # extract the block id from the logfilename
+                block_id = os.path.splitext(os.path.basename(log))[0][-1]
+                on, dur, corr, push, timings = process_behav_data(log, subject_dir, subject, test_type, block_id)
+                on_all.extend(on)
+                dur_all.extend(dur)
+                corr_all.extend(corr)
+                push_all.extend(push)
+                timings_all.extend(timings)
+        except Exception, e:
+            msg = 'Failed to parse logs for {}, with {}.'.format(subject, str(e))
+            logger.error(msg)
+            sys.exit(1)
+
+        # write data to stimulus timing file for AFNI, and a QC csv
+        # on_all = sorted(on_all, key=lambda x:x[1])
+        timings_all = sorted(timings_all, key=lambda x: (x[2], x[3], x[1]))    # put the responses into order
+        try:
+            logger.info('Writing stimulus data')
+            # write each stimulus time:
+            #         [start_time]*[amplitude],[buttonpushes]:[block_length]
+            #         30*5,0.002:12
+            # OFFSET 4 TRs == 8 Seconds!
+            # on = on - 8.0
+            f1 = open('{}/{}_{}_block-times_ea.1D'.format(subject_dir, subject, test_type), 'wb') # stim timing file
+            f2 = open('{}/{}_{}_corr_push.csv'.format(subject_dir, subject, test_type), 'wb')     # r values and num pushes / minute
+            f3 = open('{}/{}_{}_button-times.csv'.format(subject_dir, subject, test_type), 'wb')  # button responses and timings
+            f4 = open('{}/{}_{}_vid-onsets.csv'.format(subject_dir, subject, test_type), 'wb')    # button responses and timings
+            f2.write('correlation,n-pushes-per-minute\n')
+            f3.write('Block_ID,Video,Response,Timing\n')
+            f4.write('Block_ID,Video, Onset\n')
+
+            for i in range(len(on_all)):
+                f1.write('{o:.2f}*{r:.2f},{p}:{d:.2f} '.format(o=on_all[i][1]-8.0, r=corr_all[i], p=push_all[i], d=dur_all[i]))
+                f2.write('{r:.2f},{p}\n'.format(r=corr_all[i], p=push_all[i]))
+            for timing in timings_all:
+                f3.write('{b},{v},{r},{t:.2f}\n'.format(b=timing[2], v=timing[3], r=timing[0], t=timing[1]))
+            for onset in on_all:
+                f4.write('{b},{r},{t:.2f}\n'.format(b=onset[2], r=onset[0], t=onset[1]))
+            f1.write('\n') # add newline at the end of each run (up to 3 runs.)
+        except IOError as e:
+            msg = 'Failed to open block_times & corr_push for {} with excuse {}'.format(subject, e.strerror)
+            logger.error(msg)
+        finally:
+            f1.close()
+            f2.close()
+            f3.close()
+            f4.close()
+
+    # run the GLM
+    files = glob.glob(os.path.join(ea_dir, subject + '/*.nii.gz'))
+    inputs = get_inputs(files, config)
+
+    for input_type in inputs.keys():
+
+        script = generate_analysis_script(subject, inputs, input_type, config)
+        rtn, out = dm.utils.run('chmod 754 {script}; {script}'.format(script=script))
+        if rtn:
+            logger.error('Failed to analyze {}\n{}'.format(subject, out))
+            sys.exit(1)
+
+def main():
+    arguments   = docopt(__doc__)
+
+    config_file = arguments['<config>']
+    subject     = arguments['--subject']
+    debug       = arguments['--debug']
+
+    logging.info('Starting')
+    if debug:
+        logger.setLevel(logging.DEBUG)
+
+    with open(config_file, 'r') as stream:
+        config = yaml.load(stream)
+
+    if 'ea' not in config['fmri'].keys():
+        logger.error('ea not defined in fmri in {}'.format(config_file))
+        sys.exit(1)
+
+    for k in ['nii', 'fmri', 'hcp']:
+        if k not in config['paths']:
+            logger.error("paths:{} not defined in {}".format(k, config_file))
+            sys.exit(1)
+
+    ea_dir = os.path.join(config['paths']['fmri'], 'ea')
+    nii_dir = config['paths']['nii']
+
+    if subject:
+        if '_PHA_' in subject:
+            msg = "{} is a phantom, skipping".format(subject)
+            logger.info(msg)
+            sys.exit(1)
+        analyze_subject(subject, config)
+
     else:
-        local_logpath = os.path.join(tmp_outdir,'log.log')
+        # batch mode
+        subjects = glob.glob('{}/*'.format(nii_dir))
+        commands = []
 
-    fh = logging.FileHandler(local_logpath)
-    ch = logging.StreamHandler()
-    fh.setLevel(logging.ERROR)
-    ch.setLevel(logging.WARN)
+        if debug:
+            opts = '--debug'
+        else:
+            opts = ''
 
-    if QUIET:
-        ch.setLevel(logging.ERROR)
+        for path in subjects:
+            subject = os.path.basename(path)
+            if check_complete(ea_dir, subject):
+                logger.debug('{} already analysed'.format(subject))
+            else:
+                commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject), opts]))
 
-    if VERBOSE:
-        ch.setLevel(logging.INFO)
+        if commands:
+            logger.debug("queueing up the following commands:\n"+'\n'.join(commands))
+            for cmd in commands:
+                jobname = "dm_ea_{}".format(time.strftime("%Y%m%d-%H%M%S"))
+                logfile = '/tmp/{}.log'.format(jobname)
+                errfile = '/tmp/{}.err'.format(jobname)
+                rtn, out = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
 
-    if DEBUG:
-        ch.setLevel(logging.DEBUG)
+                # qbacth method -- might bring it back, but really needed yet
+                #fd, path = tempfile.mkstemp()
+                #os.write(fd, '\n'.join(commands))
+                #os.close(fd)
+                #rtn, out, err = dm.utils.run('qbatch -i --logdir {ld} -N {name} --walltime {wt} {cmds}'.format(ld=logdir, name=jobname, wt=walltime, cmds=path))
 
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    fh.setFormatter(formatter)
-    ch.setFormatter(formatter)
+                if rtn:
+                    logger.error("Job submission failed\nstdout: {}".format(out))
+                    sys.exit(1)
 
-    logger.addHandler(fh)
-    logger.addHandler(ch)
-
-    logger.info('Creating tempdir:{} on host:{}'.format(tmp_outdir, os.uname()[1]))
-    ret = main(tmp_outdir, arguments)
-    if ret == 0:
-        move_files_from_local(tmp_outdir, outputdir)
-    shutil.rmtree(tmp_outdir)
-    sys.exit(ret)
+if __name__=='__main__':
+    main()
