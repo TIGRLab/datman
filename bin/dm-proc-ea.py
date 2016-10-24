@@ -27,6 +27,8 @@ import StringIO as io
 import scipy.interpolate as interpolate
 import yaml
 import datman as dm
+import matplotlib
+matplotlib.use('Agg')   # Force matplotlib to not use any Xwindows backend
 import matplotlib.pyplot as plt
 from docopt import docopt
 
