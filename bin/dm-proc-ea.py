@@ -281,7 +281,6 @@ def process_behav_data(log, out_path, sub, trial_type, block_id):
     # format our output plot
     width, height = plt.figaspect(1.0/len(blocks))
     fig, axs = plt.subplots(1, len(blocks), figsize=(width, height*0.8))
-    fig = plt.figure(figsize=(width, height))
 
     # Blocks seem to refer to videos within a block
     for i in np.linspace(0, len(blocks)-1, len(blocks)).astype(int).tolist():
@@ -368,7 +367,7 @@ def process_behav_data(log, out_path, sub, trial_type, block_id):
 
     plot_name = os.path.splitext(os.path.basename(log))[0]
     logger.debug('Saving figure {}.pdf'.format(plot_name))
-    fig.suptitle(log, size=10)
+    fig.suptitle(plot_name, size=10)
     fig.set_tight_layout(True)
     fig.savefig('{}/{}_{}.pdf'.format(out_path, sub, plot_name))
 
