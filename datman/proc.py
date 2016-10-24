@@ -1,13 +1,18 @@
 '''
 A collection of functions used in dm-proc*.py for running pipelines
 '''
-import pandas as pd
-import datman as dm
-import glob
 import os
 import sys
+import glob
 import filecmp
 import difflib
+import logging
+
+import pandas as pd
+
+import datman as dm
+
+logger = logging.getLogger(__name__)
 
 def get_subject_list(input_dir, subject_filter, QC_file):
     """
@@ -43,7 +48,8 @@ def get_qced_subjects(qc_list):
     qced_subs = []
 
     if not os.path.isfile(qc_list):
-        sys.exit("QC file for transfer not found. Try again.")
+        logger.error("QC file for transfer not found.", exc_info=True)
+        sys.exit(1)
 
     with open(qc_list) as f:
         for line in f:
@@ -102,8 +108,7 @@ def add_new_subjects_to_checklist(subject_list, checklist, cols):
 def find_images(checklist, checklist_col, input_dir, tag,
                 subject_filter = None,
                 image_filter = None,
-                allow_multiple = False,
-                DEBUG = False):
+                allow_multiple = False):
     """
     finds new files in the inputdir and add them to a list for the processing
     Arguments:
@@ -129,19 +134,18 @@ def find_images(checklist, checklist_col, input_dir, tag,
             subject_files = []
             for fname in os.listdir(subject_dir):
                 if tag in fname:
-                    if image_filter and image_filter in fname:
+                    if not image_filter:
                         subject_files.append(fname)
-                    else:
+                    elif image_filter in fname:
                         subject_files.append(fname)
 
-            if DEBUG: print "Found {} {} in {}".format(len(subject_files),
-                                                tag, subject_dir)
+            logger.debug("Found {} {} in {}".format(len(subject_files),
+                                                tag, subject_dir))
             if len(subject_files) == 1:
                 checklist[checklist_col][row] = subject_files[0]
             elif len(subject_files) > 1:
                 if allow_multiple:
-                    # if multiple T1s are allowed (as per --multiple-inputs flag)
-                    # add all to checklist
+                    # if multiple matches are allowed add all to checklist
                     checklist[checklist_col][row] = ';'.join(subject_files)
                 else:
                     checklist[checklist_col][row] = "> 1 {} found".format(tag)
