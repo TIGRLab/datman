@@ -475,5 +475,11 @@ def make_temp_directory():
     finally:
         shutil.rmtree(temp_dir)
 
+def remove_empty_files(path):
+    for root, dirs, files in os.walk(path):
+        for f in files:
+            filename = os.path.join(root, f)
+            if os.path.getsize(filename) == 0:
+                os.remove(filename)
 
 # vim: ts=4 sw=4 sts=4:

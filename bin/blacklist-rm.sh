@@ -1,8 +1,7 @@
 #!/bin/bash
 #
 # Finds and removes anything listed on the given blacklist.
-#
-# Author: Dawn E.A. Smith     Email: d.eileensmith@gmail.com
+
 
 function usage() {
 echo "
@@ -55,7 +54,7 @@ do
   # Skip the first line column headers
   if [ $series != "series" ]
   then
-    find $data -name $series* >> $tmp
+    find $data -name "$series*" >> $tmp
   fi
 done < $bl
 
