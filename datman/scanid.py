@@ -16,11 +16,11 @@ SCANID_RE = '(?P<study>[^_]+)_' \
             '(?P<timepoint>[^_]+)(_*)' \
             '(?P<session>[^_]*)'
 
-SCANID_RE = '(?P<study>[^_]+)_' \
-            '(?P<site>[^_]+)_' \
-            '(?P<subject>[^_]+)_' \
-            '(?P<timepoint>[^_]+)(_?)' \
-            '(?P<session>[^_].*)'
+# SCANID_RE = '(?P<study>[^_]+)_' \
+#             '(?P<site>[^_]+)_' \
+#             '(?P<subject>[^_]+)_' \
+#             '(?P<timepoint>[^_]+)(_?)' \
+#             '(?P<session>[^_].*)'
 
 SCANID_PHA_RE = '(?P<study>[^_]+)_' \
                 '(?P<site>[^_]+)_' \
