@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-This run ENIGMA DTI pipeline on FA maps after DTI-fit has been run.
+This runs the ENIGMA DTI pipeline on FA maps after DTI-fit has been run.
 Calls (or submits) doInd-enigma-dti.py for each subject in order to do so.
 
 Usage:
@@ -12,15 +12,16 @@ Arguments:
 
 Options:
   --FA-tag STR             String used to identify FA maps within DTI-fit input (default = '_FA.nii.gz'))
-  --calc-MD                Also calculate values for MD,
-  --calc-all               Also calculate values for MD, AD, and RD
+  --calc-MD                Calculate values for MD
+  --calc-all               Calculate values for MD, AD, and RD
   --subject-filter STR     String used to filter subject ID (i.e. a site tag?)
   --FA-filter STR          Optional second filter used (as well as '--FA-tag', ex. 'DTI-60')) to identify the maps within DTI-fit input
   --QC-transfer QCFILE     QC checklist file - if this option is given than only QCed participants will be processed.
   --walltime TIME          A walltime for the enigma stage [default: 2:00:00]
   --walltime-post TIME     A walltime for the post-engima stage [default: 2:00:00]
-  --no-post                Do not submitt the post-processing (concatenation) script
+  --no-post                Do not submit the post-processing (concatenation) script
   --post-only              Submit the post-processing (concatenation) script by itself
+  -q, --quiet              Only log errors
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
   -n,--dry-run             Dry run
@@ -64,7 +65,6 @@ import datman as dm
 import glob
 import os
 import sys
-import subprocess
 import datetime
 import tempfile
 import shutil
@@ -73,18 +73,13 @@ import difflib
 import contextlib
 import logging
 
-VERBOSE = False
-DEBUG = False
 DRYRUN = False
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logging.getLogger().setLevel(logging.WARN)
 
 def main():
-
-    global DEBUG
-    global VERBOSE
-    global DRYRUN
+    global dryrun
 
     arguments       = docopt(__doc__)
     input_dir       = arguments['<input-dtifit-dir>']
@@ -99,9 +94,19 @@ def main():
     walltime_post  = arguments['--walltime-post']
     POST_ONLY      = arguments['--post-only']
     NO_POST        = arguments['--no-post']
-    VERBOSE         = arguments['--verbose']
-    DEBUG           = arguments['--debug']
+    quiet           = arguments['--quiet']
+    verbose         = arguments['--verbose']
+    debug           = arguments['--debug']
     DRYRUN          = arguments['--dry-run']
+
+    if quiet:
+        logging.getLogger().setLevel(logging.ERROR)
+
+    if verbose:
+        logging.getLogger().setLevel(logging.INFO)
+
+    if debug:
+        logging.getLogger().setLevel(logging.DEBUG)
 
     ## make the output directory if it doesn't exist
     output_dir = os.path.abspath(output_dir)
@@ -110,7 +115,7 @@ def main():
     dm.utils.makedirs(log_dir)
     dm.utils.makedirs(run_dir)
 
-    if DEBUG: print arguments
+    logger.debug(arguments)
 
     if FA_tag == None: FA_tag = '_FA.nii.gz'
 
@@ -118,8 +123,8 @@ def main():
 
     # check if we have any work to do, exit if not
     if len(subjects) == 0:
-        print('MSG: No outstanding scans to process.')
-        sys.exit()
+        logger.info('No outstanding scans to process.')
+        sys.exit(1)
 
     # grab the prefix from the subid if not given
     prefix = subjects[0][0:3]
@@ -184,7 +189,7 @@ def main():
                                                         job_name_prefix,
                                                         log_dir, walltime)
                 os.chdir(run_dir)
-                dm.utils.run(qbatch_run_cmd, DRYRUN, DEBUG)
+                dm.utils.run(qbatch_run_cmd, DRYRUN)
     ## if any subjects have been submitted,
     ## submit a final job that will consolidate the results after they are finished
     os.chdir(run_dir)
@@ -197,7 +202,7 @@ def main():
                                                 log_dir,
                                                 walltime_post,
                                                 afterok = job_name_prefix)
-        dm.utils.run(qbatch_post_cmd, DRYRUN, DEBUG)
+        dm.utils.run(qbatch_post_cmd, DRYRUN)
 
     if not DRYRUN:
         ## write the checklist out to a file
@@ -274,15 +279,15 @@ def check_runsh(filename, output_dir, CALC_MD, CALC_ALL, DEBUG):
         tmprunsh = os.path.join(temp_dir,os.path.basename(filename))
         write_run_script(tmprunsh, output_dir, CALC_MD, CALC_ALL)
         if filecmp.cmp(filename, tmprunsh):
-            if DEBUG: print("{} already written - using it".format(filename))
+            logger.debug("{} already written - using it".format(filename))
         else:
             # If the two files differ - then we use difflib package to print differences to screen
-            print('#############################################################\n')
-            print('# Found differences in {} these are marked with (+) '.format(filename))
-            print('#############################################################')
+            logger.debug('#############################################################\n')
+            logger.debug('# Found differences in {} these are marked with (+) '.format(filename))
+            logger.debug('#############################################################')
             with open(filename) as f1, open(tmprunsh) as f2:
                 differ = difflib.Differ()
-                print(''.join(differ.compare(f1.readlines(), f2.readlines())))
+                logger.debug(''.join(differ.compare(f1.readlines(), f2.readlines())))
             sys.exit("\nOld {} doesn't match parameters of this run....Exiting".format(filename))
 
 def subject_previously_completed(output_dir, subid, FA_img):
@@ -300,12 +305,6 @@ def make_temp_directory():
         yield temp_dir
     finally:
         shutil.rmtree(temp_dir)
-
-### Erin's little function for running things in the shell
-def docmd(cmd, DEBUG, DRYRUN):
-    "sends a command (inputed as a list) to the shell"
-    if DEBUG: print cmd
-    if not DRYRUN: subprocess.call([cmd])
 
 ## runs the main function
 if __name__ == "__main__":

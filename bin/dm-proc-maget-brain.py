@@ -83,7 +83,7 @@ def main():
     # run MAGeT-Brain
     cwd = os.getcwd()
     os.chdir(outputdir)
-    dm.utils.run("mb.sh -n run", dryrun = dryrun, echo = verbose)
+    dm.utils.run("mb.sh -n run", dryrun = dryrun)
     os.chdir(cwd)
 
     # link scans back into datman output folders, e.g.

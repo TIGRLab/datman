@@ -11,58 +11,31 @@ import pandas as pd
 
 fs = importlib.import_module('bin.dm-proc-freesurfer')
 
-FIXTURE_DIR = "tests/fixture_dm-proc-freesurfer"
+FIXTURE_DIR = "tests/fixture_dm-proc-all"
 
-def test_get_qced_subjects():
-    checklist = os.path.join(FIXTURE_DIR, "metadata/checklist.csv")
-    sublist = fs.get_qced_subjects(checklist)
+def test_make_FS_command():
+    run_dir = FIXTURE_DIR
+    sh_name = "test_command.sh"
+    subid = "SUBJECT_1"
+    T1s = ['T1_map1', 'T1_map2']
+    job_name_prefix = "proc-freesurfer"
+    log_dir = FIXTURE_DIR
+    wall_time = "24:00:00"
 
-    actual_qced = ["STUDY_SITE_CODE_01", "PHAIL_SITE_CODE_01", "STUDY_CAMH_CODE_01"]
-    extra_subs = list(set(sublist) - set(actual_qced))
+    actual_command = fs.make_FS_command(run_dir, sh_name, job_name_prefix,
+                                        log_dir, wall_time, subid, T1s)
+    expected = 'echo "bash -l tests/fixture_dm-proc-all/test_command.sh '\
+               'SUBJECT_1 T1_map1 T1_map2" | qbatch -N proc-freesurferSUBJECT_1 '\
+               '--logdir tests/fixture_dm-proc-all --walltime 24:00:00 -'
+    assert actual_command == expected
 
-    assert extra_subs == []
-    assert "STUDY_SITE_CODE_01" in sublist
-    assert "PHAIL_SITE_CODE_01" in sublist
-    assert "STUDY_CAMH_CODE_01" in sublist
-
-@raises(SystemExit)
-def test_get_qced_subject_list_exits_with_nonexistent_checklist():
-    bad_path = os.path.join(FIXTURE_DIR, "metadata/does-not-exist.csv")
-    sublist = fs.get_qced_subjects(bad_path)
-
-def test_get_subject_list_removes_phantoms():
-    inputdir = os.path.join(FIXTURE_DIR, "data/nii")
-    subjects = fs.get_subject_list(inputdir, None, None)
-
-    assert "STUDY_SITE_CODE_PHA_03" not in subjects
-
-def test_get_subject_list_removes_nonphantom_PHA_subid():
-    ## It's a known issue that datman removes all subids with
-    ## any occurence of 'PHA' when removing phantoms. This test is
-    ## here as a reminder that this behavior is shown in this module.
-    ## Rewrite/remove this test if this behavior is corrected.
-    inputdir = os.path.join(FIXTURE_DIR, "data/nii")
-    subjects = fs.get_subject_list(inputdir, None, None)
-
-    assert "PHAIL_SITE_CODE_01" not in subjects
-
-def test_get_subject_list_tag2_returns_only_tagged_subjects():
-    inputdir = os.path.join(FIXTURE_DIR, "data/nii")
-    subjects = fs.get_subject_list(inputdir, "CAMH", None)
-
-    assert subjects == ["STUDY_CAMH_CODE_01"]
-
-def test_get_subject_list_QC_file_returns_only_qced_subjects():
-    inputdir = os.path.join(FIXTURE_DIR, "data/nii")
-    checklist = os.path.join(FIXTURE_DIR, "metadata/checklist.csv")
-
-    subjects = fs.get_subject_list(inputdir, None, checklist)
-    actual_subjects = ["STUDY_SITE_CODE_01", "STUDY_CAMH_CODE_01"]
-    extra_subs = list(set(subjects) - set(actual_subjects))
-
-    assert extra_subs == []
-    assert "STUDY_SITE_CODE_01" in subjects
-    assert "STUDY_CAMH_CODE_01" in subjects
+    actual_post_command = fs.make_FS_command(run_dir, sh_name, job_name_prefix,
+                                             log_dir, wall_time)
+    expected = 'echo "bash -l tests/fixture_dm-proc-all/test_command.sh" | '\
+               'qbatch -N proc-freesurferpost '\
+               '--logdir tests/fixture_dm-proc-all '\
+               '--walltime 24:00:00 --afterok proc-freesurfer* -'
+    assert actual_post_command == expected
 
 def test_make_Freesurfer_runsh_default_options():
     ## If script format changes, update the fixtures with new examples of
@@ -147,8 +120,6 @@ def test_check_runsh_raises_exit_if_options_changed():
 
     fs.check_runsh(old_script, fixture_path, FS_option, prefix)
 
-
-### Make integration tests on main?
 def test_get_run_script_names():
     tag = 'TAG'
     only_post = False
@@ -167,59 +138,6 @@ def test_get_run_script_names():
     run_scripts = fs.get_run_script_names(tag, only_post, no_post)
     assert run_scripts == ['run_freesurfer.sh']
 
-def test_add_new_subjects_to_checklist():
-    checklist_path = os.path.join(FIXTURE_DIR, "freesurfer_checklist.csv")
-    checklist = fs.load_checklist(checklist_path)
-    assert checklist.id.empty == True
-
-    subjects = ["subject_1", "subject_2"]
-    checklist = fs.add_new_subjects_to_checklist(subjects, checklist)
-    assert checklist.id.tolist() == ["subject_1", "subject_2"]
-
-    subjects2 = ["subject_4", "subject_2", "subject_3"]
-    checklist = fs.add_new_subjects_to_checklist(subjects2, checklist)
-    assert checklist.id.tolist() == ["subject_1", "subject_2",
-                                     "subject_4", "subject_3"]
-
-def test_update_T1_images_finds_T1s():
-    checklist, inputdir = T1_images_setup()
-
-    # T1_nii is initially empty
-    assert checklist.T1_nii.dropna().tolist() == []
-
-    checklist = fs.find_T1_images(checklist, '_T1_', None, inputdir, None)
-
-    expected = ['STUDY_CAMH_CODE_01_01_T1_02_SagT1-BRAVO.nii.gz',
-                'STUDY_SITE_CODE_02_01_T1_SagT1Bravo-9mm.nii.gz']
-    actual = checklist.T1_nii.dropna().tolist()
-    assert actual == expected
-
-def test_find_T1_images_finds_TAG2_T1s():
-    checklist, inputdir = T1_images_setup()
-
-    # T1_nii is initially empty
-    assert checklist.T1_nii.dropna().tolist() == []
-
-    checklist = fs.find_T1_images(checklist, '_T1_', 'CAMH', inputdir, None)
-
-    expected = ['STUDY_CAMH_CODE_01_01_T1_02_SagT1-BRAVO.nii.gz']
-    actual = checklist.T1_nii.dropna().tolist()
-    assert  actual == expected
-
-def test_update_T1_images_respects_MULTI_tag():
-    checklist, inputdir = T1_images_setup()
-
-    # T1_nii is initially empty
-    assert checklist.T1_nii.dropna().tolist() == []
-
-    checklist = fs.find_T1_images(checklist, '_T1_', None, inputdir, True)
-
-    expected = ['STUDY_CAMH_CODE_01_01_T1_02_SagT1-BRAVO.nii.gz',
-                'STUDY_SITE_CODE_02_01_T1_SagT1Bravo-9mm.nii.gz',
-                'STUDY_SITE_CODE_01_01_T1_02_SagT1Bravo-9mm.nii.gz;STUDY_SITE_CODE_01_01_T1_03_SagT1.nii.gz']
-    actual = checklist.T1_nii.dropna().tolist()
-    assert actual == expected
-
 ##########################################################################
 ### Helper functions
 
@@ -235,11 +153,3 @@ def run_cmd(cmd):
     p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
     out, err = p.communicate()
     return out, err
-
-def T1_images_setup():
-    checklist_path = os.path.join(FIXTURE_DIR, "freesurfer_checklist.csv")
-    checklist = fs.load_checklist(checklist_path)
-    inputdir = os.path.join(FIXTURE_DIR, "data/nii")
-    subjects = fs.get_subject_list(inputdir, None, None)
-    checklist = fs.add_new_subjects_to_checklist(subjects, checklist)
-    return checklist, inputdir

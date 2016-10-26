@@ -32,11 +32,24 @@ import yaml
 logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
-class MissingDataException(Exception):
-    pass
+def get_inputs(config, path, scanid):
+    """
+    Finds the epitome exports matching the connectivity tag specified in the
+    settings file
+    """
+    inputs = []
 
-class ProcessingException(Exception):
-    pass
+    # get target epitome exports
+    target_filetypes = config['fmri'][exp]['conn']
+    if type(target_filetypes) == str:
+        target_filetypes = [target_filetypes]
+
+    # find the matching pre-processed output files
+    candidates = glob.glob('{}/{}_*.nii.gz'.format(path, scanid))
+    for filetype in target_filetypes:
+        inputs.extend(filter(lambda x: filetype + '.nii.gz' in x, candidates))
+
+    return inputs
 
 def run_analysis(scanid, config):
     """
@@ -54,13 +67,7 @@ def run_analysis(scanid, config):
         path = os.path.join(fmri_dir, exp, scanid)
 
         # get filetypes to analyze, ignoring ROI files
-        target_filetypes = config['fmri'][exp]['conn']
-        if type(target_filetypes) == str:
-            target_filetypes = [target_filetypes]
-        inputs = []
-        candidates = glob.glob('{}/{}_*.nii.gz'.format(path, scanid))
-        for filetype in target_filetypes:
-            inputs.extend(filter(lambda x: filetype + '.nii.gz' in x, candidates))
+        inputs = get_inputs(config, path, scanid)
 
         for filename in inputs:
             basename = os.path.basename(dm.utils.splitext(filename)[0])
@@ -72,11 +79,11 @@ def run_analysis(scanid, config):
             # generate ROI file in register with subject's data
             roi_file = os.path.join(path, basename + '_rois.nii.gz')
             if not os.path.isfile(roi_file):
-                rtn, out, err = dm.utils.run('3dresample -master {} -prefix {} -inset {}'.format(filename, roi_file, atlas))
+                rtn, out = dm.utils.run('3dresample -master {} -prefix {} -inset {}'.format(filename, roi_file, atlas))
                 output = '\n'.join([out, err]).replace('\n', '\n\t')
-                if rtn != 0:
+                if rtn:
                     logger.error(output)
-                    raise ProcessingException('Error resampling atlas {} to match {}.'.format(atlas, filename))
+                    raise Exception('Error resampling atlas {} to match {}.'.format(atlas, filename))
                 else:
                     logger.info(output)
 
@@ -109,14 +116,15 @@ def main():
     scanid      = arguments['--subject']
     debug       = arguments['--debug']
 
+    logging.info('Starting')
     if debug:
-        logger.setLevel(logging.DEBUG)
+        logging.getLogger().setLevel(logging.DEBUG)
 
     with open(config_file, 'r') as stream:
         config = yaml.load(stream)
 
     if 'fmri' not in config['paths']:
-        print("ERROR: paths:fmri not defined in {}".format(config_file))
+        logger.error("paths:fmri not defined in {}".format(config_file))
         sys.exit(1)
 
     fmri_dir = config['paths']['fmri']
@@ -125,21 +133,31 @@ def main():
         path = os.path.join(fmri_dir, scanid)
         try:
             run_analysis(scanid, config)
-        except:
-            print('ERROR: :(')
+        except Exception as e:
+            logger.error(e)
             sys.exit(1)
 
     # run in batch mode
     else:
+        # look for subjects with at least one fmri type missing outputs
         subjects = []
+
+        # loop through fmri experiments defined
         for exp in config['fmri'].keys():
+            expected_files = config['fmri'][exp]['conn']
             fmri_dirs = glob.glob('{}/*'.format(os.path.join(fmri_dir, exp)))
-            for path in fmri_dirs:
-                subjects.append(os.path.basename(path))
 
-        subjects = list(set(subjects))
+            for subj_dir in fmri_dirs:
+                candidates = glob.glob('{}/*'.format(subj_dir))
+                for filetype in expected_files:
+                    # add subject if outputs don't already exist
+                    if not filter(lambda x: '{}_roi-corrs.csv'.format(filetype) in x, candidates):
+                        subjects.append(os.path.basename(subj_dir))
+                        break
 
+        # collapse found subjects (do not double-count) and create a list of commands
         commands = []
+        subjects = list(set(subjects))
         for subject in subjects:
             commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
 
@@ -150,13 +168,12 @@ def main():
                 jobname = 'dm_rest_{}'.format(time.strftime("%Y%m%d-%H%M%S"))
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
-                rtn, out, err = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
+                rtn, out = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
 
-                if rtn != 0:
+                if rtn:
                     logger.error("Job submission failed. Output follows.")
-                    logger.error("stdout: {}\nstderr: {}".format(out,err))
+                    logger.error("stdout: {}".format(out))
                     sys.exit(1)
 
 if __name__ == "__main__":
     main()
-

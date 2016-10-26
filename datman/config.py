@@ -85,12 +85,14 @@ class config(object):
 
     def get_study_base(self, study=None):
         """Return the base directory for a study"""
+
         proj_dir = self.system_config['DATMAN_PROJECTSDIR']
 
         if study:
             self.set_study(study)
 
         if not self.study_config:
+
             logger.warning('Study not set')
             return(proj_dir)
 

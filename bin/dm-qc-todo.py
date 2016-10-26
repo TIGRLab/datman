@@ -82,9 +82,10 @@ def main():
 
             # find QC documents that are older than the most recent data export
             if arguments['--show-newer'] and data_mtime > os.path.getmtime(qcdoc):
-                print('{}: QC doc is older than data in folder {} {} {}'.format(qcdoc, timepointdir, data_mtime, os.path.getmtime(qcdoc)))
                 newer = filter(lambda x: os.path.getmtime(x) > os.path.getmtime(qcdoc), glob.glob(timepointdir + '/*'))
-                print('\t' + '\n\t'.join(newer))
+                if newer != []:
+                    print('{}: QC doc is older than data in folder {} {} {}'.format(qcdoc, timepointdir, data_mtime, os.path.getmtime(qcdoc)))
+                    print('\t' + '\n\t'.join(newer))
 
             # notify about unchecked QC reports
             if not checklistdict[qcdocname]:

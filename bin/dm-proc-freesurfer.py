@@ -63,22 +63,26 @@ AFNI and datman in the environment
 Written by Erin W Dickie, Sep 30 2015
 Adapted from old dm-proc-freesurfer.py
 """
-from docopt import docopt
-import pandas as pd
-import datman as dm
-import glob
 import os
-import time
 import sys
+import glob
+import time
 import datetime
 import tempfile
 import shutil
 import filecmp
 import difflib
 import contextlib
+import logging
 
-VERBOSE = False
-DEBUG = False
+from docopt import docopt
+import pandas as pd
+
+import datman as dm
+
+logger = logging.getLogger(__name__)
+logging.getLogger().setLevel(logging.WARN)
+
 DRYRUN = False
 
 def main():
@@ -96,9 +100,15 @@ def main():
     POSTFS_ONLY     = arguments['--postFS-only']
     walltime        = arguments['--walltime']
     walltime_post   = arguments['--walltime-post']
-    VERBOSE         = arguments['--verbose']
-    DEBUG           = arguments['--debug']
+    verbose         = arguments['--verbose']
+    debug           = arguments['--debug']
     DRYRUN          = arguments['--dry-run']
+
+    if verbose:
+        logging.getLogger().setLevel(logging.INFO)
+
+    if debug:
+        logging.getLogger().setLevel(logging.DEBUG)
 
     ## make the output directory if it doesn't exist
     output_dir = os.path.abspath(output_dir)
@@ -107,31 +117,36 @@ def main():
     dm.utils.makedirs(log_dir)
     dm.utils.makedirs(run_dir)
 
-    if DEBUG: print arguments
+    logger.debug("Arguments: {}".format(arguments))
 
-    if T1_tag == None: T1_tag = '_T1_'
+    if T1_tag is None: T1_tag = '_T1_'
 
     if post_settings_conflict(NO_POST, POSTFS_ONLY):
-        sys.exit("--no-postFS and --postFS-only cannot both be set")
+        logger.error("--no-postFS and --postFS-only cannot both be set. Exiting")
+        sys.exit(1)
 
-    subjects = get_subject_list(input_dir, TAG2, QC_file)
+    subjects = dm.proc.get_subject_list(input_dir, TAG2, QC_file)
 
     # check if we have any work to do, exit if not
     if len(subjects) == 0:
-        sys.exit('MSG: No outstanding scans to process.')
+        logger.info('No outstanding scans to process.')
+        sys.exit(1)
 
     # grab the prefix from the subid if not given
-    if prefix == None:
+    if prefix is None:
         prefix = subjects[0][0:3]
 
     script_names = get_run_script_names(RUN_TAG, POSTFS_ONLY, NO_POST)
     write_run_scripts(script_names, run_dir, output_dir, FS_option, prefix)
 
     checklist_file = os.path.normpath(output_dir + '/freesurfer-checklist.csv')
-    checklist = load_checklist(checklist_file)
-    checklist = add_new_subjects_to_checklist(subjects, checklist)
+    columns = ['id', 'T1_nii', 'date_ran','qc_rator', 'qc_rating', 'notes']
+    checklist = dm.proc.load_checklist(checklist_file, columns)
+    checklist = dm.proc.add_new_subjects_to_checklist(subjects,
+            checklist, columns)
     # Update checklist for subjects with no T1 listed under T1_nii
-    checklist = find_T1_images(checklist, T1_tag, TAG2, input_dir, MULTI_T1)
+    checklist = dm.proc.find_images(checklist, 'T1_nii', input_dir, T1_tag,
+            subject_filter=TAG2, allow_multiple=MULTI_T1)
 
     job_name_prefix="FS_{}_".format(datetime.datetime.today().strftime("%Y%m%d-%H%M%S"))
     submitted = False
@@ -171,8 +186,9 @@ def main():
                 # If POSTFS_ONLY == False, the run script will be the first or
                 # only name in the list
                 script = script_names[0]
-                FS_cmd = make_FS_command(run_dir, script, job_name_prefix, log_dir, walltime, subid, T1s)
-                docmd(FS_cmd)
+                FS_cmd = make_FS_command(run_dir, script, job_name_prefix,
+                        log_dir, walltime, subid, T1s)
+                dm.utils.run(FS_cmd, DRYRUN)
 
                 ## add today's date to the checklist
                 checklist['date_ran'][i] = datetime.date.today()
@@ -184,12 +200,14 @@ def main():
     os.chdir(run_dir)
     if POSTFS_ONLY:
         script = script_names[0]
-        post_FS_cmd = make_FS_command(run_dir, script, job_name_prefix, log_dir, walltime_post)
-        docmd(post_FS_cmd)
+        post_FS_cmd = make_FS_command(run_dir, script, job_name_prefix,
+                log_dir, walltime_post)
+        dm.utils.run(post_FS_cmd, DRYRUN)
     elif not NO_POST and submitted:
         script = script_names[1]
-        post_FS_cmd = make_FS_command(run_dir, script, job_name_prefix, log_dir, walltime_post)
-        docmd(post_FS_cmd)
+        post_FS_cmd = make_FS_command(run_dir, script, job_name_prefix,
+                log_dir, walltime_post)
+        dm.utils.run(post_FS_cmd, DRYRUN)
 
     if not DRYRUN:
         ## write the checklist out to a file
@@ -200,59 +218,6 @@ def post_settings_conflict(NO_POST, POSTFS_ONLY):
     if NO_POST and POSTFS_ONLY:
         conflict = True
     return conflict
-
-def get_subject_list(input_dir, subject_filter, QC_file):
-    """
-    Returns a list of subjects in input_dir,
-    minus any phantoms or not qced subjects,
-    Also removes any subject ids that do not contain the subject_filter string
-    """
-    subject_list = dm.utils.get_subjects(input_dir)
-    subject_list = remove_phantoms(subject_list)
-    if subject_filter is not None:
-        subject_list = remove_untagged_subjects(subject_list, subject_filter)
-    if QC_file is not None:
-        subject_list = remove_unqced_subjects(subject_list, QC_file)
-    return subject_list
-
-def remove_phantoms(subject_list):
-    subject_list = [ subid for subid in subject_list if "PHA" not in subid ]
-    return subject_list
-
-def remove_untagged_subjects(subject_list, subject_filter):
-    subject_list = [ subid for subid in subject_list if subject_filter in subid ]
-    return subject_list
-
-def remove_unqced_subjects(subject_list, QC_file):
-    qced_list = get_qced_subjects(QC_file)
-    subject_list = list(set(subject_list) & set(qced_list))
-    return subject_list
-
-def get_qced_subjects(qc_list):
-    """
-    reads the QC_list and returns a list of all subjects who have passed QC
-    """
-    qced_subs = []
-
-    if not os.path.isfile(qc_list):
-        sys.exit("QC file for transfer not found. Try again.")
-
-    with open(qc_list) as f:
-        for line in f:
-            line = line.strip()
-            fields = line.split(' ')
-            if len(fields) > 1:
-                qc_file_name = fields[0]
-                subid = get_qced_subid(qc_file_name)
-                qced_subs.append(subid)
-
-    return qced_subs
-
-def get_qced_subid(qc_file_name):
-    subid = qc_file_name.replace('.pdf','')
-    subid = subid.replace('.html','')
-    subid = subid.replace('qc_', '')
-    return subid
 
 def get_run_script_names(RUN_TAG, POSTFS_ONLY, NO_POST):
     """
@@ -301,16 +266,19 @@ def check_runsh(old_script, output_dir, FS_option, prefix):
         tmp_runsh = os.path.join(temp_dir, os.path.basename(old_script))
         make_Freesurfer_runsh(tmp_runsh, output_dir, FS_option, prefix)
         if filecmp.cmp(old_script, tmp_runsh):
-            if DEBUG: print("{} already written - using it".format(old_script))
+            logger.debug("{} already written - using it".format(old_script))
         else:
-            # If the two files differ - then we use difflib package to print differences to screen
-            print('#############################################################\n')
-            print('# Found differences in {} these are marked with (+) '.format(old_script))
-            print('#############################################################')
+            # If the two files differ - then we use difflib package
+            # to log differences
+            logger.debug('#############################################################\n')
+            logger.debug('# Found differences in {} these are marked with (+) '.format(old_script))
+            logger.debug('#############################################################')
             with open(old_script) as f1, open(tmp_runsh) as f2:
                 differ = difflib.Differ()
-                print(''.join(differ.compare(f1.readlines(), f2.readlines())))
-            sys.exit("\nOld {} doesn't match parameters of this run....Exiting".format(old_script))
+                logger.debug(''.join(differ.compare(f1.readlines(), f2.readlines())))
+            logger.error("\nOld {} doesn't match parameters of this run." \
+                         "...Exiting".format(old_script))
+            sys.exit(1)
 
 def make_Freesurfer_runsh(file_name, output_dir, FS_option, prefix):
     """
@@ -339,76 +307,6 @@ def make_Freesurfer_runsh(file_name, output_dir, FS_option, prefix):
 
     os.chmod(file_name, 0o755)
 
-def load_checklist(checklist_file):
-    """
-    Reads the checklist file (normally called Freesurfer-DTI-checklist.csv).
-    If the checklist csv file does not exist, it will be created.
-    """
-
-    cols = ['id', 'T1_nii', 'date_ran','qc_rator', 'qc_rating', 'notes']
-
-    # if the checklist exists - open it, if not - create the dataframe
-    if os.path.isfile(checklist_file):
-    	checklist = pd.read_csv(checklist_file, sep=',', dtype=str, comment='#')
-    else:
-    	checklist = pd.DataFrame(columns = cols)
-
-    return checklist
-
-def add_new_subjects_to_checklist(subject_list, checklist):
-    """
-    If any subjects are not in the checklist, appends them to the end of
-    the data frame.
-    """
-    # new subjects are those of the subject list that are not in checklist.id
-    newsubs = list(set(subject_list) - set(checklist.id))
-
-    cols = ['id', 'T1_nii', 'date_ran','qc_rator', 'qc_rating', 'notes']
-
-    # add the new subjects to the bottom of the dataframe
-    newsubs_df = pd.DataFrame(columns = cols, index = range(len(checklist),
-                              len(checklist)+len(newsubs)))
-    newsubs_df.id = newsubs
-    checklist = checklist.append(newsubs_df)
-
-    return checklist
-
-def find_T1_images(checklist, T1_tag, TAG2, input_dir, MULTI_T1):
-    """
-    Looks for T1 files in input_dir for subjects that have none listed
-    and updates the checklist.
-    """
-    for row in range(0,len(checklist)):
-
-        # make sure that if TAG2 was called - only the tag2s are going to queue
-        if TAG2 and TAG2 not in checklist['id'][row]:
-            continue
-
-        subject_dir = os.path.join(input_dir,checklist['id'][row])
-
-	    #if no T1 file listed for this row
-        if pd.isnull(checklist['T1_nii'][row]):
-            T1_files = []
-            for fname in os.listdir(subject_dir):
-                if T1_tag in fname:
-                    T1_files.append(fname)
-
-            if DEBUG: print "Found {} {} in {}".format(len(T1_files),
-                                                T1_tag, subject_dir)
-            if len(T1_files) == 1:
-                checklist['T1_nii'][row] = T1_files[0]
-            elif len(T1_files) > 1:
-                if MULTI_T1:
-                    # if multiple T1s are allowed (as per --multiple-inputs flag)
-                    # add all to checklist
-                    checklist['T1_nii'][row] = ';'.join(T1_files)
-                else:
-                    checklist['notes'][row] = "> 1 {} found".format(T1_tag)
-            elif len(T1_files) < 1:
-                checklist['notes'][row] = "No {} found.".format(T1_tag)
-
-    return checklist
-
 def subject_previously_completed(output_dir, subject):
     FS_completed = os.path.join(output_dir, subject, 'scripts', 'recon-all.done')
     if os.path.isfile(FS_completed):
@@ -418,25 +316,18 @@ def subject_previously_completed(output_dir, subject):
 def make_FS_command(run_dir, sh_name, job_name_prefix, log_dir, wall_time, subid=None, T1s=None):
     if subid is not None:
         # make FS command for subject
-        cmd = 'echo bash -l {rundir}/{script} {subid} {T1s} | '\
-              'qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
-                    rundir = run_dir,
-                    script = sh_name,
-                    subid = subid,
-                    T1s = ' '.join(T1s),
-                    jobname = job_name_prefix + subid,
-                    logdir = log_dir,
-                    wt = wall_time)
+        job_command = "bash -l {}/{} {} {}".format(run_dir, sh_name,
+                subid, ' '.join(T1s))
+        job_name = job_name_prefix + subid
+        cmd = dm.proc.make_piped_qbatch_command(job_command, job_name, log_dir,
+                wall_time)
     else:
         # make post FS command
-        cmd = 'echo bash -l {rundir}/{script} | '\
-              'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
-                        rundir = run_dir,
-                        script = sh_name,
-                        jobname = job_name_prefix + 'post',
-                        logdir = log_dir,
-                        hold = job_name_prefix + '*',
-                        wt = wall_time)
+        job_command = 'bash -l {}/{}'.format(run_dir, sh_name)
+        job_name = job_name_prefix + 'post'
+        hold = job_name_prefix + '*'
+        cmd = dm.proc.make_piped_qbatch_command(job_command, job_name, log_dir,
+                wall_time, afterok=hold)
     return cmd
 
 @contextlib.contextmanager
@@ -446,12 +337,6 @@ def make_temp_directory():
         yield temp_dir
     finally:
         shutil.rmtree(temp_dir)
-
-### Erin's little function for running things in the shell
-def docmd(cmd):
-    "sends a command (inputed as a list) to the shell"
-    if DEBUG: print cmd
-    if not DRYRUN: subprocess.call(cmd)
 
 if __name__ == '__main__':
     main()

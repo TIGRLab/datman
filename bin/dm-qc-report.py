@@ -81,32 +81,20 @@ import os, sys
 import re
 import glob
 import time
-import yaml
 import logging
-import datman as dm
 import subprocess as proc
-from datman.docopt import docopt
 
 import numpy as np
 import pandas as pd
+import yaml
+
+import datman as dm
+from datman.docopt import docopt
 
 logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
-DEBUG = False
-VERBOSE = False
 REWRITE = False
-
-def run(cmd):
-    """
-    Runs command, writing to logs if there is an error.
-    """
-    rtn, out, err = dm.utils.run(cmd)
-
-    if rtn != 0:
-        logger.error("Error {} while executing: {}".format(rtn, cmd))
-        out and logger.error("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
-        err and logger.error("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
 
 def slicer(fpath, pic, slicergap, picwidth):
     """
@@ -116,7 +104,7 @@ def slicer(fpath, pic, slicergap, picwidth):
         picwidth    -- width (in pixels) of output image
         pic         -- fullpath to for output image
     """
-    run("slicer {} -S {} {} {}".format(fpath,slicergap,picwidth,pic))
+    dm.utils.run("slicer {} -S {} {} {}".format(fpath,slicergap,picwidth,pic))
 
 def sort_scans(filenames):
     """
@@ -262,7 +250,7 @@ def phantom_fmri_qc(filename, outputDir):
     output_file = os.path.join(outputDir, '{}_stats.csv'.format(basename))
     output_prefix = os.path.join(outputDir, basename)
     if not os.path.isfile(output_file):
-        run('qc-fbirn-fmri {} {}'.format(filename, output_prefix))
+        dm.utils.run('qc-fbirn-fmri {} {}'.format(filename, output_prefix))
 
 def phantom_dti_qc(filename, outputDir):
     """
@@ -278,7 +266,7 @@ def phantom_dti_qc(filename, outputDir):
     if not os.path.isfile(output_file):
         bvec = os.path.join(dirname, basename + '.bvec')
         bval = os.path.join(dirname, basename + '.bval')
-        run('qc-fbirn-dti {} {} {} {} n'.format(filename, bvec, bval, output_prefix))
+        dm.utils.run('qc-fbirn-dti {} {} {} {} n'.format(filename, bvec, bval, output_prefix))
 
 def phantom_anat_qc(filename, outputDir):
     """
@@ -288,7 +276,7 @@ def phantom_anat_qc(filename, outputDir):
     basename = nifti_basename(filename)
     output_file = os.path.join(outputDir, '{}_adni-contrasts.csv'.format(basename))
     if not os.path.isfile(output_file):
-        run('qc-adni {} {}'.format(filename, output_file))
+        dm.utils.run('qc-adni {} {}'.format(filename, output_file))
 
 def fmri_qc(filename, qc_dir, report):
     dirname = os.path.dirname(filename)
@@ -373,11 +361,11 @@ def run_header_qc(dicomDir, standard_dir, logfile):
         try:
             s = standardDict[tag]
         except:
-            print('WARNING: No standard with tag {} found in {}'.format(tag, standard_dir))
+            logger.debug('WARNING: No standard with tag {} found in {}'.format(tag, standard_dir))
             continue
 
         # run header check for dicom
-        run('qc-headers {} {} {}'.format(d, s, logfile))
+        dm.utils.run('qc-headers {} {} {}'.format(d, s, logfile))
 
 def qc_phantom(scanpath, subject, config):
     """
@@ -497,7 +485,7 @@ def qc_subject(scanpath, subject, config):
 
     # header diff
     dcmSubj = os.path.join(config['paths']['dcm'], subject)
-    headerDiff = os.path.join(qc_dir, 'header-diff.log'.format(subject))
+    headerDiff = os.path.join(qc_dir, 'header-diff.log')
     if not os.path.isfile(headerDiff):
         run_header_qc(dcmSubj, config['paths']['std'], headerDiff)
 
@@ -524,7 +512,6 @@ def qc_subject(scanpath, subject, config):
 
 def main():
 
-    global DEBUG
     global REWRITE
 
     arguments = docopt(__doc__)
@@ -532,33 +519,26 @@ def main():
     config_file = arguments['<config>']
     scanid     = arguments['--subject']
     REWRITE    = arguments['--rewrite']
-    DEBUG      = arguments['--debug']
+    debug      = arguments['--debug']
+
+    if debug:
+        logging.getLogger().setLevel(logging.DEBUG)
 
     with open(config_file, 'r') as stream:
         config = yaml.load(stream)
 
     for k in ['dcm', 'nii', 'qc', 'std', 'meta']:
         if k not in config['paths']:
-            print("ERROR: paths:{} not defined in {}".format(k, configfile))
+            logging.error("paths:{} not defined in {}".format(k, configfile))
             sys.exit(1)
-
-    if DEBUG:
-        logging.getLogger().setLevel(logging.DEBUG)
 
     nii_dir = config['paths']['nii']
     qc_dir = dm.utils.define_folder(config['paths']['qc'])
     meta_dir = config['paths']['meta']
     checklist_file = os.path.join(meta_dir,'checklist.csv')
 
-    # remove empty files for a given subject
     if scanid:
-        for root, dirs, files in os.walk(os.path.join(qc_dir, scanid)):
-            for f in files:
-                filename = os.path.join(root, f)
-                if os.path.getsize(filename) == 0:
-                    os.remove(filename)
-
-    if scanid:
+        dm.utils.remove_empty_files(os.path.join(qc_dir, scanid))
         path = os.path.join(nii_dir, scanid)
 
         if 'PHA' in scanid:
@@ -575,7 +555,7 @@ def main():
                 checklist = open(os.path.join(meta_dir, checklist_file), 'r')
                 found_reports = []
 
-                for checklist_entry in found_reports:
+                for checklist_entry in checklist:
                     checklist_entry = checklist_entry.split(' ')[0].strip()
                     checklist_entry, checklist_ext = os.path.split(checklist_entry)
                     found_reports.append(checklist_entry)
@@ -612,21 +592,21 @@ def main():
                 jobname = "qc_report_{}_{}".format(time.strftime("%Y%m%d-%H%M%S"), i)
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
-                rtn, out, err = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
+                rtn, out = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
 
-                if rtn != 0:
-                    logger.error("stdout: {}\nstderr: {}".format(out, err))
+                if rtn:
+                    logger.error("stdout: {}".format(out))
                     sys.exit(1)
 
-                elif rtn == 0:
-                    print(out)
+                else:
+                    logger.debug(out)
 
         if commands_phantom:
             for cmd in commands_phantom:
-                rtn, out, err = dm.utils.run(cmd)
+                rtn, out = dm.utils.run(cmd)
 
-                if rtn != 0:
-                    logger.error("stdout: {}\nstderr: {}".format(out, err))
+                if rtn:
+                    logger.error("stdout: {}".format(out))
                     sys.exit(1)
 
 if __name__ == "__main__":

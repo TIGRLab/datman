@@ -51,7 +51,6 @@ import datman.scanid
 import glob
 import os
 import sys
-import subprocess
 
 arguments       = docopt(__doc__)
 outputdir       = arguments['<outputdir>']
@@ -109,7 +108,7 @@ FAskel = os.path.join(outputdir,'FA', image_noext + '_FAskel.nii.gz')
 ## if teh outputfile is not inside the outputdir than copy is there
 outdir_niis = glob.glob(outputdir + '/*.nii.gz') + glob.glob(outputdir + '*.nii')
 if len(outdir_niis) == 0:
-    docmd(['cp',FAmap,os.path.join(outputdir,FAimage)])
+    dm.utils.run(['cp',FAmap,os.path.join(outputdir,FAimage)])
 else:
     # if more than one FA image is present in outputdir...we have a problem.
     sys.exit("Ouputdir already contains nii images..bad news..exiting")
@@ -120,20 +119,20 @@ os.putenv('SGE_ON','false')
 ###############################################################################
 print("TBSS STEP 1")
 
-docmd(['tbss_1_preproc', FAimage])
+dm.utils.run(['tbss_1_preproc', FAimage])
 
 ###############################################################################
 print("TBSS STEP 2")
-docmd(['tbss_2_reg', '-t', os.path.join(ENIGMAHOME,'ENIGMA_DTI_FA.nii.gz')])
+dm.utils.run(['tbss_2_reg', '-t', os.path.join(ENIGMAHOME,'ENIGMA_DTI_FA.nii.gz')])
 
 ###############################################################################
 print("TBSS STEP 3")
-docmd(['tbss_3_postreg','-S'])
+dm.utils.run(['tbss_3_postreg','-S'])
 
 ###############################################################################
 print("Skeletonize...")
 # Note many of the options for this are printed at the top of this script
-docmd(['tbss_skeleton', \
+dm.utils.run(['tbss_skeleton', \
       '-i', tbss_skeleton_input, \
       '-s', tbss_skeleton_alt, \
       '-p', str(skel_thresh), distancemap, search_rule_mask,
@@ -142,12 +141,12 @@ docmd(['tbss_skeleton', \
 
 ###############################################################################
 print("Convert skeleton datatype to 'float'...")
-docmd(['fslmaths', FAskel, '-mul', '1', FAskel, '-odt', 'float'])
+dm.utils.run(['fslmaths', FAskel, '-mul', '1', FAskel, '-odt', 'float'])
 
 ###############################################################################
 print("ROI part 1...")
 ## note - right now this uses the _exe for ENIGMA - can probably rewrite this with nibabel
-docmd([os.path.join(ENIGMAHOME,'singleSubjROI_exe'),
+dm.utils.run([os.path.join(ENIGMAHOME,'singleSubjROI_exe'),
           os.path.join(ENIGMAHOME,'ENIGMA_look_up_table.txt'), \
           os.path.join(ENIGMAHOME, 'ENIGMA_DTI_FA_skeleton.nii.gz'), \
           os.path.join(ENIGMAHOME, 'JHU-WhiteMatter-labels-1mm.nii'), \
@@ -158,7 +157,7 @@ docmd([os.path.join(ENIGMAHOME,'singleSubjROI_exe'),
 ##			removing ROIs not of interest and averaging others
 ##          note: also using the _exe files to do this at the moment
 print("ROI part 2...")
-docmd([os.path.join(ENIGMAHOME, 'averageSubjectTracts_exe'), csvout1 + '.csv', csvout2 + '.csv'])
+dm.utils.run([os.path.join(ENIGMAHOME, 'averageSubjectTracts_exe'), csvout1 + '.csv', csvout2 + '.csv'])
 
 ##############################################################################
 ## Now process the MD if that option was asked for
@@ -176,14 +175,14 @@ def run_non_FA(DTItag):
         image_o = os.path.join(O_dir_orig,image_noext + '_' + DTItag + '.nii.gz')
         # copy over the MD image if not done already
         if os.path.isfile(image_o) == False:
-            docmd(['cp',image_i,image_o])
+            dm.utils.run(['cp',image_i,image_o])
 
     if DTItag == 'AD':
         image_i = FAmap.replace('FA.nii.gz','L1.nii.gz')
         image_o = os.path.join(O_dir_orig,image_noext + '_' + DTItag + '.nii.gz')
         # copy over the AD image - this is _L1 in dti-fit
         if os.path.isfile(image_o) == False:
-            docmd(['cp',image_i,image_o])
+            dm.utils.run(['cp',image_i,image_o])
 
     if DTItag == 'RD':
         imageL2 = FAmap.replace('FA.nii.gz','L2.nii.gz')
@@ -191,7 +190,7 @@ def run_non_FA(DTItag):
         image_o = os.path.join(O_dir_orig,image_noext + '_' + DTItag + '.nii.gz')
         # create the RD image as an average of '_L2' and '_L3' images from dti-fit
         if os.path.isfile(image_o) == False:
-            docmd(['fslmaths', imageL2, '-add', imageL3, '-div', "2", image_o])
+            dm.utils.run(['fslmaths', imageL2, '-add', imageL3, '-div', "2", image_o])
 
     masked =    os.path.join(O_dir,image_noext + '_' + DTItag + '.nii.gz')
     to_target = os.path.join(O_dir,image_noext + '_' + DTItag + '_to_target.nii.gz')
@@ -200,32 +199,33 @@ def run_non_FA(DTItag):
     csvout2 =   os.path.join(ROIoutdir, image_noext + '_' + DTItag + 'skel_ROIout_avg')
 
     ## mask with subjects FA mask
-    docmd(['fslmaths', image_o, '-mas', \
+    dm.utils.run(['fslmaths', image_o, '-mas', \
       os.path.join(outputdir,'FA', image_noext + '_FA_mask.nii.gz'), \
       masked])
 
     # applywarp calculated for FA map
-    docmd(['applywarp', '-i', masked, \
+    dm.utils.run(['applywarp', '-i', masked, \
         '-o', to_target, \
         '-r', os.path.join(outputdir,'FA', 'target'),\
         '-w', os.path.join(outputdir,'FA', image_noext + '_FA_to_target_warp.nii.gz')])
 
     ## tbss_skeleton step
-    docmd(['tbss_skeleton', \
+    dm.utils.run(['tbss_skeleton', \
           '-i', tbss_skeleton_input, \
           '-s', tbss_skeleton_alt, \
           '-p', str(skel_thresh), distancemap, search_rule_mask,
            to_target, skel])
 
     ## ROI extract
-    docmd([os.path.join(ENIGMAHOME,'singleSubjROI_exe'),
+    dm.utils.run([os.path.join(ENIGMAHOME,'singleSubjROI_exe'),
               os.path.join(ENIGMAHOME,'ENIGMA_look_up_table.txt'), \
               os.path.join(ENIGMAHOME, 'ENIGMA_DTI_FA_skeleton.nii.gz'), \
               os.path.join(ENIGMAHOME, 'JHU-WhiteMatter-labels-1mm.nii.gz'), \
               csvout1, skel])
 
     ## ROI average
-    docmd([os.path.join(ENIGMAHOME, 'averageSubjectTracts_exe'), csvout1 + '.csv', csvout2 + '.csv'])
+    dm.utils.run([os.path.join(ENIGMAHOME, 'averageSubjectTracts_exe'),
+                  csvout1 + '.csv', csvout2 + '.csv'])
 
 ## run the pipeline for MD - if asked
 if CALC_MD | CALC_ALL:
