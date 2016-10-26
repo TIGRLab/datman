@@ -82,7 +82,6 @@ import re
 import glob
 import time
 import logging
-import subprocess as proc
 
 import numpy as np
 import pandas as pd
@@ -222,9 +221,13 @@ def add_header_qc(fpath, qchtml, logdata):
     # get the filename of the nifti in question
     filestem = os.path.basename(fpath).replace(dm.utils.get_extension(fpath),'')
 
-    # read the log
-    with open(logdata, 'r') as f:
-        f = f.readlines()
+    try:
+        # read the log
+        with open(logdata, 'r') as f:
+            f = f.readlines()
+    except IOError:
+        logger.info("header-diff.log not found. Generating page without it.")
+        f = []
 
     # find lines in said log that pertain to the nifti
     lines = [re.sub('^.*?: *','',line) for line in f if filestem in line]
@@ -366,6 +369,11 @@ def run_header_qc(dicomDir, standard_dir, logfile):
 
         # run header check for dicom
         dm.utils.run('qc-headers {} {} {}'.format(d, s, logfile))
+
+    if not os.path.isdir(logfile):
+        subject = os.path.basename(dicomDir)
+        logger.error("header-diff.log not generated for {}. ".format(subject) +
+                " Check that gold standards are present for this site")
 
 def qc_phantom(scanpath, subject, config):
     """
