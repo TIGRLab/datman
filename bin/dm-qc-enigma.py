@@ -40,7 +40,6 @@ import datman as dm
 import datman.utils
 import datman.scanid
 import os
-import subprocess
 import tempfile
 import shutil
 
@@ -61,12 +60,6 @@ outputdir = os.path.normpath(outputdir)
 if checklistfile == None:
     checklistfile = os.path.join(outputdir,'ENIGMA-DTI-checklist.csv')
 
-### Erin's little function for running things in the shell
-def docmd(cmdlist):
-    "sends a command (inputed as a list) to the shell"
-    if DEBUG: print ' '.join(cmdlist)
-    if not DRYRUN: subprocess.call(cmdlist)
-
 def overlay_skel(background_nii, skel_nii,overlay_gif):
     '''
     create an overlay image montage of
@@ -77,22 +70,22 @@ def overlay_skel(background_nii, skel_nii,overlay_gif):
     skel_nii        the nifty image to be overlayed in magenta (i.e. "FAskel.nii.gz")
     overlay_gif     the name of the output (output.gif)
     '''
-    docmd(['slices',background_nii,'-o',os.path.join(tmpdir,subid + "to_target.gif")])
-    docmd(['slices',skel_nii,'-o',os.path.join(tmpdir,subid + "skel.gif")])
-    docmd(['convert', '-negate', os.path.join(tmpdir,subid + "skel.gif"), \
+    dm.utils.run(['slices',background_nii,'-o',os.path.join(tmpdir,subid + "to_target.gif")])
+    dm.utils.run(['slices',skel_nii,'-o',os.path.join(tmpdir,subid + "skel.gif")])
+    dm.utils.run(['convert', '-negate', os.path.join(tmpdir,subid + "skel.gif"), \
         '+level-colors', 'magenta,', \
         '-fuzz', '10%', '-transparent', 'white', \
         os.path.join(tmpdir,subid + 'skel_mag.gif')])
-    docmd(['composite', os.path.join(tmpdir,subid + 'skel_mag.gif'),
+    dm.utils.run(['composite', os.path.join(tmpdir,subid + 'skel_mag.gif'),
         os.path.join(tmpdir,subid + 'to_target.gif'),
         os.path.join(tmpdir,subid + 'cskel.gif')])
-    docmd(['convert', os.path.join(tmpdir,subid + 'cskel.gif'),\
+    dm.utils.run(['convert', os.path.join(tmpdir,subid + 'cskel.gif'),\
         '-crop', '100x33%+0+0', os.path.join(tmpdir,subid + '_sag.gif')])
-    docmd(['convert', os.path.join(tmpdir,subid + 'cskel.gif'),\
+    dm.utils.run(['convert', os.path.join(tmpdir,subid + 'cskel.gif'),\
         '-crop', '82x33%+0+218', os.path.join(tmpdir,subid + '_cor.gif')])
-    docmd(['convert', os.path.join(tmpdir,subid + 'cskel.gif'),\
+    dm.utils.run(['convert', os.path.join(tmpdir,subid + 'cskel.gif'),\
         '-crop', '82x33%+0+438', os.path.join(tmpdir,subid + '_ax.gif')])
-    docmd(['montage', '-mode', 'concatenate', '-tile', '3x1', \
+    dm.utils.run(['montage', '-mode', 'concatenate', '-tile', '3x1', \
         os.path.join(tmpdir,subid + '_sag.gif'),\
         os.path.join(tmpdir,subid + '_cor.gif'),\
         os.path.join(tmpdir,subid + '_ax.gif'),\

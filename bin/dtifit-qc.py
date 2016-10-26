@@ -38,7 +38,6 @@ import datman as dm
 import datman.utils
 import datman.scanid
 import os
-import subprocess
 import tempfile
 import shutil
 import glob
@@ -61,24 +60,18 @@ FSLDIR = os.getenv('FSLDIR')
 if FSLDIR==None:
     sys.exit("FSLDIR environment variable is undefined. Try again.")
 
-### Erin's little function for running things in the shell
-def docmd(cmdlist):
-    "sends a command (inputed as a list) to the shell"
-    if DEBUG: print ' '.join(cmdlist)
-    if not DRYRUN: subprocess.call(cmdlist)
-
 def gif_gridtoline(input_gif,output_gif):
     '''
     uses imagemagick to take a grid from fsl slices and convert to one line (like in slicesdir)
     '''
-    docmd(['convert',input_gif, '-resize', '384x384',input_gif])
-    docmd(['convert', input_gif,\
+    dm.utils.run(['convert',input_gif, '-resize', '384x384',input_gif])
+    dm.utils.run(['convert', input_gif,\
         '-crop', '100x33%+0+0', os.path.join(tmpdir,'sag.gif')])
-    docmd(['convert', input_gif,\
+    dm.utils.run(['convert', input_gif,\
         '-crop', '100x33%+0+128', os.path.join(tmpdir,'cor.gif')])
-    docmd(['convert', input_gif,\
+    dm.utils.run(['convert', input_gif,\
         '-crop', '100x33%+0+256', os.path.join(tmpdir,'ax.gif')])
-    docmd(['montage', '-mode', 'concatenate', '-tile', '3x1', \
+    dm.utils.run(['montage', '-mode', 'concatenate', '-tile', '3x1', \
         os.path.join(tmpdir,'sag.gif'),\
         os.path.join(tmpdir,'cor.gif'),\
         os.path.join(tmpdir,'ax.gif'),\
@@ -89,7 +82,7 @@ def mask_overlay(background_nii,mask_nii, overlay_gif):
     use slices from fsl to overlay the mask on the background (both nii)
     then make the grid to a line for easier scrolling during QC
     '''
-    docmd(['slices', background_nii, mask_nii, '-o', os.path.join(tmpdir,'BOmasked.gif')])
+    dm.utils.run(['slices', background_nii, mask_nii, '-o', os.path.join(tmpdir,'BOmasked.gif')])
     gif_gridtoline(os.path.join(tmpdir,'BOmasked.gif'),overlay_gif)
 
 def V1_overlay(background_nii,V1_nii, overlay_gif):
@@ -99,16 +92,16 @@ def V1_overlay(background_nii,V1_nii, overlay_gif):
     recolor the V1 image using imagemagick
     then make the grid to a line for easier scrolling during QC
     '''
-    docmd(['slices',background_nii,'-o',os.path.join(tmpdir,"background.gif")])
-    docmd(['fslmaths',background_nii,'-thr','0.15','-bin',os.path.join(tmpdir,'FAmask.nii.gz')])
-    docmd(['fslsplit', V1_nii, os.path.join(tmpdir,"V1")])
+    dm.utils.run(['slices',background_nii,'-o',os.path.join(tmpdir,"background.gif")])
+    dm.utils.run(['fslmaths',background_nii,'-thr','0.15','-bin',os.path.join(tmpdir,'FAmask.nii.gz')])
+    dm.utils.run(['fslsplit', V1_nii, os.path.join(tmpdir,"V1")])
     for axis in ['0000','0001','0002']:
-        docmd(['fslmaths',os.path.join(tmpdir,'V1'+axis+'.nii.gz'), '-abs', \
+        dm.utils.run(['fslmaths',os.path.join(tmpdir,'V1'+axis+'.nii.gz'), '-abs', \
             '-mul', os.path.join(tmpdir,'FAmask.nii.gz'), os.path.join(tmpdir,'V1'+axis+'abs.nii.gz')])
-        docmd(['slices',os.path.join(tmpdir,'V1'+axis+'abs.nii.gz'),'-o',os.path.join(tmpdir,'V1'+axis+'abs.gif')])
+        dm.utils.run(['slices',os.path.join(tmpdir,'V1'+axis+'abs.nii.gz'),'-o',os.path.join(tmpdir,'V1'+axis+'abs.gif')])
         # docmd(['convert', os.path.join(tmpdir,'V1'+axis+'abs.gif'),\
         #         '-fuzz', '15%', '-transparent', 'black', os.path.join(tmpdir,'V1'+axis+'set.gif')])
-    docmd(['convert', os.path.join(tmpdir,'V10000abs.gif'),\
+    dm.utils.run(['convert', os.path.join(tmpdir,'V10000abs.gif'),\
         os.path.join(tmpdir,'V10001abs.gif'), os.path.join(tmpdir,'V10002abs.gif'),\
         '-set', 'colorspace', 'RGB', '-combine', '-set', 'colorspace', 'sRGB',\
         os.path.join(tmpdir,'dirmap.gif')])

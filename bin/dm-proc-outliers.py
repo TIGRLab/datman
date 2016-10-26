@@ -45,7 +45,6 @@ the summary statistics calculated from this csv are written out to the specified
 from docopt import docopt
 import numpy as np
 import os
-import subprocess
 import pandas as pd
 
 arguments       = docopt(__doc__)
@@ -56,13 +55,6 @@ summaryout      = arguments['--write-stats']
 VERBOSE         = arguments['--verbose']
 DEBUG           = arguments['--debug']
 DRYRUN          = arguments['--dry-run']
-
-###
-### Erin's little function for running things in the shell
-def docmd(cmdlist):
-    "sends a command (inputed as a list) to the shell"
-    if DEBUG: print ' '.join(cmdlist)
-    if not DRYRUN: subprocess.call(cmdlist)
 
 # check that the input exists
 if os.path.isfile(inputfile) == False:

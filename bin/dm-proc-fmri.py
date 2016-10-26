@@ -182,9 +182,9 @@ def run_epitome(path, config):
 
         # run epitome
         command = '{} {} {} {} {}'.format(pipeline, epi_dir, delete, tr, dims)
-        rtn, out, err = dm.utils.run(command)
+        rtn, out = dm.utils.run(command)
         output = '\n'.join([out, err]).replace('\n', '\n\t')
-        if rtn != 0:
+        if rtn:
             logger.debug("epitome script failed: {}\n{}".format(command, output))
             continue
         else:
@@ -297,13 +297,12 @@ def main():
                 jobname = 'dm_fmri_{}'.format(time.strftime("%Y%m%d-%H%M%S"))
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
-                rtn, out, err = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
+                rtn, out = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
 
-                if rtn != 0:
+                if rtn:
                     logger.error("Job submission failed. Output follows.")
-                    logger.error("stdout: {}\nstderr: {}".format(out,err))
+                    logger.error("stdout: {}".format(out))
                     sys.exit(1)
 
 if __name__ == "__main__":
     main()
-

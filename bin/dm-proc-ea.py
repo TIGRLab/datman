@@ -396,7 +396,7 @@ def generate_analysis_script(subject, inputs, input_type, config):
         subject_dir=subject_dir, subject=subject, input_type=input_type)
 
     # generate full motion paramater file
-    rtn, out, err = dm.utils.run('cat {d}/PARAMS/motion.datman.01.1D {d}/PARAMS/motion.datman.02.1D {d}/PARAMS/motion.datman.03.1D > {d}/{subject}_motion.1D'.format(
+    rtn, out = dm.utils.run('cat {d}/PARAMS/motion.datman.01.1D {d}/PARAMS/motion.datman.02.1D {d}/PARAMS/motion.datman.03.1D > {d}/{subject}_motion.1D'.format(
         d=subject_dir, subject=subject))
 
     # get input data, turn into a single string
@@ -582,8 +582,8 @@ def analyze_subject(subject, config):
     for input_type in inputs.keys():
 
         script = generate_analysis_script(subject, inputs, input_type, config)
-        rtn, out, err = dm.utils.run('chmod 754 {script}; {script}'.format(script=script))
-        if rtn != 0:
+        rtn, out = dm.utils.run('chmod 754 {script}; {script}'.format(script=script))
+        if rtn:
             logger.error('Failed to analyze {}\n{}'.format(subject, out))
             sys.exit(1)
 
@@ -643,7 +643,7 @@ def main():
                 jobname = "dm_ea_{}".format(time.strftime("%Y%m%d-%H%M%S"))
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
-                rtn, out, err = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
+                rtn, out = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
 
                 # qbacth method -- might bring it back, but really needed yet
                 #fd, path = tempfile.mkstemp()
@@ -651,10 +651,9 @@ def main():
                 #os.close(fd)
                 #rtn, out, err = dm.utils.run('qbatch -i --logdir {ld} -N {name} --walltime {wt} {cmds}'.format(ld=logdir, name=jobname, wt=walltime, cmds=path))
 
-                if rtn != 0:
-                    logger.error("Job submission failed\nstdout: {}\nstderr: {}".format(out, err))
+                if rtn:
+                    logger.error("Job submission failed\nstdout: {}".format(out))
                     sys.exit(1)
 
 if __name__=='__main__':
     main()
-

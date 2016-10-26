@@ -173,8 +173,8 @@ def main():
         for input_type in inputs.keys():
 
             script = generate_analysis_script(subject, inputs, input_type, config)
-            rtn, out, err = dm.utils.run('chmod 754 {script}; {script}'.format(script=script))
-            if rtn != 0:
+            rtn, out = dm.utils.run('chmod 754 {script}; {script}'.format(script=script))
+            if rtn:
                 logger.error('Failed to analyze {}\n{}'.format(subject, out))
                 sys.exit(1)
 
@@ -207,14 +207,13 @@ def main():
                 jobname = "dm_imob_{}".format(time.strftime("%Y%m%d-%H%M%S"))
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
-                rtn, out, err = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
+                rtn, out = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
                 #rtn, out, err = dm.utils.run('qbatch -i --logdir {logdir} -N {name} --walltime {wt} {cmds}'.format(logdir = log_path, name = jobname, wt = walltime, cmds = path))
 
-                if rtn != 0:
+                if rtn:
                     logger.error("Job submission failed. Output follows.")
-                    logger.error("stdout: {}\nstderr: {}".format(out,err))
+                    logger.error("stdout: {}".format(out))
                     sys.exit(1)
 
 if __name__ == "__main__":
     main()
-

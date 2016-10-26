@@ -81,7 +81,7 @@ import pandas as pd
 import datman as dm
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARN)
+logging.getLogger().setLevel(logging.WARN)
 
 DRYRUN = False
 
@@ -105,10 +105,10 @@ def main():
     DRYRUN          = arguments['--dry-run']
 
     if verbose:
-        logger.setLevel(logging.INFO)
+        logging.getLogger().setLevel(logging.INFO)
 
     if debug:
-        logger.setLevel(logging.DEBUG)
+        logging.getLogger().setLevel(logging.DEBUG)
 
     ## make the output directory if it doesn't exist
     output_dir = os.path.abspath(output_dir)
@@ -188,7 +188,7 @@ def main():
                 script = script_names[0]
                 FS_cmd = make_FS_command(run_dir, script, job_name_prefix,
                         log_dir, walltime, subid, T1s)
-                docmd(FS_cmd)
+                dm.utils.run(FS_cmd, DRYRUN)
 
                 ## add today's date to the checklist
                 checklist['date_ran'][i] = datetime.date.today()
@@ -202,12 +202,12 @@ def main():
         script = script_names[0]
         post_FS_cmd = make_FS_command(run_dir, script, job_name_prefix,
                 log_dir, walltime_post)
-        docmd(post_FS_cmd)
+        dm.utils.run(post_FS_cmd, DRYRUN)
     elif not NO_POST and submitted:
         script = script_names[1]
         post_FS_cmd = make_FS_command(run_dir, script, job_name_prefix,
                 log_dir, walltime_post)
-        docmd(post_FS_cmd)
+        dm.utils.run(post_FS_cmd, DRYRUN)
 
     if not DRYRUN:
         ## write the checklist out to a file
@@ -316,25 +316,18 @@ def subject_previously_completed(output_dir, subject):
 def make_FS_command(run_dir, sh_name, job_name_prefix, log_dir, wall_time, subid=None, T1s=None):
     if subid is not None:
         # make FS command for subject
-        cmd = 'echo bash -l {rundir}/{script} {subid} {T1s} | '\
-              'qbatch -N {jobname} --logdir {logdir} --walltime {wt} -'.format(
-                    rundir = run_dir,
-                    script = sh_name,
-                    subid = subid,
-                    T1s = ' '.join(T1s),
-                    jobname = job_name_prefix + subid,
-                    logdir = log_dir,
-                    wt = wall_time)
+        job_command = "bash -l {}/{} {} {}".format(run_dir, sh_name,
+                subid, ' '.join(T1s))
+        job_name = job_name_prefix + subid
+        cmd = dm.proc.make_piped_qbatch_command(job_command, job_name, log_dir,
+                wall_time)
     else:
         # make post FS command
-        cmd = 'echo bash -l {rundir}/{script} | '\
-              'qbatch -N {jobname} --logdir {logdir} --afterok {hold} --walltime {wt} -'.format(
-                        rundir = run_dir,
-                        script = sh_name,
-                        jobname = job_name_prefix + 'post',
-                        logdir = log_dir,
-                        hold = job_name_prefix + '*',
-                        wt = wall_time)
+        job_command = 'bash -l {}/{}'.format(run_dir, sh_name)
+        job_name = job_name_prefix + 'post'
+        hold = job_name_prefix + '*'
+        cmd = dm.proc.make_piped_qbatch_command(job_command, job_name, log_dir,
+                wall_time, afterok=hold)
     return cmd
 
 @contextlib.contextmanager
@@ -344,12 +337,6 @@ def make_temp_directory():
         yield temp_dir
     finally:
         shutil.rmtree(temp_dir)
-
-### Erin's little function for running things in the shell
-def docmd(cmd):
-    "sends a command (inputed as a list) to the shell"
-    logger.debug("Running command {}".format(cmd))
-    rtn, out, err = dm.utils.run(cmd, dryrun = DRYRUN)
 
 if __name__ == '__main__':
     main()

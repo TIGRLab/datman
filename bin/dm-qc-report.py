@@ -96,17 +96,6 @@ logger = logging.getLogger(os.path.basename(__file__))
 
 REWRITE = False
 
-def run(cmd):
-    """
-    Runs command, writing to logs if there is an error.
-    """
-    rtn, out, err = dm.utils.run(cmd)
-
-    if rtn != 0:
-        logger.error("Error {} while executing: {}".format(rtn, cmd))
-        out and logger.error("stdout: \n>\t{}".format(out.replace('\n','\n>\t')))
-        err and logger.error("stderr: \n>\t{}".format(err.replace('\n','\n>\t')))
-
 def slicer(fpath, pic, slicergap, picwidth):
     """
     Uses FSL's slicer function to generate a montage png from a nifti file
@@ -115,7 +104,7 @@ def slicer(fpath, pic, slicergap, picwidth):
         picwidth    -- width (in pixels) of output image
         pic         -- fullpath to for output image
     """
-    run("slicer {} -S {} {} {}".format(fpath,slicergap,picwidth,pic))
+    dm.utils.run("slicer {} -S {} {} {}".format(fpath,slicergap,picwidth,pic))
 
 def sort_scans(filenames):
     """
@@ -261,7 +250,7 @@ def phantom_fmri_qc(filename, outputDir):
     output_file = os.path.join(outputDir, '{}_stats.csv'.format(basename))
     output_prefix = os.path.join(outputDir, basename)
     if not os.path.isfile(output_file):
-        run('qc-fbirn-fmri {} {}'.format(filename, output_prefix))
+        dm.utils.run('qc-fbirn-fmri {} {}'.format(filename, output_prefix))
 
 def phantom_dti_qc(filename, outputDir):
     """
@@ -277,7 +266,7 @@ def phantom_dti_qc(filename, outputDir):
     if not os.path.isfile(output_file):
         bvec = os.path.join(dirname, basename + '.bvec')
         bval = os.path.join(dirname, basename + '.bval')
-        run('qc-fbirn-dti {} {} {} {} n'.format(filename, bvec, bval, output_prefix))
+        dm.utils.run('qc-fbirn-dti {} {} {} {} n'.format(filename, bvec, bval, output_prefix))
 
 def phantom_anat_qc(filename, outputDir):
     """
@@ -287,7 +276,7 @@ def phantom_anat_qc(filename, outputDir):
     basename = nifti_basename(filename)
     output_file = os.path.join(outputDir, '{}_adni-contrasts.csv'.format(basename))
     if not os.path.isfile(output_file):
-        run('qc-adni {} {}'.format(filename, output_file))
+        dm.utils.run('qc-adni {} {}'.format(filename, output_file))
 
 def fmri_qc(filename, qc_dir, report):
     dirname = os.path.dirname(filename)
@@ -376,7 +365,7 @@ def run_header_qc(dicomDir, standard_dir, logfile):
             continue
 
         # run header check for dicom
-        run('qc-headers {} {} {}'.format(d, s, logfile))
+        dm.utils.run('qc-headers {} {} {}'.format(d, s, logfile))
 
 def qc_phantom(scanpath, subject, config):
     """
@@ -603,21 +592,21 @@ def main():
                 jobname = "qc_report_{}_{}".format(time.strftime("%Y%m%d-%H%M%S"), i)
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
-                rtn, out, err = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
+                rtn, out = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
 
-                if rtn != 0:
-                    logger.error("stdout: {}\nstderr: {}".format(out, err))
+                if rtn:
+                    logger.error("stdout: {}".format(out))
                     sys.exit(1)
 
-                elif rtn == 0:
+                else:
                     logger.debug(out)
 
         if commands_phantom:
             for cmd in commands_phantom:
-                rtn, out, err = dm.utils.run(cmd)
+                rtn, out = dm.utils.run(cmd)
 
-                if rtn != 0:
-                    logger.error("stdout: {}\nstderr: {}".format(out, err))
+                if rtn:
+                    logger.error("stdout: {}".format(out))
                     sys.exit(1)
 
 if __name__ == "__main__":

@@ -27,7 +27,6 @@ import tempfile
 import os.path
 import shutil
 import sys
-import subprocess
 
 
 arguments       = docopt(__doc__)
@@ -41,13 +40,6 @@ if DEBUG: print arguments
 #set default tag values
 if T2_TAG == None: T2_TAG = '_T2_'
 if PD_TAG == None: PD_TAG = '_PD_'
-
-### Erin's little function for running things in the shell
-def docmd(cmdlist):
-    "sends a command (inputed as a list) to the shell"
-    if DEBUG: print ' '.join(cmdlist)
-    if not DRYRUN:
-        proc = subprocess.call(cmdlist)
 
 #mkdir a tmpdir for the
 tmpdir = tempfile.mkdtemp()
@@ -64,10 +56,10 @@ for tag in [T2_TAG, PD_TAG]:
         if os.path.isfile(targetmnc)==False:
             # get the basename without extension
             imageb = os.path.splitext(os.path.basename(image))[0]
-            docmd(['cp',image,tmpdir]) #copying to tmpdir so I can gunzip it
-            docmd(['gunzip',os.path.join(tmpdir,os.path.basename(image))]) #gunzip it
+            dm.utils.run(['cp',image,tmpdir]) #copying to tmpdir so I can gunzip it
+            dm.utils.run(['gunzip',os.path.join(tmpdir,os.path.basename(image))]) #gunzip it
             # convert gunzipped nifty to mnc
-            docmd(['nii2mnc', os.path.join(tmpdir,imageb),targetmnc])
+            dm.utils.run(['nii2mnc', os.path.join(tmpdir,imageb),targetmnc])
 
 #get rid of the tmpdir
 shutil.rmtree(tmpdir)
