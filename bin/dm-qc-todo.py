@@ -9,6 +9,7 @@ Options:
     --show-newer     Show data files newer than QC doc
     --root PATH      Path to parent folder to all study folders.
                      [default: /archive/data-2.0]
+    --study=<study>  Process a singe study
 
 Expects to be run in the parent folder to all study folders. Looks for the file
 checklist.csv in subfolders, and prints out any QC pdf from those that haven't
@@ -20,6 +21,7 @@ import glob
 import os
 import os.path
 import re
+import datman.config as config
 
 def get_project_dirs(root, maxdepth=2):
     """
@@ -44,6 +46,9 @@ def get_project_dirs(root, maxdepth=2):
 def main():
     arguments = docopt.docopt(__doc__)
     rootdir = arguments['--root']
+    if arguments['--study']:
+        cfg = config.config()
+        rootdir = cfg.get_study_base(arguments['--study'])
 
     for projectdir in get_project_dirs(rootdir):
         checklist = os.path.join(projectdir, 'metadata', 'checklist.csv')
