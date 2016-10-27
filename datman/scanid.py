@@ -92,7 +92,8 @@ class Identifier:
             return self.get_full_subjectid()
 
 def parse(identifier):
-    if type(identifier) is not str: raise ParseException()
+    if not isinstance(identifier, basestring):
+        raise ParseException
 
     match = SCANID_PATTERN.match(identifier)
     if not match: match = SCANID_PHA_PATTERN.match(identifier)
