@@ -81,8 +81,6 @@ class config(object):
 
         self.study_config = self.load_yaml(project_settings_file)
 
-
-
     def get_study_base(self, study=None):
         """Return the base directory for a study"""
 
@@ -136,7 +134,7 @@ class config(object):
                         except KeyError:
                             logger.error('Detected project DTI but '
                                          ' failed to identify using site')
-                            return
+                            raise
                     else:
                         site = parts.site
 
@@ -149,10 +147,45 @@ class config(object):
         # didn't find a match throw a worning
         logger.warn('Failed to find a valid project for xnat id:{}'
                     .format(tag))
-        return
+        raise
+
+    def get_key(self, key, scope=None):
+        """recursively search the yaml files for a key
+        if it exists in study_config returns that value
+        otherwise checks site_config
+        raises a key error if it's not found
+        key: [list of subscripted keys]"""
+
+        # quick check to see if a single string was passed
+        if isinstance(key, basestring):
+            key = [key]
+
+        if scope:
+            # called recursively, look in site config
+            result = self.site_config
+        elif self.study_config:
+            # first call and study set, look here first
+            result = self.study_config
+        else:
+            # first call and no study set, look at site config
+            result = self.site_config
+
+        for val in key:
+            try:
+                result = result[val]
+            except KeyError:
+                if scope:
+                    # already at top level
+                    raise
+                else:
+                    # call recursively
+                    return self.get_key(key, scope=1)
+        return result
+
 
     def key_exists(self, scope, key):
-        """Check the yaml file specified by scope for a key.
+        """DEPRECATED: use get_key()
+        Check the yaml file specified by scope for a key.
         Return the True if the key exists, False otherwise.
         Scope [site | study]
         """
@@ -171,7 +204,8 @@ class config(object):
         return(True)
 
     def get_if_exists(self, scope, key):
-        """Check the yaml file specified by scope for a key.
+        """DEPRECATED: use get_key()
+        Check the yaml file specified by scope for a key.
         Return the value if the key exists, None otherwise.
         Scope [site | study]
         """
