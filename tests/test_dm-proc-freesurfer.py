@@ -1,13 +1,12 @@
 import os
 import unittest
 import importlib
+
 import nose.tools
 from nose.tools import raises
-import mock
-import subprocess as proc
-import datman.utils
 import pandas as pd
 
+import datman.utils
 
 fs = importlib.import_module('bin.dm-proc-freesurfer')
 
@@ -47,12 +46,11 @@ def test_make_Freesurfer_runsh_default_options():
     FS_option = None
 
     with datman.utils.make_temp_directory() as test_runsh_dir:
-        test_runsh, out, err = make_scripts_and_check_diff(script_name,
+        test_runsh, out = make_scripts_and_check_diff(script_name,
                                 test_runsh_dir, fixture_path, FS_option, prefix)
 
         ## No differences
         assert out == ""
-        assert err == ""
         ## Script has been made executable
         assert os.access(test_runsh, os.X_OK) == True
 
@@ -66,12 +64,11 @@ def test_make_Freesurfer_runsh_FS_options_respected():
     FS_option = "-nondefault1 -nondefault2"
 
     with datman.utils.make_temp_directory() as test_runsh_dir:
-        test_runsh, out, err = make_scripts_and_check_diff(script_name,
-                                test_runsh_dir, fixture_path, FS_option, prefix)
+        test_runsh, out = make_scripts_and_check_diff(script_name,
+                            test_runsh_dir, fixture_path, FS_option, prefix)
 
         ## No differences
         assert out == ""
-        assert err == ""
         ## Script has been made executable
         assert os.access(test_runsh, os.X_OK) == True
 
@@ -83,11 +80,10 @@ def test_make_Freesurfer_postsh():
     FS_option = None
 
     with datman.utils.make_temp_directory() as test_runsh_dir:
-        test_runsh, out, err = make_scripts_and_check_diff(script_name,
+        test_runsh, out = make_scripts_and_check_diff(script_name,
                                 test_runsh_dir, fixture_path, FS_option, prefix)
         ## No differences
         assert out == ""
-        assert err == ""
         ## Script has been made executable
         assert os.access(test_runsh, os.X_OK) == True
 
@@ -146,10 +142,5 @@ def make_scripts_and_check_diff(script_name, test_runsh_dir, fixture_path, FS_op
     correct_runsh = os.path.join(fixture_path, script_name)
     fs.make_Freesurfer_runsh(test_runsh, fixture_path, FS_option, prefix)
     cmd = "diff {} {}".format(test_runsh, correct_runsh)
-    out, err = run_cmd(cmd)
-    return test_runsh, out, err
-
-def run_cmd(cmd):
-    p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
-    out, err = p.communicate()
-    return out, err
+    _, out = datman.utils.run(cmd)
+    return test_runsh, out
