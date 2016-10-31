@@ -331,24 +331,6 @@ def qc_phantom(scan_path, subject_id, config):
             continue
         handlers[tag](nifti, qc_dir)
 
-def write_report_body(report, exportinfo):
-    for idx in range(0,len(exportinfo)):
-        name = exportinfo.loc[idx,'File']
-        if name:
-            fname = os.path.join(scan_path, name)
-            logger.info("QC scan {}".format(fname))
-            ident, tag, series, description = dm.scanid.parse_filename(fname)
-            report.write('<h2 id="{}">{}</h2>\n'.format(exportinfo.loc[idx,'bookmark'], name))
-
-            if tag not in handlers:
-                logger.info("No QC tag {} for scan {}. Skipping.".format(tag, fname))
-                continue
-
-            add_header_qc(fname, report, headerDiff)
-
-            handlers[tag](fname, qc_dir, report)
-            report.write('<br>')
-
 def find_tech_notes(path):
     """
     Search the file tree rooted at path for the tech notes pdf
@@ -542,7 +524,24 @@ def qc_subject(scan_path, subject_id, config):
         write_report_header(report, subject_id)
         write_table(report, exportinfo)
         write_tech_notes_link(report, subject_id)
-        write_report_body(report)
+        # write_report_body
+        for idx in range(0,len(exportinfo)):
+            name = exportinfo.loc[idx,'File']
+            if name:
+                fname = os.path.join(scan_path, name)
+                logger.info("QC scan {}".format(fname))
+                ident, tag, series, description = dm.scanid.parse_filename(fname)
+                report.write('<h2 id="{}">{}</h2>\n'.format(exportinfo.loc[idx,'bookmark'], name))
+
+                if tag not in handlers:
+                    logger.info("No QC tag {} for scan {}. Skipping.".format(tag, fname))
+                    continue
+
+                add_header_qc(fname, report, headerDiff)
+
+                handlers[tag](fname, qc_dir, report)
+                report.write('<br>')
+
 
     return report_name
 
@@ -554,11 +553,14 @@ def submit_qc_jobs(commands):
         jobname = "qc_report_{}_{}".format(time.strftime("%Y%m%d-%H%M%S"), i)
         logfile = '/tmp/{}.log'.format(jobname)
         errfile = '/tmp/{}.err'.format(jobname)
-        rtn, out = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
+
+        run_cmd = 'echo {} | qsub -V -q main.q ' \
+                '-o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname)
+
+        rtn, out = dm.utils.run(run_cmd)
 
         if rtn:
             logger.error("stdout: {}".format(out))
-            sys.exit(1)
         else:
             logger.debug(out)
 
@@ -605,11 +607,17 @@ def add_report_to_checklist(qc_report, checklist_path):
     report_name, report_ext = os.path.splitext(qc_report)
 
     found_reports = []
-    with open(checklist_path, 'r') as checklist:
-        for checklist_entry in checklist:
-            checklist_entry = checklist_entry.split(' ')[0].strip()
-            checklist_entry, checklist_ext = os.path.splitext(checklist_entry)
-            found_reports.append(checklist_entry)
+
+    try:
+        with open(checklist_path, 'r') as checklist:
+            for checklist_entry in checklist:
+                checklist_entry = checklist_entry.split(' ')[0].strip()
+                checklist_entry, checklist_ext = os.path.splitext(checklist_entry)
+                found_reports.append(checklist_entry)
+    except IOError:
+        logger.error("{} does not exist. "\
+                "Attempting to create it".format(checklist_path))
+        os.makedirs(checklist_path)
 
     if report_name in found_reports:
         return

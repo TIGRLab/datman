@@ -1,11 +1,54 @@
-import os
 import unittest
 import importlib
 
 import nose.tools
-from mock import patch, mock_open
+from mock import patch, mock_open, call
 
 qc = importlib.import_module('bin.dm-qc-report')
+
+@patch('os.listdir')
+@patch('bin.dm-qc-report.make_qc_command')
+@patch('bin.dm-qc-report.submit_qc_jobs')
+@patch('datman.utils.run')
+def test_qc_all_scans_handles_phantoms_and_subjects(mock_run, mock_submit,
+        mock_cmd, mock_dirs):
+    """
+    Tests that qc_all_scans submits subjects to the queue but runs phantoms
+    directly with datman.utils.run
+    """
+    config_file = qc_all_scans_setup(mock_run, mock_dirs, mock_cmd)
+
+    qc.qc_all_scans('/data/nii', config_file)
+
+    # Expected calls to submit_qc_jobs should include subjects only
+    expected = ['dm-qc-report.py {} --subject STUDY_SITE_0001_01'.format(config_file),
+                'dm-qc-report.py {} --subject STUDY_SITE_0002_01'.format(config_file)]
+    mock_submit.assert_called_once_with(expected)
+
+    # Expected calls to datman.utils.run should include phantoms only
+    phantom1 = 'dm-qc-report.py {} --subject STUDY_SITE_PHA_0001'.format(config_file)
+    phantom2 = 'dm-qc-report.py {} --subject STUDY_SITE_PHA_0002'.format(config_file)
+    calls = [call(phantom1), call(phantom2)]
+    assert mock_run.call_count == 2
+    mock_run.assert_has_calls(calls, any_order=True)
+
+@patch('time.strftime')
+@patch('datman.utils.run')
+def test_submit_qc_jobs(mock_run, mock_time):
+    time = '19001231-23:59:59'
+    mock_time.return_value = time
+    # Prevents a ValueError from trying to access return and out of utils.run
+    mock_run.return_value = (0, '')
+
+    commands = ['dm-qc-report.py config_file.yaml --subject STUDY_SITE_ID_01']
+    qc.submit_qc_jobs(commands)
+
+    job_name = 'qc_report_{}_0'.format(time)
+    expected = 'echo {} | qsub -V -q main.q -o ' \
+            '/tmp/{job}.log -e /tmp/{job}.err -N {job}'.format(commands[0],
+                    job=job_name)
+
+    mock_run.assert_called_once_with(expected)
 
 @patch('glob.glob')
 @patch('datman.utils.run')
@@ -84,7 +127,7 @@ def test_add_report_to_checklist_updates_list():
             checklist, checklist_data)
 
     assert call_count == 2
-    assert arg_list == [((checklist, 'r'),), ((checklist, 'a'),)]
+    assert arg_list == [call(checklist, 'r'), call(checklist, 'a')]
     checklist_mock().write.assert_called_once_with(report + "\n")
 
 
@@ -96,7 +139,7 @@ def test_add_report_to_checklist_doesnt_repeat_entry():
             checklist, checklist_data)
 
     assert call_count == 1
-    assert arg_list == [((checklist, 'r'),)]
+    assert arg_list == [call(checklist, 'r')]
     assert not checklist_mock().write.called
 
 def test_add_report_to_checklist_doesnt_repeat_qced_entry():
@@ -107,7 +150,7 @@ def test_add_report_to_checklist_doesnt_repeat_qced_entry():
             checklist, checklist_data)
 
     assert call_count == 1
-    assert arg_list == [((checklist, 'r'),)]
+    assert arg_list == [call(checklist, 'r')]
     assert not checklist_mock().write.called
 
 def test_add_report_to_checklist_doesnt_repeat_entry_with_new_extension():
@@ -118,11 +161,23 @@ def test_add_report_to_checklist_doesnt_repeat_entry_with_new_extension():
             checklist, checklist_data)
 
     assert call_count == 1
-    assert arg_list == [((checklist, 'r'),)]
+    assert arg_list == [call(checklist, 'r')]
     assert not checklist_mock().write.called
 
 ###################################################################
 # Helper functions
+def qc_all_scans_setup(mock_run, mock_dirs, mock_cmd):
+    config_file = './site_config.yaml'
+    # Prevents a ValueError from trying to access return and out of utils.run
+    mock_run.return_value = (0, '')
+    mock_dirs.return_value = ['/data/nii/STUDY_SITE_0001_01',
+                              '/data/nii/STUDY_SITE_PHA_0001',
+                              '/data/nii/STUDY_SITE_PHA_0002',
+                              '/data/nii/STUDY_SITE_0002_01']
+    mock_cmd.side_effect = lambda subject, config: 'dm-qc-report.py {} ' \
+            '--subject {}'.format(config, subject)
+
+    return config_file
 
 def run_header_qc_setup():
     dicom_dir = './dicoms/subject_id'
