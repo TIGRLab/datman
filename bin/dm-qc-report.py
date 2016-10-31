@@ -302,7 +302,7 @@ def run_header_qc(dicom_dir, standard_dir, log_file):
         # run header check for dicom
         dm.utils.run('qc-headers {} {} {}'.format(d, s, log_file))
 
-    if not os.path.isdir(log_file):
+    if not os.path.exists(log_file):
         subject = os.path.basename(dicom_dir)
         logger.error("header-diff.log not generated for {}. ".format(subject) +
                 " Check that gold standards are present for this site.")
