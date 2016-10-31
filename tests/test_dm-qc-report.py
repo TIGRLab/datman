@@ -7,40 +7,64 @@ from mock import patch, mock_open
 
 qc = importlib.import_module('bin.dm-qc-report')
 
-FIXTURE_DIR = "tests/fixture_dm-qc-report"
-
+@patch('glob.glob')
 @patch('datman.utils.run')
-def test_run_header_qc_does_nothing_with_empty_dicom_dir(mock_run):
+def test_run_header_qc_does_nothing_with_empty_dicom_dir(mock_run, mock_glob):
     """
-    Checks that run_header_qc doesn't crash or behave badly under this condition
+    Checks that run_header_qc doesn't crash or behave badly with an empty dicom
+    directory
     """
-    dicoms, standards, log = run_header_qc_setup("data/dcm/STUDY_SITE_0001_01")
+    dicoms, standards, log = run_header_qc_setup()
+
+    mock_glob.side_effect = lambda path: {
+         './dicoms/subject_id/*': [],
+         './standards/*': ['SITE_CAMH_0001_01_01_T1_02_SagT1-BRAVO.dcm']
+         }[path]
 
     qc.run_header_qc(dicoms, standards, log)
     assert mock_run.call_count == 0
 
+@patch('glob.glob')
 @patch('datman.utils.run')
-def test_run_header_qc_does_nothing_without_matching_standards(mock_run):
+def test_run_header_qc_does_nothing_without_matching_standards(mock_run,
+        mock_glob):
     """
-    Checks that run_header_qc doesn't crash or behave badly under this condition
+    Checks that run_header_qc doesn't crash or behave badly without standards
     """
-    dicoms, standards, log = run_header_qc_setup("data/dcm/STUDY_SITE_0002_01")
+    dicoms, standards, log = run_header_qc_setup()
+
+    mock_glob.side_effect = lambda path: {
+        './dicoms/subject_id/*': ['./dicoms/subject_id/' \
+                'STUDY_SITE1_0002_01_01_OBS_09_Ax-Observe-Task.dcm'],
+        './standards/*': ['./standards/' \
+                'SITE_CAMH_0001_01_01_T1_02_SagT1-BRAVO.dcm']
+        }[path]
 
     qc.run_header_qc(dicoms, standards, log)
     assert mock_run.call_count == 0
 
+@patch('glob.glob')
 @patch('datman.utils.run')
-def test_run_header_qc_makes_expected_qcmon_call(mock_run):
-    dicoms, standards, log = run_header_qc_setup("data/dcm/STUDY_CAMH_0001_01")
+def test_run_header_qc_makes_expected_qcmon_call(mock_run, mock_glob):
+    dicoms, standards, log = run_header_qc_setup()
+
+    mock_glob.side_effect = lambda path: {
+        './dicoms/subject_id/*': ['./dicoms/subject_id/' \
+                'STUDY_CAMH_0001_01_01_OBS_09_Ax-Observe-Task.dcm',
+                './dicoms/subject_id/STUDY_CAMH_0001_01_01_T1_02_SagT1-BRAVO.dcm'],
+        './standards/*': ['./standards/' \
+                'STUDY_CAMH_9999_01_01_T1_99_SagT1-BRAVO.dcm']
+        }[path]
     qc.run_header_qc(dicoms, standards, log)
 
-    d = 'tests/fixture_dm-qc-report/data/dcm/' \
-            'STUDY_CAMH_0001_01/STUDY_CAMH_0001_01_01_T1_02_SagT1-BRAVO.dcm'
-    s = 'tests/fixture_dm-qc-report/metadata/standards/' \
-            'SITE_CAMH_0001_01_01_T1_02_SagT1-BRAVO.dcm'
-    l = 'tests/fixture_dm-qc-report/data/dcm/' \
-            'STUDY_CAMH_0001_01/header-diff.log'
-    expected = 'qc-headers {} {} {}'.format(d, s, l)
+    matched_dicom = './dicoms/subject_id/' \
+            'STUDY_CAMH_0001_01_01_T1_02_SagT1-BRAVO.dcm'
+    matched_standard = './standards/' \
+            'STUDY_CAMH_9999_01_01_T1_99_SagT1-BRAVO.dcm'
+    log_dir = './qc/subject_id/header-diff.log'
+
+    expected = 'qc-headers {} {} {}'.format(matched_dicom,
+            matched_standard, log_dir)
 
     mock_run.assert_called_once_with(expected)
 
@@ -100,10 +124,10 @@ def test_add_report_to_checklist_doesnt_repeat_entry_with_new_extension():
 ###################################################################
 # Helper functions
 
-def run_header_qc_setup(path):
-    dicom_dir = os.path.join(FIXTURE_DIR, path)
-    standard_dir = os.path.join(FIXTURE_DIR, "metadata/standards")
-    log_file = os.path.join(dicom_dir, "header-diff.log")
+def run_header_qc_setup():
+    dicom_dir = './dicoms/subject_id'
+    standard_dir = './standards'
+    log_file = './qc/subject_id/header-diff.log'
     return dicom_dir, standard_dir, log_file
 
 def add_report_to_checklist_set_up():
