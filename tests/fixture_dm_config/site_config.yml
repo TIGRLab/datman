@@ -1,0 +1,12 @@
+SystemSettings:
+  test:
+    DATMAN_PROJECTSDIR: /archive/data
+    XNAT_ARCHIVEDIR: '/mnt/xnat/spred/archive/'
+    CONFIG_DIR: .
+
+  Projects:
+    TEST: test_settings.yml
+
+  paths:
+    meta: metadata/
+    zips: data/zips/
