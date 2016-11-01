@@ -126,7 +126,7 @@ def parse_filename(path):
     description = match.group("description")
     return ident, tag, series, description
 
-def make_filename(ident, tag, series, description, ext = None):
+def make_filename(ident, tag, series, description, ext=None):
     filename = "_".join([str(ident), tag, series, description])
     if ext:
         filename += ext
