@@ -341,7 +341,7 @@ def find_tech_notes(path):
                 return os.path.join(root, fname)
     return ""
 
-def write_tech_notes_link(report, subject_id):
+def write_tech_notes_link(report, subject_id, resources_path):
     """
     Adds a link to the tech notes for this subject to the given QC report
     """
@@ -507,6 +507,8 @@ def qc_subject(scan_path, subject_id, config):
     qc_dir = dm.utils.define_folder(os.path.join(qc_dir, subject_id))
     report_name = os.path.join(qc_dir, 'qc_{}.html'.format(subject_id))
 
+    resources_path = os.path.join(config['paths']['resources'], subject_id)
+
     if os.path.isfile(report_name):
         if not REWRITE:
             logger.debug("{} exists, skipping.".format(report_name))
@@ -523,7 +525,7 @@ def qc_subject(scan_path, subject_id, config):
     with open(report_name, 'wb') as report:
         write_report_header(report, subject_id)
         write_table(report, exportinfo)
-        write_tech_notes_link(report, subject_id)
+        write_tech_notes_link(report, subject_id, resources_path)
         # write_report_body
         for idx in range(0,len(exportinfo)):
             name = exportinfo.loc[idx,'File']
