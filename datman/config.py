@@ -9,9 +9,8 @@ These can both be overridden at __init__
 import logging
 import yaml
 import os
-from . import scanid
+import datman.scanid
 
-logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
 
 
@@ -62,7 +61,6 @@ class config(object):
 
     def set_study(self, study_name):
         # make the supplied project_name case insensitive
-
         valid_projects = {k.lower(): k
                           for k in self.site_config['Projects'].keys()}
 
@@ -70,9 +68,10 @@ class config(object):
             study_name = study_name.upper()
         else:
             study_name = self.map_xnat_archive_to_project(study_name)
-            if not study_name:
-                logger.error('Invalid project:{}'.format(study_name))
-                raise KeyError
+
+        if not study_name:
+            logger.error('Invalid project:{}'.format(study_name))
+            raise KeyError
 
         config_path = self.system_config['CONFIG_DIR']
 
@@ -97,31 +96,40 @@ class config(object):
         return(os.path.join(proj_dir,
                             self.study_config['PROJECTDIR']))
 
+    def test(self):
+        try:
+            parts = datman.scanid.parse('SPN01')
+        except:
+            print('caudght')
+
     def map_xnat_archive_to_project(self, filename):
         """Maps the XNAT tag (e.g. SPN01) to the project name e.g. SPINS
         Can either supply a full filename in which case only the first part
         is considered or just a tag
         """
+        logger.debug('Searching projects for:{}'.format(filename))
         try:
-            parts = scanid.parse(filename)
+            parts = datman.scanid.parse(filename)
             tag = parts.study
-        except scanid.ParseException:
+        except datman.scanid.ParseException:
             parts = filename.split('_')
             tag = parts[0]
 
         for project in self.site_config['Projects'].keys():
             logger.debug('Searching project:{}'.format(project))
-            self.set_study(project)
+            try:
+                self.set_study(project)
+                site_tags = []
+                if 'Sites' in self.study_config.keys():
+                    for key, site_cfg in self.study_config['Sites'].iteritems():
+                        if 'SITE_TAGS' in site_cfg.keys():
+                            site_tags = site_tags + [t.lower()
+                                                     for t
+                                                     in site_cfg['SITE_TAGS']]
+            except (ValueError, KeyError):
+                pass
+
             # Check the study_config contains a 'Sites' key
-            site_tags = []
-            if 'Sites' in self.study_config.keys():
-                for key, site_cfg in self.study_config['Sites'].iteritems():
-                    try:
-                        site_tags = site_tags + [t.lower()
-                                                 for t
-                                                 in site_cfg['SITE_TAGS']]
-                    except KeyError:
-                        pass
 
             site_tags = site_tags + [self.study_config['STUDY_TAG'].lower()]
 
@@ -147,7 +155,7 @@ class config(object):
         # didn't find a match throw a worning
         logger.warn('Failed to find a valid project for xnat id:{}'
                     .format(tag))
-        raise
+        raise ValueError
 
     def get_key(self, key, scope=None):
         """recursively search the yaml files for a key
