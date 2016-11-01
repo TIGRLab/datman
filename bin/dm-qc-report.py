@@ -615,9 +615,8 @@ def add_report_to_checklist(qc_report, checklist_path):
                 checklist_entry, checklist_ext = os.path.splitext(checklist_entry)
                 found_reports.append(checklist_entry)
     except IOError:
-        logger.error("{} does not exist. "\
+        logger.info("{} does not exist. "\
                 "Attempting to create it".format(checklist_path))
-        os.makedirs(checklist_path)
 
     if report_name in found_reports:
         return
