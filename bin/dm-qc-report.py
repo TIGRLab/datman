@@ -82,7 +82,6 @@ import re
 import glob
 import time
 import logging
-import subprocess as proc
 
 import numpy as np
 import pandas as pd
@@ -119,79 +118,6 @@ def sort_scans(filenames):
 
     return sorted_names
 
-def find_expected_files(config, scanpath, subject):
-    """
-    Reads in the export info from the config file and compares it to the
-    contents of the nii folder. Data written to a pandas dataframe.
-    """
-    site = dm.scanid.parse(subject + '_01').site # add artificial repeat number
-
-    allpaths = []
-    allfiles = []
-    for filetype in ('*.nii.gz', '*.nii'):
-        allpaths.extend(glob.glob(scanpath + '/*' + filetype))
-    for path in allpaths:
-        allfiles.append(os.path.basename(path))
-    allfiles = sort_scans(allfiles)
-
-
-    # build a tag count dict
-    tag_counts = {}
-    expected_position = {}
-    for tag in config['Sites'][site]['ExportInfo'].keys():
-        tag_counts[tag] = 0
-        # if it exists get the expected position from the config, this will let use sort the output
-        if 'Order' in config['Sites'][site]['ExportInfo'][tag].keys():
-            expected_position[tag] = min([config['Sites'][site]['ExportInfo'][tag]['Order']])
-        else:
-            expected_position[tag] = 0
-
-    # init output pandas data frame, counter
-    exportinfo = pd.DataFrame(columns=['tag', 'File', 'bookmark', 'Note', 'Sequence'])
-    idx = 0
-
-    # tabulate found data in the order they were acquired
-    for fn in allfiles:
-        tag = dm.scanid.parse_filename(fn)[1]
-
-        # only check data that is defined in the config file
-        if tag in config['Sites'][site]['ExportInfo'].keys():
-            expected_count = config['Sites'][site]['ExportInfo'][tag]['Count']
-        else:
-            continue
-
-        tag_counts[tag] += 1
-        bookmark = tag + str(tag_counts[tag])
-        if tag_counts[tag] > expected_count:
-            notes = 'Repeated Scan'
-        else:
-            notes = ''
-        exportinfo.loc[idx] = [tag, fn, bookmark, notes, expected_position[tag]]
-        idx += 1
-
-    # note any missing data
-    for tag in config['Sites'][site]['ExportInfo'].keys():
-        expected_count = config['Sites'][site]['ExportInfo'][tag]['Count']
-        if tag_counts[tag] < expected_count:
-            n_missing = expected_count - tag_counts[tag]
-            notes = 'missing({})'.format(expected_count - tag_counts[tag])
-            exportinfo.loc[idx] = [tag, '', '', notes, expected_position[tag]]
-            idx += 1
-    exportinfo = exportinfo.sort('Sequence')
-    return(exportinfo)
-
-def write_table(report, exportinfo):
-    report.write('<table>'
-                 '<tr><th>Tag</th>'
-                 '<th>File</th>'
-                 '<th>Notes</th></tr>')
-
-    for row in range(0,len(exportinfo)):
-        report.write('<tr><td>{}</td>'.format(exportinfo.loc[row,'tag'])) ## table new row
-        report.write('<td><a href="#{}">{}</a></td>'.format(exportinfo.loc[row,'bookmark'],exportinfo.loc[row,'File']))
-        report.write('<td><font color="#FF0000">{}</font></td></tr>'.format(exportinfo.loc[row,'Note'])) ## table new row
-    report.write('</table>\n')
-
 def nifti_basename(fpath):
     """
     return basename with out .nii.gz extension
@@ -222,9 +148,13 @@ def add_header_qc(fpath, qchtml, logdata):
     # get the filename of the nifti in question
     filestem = os.path.basename(fpath).replace(dm.utils.get_extension(fpath),'')
 
-    # read the log
-    with open(logdata, 'r') as f:
-        f = f.readlines()
+    try:
+        # read the log
+        with open(logdata, 'r') as f:
+            f = f.readlines()
+    except IOError:
+        logger.info("header-diff.log not found. Generating page without it.")
+        f = []
 
     # find lines in said log that pertain to the nifti
     lines = [re.sub('^.*?: *','',line) for line in f if filestem in line]
@@ -338,15 +268,19 @@ def dti_qc(filename, qc_dir, report):
     add_image(report, image, title='b0 montage')
     add_image(report, os.path.join(qc_dir, basename + '_directions.png'), title='bvec directions')
 
-def run_header_qc(dicomDir, standard_dir, logfile):
+def run_header_qc(dicom_dir, standard_dir, log_file):
     """
     For each .dcm file found in 'dicoms', find the matching site/tag file in
     'standards', and run qc-headers (from qcmon) on these files. Any
-    are written to logfile.
+    are written to log_file.
     """
 
-    dicoms = glob.glob(os.path.join(dicomDir, '*'))
+    dicoms = glob.glob(os.path.join(dicom_dir, '*'))
     standards = glob.glob(os.path.join(standard_dir, '*'))
+
+    if not dicoms:
+        logger.debug("No dicoms found in {}".format(dicom_dir))
+        return
 
     site = dm.scanid.parse_filename(dicoms[0])[0].site
 
@@ -361,42 +295,178 @@ def run_header_qc(dicomDir, standard_dir, logfile):
         try:
             s = standardDict[tag]
         except:
-            logger.debug('WARNING: No standard with tag {} found in {}'.format(tag, standard_dir))
+            logger.debug('No standard with tag {} found in {}'.format(tag,
+                    standard_dir))
             continue
 
         # run header check for dicom
-        dm.utils.run('qc-headers {} {} {}'.format(d, s, logfile))
+        dm.utils.run('qc-headers {} {} {}'.format(d, s, log_file))
 
-def qc_phantom(scanpath, subject, config):
+    if not os.path.isdir(log_file):
+        subject = os.path.basename(dicom_dir)
+        logger.error("header-diff.log not generated for {}. ".format(subject) +
+                " Check that gold standards are present for this site.")
+
+def qc_phantom(scan_path, subject_id, config):
     """
-    QC all the images in a folder (scanpath) for a non-human participant. Data
-    written to outputdir. No report is generated for phantom data. config is
-    loaded from the project_settings.yml file.
+    scan_path :         A scan folder for a phantom (non-human participant)
+    subject_id :        Subject ID assigned to this participant.
+    config :            The settings obtained from project_settings.yml
     """
-    HANDLERS = {
+    handlers = {
         "T1"            : phantom_anat_qc,
         "RST"           : phantom_fmri_qc,
         "DTI60-1000"    : phantom_dti_qc,
     }
 
     qc_dir = dm.utils.define_folder(config['paths']['qc'])
-    qc_dir = dm.utils.define_folder(os.path.join(qc_dir, subject))
+    qc_dir = dm.utils.define_folder(os.path.join(qc_dir, subject_id))
 
-    niftis = glob.glob(os.path.join(scanpath, '*.nii.gz'))
+    niftis = glob.glob(os.path.join(scan_path, '*.nii.gz'))
 
     for nifti in niftis:
         ident, tag, series, description = dm.scanid.parse_filename(nifti)
-        if tag not in HANDLERS:
-            logger.info("MSG: No QC tag {} for scan {}. Skipping.".format(tag, nifti))
+        if tag not in handlers:
+            logger.info("No QC tag {} for scan {}. Skipping.".format(tag, nifti))
             continue
-        HANDLERS[tag](nifti, qc_dir)
+        handlers[tag](nifti, qc_dir)
 
-def qc_subject(scanpath, subject, config):
+def find_tech_notes(path):
     """
-    QC all the images in a folder (scanpath) for a human participant. Report
-    written to  outputdir. config is loaded from the project_settings.yml file.
+    Search the file tree rooted at path for the tech notes pdf
     """
-    HANDLERS = {   # map from tag to QC function
+    for root, dirs, files in os.walk(glob.glob(path)[0]):
+        for fname in files:
+            if ".pdf" in fname:
+                return os.path.join(root, fname)
+    return ""
+
+def write_tech_notes_link(report, subject_id):
+    """
+    Adds a link to the tech notes for this subject to the given QC report
+    """
+    tech_notes = ""
+    if 'CMH' in subject_id:
+        tech_notes = find_tech_notes(resources_path)
+
+    if not tech_notes:
+        report.write('<p>Tech Notes not found</p>\n')
+        return
+
+    notes_path = os.path.relpath(os.path.abspath(tech_notes),
+                        os.path.dirname(report.name))
+    report.write('<a href="{}">'.format(notes_path))
+    report.write('Click Here to open Tech Notes')
+    report.write('</a><br>')
+
+def write_table(report, exportinfo):
+    report.write('<table><tr>'
+                 '<th>Tag</th>'
+                 '<th>File</th>'
+                 '<th>Notes</th></tr>')
+
+    for row in range(0,len(exportinfo)):
+        report.write('<tr><td>{}</td>'.format(exportinfo.loc[row,'tag'])) ## table new row
+        report.write('<td><a href="#{}">{}</a></td>'.format(exportinfo.loc[row,'bookmark'],exportinfo.loc[row,'File']))
+        report.write('<td><font color="#FF0000">{}</font></td></tr>'.format(exportinfo.loc[row,'Note'])) ## table new row
+    report.write('</table>\n')
+
+def write_report_header(report, subject_id):
+    report.write('<HTML><TITLE>{} qc</TITLE>\n'.format(subject_id))
+    report.write('<head>\n<style>\n'
+                'body { font-family: futura,sans-serif;'
+                '        text-align: center;}\n'
+                'img {width:90%; \n'
+                '   display: block\n;'
+                '   margin-left: auto;\n'
+                '   margin-right: auto }\n'
+                'table { margin: 25px auto; \n'
+                '        border-collapse: collapse;\n'
+                '        text-align: left;\n'
+                '        width: 90%; \n'
+                '        border: 1px solid grey;\n'
+                '        border-bottom: 2px solid black;} \n'
+                'th {background: black;\n'
+                '    color: white;\n'
+                '    text-transform: uppercase;\n'
+                '    padding: 10px;}\n'
+                'td {border-top: thin solid;\n'
+                '    border-bottom: thin solid;\n'
+                '    padding: 10px;}\n'
+                '</style></head>\n')
+
+    report.write('<h1> QC report for {} <h1/>'.format(subject_id))
+
+def find_expected_files(config, scan_path, subject):
+    """
+    Reads in the export info from the config file and compares it to the
+    contents of the nii folder. Data written to a pandas dataframe.
+    """
+    site = dm.scanid.parse(subject + '_01').site # add artificial repeat number
+
+    allpaths = []
+    allfiles = []
+    for filetype in ('*.nii.gz', '*.nii'):
+        allpaths.extend(glob.glob(scan_path + '/*' + filetype))
+    for path in allpaths:
+        allfiles.append(os.path.basename(path))
+    allfiles = sort_scans(allfiles)
+
+
+    # build a tag count dict
+    tag_counts = {}
+    expected_position = {}
+    for tag in config['Sites'][site]['ExportInfo'].keys():
+        tag_counts[tag] = 0
+        # if it exists get the expected position from the config, this will let use sort the output
+        if 'Order' in config['Sites'][site]['ExportInfo'][tag].keys():
+            expected_position[tag] = min([config['Sites'][site]['ExportInfo'][tag]['Order']])
+        else:
+            expected_position[tag] = 0
+
+    # init output pandas data frame, counter
+    exportinfo = pd.DataFrame(columns=['tag', 'File', 'bookmark', 'Note', 'Sequence'])
+    idx = 0
+
+    # tabulate found data in the order they were acquired
+    for fn in allfiles:
+        tag = dm.scanid.parse_filename(fn)[1]
+
+        # only check data that is defined in the config file
+        if tag in config['Sites'][site]['ExportInfo'].keys():
+            expected_count = config['Sites'][site]['ExportInfo'][tag]['Count']
+        else:
+            continue
+
+        tag_counts[tag] += 1
+        bookmark = tag + str(tag_counts[tag])
+        if tag_counts[tag] > expected_count:
+            notes = 'Repeated Scan'
+        else:
+            notes = ''
+        exportinfo.loc[idx] = [tag, fn, bookmark, notes, expected_position[tag]]
+        idx += 1
+
+    # note any missing data
+    for tag in config['Sites'][site]['ExportInfo'].keys():
+        expected_count = config['Sites'][site]['ExportInfo'][tag]['Count']
+        if tag_counts[tag] < expected_count:
+            n_missing = expected_count - tag_counts[tag]
+            notes = 'missing({})'.format(expected_count - tag_counts[tag])
+            exportinfo.loc[idx] = [tag, '', '', notes, expected_position[tag]]
+            idx += 1
+    exportinfo = exportinfo.sort('Sequence')
+    return(exportinfo)
+
+def qc_subject(scan_path, subject_id, config):
+    """
+    scan_path :         A scan folder for a single participant.
+    subject_id :        Subject ID assigned to this participant
+    config :            The settings obtained from project_settings.yml
+
+    Returns the path to the qc_<subject_id>.html file
+    """
+    handlers = {   # map from tag to QC function
         "T1"            : anat_qc,
         "T2"            : anat_qc,
         "PD"            : anat_qc,
@@ -434,80 +504,139 @@ def qc_subject(scanpath, subject, config):
     }
 
     qc_dir = dm.utils.define_folder(config['paths']['qc'])
-    qc_dir = dm.utils.define_folder(os.path.join(qc_dir, subject))
-    report_name = os.path.join(qc_dir, 'qc_{}.html'.format(subject))
+    qc_dir = dm.utils.define_folder(os.path.join(qc_dir, subject_id))
+    report_name = os.path.join(qc_dir, 'qc_{}.html'.format(subject_id))
 
-    if os.path.isfile(report_name) and not REWRITE:
-        logger.debug("MSG: {} exists, skipping.".format(report_name))
-        return
-
-    if os.path.isfile(report_name) and REWRITE:
+    if os.path.isfile(report_name):
+        if not REWRITE:
+            logger.debug("{} exists, skipping.".format(report_name))
+            return
         os.remove(report_name)
 
-    report = open(report_name, 'wb')
-    report.write('<HTML><TITLE>{} qc</TITLE>\n'.format(subject))
-    report.write('<head>\n<style>\n'
-                'body { font-family: futura,sans-serif;'
-                '        text-align: center;}\n'
-                'img {width:90%; \n'
-                '   display: block\n;'
-                '   margin-left: auto;\n'
-                '   margin-right: auto }\n'
-                'table { margin: 25px auto; \n'
-                '        border-collapse: collapse;\n'
-                '        text-align: left;\n'
-                '        width: 90%; \n'
-                '        border: 1px solid grey;\n'
-                '        border-bottom: 2px solid black;} \n'
-                'th {background: black;\n'
-                '    color: white;\n'
-                '    text-transform: uppercase;\n'
-                '    padding: 10px;}\n'
-                'td {border-top: thin solid;\n'
-                '    border-bottom: thin solid;\n'
-                '    padding: 10px;}\n'
-                '</style></head>\n')
-
-    report.write('<h1> QC report for {} <h1/>'.format(subject))
-
-    exportinfo = find_expected_files(config, scanpath, subject)
-    write_table(report, exportinfo)
-
-    # technotes
-    if 'CMH' in subject:
-        technotes = glob.glob('{}/../../RESOURCES/{}*/*/*/*.pdf'.format(scanpath, subject))
-
-        if len(technotes) > 0:
-            technotes = os.path.relpath(os.path.abspath(technotes[0]), os.path.dirname(report.name))
-            report.write('<a href="{}">\nClick Here to open Tech Notes</a><br>\n'.format(technotes))
-        else:
-            report.write('<p>Tech Notes not found</p>\n')
-
     # header diff
-    dcmSubj = os.path.join(config['paths']['dcm'], subject)
+    dcmSubj = os.path.join(config['paths']['dcm'], subject_id)
     headerDiff = os.path.join(qc_dir, 'header-diff.log')
     if not os.path.isfile(headerDiff):
         run_header_qc(dcmSubj, config['paths']['std'], headerDiff)
 
-    # run QC pipieline on each scan
-    for idx in range(0,len(exportinfo)):
-        name = exportinfo.loc[idx,'File']
-        if name!='' :
-            fname = os.path.join(scanpath, name)
-            logger.info("QC scan {}".format(fname))
-            ident, tag, series, description = dm.scanid.parse_filename(fname)
-            report.write('<h2 id="{}">{}</h2>\n'.format(exportinfo.loc[idx,'bookmark'], name))
+    exportinfo = find_expected_files(config, scan_path, subject_id)
+    with open(report_name, 'wb') as report:
+        write_report_header(report, subject_id)
+        write_table(report, exportinfo)
+        write_tech_notes_link(report, subject_id)
+        # write_report_body
+        for idx in range(0,len(exportinfo)):
+            name = exportinfo.loc[idx,'File']
+            if name:
+                fname = os.path.join(scan_path, name)
+                logger.info("QC scan {}".format(fname))
+                ident, tag, series, description = dm.scanid.parse_filename(fname)
+                report.write('<h2 id="{}">{}</h2>\n'.format(exportinfo.loc[idx,'bookmark'], name))
 
-            if tag not in HANDLERS:
-                logger.info("MSG: No QC tag {} for scan {}. Skipping.".format(tag, fname))
-                continue
+                if tag not in handlers:
+                    logger.info("No QC tag {} for scan {}. Skipping.".format(tag, fname))
+                    continue
 
-            add_header_qc(fname, report, headerDiff)
+                add_header_qc(fname, report, headerDiff)
 
-            HANDLERS[tag](fname, qc_dir, report)
-            report.write('<br>')
+                handlers[tag](fname, qc_dir, report)
+                report.write('<br>')
 
-    report.close()
+
+    return report_name
+
+def submit_qc_jobs(commands):
+    """
+    Submits the given commands to the queue.
+    """
+    for i, cmd in enumerate(commands):
+        jobname = "qc_report_{}_{}".format(time.strftime("%Y%m%d-%H%M%S"), i)
+        logfile = '/tmp/{}.log'.format(jobname)
+        errfile = '/tmp/{}.err'.format(jobname)
+
+        run_cmd = 'echo {} | qsub -V -q main.q ' \
+                '-o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname)
+
+        rtn, out = dm.utils.run(run_cmd)
+
+        if rtn:
+            logger.error("stdout: {}".format(out))
+        else:
+            logger.debug(out)
+
+def make_qc_command(subject_id, config_file):
+    command = " ".join([__file__, config_file, '--subject {}'.format(subject_id)])
+    if REWRITE:
+        command.append(' --rewrite')
+    return command
+
+def qc_all_scans(nii_dir, config_file):
+    """
+    Creates a dm-qc-report.py command for each scan and submits any
+    commands for human subjects to the queue to run.
+    """
+    human_commands = []
+    phantom_commands = []
+
+    for path in os.listdir(nii_dir):
+        subject_id = os.path.basename(path)
+        command = make_qc_command(subject_id, config_file)
+        if '_PHA_' in subject_id:
+            phantom_commands.append(command)
+        else:
+            human_commands.append(command)
+
+    if human_commands:
+        submit_qc_jobs(human_commands)
+
+    if phantom_commands:
+        for cmd in phantom_commands:
+            rtn, out = dm.utils.run(cmd)
+            if rtn:
+                logger.error("stdout: {}".format(out))
+
+def add_report_to_checklist(qc_report, checklist_path):
+    """
+    Add the given report's name to the QC checklist if it is not already
+    present.
+    """
+    if not qc_report:
+        return
+
+    # remove extension from report name, so we don't double-count .pdfs vs .html
+    report_name, report_ext = os.path.splitext(qc_report)
+
+    found_reports = []
+
+    try:
+        with open(checklist_path, 'r') as checklist:
+            for checklist_entry in checklist:
+                checklist_entry = checklist_entry.split(' ')[0].strip()
+                checklist_entry, checklist_ext = os.path.splitext(checklist_entry)
+                found_reports.append(checklist_entry)
+    except IOError:
+        logger.error("{} does not exist. "\
+                "Attempting to create it".format(checklist_path))
+        os.makedirs(checklist_path)
+
+    if report_name in found_reports:
+        return
+
+    with open(checklist_path, 'a') as checklist:
+        checklist.write(os.path.basename(report_name + report_ext) + '\n')
+
+def qc_single_scan(path, scanid, config):
+    """
+    Perform QC for a single subject or phantom. Return the report name if one
+    was created.
+    """
+    if 'PHA' in scanid:
+        logger.info("QC phantom {}".format(path))
+        qc_phantom(path, scanid, config)
+        return ""
+
+    logger.info("QC {}".format(path))
+    report_name = qc_subject(path, scanid, config)
     return report_name
 
 def main():
@@ -516,15 +645,15 @@ def main():
 
     arguments = docopt(__doc__)
 
-    config_file = arguments['<config>']
-    scanid     = arguments['--subject']
-    REWRITE    = arguments['--rewrite']
-    debug      = arguments['--debug']
+    config_path = arguments['<config>']
+    scanid      = arguments['--subject']
+    REWRITE     = arguments['--rewrite']
+    debug       = arguments['--debug']
 
     if debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    with open(config_file, 'r') as stream:
+    with open(config_path, 'r') as stream:
         config = yaml.load(stream)
 
     for k in ['dcm', 'nii', 'qc', 'std', 'meta']:
@@ -540,74 +669,13 @@ def main():
     if scanid:
         dm.utils.remove_empty_files(os.path.join(qc_dir, scanid))
         path = os.path.join(nii_dir, scanid)
+        checklist_path = os.path.join(meta_dir, checklist_file)
 
-        if 'PHA' in scanid:
-            logger.info("MSG: qc phantom {}".format(path))
-            qc_phantom(path, scanid, config)
-        else:
-            logger.info("MSG: qc {}".format(path))
-            report_name = qc_subject(path, scanid, config)
+        qc_report = qc_single_scan(path, scanid, config)
+        add_report_to_checklist(qc_report, checklist_path)
+        return
 
-            # add file name to the checklist, if it isn't already there
-            if report_name:
-                # remove extension from report name, so we don't double-count .pdfs vs .html
-                report_name, report_ext = os.path.splitext(report_name)
-                checklist = open(os.path.join(meta_dir, checklist_file), 'r')
-                found_reports = []
-
-                for checklist_entry in checklist:
-                    checklist_entry = checklist_entry.split(' ')[0].strip()
-                    checklist_entry, checklist_ext = os.path.split(checklist_entry)
-                    found_reports.append(checklist_entry)
-
-                if report_name not in found_reports:
-                    checklist = open(os.path.join(meta_dir, checklist_file), 'a')
-                    # add the report extension back for writing into checklist.csv
-                    checklist.write(os.path.basename(report_name + report_ext) + '\n')
-                    checklist.close()
-
-    # run in batch mode
-    else:
-        commands_human = []
-        commands_phantom = []
-        nii_dirs = glob.glob('{}/*'.format(nii_dir))
-        qc_dirs = glob.glob('{}/*'.format(qc_dir))
-
-        for path in nii_dirs:
-            subject = os.path.basename(path)
-
-            if REWRITE:
-                if '_PHA_' in subject:
-                    commands_phantom.append(" ".join([__file__, config_file, '--subject {}'.format(subject), '--rewrite']))
-                else:
-                    commands_human.append(" ".join([__file__, config_file, '--subject {}'.format(subject), '--rewrite']))
-            else:
-                if '_PHA_' in subject:
-                    commands_phantom.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
-                else:
-                    commands_human.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
-
-        if commands_human:
-            for i, cmd in enumerate(commands_human):
-                jobname = "qc_report_{}_{}".format(time.strftime("%Y%m%d-%H%M%S"), i)
-                logfile = '/tmp/{}.log'.format(jobname)
-                errfile = '/tmp/{}.err'.format(jobname)
-                rtn, out = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
-
-                if rtn:
-                    logger.error("stdout: {}".format(out))
-                    sys.exit(1)
-
-                else:
-                    logger.debug(out)
-
-        if commands_phantom:
-            for cmd in commands_phantom:
-                rtn, out = dm.utils.run(cmd)
-
-                if rtn:
-                    logger.error("stdout: {}".format(out))
-                    sys.exit(1)
+    qc_all_scans(nii_dir, config_path)
 
 if __name__ == "__main__":
     main()
