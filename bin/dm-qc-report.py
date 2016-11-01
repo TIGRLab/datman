@@ -335,7 +335,12 @@ def find_tech_notes(path):
     """
     Search the file tree rooted at path for the tech notes pdf
     """
-    for root, dirs, files in os.walk(glob.glob(path)[0]):
+    resource_folder = glob.glob(path + "*")
+
+    if resource_folder:
+        resource_folder = resource_folder[0]
+
+    for root, dirs, files in os.walk(resource_folder):
         for fname in files:
             if ".pdf" in fname:
                 return os.path.join(root, fname)
