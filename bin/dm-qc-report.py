@@ -95,6 +95,35 @@ logger = logging.getLogger(os.path.basename(__file__))
 
 REWRITE = False
 
+class SiteConfig(object):
+    """
+    Simplifies access to the project_settings.yaml information
+    """
+    def __init__(self, config_path):
+        self.path = config_path
+
+        with open(config_path, 'r') as stream:
+            config = yaml.load(stream)
+            self.paths = config['paths']
+            self.sites = config['Sites']
+
+    def get_path(self, path_key):
+        return self.paths[path_key]
+
+    def get_export_info(self, site_key):
+        return ExportInfo(self.sites[site_key]['ExportInfo'])
+
+class ExportInfo(object):
+    """
+    Simplifies access to an export info dictionary
+    """
+    def __init__(self, export_dict):
+        self.export_info = export_dict
+        self.tags = export_dict.keys()
+
+    def get_tag_info(self, tag):
+        return self.export_info[tag]
+
 def slicer(fpath, pic, slicergap, picwidth):
     """
     Uses FSL's slicer function to generate a montage png from a nifti file
@@ -104,19 +133,6 @@ def slicer(fpath, pic, slicergap, picwidth):
         pic         -- fullpath to for output image
     """
     dm.utils.run("slicer {} -S {} {} {}".format(fpath,slicergap,picwidth,pic))
-
-def sort_scans(filenames):
-    """
-    Takes a list of filenames, and orders them by sequence number.
-    """
-    sorted_series = []
-    for fn in filenames:
-        sorted_series.append(int(dm.scanid.parse_filename(fn)[2]))
-
-    idx = np.argsort(sorted_series)
-    sorted_names = np.asarray(filenames)[idx].tolist()
-
-    return sorted_names
 
 def nifti_basename(fpath):
     """
@@ -140,33 +156,6 @@ def add_image(qchtml, image, title=None):
     qchtml.write('</a><br>\n')
 
     return qchtml
-
-def add_header_qc(fpath, qchtml, logdata):
-    """
-    Adds header diff infortmation to the report.
-    """
-    # get the filename of the nifti in question
-    filestem = os.path.basename(fpath).replace(dm.utils.get_extension(fpath),'')
-
-    try:
-        # read the log
-        with open(logdata, 'r') as f:
-            f = f.readlines()
-    except IOError:
-        logger.info("header-diff.log not found. Generating page without it.")
-        f = []
-
-    # find lines in said log that pertain to the nifti
-    lines = [re.sub('^.*?: *','',line) for line in f if filestem in line]
-
-    if not lines:
-        return
-
-    qchtml.write('<h3> {} header differences </h3>\n<table>'.format(filestem))
-    for l in lines:
-        qchtml.write('<tr><td>{}</td></tr>'.format(l))
-    qchtml.write('</table>\n')
-
 # PIPELINES
 def ignore(filename, qc_dir, report):
     pass
@@ -268,80 +257,131 @@ def dti_qc(filename, qc_dir, report):
     add_image(report, image, title='b0 montage')
     add_image(report, os.path.join(qc_dir, basename + '_directions.png'), title='bvec directions')
 
-def run_header_qc(dicom_dir, standard_dir, log_file):
+def submit_qc_jobs(commands):
     """
-    For each .dcm file found in 'dicoms', find the matching site/tag file in
-    'standards', and run qc-headers (from qcmon) on these files. Any
-    are written to log_file.
+    Submits the given commands to the queue.
     """
+    for i, cmd in enumerate(commands):
+        jobname = "qc_report_{}_{}".format(time.strftime("%Y%m%d-%H%M%S"), i)
+        logfile = '/tmp/{}.log'.format(jobname)
+        errfile = '/tmp/{}.err'.format(jobname)
 
-    dicoms = glob.glob(os.path.join(dicom_dir, '*'))
-    standards = glob.glob(os.path.join(standard_dir, '*'))
+        run_cmd = 'echo {} | qsub -V -q main.q ' \
+                '-o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname)
 
-    if not dicoms:
-        logger.debug("No dicoms found in {}".format(dicom_dir))
+        rtn, out = dm.utils.run(run_cmd)
+
+        if rtn:
+            logger.error("stdout: {}".format(out))
+        else:
+            logger.debug(out)
+
+def make_qc_command(subject_id, config_file):
+    command = " ".join([__file__, config_file, '--subject {}'.format(subject_id)])
+    if REWRITE:
+        command.append(' --rewrite')
+    return command
+
+def qc_all_scans(nii_dir, config_file):
+    """
+    Creates a dm-qc-report.py command for each scan and submits any
+    commands for human subjects to the queue to run.
+    """
+    human_commands = []
+    phantom_commands = []
+
+    for path in os.listdir(nii_dir):
+        subject_id = os.path.basename(path)
+        command = make_qc_command(subject_id, config_file)
+        if '_PHA_' in subject_id:
+            phantom_commands.append(command)
+        else:
+            human_commands.append(command)
+
+    if human_commands:
+        submit_qc_jobs(human_commands)
+
+    if phantom_commands:
+        for cmd in phantom_commands:
+            rtn, out = dm.utils.run(cmd)
+            if rtn:
+                logger.error("stdout: {}".format(out))
+
+def find_existing_reports(checklist_path):
+    found_reports = []
+    with open(checklist_path, 'r') as checklist:
+        for checklist_entry in checklist:
+            checklist_entry = checklist_entry.split(' ')[0].strip()
+            checklist_entry, checklist_ext = os.path.splitext(checklist_entry)
+            found_reports.append(checklist_entry)
+    return found_reports
+
+def add_report_to_checklist(qc_report, checklist_path):
+    """
+    Add the given report's name to the QC checklist if it is not already
+    present.
+    """
+    if not qc_report:
         return
 
-    site = dm.scanid.parse_filename(dicoms[0])[0].site
+    # remove extension from report name, so we don't double-count .pdfs vs .html
+    report_name, report_ext = os.path.splitext(qc_report)
 
-    # build standard dict
-    standardDict = {}
-    for s in standards:
-        if dm.scanid.parse_filename(s)[0].site == site:
-            standardDict[dm.scanid.parse_filename(s)[1]] = s
+    try:
+        found_reports = find_existing_reports(checklist_path)
+    except IOError:
+        logger.info("{} does not exist. "\
+                "Attempting to create it".format(checklist_path))
+        found_reports = []
 
-    for d in dicoms:
-        tag = dm.scanid.parse_filename(d)[1]
-        try:
-            s = standardDict[tag]
-        except:
-            logger.debug('No standard with tag {} found in {}'.format(tag,
-                    standard_dir))
-            continue
+    if report_name in found_reports:
+        return
 
-        # run header check for dicom
-        dm.utils.run('qc-headers {} {} {}'.format(d, s, log_file))
+    with open(checklist_path, 'a') as checklist:
+        checklist.write(os.path.basename(report_name + report_ext) + '\n')
 
-    if not os.path.isdir(log_file):
-        subject = os.path.basename(dicom_dir)
-        logger.error("header-diff.log not generated for {}. ".format(subject) +
-                " Check that gold standards are present for this site.")
-
-def qc_phantom(scan_path, subject_id, config):
+def add_header_qc(fpath, qchtml, logdata):
     """
-    scan_path :         A scan folder for a phantom (non-human participant)
-    subject_id :        Subject ID assigned to this participant.
-    config :            The settings obtained from project_settings.yml
+    Adds header diff infortmation to the report.
     """
-    handlers = {
-        "T1"            : phantom_anat_qc,
-        "RST"           : phantom_fmri_qc,
-        "DTI60-1000"    : phantom_dti_qc,
-    }
+    # get the filename of the nifti in question
+    filestem = os.path.basename(fpath).replace(dm.utils.get_extension(fpath),'')
 
-    qc_dir = dm.utils.define_folder(config['paths']['qc'])
-    qc_dir = dm.utils.define_folder(os.path.join(qc_dir, subject_id))
+    try:
+        # read the log
+        with open(logdata, 'r') as f:
+            f = f.readlines()
+    except IOError:
+        logger.info("header-diff.log not found. Generating page without it.")
+        f = []
 
-    niftis = glob.glob(os.path.join(scan_path, '*.nii.gz'))
+    # find lines in said log that pertain to the nifti
+    lines = [re.sub('^.*?: *','',line) for line in f if filestem in line]
 
-    for nifti in niftis:
-        ident, tag, series, description = dm.scanid.parse_filename(nifti)
-        if tag not in handlers:
-            logger.info("No QC tag {} for scan {}. Skipping.".format(tag, nifti))
-            continue
-        handlers[tag](nifti, qc_dir)
+    if not lines:
+        return
+
+    qchtml.write('<h3> {} header differences </h3>\n<table>'.format(filestem))
+    for l in lines:
+        qchtml.write('<tr><td>{}</td></tr>'.format(l))
+    qchtml.write('</table>\n')
 
 def find_tech_notes(path):
     """
     Search the file tree rooted at path for the tech notes pdf
     """
-    for root, dirs, files in os.walk(glob.glob(path)[0]):
+    resource_folder = glob.glob(path + "*")
+
+    if resource_folder:
+        resource_folder = resource_folder[0]
+
+    for root, dirs, files in os.walk(resource_folder):
         for fname in files:
             if ".pdf" in fname:
                 return os.path.join(root, fname)
     return ""
 
-def write_tech_notes_link(report, subject_id):
+def write_tech_notes_link(report, subject_id, resources_path):
     """
     Adds a link to the tech notes for this subject to the given QC report
     """
@@ -397,44 +437,58 @@ def write_report_header(report, subject_id):
 
     report.write('<h1> QC report for {} <h1/>'.format(subject_id))
 
+def initialize_counts(export_info):
+    # build a tag count dict
+    tag_counts = {}
+    expected_position = {}
+
+    for tag in export_info.tags:
+        tag_counts[tag] = 0
+        tag_info = export_info.get_tag_info(tag)
+
+        # If ordering has been imposed on the scans get it for later sorting.
+        if 'Order' in tag_info.keys():
+            expected_position[tag] = min([tag_info['Order']])
+        else:
+            expected_position[tag] = 0
+
+    return tag_counts, expected_position
+
+def get_sorted_niftis(scan_path):
+    niftis = []
+    for item in glob.glob(os.path.join(scan_path, '*')):
+        if dm.utils.get_extension(item) in ['.nii.gz', '.nii']:
+            niftis.append(os.path.basename(item))
+
+    # Sort niftis by their series number
+    niftis = sorted(niftis, key=lambda x: dm.scanid.parse_filename(x)[2])
+
+    return niftis
+
 def find_expected_files(config, scan_path, subject):
     """
     Reads in the export info from the config file and compares it to the
     contents of the nii folder. Data written to a pandas dataframe.
     """
     site = dm.scanid.parse(subject + '_01').site # add artificial repeat number
+    export_info = config.get_export_info(site)
 
-    allpaths = []
-    allfiles = []
-    for filetype in ('*.nii.gz', '*.nii'):
-        allpaths.extend(glob.glob(scan_path + '/*' + filetype))
-    for path in allpaths:
-        allfiles.append(os.path.basename(path))
-    allfiles = sort_scans(allfiles)
+    niftis = get_sorted_niftis(scan_path)
 
-
-    # build a tag count dict
-    tag_counts = {}
-    expected_position = {}
-    for tag in config['Sites'][site]['ExportInfo'].keys():
-        tag_counts[tag] = 0
-        # if it exists get the expected position from the config, this will let use sort the output
-        if 'Order' in config['Sites'][site]['ExportInfo'][tag].keys():
-            expected_position[tag] = min([config['Sites'][site]['ExportInfo'][tag]['Order']])
-        else:
-            expected_position[tag] = 0
+    tag_counts, expected_positions = initialize_counts(export_info)
 
     # init output pandas data frame, counter
-    exportinfo = pd.DataFrame(columns=['tag', 'File', 'bookmark', 'Note', 'Sequence'])
     idx = 0
+    expected_files = pd.DataFrame(columns=['tag', 'File', 'bookmark', 'Note',
+            'Sequence'])
 
     # tabulate found data in the order they were acquired
-    for fn in allfiles:
-        tag = dm.scanid.parse_filename(fn)[1]
+    for file_name in niftis:
+        tag = dm.scanid.parse_filename(file_name)[1]
 
         # only check data that is defined in the config file
-        if tag in config['Sites'][site]['ExportInfo'].keys():
-            expected_count = config['Sites'][site]['ExportInfo'][tag]['Count']
+        if tag in export_info.tags:
+            expected_count = export_info.get_tag_info(tag)['Count']
         else:
             continue
 
@@ -444,19 +498,68 @@ def find_expected_files(config, scan_path, subject):
             notes = 'Repeated Scan'
         else:
             notes = ''
-        exportinfo.loc[idx] = [tag, fn, bookmark, notes, expected_position[tag]]
+#####################################################################
+        # TODO If the list is empty pop will crash. Fix
+        if isinstance(expected_positions[tag], list):
+            position = expected_positions[tag].pop(0)
+        else:
+            position = expected_positions[tag]
+
+        expected_files.loc[idx] = [tag, file_name, bookmark, notes,
+                position]
         idx += 1
+######################################################################
 
     # note any missing data
-    for tag in config['Sites'][site]['ExportInfo'].keys():
-        expected_count = config['Sites'][site]['ExportInfo'][tag]['Count']
+    for tag in export_info.tags:
+        expected_count = export_info.get_tag_info(tag)['Count']
         if tag_counts[tag] < expected_count:
             n_missing = expected_count - tag_counts[tag]
             notes = 'missing({})'.format(expected_count - tag_counts[tag])
-            exportinfo.loc[idx] = [tag, '', '', notes, expected_position[tag]]
+            expected_files.loc[idx] = [tag, '', '', notes,
+                    expected_positions[tag]]
             idx += 1
-    exportinfo = exportinfo.sort('Sequence')
-    return(exportinfo)
+    expected_files = expected_files.sort('Sequence')
+    return(expected_files)
+
+def run_header_qc(dicom_dir, standard_dir, log_file):
+    """
+    For each .dcm file found in 'dicoms', find the matching site/tag file in
+    'standards', and run qc-headers (from qcmon) on these files. Any
+    are written to log_file.
+    """
+
+    dicoms = glob.glob(os.path.join(dicom_dir, '*'))
+    standards = glob.glob(os.path.join(standard_dir, '*'))
+
+    if not dicoms:
+        logger.debug("No dicoms found in {}".format(dicom_dir))
+        return
+
+    site = dm.scanid.parse_filename(dicoms[0])[0].site
+
+    # build standard dict
+    standardDict = {}
+    for s in standards:
+        if dm.scanid.parse_filename(s)[0].site == site:
+            standardDict[dm.scanid.parse_filename(s)[1]] = s
+
+    for d in dicoms:
+        tag = dm.scanid.parse_filename(d)[1]
+        try:
+            s = standardDict[tag]
+        except:
+            logger.debug('No standard with tag {} found in {}'.format(tag,
+                    standard_dir))
+            continue
+
+        # run header check for dicom
+        dm.utils.run('qc-headers {} {} {}'.format(d, s, log_file))
+
+    if not os.path.exists(log_file):
+        subject = os.path.basename(dicom_dir)
+        logger.error("header-diff.log not generated for {}. ".format(subject) +
+                " Check that gold standards are present for this site.")
 
 def qc_subject(scan_path, subject_id, config):
     """
@@ -503,9 +606,11 @@ def qc_subject(scan_path, subject_id, config):
         "DTI69-1000"    : dti_qc,
     }
 
-    qc_dir = dm.utils.define_folder(config['paths']['qc'])
-    qc_dir = dm.utils.define_folder(os.path.join(qc_dir, subject_id))
+    qc_dir = os.path.join(config.get_path('qc'), subject_id)
+    qc_dir = dm.utils.define_folder(qc_dir)
     report_name = os.path.join(qc_dir, 'qc_{}.html'.format(subject_id))
+
+    resources_path = os.path.join(config.get_path('resources'), subject_id)
 
     if os.path.isfile(report_name):
         if not REWRITE:
@@ -514,30 +619,31 @@ def qc_subject(scan_path, subject_id, config):
         os.remove(report_name)
 
     # header diff
-    dcmSubj = os.path.join(config['paths']['dcm'], subject_id)
-    headerDiff = os.path.join(qc_dir, 'header-diff.log')
-    if not os.path.isfile(headerDiff):
-        run_header_qc(dcmSubj, config['paths']['std'], headerDiff)
+    subject_dcm = os.path.join(config.get_path('dcm'), subject_id)
+    header_diffs = os.path.join(qc_dir, 'header-diff.log')
+    if not os.path.isfile(header_diffs):
+        run_header_qc(subject_dcm, config.get_path('std'), header_diffs)
 
-    exportinfo = find_expected_files(config, scan_path, subject_id)
+    expected_files = find_expected_files(config, scan_path, subject_id)
+    
     with open(report_name, 'wb') as report:
         write_report_header(report, subject_id)
-        write_table(report, exportinfo)
-        write_tech_notes_link(report, subject_id)
+        write_table(report, expected_files)
+        write_tech_notes_link(report, subject_id, resources_path)
         # write_report_body
-        for idx in range(0,len(exportinfo)):
-            name = exportinfo.loc[idx,'File']
+        for idx in range(0,len(expected_files)):
+            name = expected_files.loc[idx,'File']
             if name:
                 fname = os.path.join(scan_path, name)
                 logger.info("QC scan {}".format(fname))
                 ident, tag, series, description = dm.scanid.parse_filename(fname)
-                report.write('<h2 id="{}">{}</h2>\n'.format(exportinfo.loc[idx,'bookmark'], name))
+                report.write('<h2 id="{}">{}</h2>\n'.format(expected_files.loc[idx,'bookmark'], name))
 
                 if tag not in handlers:
                     logger.info("No QC tag {} for scan {}. Skipping.".format(tag, fname))
                     continue
 
-                add_header_qc(fname, report, headerDiff)
+                add_header_qc(fname, report, header_diffs)
 
                 handlers[tag](fname, qc_dir, report)
                 report.write('<br>')
@@ -545,85 +651,29 @@ def qc_subject(scan_path, subject_id, config):
 
     return report_name
 
-def submit_qc_jobs(commands):
+def qc_phantom(scan_path, subject_id, config):
     """
-    Submits the given commands to the queue.
+    scan_path :         A scan folder for a phantom (non-human participant)
+    subject_id :        Subject ID assigned to this participant.
+    config :            The settings obtained from project_settings.yml
     """
-    for i, cmd in enumerate(commands):
-        jobname = "qc_report_{}_{}".format(time.strftime("%Y%m%d-%H%M%S"), i)
-        logfile = '/tmp/{}.log'.format(jobname)
-        errfile = '/tmp/{}.err'.format(jobname)
+    handlers = {
+        "T1"            : phantom_anat_qc,
+        "RST"           : phantom_fmri_qc,
+        "DTI60-1000"    : phantom_dti_qc,
+    }
 
-        run_cmd = 'echo {} | qsub -V -q main.q ' \
-                '-o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname)
+    qc_dir = os.path.join(config.get_path('qc'), subject_id)
+    qc_dir = dm.utils.define_folder(qc_dir)
 
-        rtn, out = dm.utils.run(run_cmd)
+    niftis = glob.glob(os.path.join(scan_path, '*.nii.gz'))
 
-        if rtn:
-            logger.error("stdout: {}".format(out))
-        else:
-            logger.debug(out)
-
-def make_qc_command(subject_id, config_file):
-    command = " ".join([__file__, config_file, '--subject {}'.format(subject_id)])
-    if REWRITE:
-        command.append(' --rewrite')
-    return command
-
-def qc_all_scans(nii_dir, config_file):
-    """
-    Creates a dm-qc-report.py command for each scan and submits any
-    commands for human subjects to the queue to run.
-    """
-    human_commands = []
-    phantom_commands = []
-
-    for path in os.listdir(nii_dir):
-        subject_id = os.path.basename(path)
-        command = make_qc_command(subject_id, config_file)
-        if '_PHA_' in subject_id:
-            phantom_commands.append(command)
-        else:
-            human_commands.append(command)
-
-    if human_commands:
-        submit_qc_jobs(human_commands)
-
-    if phantom_commands:
-        for cmd in phantom_commands:
-            rtn, out = dm.utils.run(cmd)
-            if rtn:
-                logger.error("stdout: {}".format(out))
-
-def add_report_to_checklist(qc_report, checklist_path):
-    """
-    Add the given report's name to the QC checklist if it is not already
-    present.
-    """
-    if not qc_report:
-        return
-
-    # remove extension from report name, so we don't double-count .pdfs vs .html
-    report_name, report_ext = os.path.splitext(qc_report)
-
-    found_reports = []
-
-    try:
-        with open(checklist_path, 'r') as checklist:
-            for checklist_entry in checklist:
-                checklist_entry = checklist_entry.split(' ')[0].strip()
-                checklist_entry, checklist_ext = os.path.splitext(checklist_entry)
-                found_reports.append(checklist_entry)
-    except IOError:
-        logger.error("{} does not exist. "\
-                "Attempting to create it".format(checklist_path))
-        os.makedirs(checklist_path)
-
-    if report_name in found_reports:
-        return
-
-    with open(checklist_path, 'a') as checklist:
-        checklist.write(os.path.basename(report_name + report_ext) + '\n')
+    for nifti in niftis:
+        ident, tag, series, description = dm.scanid.parse_filename(nifti)
+        if tag not in handlers:
+            logger.info("No QC tag {} for scan {}. Skipping.".format(tag, nifti))
+            continue
+        handlers[tag](nifti, qc_dir)
 
 def qc_single_scan(path, scanid, config):
     """
@@ -639,6 +689,29 @@ def qc_single_scan(path, scanid, config):
     report_name = qc_subject(path, scanid, config)
     return report_name
 
+def get_site_config(config_path):
+    """
+    Ensures the path to the given yaml file is readable and contains
+    the expected paths. Returns an instance of SiteConfig.
+
+    Throws sys.exit if the config file is unreadable or missing paths.
+    """
+    try:
+        config = SiteConfig(config_path)
+    except IOError:
+        logging.error("{} cannot be read.".format(config_path))
+        sys.exit(1)
+
+    expected_paths = set(['dcm', 'nii', 'qc', 'std', 'meta'])
+    undefined_paths = expected_paths - set(config.paths)
+
+    if undefined_paths:
+        logging.error("paths: {} not defined in {}".format(undefined_paths,
+                config_path))
+        sys.exit(1)
+
+    return config
+
 def main():
 
     global REWRITE
@@ -653,29 +726,20 @@ def main():
     if debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    with open(config_path, 'r') as stream:
-        config = yaml.load(stream)
+    config = get_site_config(config_path)
 
-    for k in ['dcm', 'nii', 'qc', 'std', 'meta']:
-        if k not in config['paths']:
-            logging.error("paths:{} not defined in {}".format(k, configfile))
-            sys.exit(1)
-
-    nii_dir = config['paths']['nii']
-    qc_dir = dm.utils.define_folder(config['paths']['qc'])
-    meta_dir = config['paths']['meta']
-    checklist_file = os.path.join(meta_dir,'checklist.csv')
+    nii_dir = config.get_path('nii')
 
     if scanid:
-        dm.utils.remove_empty_files(os.path.join(qc_dir, scanid))
-        path = os.path.join(nii_dir, scanid)
-        checklist_path = os.path.join(meta_dir, checklist_file)
+        scan_path = os.path.join(nii_dir, scanid)
+        dm.utils.remove_empty_files(scan_path)
+        checklist_path = os.path.join(config.get_path('meta'), 'checklist.csv')
 
-        qc_report = qc_single_scan(path, scanid, config)
+        qc_report = qc_single_scan(scan_path, scanid, config)
         add_report_to_checklist(qc_report, checklist_path)
         return
 
-    qc_all_scans(nii_dir, config_path)
+    qc_all_scans(nii_dir, config)
 
 if __name__ == "__main__":
     main()
