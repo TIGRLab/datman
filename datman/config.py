@@ -18,6 +18,8 @@ class config(object):
     site_config = None
     study_config = None
     system_config = None
+    study_name = None
+    study_config_file = None
 
     def __init__(self, filename=None, system=None, study=None):
         if not filename:
@@ -73,13 +75,15 @@ class config(object):
             logger.error('Invalid project:{}'.format(study_name))
             raise KeyError
 
+        self.study_name = study_name
+
         config_path = self.system_config['CONFIG_DIR']
 
         project_settings_file = os.path.join(config_path,
             self.site_config['Projects'][study_name])
 
         self.study_config = self.load_yaml(project_settings_file)
-
+        self.study_config_name = project_settings_file
     def get_study_base(self, study=None):
         """Return the base directory for a study"""
 
@@ -100,7 +104,7 @@ class config(object):
         try:
             parts = datman.scanid.parse('SPN01')
         except:
-            print('caudght')
+            print('caught')
 
     def map_xnat_archive_to_project(self, filename):
         """Maps the XNAT tag (e.g. SPN01) to the project name e.g. SPINS
@@ -157,12 +161,17 @@ class config(object):
                     .format(tag))
         raise ValueError
 
-    def get_key(self, key, scope=None):
+    def get_key(self, key, scope=None, site=None):
         """recursively search the yaml files for a key
         if it exists in study_config returns that value
         otherwise checks site_config
         raises a key error if it's not found
-        key: [list of subscripted keys]"""
+        If site is specified the study_config first checks the
+        ['Sites'][site] key of the study_config. If the key is not
+        located there the top level of the study_config is checked
+        followed by the site_config.
+        key: [list of subscripted keys]
+        """
 
         # quick check to see if a single string was passed
         if isinstance(key, basestring):
@@ -176,7 +185,14 @@ class config(object):
             result = self.study_config
         else:
             # first call and no study set, look at site config
+            logger.warning('Study config not set')
             result = self.site_config
+            if site:
+                try:
+                    result = result['Site'][site]
+                except KeyError:
+                    logger.warning('Site:{} not found in study_config:{}'
+                                   .format(site, self.study_config_file))
 
         for val in key:
             try:
@@ -187,7 +203,14 @@ class config(object):
                     raise
                 else:
                     # call recursively
-                    return self.get_key(key, scope=1)
+                    if site:
+                        return(self.get_key(key))
+                    elif not scope:
+                        return self.get_key(key, scope=1)
+                    else:
+                        logger.warning('Failed to find key:{}'
+                                       .format(key))
+                        return
         return result
 
 
@@ -244,5 +267,7 @@ class config(object):
             return(os.path.join(self.get_study_base(),
                                 self.study_config['paths'][path_type]))
         except (KeyError, TypeError):
+            logger.info('Path {} not defined in study {} config file'
+                           .format(path_type, self.study_name))
             return(os.path.join(self.get_study_base(),
                                 self.site_config['paths'][path_type]))
