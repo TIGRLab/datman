@@ -134,28 +134,19 @@ def slicer(fpath, pic, slicergap, picwidth):
     """
     dm.utils.run("slicer {} -S {} {} {}".format(fpath,slicergap,picwidth,pic))
 
-def nifti_basename(fpath):
-    """
-    return basename with out .nii.gz extension
-    """
-    basefpath = os.path.basename(fpath)
-    stem = basefpath.replace('.nii.gz','')
-
-    return(stem)
-
-def add_image(qchtml, image, title=None):
+def add_image(qc_html, image, title=None):
     """
     Adds an image to the report.
     """
     if title:
-        qchtml.write('<center> {} </center>'.format(title))
+        qc_html.write('<center> {} </center>'.format(title))
 
-    relpath = os.path.relpath(image, os.path.dirname(qchtml.name))
-    qchtml.write('<a href="'+ relpath + '" >')
-    qchtml.write('<img src="' + relpath + '" > ')
-    qchtml.write('</a><br>\n')
+    relpath = os.path.relpath(image, os.path.dirname(qc_html.name))
+    qc_html.write('<a href="'+ relpath + '" >')
+    qc_html.write('<img src="' + relpath + '" >')
+    qc_html.write('</a><br>\n')
 
-    return qchtml
+    return qc_html
 # PIPELINES
 def ignore(filename, qc_dir, report):
     pass
@@ -177,7 +168,7 @@ def phantom_dti_qc(filename, outputDir):
     already exist.
     """
     dirname = os.path.dirname(filename)
-    basename = nifti_basename(filename)
+    basename = dm.utils.nifti_basename(filename)
 
     output_file = os.path.join(outputDir, '{}_stats.csv'.format(basename))
     output_prefix = os.path.join(outputDir, basename)
@@ -192,52 +183,51 @@ def phantom_anat_qc(filename, outputDir):
     Runs the ADNI pipeline on input phantom data if the outputs don't already
     exist.
     """
-    basename = nifti_basename(filename)
+    basename = dm.utils.nifti_basename(filename)
     output_file = os.path.join(outputDir, '{}_adni-contrasts.csv'.format(basename))
     if not os.path.isfile(output_file):
         dm.utils.run('qc-adni {} {}'.format(filename, output_file))
 
-def fmri_qc(filename, qc_dir, report):
-    dirname = os.path.dirname(filename)
-    basename = nifti_basename(filename)
+def fmri_qc(file_name, qc_dir, report):
+    base_name = dm.utils.nifti_basename(file_name)
+    output_name = os.path.join(qc_dir, base_name)
 
     # check scan length
-    output_file = os.path.join(qc_dir, basename + '_scanlengths.csv')
-    if not os.path.isfile(output_file):
-        dm.utils.run('qc-scanlength {} {}'.format(filename, output_file))
+    script_output = output_name + '_scanlengths.csv'
+    if not os.path.isfile(script_output):
+        dm.utils.run('qc-scanlength {} {}'.format(file_name, script_output))
 
     # check fmri signal
-    output_prefix = os.path.join(qc_dir, basename)
-    output_file = output_prefix + '_stats.csv'
-    if not os.path.isfile(output_file):
-        dm.utils.run('qc-fmri {} {}'.format(filename, output_prefix))
+    script_output = output_name + '_stats.csv'
+    if not os.path.isfile(script_output):
+        dm.utils.run('qc-fmri {} {}'.format(file_name, output_name))
 
-    image_raw = os.path.join(qc_dir, basename + '_raw.png')
-    image_sfnr = os.path.join(qc_dir, basename + '_sfnr.png')
-    image_corr = os.path.join(qc_dir, basename + '_corr.png')
+    image_raw = output_name + '_raw.png'
+    image_sfnr = output_name + '_sfnr.png'
+    image_corr = output_name + '_corr.png'
 
     if not os.path.isfile(image_raw):
-        slicer(filename, image_raw, 2, 1600)
+        slicer(file_name, image_raw, 2, 1600)
     add_image(report, image_raw, title='BOLD montage')
 
     if not os.path.isfile(image_sfnr):
-        slicer(os.path.join(qc_dir, basename + '_sfnr.nii.gz'), image_sfnr, 2, 1600)
+        slicer(os.path.join(qc_dir, base_name + '_sfnr.nii.gz'), image_sfnr, 2, 1600)
     add_image(report, image_sfnr, title='SFNR map')
 
     if not os.path.isfile(image_corr):
-        slicer(os.path.join(qc_dir, basename + '_corr.nii.gz'), image_corr, 2, 1600)
+        slicer(os.path.join(qc_dir, base_name + '_corr.nii.gz'), image_corr, 2, 1600)
     add_image(report, image_corr, title='correlation map')
 
 def anat_qc(filename, qc_dir, report):
 
-    image = os.path.join(qc_dir, nifti_basename(filename) + '.png')
+    image = os.path.join(qc_dir, dm.utils.nifti_basename(filename) + '.png')
     if not os.path.isfile(image):
         slicer(filename, image, 5, 1600)
     add_image(report, image)
 
 def dti_qc(filename, qc_dir, report):
     dirname = os.path.dirname(filename)
-    basename = nifti_basename(filename)
+    basename = dm.utils.nifti_basename(filename)
 
     bvec = os.path.join(dirname, basename + '.bvec')
     bval = os.path.join(dirname, basename + '.bval')
@@ -340,16 +330,17 @@ def add_report_to_checklist(qc_report, checklist_path):
     with open(checklist_path, 'a') as checklist:
         checklist.write(os.path.basename(report_name + report_ext) + '\n')
 
-def add_header_qc(fpath, qchtml, logdata):
+def add_header_qc(nifti_path, qc_html, log_path):
     """
-    Adds header diff infortmation to the report.
+    Adds header-diff.log information to the report.
     """
     # get the filename of the nifti in question
-    filestem = os.path.basename(fpath).replace(dm.utils.get_extension(fpath),'')
+    filestem = os.path.basename(nifti_path).replace(
+            dm.utils.get_extension(nifti_path),'')
 
     try:
         # read the log
-        with open(logdata, 'r') as f:
+        with open(log_path, 'r') as f:
             f = f.readlines()
     except IOError:
         logger.info("header-diff.log not found. Generating page without it.")
@@ -361,21 +352,23 @@ def add_header_qc(fpath, qchtml, logdata):
     if not lines:
         return
 
-    qchtml.write('<h3> {} header differences </h3>\n<table>'.format(filestem))
+    qc_html.write('<h3> {} header differences </h3>\n<table>'.format(filestem))
     for l in lines:
-        qchtml.write('<tr><td>{}</td></tr>'.format(l))
-    qchtml.write('</table>\n')
+        qc_html.write('<tr><td>{}</td></tr>'.format(l))
+    qc_html.write('</table>\n')
 
 def find_tech_notes(path):
     """
     Search the file tree rooted at path for the tech notes pdf
     """
-    resource_folder = glob.glob(path + "*")
+    resource_folders = glob.glob(path + "*")
 
-    if resource_folder:
-        resource_folder = resource_folder[0]
+    if resource_folders:
+        resources = resource_folders[0]
+    else:
+        resources = ""
 
-    for root, dirs, files in os.walk(resource_folder):
+    for root, dirs, files in os.walk(resources):
         for fname in files:
             if ".pdf" in fname:
                 return os.path.join(root, fname)
@@ -467,7 +460,7 @@ def get_sorted_niftis(scan_path):
 
 def find_expected_files(config, scan_path, subject):
     """
-    Reads in the export info from the config file and compares it to the
+    Reads the export_info from the config for this site and compares it to the
     contents of the nii folder. Data written to a pandas dataframe.
     """
     site = dm.scanid.parse(subject + '_01').site # add artificial repeat number
@@ -625,7 +618,7 @@ def qc_subject(scan_path, subject_id, config):
         run_header_qc(subject_dcm, config.get_path('std'), header_diffs)
 
     expected_files = find_expected_files(config, scan_path, subject_id)
-    
+
     with open(report_name, 'wb') as report:
         write_report_header(report, subject_id)
         write_table(report, expected_files)

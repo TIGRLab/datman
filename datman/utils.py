@@ -490,4 +490,13 @@ def remove_empty_files(path):
             if os.path.getsize(filename) == 0:
                 os.remove(filename)
 
+def nifti_basename(fpath):
+    """
+    return basename without extension (either .nii.gz or .nii)
+    """
+    basefpath = os.path.basename(fpath)
+    stem = basefpath.replace('.nii','').replace('.gz', '')
+
+    return(stem)
+
 # vim: ts=4 sw=4 sts=4:
