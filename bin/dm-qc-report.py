@@ -302,7 +302,7 @@ def run_header_qc(dicom_dir, standard_dir, log_file):
         # run header check for dicom
         dm.utils.run('qc-headers {} {} {}'.format(d, s, log_file))
 
-    if not os.path.isdir(log_file):
+    if not os.path.exists(log_file):
         subject = os.path.basename(dicom_dir)
         logger.error("header-diff.log not generated for {}. ".format(subject) +
                 " Check that gold standards are present for this site.")
@@ -335,13 +335,18 @@ def find_tech_notes(path):
     """
     Search the file tree rooted at path for the tech notes pdf
     """
-    for root, dirs, files in os.walk(glob.glob(path)[0]):
+    resource_folder = glob.glob(path + "*")
+
+    if resource_folder:
+        resource_folder = resource_folder[0]
+
+    for root, dirs, files in os.walk(resource_folder):
         for fname in files:
             if ".pdf" in fname:
                 return os.path.join(root, fname)
     return ""
 
-def write_tech_notes_link(report, subject_id):
+def write_tech_notes_link(report, subject_id, resources_path):
     """
     Adds a link to the tech notes for this subject to the given QC report
     """
@@ -507,6 +512,8 @@ def qc_subject(scan_path, subject_id, config):
     qc_dir = dm.utils.define_folder(os.path.join(qc_dir, subject_id))
     report_name = os.path.join(qc_dir, 'qc_{}.html'.format(subject_id))
 
+    resources_path = os.path.join(config['paths']['resources'], subject_id)
+
     if os.path.isfile(report_name):
         if not REWRITE:
             logger.debug("{} exists, skipping.".format(report_name))
@@ -523,7 +530,7 @@ def qc_subject(scan_path, subject_id, config):
     with open(report_name, 'wb') as report:
         write_report_header(report, subject_id)
         write_table(report, exportinfo)
-        write_tech_notes_link(report, subject_id)
+        write_tech_notes_link(report, subject_id, resources_path)
         # write_report_body
         for idx in range(0,len(exportinfo)):
             name = exportinfo.loc[idx,'File']
@@ -615,9 +622,8 @@ def add_report_to_checklist(qc_report, checklist_path):
                 checklist_entry, checklist_ext = os.path.splitext(checklist_entry)
                 found_reports.append(checklist_entry)
     except IOError:
-        logger.error("{} does not exist. "\
+        logger.info("{} does not exist. "\
                 "Attempting to create it".format(checklist_path))
-        os.makedirs(checklist_path)
 
     if report_name in found_reports:
         return
