@@ -80,12 +80,11 @@ def run_analysis(scanid, config):
             roi_file = os.path.join(path, basename + '_rois.nii.gz')
             if not os.path.isfile(roi_file):
                 rtn, out = dm.utils.run('3dresample -master {} -prefix {} -inset {}'.format(filename, roi_file, atlas))
-                output = '\n'.join([out, err]).replace('\n', '\n\t')
                 if rtn:
-                    logger.error(output)
+                    logger.error(out)
                     raise Exception('Error resampling atlas {} to match {}.'.format(atlas, filename))
                 else:
-                    logger.info(output)
+                    pass
 
             rois, _, _, _ = dm.utils.loadnii(roi_file)
             data, _, _, _ = dm.utils.loadnii(filename)
