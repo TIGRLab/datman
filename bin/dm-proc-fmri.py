@@ -183,9 +183,8 @@ def run_epitome(path, config):
         # run epitome
         command = '{} {} {} {} {}'.format(pipeline, epi_dir, delete, tr, dims)
         rtn, out = dm.utils.run(command)
-        output = '\n'.join([out, err]).replace('\n', '\n\t')
         if rtn:
-            logger.debug("epitome script failed: {}\n{}".format(command, output))
+            logger.debug("epitome script failed: {}\n{}".format(command, out))
             continue
         else:
             pass
