@@ -44,7 +44,8 @@ import urllib
 import io
 import dicom
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__file__)
+
 username = None
 password = None
 server = None
@@ -68,12 +69,15 @@ def main():
     # setup logging
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.WARN)
-
+    logger.setLevel(logging.WARN)
     if quiet:
+        logger.setLevel(logging.ERROR)
         ch.setLevel(logging.ERROR)
     if verbose:
+        logger.setLevel(logging.INFO)
         ch.setLevel(logging.INFO)
     if debug:
+        logger.setLevel(logging.DEBUG)
         ch.setLevel(logging.DEBUG)
 
     formatter = logging.Formatter('%(asctime)s - %(name)s - '
@@ -83,11 +87,13 @@ def main():
     logger.addHandler(ch)
 
     # setup the config object
+    logger.info('Loading config')
+
     cfg = datman.config.config(study=study)
 
     if not server:
-        server = 'https://{}:{}'.format(cfg.get_key(['XNATSERVER'],
-                                                    cfg.get_key(['XNATPORT'])))
+        server = 'https://{}:{}'.format(cfg.get_key(['XNATSERVER']),
+                                        cfg.get_key(['XNATPORT']))
 
     if username:
         password = getpass.getpass()
@@ -119,8 +125,12 @@ def main():
     else:
         archives = os.listdir(dicom_dir)
 
+    logger.info('Processing files in:{}'.format(dicom_dir))
+    logger.info('Processing {} files'.format(len(archives)))
+
     for archivefile in archives:
         scanid = archivefile[:-len(datman.utils.get_extension(archivefile))]
+        archivefile = os.path.join(dicom_dir, archivefile)
         #  check the supplied archive is named correctly
         if not datman.scanid.is_scanid(scanid):
             logger.warning('Invalid scanid:{} from archive:{}'
@@ -128,30 +138,90 @@ def main():
             continue
         else:
             ident = datman.scanid.parse(scanid)
+        logger.debug('Processing file:{}'.format(scanid))
         # get the xant archive from the config
+
         xnat_project = cfg.get_key(['XNAT_Archive'],
                                    site=ident.site)
         if not check_xnat_project_exists(xnat_project):
             logger.error('Could not identify xnat archive'
                          'for study: {} at site: {}'.format(study,
                                                             ident.site))
-            return
+            continue
 
-        if not check_create_xnat_subject(scanid, xnat_project):
+        logger.debug('Confimed xnat project name:{}'.format(xnat_project))
+
+        xnat_subject = get_xnat_subject(scanid, xnat_project)
+        if not xnat_subject:
             logger.error('Failed to get subject:{} from xnat'.format(scanid))
-            return
+            continue
+        logger.debug('Got subject:{} from xnat'
+                     .format(scanid))
 
         try:
-            upload_dicom_data(archive, xnat_project, scanid)
+            if not check_files_exist(archivefile, xnat_project, scanid):
+                logger.info('Uploading dicoms from:{}'.format(archivefile))
+                upload_dicom_data(archivefile, xnat_project, scanid)
+            else:
+                logger.info('Archive:{} already on xnat.'.format(archivefile))
         except IOError:
+            logger.error('Failed uploading dicom data from:{}'
+                         .format(archivefile))
             return
 
         try:
-            upload_non_dicom_data(archive, xnat_project, scanid)
+            logger.info('Uploading non-dicom data from:{}'.format(archivefile))
+            upload_non_dicom_data(archivefile, xnat_project, scanid)
         except requests.exceptions.HTTPError:
             logger.error('Failed uploading non-dicom data for subject:{}'
                          .format(scanid))
             return
+
+
+def check_files_exist(archive, xnat_project, scanid):
+    logger.info('Checking for archive:{} contents on xnat'.format(scanid))
+    query_url = "{server}/data/archive/projects/{project}" \
+                "/subjects/{scanid}?format=json" \
+                .format(server=server, scanid=scanid, project=xnat_project)
+
+    local_headers = datman.utils.get_archive_headers(archive)
+    xnat_headers = make_xnat_query(query_url)
+
+    xnat_scans = xnat_headers['items'][0]
+
+    if not xnat_scans['children']:
+        # session has no scan data uploaded yet
+        return False
+
+    xnat_scans = xnat_scans['children'][0]
+    xnat_scans = xnat_scans['items'][0]
+    xnat_scans = xnat_scans['children']
+    xnat_scans = [r['items'] for r in xnat_scans if r['field'] == 'scans/scan']
+
+    xnat_scan_uids = [scan['data_fields']['UID']
+                      for scan in xnat_scans[0]]
+
+    local_scan_uids = [scan.SeriesInstanceUID
+                       for scan
+                       in local_headers.values()]
+
+    xnat_experiment_id = xnat_headers['items'][0]
+    xnat_experiment_id = xnat_experiment_id['children'][0]
+    xnat_experiment_id = xnat_experiment_id['items'][0]
+    xnat_experiment_id = xnat_experiment_id['data_fields']['UID']
+
+    local_experiment_id = local_headers.values()[0].StudyInstanceUID
+
+    if not xnat_experiment_id == local_experiment_id:
+        msg = 'Study UID for archive:{} doesnt match XNAT'.format(archive)
+        logger.error(msg)
+        raise UserWarning(msg)
+
+    if not set(local_scan_uids).issubset(set(xnat_scan_uids)):
+        logger.info('UIDs in archive:{} not in xnat'.format(archive))
+        return(False)
+
+    return(True)
 
 
 def upload_non_dicom_data(archive, xnat_project, scanid):
@@ -166,13 +236,13 @@ def upload_non_dicom_data(archive, xnat_project, scanid):
     files = filter(lambda f: not f.endswith('/'), files)
 
     # filter files named like dicoms
-    files = filter(lambda f: not datman.utils.is_named_like_a_dicom(f), files)
+    files = filter(lambda f: not is_named_like_a_dicom(f), files)
 
     # filter actual dicoms :D
-    files = filter(lambda f: not datman.utils.is_dicom(io.BytesIO(zf.read(f))),
+    files = filter(lambda f: not is_dicom(io.BytesIO(zf.read(f))),
                    files)
 
-    logger.info("Uploading non-dicom data...")
+    logger.info("Uploading {} files of non-dicom data...".format(len(files)))
     for f in files:
         # convert to HTTP language
         uploadname = urllib.quote(f)
@@ -209,33 +279,51 @@ def upload_dicom_data(archive, xnat_project, scanid):
         raise(e)
 
 
-def check_create_xnat_subject(subject, xnat_study, create=True):
+def get_xnat_subject(subject, xnat_study, create=True):
     """Checks xnat to see if a subject exists, creates if not"""
     create_url = "{server}/REST/projects/{project}/subjects/{subject}" \
         .format(server=server, project=xnat_study, subject=subject)
-    query_url = "{server}/data/archives/projects/{project}/subjects" \
+
+    xnat_subject = check_xnat_subject(subject, xnat_study)
+    if xnat_subject:
+        return(xnat_subject)
+
+    if create:
+        try:
+            make_xnat_put(create_url)
+        except Requests.exceptions.RequestException:
+            logger.error('Failed to create xnat subject:{}'.format(subject))
+            return
+    else:
+        xnat_subject = check_xnat_subject(subject, xnat_study)
+        return(xnat_subject)
+
+
+def check_xnat_subject(subject, xnat_study):
+    """Checks to see if a subject exists in xnat
+    returns the subject object"""
+    query_url = "{server}/data/archive/projects/{project}/subjects" \
                 "?format=json".format(server=server, project=xnat_study)
 
     results = make_xnat_query(query_url)
     if not results:
         logger.error('Failed to query xnat for subject:{}'.subject)
         return
-
+    results = results['ResultSet']['Result']
     names = [result['label'] for result in results]
     if subject in names:
-        return True
-    elif create:
-        if not make_xnat_put(create_url):
-            logger.error('Failed to create xnat subject:{}'.format(subject))
-            return
+        logger.debug('Found subject with label:{}'.format(subject))
+        return results[names.index(subject)]
     else:
-        return
+        logger.debug('Subject:{} doesnt exist'.format(subject))
+        return False
 
 
 def check_xnat_project_exists(project):
-    query_url = '{server}/data/archives/projects?format=json'.format(server)
+    query_url = '{}/data/archive/projects?format=json'.format(server)
 
     results = make_xnat_query(query_url)
+    results = results['ResultSet']['Result']
     if not results:
         logger.error('Failed to query xnat for project:{}'.format(project))
         return
@@ -258,8 +346,8 @@ def make_xnat_query(url):
         response.raise_for_status()
 
     response = response.json()
-    results = response['ResultSet']['Result']
-    return(results)
+
+    return(response)
 
 
 def make_xnat_put(url):
@@ -272,6 +360,7 @@ def make_xnat_put(url):
 
 
 def make_xnat_post(url, filename, retries=3):
+    logger.debug('POSTing data to xnat, {} retries left'.format(retries))
     with open(filename) as data:
         response = requests.post(url,
                                  auth=(username, password),
@@ -290,6 +379,7 @@ def make_xnat_post(url, filename, retries=3):
         logger.error('xnat error:{} at data upload'
                      .format(response.status_code))
         response.raise_for_status()
+    logger.info('Uploaded:{} to xnat'.format(filename))
 
 
 def is_named_like_a_dicom(path):
@@ -305,5 +395,4 @@ def is_dicom(fileobj):
         return False
 
 if __name__ == '__main__':
-    logging.basicConfig()
     main()
