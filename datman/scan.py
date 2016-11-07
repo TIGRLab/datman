@@ -61,6 +61,40 @@ import glob
 import datman
 import datman.scanid as scanid
 
+class DatmanNamed(object):
+    """
+    A parent class for all classes that will obey the datman naming scheme
+    """
+    def __init__(self, ident):
+        self.full_id = ident.get_full_subjectid_with_timepoint()
+        self.id_plus_session = ident.get_full_subjectid_with_timepoint_session()
+        self.study = ident.study
+        self.site = ident.site
+        self.subject = ident.subject
+        self.timepoint = ident.timepoint
+        self.session = ident.session
+
+class Series(DatmanNamed):
+    """
+    Holds all information about a series file of any format (e.g. nifti).
+
+        path:       The absolute path to a single file.
+
+    May raise a ParseException if the given file name does not match the
+    datman naming convention.
+    """
+    def __init__(self, path):
+        file_name, ext = os.path.splitext(path)
+
+        ident, tag, series, description = scanid.parse_filename(file_name)
+        super(ident)
+
+        self.tag = tag
+        self.series = series
+        self.description = description
+        self.path = path
+        self.ext = datman.get_extension(path)
+
 class Scan(DatmanNamed):
     """
     Holds all information for a single scan.
@@ -151,37 +185,3 @@ class Scan(DatmanNamed):
             except KeyError:
                 tag_dict[tag] = [series]
         return tag_dict
-
-class Series(DatmanNamed):
-    """
-    Holds all information about a series file of any format (e.g. nifti).
-
-        path:       The absolute path to a single file.
-
-    May raise a ParseException if the given file name does not match the
-    datman naming convention.
-    """
-    def __init__(self, path):
-        file_name, ext = os.path.splitext(path)
-
-        ident, tag, series, description = scanid.parse_filename(file_name)
-        super(ident)
-
-        self.tag = tag
-        self.series = series
-        self.description = description
-        self.path = path
-        self.ext = datman.get_extension(path)
-
-class DatmanNamed(object):
-    """
-    A parent class for all classes that will obey the datman naming scheme
-    """
-    def __init__(self, ident):
-        self.full_id = ident.get_full_subjectid_with_timepoint()
-        self.id_plus_session = ident.get_full_subjectid_with_timepoint_session()
-        self.study = ident.study
-        self.site = ident.site
-        self.subject = ident.subject
-        self.timepoint = ident.timepoint
-        self.session = ident.session
