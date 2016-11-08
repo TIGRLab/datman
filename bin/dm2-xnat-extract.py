@@ -4,32 +4,31 @@ Extracts data from xnat archive folders into a few well-known formats.
 
 Usage:
     xnat-extract.py [options] <study>
+    xnat-extract.py [options] <study> <session>
 
 Arguments:
-    <config>            Project configuration file.
+    <study>            Nickname of the study to process
+    <session>          Fullname of the session to process
 
 Options:
     --blacklist FILE    Table listing series to ignore
-    -v, --verbose       Show intermediate steps
-    --debug             Show debug messages
-    -n, --dry-run       Do nothing
+                            override the default metadata/blacklist.csv
+    -v --verbose        Show intermediate steps
+    -d --debug          Show debug messages
+    -q --quiet          Show minimal output
+    -n --dry-run        Do nothing
+    --server URL          XNAT server to connect to,
+                            overrides the server defined
+                            in the site config file.
 
-INPUT FOLDERS
-    The <archivedir> is the XNAT archive directory to extract from. This is
-    defined in site:XNAT_Archive.
+    -c --credfile FILE    File containing XNAT username and password. The
+                          username should be on the first line, and password
+                          on the next. Overrides the credfile in the project
+                          metadata
 
-    This folder is expected to have the following subfolders:
+    -u --username USER    XNAT username. If specified then the credentials
+                          file is ignored and you are prompted for password.
 
-    SPN01_CMH_0001_01_01/           (subject name following DATMAN convention)
-      RESOURCES/                    (optional)
-        *                           (optional non-dicom data)
-      SCANS/
-        001/                        (series #)
-          DICOM/
-            *                       (dicom files, usually named *.dcm)
-            scan_001_catalog.xml
-        002/
-        ...
 
 OUTPUT FOLDERS
     Each dicom series will be converted and placed into a subfolder of the
@@ -72,210 +71,460 @@ DEPENDENCIES
 
 """
 from docopt import docopt
-import dicom
-import pandas as pd
-import datman as dm
-import datman.utils
-import datman.scanid
-import os.path
+import logging
 import sys
-import tempfile
+import datman.config
+import datman.xnat
+import datman.utils
+import getpass
+import os
 import glob
+import tempfile
+import zipfile
+import fnmatch
+import platform
 import shutil
-import yaml
+import dicom
 
-DEBUG  = False
-VERBOSE= False
+logger = logging.getLogger(__file__)
+xnat = None
+cfg = None
+excluded_studies = ['testing']
 DRYRUN = False
 
-def log(message):
-    print message
-    sys.stdout.flush()
 
-def error(message):
-    log("ERROR: " + message)
+def main():
+    global xnat
+    global cfg
+    global excluded_studies
+    global DRYRUN
 
-def verbose(message):
-    if not(VERBOSE or DEBUG): return
-    log(message)
+    arguments = docopt(__doc__)
+    verbose = arguments['--verbose']
+    debug = arguments['--debug']
+    quiet = arguments['--quiet']
+    study = arguments['<study>']
+    server = arguments['--server']
+    credfile = arguments['--credfile']
+    username = arguments['--username']
+    session = arguments['<session>']
 
-def debug(message):
-    if not DEBUG: return
-    log("DEBUG: " + message)
+    if arguments['--dry-run']:
+        DRYRUN = True
 
-def extract_archive(exportinfo, archivepath, config, blacklist=None):
-    """
-    Exports an XNAT archive to various file formats.
+    # setup logging
+    logging.basicConfig()
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.WARN)
+    logger.setLevel(logging.WARN)
+    if quiet:
+        logger.setLevel(logging.ERROR)
+        ch.setLevel(logging.ERROR)
+    if verbose:
+        logger.setLevel(logging.INFO)
+        ch.setLevel(logging.INFO)
+    if debug:
+        logger.setLevel(logging.DEBUG)
+        ch.setLevel(logging.DEBUG)
 
-    The <archivepath> is the XNAT archive directory to extract from. This
-    should point to a single scan folder, and the folder should be named
-    according to our data naming scheme.
+    formatter = logging.Formatter('%(asctime)s - %(name)s - '
+                                  '%(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
 
-    This function searches through the SCANS subfolder (archivepath) for series
-    and converts each series, placing them in an appropriately named folder
-    under exportdir.
-    """
+    logger.addHandler(ch)
 
-    archivepath = os.path.normpath(archivepath)
-    basename    = os.path.basename(archivepath)
+    # setup the config object
+    logger.info('Loading config')
 
+    cfg = datman.config.config(study=study)
+
+    if not server:
+        server = 'https://{}:{}'.format(cfg.get_key(['XNATSERVER']),
+                                        cfg.get_key(['XNATPORT']))
+
+    if username:
+        password = getpass.getpass()
+    else:
+        if not credfile:
+            credfile = os.path.join(cfg.get_path('meta', study),
+                                    'xnat-credentials')
+        with open(credfile) as cf:
+            lines = cf.readlines()
+            username = lines[0].strip()
+            password = lines[1].strip()
+
+    xnat = datman.xnat.xnat(server, username, password)
+
+    # get the list of xnat projects linked to the datman study
+    xnat_projects = cfg.get_xnat_projects(study)
+    sessions = []
+    if session:
+        # if session has been provided on the command line, identify which
+        # project it is in
+        xnat_project = xnat.find_session(session, xnat_projects)
+        if not xnat_projects:
+            logger.error('Failed to find session:{} in xnat.'
+                         .format(xnat_projects))
+        sessions.append((xnat_project, session))
+    else:
+        for project in xnat_projects:
+            project_sessions = xnat.get_sessions(project)
+            for session in project_sessions:
+                sessions.append((project, session['label']))
+
+        logger.debug('Found {} sessions for study:'.format(len(sessions),
+                                                           study))
+
+    for session in sessions:
+        process_session(session)
+
+
+def process_session(session):
+    global xnat
+
+    xnat_project = session[0]
+    session_label = session[1]
+
+    # check the session is valid on xnat
+    if not xnat.get_session(xnat_project, session_label):
+        return
+
+    if len(xnat.get_experiments(xnat_project, session_label)) > 1:
+        logger.warning('Found more than one experiment for session:{}'
+                       'in study:{} Only processing first'
+                       .format(session_label, xnat_project))
+
+    # sesssion_label should be a valid datman scanid
     try:
-        scanid = datman.scanid.parse(basename)
-    except datman.scanid.ParseException, e:
-        error("{} folder is not named according to the data naming policy. Skipping".format(archivepath))
+        ident = datman.scanid.parse(session_label)
+    except datman.scanid.ParseException:
+        logger.error('Invalid session:{}, skipping'.format(session_label))
         return
 
-    scanspath = os.path.join(archivepath,'SCANS')
-    if not os.path.isdir(scanspath):
-        error("{} doesn't exist. Not an XNAT archive. Skipping.".format(scanspath))
+    experiment = xnat.get_experiment(xnat_project,
+                                     session_label,
+                                     session_label)
+
+    # experiment_label should be the same as the session_label
+    if not experiment['data_fields']['label'] == session_label:
+        logger.warning('Experiment label:{} doesnt match session_label:{}'
+                       .format(experiment['data_fields']['label'],
+                               session_label))
+
+    for data in experiment['children']:
+        if data['field'] == 'resources/resource':
+            process_resources(xnat_project, ident, data)
+        elif data['field'] == 'scans/scan':
+            process_scans(xnat_project, ident, data)
+        else:
+            logger.warning('Unrecognised field type:{} for experiment:{}'
+                           'in session:{} from study:{}'
+                           .format(data['field'],
+                                   session_label,
+                                   session_label,
+                                   xnat_project))
+
+
+def process_resources(xnat_project, scanid, data):
+    """Export any non-dicom resources from the xnat archive"""
+    global cfg
+    logger.info('Extracting {} resources from {}'
+                .format(len(data), str(scanid)))
+    base_path = os.path.join(cfg.get_path('resources'),
+                             scanid.get_full_subjectid_with_timepoint())
+
+    for item in data['items']:
+        try:
+            data_type = item['data_fields']['label']
+        except KeyError:
+            data_type = 'misc'
+
+        target_path = os.path.join(base_path, data_type)
+
+        xnat_resource_id = item['data_fields']['xnat_abstractresource_id']
+
+        archive = get_resource_archive_from_xnat(xnat_project,
+                                                 str(scanid),
+                                                 xnat_resource_id)
+
+        try:
+            target_path = datman.utils.define_folder(target_path)
+        except OSError:
+            logger.error('Failed creating target folder:{}'
+                         .format(target_path))
+            continue
+
+        # extract the files from the archive, ignoring the filestructure
+        try:
+            with zipfile.ZipFile(archive[1]) as zip_file:
+                for member in zip_file.namelist():
+                    filename = os.path.basename(member)
+                    if not filename:
+                        continue
+                    if DRYRUN:
+                        continue
+                    source = zip_file.open(member)
+                    target = file(os.path.join(target_path, filename), 'wb')
+                    with source, target:
+                        shutil.copyfileobj(source, target)
+        except:
+            logger.error('Failed extracting resources archive:{}'
+                         .format(str(scanid)), exc_info=True)
+
+        # finally delete the temporary archive
+        try:
+            os.remove(archive[1])
+        except OSError:
+            logger.error('Failed to remove temporary archive:{} on system:{}'
+                         .format(archive, platform.node()))
+
+
+def process_scans(xnat_project, scanid, scans):
+    """Process a set of scans in an xnat experiment
+    scanid is a valid datman.scanid object
+    Scans is the json output from xnat query representing scans
+    in an experiment"""
+    global cfg
+
+    # setup the export functions for each format
+    xporters = {
+        "mnc": export_mnc_command,
+        "nii": export_nii_command,
+        "nrrd": export_nrrd_command,
+        "dcm": export_dcm_command,
+    }
+
+    # load the export info from the site config files
+    exportinfo = cfg.get_exportinfo(site=scanid.site)
+    if not exportinfo:
+        logger.error('Failed to get exportinfo for study:{} at site:{}'
+                     .format(cfg.study_name, scanid.site))
         return
 
-    # export data to datadir/fmt/subject/
-    timepoint = scanid.get_full_subjectid_with_timepoint()
+    for scan in scans['items']:
+        description = scan['data_fields']['series_description']
+        mangled_descr = datman.utils.mangle(description)
+        series = scan['data_fields']['ID']
+        padded_series = series.zfill(2)
+        tag = datman.utils.guess_tag(description, exportinfo)
 
-    stem  = str(scanid)
-    for src, header in dm.utils.get_archive_headers(archivepath).items():
-        export_series(exportinfo, src, header, timepoint, stem, config, blacklist)
+        if not tag:
+            logger.warn("No matching export pattern for {},"
+                        " descr: {}. Skipping".format(str(scanid),
+                                                      description))
+            continue
+        elif type(tag) is list:
+            logger.error("Multiple export patterns match for {},"
+                         " descr: {}, tags: {}".format(str(scanid),
+                                                       description, tag))
+            continue
 
-    # export non dicom resources
-    export_resources(archivepath, config, scanid)
+        file_stem = "_".join([str(scanid), tag, padded_series, mangled_descr])
 
-def export_series(exportinfo, src, header, timepoint, stem, config, blacklist):
+        # check the blacklist
+        logger.debug('Checking blacklist for file:{}'.format(file_stem))
+        blacklist = datman.utils.check_blacklist(file_stem,
+                                                 study=cfg.study_name)
+        if blacklist:
+            logger.warning('Excluding scan:{} due to blacklist:{}'
+                           .format(file_stem, blacklist))
+            continue
+
+        # first check if the scan has already been processed
+        export_formats = cfg.get_key(['ExportSettings', tag])
+        if check_if_dicom_is_processed(scanid,
+                                       file_stem,
+                                       export_formats.keys()):
+            logger.warn('Scan:{} has been processed, skipping'
+                        .format(file_stem))
+            continue
+
+        logger.debug('Getting scan from xnat')
+        tempdir, src_dir = get_dicom_archive_from_xnat(xnat_project,
+                                                       str(scanid),
+                                                       series)
+        if not src_dir:
+            logger.error('Failed getting scan from xnat')
+            continue
+
+        try:
+            for export_format in export_formats.keys():
+                target_base_dir = cfg.get_path(export_format)
+                target_dir = os.path.join(target_base_dir, str(scanid))
+                try:
+                    target_dir = datman.utils.define_folder(target_dir)
+                except OSError as e:
+                    logger.error('Failed creating target folder:{}'
+                                 .format(target_dir))
+                    raise(e)
+
+                exporter = xporters[export_format]
+                exporter(src_dir, target_dir, file_stem)
+        except:
+            logger.error('An error happened exporting {} from scan:{}'
+                         .format(export_format, str(scanid)), exc_info=True)
+
+        logger.debug('Completed exports')
+        try:
+            shutil.rmtree(tempdir)
+        except shutil.Error:
+            logger.error('Failed to delete tempdir:{} on system:{}'
+                         .format(tempdir, platform.node()))
+
+
+def get_dicom_archive_from_xnat(xnat_project, session, series):
+    """Downloads and extracts a dicom archive from xnat to a local temp folder
+    Returns the path to the tempdir (for later cleanup) as well as the
+    path to the .dcm files inside the tempdir
     """
-    Exports the given DICOM folder into the given formats.
-    """
-    description   = header.get("SeriesDescription")
-    mangled_descr = dm.utils.mangle(description)
-    series        = str(header.get("SeriesNumber")).zfill(2)
-    tag           = dm.utils.guess_tag(mangled_descr, exportinfo)
-
-    debug("{}: description = {}, series = {}, tag = {}".format(src, description, series, tag))
-
-    if not tag:
-        verbose("No matching export pattern for {}, descr: {}. Skipping".format(src, description))
+    global xnat
+    # going to create a local directory and make a copy of the
+    # dicom files there
+    tempdir = tempfile.mkdtemp(prefix='dm2_xnat_extract_')
+    logger.debug('Downloading dicoms for:{}, series:{}.'
+                 .format(session, series))
+    dicom_archive = xnat.get_dicom(xnat_project,
+                                   session,
+                                   session,
+                                   series)
+    if not dicom_archive:
+        logger.error('Failed to download dicom archive for:{}, series:{}'
+                     .format(session, series))
         return
-    elif type(tag) is list:
-        error("Multiple export patterns match for {}, descr: {}, tags: {}".format(src, description, tag))
-        return
 
-    # update the filestem with _tag_series_description
-    stem  += "_" + "_".join([tag, series, mangled_descr])
+    logger.debug('Unpacking archive')
 
-    if blacklist:
-        if stem in read_blacklist(blacklist):
-            debug("{} in blacklist. Skipping.".format(stem))
+    with zipfile.ZipFile(dicom_archive[1], 'r') as myzip:
+        try:
+            myzip.extractall(tempdir)
+        except:
+            logger.error('An error occured unpaking dicom archive for:{}'
+                         ' skipping')
+            os.remove(dicom_archive[1])
             return
 
-    nii_dir = dm.utils.define_folder(os.path.join(config['paths']['nii'], timepoint))
-    dcm_dir = dm.utils.define_folder(os.path.join(config['paths']['dcm'], timepoint))
+    logger.debug('Deleting archive file')
+    os.remove(dicom_archive[1])
+    # get the root dir for the extracted files
+    archive_files = []
+    for root, dirname, filenames in os.walk(tempdir):
+        for filename in fnmatch.filter(filenames, '*.dcm'):
+            archive_files.append(os.path.join(root, filename))
 
-    exporters = {
-        "mnc" : export_mnc_command,
-        "nii" : export_nii_command,
-        "nrrd": export_nrrd_command,
-        "dcm" : export_dcm_command,
-    }
-    exporters['nii'](src, nii_dir, stem)
-    exporters['dcm'](src, dcm_dir, stem)
+    base_dir = os.path.dirname(archive_files[0])
+    return(tempdir, base_dir)
 
-def read_blacklist(blacklist):
-    """
-    If --blacklist is set, reads the given csv and returns a list of series
-    which are blacklisted. Otherwise returns an empty list.
-    """
-    try:
-        blacklist = pd.read_table(blacklist, sep='\s*', engine="python")
-        series_list = blacklist.columns.tolist()[0]
-        blacklisted_series = blacklist[series_list].values.tolist()
 
-        return blacklisted_series
+def get_resource_archive_from_xnat(xnat_project, session, resourceid):
+    """Downloads and extracts a resource archive from xnat
+    to a local temp file
+    Returns the path to the tempfile (for later cleanup)"""
+    global xnat
 
-    except IOError:
-        debug("{} does not exist. Running on all series".format(blacklist))
-    except ValueError:
-        error("{} cannot be read. Check that no entries contain white space.".format(blacklist))
+    logger.debug('Downloadind resources for:{}, series:{}.'
+                 .format(session, resourceid))
 
-def export_resources(archivepath, config, scanid):
-    """
-    Exports all the non-dicom resources for an exam archive.
-    """
-    sourcedir = os.path.join(archivepath, "RESOURCES")
+    resource_archive = xnat.get_resource(xnat_project,
+                                         session,
+                                         session,
+                                         resourceid)
+    return(resource_archive)
 
-    if not os.path.isdir(sourcedir):
-        debug("{} isn't a directory, so won't export resources".format(sourcedir))
-        return
 
-    debug("Exporting non-dicom stuff from {}".format(archivepath))
-    resources_dir = dm.utils.define_folder(os.path.join(config['paths']['resources'], str(scanid)))
-    dm.utils.run("rsync -a {}/ {}/".format(sourcedir, resources_dir), DRYRUN)
+def check_if_dicom_is_processed(scanid, file_stem, export_formats):
+    """returns true if exported files exist for all specified formats"""
+    global cfg
+
+    for f in export_formats:
+        outdir = os.path.join(cfg.get_path(f),
+                              scanid.get_full_subjectid_with_timepoint())
+        outfile = os.path.join(outdir, file_stem)
+        # need to use wildcards here as dont really know what the
+        # file extensions will be
+        exists = [os.path.isfile(p) for p in glob.glob(outfile + '.*')]
+        if not exists:
+            return
+        if not all(exists):
+            return
+    return True
+
 
 def export_mnc_command(seriesdir, outputdir, stem):
     """
     Converts a DICOM series to MINC format
     """
-    outputfile = os.path.join(outputdir,stem) + ".mnc"
+    outputfile = os.path.join(outputdir, stem) + ".mnc"
 
     if os.path.exists(outputfile):
-        debug("{}: output {} exists. skipping.".format(
-            seriesdir, outputfile))
+        logger.warn("{}: output {} exists. skipping."
+                    .format(seriesdir, outputfile))
         return
 
-    verbose("Exporting series {} to {}".format(seriesdir, outputfile))
-    cmd = 'dcm2mnc -fname {} -dname "" {}/* {}'.format(stem, seriesdir, outputdir)
-    dm.utils.run(cmd, DRYRUN)
+    logger.debug("Exporting series {} to {}"
+                 .format(seriesdir, outputfile))
+    cmd = 'dcm2mnc -fname {} -dname "" {}/* {}'.format(stem,
+                                                       seriesdir,
+                                                       outputdir)
+    datman.utils.run(cmd, DRYRUN)
+
 
 def export_nii_command(seriesdir, outputdir, stem):
     """
     Converts a DICOM series to NifTi format
     """
-    outputfile = os.path.join(outputdir,stem) + ".nii.gz"
+    outputfile = os.path.join(outputdir, stem) + ".nii.gz"
 
     if os.path.exists(outputfile):
-        debug("{}: output {} exists. skipping.".format(
-            seriesdir, outputfile))
+        logger.warn("{}: output {} exists. skipping."
+                    .format(seriesdir, outputfile))
         return
 
-    verbose("Exporting series {} to {}".format(seriesdir, outputfile))
+    logger.debug("Exporting series {} to {}".format(seriesdir, outputfile))
 
     # convert into tempdir
     tmpdir = tempfile.mkdtemp()
-    dm.utils.run('dcm2nii -x n -g y -o {} {}'.format(tmpdir,seriesdir), DRYRUN)
+    datman.utils.run('dcm2nii -x n -g y -o {} {}'
+                     .format(tmpdir, seriesdir), DRYRUN)
 
     # move nii in tempdir to proper location
     for f in glob.glob("{}/*".format(tmpdir)):
         bn = os.path.basename(f)
-        ext = dm.utils.get_extension(f)
+        ext = datman.utils.get_extension(f)
         if bn.startswith("o") or bn.startswith("co"):
             continue
         else:
-            dm.utils.run("mv {} {}/{}{}".format(f, outputdir, stem, ext), DRYRUN)
+            datman.utils.run("mv {} {}/{}{}"
+                             .format(f, outputdir, stem, ext), DRYRUN)
     shutil.rmtree(tmpdir)
+
 
 def export_nrrd_command(seriesdir, outputdir, stem):
     """
     Converts a DICOM series to NRRD format
     """
-    outputfile = os.path.join(outputdir,stem) + ".nrrd"
+    outputfile = os.path.join(outputdir, stem) + ".nrrd"
 
     if os.path.exists(outputfile):
-        debug("{}: output {} exists. skipping.".format(seriesdir, outputfile))
+        logger.warn("{}: output {} exists. skipping."
+                    .format(seriesdir, outputfile))
         return
 
-    verbose("Exporting series {} to {}".format(seriesdir, outputfile))
+    logger.debug("Exporting series {} to {}".format(seriesdir, outputfile))
 
-    cmd = 'DWIConvert -i {} --conversionMode DicomToNrrd -o {}.nrrd --outputDirectory {}'.format(
-        seriesdir,stem,outputdir)
+    cmd = 'DWIConvert -i {} --conversionMode DicomToNrrd -o {}.nrrd' \
+          ' --outputDirectory {}'.format(seriesdir, stem, outputdir)
 
-    dm.utils.run(cmd, DRYRUN)
+    datman.utils.run(cmd, DRYRUN)
+
 
 def export_dcm_command(seriesdir, outputdir, stem):
     """
     Copies a single DICOM from the series.
     """
-    outputfile = os.path.join(outputdir,stem) + ".dcm"
+    outputfile = os.path.join(outputdir, stem) + ".dcm"
     if os.path.exists(outputfile):
-        debug("{}: output {} exists. skipping.".format(
-            seriesdir, outputfile))
+        logger.warn("{}: output {} exists. skipping."
+                    .format(seriesdir, outputfile))
         return
 
     dcmfile = None
@@ -284,14 +533,19 @@ def export_dcm_command(seriesdir, outputdir, stem):
             dicom.read_file(path)
             dcmfile = path
             break
-        except dicom.filereader.InvalidDicomError, e:
+        except dicom.filereader.InvalidDicomError as e:
             pass
 
-    assert dcmfile is not None, "No dicom files found in {}".format(seriesdir)
-    verbose("Exporting a dcm file from {} to {}".format(seriesdir, outputfile))
+    if not dcmfile:
+        logger.error("No dicom files found in {}".format(seriesdir))
+        return
+
+    logger.debug("Exporting a dcm file from {} to {}"
+                 .format(seriesdir, outputfile))
     cmd = 'cp {} {}'.format(dcmfile, outputfile)
 
-    dm.utils.run(cmd, DRYRUN)
+    datman.utils.run(cmd, DRYRUN)
+
 
 def parse_exportinfo(exportinfo):
     """
@@ -315,37 +569,6 @@ def parse_exportinfo(exportinfo):
 
     return tagmap
 
-def main():
-    global DEBUG
-    global DRYRUN
-    global VERBOSE
-    arguments = docopt(__doc__)
-    config_file    = arguments['<config>']
-    blacklist      = arguments['--blacklist']
-    VERBOSE        = arguments['--verbose']
-    DEBUG          = arguments['--debug']
-    DRYRUN         = arguments['--dry-run']
-
-    with open(config_file, 'r') as stream:
-        config = yaml.load(stream)
-
-    for k in ['dcm', 'nii', 'mnc', 'nrrd']:
-        if k not in config['paths']:
-            sys.exit("ERROR: paths:{} n t defined in {}".format(k, configfile))
-
-    sites = config['Sites'].keys()
-
-    for site in sites:
-        archive_path = config['Sites'][site]['XNAT_Archive']
-        exportinfo = parse_exportinfo(config['Sites'][site]['ExportInfo'])
-        if not os.path.isdir(archive_path):
-            sys.exit('ERROR: archive directory {} defined in {} not found'.format(archive_path, config_file))
-
-        archives = glob.glob(os.path.join(archive_path, '*'))
-
-        for archive in archives:
-            verbose("Exporting {}".format(archive))
-            extract_archive(exportinfo, archive,  config, blacklist=blacklist)
 
 if __name__ == '__main__':
     main()
