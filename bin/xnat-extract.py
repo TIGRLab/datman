@@ -4,10 +4,11 @@ Extracts data from xnat archive folders into a few well-known formats.
 
 Usage:
     xnat-extract.py [options] <config>
+    xnat-extract.py [options] <config> <subject>
 
 Arguments:
     <config>            Project configuration file.
-
+    <subject>           Single subject to run
 Options:
     --blacklist FILE    Table listing series to ignore
     -v, --verbose       Show intermediate steps
@@ -166,17 +167,25 @@ def export_series(exportinfo, src, header, timepoint, stem, config, blacklist):
             debug("{} in blacklist. Skipping.".format(stem))
             return
 
-    nii_dir = dm.utils.define_folder(os.path.join(config['paths']['nii'], timepoint))
-    dcm_dir = dm.utils.define_folder(os.path.join(config['paths']['dcm'], timepoint))
-
     exporters = {
         "mnc" : export_mnc_command,
         "nii" : export_nii_command,
         "nrrd": export_nrrd_command,
         "dcm" : export_dcm_command,
     }
-    exporters['nii'](src, nii_dir, stem)
-    exporters['dcm'](src, dcm_dir, stem)
+
+    try:
+        formats = config['ExportSettings'][tag]
+        for f in formats.keys():
+            out_dir = dm.utils.define_folder(os.path.join(config['paths'][f], timepoint))
+            exporters[f](src, out_dir, stem)
+    except KeyError:
+        # export settings haven't been moved into the study config
+        # fall back on the default behaviour
+        nii_dir = dm.utils.define_folder(os.path.join(config['paths']['nii'], timepoint))
+        dcm_dir = dm.utils.define_folder(os.path.join(config['paths']['dcm'], timepoint))
+        exporters['nii'](src, nii_dir, stem)
+        exporters['dcm'](src, dcm_dir, stem)
 
 def read_blacklist(blacklist):
     """
@@ -325,6 +334,7 @@ def main():
     VERBOSE        = arguments['--verbose']
     DEBUG          = arguments['--debug']
     DRYRUN         = arguments['--dry-run']
+    subject        = arguments['<subject>']
 
     with open(config_file, 'r') as stream:
         config = yaml.load(stream)
@@ -342,7 +352,8 @@ def main():
             sys.exit('ERROR: archive directory {} defined in {} not found'.format(archive_path, config_file))
 
         archives = glob.glob(os.path.join(archive_path, '*'))
-
+        if subject:
+            archives = [archive for archive in archives if archive.endswith(subject)]
         for archive in archives:
             verbose("Exporting {}".format(archive))
             extract_archive(exportinfo, archive,  config, blacklist=blacklist)
