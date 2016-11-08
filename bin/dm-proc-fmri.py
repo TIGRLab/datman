@@ -137,7 +137,7 @@ def run_epitome(path, config):
         functionals = []
         for tag in expected_tags:
             candidates = filter(lambda x: tag in x, files)
-            candidates = filter_niftis(candidates)
+            candidates = dm.utils.filter_niftis(candidates)
             candidates.sort()
             logger.debug('checking functional inputs {}'.format(candidates))
             try:
