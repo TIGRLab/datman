@@ -44,7 +44,12 @@ def check_inputs(config, tag, path, expected_tags):
     n_found = len(expected_tags)
 
     site = dm.scanid.parse_filename(expected_tags[0])[0].site
-    n_expected = config['Sites'][site]['ExportInfo'][tag]['Count']
+    if tag in config['Sites'][site]['ExportInfo'].keys():
+        n_expected = config['Sites'][site]['ExportInfo'][tag]['Count']
+    elif tag in config['Sites'][site]['links'].keys():
+        n_expected = config['Sites'][site]['links'][tag]['Count']
+    else:
+        raise Exception('tag {} not defined in Sites:site:ExportInfo or Sites:site:links'.format(tag))
 
     if n_found != n_expected:
         raise Exception('ERROR: number of files found with tag {} was {}, expected {}'.format(tag, n_found, n_expected))
@@ -132,7 +137,9 @@ def run_epitome(path, config):
         functionals = []
         for tag in expected_tags:
             candidates = filter(lambda x: tag in x, files)
+            candidates = filter_niftis(candidates)
             candidates.sort()
+            logger.debug('checking functional inputs {}'.format(candidates))
             try:
                 check_inputs(config, tag, path, candidates)
             except Exception as m:
