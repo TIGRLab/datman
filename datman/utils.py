@@ -41,20 +41,26 @@ SERIES_TAGS_MAP = {
 }
 
 
-def check_checklist(session_name):
+def check_checklist(session_name, study=None):
     """Reads the checklist identified from the session_name
     If there is an entry returns the comment, otherwise
     returns None
     """
-    cfg = datman.config.config()
+
     try:
         ident = scanid.parse(session_name)
     except scanid.ParseException:
         logger.warning('Invalid session id:{}'.format(session_name))
         return
 
+    if study:
+        cfg = datman.config.config(study=study)
+    else:
+        cfg = datman.config.config(study=ident.study)
+
+
     try:
-        study = cfg.map_xnat_archive_to_project(ident.study)
+        #study = cfg.map_xnat_archive_to_project(ident.study)
         checklist_path = os.path.join(cfg.get_path('meta', study),
                                       'checklist.csv')
     except KeyError:
@@ -80,12 +86,12 @@ def check_checklist(session_name):
                     return
 
 
-def check_blacklist(scan_name):
+def check_blacklist(scan_name, study=None):
     """Reads the checklist identified from the session_name
     If there is an entry returns the comment, otherwise
     returns None
     """
-    cfg = datman.config.config()
+
     try:
         ident = scanid.parse_filename(scan_name)
         ident = ident[0]
@@ -93,9 +99,14 @@ def check_blacklist(scan_name):
         logger.warning('Invalid session id:{}'.format(scan_name))
         return
 
+    if study:
+        cfg = datman.config.config(study=study)
+    else:
+        cfg = datman.config.config(study=ident.study)
+
     try:
-        study = cfg.map_xnat_archive_to_project(ident.study)
-        checklist_path = os.path.join(cfg.get_path('meta', study),
+        #study = cfg.map_xnat_archive_to_project(ident.study)
+        checklist_path = os.path.join(cfg.get_path('meta'),
                                       'blacklist.csv')
     except KeyError:
         logger.warning('Unable to identify meta path for study:{}'
@@ -396,13 +407,13 @@ def define_folder(path):
     if os.path.isdir(path) == False:
         try:
             os.makedirs(path)
-        except:
+        except OSError as e:
             print('ERROR: failed to make directory {}'.format(path))
-            sys.exit(1)
+            raise(e)
 
     if has_permissions(path) == False:
         print('ERROR: does not have permissions to access {}'.format(path))
-        sys.exit(1)
+        raise OSError
 
     return path
 
@@ -464,8 +475,8 @@ def run(cmd, dryrun=False):
     out, err = p.communicate()
 
     if p.returncode:
-        logger.error('run({}) failed with returncode {}. STDERR: {}'.format(cmd,
-                    p.returncode, err))
+        logger.error('run({}) failed with returncode {}. STDERR: {}'
+                     .format(cmd, p.returncode, err))
 
     return p.returncode, out
 
