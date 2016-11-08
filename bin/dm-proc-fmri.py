@@ -144,6 +144,8 @@ def run_epitome(path, config):
                 check_inputs(config, tag, path, candidates)
             except Exception as m:
                 logger.debug('ERROR: {}'.format(m))
+                with open(output_dir + '/error.log', 'wb') as f:
+                    f.write('Did not find the correct number of fMRI inputs:\n{}'.format(m))
                 continue
             functionals.extend(candidates)
 
@@ -154,7 +156,9 @@ def run_epitome(path, config):
         for anat in ['aparc+aseg.nii.gz', 'aparc.a2009s+aseg.nii.gz', 'T1w_brain.nii.gz']:
             if not filter(lambda x: anat in x, files):
                 logger.error('ERROR: expected anatomical {} not found in {}'.format(anat, anat_path))
-                sys.exit(1)
+                with open(output_dir + '/error.log', 'wb') as f:
+                    f.write('expected anatomical {} not found in {}'.format(anat, anat_path))
+                continue
             anatomicals.append(os.path.join(anat_path, anat))
 
         # don't run if the outputs of epitome already exist
@@ -175,6 +179,8 @@ def run_epitome(path, config):
                 shutil.copyfile(d, '{}/RUN{}/FUNC.nii.gz'.format(epi_func_dir, '%02d' % (i + 1)))
         except IOError as e:
             logger.error("ERROR: unable to copy files to {}\n{}".format(epi_dir, e))
+            with open(output_dir + '/error.log', 'wb') as f:
+                f.write("ERROR: unable to copy files to {}\n{}".format(epi_dir, e))
             continue
 
         # collect command line options
@@ -192,6 +198,8 @@ def run_epitome(path, config):
         rtn, out = dm.utils.run(command)
         if rtn:
             logger.debug("epitome script failed: {}\n{}".format(command, out))
+            with open(output_dir + '/error.log', 'wb') as f:
+                f.write("epitome script failed: {}\n{}".format(command, out))
             continue
         else:
             pass
@@ -206,6 +214,8 @@ def run_epitome(path, config):
                 # attempt to export the defined epitome stages for all runs
                 if len(matches) != len(functionals):
                     logger.error('epitome output {} not created for all inputs'.format(name))
+                    with open(output_dir + '/error.log', 'wb') as f:
+                        f.write('epitome output {} not created for all inputs'.format(name))
                     continue
                 for i, match in enumerate(matches):
                     func_basename = dm.utils.splitext(os.path.basename(functionals[i]))[0]
@@ -222,6 +232,8 @@ def run_epitome(path, config):
 
             except ProcessingError as p:
                 logger.error('ERROR: {}'.format(p))
+                with open(output_dir + '/error.log', 'wb') as f:
+                    f.write('{}'.format(p))
                 continue
 
         # remove temporary directory
