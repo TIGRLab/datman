@@ -20,7 +20,7 @@ function usage() {
   Options:
     -v                Verbose. Output extra information.
     -c <config_yaml>  Path to the config .yaml file for this site. [default:
-                      /archive/data/code/datman/assets/tigrlab_config.yaml]
+                      /archive/code/config/tigrlab_config.yaml]
   "
   exit
 }

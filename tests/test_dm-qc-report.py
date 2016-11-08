@@ -6,7 +6,7 @@ from random import randint
 import nose.tools
 from mock import patch, mock_open, call, MagicMock
 
-FIXTURE = "tests/fixture_dm-qc-report"
+FIXTURE = "tests/fixture_project_settings"
 
 qc = importlib.import_module('bin.dm-qc-report')
 

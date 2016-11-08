@@ -85,7 +85,6 @@ import logging
 
 import numpy as np
 import pandas as pd
-import yaml
 
 import datman as dm
 from datman.docopt import docopt
@@ -94,35 +93,6 @@ logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(mess
 logger = logging.getLogger(os.path.basename(__file__))
 
 REWRITE = False
-
-class SiteConfig(object):
-    """
-    Simplifies access to the project_settings.yaml information
-    """
-    def __init__(self, config_path):
-        self.path = config_path
-
-        with open(config_path, 'r') as stream:
-            config = yaml.load(stream)
-            self.paths = config['paths']
-            self.sites = config['Sites']
-
-    def get_path(self, path_key):
-        return self.paths[path_key]
-
-    def get_export_info(self, site_key):
-        return ExportInfo(self.sites[site_key]['ExportInfo'])
-
-class ExportInfo(object):
-    """
-    Simplifies access to an export info dictionary
-    """
-    def __init__(self, export_dict):
-        self.export_info = export_dict
-        self.tags = export_dict.keys()
-
-    def get_tag_info(self, tag):
-        return self.export_info[tag]
 
 def slicer(fpath, pic, slicergap, picwidth):
     """
@@ -272,7 +242,7 @@ def make_qc_command(subject_id, config_file):
         command.append(' --rewrite')
     return command
 
-def qc_all_scans(nii_dir, config_file):
+def qc_all_scans(subject, config):
     """
     Creates a dm-qc-report.py command for each scan and submits any
     commands for human subjects to the queue to run.
@@ -280,9 +250,10 @@ def qc_all_scans(nii_dir, config_file):
     human_commands = []
     phantom_commands = []
 
+    nii_dir = config.get_path('nii')
+
     for path in os.listdir(nii_dir):
-        subject_id = os.path.basename(path)
-        command = make_qc_command(subject_id, config_file)
+        command = make_qc_command(subject.full_id, config.path)
         if '_PHA_' in subject_id:
             phantom_commands.append(command)
         else:
@@ -458,15 +429,13 @@ def get_sorted_niftis(scan_path):
 
     return niftis
 
-def find_expected_files(config, scan_path, subject):
+def find_expected_files(subject, config):
     """
     Reads the export_info from the config for this site and compares it to the
     contents of the nii folder. Data written to a pandas dataframe.
     """
-    site = dm.scanid.parse(subject + '_01').site # add artificial repeat number
-    export_info = config.get_export_info(site)
-
-    niftis = get_sorted_niftis(scan_path)
+    export_info = config.get_export_info(subject.site)
+    niftis = get_sorted_niftis(subject.nii)
 
     tag_counts, expected_positions = initialize_counts(export_info)
 
@@ -491,6 +460,9 @@ def find_expected_files(config, scan_path, subject):
             notes = 'Repeated Scan'
         else:
             notes = ''
+
+        position = get_position(expected_positions[tag])
+
 #####################################################################
         # TODO If the list is empty pop will crash. Fix
         if isinstance(expected_positions[tag], list):
@@ -554,10 +526,9 @@ def run_header_qc(dicom_dir, standard_dir, log_file):
         logger.error("header-diff.log not generated for {}. ".format(subject) +
                 " Check that gold standards are present for this site.")
 
-def qc_subject(scan_path, subject_id, config):
+def qc_subject(subject, config):
     """
-    scan_path :         A scan folder for a single participant.
-    subject_id :        Subject ID assigned to this participant
+    subject :           The created Scan object for the subject_id this run
     config :            The settings obtained from project_settings.yml
 
     Returns the path to the qc_<subject_id>.html file
@@ -599,11 +570,8 @@ def qc_subject(scan_path, subject_id, config):
         "DTI69-1000"    : dti_qc,
     }
 
-    qc_dir = os.path.join(config.get_path('qc'), subject_id)
-    qc_dir = dm.utils.define_folder(qc_dir)
-    report_name = os.path.join(qc_dir, 'qc_{}.html'.format(subject_id))
-
-    resources_path = os.path.join(config.get_path('resources'), subject_id)
+    report_name = os.path.join(subject.qc, 'qc_{}.html'.format(subject.full_id))
+    resources_path = subject.resources
 
     if os.path.isfile(report_name):
         if not REWRITE:
@@ -612,22 +580,21 @@ def qc_subject(scan_path, subject_id, config):
         os.remove(report_name)
 
     # header diff
-    subject_dcm = os.path.join(config.get_path('dcm'), subject_id)
-    header_diffs = os.path.join(qc_dir, 'header-diff.log')
+    header_diffs = os.path.join(subject.qc, 'header-diff.log')
     if not os.path.isfile(header_diffs):
-        run_header_qc(subject_dcm, config.get_path('std'), header_diffs)
+        run_header_qc(subject.dcm, config.get_path('std'), header_diffs)
 
-    expected_files = find_expected_files(config, scan_path, subject_id)
+    expected_files = find_expected_files(subject, config)
 
     with open(report_name, 'wb') as report:
-        write_report_header(report, subject_id)
+        write_report_header(report, subject.full_id)
         write_table(report, expected_files)
-        write_tech_notes_link(report, subject_id, resources_path)
+        write_tech_notes_link(report, subject.full_id, subject.resources)
         # write_report_body
         for idx in range(0,len(expected_files)):
             name = expected_files.loc[idx,'File']
             if name:
-                fname = os.path.join(scan_path, name)
+                fname = os.path.join(subject.nii, name)
                 logger.info("QC scan {}".format(fname))
                 ident, tag, series, description = dm.scanid.parse_filename(fname)
                 report.write('<h2 id="{}">{}</h2>\n'.format(expected_files.loc[idx,'bookmark'], name))
@@ -638,16 +605,15 @@ def qc_subject(scan_path, subject_id, config):
 
                 add_header_qc(fname, report, header_diffs)
 
-                handlers[tag](fname, qc_dir, report)
+                handlers[tag](fname, subject.qc, report)
                 report.write('<br>')
 
 
     return report_name
 
-def qc_phantom(scan_path, subject_id, config):
+def qc_phantom(subject, config):
     """
-    scan_path :         A scan folder for a phantom (non-human participant)
-    subject_id :        Subject ID assigned to this participant.
+    subject:            The Scan object for the subject_id of this run
     config :            The settings obtained from project_settings.yml
     """
     handlers = {
@@ -656,38 +622,59 @@ def qc_phantom(scan_path, subject_id, config):
         "DTI60-1000"    : phantom_dti_qc,
     }
 
-    qc_dir = os.path.join(config.get_path('qc'), subject_id)
-    qc_dir = dm.utils.define_folder(qc_dir)
-
-    niftis = glob.glob(os.path.join(scan_path, '*.nii.gz'))
+    glob_path = os.path.join(subject.nii, '*.nii.gz')
+    niftis = glob.glob(glob_path)
 
     for nifti in niftis:
         ident, tag, series, description = dm.scanid.parse_filename(nifti)
         if tag not in handlers:
             logger.info("No QC tag {} for scan {}. Skipping.".format(tag, nifti))
             continue
-        handlers[tag](nifti, qc_dir)
+        handlers[tag](nifti, subject.qc)
 
-def qc_single_scan(path, scanid, config):
+def qc_single_scan(subject, config):
     """
     Perform QC for a single subject or phantom. Return the report name if one
     was created.
     """
-    if 'PHA' in scanid:
-        logger.info("QC phantom {}".format(path))
-        qc_phantom(path, scanid, config)
+
+    if 'PHA' in subject.full_id:
+        logger.info("QC phantom {}".format(subject.nii))
+        qc_phantom(subject, config)
         return ""
 
-    logger.info("QC {}".format(path))
-    report_name = qc_subject(path, scanid, config)
+    logger.info("QC {}".format(subject.nii))
+    report_name = qc_subject(subject, config)
     return report_name
+
+def prepare_scan(subject_id, config):
+    """
+    Makes a new 'Scan' object, checks for errors (namely a bad subject_id),
+    removes empty files present in existing nifti/qc directories for this scan
+    and ensures the qc folder exists for this scan.
+    """
+    try:
+        subject = Scan(subject_id, config)
+    except dm.scanid.ParseException:
+        logging.error("{} does not match the datman naming convention. " \
+                "Exiting".format(subject_id))
+        sys.exit(1)
+
+    dm.utils.remove_empty_files(subject.get_path('nii'))
+
+    qc_dir = dm.utils.define_folder(subject.get_path('qc'))
+    # If qc_dir already existed and had empty files left over clean up
+    dm.utils.remove_empty_files(qc_dir)
+
+    return subject
 
 def get_site_config(config_path):
     """
     Ensures the path to the given yaml file is readable and contains
-    the expected paths. Returns an instance of SiteConfig.
+    the expected paths. Returns an instance of SiteConfig (from
+    datman.siteconfig.py).
 
-    Throws sys.exit if the config file is unreadable or missing paths.
+    Raises sys.exit if the config file is unreadable or missing paths.
     """
     try:
         config = SiteConfig(config_path)
@@ -721,18 +708,16 @@ def main():
 
     config = get_site_config(config_path)
 
-    nii_dir = config.get_path('nii')
-
     if scanid:
-        scan_path = os.path.join(nii_dir, scanid)
-        dm.utils.remove_empty_files(scan_path)
-        checklist_path = os.path.join(config.get_path('meta'), 'checklist.csv')
+        subject = prepare_scan(scanid, config)
 
-        qc_report = qc_single_scan(scan_path, scanid, config)
+        qc_report = qc_single_scan(subject, config)
+
+        checklist_path = os.path.join(config.get_path('meta'), 'checklist.csv')
         add_report_to_checklist(qc_report, checklist_path)
         return
 
-    qc_all_scans(nii_dir, config)
+    qc_all_scans(subject, config)
 
 if __name__ == "__main__":
     main()

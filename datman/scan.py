@@ -2,6 +2,12 @@
 A class to make access to all information about a single scan easy
 and uniform.
 
+
+    WARNING: This class currently assumes the contents of the directories
+    does not change after the object is created. Certain attribute values may
+    become out of date if this is not true.
+
+
     Both Scan and Series inherit from DatmanNamed and have the following
     attributes:
 
@@ -17,7 +23,7 @@ and uniform.
     In addition each 'Series' instance has the following attributes:
 
         tag             The tag for this series (e.g. T1, DTI60-1000, etc.)
-        series          The number of this series in the scan session.
+        series_num      The number of this series in the scan session.
         description     The description found in the original dicom headers
         path            The full path to this particular file
         ext             The extension of this file
@@ -28,15 +34,11 @@ and uniform.
 
         is_phantom      True if the subject id used to create this instance
                         belongs to a phantom, false otherwise.
-        nii_path        The path to this subject's nifti data. Returns an
-                        empty string if no such path exists.
-        dcm_path        The path to this subject's dicom data. Returns an
-                        empty string if no such path exists.
-        qc_path         The path to this subject's generated qc outputs. Returns
-                        an empty string if this path doesn't exist.
+        nii_path        The path to this subject's nifti data.
+        dcm_path        The path to this subject's dicom data.
+        qc_path         The path to this subject's generated qc outputs.
         resource_path   The path to all resources (non-scan data) associated
-                        with this scan. Returns an empty string if no such
-                        path exists.
+                        with this scan.
         niftis          A list of 'Series' instances for each nifti in nii_path.
                         Returns an empty list if none are found.
         dicoms          A list of 'Series' instances for each dicom in dcm_path.
@@ -57,13 +59,16 @@ and uniform.
 """
 import os
 import glob
+import logging
 
-import datman
+import datman.utils
 import datman.scanid as scanid
 
 class DatmanNamed(object):
     """
     A parent class for all classes that will obey the datman naming scheme
+
+        ident:      A datman.scanid.Identifier instance
     """
     def __init__(self, ident):
         self.full_id = ident.get_full_subjectid_with_timepoint()
@@ -87,13 +92,13 @@ class Series(DatmanNamed):
         file_name, ext = os.path.splitext(path)
 
         ident, tag, series, description = scanid.parse_filename(file_name)
-        super(ident)
+        DatmanNamed.__init__(self, ident)
 
         self.tag = tag
-        self.series = series
+        self.series_num = series
         self.description = description
         self.path = path
-        self.ext = datman.get_extension(path)
+        self.ext = datman.utils.get_extension(path)
 
 class Scan(DatmanNamed):
     """
@@ -113,7 +118,7 @@ class Scan(DatmanNamed):
 
         subject_id = self.__check_session(subject_id)
         ident = scanid.parse(subject_id)
-        super(ident)
+        DatmanNamed.__init__(self, ident)
 
         self.nii_path = self.__get_path('nii', config)
         self.dcm_path = self.__get_path('dcm', config)
@@ -123,8 +128,8 @@ class Scan(DatmanNamed):
         self.niftis = self.__get_series(self.nii_path, ['.nii', '.nii.gz'])
         self.dicoms = self.__get_series(self.dcm_path, ['.dcm'])
 
-        self.__nii_dict = self.__make_dict(niftis)
-        self.__dcm_dict = self.__make_dict(dicoms)
+        self.__nii_dict = self.__make_dict(self.niftis)
+        self.__dcm_dict = self.__make_dict(self.dicoms)
 
         self.nii_tags = self.__nii_dict.keys()
         self.dcm_tags = self.__dcm_dict.keys()
@@ -136,7 +141,7 @@ class Scan(DatmanNamed):
             matched_niftis = []
         return matched_niftis
 
-    def get_tagged_dcm(self, key):
+    def get_tagged_dcm(self, tag):
         try:
             matched_dicoms = self.__dcm_dict[tag]
         except KeyError:
@@ -159,20 +164,18 @@ class Scan(DatmanNamed):
         if session:
             folder_name = self.id_plus_session
         path = os.path.join(config.get_path(key), folder_name)
-        if os.path.exists(path):
-            return path
-        return ""
+        return path
 
     def __get_series(self, path, ext_list):
-        if path:
-            path = os.path.join(path, "*")
+        """
+        This item may generate a ParseException if any file is not named
+        according to the datman naming convention.
+        """
+        glob_path = os.path.join(path, "*")
         series_list = []
-        for item in glob.glob(path):
-            if dm.utils.get_extension(item) in ext_list:
-                try:
-                    series = Series(item)
-                except scanid.ParseException:
-                    continue
+        for item in glob.glob(glob_path):
+            if datman.utils.get_extension(item) in ext_list:
+                series = Series(item)
                 series_list.append(series)
         return series_list
 

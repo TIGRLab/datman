@@ -1,7 +1,5 @@
 import unittest
 
-from nose.tools import raises
-
 import datman.siteconfig as sc
 
 FIXTURE = "/projects/dawn/current/datman/tests/fixture_project_settings/" \
@@ -39,7 +37,7 @@ class TestSiteConfig(unittest.TestCase):
 class TestExportInfo(unittest.TestCase):
     config = sc.SiteConfig(FIXTURE)
     export_settings = config.get_export_info('CMH')
-    
+
     def test_get_tag_info_returns_tag_dict(self):
         tag_info = self.export_settings.get_tag_info('RST')
 
