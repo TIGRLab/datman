@@ -80,10 +80,11 @@ class config(object):
         config_path = self.system_config['CONFIG_DIR']
 
         project_settings_file = os.path.join(config_path,
-            self.site_config['Projects'][study_name])
+                                             self.site_config['Projects'][study_name])
 
         self.study_config = self.load_yaml(project_settings_file)
         self.study_config_name = project_settings_file
+
     def get_study_base(self, study=None):
         """Return the base directory for a study"""
 
@@ -99,12 +100,6 @@ class config(object):
 
         return(os.path.join(proj_dir,
                             self.study_config['PROJECTDIR']))
-
-    def test(self):
-        try:
-            parts = datman.scanid.parse('SPN01')
-        except:
-            print('caught')
 
     def map_xnat_archive_to_project(self, filename):
         """Maps the XNAT tag (e.g. SPN01) to the project name e.g. SPINS
@@ -187,52 +182,46 @@ class config(object):
             # first call and no study set, look at site config
             logger.warning('Study config not set')
             result = self.site_config
-            if site:
-                try:
-                    result = result['Site'][site]
-                except KeyError:
-                    logger.warning('Site:{} not found in study_config:{}'
-                                   .format(site, self.study_config_file))
+        if site:
+            try:
+                result = result['Sites'][site]
+            except KeyError:
+                logger.warning('Site:{} not found in study_config:{}'
+                               .format(site, self.study_config_file))
 
         for val in key:
             try:
                 result = result[val]
             except KeyError:
-                if scope:
-                    # already at top level
-                    raise
+                if site:
+                    return(self.get_key(key))
+                elif not scope:
+                    return self.get_key(key, scope=1)
                 else:
-                    # call recursively
-                    if site:
-                        return(self.get_key(key))
-                    elif not scope:
-                        return self.get_key(key, scope=1)
-                    else:
-                        logger.warning('Failed to find key:{}'
-                                       .format(key))
-                        return
+                    logger.warning('Failed to find key:{}'
+                                   .format(key))
+                    return
         return result
 
-
     def key_exists(self, scope, key):
-        """DEPRECATED: use get_key()
-        Check the yaml file specified by scope for a key.
-        Return the True if the key exists, False otherwise.
-        Scope [site | study]
-        """
-        if scope == 'site':
-            # make a copy of the original yaml
-            result = self.site_config
-        else:
-            result = self.study_config
+            """DEPRECATED: use get_key()
+            Check the yaml file specified by scope for a key.
+            Return the True if the key exists, False otherwise.
+            Scope [site | study]
+            """
+            if scope == 'site':
+                # make a copy of the original yaml
+                result = self.site_config
+            else:
+                result = self.study_config
 
-        for val in key:
-            try:
-                result = result[val]
-            except KeyError:
-                return(False)
+            for val in key:
+                try:
+                    result = result[val]
+                except KeyError:
+                    return(False)
 
-        return(True)
+            return(True)
 
     def get_if_exists(self, scope, key):
         """DEPRECATED: use get_key()
@@ -268,6 +257,50 @@ class config(object):
                                 self.study_config['paths'][path_type]))
         except (KeyError, TypeError):
             logger.info('Path {} not defined in study {} config file'
-                           .format(path_type, self.study_name))
+                        .format(path_type, self.study_name))
             return(os.path.join(self.get_study_base(),
                                 self.site_config['paths'][path_type]))
+
+    def get_exportinfo(self, site, study=None):
+        """
+        Takes the dictionary structure from project_settings.yaml and returns a
+        pattern:tag dictionary.
+
+        If multiple patterns are specified in the configuration file, these are
+        joined with an '|' (OR) symbol.
+        """
+        if study:
+            self.set_study(study)
+        if not self.study_config:
+            logger.error('Study not set')
+            raise KeyError
+
+        exportinfo = self.get_key(['ExportInfo'], site=site)
+        if not exportinfo:
+            return
+
+        tags = exportinfo.keys()
+        patterns = [tagtype["Pattern"] for tagtype in exportinfo.values()]
+
+        regex = []
+        for pattern in patterns:
+            if type(pattern) == list:
+                regex.append(("|").join(pattern))
+            else:
+                regex.append(pattern)
+
+        tagmap = dict(zip(regex, tags))
+
+        return(tagmap)
+
+    def get_xnat_projects(self, study=None):
+        if study:
+            study = self.set_study(study)
+        if not self.study_config:
+            logger.error('Study not set')
+            raise KeyError
+
+        xnat_projects = [site['XNAT_Archive']
+                         for site in self.get_key(['Sites']).values()]
+
+        return(xnat_projects)
