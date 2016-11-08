@@ -677,7 +677,7 @@ def get_site_config(config_path):
     Raises sys.exit if the config file is unreadable or missing paths.
     """
     try:
-        config = SiteConfig(config_path)
+        config = dm.project_config.Config(config_path)
     except IOError:
         logging.error("{} cannot be read.".format(config_path))
         sys.exit(1)

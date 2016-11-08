@@ -1,12 +1,12 @@
 import unittest
 
-import datman.siteconfig as sc
+import datman.project_config as pc
 
 FIXTURE = "/projects/dawn/current/datman/tests/fixture_project_settings/" \
           "project_settings.yml"
 
 class TestSiteConfig(unittest.TestCase):
-    config = sc.SiteConfig(FIXTURE)
+    config = pc.Config(FIXTURE)
 
     def test_reads_project_settings(self):
         assert self.config.settings_path == FIXTURE
@@ -30,12 +30,12 @@ class TestSiteConfig(unittest.TestCase):
         site = 'YORK'
         export_settings = self.config.get_export_info(site)
 
-        assert isinstance(export_settings, sc.ExportInfo)
+        assert isinstance(export_settings, pc.ExportInfo)
         assert export_settings.export_info == {}
         assert export_settings.tags == []
 
 class TestExportInfo(unittest.TestCase):
-    config = sc.SiteConfig(FIXTURE)
+    config = pc.Config(FIXTURE)
     export_settings = config.get_export_info('CMH')
 
     def test_get_tag_info_returns_tag_dict(self):

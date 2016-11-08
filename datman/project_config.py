@@ -1,12 +1,12 @@
 """
 A class to make access to information in project_settings.yml files easier
-and more uniform.
+and more readable.
 
 """
 
 import yaml
 
-class SiteConfig(object):
+class Config(object):
     """
     Will raise an IOError exception if the given path does not exist or a
     YAMLError if the project-settings.yaml file is not a parseable yaml file.
