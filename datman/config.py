@@ -22,6 +22,7 @@ class config(object):
     study_config_file = None
 
     def __init__(self, filename=None, system=None, study=None):
+
         if not filename:
             try:
                 filename = os.environ['DM_CONFIG']

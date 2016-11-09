@@ -58,7 +58,6 @@ def check_checklist(session_name, study=None):
     else:
         cfg = datman.config.config(study=ident.study)
 
-
     try:
         #study = cfg.map_xnat_archive_to_project(ident.study)
         checklist_path = os.path.join(cfg.get_path('meta', study),
