@@ -139,8 +139,13 @@ def main():
     cfg = datman.config.config(study=study)
 
     if not server:
-        server = 'https://{}:{}'.format(cfg.get_key(['XNATSERVER']),
-                                        cfg.get_key(['XNATPORT']))
+        try:
+            server = 'https://{}:{}'.format(cfg.get_key(['XNATSERVER']),
+                                            cfg.get_key(['XNATPORT']))
+        except KeyError:
+            logger.error('Failed to get xnat server info for study:{}'
+                         .format(study))
+            return
 
     if username:
         password = getpass.getpass()
@@ -207,7 +212,7 @@ def process_session(session):
     if not experiment:
         logger.warning('No experiments found for session:{}'
                        .format(session_label))
-        
+
     # experiment_label should be the same as the session_label
     if not experiment['data_fields']['label'] == session_label:
         logger.warning('Experiment label:{} doesnt match session_label:{}'
@@ -411,9 +416,8 @@ def get_dicom_archive_from_xnat(xnat_project, session, series):
     # get the root dir for the extracted files
     archive_files = []
     for root, dirname, filenames in os.walk(tempdir):
-        for filename in fnmatch.filter(filenames, '*.dcm'):
+        for filename in fnmatch.filter(filenames, '*.[Dd][Cc][Mm]'):
             archive_files.append(os.path.join(root, filename))
-
     base_dir = os.path.dirname(archive_files[0])
     return(tempdir, base_dir)
 
