@@ -192,6 +192,8 @@ def process_session(session):
 
     # check the session is valid on xnat
     if not xnat.get_session(xnat_project, session_label):
+        logger.warning('Invalid session:{} in xnat project:{}'
+                       .format(session_label, xnat_project))
         return
 
     if len(xnat.get_experiments(xnat_project, session_label)) > 1:
