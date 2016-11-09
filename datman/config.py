@@ -193,7 +193,7 @@ class config(object):
         for val in key:
             try:
                 result = result[val]
-            except KeyError:
+            except KeyError as e:
                 if site:
                     return(self.get_key(key))
                 elif not scope:
@@ -201,8 +201,8 @@ class config(object):
                 else:
                     logger.warning('Failed to find key:{}'
                                    .format(key))
-                    return
-        return result
+                    raise(e)
+        return(result)
 
     def key_exists(self, scope, key):
             """DEPRECATED: use get_key()
