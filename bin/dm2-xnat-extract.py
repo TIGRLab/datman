@@ -339,7 +339,12 @@ def process_scans(xnat_project, scanid, scans):
             continue
 
         # first check if the scan has already been processed
-        export_formats = cfg.get_key(['ExportSettings', tag])
+        try:
+            export_formats = cfg.get_key(['ExportSettings', tag])
+        except KeyError:
+            logger.error('Export settings for tag:{} not found for study:{}'
+                         .format(tag, cfg.study_name))
+            continue
         if check_if_dicom_is_processed(scanid,
                                        file_stem,
                                        export_formats.keys()):
