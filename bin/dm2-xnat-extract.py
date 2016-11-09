@@ -204,7 +204,10 @@ def process_session(session):
     experiment = xnat.get_experiment(xnat_project,
                                      session_label,
                                      session_label)
-
+    if not experiment:
+        logger.warning('No experiments found for session:{}'
+                       .format(session_label))
+        
     # experiment_label should be the same as the session_label
     if not experiment['data_fields']['label'] == session_label:
         logger.warning('Experiment label:{} doesnt match session_label:{}'
