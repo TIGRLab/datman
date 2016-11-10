@@ -128,7 +128,7 @@ def phantom_fmri_qc(filename, outputDir):
     Runs the fbirn fMRI pipeline on input phantom data if the outputs don't
     already exist.
     """
-    basename = nifti_basename(filename)
+    basename = dm.utils.nifti_basename(filename)
     output_file = os.path.join(outputDir, '{}_stats.csv'.format(basename))
     output_prefix = os.path.join(outputDir, basename)
     if not os.path.isfile(output_file):
@@ -247,7 +247,7 @@ def submit_qc_jobs(commands):
 def make_qc_command(subject_id, config_file):
     command = " ".join([__file__, config_file, '--subject {}'.format(subject_id)])
     if REWRITE:
-        command.append(' --rewrite')
+        command = command + ' --rewrite'
     return command
 
 def qc_all_scans(config):

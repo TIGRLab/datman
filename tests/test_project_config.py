@@ -5,7 +5,7 @@ import datman.project_config as pc
 FIXTURE = "/projects/dawn/current/datman/tests/fixture_project_settings/" \
           "project_settings.yml"
 
-class TestSiteConfig(unittest.TestCase):
+class TestProjectConfig(unittest.TestCase):
     config = pc.Config(FIXTURE)
 
     def test_reads_project_settings(self):
@@ -16,9 +16,6 @@ class TestSiteConfig(unittest.TestCase):
 
         expected_sites = ['CMH', 'MRP']
         assert sorted(self.config.sites.keys()) == sorted(expected_sites)
-
-        expected_pipe_settings = [{'Placeholder': []}]
-        assert self.config.pipeline_settings == expected_pipe_settings
 
     def test_get_path_returns_empty_string_with_bad_path_key(self):
         key = 'home'
