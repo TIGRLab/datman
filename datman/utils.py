@@ -497,7 +497,7 @@ def filter_niftis(candidates):
     Takes a list and returns all items that contain the extensions '.nii' or '.nii.gz'.
     """
     candidates = filter(lambda x: 'nii.gz' == '.'.join(x.split('.')[1:]) or
-                                     'nii' == '.'.join(x.split('.')[1:]), files)
+                                     'nii' == '.'.join(x.split('.')[1:]), candidates)
 
     return candidates
 
