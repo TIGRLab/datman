@@ -666,7 +666,7 @@ def qc_phantom(subject, config):
             logger.info("No QC tag {} for scan {}. " \
                     "Skipping.".format(nifti.tag, nifti.path))
             continue
-        handlers[tag](nifti.path, subject.qc_path)
+        handlers[nifti.tag](nifti.path, subject.qc_path)
 
 def qc_single_scan(subject, config):
     """

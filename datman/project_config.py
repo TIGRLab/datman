@@ -18,7 +18,7 @@ class Config(object):
             config = yaml.load(stream)
             self.paths = config['paths']
             self.sites = config['Sites']
-            self.pipeline_settings = config['PipelineSettings']
+            #self.pipeline_settings = config['PipelineSettings']
 
     def get_path(self, path_key):
         try:
