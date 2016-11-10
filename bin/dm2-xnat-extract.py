@@ -365,7 +365,8 @@ def process_scans(xnat_project, scanid, scans):
         try:
             for export_format in export_formats.keys():
                 target_base_dir = cfg.get_path(export_format)
-                target_dir = os.path.join(target_base_dir, str(scanid))
+                target_dir = os.path.join(target_base_dir,
+                                          scanid.get_full_subjectid_with_timepoint())
                 try:
                     target_dir = datman.utils.define_folder(target_dir)
                 except OSError as e:
