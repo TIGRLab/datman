@@ -96,7 +96,7 @@ transfer_scan_info.py -v ${credentials} 2>&1 | grep "alternate ids" | cut -d " "
       else
 
         # Run with default project config-yaml file
-        LINK_OUTPUT=`dm-link-project-scans.py
+        LINK_OUTPUT=`dm-link-project-scans.py \
                       ${link_file} \
                       ${subject_id} \
                       ${linked_id} 2>&1`
