@@ -135,6 +135,7 @@ def run_epitome(path, config):
         # locate functional data
         files = glob.glob(path + '/*')
         functionals = []
+        failed = False
         for tag in expected_tags:
             candidates = filter(lambda x: tag in x, files)
             candidates = dm.utils.filter_niftis(candidates)
@@ -147,19 +148,30 @@ def run_epitome(path, config):
                 with open(output_dir + '/error.log', 'wb') as f:
                     f.write('Did not find the correct number of fMRI inputs:\n{}'.format(m))
                 continue
+                failed = True
             functionals.extend(candidates)
+
+        # don't attempt to run epitome if all of the inputs do not exist
+        if failed:
+            continue
 
         # locate anatomical data
         anat_path = os.path.join(t1_dir, os.path.basename(path), 'T1w')
         files = glob.glob(anat_path + '/*')
         anatomicals = []
+        failed = False
         for anat in ['aparc+aseg.nii.gz', 'aparc.a2009s+aseg.nii.gz', 'T1w_brain.nii.gz']:
             if not filter(lambda x: anat in x, files):
                 logger.error('ERROR: expected anatomical {} not found in {}'.format(anat, anat_path))
                 with open(output_dir + '/error.log', 'wb') as f:
                     f.write('expected anatomical {} not found in {}'.format(anat, anat_path))
                 continue
+                failed = True
             anatomicals.append(os.path.join(anat_path, anat))
+
+        # don't attempt to run epitome if all of the inputs do not exist
+        if failed:
+            continue
 
         # don't run if the outputs of epitome already exist
         if outputs_exist(output_dir, expected_names):
