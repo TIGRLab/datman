@@ -3,7 +3,7 @@ import unittest
 from nose.tools import raises
 from mock import patch
 
-import datman.siteconfig
+import datman.project_config
 import datman.scan
 
 FIXTURE = "/projects/dawn/current/datman/tests/fixture_project_settings/" \
@@ -32,7 +32,7 @@ class TestScan(unittest.TestCase):
     good_name = "STUDY_CMH_9999_01"
     bad_name = "STUDYCMH_9999"
     phantom = "STUDY_CMH_PHA_ID"
-    config = datman.siteconfig.SiteConfig(FIXTURE)
+    config = datman.project_config.Config(FIXTURE)
 
 
     @raises(datman.scanid.ParseException)
@@ -109,9 +109,10 @@ class TestScan(unittest.TestCase):
     def test_niftis_or_dicoms_with_bad_names_cause_parse_exception(self,
             mock_glob):
         well_named = "{}_01_T1_02_SagT1-BRAVO.nii".format(self.good_name)
-        badly_named = "{}_01_DTI60-1000_05_Ax-DTI-60.nii".format(self.bad_name)
+        badly_named1 = "{}_01_DTI60-1000_05_Ax-DTI-60.nii".format(self.bad_name)
+        badly_named2 = "{}_01_T2_07.nii".format(self.good_name)
 
-        nii_list = [well_named, badly_named]
+        nii_list = [well_named, badly_named1, badly_named2]
         mock_glob.return_value = nii_list
 
         subject = datman.scan.Scan(self.good_name, self.config)

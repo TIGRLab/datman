@@ -89,16 +89,26 @@ class Series(DatmanNamed):
     datman naming convention.
     """
     def __init__(self, path):
-        file_name, ext = os.path.splitext(path)
+        self.path = path
+        self.ext = datman.utils.get_extension(path)
+        self.file_name = os.path.basename(self.path)
 
-        ident, tag, series, description = scanid.parse_filename(file_name)
+        path_minus_ext = path.replace(self.ext, "")
+
+        try:
+            ident, tag, series, description = scanid.parse_filename(path_minus_ext)
+        except datman.scanid.ParseException:
+            # re-raise the exception with a more descriptive message
+            message = "{} does not match datman convention".format(path_minus_ext)
+            raise datman.scanid.ParseException(message)
         DatmanNamed.__init__(self, ident)
 
         self.tag = tag
         self.series_num = series
         self.description = description
-        self.path = path
-        self.ext = datman.utils.get_extension(path)
+
+    def __str__(self):
+        return self.file_name
 
 class Scan(DatmanNamed):
     """
@@ -117,7 +127,13 @@ class Scan(DatmanNamed):
         self.is_phantom = True if '_PHA_' in subject_id else False
 
         subject_id = self.__check_session(subject_id)
-        ident = scanid.parse(subject_id)
+
+        try:
+            ident = scanid.parse(subject_id)
+        except datman.scanid.ParseException:
+            message = "{} does not match datman convention".format(subject_id)
+            raise datman.scanid.ParseException(message)
+
         DatmanNamed.__init__(self, ident)
 
         self.nii_path = self.__get_path('nii', config)
@@ -168,15 +184,23 @@ class Scan(DatmanNamed):
 
     def __get_series(self, path, ext_list):
         """
-        This item may generate a ParseException if any file is not named
+        This method will generate a ParseException if any files are not named
         according to the datman naming convention.
         """
         glob_path = os.path.join(path, "*")
         series_list = []
+        badly_named = []
         for item in glob.glob(glob_path):
             if datman.utils.get_extension(item) in ext_list:
-                series = Series(item)
+                try:
+                    series = Series(item)
+                except datman.scanid.ParseException:
+                    badly_named.append(item)
+                    continue
                 series_list.append(series)
+        if badly_named:
+            message = "File(s) misnamed: {}".format(', '.join(badly_named))
+            raise datman.scanid.ParseException(message)
         return series_list
 
     def __make_dict(self, series_list):
@@ -188,3 +212,6 @@ class Scan(DatmanNamed):
             except KeyError:
                 tag_dict[tag] = [series]
         return tag_dict
+
+    def __str__(self):
+        return self.full_id

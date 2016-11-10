@@ -89,7 +89,8 @@ import pandas as pd
 import datman as dm
 from datman.docopt import docopt
 
-logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
+logging.basicConfig(level=logging.WARN,
+        format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
 REWRITE = False
@@ -117,6 +118,7 @@ def add_image(qc_html, image, title=None):
     qc_html.write('</a><br>\n')
 
     return qc_html
+
 # PIPELINES
 def ignore(filename, qc_dir, report):
     pass
@@ -146,7 +148,8 @@ def phantom_dti_qc(filename, outputDir):
     if not os.path.isfile(output_file):
         bvec = os.path.join(dirname, basename + '.bvec')
         bval = os.path.join(dirname, basename + '.bval')
-        dm.utils.run('qc-fbirn-dti {} {} {} {} n'.format(filename, bvec, bval, output_prefix))
+        dm.utils.run('qc-fbirn-dti {} {} {} {} n'.format(filename, bvec, bval,
+                output_prefix))
 
 def phantom_anat_qc(filename, outputDir):
     """
@@ -181,11 +184,13 @@ def fmri_qc(file_name, qc_dir, report):
     add_image(report, image_raw, title='BOLD montage')
 
     if not os.path.isfile(image_sfnr):
-        slicer(os.path.join(qc_dir, base_name + '_sfnr.nii.gz'), image_sfnr, 2, 1600)
+        slicer(os.path.join(qc_dir, base_name + '_sfnr.nii.gz'), image_sfnr, 2,
+                1600)
     add_image(report, image_sfnr, title='SFNR map')
 
     if not os.path.isfile(image_corr):
-        slicer(os.path.join(qc_dir, base_name + '_corr.nii.gz'), image_corr, 2, 1600)
+        slicer(os.path.join(qc_dir, base_name + '_corr.nii.gz'), image_corr, 2,
+                1600)
     add_image(report, image_corr, title='correlation map')
 
 def anat_qc(filename, qc_dir, report):
@@ -205,17 +210,20 @@ def dti_qc(filename, qc_dir, report):
     output_prefix = os.path.join(qc_dir, basename)
     output_file = output_prefix + '_stats.csv'
     if not os.path.isfile(output_file):
-        dm.utils.run('qc-dti {} {} {} {}'.format(filename, bvec, bval, output_prefix))
+        dm.utils.run('qc-dti {} {} {} {}'.format(filename, bvec, bval,
+                output_prefix))
 
     output_file = os.path.join(qc_dir, basename + '_spikecount.csv')
     if not os.path.isfile(output_file):
-        dm.utils.run('qc-spikecount {} {} {}'.format(filename, os.path.join(qc_dir, basename + '_spikecount.csv'), bval))
+        dm.utils.run('qc-spikecount {} {} {}'.format(filename,
+                os.path.join(qc_dir, basename + '_spikecount.csv'), bval))
 
     image = os.path.join(qc_dir, basename + '_b0.png')
     if not os.path.isfile(image):
         slicer(filename, image, 2, 1600)
     add_image(report, image, title='b0 montage')
-    add_image(report, os.path.join(qc_dir, basename + '_directions.png'), title='bvec directions')
+    add_image(report, os.path.join(qc_dir, basename + '_directions.png'),
+            title='bvec directions')
 
 def submit_qc_jobs(commands):
     """
@@ -233,7 +241,7 @@ def submit_qc_jobs(commands):
 
         if rtn:
             logger.error("stdout: {}".format(out))
-        else:
+        elif out:
             logger.debug(out)
 
 def make_qc_command(subject_id, config_file):
@@ -242,7 +250,7 @@ def make_qc_command(subject_id, config_file):
         command.append(' --rewrite')
     return command
 
-def qc_all_scans(subject, config):
+def qc_all_scans(config):
     """
     Creates a dm-qc-report.py command for each scan and submits any
     commands for human subjects to the queue to run.
@@ -253,8 +261,10 @@ def qc_all_scans(subject, config):
     nii_dir = config.get_path('nii')
 
     for path in os.listdir(nii_dir):
-        command = make_qc_command(subject.full_id, config.path)
-        if '_PHA_' in subject_id:
+        subject = os.path.basename(path)
+        command = make_qc_command(subject, config.settings_path)
+
+        if '_PHA_' in subject:
             phantom_commands.append(command)
         else:
             human_commands.append(command)
@@ -286,7 +296,8 @@ def add_report_to_checklist(qc_report, checklist_path):
         return
 
     # remove extension from report name, so we don't double-count .pdfs vs .html
-    report_name, report_ext = os.path.splitext(qc_report)
+    report_file_name = os.path.basename(qc_report)
+    report_name, report_ext = os.path.splitext(report_file_name)
 
     try:
         found_reports = find_existing_reports(checklist_path)
@@ -299,15 +310,14 @@ def add_report_to_checklist(qc_report, checklist_path):
         return
 
     with open(checklist_path, 'a') as checklist:
-        checklist.write(os.path.basename(report_name + report_ext) + '\n')
+        checklist.write(report_file_name + '\n')
 
-def add_header_qc(nifti_path, qc_html, log_path):
+def add_header_qc(nifti, qc_html, log_path):
     """
     Adds header-diff.log information to the report.
     """
     # get the filename of the nifti in question
-    filestem = os.path.basename(nifti_path).replace(
-            dm.utils.get_extension(nifti_path),'')
+    filestem = nifti.file_name.replace(nifti.ext, '')
 
     try:
         # read the log
@@ -327,6 +337,26 @@ def add_header_qc(nifti_path, qc_html, log_path):
     for l in lines:
         qc_html.write('<tr><td>{}</td></tr>'.format(l))
     qc_html.write('</table>\n')
+
+def write_report_body(report, expected_files, subject, header_diffs, handlers):
+    for idx in range(0,len(expected_files)):
+        series = expected_files.loc[idx,'File']
+        if not series:
+            continue
+
+        logger.info("QC scan {}".format(series.path))
+        report.write('<h2 id="{}">{}</h2>\n'.format(expected_files.loc[idx,'bookmark'],
+                series.file_name))
+
+        if series.tag not in handlers:
+            logger.info("No QC tag {} for scan {}. Skipping.".format(series.tag,
+                    series.path))
+            continue
+
+        add_header_qc(series, report, header_diffs)
+
+        handlers[series.tag](series.path, subject.qc_path, report)
+        report.write('<br>')
 
 def find_tech_notes(path):
     """
@@ -349,9 +379,10 @@ def write_tech_notes_link(report, subject_id, resources_path):
     """
     Adds a link to the tech notes for this subject to the given QC report
     """
-    tech_notes = ""
-    if 'CMH' in subject_id:
-        tech_notes = find_tech_notes(resources_path)
+    if 'CMH' not in subject_id:
+        return
+
+    tech_notes = find_tech_notes(resources_path)
 
     if not tech_notes:
         report.write('<p>Tech Notes not found</p>\n')
@@ -371,8 +402,10 @@ def write_table(report, exportinfo):
 
     for row in range(0,len(exportinfo)):
         report.write('<tr><td>{}</td>'.format(exportinfo.loc[row,'tag'])) ## table new row
-        report.write('<td><a href="#{}">{}</a></td>'.format(exportinfo.loc[row,'bookmark'],exportinfo.loc[row,'File']))
-        report.write('<td><font color="#FF0000">{}</font></td></tr>'.format(exportinfo.loc[row,'Note'])) ## table new row
+        report.write('<td><a href="#{}">{}</a></td>'.format(exportinfo.loc[row,
+                'bookmark'], exportinfo.loc[row,'File']))
+        report.write('<td><font color="#FF0000">{}</font></td>'\
+                '</tr>'.format(exportinfo.loc[row,'Note'])) ## table new row
     report.write('</table>\n')
 
 def write_report_header(report, subject_id):
@@ -401,6 +434,23 @@ def write_report_header(report, subject_id):
 
     report.write('<h1> QC report for {} <h1/>'.format(subject_id))
 
+def generate_qc_report(report_name, subject, expected_files, header_diffs,
+        handlers):
+    with open(report_name, 'wb') as report:
+        write_report_header(report, subject.full_id)
+        write_table(report, expected_files)
+        write_tech_notes_link(report, subject.full_id, subject.resource_path)
+        write_report_body(report, expected_files, subject, header_diffs,
+                handlers)
+
+def get_position(position_info):
+    if isinstance(position_info, list):
+        position = position_info.pop(0)
+    else:
+        position = position_info
+
+    return position
+
 def initialize_counts(export_info):
     # build a tag count dict
     tag_counts = {}
@@ -418,24 +468,13 @@ def initialize_counts(export_info):
 
     return tag_counts, expected_position
 
-def get_sorted_niftis(scan_path):
-    niftis = []
-    for item in glob.glob(os.path.join(scan_path, '*')):
-        if dm.utils.get_extension(item) in ['.nii.gz', '.nii']:
-            niftis.append(os.path.basename(item))
-
-    # Sort niftis by their series number
-    niftis = sorted(niftis, key=lambda x: dm.scanid.parse_filename(x)[2])
-
-    return niftis
-
 def find_expected_files(subject, config):
     """
     Reads the export_info from the config for this site and compares it to the
     contents of the nii folder. Data written to a pandas dataframe.
     """
     export_info = config.get_export_info(subject.site)
-    niftis = get_sorted_niftis(subject.nii)
+    sorted_niftis = sorted(subject.niftis, key=lambda item: item.series_num)
 
     tag_counts, expected_positions = initialize_counts(export_info)
 
@@ -445,12 +484,13 @@ def find_expected_files(subject, config):
             'Sequence'])
 
     # tabulate found data in the order they were acquired
-    for file_name in niftis:
-        tag = dm.scanid.parse_filename(file_name)[1]
+    for nifti in sorted_niftis:
+        tag = nifti.tag
 
         # only check data that is defined in the config file
         if tag in export_info.tags:
-            expected_count = export_info.get_tag_info(tag)['Count']
+            tag_info = export_info.get_tag_info(tag)
+            expected_count = tag_info['Count']
         else:
             continue
 
@@ -463,68 +503,77 @@ def find_expected_files(subject, config):
 
         position = get_position(expected_positions[tag])
 
-#####################################################################
-        # TODO If the list is empty pop will crash. Fix
-        if isinstance(expected_positions[tag], list):
-            position = expected_positions[tag].pop(0)
-        else:
-            position = expected_positions[tag]
-
-        expected_files.loc[idx] = [tag, file_name, bookmark, notes,
+        expected_files.loc[idx] = [tag, nifti, bookmark, notes,
                 position]
         idx += 1
-######################################################################
 
     # note any missing data
     for tag in export_info.tags:
         expected_count = export_info.get_tag_info(tag)['Count']
         if tag_counts[tag] < expected_count:
             n_missing = expected_count - tag_counts[tag]
-            notes = 'missing({})'.format(expected_count - tag_counts[tag])
+            notes = 'missing({})'.format(n_missing)
             expected_files.loc[idx] = [tag, '', '', notes,
                     expected_positions[tag]]
             idx += 1
     expected_files = expected_files.sort('Sequence')
     return(expected_files)
 
-def run_header_qc(dicom_dir, standard_dir, log_file):
+def get_standards(standard_dir, site):
     """
-    For each .dcm file found in 'dicoms', find the matching site/tag file in
+    Constructs a dictionary of standards for each standards file in
+    standard_dir.
+
+    If a standards file name raises ParseException it will be logged and
+    omitted from the standards dictionary.
+    """
+    glob_path = os.path.join(standard_dir, "*")
+
+    standards = {}
+    misnamed_files = []
+    for item in glob.glob(glob_path):
+        try:
+            standard = dm.scan.Series(item)
+        except dm.scanid.ParseException:
+            misnamed_files.append(item)
+            continue
+        if standard.site == site:
+            standards[standard.tag] = standard
+
+    if misnamed_files:
+        logging.error("Standards files misnamed, ignoring: \n" \
+                "{}".format("\n".join(misnamed_files)))
+
+    return standards
+
+def run_header_qc(subject, standard_dir, log_file):
+    """
+    For each .dcm file found in 'dicoms', find the matching site / tag file in
     'standards', and run qc-headers (from qcmon) on these files. Any
     are written to log_file.
     """
 
-    dicoms = glob.glob(os.path.join(dicom_dir, '*'))
-    standards = glob.glob(os.path.join(standard_dir, '*'))
-
-    if not dicoms:
-        logger.debug("No dicoms found in {}".format(dicom_dir))
+    if not subject.dicoms:
+        logger.debug("No dicoms found in {}".format(subject.dcm_path))
         return
 
-    site = dm.scanid.parse_filename(dicoms[0])[0].site
+    standards_dict = get_standards(standard_dir, subject.site)
 
-    # build standard dict
-    standardDict = {}
-    for s in standards:
-        if dm.scanid.parse_filename(s)[0].site == site:
-            standardDict[dm.scanid.parse_filename(s)[1]] = s
-
-    for d in dicoms:
-        tag = dm.scanid.parse_filename(d)[1]
+    for dicom in subject.dicoms:
         try:
-            s = standardDict[tag]
-        except:
-            logger.debug('No standard with tag {} found in {}'.format(tag,
+            standard = standards_dict[dicom.tag]
+        except KeyError:
+            logger.debug('No standard with tag {} found in {}'.format(dicom.tag,
                     standard_dir))
             continue
-
-        # run header check for dicom
-        dm.utils.run('qc-headers {} {} {}'.format(d, s, log_file))
+        else:
+            # run header check for dicom
+            dm.utils.run('qc-headers {} {} {}'.format(dicom.path, standard.path,
+                    log_file))
 
     if not os.path.exists(log_file):
-        subject = os.path.basename(dicom_dir)
-        logger.error("header-diff.log not generated for {}. ".format(subject) +
-                " Check that gold standards are present for this site.")
+        logger.error("header-diff.log not generated for {}. Check that gold " \
+                "standards are present for this site.".format(subject.full_id))
 
 def qc_subject(subject, config):
     """
@@ -570,8 +619,8 @@ def qc_subject(subject, config):
         "DTI69-1000"    : dti_qc,
     }
 
-    report_name = os.path.join(subject.qc, 'qc_{}.html'.format(subject.full_id))
-    resources_path = subject.resources
+    report_name = os.path.join(subject.qc_path,
+            'qc_{}.html'.format(subject.full_id))
 
     if os.path.isfile(report_name):
         if not REWRITE:
@@ -580,34 +629,24 @@ def qc_subject(subject, config):
         os.remove(report_name)
 
     # header diff
-    header_diffs = os.path.join(subject.qc, 'header-diff.log')
+    header_diffs = os.path.join(subject.qc_path, 'header-diff.log')
     if not os.path.isfile(header_diffs):
-        run_header_qc(subject.dcm, config.get_path('std'), header_diffs)
+        run_header_qc(subject, config.get_path('std'), header_diffs)
 
     expected_files = find_expected_files(subject, config)
 
-    with open(report_name, 'wb') as report:
-        write_report_header(report, subject.full_id)
-        write_table(report, expected_files)
-        write_tech_notes_link(report, subject.full_id, subject.resources)
-        # write_report_body
-        for idx in range(0,len(expected_files)):
-            name = expected_files.loc[idx,'File']
-            if name:
-                fname = os.path.join(subject.nii, name)
-                logger.info("QC scan {}".format(fname))
-                ident, tag, series, description = dm.scanid.parse_filename(fname)
-                report.write('<h2 id="{}">{}</h2>\n'.format(expected_files.loc[idx,'bookmark'], name))
-
-                if tag not in handlers:
-                    logger.info("No QC tag {} for scan {}. Skipping.".format(tag, fname))
-                    continue
-
-                add_header_qc(fname, report, header_diffs)
-
-                handlers[tag](fname, subject.qc, report)
-                report.write('<br>')
-
+    try:
+        generate_qc_report(report_name, subject, expected_files, header_diffs,
+                handlers)
+    except:
+        logger.error("Exception raised during qc-report generation for {}. " \
+                "Removing .html page.".format(subject.full_id), exc_info=True)
+        if os.path.exists(report_name):
+            os.remove(report_name)
+    else:
+        # Update checklist if report is successfully generated
+        checklist_path = os.path.join(config.get_path('meta'), 'checklist.csv')
+        add_report_to_checklist(report_name, checklist_path)
 
     return report_name
 
@@ -622,15 +661,12 @@ def qc_phantom(subject, config):
         "DTI60-1000"    : phantom_dti_qc,
     }
 
-    glob_path = os.path.join(subject.nii, '*.nii.gz')
-    niftis = glob.glob(glob_path)
-
-    for nifti in niftis:
-        ident, tag, series, description = dm.scanid.parse_filename(nifti)
-        if tag not in handlers:
-            logger.info("No QC tag {} for scan {}. Skipping.".format(tag, nifti))
+    for nifti in subject.niftis:
+        if nifti.tag not in handlers:
+            logger.info("No QC tag {} for scan {}. " \
+                    "Skipping.".format(nifti.tag, nifti.path))
             continue
-        handlers[tag](nifti, subject.qc)
+        handlers[tag](nifti.path, subject.qc_path)
 
 def qc_single_scan(subject, config):
     """
@@ -638,37 +674,52 @@ def qc_single_scan(subject, config):
     was created.
     """
 
-    if 'PHA' in subject.full_id:
-        logger.info("QC phantom {}".format(subject.nii))
+    if subject.is_phantom:
+        logger.info("QC phantom {}".format(subject.nii_path))
         qc_phantom(subject, config)
-        return ""
+        return
 
-    logger.info("QC {}".format(subject.nii))
-    report_name = qc_subject(subject, config)
-    return report_name
+    logger.info("QC {}".format(subject.nii_path))
+    qc_subject(subject, config)
+    return
+
+def verify_input_paths(path_list):
+    """
+    Ensures that each path in path_list exists. If a path (or paths) do not
+    exist this is logged and sys.exit is raised.
+    """
+    broken_paths = []
+    for path in path_list:
+        if not os.path.exists(path):
+            broken_paths.append(path)
+
+    if broken_paths:
+        logging.error("The following path(s) required for input " \
+                "do not exist: \n" \
+                "{}".format("\n".join(broken_paths)))
+        sys.exit(1)
 
 def prepare_scan(subject_id, config):
     """
-    Makes a new 'Scan' object, checks for errors (namely a bad subject_id),
-    removes empty files present in existing nifti/qc directories for this scan
-    and ensures the qc folder exists for this scan.
+    Makes a new Scan object for this participant, clears out any empty files
+    from needed directories and ensures that if needed input directories do
+    not exist that the program exits.
     """
     try:
-        subject = Scan(subject_id, config)
-    except dm.scanid.ParseException:
-        logging.error("{} does not match the datman naming convention. " \
-                "Exiting".format(subject_id))
+        subject = dm.scan.Scan(subject_id, config)
+    except dm.scanid.ParseException as e:
+        logging.error(e, exc_info=True)
         sys.exit(1)
 
-    dm.utils.remove_empty_files(subject.get_path('nii'))
+    verify_input_paths([subject.nii_path, subject.dcm_path])
 
-    qc_dir = dm.utils.define_folder(subject.get_path('qc'))
+    qc_dir = dm.utils.define_folder(subject.qc_path)
     # If qc_dir already existed and had empty files left over clean up
     dm.utils.remove_empty_files(qc_dir)
 
     return subject
 
-def get_site_config(config_path):
+def get_project_config(config_path):
     """
     Ensures the path to the given yaml file is readable and contains
     the expected paths. Returns an instance of SiteConfig (from
@@ -706,18 +757,14 @@ def main():
     if debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    config = get_site_config(config_path)
+    config = get_project_config(config_path)
 
     if scanid:
         subject = prepare_scan(scanid, config)
-
-        qc_report = qc_single_scan(subject, config)
-
-        checklist_path = os.path.join(config.get_path('meta'), 'checklist.csv')
-        add_report_to_checklist(qc_report, checklist_path)
+        qc_single_scan(subject, config)
         return
 
-    qc_all_scans(subject, config)
+    qc_all_scans(config)
 
 if __name__ == "__main__":
     main()
