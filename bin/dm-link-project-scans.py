@@ -22,7 +22,7 @@ Options:
     -o                          Path to the output file.
     --dry-run                   Perform a dry run.
     --config-yaml=<yamlfile>    Path to site specific yaml file
-                                [default: /archive/data/code/datman/assets/tigrlab_config.yaml]
+                                [default: /archive/code/config/tigrlab_config.yaml]
     --system=<system>           System name for settings [default: kimel]
 
 Details:
@@ -67,7 +67,7 @@ def find_files(directory):
 
 def get_study_from_tag(tag):
     """Identify the study from the filename study tag"""
-    return dm.config.map_xnat_archive_to_project(tag)
+    return dm.config.config().map_xnat_archive_to_project(tag)
 
 
 def set_tags(tagstring):

@@ -483,6 +483,15 @@ def remove_empty_files(path):
             if os.path.getsize(filename) == 0:
                 os.remove(filename)
 
+def nifti_basename(fpath):
+    """
+    return basename without extension (either .nii.gz or .nii)
+    """
+    basefpath = os.path.basename(fpath)
+    stem = basefpath.replace('.nii','').replace('.gz', '')
+
+    return(stem)
+
 def filter_niftis(candidates):
     """
     Takes a list and returns all items that contain the extensions '.nii' or '.nii.gz'.
@@ -491,5 +500,6 @@ def filter_niftis(candidates):
                                      'nii' == '.'.join(x.split('.')[1:]), files)
 
     return candidates
+
 
 # vim: ts=4 sw=4 sts=4:

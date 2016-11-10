@@ -65,9 +65,11 @@ fi
 credentials="$1"
 link_file="$2"
 
-# Find any lines of output containing alternate id information and break it
-# into subject id and alternate ids
-transfer_scan_info.py -v ${credentials} 2>&1 | grep "alternate ids" | cut -d " " -f1,5- |
+# Run transfer_scan_info to move any new redcap information into xnat. Tee the
+# log output to the terminal and commands that process only log messages
+# related to alt ids and cut out the relevant source and target(s) for linking
+transfer_scan_info.py -v ${credentials} 2>&1 | tee /dev/tty | grep "alternate ids" |
+    cut -d ":" -f2 | cut -d " " -f1,5- |
   while read subject_id id_list
   do
 

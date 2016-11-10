@@ -18,6 +18,7 @@ Options:
                             [default: https://xnat.imaging-genetics.camh.ca:443]
 
     -v, --verbose           Print descriptive messages as updates are being done.
+    -d, --debug             Print even more.
 """
 
 import sys
@@ -36,9 +37,13 @@ def main():
     redcap_url  = arguments['--redcap']
     xnat_url    = arguments['--xnat']
     verbose     = arguments['--verbose']
+    debug       = arguments['--debug']
 
     if verbose:
         LOGGER.setLevel(logging.INFO)
+
+    if debug:
+        LOGGER.setLevel(logging.DEBUG)
 
     token, user_name, password = read_credentials(cred_file)
     scan_complete_surveys = get_redcap_records(token, redcap_url)
@@ -107,16 +112,16 @@ def add_record_to_xnat(xnat_connection, record):
             LOGGER.info("Skipping {}".format(subject_id))
             return
 
-        LOGGER.info("Working on {} in project {}".format(subject_id, project_name))
+        LOGGER.debug("Working on {} in project {}".format(subject_id, project_name))
 
         # Handle comment field update
         if comment:
-            LOGGER.info("{} has comment {}".format(subject_id, comment))
+            LOGGER.debug("{} has comment {}".format(subject_id, comment))
             try:
                 experiment.attrs.set('note', comment)
                 subject.attrs.set("xnat:subjectData/fields/field[name='comments']/field",
                               "See MR Scan notes")
-                LOGGER.info("{} comment field updated".format(subject_id))
+                LOGGER.debug("{} comment field updated".format(subject_id))
             except xnat.core.errors.DatabaseError:
                 LOGGER.error('{} scan comment is too long for notes field. Adding ' \
                       'note to check redcap record instead.'.format(subject_id))
@@ -129,7 +134,7 @@ def add_record_to_xnat(xnat_connection, record):
             try:
                 subject.attrs.set("xnat:subjectData/fields/field[name='sharedids']/field",
                           shared_ids)
-                LOGGER.info("{} sharedIds field updated".format(subject_id))
+                LOGGER.debug("{} sharedIds field updated".format(subject_id))
             except xnat.core.errors.DatabaseError:
                 LOGGER.error('{} shared id list too long for xnat field, adding note '\
                       'to check REDCap record instead.'.format(subject_id))
