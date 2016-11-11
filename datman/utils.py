@@ -60,11 +60,11 @@ def check_checklist(session_name, study=None):
 
     try:
         #study = cfg.map_xnat_archive_to_project(ident.study)
-        checklist_path = os.path.join(cfg.get_path('meta', study),
+        checklist_path = os.path.join(cfg.get_path('meta'),
                                       'checklist.csv')
     except KeyError:
         logger.warning('Unable to identify meta path for study:{}'
-                       .format(study))
+                       .format(cfg.study_name))
         return
 
     try:
