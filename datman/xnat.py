@@ -14,7 +14,10 @@ class xnat(object):
     auth = None
 
     def __init__(self, server, username, password):
+        if server.endswith('/'):
+            server = server[:-1]
         self.server = server
+
         self.auth = (username, password)
 
     def get_projects(self):
