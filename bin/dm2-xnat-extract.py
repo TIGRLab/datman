@@ -29,6 +29,8 @@ Options:
     -u --username USER    XNAT username. If specified then the credentials
                           file is ignored and you are prompted for password.
 
+    --dont-update-dashboard  Dont update the dashboard database
+
 
 OUTPUT FOLDERS
     Each dicom series will be converted and placed into a subfolder of the
@@ -76,6 +78,7 @@ import sys
 import datman.config
 import datman.xnat
 import datman.utils
+import datman.dashboard
 import getpass
 import os
 import glob
@@ -89,15 +92,17 @@ import dicom
 logger = logging.getLogger(__file__)
 xnat = None
 cfg = None
+dashboard = None
 excluded_studies = ['testing']
 DRYRUN = False
-
+db_ignore = False   # if true dont update the dashboard db
 
 def main():
     global xnat
     global cfg
     global excluded_studies
     global DRYRUN
+    global dashboard
 
     arguments = docopt(__doc__)
     verbose = arguments['--verbose']
@@ -108,6 +113,7 @@ def main():
     credfile = arguments['--credfile']
     username = arguments['--username']
     session = arguments['<session>']
+    db_ignore = arguments['--dont-update-dashboard']
 
     if arguments['--dry-run']:
         DRYRUN = True
@@ -138,6 +144,7 @@ def main():
 
     cfg = datman.config.config(study=study)
 
+    # setup the xnat object
     if not server:
         try:
             server = 'https://{}:{}'.format(cfg.get_key(['XNATSERVER']),
@@ -159,6 +166,13 @@ def main():
             password = lines[1].strip()
 
     xnat = datman.xnat.xnat(server, username, password)
+
+    # setup the dashboard object
+    if not db_ignore:
+        try:
+            dashboard = datman.dashboard.dashboard(study)
+        except datman.dashboard.DashboardException as e:
+            logger.error('Failed to initialise dashboard')
 
     # get the list of xnat projects linked to the datman study
     xnat_projects = cfg.get_xnat_projects(study)
@@ -214,12 +228,24 @@ def process_session(session):
     if not experiment:
         logger.warning('No experiments found for session:{}'
                        .format(session_label))
+        return
 
     # experiment_label should be the same as the session_label
     if not experiment['data_fields']['label'] == session_label:
         logger.warning('Experiment label:{} doesnt match session_label:{}'
                        .format(experiment['data_fields']['label'],
                                session_label))
+        return
+
+    if dashboard:
+        logger.debug('Adding session:{} to db'.format(session_label))
+        try:
+            dashboard.get_add_session(ident.get_full_subjectid_with_timepoint(),
+                                      date=experiment['data_fields']['date'],
+                                      create=True)
+        except datman.dashboard.DashboardException as e:
+                logger.error('Failed adding session:{} to dashboard'
+                             .format(session_label))
 
     for data in experiment['children']:
         if data['field'] == 'resources/resource':
@@ -330,6 +356,14 @@ def process_scans(xnat_project, scanid, scans):
             continue
 
         file_stem = "_".join([str(scanid), tag, padded_series, mangled_descr])
+
+        if dashboard:
+            logger.info('Adding scan:{} to dashboard'.format(file_stem))
+            try:
+                dashboard.get_add_scan(file_stem, create=True)
+            except datman.dashboard.DashboardException as e:
+                logger.error('Failed adding scan:{} to dashboard with error:{}'
+                             .format(file_stem, str(e)))
 
         # check the blacklist
         logger.debug('Checking blacklist for file:{}'.format(file_stem))
