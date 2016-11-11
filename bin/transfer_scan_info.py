@@ -130,7 +130,7 @@ def add_record_to_xnat(xnat_connection, record):
 
         # Handle sharedIds field update
         if shared_ids:
-            LOGGER.info("{} has alternate ids {}".format(subject_id, shared_ids))
+            LOGGER.info("{} has alternate id(s) {}".format(subject_id, shared_ids))
             try:
                 subject.attrs.set("xnat:subjectData/fields/field[name='sharedids']/field",
                           shared_ids)

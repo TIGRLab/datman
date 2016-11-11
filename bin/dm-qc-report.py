@@ -82,6 +82,7 @@ import re
 import glob
 import time
 import logging
+import logging.config
 
 import numpy as np
 import pandas as pd
@@ -89,8 +90,8 @@ import pandas as pd
 import datman as dm
 from datman.docopt import docopt
 
-logging.basicConfig(level=logging.WARN,
-        format="[%(name)s] %(levelname)s: %(message)s")
+config_path = os.path.join(os.path.dirname(__file__), "logging.conf")
+logging.config.fileConfig(config_path, disable_existing_loggers=False)
 logger = logging.getLogger(os.path.basename(__file__))
 
 REWRITE = False
@@ -247,7 +248,7 @@ def submit_qc_jobs(commands):
 def make_qc_command(subject_id, config_file):
     command = " ".join([__file__, config_file, '--subject {}'.format(subject_id)])
     if REWRITE:
-        command.append(' --rewrite')
+        command = command + ' --rewrite'
     return command
 
 def qc_all_scans(config):
