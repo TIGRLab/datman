@@ -40,14 +40,19 @@ def check_inputs(config, tag, path, expected_tags):
     ExportInfo.
     """
     if not expected_tags:
-        raise Exception('ERROR: expected tag {} not found in {}'.format(tag, path))
+        raise Exception('expected tag {} not found in {}'.format(tag, path))
     n_found = len(expected_tags)
 
     site = dm.scanid.parse_filename(expected_tags[0])[0].site
-    n_expected = config['Sites'][site]['ExportInfo'][tag]['Count']
+    if tag in config['Sites'][site]['ExportInfo'].keys():
+        n_expected = config['Sites'][site]['ExportInfo'][tag]['Count']
+    elif tag in config['Sites'][site]['links'].keys():
+        n_expected = config['Sites'][site]['links'][tag]['Count']
+    else:
+        raise Exception('tag {} not defined in Sites:site:ExportInfo or Sites:site:links'.format(tag))
 
     if n_found != n_expected:
-        raise Exception('ERROR: number of files found with tag {} was {}, expected {}'.format(tag, n_found, n_expected))
+        raise Exception('number of files found with tag {} was {}, expected {}'.format(tag, n_found, n_expected))
 
 def export_directory(source, destination):
     """
@@ -62,7 +67,7 @@ def export_directory(source, destination):
     try:
         shutil.copytree(source, destination)
     except:
-        raise Exception("ERROR: failed to export {} to {}".format(source, destination))
+        raise Exception("failed to export {} to {}".format(source, destination))
 
 def export_file(source, destination):
     """
@@ -130,25 +135,43 @@ def run_epitome(path, config):
         # locate functional data
         files = glob.glob(path + '/*')
         functionals = []
+        failed = False
         for tag in expected_tags:
             candidates = filter(lambda x: tag in x, files)
+            candidates = dm.utils.filter_niftis(candidates)
             candidates.sort()
+            logger.debug('checking functional inputs {}'.format(candidates))
             try:
                 check_inputs(config, tag, path, candidates)
             except Exception as m:
-                logger.debug('ERROR: {}'.format(m))
-                continue
+                logger.debug('{}'.format(m))
+                with open(output_dir + '/error.log', 'wb') as f:
+                    f.write('Did not find the correct number of fMRI inputs:\n{}'.format(m))
+                failed = True
+                break
             functionals.extend(candidates)
+
+        # don't attempt to run epitome if all of the inputs do not exist
+        if failed:
+            continue
 
         # locate anatomical data
         anat_path = os.path.join(t1_dir, os.path.basename(path), 'T1w')
         files = glob.glob(anat_path + '/*')
         anatomicals = []
+        failed = False
         for anat in ['aparc+aseg.nii.gz', 'aparc.a2009s+aseg.nii.gz', 'T1w_brain.nii.gz']:
             if not filter(lambda x: anat in x, files):
-                logger.error('ERROR: expected anatomical {} not found in {}'.format(anat, anat_path))
-                sys.exit(1)
+                logger.debug('expected anatomical {} not found in {}'.format(anat, anat_path))
+                with open(output_dir + '/error.log', 'wb') as f:
+                    f.write('expected anatomical {} not found in {}'.format(anat, anat_path))
+                failed = True
+                break
             anatomicals.append(os.path.join(anat_path, anat))
+
+        # don't attempt to run epitome if all of the inputs do not exist
+        if failed:
+            continue
 
         # don't run if the outputs of epitome already exist
         if outputs_exist(output_dir, expected_names):
@@ -167,7 +190,9 @@ def run_epitome(path, config):
             for i, d in enumerate(functionals):
                 shutil.copyfile(d, '{}/RUN{}/FUNC.nii.gz'.format(epi_func_dir, '%02d' % (i + 1)))
         except IOError as e:
-            logger.error("ERROR: unable to copy files to {}\n{}".format(epi_dir, e))
+            logger.error("unable to copy files to {}\n{}".format(epi_dir, e))
+            with open(output_dir + '/error.log', 'wb') as f:
+                f.write("unable to copy files to {}\n{}".format(epi_dir, e))
             continue
 
         # collect command line options
@@ -183,9 +208,10 @@ def run_epitome(path, config):
         # run epitome
         command = '{} {} {} {} {}'.format(pipeline, epi_dir, delete, tr, dims)
         rtn, out = dm.utils.run(command)
-        output = '\n'.join([out, err]).replace('\n', '\n\t')
         if rtn:
-            logger.debug("epitome script failed: {}\n{}".format(command, output))
+            logger.debug("epitome script failed: {}\n{}".format(command, out))
+            with open(output_dir + '/error.log', 'wb') as f:
+                f.write("epitome script failed: {}\n{}".format(command, out))
             continue
         else:
             pass
@@ -200,6 +226,8 @@ def run_epitome(path, config):
                 # attempt to export the defined epitome stages for all runs
                 if len(matches) != len(functionals):
                     logger.error('epitome output {} not created for all inputs'.format(name))
+                    with open(output_dir + '/error.log', 'wb') as f:
+                        f.write('epitome output {} not created for all inputs'.format(name))
                     continue
                 for i, match in enumerate(matches):
                     func_basename = dm.utils.splitext(os.path.basename(functionals[i]))[0]
@@ -215,7 +243,9 @@ def run_epitome(path, config):
                 export_directory(os.path.join(epi_func_dir, 'PARAMS'), os.path.join(output_dir, 'PARAMS'))
 
             except ProcessingError as p:
-                logger.error('ERROR: {}'.format(p))
+                logger.error('error exporting: {}'.format(p))
+                with open(output_dir + '/error.log', 'wb') as f:
+                    f.write('{}'.format(p))
                 continue
 
         # remove temporary directory

@@ -20,7 +20,7 @@ function usage() {
   Options:
     -v                Verbose. Output extra information.
     -c <config_yaml>  Path to the config .yaml file for this site. [default:
-                      /archive/data/code/datman/assets/tigrlab_config.yaml]
+                      /archive/code/config/tigrlab_config.yaml]
   "
   exit
 }
@@ -65,9 +65,11 @@ fi
 credentials="$1"
 link_file="$2"
 
-# Find any lines of output containing alternate id information and break it
-# into subject id and alternate ids
-transfer_scan_info.py -v ${credentials} 2>&1 | grep "alternate ids" | cut -d " " -f1,5- |
+# Run transfer_scan_info to move any new redcap information into xnat. Tee the
+# log output to the terminal and commands that process only log messages
+# related to alt ids and cut out the relevant source and target(s) for linking
+transfer_scan_info.py -v ${credentials} 2>&1 | tee /dev/tty | grep "alternate ids" |
+    cut -d ":" -f2 | cut -d " " -f1,5- |
   while read subject_id id_list
   do
 
@@ -96,7 +98,7 @@ transfer_scan_info.py -v ${credentials} 2>&1 | grep "alternate ids" | cut -d " "
       else
 
         # Run with default project config-yaml file
-        LINK_OUTPUT=`dm-link-project-scans.py
+        LINK_OUTPUT=`dm-link-project-scans.py \
                       ${link_file} \
                       ${subject_id} \
                       ${linked_id} 2>&1`

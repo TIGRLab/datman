@@ -330,13 +330,10 @@ def subject_type(subject):
 
         if subject[2] == 'PHA':
             return 'phantom'
-
         elif subject[2] != 'PHA' and subject[2][0] == 'P':
             return 'humanphantom'
-
         elif str.isdigit(subject[2]) == True and len(subject[2]) == 4:
             return 'subject'
-
         else:
             return None
 
@@ -385,13 +382,9 @@ def get_xnat_catalog(data_path, subject):
     for subject in subjects:
         folders = os.listdir(os.path.join(data_path, 'dicom', subject))
         folders.sort()
-        files = os.listdir(os.path.join(data_path, 'dicom', subject,
-                                                            folders[0]))
+        files = os.listdir(os.path.join(data_path, 'dicom', subject, folders[0]))
         files = filter(lambda x: '.xml' in x, files)
-
-        catalogs.append(os.path.join(data_path, 'dicom', subject,
-                                                         folders[0],
-                                                         files[0]))
+        catalogs.append(os.path.join(data_path, 'dicom', subject, folders[0], files[0]))
 
     catalogs.sort()
 
@@ -580,5 +573,24 @@ def remove_empty_files(path):
             filename = os.path.join(root, f)
             if os.path.getsize(filename) == 0:
                 os.remove(filename)
+
+def nifti_basename(fpath):
+    """
+    return basename without extension (either .nii.gz or .nii)
+    """
+    basefpath = os.path.basename(fpath)
+    stem = basefpath.replace('.nii','').replace('.gz', '')
+
+    return(stem)
+
+def filter_niftis(candidates):
+    """
+    Takes a list and returns all items that contain the extensions '.nii' or '.nii.gz'.
+    """
+    candidates = filter(lambda x: 'nii.gz' == '.'.join(x.split('.')[1:]) or
+                                     'nii' == '.'.join(x.split('.')[1:]), candidates)
+
+    return candidates
+
 
 # vim: ts=4 sw=4 sts=4:
