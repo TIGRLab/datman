@@ -110,6 +110,10 @@ def main():
     # deal with a single archive specified on the command line,
     # otherwise process all files in dicom_dir
     if archive:
+        ext = datman.utils.splitext(archive)[1]
+        if not ext:
+            archive = archive +'.zip'
+
         basedir = os.path.dirname(os.path.normpath(archive))
         archives = [os.path.basename(os.path.normpath(archive))]
         if os.path.isfile(os.path.join(basedir, archives[0])):
@@ -193,7 +197,9 @@ def check_files_exist(archive, xnat_project, scanid):
         # session has no scan data uploaded yet
         return False
 
-    xnat_scans = xnat_scans['children'][0]
+    xnat_scans = [child for child in xnat_scans['children']
+                  if child['field'] == 'experiments/experiment']
+    xnat_scans = xnat_scans[0]
     xnat_scans = xnat_scans['items'][0]
     xnat_scans = xnat_scans['children']
     xnat_scans = [r['items'] for r in xnat_scans if r['field'] == 'scans/scan']
@@ -206,7 +212,9 @@ def check_files_exist(archive, xnat_project, scanid):
                        in local_headers.values()]
 
     xnat_experiment_id = xnat_headers['items'][0]
-    xnat_experiment_id = xnat_experiment_id['children'][0]
+    xnat_experiment_id = [child for child in xnat_experiment_id['children']
+                          if child['field'] == 'experiments/experiment']
+    xnat_experiment_id = xnat_experiment_id[0]
     xnat_experiment_id = xnat_experiment_id['items'][0]
     xnat_experiment_id = xnat_experiment_id['data_fields']['UID']
 
@@ -264,11 +272,24 @@ def upload_non_dicom_data(archive, xnat_project, scanid):
 
 
 def upload_dicom_data(archive, xnat_project, scanid):
+    xnat_subject = get_xnat_subject(scanid, xnat_project)
+    if not xnat_subject:
+        logger.error('Subject:{} not found in xnat'.format(scanid))
+        return
+    xnat_subject_id = xnat_subject['ID']
+
+    # xnat_experiment = get_xnat_experiment(scanid, scanid, xnat_project)
+    # if not xnat_experiment:
+    #     logger.error('Experiment:{} not found in xnat'.format(scanid))
+    #     return
+    #
+    # xnat_experiment_id = xnat_experiment['ID']
+
     upload_url = "{server}/data/services/import?project={project}" \
                  "&subject={subject}&session={session}&overwrite=delete" \
                  "&prearchive=false&inbody=true".format(server=server,
                                                         project=xnat_project,
-                                                        subject=scanid,
+                                                        subject=xnat_subject_id,
                                                         session=scanid)
 
     try:
@@ -291,13 +312,13 @@ def get_xnat_subject(subject, xnat_study, create=True):
     if create:
         try:
             make_xnat_put(create_url)
-        except Requests.exceptions.RequestException:
+            xnat_subject = check_xnat_subject(subject, xnat_study)
+            return(xnat_subject)
+        except requests.exceptions.RequestException:
             logger.error('Failed to create xnat subject:{}'.format(subject))
             return
     else:
-        xnat_subject = check_xnat_subject(subject, xnat_study)
-        return(xnat_subject)
-
+        return None
 
 def check_xnat_subject(subject, xnat_study):
     """Checks to see if a subject exists in xnat
@@ -306,8 +327,9 @@ def check_xnat_subject(subject, xnat_study):
                 "?format=json".format(server=server, project=xnat_study)
 
     results = make_xnat_query(query_url)
+
     if not results:
-        logger.error('Failed to query xnat for subject:{}'.subject)
+        logger.error('Failed to query xnat for subject:{}'.format(subject))
         return
     results = results['ResultSet']['Result']
     names = [result['label'] for result in results]
@@ -376,8 +398,9 @@ def make_xnat_post(url, filename, retries=3):
             response.raise_for_status()
 
     elif response.status_code is not 200:
-        logger.error('xnat error:{} at data upload'
-                     .format(response.status_code))
+        logger.error('xnat error:{} at data upload, with message:{}'
+                     .format(response.status_code,
+                             response.text))
         response.raise_for_status()
     logger.info('Uploaded:{} to xnat'.format(filename))
 
