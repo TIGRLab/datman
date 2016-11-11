@@ -305,3 +305,42 @@ class config(object):
                          for site in self.get_key(['Sites']).values()]
 
         return(xnat_projects)
+
+    def get_export_info_object(self, site, study=None):
+        """
+        Takes the dictionary structure from project_settings.yaml and returns a
+        pattern:tag dictionary.
+
+        If multiple patterns are specified in the configuration file, these are
+        joined with an '|' (OR) symbol.
+        """
+        if study:
+            self.set_study(study)
+        if not self.study_config:
+            logger.error('Study not set')
+            raise KeyError
+
+        exportinfo = self.get_key(['ExportInfo'], site=site)
+        if not exportinfo:
+            logger.error('Failed to get Export info for study:{} at site:{}'
+                         .format(self.study_name, site))
+            exportinfo = {}
+        return ExportInfo(exportinfo)
+
+
+
+
+class ExportInfo(object):
+    """
+    Simplifies access to an export info dictionary
+    """
+    def __init__(self, export_dict):
+        self.export_info = export_dict
+        self.tags = export_dict.keys()
+
+    def get_tag_info(self, tag):
+        try:
+            tag_info = self.export_info[tag]
+        except KeyError:
+            tag_info = {}
+        return tag_info
