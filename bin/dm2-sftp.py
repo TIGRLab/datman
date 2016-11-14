@@ -22,6 +22,7 @@ import logging
 import sys
 import os
 import fnmatch
+import paramiko
 
 logger = logging.getLogger(__name__)
 
@@ -36,18 +37,17 @@ def main():
 
     # setup logging
     ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.WARN)
-    logger.setLevel(logging.WARN)
+    log_level = logging.Warn
 
     if quiet:
-        logger.setLevel(logging.ERROR)
-        ch.setLevel(logging.ERROR)
+        log_level = logging.ERROR
     if verbose:
-        logger.setLevel(logging.INFO)
-        ch.setLevel(logging.INFO)
+        log_level = logging.INFO
     if debug:
-        logger.setLevel(logging.DEBUG)
-        ch.setLevel(logging.DEBUG)
+        log_level = logging.DEBUG
+    logger.setLevel(log_level)
+    ch.setLevel(log_level)
+    logging.getLogger("paramiko").setLevel(log_level)
 
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     ch.setFormatter(formatter)
