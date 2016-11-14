@@ -67,7 +67,22 @@ class dashboard(object):
             logger.info('Found session:{}'.format(session_name))
             dashboard_session = qry.first()
             if date:
-                if not datetime.strftime(date, '%Y-%m-%d') == datetime.strftime(dashboard_session.date, '%Y-%m-%d'):
+                db_session_date = ''
+                xnat_session_date = ''
+                try:
+                    db_session_date = datetime.strftime(dashboard_session.date,
+                                                        '%Y-%m-%d')
+                except TypeError:
+                    logger.debug('Failed parsing db_date for session:{}'
+                                 .format(session_name))
+                    pass
+                try:
+                    xnat_session_date = datetime.strftime(date, '%Y-%m-%d')
+                except TypeError:
+                    logger.debug('Failed parsing xnat date for session'
+                                 .format(session_name))
+                    pass
+                if not db_session_date == xnat_session_date:
                     logger.debug('Updating date for session:{}'
                                  .format(session_name))
                     dashboard_session.date = date
@@ -94,8 +109,13 @@ class dashboard(object):
         except ValueError as e:
             logger.error('Failed to check checklist for session:'
                          '{} with error:{}'.format(session_name, str(e)))
-        if not cl_comment == dashboard_session.cl_comment:
-            dashboard_session.cl_comment = cl_comment
+        if cl_comment and not cl_comment == dashboard_session.cl_comment:
+            try:
+                dashboard_session.cl_comment = cl_comment
+            except Exception:
+                logger.error('Failed updating db comment for session:{}'
+                             .format(session_name))
+
         try:
             db.session.commit()
         except Exception as e:
