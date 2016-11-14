@@ -117,12 +117,12 @@ def outputs_exist(output_dir, expected_names):
 
     return False
 
-def run_epitome(path, config):
+def run_epitome(path, config, study):
     """
     Finds the appropriate inputs for input subject, builds a temporary epitome
     folder, runs epitome, and finally copies the outputs to the fmri_dir.
     """
-    study_base = config.get_study_base('SPINS')
+    study_base = config.get_study_base(study)
     subject = os.path.basename(path)
     nii_dir = os.path.join(study_base, config.site_config['paths']['nii'])
     t1_dir = os.path.join(study_base, config.site_config['paths']['hcp'])
@@ -298,7 +298,7 @@ def main():
         if '_PHA_' in scanid:
             sys.exit('Subject {} if a phantom, cannot be analyzed'.format(scanid))
         try:
-            run_epitome(path, config)
+            run_epitome(path, config, study)
         except Exception as e:
             logging.error(e)
             sys.exit(1)
