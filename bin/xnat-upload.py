@@ -22,12 +22,14 @@ Options:
                           file is ignored and you are prompted for password.
 
     -v,--verbose          Be chatty
+    -d,--debug            Be very chatty
 
 """
 from docopt import docopt
 import datman as dm
 import datman.scanid
 import datman.utils
+import datman.config
 import dicom as dcm
 import getpass
 import io
@@ -53,7 +55,7 @@ ATTACH_URL = "{server}/data/archive/projects/{project}/subjects/{subject}" \
              "/experiments/{session}/files/{filename}?" \
              "inbody=true"
 
-dcm_exts = ('dcm','img')
+dcm_exts = ('dcm', 'img')
 
 def main():
     arguments = docopt(__doc__)
@@ -61,11 +63,14 @@ def main():
     project  = arguments['<project>']
     archive  = arguments['<archive>']
     verbose  = arguments['--verbose']
+    debug    = arguments['--debug']
     username = arguments['--username']
     credfile = arguments['--credfile']
 
     if verbose:
         logger.setLevel(logging.INFO)
+    if debug:
+        logger.setLevel(logging.DEBUG)
 
     if username:
         password = getpass.getpass()
