@@ -37,7 +37,7 @@ def main():
 
     # setup logging
     ch = logging.StreamHandler(sys.stdout)
-    log_level = logging.Warn
+    log_level = logging.WARN
 
     if quiet:
         log_level = logging.ERROR

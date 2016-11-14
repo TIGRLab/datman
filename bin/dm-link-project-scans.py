@@ -77,18 +77,6 @@ def set_tags(tagstring):
     else:
         TAGS = CONFIG['ExportSettings'].keys()
 
-
-def split_multi_ext(filename):
-    """Split multiple file extensions from a filename"""
-    multi_ext = []
-    while True:
-        name, ext = os.path.splitext(filename)
-        if not ext:
-            return (name, ''.join(multi_ext))
-        multi_ext.append(ext)
-        filename = name
-
-
 def write_link_file(link_file, src_session, trg_session):
     """If the link file doesnt exist, create it, if it exists and the entry is
     not present append, otherwise do nothing"""
@@ -188,7 +176,7 @@ def link_files(src_session, trg_session, src_data_dir, trg_data_dir):
             if tag in TAGS:
                 # need to create the link
                 ## first need to capture the file extension
-                basename, ext = split_multi_ext(filename)
+                ext = dm.utils.get_extension(filename)
 
                 trg_name = dm.scanid.make_filename(trg_session, tag,
                                                    series, description)
