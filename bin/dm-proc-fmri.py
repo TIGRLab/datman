@@ -122,10 +122,11 @@ def run_epitome(path, config):
     Finds the appropriate inputs for input subject, builds a temporary epitome
     folder, runs epitome, and finally copies the outputs to the fmri_dir.
     """
+    study_base = config.get_study_base('SPINS')
     subject = os.path.basename(path)
-    nii_dir = config.site_config['paths']['nii']
-    t1_dir = config.site_config['paths']['hcp']
-    fmri_dir = utils.define_folder(config.site_config['paths']['fmri'])
+    nii_dir = os.path.join(study_base, config.site_config['paths']['nii'])
+    t1_dir = os.path.join(study_base, config.site_config['paths']['hcp'])
+    fmri_dir = utils.define_folder(os.path.join(study_base, config.site_config['paths']['fmri']))
     experiments = config.study_config['fmri'].keys()
 
     # run file collection --> epitome --> export for each study
@@ -272,10 +273,12 @@ def main():
 
     # load config for study
     try:
-        config = cfg.config(study)
+        config = cfg.config(study=study)
     except ValueError:
         logger.error('study {} not defined'.format(study))
         sys.exit(1)
+
+    study_base = config.get_study_base('SPINS')
 
     for k in ['nii', 'fmri', 'hcp']:
         if k not in config.site_config['paths']:
@@ -288,7 +291,7 @@ def main():
                 logger.error("fmri:{}:{} not defined in {}".format(x[0], k, config_file))
                 sys.exit(1)
 
-    nii_dir = config.site_config['paths']['nii']
+    nii_dir = os.path.join(study_base, config.site_config['paths']['nii'])
 
     if scanid:
         path = os.path.join(nii_dir, scanid)
@@ -313,7 +316,7 @@ def main():
                 logger.debug("Subject {} is a phantom. Skipping.".format(subject))
                 continue
 
-            fmri_dir = utils.define_folder(config['paths']['fmri'])
+            fmri_dir = utils.define_folder(os.path.join(study_base, config.site_config['paths']['fmri']))
             for exp in config.study_config['fmri'].keys():
                 expected_names = config.study_config['fmri'][exp]['export']
                 subj_dir = os.path.join(fmri_dir, exp, subject)
