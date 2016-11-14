@@ -278,7 +278,7 @@ def main():
         logger.error('study {} not defined'.format(study))
         sys.exit(1)
 
-    study_base = config.get_study_base('SPINS')
+    study_base = config.get_study_base(study)
 
     for k in ['nii', 'fmri', 'hcp']:
         if k not in config.site_config['paths']:
