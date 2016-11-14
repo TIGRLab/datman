@@ -382,7 +382,8 @@ def make_xnat_put(url):
 
 
 def make_xnat_post(url, filename, retries=3):
-    logger.debug('POSTing data to xnat, {} retries left'.format(retries))
+    logger.info('POSTing data to xnat, {} retries left'.format(retries))
+    logger.info('POSTing data to xnat, with url:{}'.format(url))
     with open(filename) as data:
         response = requests.post(url,
                                  auth=(username, password),
