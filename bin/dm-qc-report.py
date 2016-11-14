@@ -668,7 +668,7 @@ def qc_subject(subject, config):
 
     return report_name
 
-def qc_phantom(subject):
+def qc_phantom(subject, config):
     """
     subject:            The Scan object for the subject_id of this run
     config :            The settings obtained from project_settings.yml
