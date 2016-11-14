@@ -1,43 +1,48 @@
 """Return the site wide config file and ptoject config files
 
-Usage:
-    config.py [options] [<project>]
+By default the site_config.yaml file is location is read from the
+environment variable os.environ['DM_CONFIG']
+The system is identified from os.environ['DM_SYSTEM']
 
-Arguments:
-    <project>   Name of the project to return project specific config
-
-Options:
-    --site_config   Path to a site config file
-                        [default: /archive/code/datman/assets/tigrlab_config.yaml]
-
+These can both be overridden at __init__
 """
 import logging
 import yaml
 import os
-from . import scanid
-from docopt import docopt
+import datman.scanid
 
-logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
 
 
 class config(object):
     site_config = None
     study_config = None
-    system_name = None
+    system_config = None
+    study_name = None
+    study_config_file = None
 
-    def __init__(self, filename=None, system=None):
+    def __init__(self, filename=None, system=None, study=None):
+
         if not filename:
-            self.site_file = '/archive/code/datman/assets/tigrlab_config.yaml'
-        else:
-            self.site_file = filename
+            try:
+                filename = os.environ['DM_CONFIG']
+            except KeyError:
+                logger.critical('Failed to find site_config file')
+                raise
 
-        self.site_config = self.load_yaml(self.site_file)
+        self.site_config = self.load_yaml(filename)
 
-        if system:
-            self.system_name = system
-        else:
-            self.system_name = 'kimel'
+        if not system:
+            try:
+                system = os.environ['DM_SYSTEM']
+            except KeyError:
+                logger.critical('Failed to identify current system')
+                raise
+
+        self.set_system(system)
+
+        if study:
+            self.set_study(study)
 
     def load_yaml(self, filename):
         ## Read in the configuration yaml file
@@ -51,66 +56,82 @@ class config(object):
 
         return config_yaml
 
-    def set_study_config(self, project_name):
+    def set_system(self, system):
+        if not self.site_config:
+            logger.error('Site config not set')
+            raise ValueError
+        self.system_config = self.site_config['SystemSettings'][system]
+
+    def set_study(self, study_name):
         # make the supplied project_name case insensitive
         valid_projects = {k.lower(): k
-                          for k in self.site_config['ProjectSettings'].keys()}
+                          for k in self.site_config['Projects'].keys()}
 
-        if project_name.lower() in valid_projects.keys():
-            project_name = project_name.upper()
-            system_settings = self.site_config['SystemSettings']
-            config_path = system_settings[self.system_name]['CONFIG_DIR']
-
-            project_settings_file = os.path.join(config_path,
-                self.site_config['ProjectSettings'][project_name]['config_file'])
-
-            self.study_config = self.load_yaml(project_settings_file)
+        if study_name.lower() in valid_projects.keys():
+            study_name = study_name.upper()
         else:
-            logger.error('Invalid project:{}'.format(project_name))
+            study_name = self.map_xnat_archive_to_project(study_name)
+
+        if not study_name:
+            logger.error('Invalid project:{}'.format(study_name))
             raise KeyError
+
+        self.study_name = study_name
+
+        config_path = self.system_config['CONFIG_DIR']
+
+        project_settings_file = os.path.join(config_path,
+                                             self.site_config['Projects'][study_name])
+
+        self.study_config = self.load_yaml(project_settings_file)
+        self.study_config_name = project_settings_file
 
     def get_study_base(self, study=None):
         """Return the base directory for a study"""
-        proj_dir = self.site_config['SystemSettings'][self.system_name]['DATMAN_PROJECTSDIR']
 
-        if not study and self.study_config:
+        proj_dir = self.system_config['DATMAN_PROJECTSDIR']
+
+        if study:
+            self.set_study(study)
+
+        if not self.study_config:
+
             logger.warning('Study not set')
             return(proj_dir)
-        if not self.key_exists('site', ['ProjectSettings',
-                                        study.upper(),
-                                        'basedir']):
-            logger.error('Invalid study:{}'.format(study))
-            return(proj_dir)
+
         return(os.path.join(proj_dir,
-                            self.site_config['ProjectSettings'][study.upper()]['basedir']))
+                            self.study_config['PROJECTDIR']))
 
     def map_xnat_archive_to_project(self, filename):
         """Maps the XNAT tag (e.g. SPN01) to the project name e.g. SPINS
         Can either supply a full filename in which case only the first part
         is considered or just a tag
         """
+        logger.debug('Searching projects for:{}'.format(filename))
         try:
-            parts = scanid.parse(filename)
+            parts = datman.scanid.parse(filename)
             tag = parts.study
-        except scanid.ParseException:
+        except datman.scanid.ParseException:
             parts = filename.split('_')
             tag = parts[0]
 
-        for project in self.site_config['ProjectSettings'].keys():
+        for project in self.site_config['Projects'].keys():
             logger.debug('Searching project:{}'.format(project))
-            self.set_study_config(project)
-            # Check the study_config contains a 'Sites' key
-            site_tags = []
-            if 'Sites' in self.study_config.keys():
-                for key, site_cfg in self.study_config['Sites'].iteritems():
-                    try:
-                        site_tags = site_tags + [t.lower()
-                                                 for t
-                                                 in site_cfg['SITE_IDS']]
-                    except KeyError:
-                        pass
+            try:
+                self.set_study(project)
+                site_tags = []
+                if 'Sites' in self.study_config.keys():
+                    for key, site_cfg in self.study_config['Sites'].iteritems():
+                        if 'SITE_TAGS' in site_cfg.keys():
+                            site_tags = site_tags + [t.lower()
+                                                     for t
+                                                     in site_cfg['SITE_TAGS']]
+            except (ValueError, KeyError):
+                pass
 
-            site_tags = site_tags + [self.study_config['STUDY_ID'].lower()]
+            # Check the study_config contains a 'Sites' key
+
+            site_tags = site_tags + [self.study_config['STUDY_TAG'].lower()]
 
             if tag.lower() in site_tags:
                 if project.lower() == 'DTI':
@@ -121,7 +142,7 @@ class config(object):
                         except KeyError:
                             logger.error('Detected project DTI but '
                                          ' failed to identify using site')
-                            return
+                            raise
                     else:
                         site = parts.site
 
@@ -134,30 +155,78 @@ class config(object):
         # didn't find a match throw a worning
         logger.warn('Failed to find a valid project for xnat id:{}'
                     .format(tag))
-        return
+        raise ValueError
 
-    def key_exists(self, scope, key):
-        """Check the yaml file specified by scope for a key.
-        Return the True if the key exists, False otherwise.
-        Scope [site | study]
+    def get_key(self, key, scope=None, site=None):
+        """recursively search the yaml files for a key
+        if it exists in study_config returns that value
+        otherwise checks site_config
+        raises a key error if it's not found
+        If site is specified the study_config first checks the
+        ['Sites'][site] key of the study_config. If the key is not
+        located there the top level of the study_config is checked
+        followed by the site_config.
+        key: [list of subscripted keys]
         """
-        if scope == 'site':
-            # make a copy of the original yaml
+
+        # quick check to see if a single string was passed
+        if isinstance(key, basestring):
+            key = [key]
+
+        if scope:
+            # called recursively, look in site config
             result = self.site_config
-        else:
+        elif self.study_config:
+            # first call and study set, look here first
             result = self.study_config
+        else:
+            # first call and no study set, look at site config
+            logger.warning('Study config not set')
+            result = self.site_config
+        if site:
+            try:
+                result = result['Sites'][site]
+            except KeyError:
+                logger.warning('Site:{} not found in study_config:{}'
+                               .format(site, self.study_config_file))
 
         for val in key:
             try:
                 result = result[val]
-            except KeyError:
-                return(False)
+            except KeyError as e:
+                if site:
+                    return(self.get_key(key))
+                elif not scope:
+                    return self.get_key(key, scope=1)
+                else:
+                    logger.warning('Failed to find key:{}'
+                                   .format(key))
+                    raise(e)
+        return(result)
 
-        return(True)
+    def key_exists(self, scope, key):
+            """DEPRECATED: use get_key()
+            Check the yaml file specified by scope for a key.
+            Return the True if the key exists, False otherwise.
+            Scope [site | study]
+            """
+            if scope == 'site':
+                # make a copy of the original yaml
+                result = self.site_config
+            else:
+                result = self.study_config
 
+            for val in key:
+                try:
+                    result = result[val]
+                except KeyError:
+                    return(False)
+
+            return(True)
 
     def get_if_exists(self, scope, key):
-        """Check the yaml file specified by scope for a key.
+        """DEPRECATED: use get_key()
+        Check the yaml file specified by scope for a key.
         Return the value if the key exists, None otherwise.
         Scope [site | study]
         """
@@ -175,6 +244,103 @@ class config(object):
 
         return(result)
 
+    def get_path(self, path_type, study=None):
+        """returns the absolute path to a folder type"""
+        # first try and get the path from the study config
+        if study:
+            self.set_study(study)
+        if not self.study_config:
+            logger.error('Study not set')
+            raise KeyError
 
-if __name__ == '__main__':
-    ARGUMENTS = docopt(__doc__)
+        try:
+            return(os.path.join(self.get_study_base(),
+                                self.study_config['paths'][path_type]))
+        except (KeyError, TypeError):
+            logger.info('Path {} not defined in study {} config file'
+                        .format(path_type, self.study_name))
+            return(os.path.join(self.get_study_base(),
+                                self.site_config['paths'][path_type]))
+
+    def get_exportinfo(self, site, study=None):
+        """
+        Takes the dictionary structure from project_settings.yaml and returns a
+        pattern:tag dictionary.
+
+        If multiple patterns are specified in the configuration file, these are
+        joined with an '|' (OR) symbol.
+        """
+        if study:
+            self.set_study(study)
+        if not self.study_config:
+            logger.error('Study not set')
+            raise KeyError
+
+        exportinfo = self.get_key(['ExportInfo'], site=site)
+        if not exportinfo:
+            return
+
+        tags = exportinfo.keys()
+        patterns = [tagtype["Pattern"] for tagtype in exportinfo.values()]
+
+        regex = []
+        for pattern in patterns:
+            if type(pattern) == list:
+                regex.append(("|").join(pattern))
+            else:
+                regex.append(pattern)
+
+        tagmap = dict(zip(regex, tags))
+
+        return(tagmap)
+
+    def get_xnat_projects(self, study=None):
+        if study:
+            study = self.set_study(study)
+        if not self.study_config:
+            logger.error('Study not set')
+            raise KeyError
+
+        xnat_projects = [site['XNAT_Archive']
+                         for site in self.get_key(['Sites']).values()]
+
+        return(xnat_projects)
+
+    def get_export_info_object(self, site, study=None):
+        """
+        Takes the dictionary structure from project_settings.yaml and returns a
+        pattern:tag dictionary.
+
+        If multiple patterns are specified in the configuration file, these are
+        joined with an '|' (OR) symbol.
+        """
+        if study:
+            self.set_study(study)
+        if not self.study_config:
+            logger.error('Study not set')
+            raise KeyError
+
+        exportinfo = self.get_key(['ExportInfo'], site=site)
+        if not exportinfo:
+            logger.error('Failed to get Export info for study:{} at site:{}'
+                         .format(self.study_name, site))
+            exportinfo = {}
+        return ExportInfo(exportinfo)
+
+
+
+
+class ExportInfo(object):
+    """
+    Simplifies access to an export info dictionary
+    """
+    def __init__(self, export_dict):
+        self.export_info = export_dict
+        self.tags = export_dict.keys()
+
+    def get_tag_info(self, tag):
+        try:
+            tag_info = self.export_info[tag]
+        except KeyError:
+            tag_info = {}
+        return tag_info

@@ -4,15 +4,18 @@ Generates quality control reports on defined MRI data types. If no subject is
 given, all subjects are submitted individually to the queue.
 
 usage:
-    dm-qc-report.py [options] <config>
+    dm-qc-report.py [options] <study>
+    dm-qc-report.py [options] <study> <session>
 
 Arguments:
-    <config>           Project configuration file
+    <study>           Name of the study to process e.g. ANDT
+    <session>         Datman name of session to process e.g. DTI_CMH_H001_01_01
 
 Options:
-    --subject SCANID   Scan ID to QC for. E.g. DTI_CMH_H001_01_01
     --rewrite          Rewrite the html of an existing qc page
-    --debug            Be extra chatty
+    -q --quiet         Only report errors
+    -v --verbose       Be chatty
+    -d --debug         Be extra chatty
 
 Details:
     This program QCs the data contained in <NiftiDir> and <DicomDir>, and
@@ -86,7 +89,11 @@ import logging
 import numpy as np
 import pandas as pd
 
-import datman as dm
+import datman.config
+import datman.utils
+import datman.scanid
+import datman.scan
+
 from datman.docopt import docopt
 
 logging.basicConfig(level=logging.WARN,
@@ -103,7 +110,7 @@ def slicer(fpath, pic, slicergap, picwidth):
         picwidth    -- width (in pixels) of output image
         pic         -- fullpath to for output image
     """
-    dm.utils.run("slicer {} -S {} {} {}".format(fpath,slicergap,picwidth,pic))
+    datman.utils.run("slicer {} -S {} {} {}".format(fpath,slicergap,picwidth,pic))
 
 def add_image(qc_html, image, title=None):
     """
@@ -128,11 +135,11 @@ def phantom_fmri_qc(filename, outputDir):
     Runs the fbirn fMRI pipeline on input phantom data if the outputs don't
     already exist.
     """
-    basename = dm.utils.nifti_basename(filename)
+    basename = datman.utils.nifti_basename(filename)
     output_file = os.path.join(outputDir, '{}_stats.csv'.format(basename))
     output_prefix = os.path.join(outputDir, basename)
     if not os.path.isfile(output_file):
-        dm.utils.run('qc-fbirn-fmri {} {}'.format(filename, output_prefix))
+        datman.utils.run('qc-fbirn-fmri {} {}'.format(filename, output_prefix))
 
 def phantom_dti_qc(filename, outputDir):
     """
@@ -140,7 +147,7 @@ def phantom_dti_qc(filename, outputDir):
     already exist.
     """
     dirname = os.path.dirname(filename)
-    basename = dm.utils.nifti_basename(filename)
+    basename = datman.utils.nifti_basename(filename)
 
     output_file = os.path.join(outputDir, '{}_stats.csv'.format(basename))
     output_prefix = os.path.join(outputDir, basename)
@@ -148,7 +155,7 @@ def phantom_dti_qc(filename, outputDir):
     if not os.path.isfile(output_file):
         bvec = os.path.join(dirname, basename + '.bvec')
         bval = os.path.join(dirname, basename + '.bval')
-        dm.utils.run('qc-fbirn-dti {} {} {} {} n'.format(filename, bvec, bval,
+        datman.utils.run('qc-fbirn-dti {} {} {} {} n'.format(filename, bvec, bval,
                 output_prefix))
 
 def phantom_anat_qc(filename, outputDir):
@@ -156,24 +163,24 @@ def phantom_anat_qc(filename, outputDir):
     Runs the ADNI pipeline on input phantom data if the outputs don't already
     exist.
     """
-    basename = dm.utils.nifti_basename(filename)
+    basename = datman.utils.nifti_basename(filename)
     output_file = os.path.join(outputDir, '{}_adni-contrasts.csv'.format(basename))
     if not os.path.isfile(output_file):
-        dm.utils.run('qc-adni {} {}'.format(filename, output_file))
+        datman.utils.run('qc-adni {} {}'.format(filename, output_file))
 
 def fmri_qc(file_name, qc_dir, report):
-    base_name = dm.utils.nifti_basename(file_name)
+    base_name = datman.utils.nifti_basename(file_name)
     output_name = os.path.join(qc_dir, base_name)
 
     # check scan length
     script_output = output_name + '_scanlengths.csv'
     if not os.path.isfile(script_output):
-        dm.utils.run('qc-scanlength {} {}'.format(file_name, script_output))
+        datman.utils.run('qc-scanlength {} {}'.format(file_name, script_output))
 
     # check fmri signal
     script_output = output_name + '_stats.csv'
     if not os.path.isfile(script_output):
-        dm.utils.run('qc-fmri {} {}'.format(file_name, output_name))
+        datman.utils.run('qc-fmri {} {}'.format(file_name, output_name))
 
     image_raw = output_name + '_raw.png'
     image_sfnr = output_name + '_sfnr.png'
@@ -195,14 +202,14 @@ def fmri_qc(file_name, qc_dir, report):
 
 def anat_qc(filename, qc_dir, report):
 
-    image = os.path.join(qc_dir, dm.utils.nifti_basename(filename) + '.png')
+    image = os.path.join(qc_dir, datman.utils.nifti_basename(filename) + '.png')
     if not os.path.isfile(image):
         slicer(filename, image, 5, 1600)
     add_image(report, image)
 
 def dti_qc(filename, qc_dir, report):
     dirname = os.path.dirname(filename)
-    basename = dm.utils.nifti_basename(filename)
+    basename = datman.utils.nifti_basename(filename)
 
     bvec = os.path.join(dirname, basename + '.bvec')
     bval = os.path.join(dirname, basename + '.bval')
@@ -210,12 +217,12 @@ def dti_qc(filename, qc_dir, report):
     output_prefix = os.path.join(qc_dir, basename)
     output_file = output_prefix + '_stats.csv'
     if not os.path.isfile(output_file):
-        dm.utils.run('qc-dti {} {} {} {}'.format(filename, bvec, bval,
+        utils.run('qc-dti {} {} {} {}'.format(filename, bvec, bval,
                 output_prefix))
 
     output_file = os.path.join(qc_dir, basename + '_spikecount.csv')
     if not os.path.isfile(output_file):
-        dm.utils.run('qc-spikecount {} {} {}'.format(filename,
+        datman.utils.run('qc-spikecount {} {} {}'.format(filename,
                 os.path.join(qc_dir, basename + '_spikecount.csv'), bval))
 
     image = os.path.join(qc_dir, basename + '_b0.png')
@@ -237,15 +244,26 @@ def submit_qc_jobs(commands):
         run_cmd = 'echo {} | qsub -V -q main.q ' \
                 '-o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname)
 
-        rtn, out = dm.utils.run(run_cmd)
+        rtn, out = datman.utils.run(run_cmd)
 
         if rtn:
             logger.error("stdout: {}".format(out))
         elif out:
             logger.debug(out)
 
-def make_qc_command(subject_id, config_file):
-    command = " ".join([__file__, config_file, '--subject {}'.format(subject_id)])
+def make_qc_command(subject_id, study):
+    arguments = docopt(__doc__)
+    verbose = arguments['--verbose']
+    debug = arguments['--debug']
+    quiet = arguments['--quiet']
+    command = " ".join([__file__, study, subject_id])
+    if verbose:
+        command = " ".join([command, '-v'])
+    if debug:
+        command = " ".join([command, '-d'])
+    if quiet:
+        command = " ".join([command, '-q'])
+
     if REWRITE:
         command = command + ' --rewrite'
     return command
@@ -262,7 +280,7 @@ def qc_all_scans(config):
 
     for path in os.listdir(nii_dir):
         subject = os.path.basename(path)
-        command = make_qc_command(subject, config.settings_path)
+        command = make_qc_command(subject, config.study_name)
 
         if '_PHA_' in subject:
             phantom_commands.append(command)
@@ -274,7 +292,7 @@ def qc_all_scans(config):
 
     if phantom_commands:
         for cmd in phantom_commands:
-            rtn, out = dm.utils.run(cmd)
+            rtn, out = datman.utils.run(cmd)
             if rtn:
                 logger.error("stdout: {}".format(out))
 
@@ -473,7 +491,7 @@ def find_expected_files(subject, config):
     Reads the export_info from the config for this site and compares it to the
     contents of the nii folder. Data written to a pandas dataframe.
     """
-    export_info = config.get_export_info(subject.site)
+    export_info = config.get_export_info_object(subject.site)
     sorted_niftis = sorted(subject.niftis, key=lambda item: item.series_num)
 
     tag_counts, expected_positions = initialize_counts(export_info)
@@ -533,8 +551,8 @@ def get_standards(standard_dir, site):
     misnamed_files = []
     for item in glob.glob(glob_path):
         try:
-            standard = dm.scan.Series(item)
-        except dm.scanid.ParseException:
+            standard = datman.scan.Series(item)
+        except datman.scanid.ParseException:
             misnamed_files.append(item)
             continue
         if standard.site == site:
@@ -568,7 +586,7 @@ def run_header_qc(subject, standard_dir, log_file):
             continue
         else:
             # run header check for dicom
-            dm.utils.run('qc-headers {} {} {}'.format(dicom.path, standard.path,
+            datman.utils.run('qc-headers {} {} {}'.format(dicom.path, standard.path,
                     log_file))
 
     if not os.path.exists(log_file):
@@ -650,7 +668,7 @@ def qc_subject(subject, config):
 
     return report_name
 
-def qc_phantom(subject, config):
+def qc_phantom(subject):
     """
     subject:            The Scan object for the subject_id of this run
     config :            The settings obtained from project_settings.yml
@@ -706,16 +724,16 @@ def prepare_scan(subject_id, config):
     not exist that the program exits.
     """
     try:
-        subject = dm.scan.Scan(subject_id, config)
-    except dm.scanid.ParseException as e:
-        logging.error(e, exc_info=True)
-        sys.exit(1)
+        subject = datman.scan.Scan(subject_id, config)
+    except datman.scanid.ParseException as e:
+        logger.error(e, exc_info=True)
+        return
 
     verify_input_paths([subject.nii_path, subject.dcm_path])
 
-    qc_dir = dm.utils.define_folder(subject.qc_path)
+    qc_dir = datman.utils.define_folder(subject.qc_path)
     # If qc_dir already existed and had empty files left over clean up
-    dm.utils.remove_empty_files(qc_dir)
+    datman.utils.remove_empty_files(qc_dir)
 
     return subject
 
@@ -728,7 +746,7 @@ def get_project_config(config_path):
     Raises sys.exit if the config file is unreadable or missing paths.
     """
     try:
-        config = dm.project_config.Config(config_path)
+        config = datman.project_config.Config(config_path)
     except IOError:
         logging.error("{} cannot be read.".format(config_path))
         sys.exit(1)
@@ -748,19 +766,47 @@ def main():
     global REWRITE
 
     arguments = docopt(__doc__)
-
-    config_path = arguments['<config>']
-    scanid      = arguments['--subject']
-    REWRITE     = arguments['--rewrite']
-    debug       = arguments['--debug']
-
+    verbose = arguments['--verbose']
+    debug = arguments['--debug']
+    quiet = arguments['--quiet']
+    study = arguments['<study>']
+    session = arguments['<session>']
+    REWRITE = arguments['--rewrite']
+    # setup logging
+    logging.basicConfig()
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.WARN)
+    logger.setLevel(logging.WARN)
+    if quiet:
+        logger.setLevel(logging.ERROR)
+        ch.setLevel(logging.ERROR)
+    if verbose:
+        logger.setLevel(logging.INFO)
+        ch.setLevel(logging.INFO)
     if debug:
-        logging.getLogger().setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
+        ch.setLevel(logging.DEBUG)
 
-    config = get_project_config(config_path)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - '
+                                  '%(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
 
-    if scanid:
-        subject = prepare_scan(scanid, config)
+    logger.addHandler(ch)
+
+    # setup the config object
+    logger.info('Loading config')
+
+    config = datman.config.config(study=study)
+    required_paths = ['dcm', 'nii', 'qc', 'std', 'meta']
+    for path in required_paths:
+        try:
+            config.get_path(path)
+        except KeyError:
+            logger.error('Path:{} not found for project: {}'
+                         .format(path, study))
+
+    if session:
+        subject = prepare_scan(session, config)
         qc_single_scan(subject, config)
         return
 
