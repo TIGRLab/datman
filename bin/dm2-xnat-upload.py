@@ -149,7 +149,7 @@ def main():
                                    site=ident.site)
         if not check_xnat_project_exists(xnat_project):
             logger.error('Could not identify xnat archive'
-                         'for study: {} at site: {}'.format(study,
+                         ' for study: {} at site: {}'.format(study,
                                                             ident.site))
             continue
 
@@ -350,7 +350,7 @@ def check_xnat_project_exists(project):
         logger.error('Failed to query xnat for project:{}'.format(project))
         return
 
-    names = [result['name'] for result in results]
+    names = [result['ID'] for result in results]
     if project in names:
         return True
     else:
@@ -382,7 +382,8 @@ def make_xnat_put(url):
 
 
 def make_xnat_post(url, filename, retries=3):
-    logger.debug('POSTing data to xnat, {} retries left'.format(retries))
+    logger.info('POSTing data to xnat, {} retries left'.format(retries))
+    logger.info('POSTing data to xnat, with url:{}'.format(url))
     with open(filename) as data:
         response = requests.post(url,
                                  auth=(username, password),
