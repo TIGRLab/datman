@@ -5,6 +5,7 @@ import requests
 import time
 import tempfile
 import os
+from xml.etree import ElementTree
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +110,32 @@ class xnat(object):
 
         return(result['items'][0])
 
+    def get_resource_list(self, study, session, experiment, resource_id):
+        """The list of non-dicom resources associated with an experiment
+        returns a list of dicts, mostly interested in ID and name"""
+        logger.debug('Getting resource list for expeiment:{}'
+                     .format(experiment))
+        url = '{}/data/archive/projects/{}' \
+              '/subjects/{}/experiments/{}' \
+              '/resources/{}/?format=xml'.format(self.server,
+                                                 study,
+                                                 session,
+                                                 experiment,
+                                                 resource_id)
+        result = self._make_xnat_xml_query(url)
+        if not result:
+            logger.warn('Experiment:{} not found for session:{} in study:{}'
+                        .format(experiment, session, study))
+            return
+
+        # define the xml namespace
+        ns = {'cat': 'http://nrg.wustl.edu/catalog'}
+        entries = result.find('cat:entries', ns)
+        items = [entry.attrib for entry
+                 in entries.findall('cat:entry', ns)]
+
+        return(items)
+
     def find_session(self, session, projects=None):
         """Find a session label in the xnat archive
         searches all xnat projects unless study is specified
@@ -148,8 +175,37 @@ class xnat(object):
                 logger.warning('Failed to delete tempfile:{} with excuse:{}'
                                .format(filename, str(e)))
 
-    def get_resource(self, project, session, experiment, resource_id,
+    def get_resource(self, project, session, experiment,
+                     resource_group_id, resource_id,
                      filename=None, retries=3):
+        """Download a single resource from xnat to filename
+        If filename is not specified creates a temporary file and
+        retrns the path to that, user needs to be responsible for
+        cleaning up any created tempfiles"""
+
+        url = '{}/data/archive/projects/{}/' \
+              'subjects/{}/experiments/{}/' \
+              'resources/{}/files/{}?format=zip'.format(self.server,
+                                                         project,
+                                                         session,
+                                                         experiment,
+                                                         resource_group_id,
+                                                         resource_id)
+
+        if not filename:
+            filename = tempfile.mkstemp()
+
+        if self._get_xnat_stream(url, filename, retries):
+            return(filename)
+        else:
+            try:
+                os.remove(filename[1])
+            except OSError as e:
+                logger.warning('Failed to delete tempfile:{} with excude:{}'
+                               .format(filename, str(e)))
+
+    def get_resource_archive(self, project, session, experiment, resource_id,
+                             filename=None, retries=3):
         """Download a resource archive from xnat to filename
         If filename is not specified creates a temporary file and
         returns the path to that, user needs to be responsible format
@@ -211,6 +267,22 @@ class xnat(object):
             logger.debug('Username: {}')
             response.raise_for_status()
         return(response.json())
+
+    def _make_xnat_xml_query(self, url):
+        response = requests.get(url, auth=self.auth)
+
+        if response.status_code == 404:
+            logger.error("No records returned from xnat server to query:{}"
+                         .format(url))
+            return
+        elif not response.status_code == requests.codes.ok:
+            logger.error('Failed connecting to xnat server:{}'
+                         ' with response code:{}'
+                         .format(self.server, response.status_code))
+            logger.debug('Username: {}')
+            response.raise_for_status()
+        root = ElementTree.fromstring(response.content)
+        return(root)
 
     def _make_xnat_put(self, url):
         response = requests.put(url, auth=self.auth)
