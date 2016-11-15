@@ -89,6 +89,7 @@ import logging.config
 
 import numpy as np
 import pandas as pd
+import nibabel as nib
 
 import datman.config
 import datman.utils
@@ -413,16 +414,31 @@ def write_tech_notes_link(report, subject_id, resources_path):
     report.write('Click Here to open Tech Notes')
     report.write('</a><br>')
 
-def write_table(report, exportinfo):
+def write_table(report, exportinfo, subject):
     report.write('<table><tr>'
                  '<th>Tag</th>'
                  '<th>File</th>'
+                 '<th>Scanlength</th>'
                  '<th>Notes</th></tr>')
 
     for row in range(0,len(exportinfo)):
+        #Fetch Scanlength from .nii File
+        scan_nii_path = os.path.join(subject.nii_path, str(exportinfo.loc[row, 'File']))
+        try:
+            data = nib.load(scan_nii_path)
+            try:
+                scanlength = data.shape[3]
+            except:
+                #Note: this might be expected, e.g., for a T1
+                logging.debug("{} exists but scanlength cannot be read.".format(scan_nii_path))
+                scanlength = "Can't read"
+        except:
+            logging.debug("{} does not exist; cannot read scanlength.".format(scan_nii_path))
+            scanlength = "No file"
         report.write('<tr><td>{}</td>'.format(exportinfo.loc[row,'tag'])) ## table new row
         report.write('<td><a href="#{}">{}</a></td>'.format(exportinfo.loc[row,
                 'bookmark'], exportinfo.loc[row,'File']))
+        report.write('<td>{}</td>'.format(scanlength))
         report.write('<td><font color="#FF0000">{}</font></td>'\
                 '</tr>'.format(exportinfo.loc[row,'Note'])) ## table new row
     report.write('</table>\n')
@@ -457,7 +473,7 @@ def generate_qc_report(report_name, subject, expected_files, header_diffs,
         handlers):
     with open(report_name, 'wb') as report:
         write_report_header(report, subject.full_id)
-        write_table(report, expected_files)
+        write_table(report, expected_files, subject)
         write_tech_notes_link(report, subject.full_id, subject.resource_path)
         write_report_body(report, expected_files, subject, header_diffs,
                 handlers)
@@ -669,7 +685,7 @@ def qc_subject(subject, config):
 
     return report_name
 
-def qc_phantom(subject):
+def qc_phantom(subject, config):
     """
     subject:            The Scan object for the subject_id of this run
     config :            The settings obtained from project_settings.yml
