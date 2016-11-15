@@ -1,4 +1,0 @@
-*+ WARNING: Filename conflict: changing '/archive/data/SPINS/pipelines/fmri/imob/SPN01_CMH_0001_01/SPN01_CMH_0001_01_glm_OB_1stlvl_MNI-nonlin.nii.gz' to 'SPN01_CMH_0001_01_glm_OB_1stlvl_MNI-nonlin_AA1.nii.gz'
-*+ WARNING: Filename conflict: changing '/archive/data/SPINS/pipelines/fmri/imob/SPN01_CMH_0001_01/SPN01_CMH_0001_01_glm_OB_1stlvl_allcoeffs_MNI-nonlin.nii.gz' to 'SPN01_CMH_0001_01_glm_OB_1stlvl_allcoeffs_MNI-nonlin_AA1.nii.gz'
-*+ WARNING: Filename conflict: changing '/archive/data/SPINS/pipelines/fmri/imob/SPN01_CMH_0001_01/SPN01_CMH_0001_01_glm_OB_1stlvl_explained_MNI-nonlin.nii.gz' to 'SPN01_CMH_0001_01_glm_OB_1stlvl_explained_MNI-nonlin_AA1.nii.gz'
-*+ WARNING: Filename conflict: changing '/archive/data/SPINS/pipelines/fmri/imob/SPN01_CMH_0001_01/SPN01_CMH_0001_01_glm_OB_1stlvl_residuals_MNI-nonlin.nii.gz' to 'SPN01_CMH_0001_01_glm_OB_1stlvl_residuals_MNI-nonlin_AA1.nii.gz'
