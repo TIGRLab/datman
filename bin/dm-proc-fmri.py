@@ -288,7 +288,7 @@ def main():
     for x in config.study_config['fmri'].iteritems():
         for k in ['dims', 'del', 'pipeline', 'tags', 'export', 'tr']:
             if k not in x[1].keys():
-                logger.error("fmri:{}:{} not defined in {}".format(x[0], k, config_file))
+                logger.error("fmri:{}:{} not defined in configuration file".format(x[0], k))
                 sys.exit(1)
 
     nii_dir = os.path.join(study_base, config.site_config['paths']['nii'])
