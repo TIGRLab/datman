@@ -3,10 +3,10 @@
 Process empathic accuracy experiment data.
 
 Usage:
-    dm-proc-ea.py [options] <config>
+    dm-proc-ea.py [options] <study>
 
 Arguments:
-    <config>            Configuration file.
+    <study>             study name defined in master Configuration .yml file.
 
 Options:
     --subject SUBJID    Run on subject.
@@ -26,7 +26,8 @@ import numpy as np
 import StringIO as io
 import scipy.interpolate as interpolate
 import yaml
-import datman as dm
+import datman.utils as utils
+import datman.config as cfg
 import matplotlib
 matplotlib.use('Agg')   # Force matplotlib to not use any Xwindows backend
 import matplotlib.pyplot as plt
@@ -373,7 +374,7 @@ def process_behav_data(log, out_path, sub, trial_type, block_id):
 
     return onsets_used, durations, correlations, button_pushes, all_ratings
 
-def generate_analysis_script(subject, inputs, input_type, config):
+def generate_analysis_script(subject, inputs, input_type, config, study):
     """
     This writes the analysis script to replicate the methods in Harvey et al
     2013 Schizophrenia Bulletin. It expects timing files to exist.
@@ -391,12 +392,13 @@ def generate_analysis_script(subject, inputs, input_type, config):
         30*5:12
     See '-stim_times_AM2' in AFNI's 3dDeconvolve 'help' for more.
     """
-    subject_dir = os.path.join(config['paths']['fmri'], 'ea', subject)
+    study_base = config.get_study_base(study)
+    subject_dir = os.path.join(study_base, config.site_config['paths']['fmri'], 'ea', subject)
     script = '{subject_dir}/{subject}_glm_1stlevel_{input_type}.sh'.format(
         subject_dir=subject_dir, subject=subject, input_type=input_type)
 
     # generate full motion paramater file
-    rtn, out = dm.utils.run('cat {d}/PARAMS/motion.datman.01.1D {d}/PARAMS/motion.datman.02.1D {d}/PARAMS/motion.datman.03.1D > {d}/{subject}_motion.1D'.format(
+    rtn, out = utils.run('cat {d}/PARAMS/motion.datman.01.1D {d}/PARAMS/motion.datman.02.1D {d}/PARAMS/motion.datman.03.1D > {d}/{subject}_motion.1D'.format(
         d=subject_dir, subject=subject))
 
     # get input data, turn into a single string
@@ -464,12 +466,12 @@ def get_inputs(files, config):
     finds the inputs for the ea experiment, 3 for each epitome stage.
     """
     inputs = {}
-    for exported in config['fmri']['ea']['glm']:
+    for exported in config.study_config['fmri']['ea']['glm']:
         candidates = filter(lambda x: '{}.nii.gz'.format(exported) in x, files)
         tagged_candidates = []
 
         # if a string entry, convert to a list so we iterate over elements, not letters
-        tags = config['fmri']['ea']['tags']
+        tags = config.study_config['fmri']['ea']['tags']
         if type(tags) == str:
             tags = [tags]
 
@@ -485,16 +487,17 @@ def get_inputs(files, config):
 
     return inputs
 
-def analyze_subject(subject, config):
+def analyze_subject(subject, config, study):
     """
     1) finds the behavioural log files
     2) generates the stimulus timing files from these logs
     3) finds the pre-processed fmri data
     4) runs the standard GLM analysis on these data
     """
-    resources_dir = config['paths']['resources']
-    ea_dir = os.path.join(config['paths']['fmri'], 'ea')
-    subject_dir = dm.utils.define_folder(os.path.join(config['paths']['fmri'], 'ea', subject))
+    study_base = config.get_study_base(study)
+    resources_dir = os.path.join(study_base, config.site_config['paths']['resources'])
+    ea_dir = os.path.join(study_base, config.site_config['paths']['fmri'], 'ea')
+    subject_dir = utils.define_folder(os.path.join(study_base, config.site_config['paths']['fmri'], 'ea', subject))
 
     # check if subject has already been processed
     if check_complete(ea_dir, subject):
@@ -581,8 +584,8 @@ def analyze_subject(subject, config):
 
     for input_type in inputs.keys():
 
-        script = generate_analysis_script(subject, inputs, input_type, config)
-        rtn, out = dm.utils.run('chmod 754 {script}; {script}'.format(script=script))
+        script = generate_analysis_script(subject, inputs, input_type, config, study)
+        rtn, out = utils.run('chmod 754 {script}; {script}'.format(script=script))
         if rtn:
             logger.error('Failed to analyze {}\n{}'.format(subject, out))
             sys.exit(1)
@@ -590,35 +593,40 @@ def analyze_subject(subject, config):
 def main():
     arguments   = docopt(__doc__)
 
-    config_file = arguments['<config>']
-    subject     = arguments['--subject']
-    debug       = arguments['--debug']
+    study   = arguments['<study>']
+    subject = arguments['--subject']
+    debug   = arguments['--debug']
 
     logging.info('Starting')
     if debug:
         logger.setLevel(logging.DEBUG)
 
-    with open(config_file, 'r') as stream:
-        config = yaml.load(stream)
+    # load config for study
+    try:
+        config = cfg.config(study=study)
+    except ValueError:
+        logger.error('study {} not defined'.format(study))
+        sys.exit(1)
 
-    if 'ea' not in config['fmri'].keys():
+    study_base = config.get_study_base(study)
+
+    if 'ea' not in config.study_config['fmri'].keys():
         logger.error('ea not defined in fmri in {}'.format(config_file))
         sys.exit(1)
 
     for k in ['nii', 'fmri', 'hcp']:
-        if k not in config['paths']:
+        if k not in config.site_config['paths']:
             logger.error("paths:{} not defined in {}".format(k, config_file))
             sys.exit(1)
 
-    ea_dir = os.path.join(config['paths']['fmri'], 'ea')
-    nii_dir = config['paths']['nii']
+    ea_dir = os.path.join(study_base, config.site_config['paths']['fmri'], 'ea')
+    nii_dir = os.path.join(study_base, config.site_config['paths']['nii'])
 
     if subject:
         if '_PHA_' in subject:
-            msg = "{} is a phantom, skipping".format(subject)
-            logger.info(msg)
+            logger.error("{} is a phantom, cannot analyze".format(subject))
             sys.exit(1)
-        analyze_subject(subject, config)
+        analyze_subject(subject, config, study)
 
     else:
         # batch mode
@@ -635,7 +643,7 @@ def main():
             if check_complete(ea_dir, subject):
                 logger.debug('{} already analysed'.format(subject))
             else:
-                commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject), opts]))
+                commands.append(" ".join([__file__, study, '--subject {}'.format(subject), opts]))
 
         if commands:
             logger.debug("queueing up the following commands:\n"+'\n'.join(commands))
@@ -643,13 +651,13 @@ def main():
                 jobname = "dm_ea_{}".format(time.strftime("%Y%m%d-%H%M%S"))
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
-                rtn, out = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
+                rtn, out = utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
 
                 # qbacth method -- might bring it back, but really needed yet
                 #fd, path = tempfile.mkstemp()
                 #os.write(fd, '\n'.join(commands))
                 #os.close(fd)
-                #rtn, out, err = dm.utils.run('qbatch -i --logdir {ld} -N {name} --walltime {wt} {cmds}'.format(ld=logdir, name=jobname, wt=walltime, cmds=path))
+                #rtn, out, err = utils.run('qbatch -i --logdir {ld} -N {name} --walltime {wt} {cmds}'.format(ld=logdir, name=jobname, wt=walltime, cmds=path))
 
                 if rtn:
                     logger.error("Job submission failed\nstdout: {}".format(out))

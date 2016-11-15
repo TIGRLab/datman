@@ -4,10 +4,10 @@ This pre-processes fmri data using the settings found in project_config.yml
 If subject is not defined, this runs in batch mode for all subjects.
 
 Usage:
-    dm-proc-fmri.py [options] <config>
+    dm-proc-fmri.py [options] <study>
 
 Arguments:
-    <config>         configuration .yml file
+    <study>          study name defined in master configuration .yml file
 
 Options:
     --subject SUBJID subject name to run on
@@ -22,7 +22,9 @@ DEPENDENCIES
 """
 
 from datman.docopt import docopt
-import datman as dm
+import datman.scanid as sid
+import datman.utils as utils
+import datman.config as cfg
 import yaml
 import logging
 import os, sys
@@ -43,13 +45,18 @@ def check_inputs(config, tag, path, expected_tags):
         raise Exception('expected tag {} not found in {}'.format(tag, path))
     n_found = len(expected_tags)
 
-    site = dm.scanid.parse_filename(expected_tags[0])[0].site
-    if tag in config['Sites'][site]['ExportInfo'].keys():
-        n_expected = config['Sites'][site]['ExportInfo'][tag]['Count']
-    elif tag in config['Sites'][site]['links'].keys():
-        n_expected = config['Sites'][site]['links'][tag]['Count']
-    else:
+    site = sid.parse_filename(expected_tags[0])[0].site
+
+    try:
+        if tag in config.study_config['Sites'][site]['ExportInfo'].keys():
+            n_expected = config.study_config['Sites'][site]['ExportInfo'][tag]['Count']
+        elif tag in config.study_config['Sites'][site]['links'].keys():
+            n_expected = config.study_config['Sites'][site]['links'][tag]['Count']
+        else:
+            raise Exception
+    except:
         raise Exception('tag {} not defined in Sites:site:ExportInfo or Sites:site:links'.format(tag))
+
 
     if n_found != n_expected:
         raise Exception('number of files found with tag {} was {}, expected {}'.format(tag, n_found, n_expected))
@@ -110,24 +117,29 @@ def outputs_exist(output_dir, expected_names):
 
     return False
 
-def run_epitome(path, config):
+def run_epitome(path, config, study):
     """
     Finds the appropriate inputs for input subject, builds a temporary epitome
     folder, runs epitome, and finally copies the outputs to the fmri_dir.
     """
+    study_base = config.get_study_base(study)
     subject = os.path.basename(path)
-    nii_dir = config['paths']['nii']
-    t1_dir = config['paths']['hcp']
-    fmri_dir = dm.utils.define_folder(config['paths']['fmri'])
-    experiments = config['fmri'].keys()
+    nii_dir = os.path.join(study_base, config.site_config['paths']['nii'])
+    t1_dir = os.path.join(study_base, config.site_config['paths']['hcp'])
+    fmri_dir = utils.define_folder(os.path.join(study_base, config.site_config['paths']['fmri']))
+    experiments = config.study_config['fmri'].keys()
 
     # run file collection --> epitome --> export for each study
     for exp in experiments:
 
         # collect the files needed for each experiment
-        expected_names = config['fmri'][exp]['export']
-        expected_tags = config['fmri'][exp]['tags']
-        output_dir = dm.utils.define_folder(os.path.join(fmri_dir, exp, subject))
+        expected_names = config.study_config['fmri'][exp]['export']
+        expected_tags = config.study_config['fmri'][exp]['tags']
+        output_dir = utils.define_folder(os.path.join(fmri_dir, exp, subject))
+
+        # don't run if the outputs of epitome already exist
+        if outputs_exist(output_dir, expected_names):
+            continue
 
         if type(expected_tags) == str:
             expected_tags = [expected_tags]
@@ -138,7 +150,7 @@ def run_epitome(path, config):
         failed = False
         for tag in expected_tags:
             candidates = filter(lambda x: tag in x, files)
-            candidates = dm.utils.filter_niftis(candidates)
+            candidates = utils.filter_niftis(candidates)
             candidates.sort()
             logger.debug('checking functional inputs {}'.format(candidates))
             try:
@@ -150,10 +162,6 @@ def run_epitome(path, config):
                 failed = True
                 break
             functionals.extend(candidates)
-
-        # don't attempt to run epitome if all of the inputs do not exist
-        if failed:
-            continue
 
         # locate anatomical data
         anat_path = os.path.join(t1_dir, os.path.basename(path), 'T1w')
@@ -169,17 +177,13 @@ def run_epitome(path, config):
                 break
             anatomicals.append(os.path.join(anat_path, anat))
 
-        # don't attempt to run epitome if all of the inputs do not exist
+        # don't run epitome if all of the inputs do not exist
         if failed:
-            continue
-
-        # don't run if the outputs of epitome already exist
-        if outputs_exist(output_dir, expected_names):
             continue
 
         # create and populate epitome directory
         epi_dir = tempfile.mkdtemp()
-        dm.utils.make_epitome_folders(epi_dir, len(functionals))
+        utils.make_epitome_folders(epi_dir, len(functionals))
         epi_t1_dir = '{}/TEMP/SUBJ/T1/SESS01'.format(epi_dir)
         epi_func_dir = '{}/TEMP/SUBJ/FUNC/SESS01'.format(epi_dir)
 
@@ -196,10 +200,10 @@ def run_epitome(path, config):
             continue
 
         # collect command line options
-        dims = config['fmri'][exp]['dims']
-        tr = config['fmri'][exp]['tr']
-        delete = config['fmri'][exp]['del']
-        pipeline =  config['fmri'][exp]['pipeline']
+        dims = config.study_config['fmri'][exp]['dims']
+        tr = config.study_config['fmri'][exp]['tr']
+        delete = config.study_config['fmri'][exp]['del']
+        pipeline =  config.study_config['fmri'][exp]['pipeline']
 
         pipeline = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir, 'assets/{}'.format(pipeline))
         if not os.path.isfile(pipeline):
@@ -207,7 +211,7 @@ def run_epitome(path, config):
 
         # run epitome
         command = '{} {} {} {} {}'.format(pipeline, epi_dir, delete, tr, dims)
-        rtn, out = dm.utils.run(command)
+        rtn, out = utils.run(command)
         if rtn:
             logger.debug("epitome script failed: {}\n{}".format(command, out))
             with open(output_dir + '/error.log', 'wb') as f:
@@ -230,7 +234,7 @@ def run_epitome(path, config):
                         f.write('epitome output {} not created for all inputs'.format(name))
                     continue
                 for i, match in enumerate(matches):
-                    func_basename = dm.utils.splitext(os.path.basename(functionals[i]))[0]
+                    func_basename = utils.splitext(os.path.basename(functionals[i]))[0]
                     func_output = os.path.join(output_dir, func_basename + '_{}.nii.gz'.format(name))
                     export_file(match, func_output)
 
@@ -257,38 +261,44 @@ def main():
     """
     arguments = docopt(__doc__)
 
-    config_file = arguments['<config>']
-    scanid      = arguments['--subject']
-    debug       = arguments['--debug']
-    dryrun      = arguments['--dry-run']
+    study  = arguments['<study>']
+    scanid = arguments['--subject']
+    debug  = arguments['--debug']
+    dryrun = arguments['--dry-run']
 
     # configure logging
     logging.info('Starting')
     if debug:
         logger.setLevel(logging.DEBUG)
 
-    with open(config_file, 'r') as stream:
-        config = yaml.load(stream)
+    # load config for study
+    try:
+        config = cfg.config(study=study)
+    except ValueError:
+        logger.error('study {} not defined'.format(study))
+        sys.exit(1)
+
+    study_base = config.get_study_base(study)
 
     for k in ['nii', 'fmri', 'hcp']:
-        if k not in config['paths']:
-            logger.error("paths:{} not defined in {}".format(k, config_file))
+        if k not in config.site_config['paths']:
+            logger.error("paths:{} not defined in site config".format(k))
             sys.exit(1)
 
-    for x in config['fmri'].iteritems():
+    for x in config.study_config['fmri'].iteritems():
         for k in ['dims', 'del', 'pipeline', 'tags', 'export', 'tr']:
             if k not in x[1].keys():
                 logger.error("fmri:{}:{} not defined in {}".format(x[0], k, config_file))
                 sys.exit(1)
 
-    nii_dir = config['paths']['nii']
+    nii_dir = os.path.join(study_base, config.site_config['paths']['nii'])
 
     if scanid:
         path = os.path.join(nii_dir, scanid)
         if '_PHA_' in scanid:
             sys.exit('Subject {} if a phantom, cannot be analyzed'.format(scanid))
         try:
-            run_epitome(path, config)
+            run_epitome(path, config, study)
         except Exception as e:
             logging.error(e)
             sys.exit(1)
@@ -302,13 +312,13 @@ def main():
         for path in nii_dirs:
             subject = os.path.basename(path)
 
-            if dm.scanid.is_phantom(subject):
+            if sid.is_phantom(subject):
                 logger.debug("Subject {} is a phantom. Skipping.".format(subject))
                 continue
 
-            fmri_dir = dm.utils.define_folder(config['paths']['fmri'])
-            for exp in config['fmri'].keys():
-                expected_names = config['fmri'][exp]['export']
+            fmri_dir = utils.define_folder(os.path.join(study_base, config.site_config['paths']['fmri']))
+            for exp in config.study_config['fmri'].keys():
+                expected_names = config.study_config['fmri'][exp]['export']
                 subj_dir = os.path.join(fmri_dir, exp, subject)
                 if not outputs_exist(subj_dir, expected_names):
                     subjects.append(subject)
@@ -319,7 +329,7 @@ def main():
         # submit a list of calls to ourself, one per subject
         commands = []
         for subject in subjects:
-            commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
+            commands.append(" ".join([__file__, study, '--subject {}'.format(subject)]))
 
         if commands:
             logger.debug('queueing up the following commands:\n'+'\n'.join(commands))
@@ -327,7 +337,7 @@ def main():
                 jobname = 'dm_fmri_{}'.format(time.strftime("%Y%m%d-%H%M%S"))
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
-                rtn, out = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
+                rtn, out = utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
 
                 if rtn:
                     logger.error("Job submission failed. Output follows.")
@@ -336,3 +346,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

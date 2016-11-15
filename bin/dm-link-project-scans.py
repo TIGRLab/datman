@@ -39,6 +39,7 @@ import yaml
 import csv
 import re
 import datman as dm
+import datman.scanid, datman.utils
 from docopt import docopt
 
 DRYRUN = False
