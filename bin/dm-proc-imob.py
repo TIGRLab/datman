@@ -37,7 +37,7 @@ import yaml
 logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
-def generate_analysis_script(subject, inputs, input_type, config):
+def generate_analysis_script(subject, inputs, input_type, config, study):
     """
     This writes the analysis script to replicate the methods in [insert paper
     here]. It expects timing files to exist (these are static, and are generated
@@ -178,7 +178,7 @@ def main():
 
         for input_type in inputs.keys():
 
-            script = generate_analysis_script(subject, inputs, input_type, config)
+            script = generate_analysis_script(subject, inputs, input_type, config, study)
             rtn, out = utils.run('chmod 754 {script}; {script}'.format(script=script))
             if rtn:
                 logger.error('Failed to analyze {}\n{}'.format(subject, out))
