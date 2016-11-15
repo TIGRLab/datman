@@ -261,13 +261,19 @@ def process_session(session):
                                    xnat_project))
 
 
+def check_resources_exist(resource_list, target_dir):
+    """Check if non-dicom resource files have been downloaded from xnat"""
+    exists = [os.path.isfile(os.path.join(target_dir, resource['name']))
+              for resource in resource_list]
+
+
 def process_resources(xnat_project, scanid, data):
     """Export any non-dicom resources from the xnat archive"""
     global cfg
     logger.info('Extracting {} resources from {}'
                 .format(len(data), str(scanid)))
     base_path = os.path.join(cfg.get_path('resources'),
-                             scanid.get_full_subjectid_with_timepoint())
+                             str(scanid))
 
     for item in data['items']:
         try:
@@ -277,12 +283,6 @@ def process_resources(xnat_project, scanid, data):
 
         target_path = os.path.join(base_path, data_type)
 
-        xnat_resource_id = item['data_fields']['xnat_abstractresource_id']
-
-        archive = get_resource_archive_from_xnat(xnat_project,
-                                                 str(scanid),
-                                                 xnat_resource_id)
-
         try:
             target_path = datman.utils.define_folder(target_path)
         except OSError:
@@ -290,29 +290,59 @@ def process_resources(xnat_project, scanid, data):
                          .format(target_path))
             continue
 
-        # extract the files from the archive, ignoring the filestructure
-        try:
-            with zipfile.ZipFile(archive[1]) as zip_file:
-                for member in zip_file.namelist():
-                    filename = os.path.basename(member)
-                    if not filename:
-                        continue
-                    if DRYRUN:
-                        continue
-                    source = zip_file.open(member)
-                    target = file(os.path.join(target_path, filename), 'wb')
-                    with source, target:
-                        shutil.copyfileobj(source, target)
-        except:
-            logger.error('Failed extracting resources archive:{}'
-                         .format(str(scanid)), exc_info=True)
+        xnat_resource_id = item['data_fields']['xnat_abstractresource_id']
 
-        # finally delete the temporary archive
-        try:
-            os.remove(archive[1])
-        except OSError:
-            logger.error('Failed to remove temporary archive:{} on system:{}'
-                         .format(archive, platform.node()))
+        resources = xnat.get_resource_list(xnat_project,
+                                           str(scanid),
+                                           str(scanid),
+                                           xnat_resource_id)
+
+        for resource in resources:
+            if os.path.isfile(os.path.join(target_path, resource['name'])):
+                logger.debug('Resource:{} found for session:{}'
+                             .format(resource['name'], str(scanid)))
+            else:
+                logger.info('Resource:{} not found for session:{}'
+                            .format(resource['name'], str(scanid)))
+                get_resource(xnat_project,
+                             str(scanid),
+                             xnat_resource_id,
+                             resource['ID'],
+                             target_path)
+
+
+def get_resource(xnat_project, xnat_session, xnat_resource_group,
+                 xnat_resource_id, target_path):
+
+    archive = xnat.get_resource(xnat_project,
+                                xnat_session,
+                                xnat_session,
+                                xnat_resource_group,
+                                xnat_resource_id)
+
+    # extract the files from the archive, ignoring the filestructure
+    try:
+        with zipfile.ZipFile(archive[1]) as zip_file:
+            for member in zip_file.namelist():
+                filename = os.path.basename(member)
+                if not filename:
+                    continue
+                if DRYRUN:
+                    continue
+                source = zip_file.open(member)
+                target = file(os.path.join(target_path, filename), 'wb')
+                with source, target:
+                    shutil.copyfileobj(source, target)
+    except:
+        logger.error('Failed extracting resources archive:{}'
+                     .format(xnat_session), exc_info=True)
+
+    # finally delete the temporary archive
+    try:
+        os.remove(archive[1])
+    except OSError:
+        logger.error('Failed to remove temporary archive:{} on system:{}'
+                     .format(archive, platform.node()))
 
 
 def process_scans(xnat_project, scanid, scans):
