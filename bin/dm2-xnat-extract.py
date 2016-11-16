@@ -273,7 +273,7 @@ def process_resources(xnat_project, scanid, data):
     logger.info('Extracting {} resources from {}'
                 .format(len(data), str(scanid)))
     base_path = os.path.join(cfg.get_path('resources'),
-                             scanid.str(scanid))
+                             str(scanid))
 
     for item in data['items']:
         try:
