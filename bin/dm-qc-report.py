@@ -763,15 +763,23 @@ def get_config(study):
     Will raise KeyError if an expected path has not been defined for this study.
     """
     logger.info('Loading config')
-    config = datman.config.config(study=study)
+
+    try:
+        config = datman.config.config(study=study)
+    except KeyError:
+        logger.error("Cannot find configuration info for study {}".format(study))
+        sys.exit(1)
 
     required_paths = ['dcm', 'nii', 'qc', 'std', 'meta']
+
     for path in required_paths:
         try:
             config.get_path(path)
         except KeyError:
-            logger.error('Path:{} not found for project: {}'
+            logger.error('Path {} not found for project: {}'
                          .format(path, study))
+            sys.exit(1)
+
     return config
 
 def main():

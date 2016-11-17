@@ -7,6 +7,7 @@ from nose.tools import raises
 import pandas as pd
 
 import datman.utils
+import datman.proc
 
 fs = importlib.import_module('bin.dm-proc-freesurfer')
 

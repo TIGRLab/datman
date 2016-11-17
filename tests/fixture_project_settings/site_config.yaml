@@ -1,0 +1,79 @@
+### configuration of all run.sh scripts in TIGR lab server
+---
+FTPSERVER: ''
+XNATSERVER: ''
+XNATPORT: ''
+
+Projects:
+  STUDY: study_settings.yml
+
+
+SystemSettings:
+  local:  # a local system entry that can be used for testing
+    hostname: ''
+    DATMAN_PROJECTSDIR: 'tests/'
+    DATMAN_ASSETSDIR: 'tests/assets/'
+    XNAT_ARCHIVEDIR: ''
+    CONFIG_DIR: 'tests/fixture_project_settings/'
+
+paths:
+  # paths defined here are relative to the study specific folder
+  meta: metadata/
+  dcm:  data/dcm/
+  nii:  data/nii/
+  mnc:  data/mnc/
+  nrrd: data/nrrd/
+  dicom: data/dicom/
+  resources: data/RESOURCES/
+  qc:   qc/
+  std:  metadata/standards/
+  log:  logs/
+  fmri: pipelines/fmri/
+  hcp:  pipelines/hcp/
+  zips: data/zips/
+
+ExportSettings:
+  T1:         {'nii', 'dcm', 'mnc'}
+  PDT2:       {'nii', 'dcm'}
+  T2:         {'nii', 'dcm'}
+  PD:         {'nii', 'dcm'}
+  FLAIR:      {'nii', 'dcm'}
+  RST:        {'nii', 'dcm'}
+  SPRL:       {'nii'}
+  VN-SPRL:    {'nii'}
+  OBS:        {'nii', 'dcm'}
+  IMI:        {'nii', 'dcm'}
+  EMP:        {'nii', 'dcm'}
+  TRG:        {'nii', 'dcm'}
+  NBK:        {'nii', 'dcm'}
+  DTI60-1000: {'nii', 'dcm', 'nrrd'}
+  DTI60-20-1000: {'nii', 'dcm', 'nrrd'}
+  DTI60-29-1000: {'nii', 'dcm', 'nrrd'}
+  DTI60-1000-20: {'nii', 'dcm', 'nrrd'}
+  DTI60-1000-29: {'nii', 'dcm', 'nrrd'}
+  DTI33-4500: {'nii', 'dcm', 'nrrd'}
+  DTI33-3000: {'nii', 'dcm', 'nrrd'}
+  DTI33-1000: {'nii', 'dcm', 'nrrd'}
+  FMAP-6.5:   {'nii', 'dcm'}
+  FMAP-8.5:   {'nii', 'dcm'}
+  FMAP:       {'nii', 'dcm'}
+  MRS-DLPFC:  {'nii', 'dcm'}
+  MRS-sgACC:  {'nii', 'dcm'}
+  MRS:  {'nii', 'dcm'}
+  DTI23-1000: {'nii', 'dcm'}
+  ASL: {'nii', 'dcm'}
+
+  Software: []
+
+## PipelineSettings holds the default workflows (i.e. pipeline) that we want to run
+## The first level is the name of the workflow.
+## see https://github.com/TIGRLab/admin/wiki/data-organization-and-config-files#pipelinesettings
+## for more info
+
+to_load_quarantine: ''
+PipelineSettings_torun: []
+
+
+PipelineSettings: []
+
+pipelines: []

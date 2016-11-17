@@ -3,7 +3,7 @@ import unittest
 from nose.tools import raises
 from mock import patch
 
-import datman.project_config
+import datman.config
 import datman.scan
 
 FIXTURE = "/projects/dawn/current/datman/tests/fixture_project_settings/" \

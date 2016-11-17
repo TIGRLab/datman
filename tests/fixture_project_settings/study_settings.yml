@@ -1,0 +1,38 @@
+MRUSER: STUDY                               # MR Unit FTP user
+MRFOLDER: STUDY*                            # MR ftp folders
+PROJECTDIR: STUDY  # Directory inside data-2.0
+# The STUDY_ID tag that should be used to identify the study, site specific
+# tags can be added to a SITE_IDS: [] key under the specific site
+STUDY_TAG: STUDY
+FullName: Full study name goes here
+Description: Description goes here
+PrimaryContact: PI name goes here
+
+Sites:
+   CMH:
+      SITE_TAGS: ['STUDY']
+      XNAT_Archive: ''
+      ExportInfo:
+         T1:         { Pattern: ['T1','BRAVO'],      Count: 1}
+         FMAP-6.5:   { Pattern: ['TE6.5','TE65'],    Count: 2}
+         FMAP-8.5:   { Pattern: ['TE8.5','TE85'],    Count: 2}
+         RST:        { Pattern: ['Resting', 'Rest'], Count: 1}
+         OBS:        { Pattern: 'Observ',            Count: 1}
+         IMI:        { Pattern: 'Imitat',            Count: 1}
+         EMP:        { Pattern: 'EA',                Count: 3}
+         DTI60-1000: { Pattern: ['DTI.60'],          Count: 1}
+         PDT2:       { Pattern: ['T2.DE', 'T2DE'],   Count: 1}
+         FLAIR:      { Pattern: 'FLAIR',             Count: 1}
+   SITE:
+      XNAT_Archive: ''
+      ExportInfo:
+         T1:         { Pattern: 'FSPGR',       Count: 1}
+         RST:        { Pattern: 'Resting',     Count: 1}
+         OBS:        { Pattern: 'Observ',      Count: 1}
+         IMI:        { Pattern: 'Imitat',      Count: 1}
+         EMP:        { Pattern: 'Emp',         Count: 3}
+         FMAP-6.5:   { Pattern: 'MAP65',       Count: 2}
+         FMAP-8.5:   { Pattern: 'MAP85',       Count: 2}
+         DTI60-1000: { Pattern: ['DTI'],       Count: 1}
+         PDT2:       { Pattern: 'FSE.XL',      Count: 1}
+         FLAIR:      { Pattern: 'FLAIR',       Count: 1}

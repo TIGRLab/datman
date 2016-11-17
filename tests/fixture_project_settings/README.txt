@@ -1,5 +1,1 @@
-This fixture directory is used by the following test scripts:
-	
-	test_dm-qc-report.py
-	test_project_config.py
-	test_scan.py
+This fixture directory is used by any tests that rely on datman.config.config for configuration info.
