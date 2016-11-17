@@ -166,8 +166,15 @@ def main():
         logger.debug('Got subject:{} from xnat'
                      .format(str(ident)))
 
+        files_exist = False
         try:
-            if not check_files_exist(archivefile, xnat_project, str(ident)):
+            files_exist = check_files_exist(archivefile, xnat_project, str(ident))
+        except UserWarning:
+            logger.error('Error checking if files exist for:{}'
+                         .format(str(ident)))
+            continue
+        try:
+            if not files_exist:
                 logger.info('Uploading dicoms from:{}'.format(archivefile))
                 upload_dicom_data(archivefile, xnat_project, str(ident))
             else:
@@ -175,7 +182,7 @@ def main():
         except IOError:
             logger.error('Failed uploading dicom data from:{}'
                          .format(archivefile))
-            return
+            continue
 
         try:
             logger.info('Uploading non-dicom data from:{}'.format(archivefile))
@@ -183,7 +190,7 @@ def main():
         except requests.exceptions.HTTPError:
             logger.error('Failed uploading non-dicom data for subject:{}'
                          .format(scanid))
-            return
+            continue
 
 
 def check_files_exist(archive, xnat_project, scanid):
