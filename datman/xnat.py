@@ -211,10 +211,12 @@ class xnat(object):
                                        subject=session,
                                        session=experiment)
         try:
-            with open(filename, 'rb') as data:
+            with open(filename) as data:
                 self._make_xnat_post(upload_url, data, retries, headers)
-        except IOError:
-            logger.error('Failed to open file:{}'.format(filename))
+        except IOError as e:
+            logger.error('Failed to open file:{} with excuse:'
+                         .format(filename, e.strerror))
+            raise e
 
     def get_dicom(self, project, session, experiment, scan,
                   filename=None, retries=3):
@@ -370,7 +372,7 @@ class xnat(object):
 
     def _make_xnat_put(self, url):
         response = self.session.put(url,
-                                    timeout=20)
+                                    timeout=30)
 
         if not response.status_code in [200, 201]:
             logger.error("http client error at folder creation: {}"
@@ -379,11 +381,9 @@ class xnat(object):
 
     def _make_xnat_post(self, url, data, retries=3, headers=None):
         logger.debug('POSTing data to xnat, {} retries left'.format(retries))
-
         response = self.session.post(url,
                                      headers=headers,
-                                     data=data,
-                                     timeout=20)
+                                     data=data)
 
         if response.status_code is 504:
             if retries:
@@ -395,6 +395,6 @@ class xnat(object):
                 response.raise_for_status()
 
         elif response.status_code is not 200:
-            logger.error('xnat error:{} at data upload'
-                         .format(response.status_code))
+            logger.error('xnat error:{} at data upload with reason:{}'
+                         .format(response.status_code, response.content))
             response.raise_for_status()

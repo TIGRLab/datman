@@ -68,6 +68,7 @@ def main():
     archive = arguments['<archive>']
 
     # setup logging
+    logging.basicConfig()
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.WARN)
     logger.setLevel(logging.WARN)
@@ -173,16 +174,17 @@ def main():
             logger.error('Error checking if files exist for:{}'
                          .format(str(ident)))
             continue
-        try:
-            if not files_exist:
-                logger.info('Uploading dicoms from:{}'.format(archivefile))
+
+        if not files_exist:
+            logger.info('Uploading dicoms from:{}'.format(archivefile))
+            try:
                 upload_dicom_data(archivefile, xnat_project, str(ident))
-            else:
-                logger.info('Archive:{} already on xnat.'.format(archivefile))
-        except IOError:
-            logger.error('Failed uploading dicom data from:{}'
-                         .format(archivefile))
-            continue
+            except IOError:
+                logger.error('Failed uploading dicom data from:{}'
+                             .format(archivefile))
+                continue
+        else:
+            logger.info('Archive:{} already on xnat.'.format(archivefile))
 
         try:
             logger.info('Uploading non-dicom data from:{}'.format(archivefile))
@@ -257,7 +259,11 @@ def upload_non_dicom_data(archive, xnat_project, scanid):
     for f in files:
         # convert to HTTP language
         try:
-            XNAT.put_resource(xnat_project, scanid, scanid, f, zf.read(f))
+            XNAT.put_resource(xnat_project,
+                              scanid,
+                              scanid,
+                              os.path.basename(f),
+                              zf.read(f))
         except Exception as e:
             logger.error("Failed uploading file {} with error:{}"
                          .format(f, str(e)))
@@ -272,6 +278,7 @@ def upload_dicom_data(archive, xnat_project, scanid):
     except requests.exceptions.RequestException as e:
         logger.error('Failed uploading archive to xnat project:{}'
                      ' for subject:{}'.format(xnat_project, scanid))
+        raise e
 
 
 def is_named_like_a_dicom(path):
