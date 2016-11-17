@@ -268,6 +268,7 @@ def make_qc_command(subject_id, study):
 
     if REWRITE:
         command = command + ' --rewrite'
+
     return command
 
 def qc_all_scans(config):
@@ -594,6 +595,9 @@ def run_header_qc(subject, standard_dir, log_file):
 
     standards_dict = get_standards(standard_dir, subject.site)
 
+    print(subject.dicoms)
+    print(standards_dict)
+
     for dicom in subject.dicoms:
         try:
             standard = standards_dict[dicom.tag]
@@ -745,7 +749,7 @@ def prepare_scan(subject_id, config):
         subject = datman.scan.Scan(subject_id, config)
     except datman.scanid.ParseException as e:
         logger.error(e, exc_info=True)
-        return
+        sys.exit(1)
 
     verify_input_paths([subject.nii_path, subject.dcm_path])
 

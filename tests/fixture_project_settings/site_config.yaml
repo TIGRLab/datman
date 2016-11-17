@@ -5,7 +5,7 @@ XNATSERVER: ''
 XNATPORT: ''
 
 Projects:
-  STUDY: study_settings.yml
+  STUDY: study_settings.yaml
 
 
 SystemSettings:
@@ -14,7 +14,7 @@ SystemSettings:
     DATMAN_PROJECTSDIR: 'tests/'
     DATMAN_ASSETSDIR: 'tests/assets/'
     XNAT_ARCHIVEDIR: ''
-    CONFIG_DIR: 'tests/fixture_project_settings/'
+    CONFIG_DIR: './tests/fixture_project_settings/'
 
 paths:
   # paths defined here are relative to the study specific folder

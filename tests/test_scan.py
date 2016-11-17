@@ -3,11 +3,15 @@ import unittest
 from nose.tools import raises
 from mock import patch
 
-import datman.config
+import datman.config as cfg
 import datman.scan
 
-FIXTURE = "/projects/dawn/current/datman/tests/fixture_project_settings/" \
-          "project_settings.yml"
+FIXTURE = "/projects/dawn/current/datman/tests/fixture_project_settings/"
+
+site_config = FIXTURE + "site_config.yaml"
+system = 'local'
+study = 'STUDY'
+
 
 class TestSeries(unittest.TestCase):
     good_name = "/somepath/STUDY_SITE_9999_01_01_T1_03_SagT1Bravo-09mm.nii.gz"
@@ -32,7 +36,7 @@ class TestScan(unittest.TestCase):
     good_name = "STUDY_CMH_9999_01"
     bad_name = "STUDYCMH_9999"
     phantom = "STUDY_CMH_PHA_ID"
-    config = datman.project_config.Config(FIXTURE)
+    config = cfg.config(filename=site_config, system=system, study=study)
 
 
     @raises(datman.scanid.ParseException)
@@ -50,7 +54,6 @@ class TestScan(unittest.TestCase):
         subject = datman.scan.Scan(self.phantom, self.config)
 
         assert subject is not None
-        print(subject.full_id)
         assert subject.full_id == self.phantom
 
     def test_is_phantom_sets_correctly(self):
@@ -65,22 +68,19 @@ class TestScan(unittest.TestCase):
         mock_exists.return_value = True
         subject = datman.scan.Scan(self.good_name, self.config)
 
-        expected_path = "./STUDY1/data/RESOURCES/STUDY_CMH_9999_01_01"
+        expected_path = self.config.get_path('resources') + "STUDY_CMH_9999_01_01"
         assert subject.resource_path == expected_path
 
     def test_returns_expected_subject_paths(self):
         subject = datman.scan.Scan(self.good_name, self.config)
 
-        expected_nii = self.config.get_path('nii') + "/" + self.good_name
-        expected_dcm = self.config.get_path('dcm') + "/" + self.good_name
-        expected_qc = self.config.get_path('qc') + "/" + self.good_name
-        expected_resource = self.config.get_path('resources') + "/"+ \
-                            self.good_name + "_01"
+        expected_nii = self.config.get_path('nii') + self.good_name
+        expected_dcm = self.config.get_path('dcm') + self.good_name
+        expected_qc = self.config.get_path('qc') + self.good_name
 
         assert subject.nii_path == expected_nii
         assert subject.dcm_path == expected_dcm
         assert subject.qc_path == expected_qc
-        assert subject.resource_path == expected_resource
 
     def test_niftis_and_dicoms_set_to_empty_list_when_broken_path(self):
         subject = datman.scan.Scan(self.good_name, self.config)
@@ -106,7 +106,7 @@ class TestScan(unittest.TestCase):
 
     @raises(datman.scanid.ParseException)
     @patch('glob.glob')
-    def test_niftis_or_dicoms_with_bad_names_cause_parse_exception(self,
+    def test_subject_series_with_nondatman_name_causes_parse_exception(self,
             mock_glob):
         well_named = "{}_01_T1_02_SagT1-BRAVO.nii".format(self.good_name)
         badly_named1 = "{}_01_DTI60-1000_05_Ax-DTI-60.nii".format(self.bad_name)
@@ -195,7 +195,7 @@ class TestScan(unittest.TestCase):
         assert actual_DTIs == expected
 
     @patch('glob.glob')
-    def test_get_tagged_X_returns_empty_list_when_tag_not_files(self, mock_glob):
+    def test_get_tagged_X_returns_empty_list_when_no_tag_files(self, mock_glob):
         nifti = "STUDY_CAMH_9999_01_01_T1_03_SagT1-BRAVO.nii.gz"
         dicom = "STUDY_CAMH_9999_01_01_DTI_05_Ax-DTI-60.dcm"
 
