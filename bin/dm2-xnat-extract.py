@@ -261,12 +261,6 @@ def process_session(session):
                                    xnat_project))
 
 
-def check_resources_exist(resource_list, target_dir):
-    """Check if non-dicom resource files have been downloaded from xnat"""
-    exists = [os.path.isfile(os.path.join(target_dir, resource['name']))
-              for resource in resource_list]
-
-
 def process_resources(xnat_project, scanid, data):
     """Export any non-dicom resources from the xnat archive"""
     global cfg
@@ -319,7 +313,6 @@ def get_resource(xnat_project, xnat_session, xnat_resource_group,
                                 xnat_session,
                                 xnat_resource_group,
                                 xnat_resource_id)
-
     # extract the files from the archive, ignoring the filestructure
     try:
         with zipfile.ZipFile(archive[1]) as zip_file:
@@ -334,6 +327,7 @@ def get_resource(xnat_project, xnat_session, xnat_resource_group,
                 with source, target:
                     shutil.copyfileobj(source, target)
     except:
+        import pdb; pdb.set_trace()
         logger.error('Failed extracting resources archive:{}'
                      .format(xnat_session), exc_info=True)
 
