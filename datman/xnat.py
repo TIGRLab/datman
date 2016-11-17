@@ -15,20 +15,26 @@ class xnat(object):
     server = None
     auth = None
     headers = None
+    session = None
 
     def __init__(self, server, username, password):
         if server.endswith('/'):
             server = server[:-1]
         self.server = server
         self.auth = (username, password)
-
-        session_id = self.get_xnat_session()
-        self.headers = {'JSESSIONID': session_id}
+        try:
+            self.get_xnat_session()
+        except Exception as e:
+            logger.error('Failed getting xnat session')
+            raise e
 
     def get_xnat_session(self):
         """Setup a session with xnat"""
         url = '{}/data/JSESSION'.format(self.server)
-        response = requests.post(url, auth=self.auth)
+
+        s = requests.Session()
+
+        response = s.post(url, auth=self.auth)
 
         if not response.status_code == requests.codes.ok:
             logger.error('Failed connecting to xnat server:{}'
@@ -36,7 +42,10 @@ class xnat(object):
                          .format(self.server, response.status_code))
             logger.debug('Username: {}')
             response.raise_for_status()
-        return(response.content)
+
+        s.cookies = requests.utils.cookiejar_from_dict({'JSESSIONID':
+                                                        response.content})
+        self.session = s
 
     def get_projects(self):
         """Queries the xnat server for a list of projects"""
@@ -202,7 +211,7 @@ class xnat(object):
                                        subject=session,
                                        session=experiment)
         try:
-            with open(filename) as data:
+            with open(filename, 'rb') as data:
                 self._make_xnat_post(upload_url, data, retries, headers)
         except IOError:
             logger.error('Failed to open file:{}'.format(filename))
@@ -302,7 +311,7 @@ class xnat(object):
                                .format(filename, str(e)))
 
     def _get_xnat_stream(self, url, filename, retries=3):
-        response = requests.get(url, cookies=self.headers, stream=True)
+        response = self.session.get(url, stream=True, timeout=30)
 
         if response.status_code == 404:
             logger.error("No records returned from xnat server to query:{}"
@@ -328,7 +337,8 @@ class xnat(object):
         return(True)
 
     def _make_xnat_query(self, url):
-        response = requests.get(url, cookies=self.headers)
+        response = self.session.get(url,
+                                    timeout=30)
         if response.status_code == 404:
             logger.error("No records returned from xnat server to query:{}"
                          .format(url))
@@ -342,7 +352,8 @@ class xnat(object):
         return(response.json())
 
     def _make_xnat_xml_query(self, url):
-        response = requests.get(url, cookies=self.headers)
+        response = self.session.get(url,
+                                    timeout=30)
 
         if response.status_code == 404:
             logger.error("No records returned from xnat server to query:{}"
@@ -358,7 +369,8 @@ class xnat(object):
         return(root)
 
     def _make_xnat_put(self, url):
-        response = requests.put(url, cookies=self.headers)
+        response = self.session.put(url,
+                                    timeout=20)
 
         if not response.status_code in [200, 201]:
             logger.error("http client error at folder creation: {}"
@@ -368,10 +380,10 @@ class xnat(object):
     def _make_xnat_post(self, url, data, retries=3, headers=None):
         logger.debug('POSTing data to xnat, {} retries left'.format(retries))
 
-        response = requests.post(url,
-                                 headers=headers,
-                                 cookies=self.headers,
-                                 data=data)
+        response = self.session.post(url,
+                                     headers=headers,
+                                     data=data,
+                                     timeout=20)
 
         if response.status_code is 504:
             if retries:
