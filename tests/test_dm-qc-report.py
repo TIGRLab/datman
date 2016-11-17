@@ -4,7 +4,7 @@ import importlib
 import logging
 from random import randint
 
-import datman.project_config
+import datman.config
 import datman.scan
 
 import nose.tools
