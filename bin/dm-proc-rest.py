@@ -5,10 +5,10 @@ spheres). This data is returned as the time series & a full correlation matrix,
 in .csv format).
 
 Usage:
-    dm-proc-rest.py [options] <config>
+    dm-proc-rest.py [options] <study>
 
 Arguments:
-    <config>            Configuration file
+    <study>             study name defined in master configuration .yml file
 
 Options:
     --subject SUBJID    Subject ID to run
@@ -21,7 +21,8 @@ DETAILS
 """
 
 from datman.docopt import docopt
-import datman as dm
+import datman.utils as utils
+import datman.config as cfg
 import logging
 import glob
 import numpy as np
@@ -32,7 +33,7 @@ import yaml
 logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
-def get_inputs(config, path, scanid):
+def get_inputs(config, path, exp, scanid):
     """
     Finds the epitome exports matching the connectivity tag specified in the
     settings file
@@ -40,7 +41,7 @@ def get_inputs(config, path, scanid):
     inputs = []
 
     # get target epitome exports
-    target_filetypes = config['fmri'][exp]['conn']
+    target_filetypes = config.study_config['fmri'][exp]['conn']
     if type(target_filetypes) == str:
         target_filetypes = [target_filetypes]
 
@@ -49,14 +50,18 @@ def get_inputs(config, path, scanid):
     for filetype in target_filetypes:
         inputs.extend(filter(lambda x: filetype + '.nii.gz' in x, candidates))
 
+    # remove GLM outputs
+    inputs = filter(lambda x: '_glm_' not in x, inputs)
+
     return inputs
 
-def run_analysis(scanid, config):
+def run_analysis(scanid, config, study):
     """
     Extracts: time series, correlation matricies using defined atlas.
     """
-    fmri_dir = config['paths']['fmri']
-    experiments = config['fmri'].keys()
+    study_base = config.get_study_base(study)
+    fmri_dir = os.path.join(study_base, config.site_config['paths']['fmri'])
+    experiments = config.study_config['fmri'].keys()
     atlas = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir, 'assets/shen_2mm_268_parcellation.nii.gz')
 
     if not os.path.isfile(atlas):
@@ -67,10 +72,10 @@ def run_analysis(scanid, config):
         path = os.path.join(fmri_dir, exp, scanid)
 
         # get filetypes to analyze, ignoring ROI files
-        inputs = get_inputs(config, path, scanid)
+        inputs = get_inputs(config, path, exp, scanid)
 
         for filename in inputs:
-            basename = os.path.basename(dm.utils.splitext(filename)[0])
+            basename = os.path.basename(utils.splitext(filename)[0])
 
             # if the final correlation matrix exists, skip processing
             if os.path.isfile(os.path.join(path, basename + '_roi-corrs.csv')):
@@ -79,15 +84,15 @@ def run_analysis(scanid, config):
             # generate ROI file in register with subject's data
             roi_file = os.path.join(path, basename + '_rois.nii.gz')
             if not os.path.isfile(roi_file):
-                rtn, out = dm.utils.run('3dresample -master {} -prefix {} -inset {}'.format(filename, roi_file, atlas))
+                rtn, out = utils.run('3dresample -master {} -prefix {} -inset {}'.format(filename, roi_file, atlas))
                 if rtn:
                     logger.error(out)
                     raise Exception('Error resampling atlas {} to match {}.'.format(atlas, filename))
                 else:
                     pass
 
-            rois, _, _, _ = dm.utils.loadnii(roi_file)
-            data, _, _, _ = dm.utils.loadnii(filename)
+            rois, _, _, _ = utils.loadnii(roi_file)
+            data, _, _, _ = utils.loadnii(filename)
 
             n_rois = len(np.unique(rois[rois > 0]))
             dims = np.shape(data)
@@ -110,28 +115,34 @@ def run_analysis(scanid, config):
 
 def main():
 
-    arguments   = docopt(__doc__)
-    config_file = arguments['<config>']
-    scanid      = arguments['--subject']
-    debug       = arguments['--debug']
+    arguments = docopt(__doc__)
+    study     = arguments['<study>']
+    scanid    = arguments['--subject']
+    debug     = arguments['--debug']
 
     logging.info('Starting')
     if debug:
-        logging.getLogger().setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
 
-    with open(config_file, 'r') as stream:
-        config = yaml.load(stream)
-
-    if 'fmri' not in config['paths']:
-        logger.error("paths:fmri not defined in {}".format(config_file))
+    # load config for study
+    try:
+        config = cfg.config(study=study)
+    except ValueError:
+        logger.error('study {} not defined in master configuration file'.format(study))
         sys.exit(1)
 
-    fmri_dir = config['paths']['fmri']
+    study_base = config.get_study_base(study)
+
+    if 'fmri' not in config.site_config['paths']:
+        logger.error("paths:fmri not defined in site configuration file")
+        sys.exit(1)
+
+    fmri_dir = os.path.join(study_base, config.site_config['paths']['fmri'])
 
     if scanid:
         path = os.path.join(fmri_dir, scanid)
         try:
-            run_analysis(scanid, config)
+            run_analysis(scanid, config, study)
         except Exception as e:
             logger.error(e)
             sys.exit(1)
@@ -142,8 +153,8 @@ def main():
         subjects = []
 
         # loop through fmri experiments defined
-        for exp in config['fmri'].keys():
-            expected_files = config['fmri'][exp]['conn']
+        for exp in config.study_config['fmri'].keys():
+            expected_files = config.study_config['fmri'][exp]['conn']
             fmri_dirs = glob.glob('{}/*'.format(os.path.join(fmri_dir, exp)))
 
             for subj_dir in fmri_dirs:
@@ -158,7 +169,7 @@ def main():
         commands = []
         subjects = list(set(subjects))
         for subject in subjects:
-            commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
+            commands.append(" ".join([__file__, study, '--subject {}'.format(subject)]))
 
         if commands:
             logger.debug('queueing up the following commands:\n'+'\n'.join(commands))
@@ -167,7 +178,7 @@ def main():
                 jobname = 'dm_rest_{}'.format(time.strftime("%Y%m%d-%H%M%S"))
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
-                rtn, out = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
+                rtn, out = utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
 
                 if rtn:
                     logger.error("Job submission failed. Output follows.")

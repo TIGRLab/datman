@@ -37,6 +37,19 @@ import yaml
 logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
+def check_complete(directory, subject):
+    """Checks to see if the output files have been created.
+    Returns True if the files exist
+    """
+    expected_files = ['{}_glm_IM_1stlvl_MNI-nonlin.nii.gz',
+                      '{}_glm_OB_1stlvl_MNI-nonlin.nii.gz']
+
+    for filename in expected_files:
+        if not os.path.isfile(os.path.join(directory, subject, filename.format(subject))):
+            return False
+
+    return True
+
 def generate_analysis_script(subject, inputs, input_type, config, study):
     """
     This writes the analysis script to replicate the methods in [insert paper
@@ -176,8 +189,13 @@ def main():
         files = glob.glob(os.path.join(imob_dir, subject) + '/*.nii.gz')
         inputs = get_inputs(files, config)
 
-        for input_type in inputs.keys():
+        # check if subject has already been processed
+        if check_complete(imob_dir, subject):
+            logger.info('{} already analysed'.format(subject))
+            sys.exit(0)
 
+        # first level GLM for inputs
+        for input_type in inputs.keys():
             script = generate_analysis_script(subject, inputs, input_type, config, study)
             rtn, out = utils.run('chmod 754 {script}; {script}'.format(script=script))
             if rtn:

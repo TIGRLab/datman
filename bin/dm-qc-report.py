@@ -219,7 +219,7 @@ def dti_qc(filename, qc_dir, report):
     output_prefix = os.path.join(qc_dir, basename)
     output_file = output_prefix + '_stats.csv'
     if not os.path.isfile(output_file):
-        utils.run('qc-dti {} {} {} {}'.format(filename, bvec, bval,
+       datman.utils.run('qc-dti {} {} {} {}'.format(filename, bvec, bval,
                 output_prefix))
 
     output_file = os.path.join(qc_dir, basename + '_spikecount.csv')
@@ -636,6 +636,7 @@ def qc_subject(subject, config):
         "VN-SPRL"       : fmri_qc,
         "SID"           : fmri_qc,
         "MID"           : fmri_qc,
+        "TRG"           : fmri_qc,
         "DTI"           : dti_qc,
         "DTI21"         : dti_qc,
         "DTI22"         : dti_qc,
@@ -754,28 +755,23 @@ def prepare_scan(subject_id, config):
 
     return subject
 
-def get_project_config(config_path):
+def get_config(study):
     """
-    Ensures the path to the given yaml file is readable and contains
-    the expected paths. Returns an instance of SiteConfig (from
-    datman.siteconfig.py).
+    Retrieves the configuration information for this site and checks
+    that the expected paths are all defined.
 
-    Raises sys.exit if the config file is unreadable or missing paths.
+    Will raise KeyError if an expected path has not been defined for this study.
     """
-    try:
-        config = datman.project_config.Config(config_path)
-    except IOError:
-        logging.error("{} cannot be read.".format(config_path))
-        sys.exit(1)
+    logger.info('Loading config')
+    config = datman.config.config(study=study)
 
-    expected_paths = set(['dcm', 'nii', 'qc', 'std', 'meta'])
-    undefined_paths = expected_paths - set(config.paths)
-
-    if undefined_paths:
-        logging.error("paths: {} not defined in {}".format(undefined_paths,
-                config_path))
-        sys.exit(1)
-
+    required_paths = ['dcm', 'nii', 'qc', 'std', 'meta']
+    for path in required_paths:
+        try:
+            config.get_path(path)
+        except KeyError:
+            logger.error('Path:{} not found for project: {}'
+                         .format(path, study))
     return config
 
 def main():
@@ -789,38 +785,16 @@ def main():
     study = arguments['<study>']
     session = arguments['<session>']
     REWRITE = arguments['--rewrite']
-    # setup logging
-    logging.basicConfig()
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.WARN)
-    logger.setLevel(logging.WARN)
+
+    # set log level
     if quiet:
         logger.setLevel(logging.ERROR)
-        ch.setLevel(logging.ERROR)
     if verbose:
         logger.setLevel(logging.INFO)
-        ch.setLevel(logging.INFO)
     if debug:
         logger.setLevel(logging.DEBUG)
-        ch.setLevel(logging.DEBUG)
 
-    formatter = logging.Formatter('%(asctime)s - %(name)s - '
-                                  '%(levelname)s - %(message)s')
-    ch.setFormatter(formatter)
-
-    logger.addHandler(ch)
-
-    # setup the config object
-    logger.info('Loading config')
-
-    config = datman.config.config(study=study)
-    required_paths = ['dcm', 'nii', 'qc', 'std', 'meta']
-    for path in required_paths:
-        try:
-            config.get_path(path)
-        except KeyError:
-            logger.error('Path:{} not found for project: {}'
-                         .format(path, study))
+    config = get_config(study)
 
     if session:
         subject = prepare_scan(session, config)
