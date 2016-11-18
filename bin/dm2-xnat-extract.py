@@ -464,7 +464,7 @@ def get_dicom_archive_from_xnat(xnat_project, session, series):
     if not dicom_archive:
         logger.error('Failed to download dicom archive for:{}, series:{}'
                      .format(session, series))
-        return
+        return None, None
 
     logger.debug('Unpacking archive')
 
@@ -475,7 +475,7 @@ def get_dicom_archive_from_xnat(xnat_project, session, series):
             logger.error('An error occured unpaking dicom archive for:{}'
                          ' skipping')
             os.remove(dicom_archive[1])
-            return
+            return None, None
 
     logger.debug('Deleting archive file')
     os.remove(dicom_archive[1])

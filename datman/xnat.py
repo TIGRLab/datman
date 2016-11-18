@@ -236,7 +236,7 @@ class xnat(object):
             return(filename)
         else:
             try:
-                os.remove(filename)
+                os.remove(filename[1])
             except OSError as e:
                 logger.warning('Failed to delete tempfile:{} with excuse:{}'
                                .format(filename, str(e)))
@@ -325,7 +325,6 @@ class xnat(object):
         if response.status_code == 404:
             logger.error("No records returned from xnat server to query:{}"
                          .format(url))
-
             return
         elif response.status_code is 504:
             if retries:
