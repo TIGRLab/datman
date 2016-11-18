@@ -312,8 +312,15 @@ class xnat(object):
                 logger.warning('Failed to delete tempfile:{} with excuse:{}'
                                .format(filename, str(e)))
 
+
     def _get_xnat_stream(self, url, filename, retries=3):
         response = self.session.get(url, stream=True, timeout=30)
+
+        if response.status_code == 401:
+            # possibly the session has timed out
+            logger.info('Session may have expired, resetting')
+            self.get_xnat_session()
+            response = self.session.get(url, stream=True, timeout=30)
 
         if response.status_code == 404:
             logger.error("No records returned from xnat server to query:{}"
@@ -339,8 +346,14 @@ class xnat(object):
         return(True)
 
     def _make_xnat_query(self, url):
-        response = self.session.get(url,
-                                    timeout=30)
+        response = self.session.get(url, timeout=30)
+
+        if response.status_code == 401:
+            # possibly the session has timed out
+            logger.info('Session may have expired, resetting')
+            self.get_xnat_session()
+            response = self.session.get(url, timeout=30)
+
         if response.status_code == 404:
             logger.error("No records returned from xnat server to query:{}"
                          .format(url))
@@ -354,8 +367,13 @@ class xnat(object):
         return(response.json())
 
     def _make_xnat_xml_query(self, url):
-        response = self.session.get(url,
-                                    timeout=30)
+        response = self.session.get(url, timeout=30)
+
+        if response.status_code == 401:
+            # possibly the session has timed out
+            logger.info('Session may have expired, resetting')
+            self.get_xnat_session()
+            response = self.session.get(url, timeout=30)
 
         if response.status_code == 404:
             logger.error("No records returned from xnat server to query:{}"
@@ -371,8 +389,13 @@ class xnat(object):
         return(root)
 
     def _make_xnat_put(self, url):
-        response = self.session.put(url,
-                                    timeout=30)
+        response = self.session.put(url, timeout=30)
+
+        if response.status_code == 401:
+            # possibly the session has timed out
+            logger.info('Session may have expired, resetting')
+            self.get_xnat_session()
+            response = self.session.put(url, timeout=30)
 
         if not response.status_code in [200, 201]:
             logger.error("http client error at folder creation: {}"
@@ -384,6 +407,14 @@ class xnat(object):
         response = self.session.post(url,
                                      headers=headers,
                                      data=data)
+
+        if response.status_code == 401:
+            # possibly the session has timed out
+            logger.info('Session may have expired, resetting')
+            self.get_xnat_session()
+            response = self.session.post(url,
+                                         headers=headers,
+                                         data=data)
 
         if response.status_code is 504:
             if retries:
