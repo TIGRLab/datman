@@ -406,7 +406,8 @@ class xnat(object):
         logger.debug('POSTing data to xnat, {} retries left'.format(retries))
         response = self.session.post(url,
                                      headers=headers,
-                                     data=data)
+                                     data=data,
+                                     timeout=60*60)
 
         if response.status_code == 401:
             # possibly the session has timed out
