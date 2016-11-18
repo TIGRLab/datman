@@ -484,7 +484,13 @@ def get_dicom_archive_from_xnat(xnat_project, session, series):
     for root, dirname, filenames in os.walk(tempdir):
         for filename in fnmatch.filter(filenames, '*.[Dd][Cc][Mm]'):
             archive_files.append(os.path.join(root, filename))
-    base_dir = os.path.dirname(archive_files[0])
+    try:
+        base_dir = os.path.dirname(archive_files[0])
+    except IndexError:
+        logger.warning('There were no valid dicom files in xnat session:{}, series:{}'
+                       .format(session, series))
+        shutil.rmtree(tempdir)
+        return None, None
     return(tempdir, base_dir)
 
 
