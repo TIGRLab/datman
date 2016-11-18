@@ -642,6 +642,8 @@ def qc_subject(subject, config):
         "DTI23"         : dti_qc,
         "DTI60-29-1000" : dti_qc,
         "DTI60-20-1000" : dti_qc,
+        "DTI60-1000-20" : dti_qc,
+        "DTI60-1000-29" : dti_qc,
         "DTI60-1000"    : dti_qc,
         "DTI60-b1000"   : dti_qc,
         "DTI33-1000"    : dti_qc,
