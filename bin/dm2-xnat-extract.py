@@ -327,7 +327,6 @@ def get_resource(xnat_project, xnat_session, xnat_resource_group,
                 with source, target:
                     shutil.copyfileobj(source, target)
     except:
-        import pdb; pdb.set_trace()
         logger.error('Failed extracting resources archive:{}'
                      .format(xnat_session), exc_info=True)
 
@@ -417,7 +416,8 @@ def process_scans(xnat_project, scanid, scans):
                                                        str(scanid),
                                                        series)
         if not src_dir:
-            logger.error('Failed getting scan from xnat')
+            logger.error('Failed getting series:{}, scan:{} from xnat'
+                         .format(series, str(scanid)))
             continue
 
         try:
