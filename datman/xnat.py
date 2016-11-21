@@ -314,7 +314,13 @@ class xnat(object):
 
 
     def _get_xnat_stream(self, url, filename, retries=3):
-        response = self.session.get(url, stream=True, timeout=30)
+        try:
+            response = self.session.get(url, stream=True, timeout=30)
+        except requests.exceptions.Timeout as e:
+            if retries > 0:
+                return(self._get_xnat_stream(url, filename, retries=retries-1))
+            else:
+                raise e
 
         if response.status_code == 401:
             # possibly the session has timed out
@@ -343,7 +349,7 @@ class xnat(object):
             try:
                 for chunk in response.iter_content(1024):
                     f.write(chunk)
-            except requests.Exeception as e:
+            except requests.exception as e:
                 logger.error('Failed reading from xnat')
                 raise(e)
             except IOError as e:
@@ -351,8 +357,14 @@ class xnat(object):
                 raise(e)
         return(True)
 
-    def _make_xnat_query(self, url):
-        response = self.session.get(url, timeout=30)
+    def _make_xnat_query(self, url, retries=3):
+        try:
+            response = self.session.get(url, timeout=30)
+        except requests.exceptions.Timeout as e:
+            if retries > 0:
+                return(self._make_xnat_query(url, retries=retries-1))
+            else:
+                raise e
 
         if response.status_code == 401:
             # possibly the session has timed out
@@ -372,8 +384,14 @@ class xnat(object):
             response.raise_for_status()
         return(response.json())
 
-    def _make_xnat_xml_query(self, url):
-        response = self.session.get(url, timeout=30)
+    def _make_xnat_xml_query(self, url, retries=3):
+        try:
+            response = self.session.get(url, timeout=30)
+        except requests.exceptions.Timeout as e:
+            if retries > 0:
+                return(self._make_xnat_xml_query(url, retries=retries-1))
+            else:
+                raise e
 
         if response.status_code == 401:
             # possibly the session has timed out
@@ -394,8 +412,15 @@ class xnat(object):
         root = ElementTree.fromstring(response.content)
         return(root)
 
-    def _make_xnat_put(self, url):
-        response = self.session.put(url, timeout=30)
+    def _make_xnat_put(self, url, retries=3):
+        if retries == 0:
+            logger.info('Timed out making xnat put:{}'.format(url))
+            requests.exceptions.HTTPError()
+
+        try:
+            response = self.session.put(url, timeout=30)
+        except requests.exceptions.Timeout:
+            return(self._make_xnat_put(url, retries=retries-1))
 
         if response.status_code == 401:
             # possibly the session has timed out
