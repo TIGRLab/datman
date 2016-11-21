@@ -340,8 +340,15 @@ class xnat(object):
             response.raise_for_status()
 
         with open(filename[1], 'wb') as f:
-            for chunk in response.iter_content(1024):
-                f.write(chunk)
+            try:
+                for chunk in response.iter_content(1024):
+                    f.write(chunk)
+            except requests.Exeception as e:
+                logger.error('Failed reading from xnat')
+                raise(e)
+            except IOError as e:
+                logger.error('Failed writing to file')
+                raise(e)
         return(True)
 
     def _make_xnat_query(self, url):
