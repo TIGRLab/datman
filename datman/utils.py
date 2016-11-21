@@ -258,7 +258,7 @@ def get_zipfile_headers(path, stop_after_first = False):
             if stop_after_first: break
         except dcm.filereader.InvalidDicomError, e:
             continue
-        except zipfile.BadZipFile:
+        except zipfile.BadZipfile:
             logger.warning('Error in zipfile:{}'
                            .format(path))
             continue
