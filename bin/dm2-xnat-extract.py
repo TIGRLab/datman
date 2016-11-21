@@ -482,8 +482,11 @@ def get_dicom_archive_from_xnat(xnat_project, session, series):
     # get the root dir for the extracted files
     archive_files = []
     for root, dirname, filenames in os.walk(tempdir):
-        for filename in fnmatch.filter(filenames, '*.[Dd][Cc][Mm]'):
-            archive_files.append(os.path.join(root, filename))
+        filenames = [os.path.join(root, filename)
+                     for filename
+                     in filenames if is_valid_dicom(filename)]
+
+        archive_files.extend(filenames)
     try:
         base_dir = os.path.dirname(archive_files[0])
     except IndexError:
@@ -492,6 +495,16 @@ def get_dicom_archive_from_xnat(xnat_project, session, series):
         shutil.rmtree(tempdir)
         return None, None
     return(tempdir, base_dir)
+
+
+def is_valid_dicom(filename):
+    try:
+        dicom.read_file(filename)
+    except IOError:
+        return
+    except dicom.errors.InvalidDicomError:
+        return
+    return True
 
 
 def get_resource_archive_from_xnat(xnat_project, session, resourceid):

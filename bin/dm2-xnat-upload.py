@@ -251,9 +251,13 @@ def upload_non_dicom_data(archive, xnat_project, scanid):
     # filter files named like dicoms
     files = filter(lambda f: not is_named_like_a_dicom(f), files)
 
-    # filter actual dicoms :D
-    files = filter(lambda f: not is_dicom(io.BytesIO(zf.read(f))),
-                   files)
+    # filter actual dicoms :D.
+    try:
+        files = filter(lambda f: not is_dicom(io.BytesIO(zf.read(f))), files)
+    except zipfile.BadZipfile:
+        logger.warning('Error in zipfile:{}'
+                       .format(f))
+        return
 
     logger.info("Uploading {} files of non-dicom data...".format(len(files)))
     for f in files:
