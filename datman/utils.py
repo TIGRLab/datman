@@ -221,7 +221,7 @@ def get_archive_headers(path, stop_after_first = False):
     elif os.path.isfile(path) and path.endswith('.tar.gz'):
         return get_tarfile_headers(path, stop_after_first)
     else:
-	raise Exception("{} must be a file (zip/tar) or folder.".format(path))
+        raise Exception("{} must be a file (zip/tar) or folder.".format(path))
 
 def get_tarfile_headers(path, stop_after_first = False):
     """
@@ -261,7 +261,7 @@ def get_zipfile_headers(path, stop_after_first = False):
         except zipfile.BadZipfile:
             logger.warning('Error in zipfile:{}'
                            .format(path))
-            continue
+            break
     return manifest
 
 def get_folder_headers(path, stop_after_first = False):
