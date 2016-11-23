@@ -257,11 +257,10 @@ def upload_non_dicom_data(archive, xnat_project, scanid):
     dicom_files = []
     for f in files:
         try:
-            if is_dicom(io.BytesIO(zf.read(f)):
-                        dicom_files.append(f)
-            except zipfile.BadZipfile:
-                logger.error('Error in zipfile:{}'
-                               .format(f))
+            if is_dicom(io.BytesIO(zf.read(f))):
+                dicom_files.append(f)
+        except zipfile.BadZipfile:
+            logger.error('Error in zipfile:{}'.format(f))
 
     logger.info("Uploading {} files of non-dicom data..."
                 .format(len(dicom_files)))
