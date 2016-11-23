@@ -335,7 +335,7 @@ class xnat(object):
             except OSError as e:
                 logger.warning('Failed to delete tempfile:{} with excude:{}'
                                .format(filename, str(e)))
-            logger.error('Failed getting resource from xnat', exec_info=True)
+            logger.error('Failed getting resource from xnat', exc_info=True)
             raise XnatException("Failed downloading resource with url:{}"
                                 .format(url))
 
@@ -362,7 +362,7 @@ class xnat(object):
             except OSError as e:
                 logger.warning('Failed to delete tempfile:{} with excude:{}'
                                .format(filename, str(e)))
-            logger.error('Failed getting resource archive from xnat', exec_info=True)
+            logger.error('Failed getting resource archive from xnat', exc_info=True)
             raise XnatException("Failed downloading resource archive with url:{}"
                                 .format(url))
 
