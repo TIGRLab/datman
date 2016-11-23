@@ -369,7 +369,7 @@ class xnat(object):
 
     def _get_xnat_stream(self, url, filename, retries=3):
         try:
-            response = self.session.get(url, stream=True, timeout=30)
+            response = self.session.get(url, stream=True, timeout=120)
         except requests.exceptions.Timeout as e:
             if retries > 0:
                 return(self._get_xnat_stream(url, filename, retries=retries-1))
