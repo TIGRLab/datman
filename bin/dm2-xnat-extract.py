@@ -331,9 +331,9 @@ def get_resource(xnat_project, xnat_session, xnat_resource_group,
                                     xnat_session,
                                     xnat_resource_group,
                                     xnat_resource_id)
-    except:
-        logger.error('Failed downloading resource archive from:{}'
-                     .format(xnat_session))
+    except Exception as e:
+        logger.error('Failed downloading resource archive from:{} with reason:{}'
+                     .format(xnat_session, e))
         return
     # extract the files from the archive, ignoring the filestructure
     try:
