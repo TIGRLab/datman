@@ -192,8 +192,8 @@ def main():
             for session in project_sessions:
                 sessions.append((project, session['label']))
 
-        logger.debug('Found {} sessions for study:'.format(len(sessions),
-                                                           study))
+    logger.info('Found {} sessions for study:'
+                .format(len(sessions), study))
 
     for session in sessions:
         process_session(session)
@@ -202,6 +202,9 @@ def main():
 def process_session(session):
     xnat_project = session[0]
     session_label = session[1]
+
+    logger.info('Processing session:{}'.
+                format(session[1]))
 
     # check the session is valid on xnat
     try:
@@ -366,7 +369,8 @@ def process_scans(xnat_project, scanid, scans):
     Scans is the json output from xnat query representing scans
     in an experiment"""
     global cfg
-
+    logger.info('Processing scans in session:{}'
+                .format(str(scanid)))
     # setup the export functions for each format
     xporters = {
         "mnc": export_mnc_command,
@@ -383,7 +387,19 @@ def process_scans(xnat_project, scanid, scans):
         return
 
     for scan in scans['items']:
-        description = scan['data_fields']['series_description']
+        if 'series_description' in scan['data_fields'].keys():
+            description = scan['data_fields']['series_description']
+        elif 'type' in scan['data_fields'].keys():
+            description = scan['data_fields']['type']
+        else:
+            logger.error('Failed to get description for series:'
+                         '{} from session:{}'
+                         .format(scan['data_fields']['ID'], str(scanid)))
+            continue
+        try:
+            description = scan['data_fields']['series_description']
+        except:
+            description = scan['data_fields']['type']
         mangled_descr = datman.utils.mangle(description)
         series = scan['data_fields']['ID']
         padded_series = series.zfill(2)
