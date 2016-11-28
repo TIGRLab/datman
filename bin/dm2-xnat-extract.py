@@ -311,6 +311,7 @@ def process_resources(xnat_project, scanid, data):
             logger.error('Failed getting resource:{} '
                          'for session:{} in project:{}'
                          .format(xnat_resource_id, str(scanid), e))
+            continue
 
         for resource in resources:
             if os.path.isfile(os.path.join(target_path, resource['name'])):
