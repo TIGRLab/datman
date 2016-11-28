@@ -254,17 +254,17 @@ def upload_non_dicom_data(archive, xnat_project, scanid):
     files = filter(lambda f: not is_named_like_a_dicom(f), files)
 
     # filter actual dicoms :D.
-    dicom_files = []
+    resource_files = []
     for f in files:
         try:
-            if is_dicom(io.BytesIO(zf.read(f))):
-                dicom_files.append(f)
+            if not is_dicom(io.BytesIO(zf.read(f))):
+                resource_files.append(f)
         except zipfile.BadZipfile:
             logger.error('Error in zipfile:{}'.format(f))
 
     logger.info("Uploading {} files of non-dicom data..."
-                .format(len(dicom_files)))
-    for f in dicom_files:
+                .format(len(resource_files)))
+    for f in resource_files:
         # convert to HTTP language
         try:
             XNAT.put_resource(xnat_project,
