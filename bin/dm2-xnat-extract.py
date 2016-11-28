@@ -181,10 +181,16 @@ def main():
     if session:
         # if session has been provided on the command line, identify which
         # project it is in
-        xnat_project = xnat.find_session(session, xnat_projects)
+        try:
+            xnat_project = xnat.find_session(session, xnat_projects)
+        except datman.exceptions.XnatException as e:
+            raise e
+
         if not xnat_projects:
             logger.error('Failed to find session:{} in xnat.'
                          .format(xnat_projects))
+            return
+
         sessions.append((xnat_project, session))
     else:
         for project in xnat_projects:
