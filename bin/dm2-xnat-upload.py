@@ -229,9 +229,9 @@ def check_files_exist(archive, xnat_project, scanid):
     xnat_experiment_id = xnat_experiment_id['items'][0]
     xnat_experiment_id = xnat_experiment_id['data_fields']['UID']
 
-    local_experiment_id = local_headers.values()[0].StudyInstanceUID
+    local_experiment_ids = [v.StudyInstanceUID for v in local_headers.values()]
 
-    if not xnat_experiment_id == local_experiment_id:
+    if not xnat_experiment_id in local_experiment_ids:
         msg = 'Study UID for archive:{} doesnt match XNAT'.format(archive)
         logger.error(msg)
         raise UserWarning(msg)

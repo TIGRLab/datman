@@ -673,6 +673,13 @@ def qc_subject(subject, config):
     expected_files = find_expected_files(subject, config)
 
     try:
+        # Update checklist even if report generation fails
+        checklist_path = os.path.join(config.get_path('meta'), 'checklist.csv')
+        add_report_to_checklist(report_name, checklist_path)
+    except:
+        logger.error("Error adding {} to checklist.".format(subject.full_id))
+
+    try:
         generate_qc_report(report_name, subject, expected_files, header_diffs,
                 handlers)
     except:
@@ -680,10 +687,6 @@ def qc_subject(subject, config):
                 "Removing .html page.".format(subject.full_id), exc_info=True)
         if os.path.exists(report_name):
             os.remove(report_name)
-    else:
-        # Update checklist if report is successfully generated
-        checklist_path = os.path.join(config.get_path('meta'), 'checklist.csv')
-        add_report_to_checklist(report_name, checklist_path)
 
     return report_name
 

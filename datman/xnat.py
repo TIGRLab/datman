@@ -58,8 +58,8 @@ class xnat(object):
                                 .format(url))
 
         if not result:
-            logger.warn('No studies found on server:{}'.format(self.server))
-            return
+            raise XnatException("No studies on server:{}"
+                                .format(self.server))
 
         return(result['ResultSet']['Result'])
 
@@ -95,8 +95,7 @@ class xnat(object):
                                 .format(url))
 
         if not result:
-            logger.warn('No sessions found for study:{}'.format(study))
-            return
+            raise XnatException('No sessions found for study:{}'.format(study))
 
         return(result['ResultSet']['Result'])
 
@@ -180,9 +179,9 @@ class xnat(object):
                                 .format(url))
 
         if not result:
-            logger.warn('Experiment:{} not found for session:{} in study:{}'
-                        .format(experiment, session, study))
-            return
+            raise XnatException('Experiment:{} not found for session:{}'
+                                ' in study:{}'
+                                .format(experiment, session, study))
 
         return(result['items'][0])
 
@@ -204,13 +203,19 @@ class xnat(object):
             return XnatException("Failed getting resources with url:"
                                  .format(url))
         if result is None:
-            logger.warn('Experiment:{} not found for session:{} in study:{}'
-                        .format(experiment, session, study))
-            return
+            raise XnatException('Experiment:{} not found for session:{}'
+                                ' in study:{}'
+                                .format(experiment, session, study))
+
 
         # define the xml namespace
         ns = {'cat': 'http://nrg.wustl.edu/catalog'}
         entries = result.find('cat:entries', ns)
+        if not entries:
+            # no files found, just a label
+            raise XnatException('Resource id:{} in session:{} is empty'
+                                .format(resource_id, session))
+
         items = [entry.attrib for entry
                  in entries.findall('cat:entry', ns)]
 
@@ -248,14 +253,24 @@ class xnat(object):
         try:
             with open(filename) as data:
                 self._make_xnat_post(upload_url, data, retries, headers)
+        except XnatException as e:
+            e.study = project
+            e.session = session
+            raise e
         except IOError as e:
             logger.error('Failed to open file:{} with excuse:'
                          .format(filename, e.strerror))
-            raise XnatException("Error in file:{}".
+            err = XnatException("Error in file:{}".
                                 format(filename))
-        except request.exceptions.RequestException as e:
-            raise XnatException("Error uploading data with url:{}"
+            err.study = project
+            err.session = session
+            raise err
+        except requests.exceptions.RequestException as e:
+            err = XnatException("Error uploading data with url:{}"
                                 .format(upload_url))
+            err.study = project
+            err.session = session
+            raise err
 
     def get_dicom(self, project, session, experiment, scan,
                   filename=None, retries=3):
@@ -279,8 +294,10 @@ class xnat(object):
             except OSError as e:
                 logger.warning('Failed to delete tempfile:{} with excuse:{}'
                                .format(filename, str(e)))
-            raise XnatException("Failed getting dicom with url:{}"
-                                .format(url))
+            err = XnatException("Failed getting dicom with url:{}".format(url))
+            err.study = project
+            err.session = session
+            raise err
 
     def put_resource(self, project, session, experiment, filename, data,
                      retries=3):
@@ -300,10 +317,16 @@ class xnat(object):
                                 filename=uploadname)
         try:
             self._make_xnat_post(url, data)
+        except XnatException as err:
+            err.study = project
+            err.session = session
+            raise err
         except:
             logger.warning("Failed adding resource to xnat with url:{}"
                            .format(url))
-            raise XnatException("Failed adding resource to xnat")
+            err = XnatException("Failed adding resource to xnat")
+            err.study = project
+            err.session = session
 
 
     def get_resource(self, project, session, experiment,
@@ -485,7 +508,7 @@ class xnat(object):
 
         if not response.status_code in [200, 201]:
             logger.warn("http client error at folder creation: {}"
-                         .format(response.status_code))
+                        .format(response.status_code))
             response.raise_for_status()
 
     def _make_xnat_post(self, url, data, retries=3, headers=None):
@@ -513,6 +536,11 @@ class xnat(object):
                 response.raise_for_status()
 
         elif response.status_code is not 200:
-            logger.warn('xnat error:{} at data upload with reason:{}'
-                         .format(response.status_code, response.content))
-            response.raise_for_status()
+            if 'multiple imaging sessions.' in response.content:
+                raise XnatException('Multiple imaging sessions in archive,'
+                                    ' check prearchive')
+            else:
+                raise XnatException('An unknown error occured uploading data.'
+                                    'Status code:{}, reason:{}'
+                                    .format(response.status_code,
+                                            response.content))
