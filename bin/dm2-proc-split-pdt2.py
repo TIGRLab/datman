@@ -109,7 +109,11 @@ def main():
 def split(image):
     logger.info('Spliting image:{}'.format(image))
     ext = datman.utils.get_extension(image)
-    ident, tag, series, desc = datman.scanid.parse_filename(image)
+    try:
+        ident, tag, series, desc = datman.scanid.parse_filename(image)
+    except datman.scanid.ParseException:
+        logger.error('Invalid filename:{}, skipping.'.format(image))
+        return
 
     pd_path = os.path.join(os.path.dirname(image),
                            datman.scanid.make_filename(ident,

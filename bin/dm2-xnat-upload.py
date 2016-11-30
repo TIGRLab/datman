@@ -36,6 +36,7 @@ import datman.config
 import datman.utils
 import datman.scanid
 import datman.xnat
+import datman.exceptions
 import os
 import getpass
 import requests
@@ -68,6 +69,7 @@ def main():
     archive = arguments['<archive>']
 
     # setup logging
+    logging.basicConfig()
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.WARN)
     logger.setLevel(logging.WARN)
@@ -107,7 +109,6 @@ def main():
             username = lines[0].strip()
             password = lines[1].strip()
 
-
     XNAT = datman.xnat.xnat(server, username, password)
 
     dicom_dir = cfg.get_path('dicom', study)
@@ -140,65 +141,68 @@ def main():
         scanid = archivefile[:-len(datman.utils.get_extension(archivefile))]
         archivefile = os.path.join(dicom_dir, archivefile)
         #  check the supplied archive is named correctly
-        if not datman.scanid.is_scanid(scanid):
+        try:
+            ident = datman.scanid.parse(scanid)
+        except datman.scanid.ParseException:
             logger.warning('Invalid scanid:{} from archive:{}'
                            .format(scanid, archive))
             continue
-        else:
-            ident = datman.scanid.parse(scanid)
+
         logger.debug('Processing file:{}'.format(scanid))
         # get the xant archive from the config
 
         xnat_project = cfg.get_key(['XNAT_Archive'],
                                    site=ident.site)
-        if not XNAT.get_project(xnat_project):
+        try:
+            XNAT.get_project(xnat_project)
+        except datman.exceptions.XnatException as e:
             logger.error('Could not identify xnat archive'
-                         ' for study: {} at site: {}'.format(study,
-                                                            ident.site))
+                         ' for study: {} at site: {} with reason:{}'
+                         .format(study, ident.site, e))
             continue
 
         logger.debug('Confimed xnat project name:{}'.format(xnat_project))
 
-        xnat_subject = XNAT.get_session(xnat_project, str(ident), create=True)
-        if not xnat_subject:
-            logger.error('Failed to get subject:{} from xnat'.format(scanid))
+        try:
+            xnat_subject = XNAT.get_session(xnat_project, str(ident), create=True)
+        except datman.exceptions.XnatException as e:
+            logger.error('Failed getting session:{} from xnat with reason:{}'
+                         .format(str(ident), e))
             continue
-        logger.debug('Got subject:{} from xnat'
-                     .format(str(ident)))
+
+        logger.debug('Got subject:{} from xnat'.format(str(ident)))
 
         files_exist = False
         try:
             files_exist = check_files_exist(archivefile, xnat_project, str(ident))
-        except UserWarning:
-            logger.error('Error checking if files exist for:{}'
-                         .format(str(ident)))
-            continue
-        try:
-            if not files_exist:
-                logger.info('Uploading dicoms from:{}'.format(archivefile))
-                upload_dicom_data(archivefile, xnat_project, str(ident))
-            else:
-                logger.info('Archive:{} already on xnat.'.format(archivefile))
-        except IOError:
-            logger.error('Failed uploading dicom data from:{}'
-                         .format(archivefile))
+        except:
             continue
 
-        try:
-            logger.info('Uploading non-dicom data from:{}'.format(archivefile))
-            upload_non_dicom_data(archivefile, xnat_project, str(ident))
-        except requests.exceptions.HTTPError:
-            logger.error('Failed uploading non-dicom data for subject:{}'
-                         .format(scanid))
-            continue
+        if not files_exist:
+            logger.info('Uploading dicoms from:{}'.format(archivefile))
+            upload_dicom_data(archivefile, xnat_project, str(ident))
+        else:
+            logger.info('Archive:{} already on xnat.'.format(archivefile))
+
+        logger.info('Uploading non-dicom data from:{}'.format(archivefile))
+        upload_non_dicom_data(archivefile, xnat_project, str(ident))
 
 
 def check_files_exist(archive, xnat_project, scanid):
     logger.info('Checking for archive:{} contents on xnat'.format(scanid))
+    try:
+        xnat_session = XNAT.get_session(xnat_project, scanid)
+    except datman.exceptions.XnatException as e:
+        logger.error('Failed getting session:{} from xnat project:{} with reason:{}'
+                     .format(scanid, xnat_project, e))
+        raise
 
-    xnat_session = XNAT.get_session(xnat_project, scanid)
+    try:
+        local_headers = datman.utils.get_archive_headers(archive)
+    except:
+        logger.error('Failed getting archive headers for:'.format(archive))
+        raise
 
-    local_headers = datman.utils.get_archive_headers(archive)
     try:
         xnat_session['children'][0]
     except (KeyError, IndexError):
@@ -225,9 +229,9 @@ def check_files_exist(archive, xnat_project, scanid):
     xnat_experiment_id = xnat_experiment_id['items'][0]
     xnat_experiment_id = xnat_experiment_id['data_fields']['UID']
 
-    local_experiment_id = local_headers.values()[0].StudyInstanceUID
+    local_experiment_ids = [v.StudyInstanceUID for v in local_headers.values()]
 
-    if not xnat_experiment_id == local_experiment_id:
+    if not xnat_experiment_id in local_experiment_ids:
         msg = 'Study UID for archive:{} doesnt match XNAT'.format(archive)
         logger.error(msg)
         raise UserWarning(msg)
@@ -249,15 +253,25 @@ def upload_non_dicom_data(archive, xnat_project, scanid):
     # filter files named like dicoms
     files = filter(lambda f: not is_named_like_a_dicom(f), files)
 
-    # filter actual dicoms :D
-    files = filter(lambda f: not is_dicom(io.BytesIO(zf.read(f))),
-                   files)
-
-    logger.info("Uploading {} files of non-dicom data...".format(len(files)))
+    # filter actual dicoms :D.
+    resource_files = []
     for f in files:
+        try:
+            if not is_dicom(io.BytesIO(zf.read(f))):
+                resource_files.append(f)
+        except zipfile.BadZipfile:
+            logger.error('Error in zipfile:{}'.format(f))
+
+    logger.info("Uploading {} files of non-dicom data..."
+                .format(len(resource_files)))
+    for f in resource_files:
         # convert to HTTP language
         try:
-            XNAT.put_resource(xnat_project, scanid, scanid, f, zf.read(f))
+            XNAT.put_resource(xnat_project,
+                              scanid,
+                              scanid,
+                              os.path.basename(f),
+                              zf.read(f))
         except Exception as e:
             logger.error("Failed uploading file {} with error:{}"
                          .format(f, str(e)))
@@ -269,7 +283,7 @@ def upload_dicom_data(archive, xnat_project, scanid):
     try:
         ##update for XNAT
         XNAT.put_dicoms(xnat_project, scanid, scanid, archive)
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         logger.error('Failed uploading archive to xnat project:{}'
                      ' for subject:{}'.format(xnat_project, scanid))
 
