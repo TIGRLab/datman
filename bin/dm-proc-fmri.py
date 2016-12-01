@@ -75,6 +75,7 @@ def export_directory(source, destination):
             raise Exception("failed to remove existing folder {}".format(destination))
     try:
         shutil.copytree(source, destination)
+        logger.debug("exporting {} to {}".format(source, destination))
     except:
         raise Exception("failed to export {} to {}".format(source, destination))
 
