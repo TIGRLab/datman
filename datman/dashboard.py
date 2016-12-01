@@ -33,7 +33,8 @@ class dashboard(object):
 
     def get_add_session(self, session_name, date=None, create=False):
         """Returns a session object, creates one if doesnt exist and create
-        is True"""
+        is True
+        N.B. a session name is ID without timepoint"""
         if not self.study:
             logger.error('Study not set')
             return DashboardException('Study not set')
@@ -42,7 +43,7 @@ class dashboard(object):
             ident = datman.scanid.parse(session_name)
         except datman.scanid.ParseException:
             logger.error('Invalid session:{}'.format(session_name))
-            return DashboardException('Invalid session name:{}'
+            raise DashboardException('Invalid session name:{}'
                                       .format(session_name))
 
         dashboard_site = [site for site
@@ -51,7 +52,7 @@ class dashboard(object):
         if not dashboard_site:
             logger.error('Invalid site:{} in session:{}'
                          .format(ident.site, session_name))
-            return(DashboardException('Invalid site'))
+            raise DashboardException('Invalid site')
 
         if date:
             try:
@@ -59,7 +60,7 @@ class dashboard(object):
             except ValueError:
                 logger.error('Invalid date:{} for session:{}'
                              .format(date, session_name))
-                return(DashboardException('Invalid date'))
+                raise DashboardException('Invalid date')
 
         qry = Session.query.filter(Session.study == self.study).filter(Session.name == session_name)
 
@@ -203,6 +204,35 @@ class dashboard(object):
                          .format(scan_name, str(e)))
         return(dashboard_scan)
 
+    def delete_extra_scans(self, session_label, scanlist):
+        """Checks scans associated with session,
+        deletes scans not in scanlist"""
+
+        try:
+            ident = datman.scanid.parse(session_label)
+        except datman.scanid.ParseException:
+            logger.error('Invalid session:{}'.format(session_name))
+            raise DashboardException('Invalid session name:{}'
+                                      .format(session_label))
+        session_label = ident.get_full_subjectid_with_timepoint()
+        db_session = self.get_add_session(session_label)
+
+        scan_names = []
+        # need to convert full scan names to scanid's in the db
+        for scan_name in scanlist:
+            try:
+                db_scan = self.get_add_scan(scan_name)
+                scan_names.append(db_scan.name)
+            except:
+                continue
+
+
+        db_scans = [scan.name for scan in db_session.scans]
+        extra_scans = set(db_scans) - set(scan_names)
+        for scan in extra_scans:
+            db_scan = Scan.query.filter_by(name == scan)
+            db.session.delete(db_scan)
+        db.session.commit()
 
     def get_scantype(self, scantype):
         qry = ScanType.query.filter(ScanType.name == scantype)
