@@ -180,7 +180,10 @@ def main():
 
         if not files_exist:
             logger.info('Uploading dicoms from:{}'.format(archivefile))
-            upload_dicom_data(archivefile, xnat_project, str(ident))
+            try:
+                upload_dicom_data(archivefile, xnat_project, str(ident))
+            except:
+                continue
         else:
             logger.info('Archive:{} already on xnat.'.format(archivefile))
 
@@ -286,6 +289,7 @@ def upload_dicom_data(archive, xnat_project, scanid):
     except Exception as e:
         logger.error('Failed uploading archive to xnat project:{}'
                      ' for subject:{}'.format(xnat_project, scanid))
+        raise e
 
 
 def is_named_like_a_dicom(path):
