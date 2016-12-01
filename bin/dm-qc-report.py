@@ -374,7 +374,10 @@ def write_report_body(report, expected_files, subject, header_diffs, handlers):
 
         add_header_qc(series, report, header_diffs)
 
-        handlers[series.tag](series.path, subject.qc_path, report)
+        try:
+            handlers[series.tag](series.path, subject.qc_path, report)
+        except KeyError:
+            raise KeyError('series tag {} not defined in handlers:\n{}'.format(series.tag, handlers))
         report.write('<br>')
 
 def find_tech_notes(path):
@@ -468,14 +471,15 @@ def write_report_header(report, subject_id):
 
     report.write('<h1> QC report for {} <h1/>'.format(subject_id))
 
-def generate_qc_report(report_name, subject, expected_files, header_diffs,
-        handlers):
-    with open(report_name, 'wb') as report:
-        write_report_header(report, subject.full_id)
-        write_table(report, expected_files, subject)
-        write_tech_notes_link(report, subject.full_id, subject.resource_path)
-        write_report_body(report, expected_files, subject, header_diffs,
-                handlers)
+def generate_qc_report(report_name, subject, expected_files, header_diffs, handlers):
+    try:
+        with open(report_name, 'wb') as report:
+            write_report_header(report, subject.full_id)
+            write_table(report, expected_files, subject)
+            write_tech_notes_link(report, subject.full_id, subject.resource_path)
+            write_report_body(report, expected_files, subject, header_diffs, handlers)
+    except:
+        raise
 
 def get_position(position_info):
     if isinstance(position_info, list):
@@ -680,11 +684,9 @@ def qc_subject(subject, config):
         logger.error("Error adding {} to checklist.".format(subject.full_id))
 
     try:
-        generate_qc_report(report_name, subject, expected_files, header_diffs,
-                handlers)
+        generate_qc_report(report_name, subject, expected_files, header_diffs, handlers)
     except:
-        logger.error("Exception raised during qc-report generation for {}. " \
-                "Removing .html page.".format(subject.full_id), exc_info=True)
+        logger.error("Exception raised during qc-report generation for {}. Removing .html page.".format(subject.full_id), exc_info=True)
         if os.path.exists(report_name):
             os.remove(report_name)
 
