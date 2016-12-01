@@ -86,6 +86,8 @@ import glob
 import time
 import logging
 import copy
+import random
+import string
 
 import numpy as np
 import pandas as pd
@@ -103,6 +105,10 @@ logging.basicConfig(level=logging.WARN,
 logger = logging.getLogger(os.path.basename(__file__))
 
 REWRITE = False
+
+def random_str(n):
+    """generates a random string of length n"""
+    return(''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(n)))
 
 def slicer(fpath, pic, slicergap, picwidth):
     """
@@ -242,7 +248,7 @@ def submit_qc_jobs(commands, chained=False):
     for i, cmd in enumerate(commands):
         if chained and i > 0:
             lastjob = copy.copy(jobname)
-        jobname = "qc_report_{}_{}".format(time.strftime("%Y%m%d-%H%M%S"), i)
+        jobname = "qc_report_{}_{}_{}".format(time.strftime("%Y%m%d"), random_str(5), i)
         logfile = '/tmp/{}.log'.format(jobname)
         errfile = '/tmp/{}.err'.format(jobname)
 
@@ -301,7 +307,7 @@ def qc_all_scans(config):
         submit_qc_jobs(human_commands)
 
     if phantom_commands:
-        logger.debug('running phantom qc job\n{}'.format(cmd))
+        logger.debug('running phantom qc jobs\n{}'.format(phantom_commands))
         submit_qc_jobs(phantom_commands, chained=True)
 
 def find_existing_reports(checklist_path):
