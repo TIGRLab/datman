@@ -289,10 +289,12 @@ def qc_all_scans(config):
             human_commands.append(command)
 
     if human_commands:
+        logger.debug('submitting human qc jobs\n{}'.format(human_commands))
         submit_qc_jobs(human_commands)
 
     if phantom_commands:
         for cmd in phantom_commands:
+            logger.debug('running phantom qc job\n{}'.format(cmd))
             rtn, out = datman.utils.run(cmd)
             if rtn:
                 logger.error("stdout: {}".format(out))
@@ -660,8 +662,7 @@ def qc_subject(subject, config):
         "DTI69-1000"    : dti_qc,
     }
 
-    report_name = os.path.join(subject.qc_path,
-            'qc_{}.html'.format(subject.full_id))
+    report_name = os.path.join(subject.qc_path, 'qc_{}.html'.format(subject.full_id))
 
     if os.path.isfile(report_name):
         if not REWRITE:
@@ -703,11 +704,12 @@ def qc_phantom(subject, config):
         "DTI60-1000"    : phantom_dti_qc,
     }
 
+    logger.debug('qc {}'.format(subject))
     for nifti in subject.niftis:
         if nifti.tag not in handlers:
-            logger.info("No QC tag {} for scan {}. " \
-                    "Skipping.".format(nifti.tag, nifti.path))
+            logger.info("No QC tag {} for scan {}. Skipping.".format(nifti.tag, nifti.path))
             continue
+        logger.debug('qc {}'.format(nifti.path))
         handlers[nifti.tag](nifti.path, subject.qc_path)
 
 def qc_single_scan(subject, config):
