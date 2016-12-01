@@ -230,7 +230,7 @@ class dashboard(object):
         db_scans = [scan.name for scan in db_session.scans]
         extra_scans = set(db_scans) - set(scan_names)
         for scan in extra_scans:
-            db_scan = Scan.query.filter_by(name == scan)
+            db_scan = Scan.query.filter(Scan.name == scan)
             db.session.delete(db_scan)
         db.session.commit()
 
