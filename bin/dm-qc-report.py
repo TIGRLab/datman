@@ -85,6 +85,7 @@ import re
 import glob
 import time
 import logging
+import copy
 
 import numpy as np
 import pandas as pd
@@ -233,17 +234,22 @@ def dti_qc(filename, qc_dir, report):
     add_image(report, os.path.join(qc_dir, basename + '_directions.png'),
             title='bvec directions')
 
-def submit_qc_jobs(commands):
+def submit_qc_jobs(commands, chained=False):
     """
-    Submits the given commands to the queue.
+    Submits the given commands to the queue. In chained mode, each job will wait
+    for the previous job to finish before attempting to run.
     """
     for i, cmd in enumerate(commands):
+        if chained and i > 0:
+            lastjob = copy.copy(jobname)
         jobname = "qc_report_{}_{}".format(time.strftime("%Y%m%d-%H%M%S"), i)
         logfile = '/tmp/{}.log'.format(jobname)
         errfile = '/tmp/{}.err'.format(jobname)
 
-        run_cmd = 'echo {} | qsub -V -q main.q ' \
-                '-o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname)
+        if chained and i > 0:
+            run_cmd = 'echo {} | qsub -V -q main.q -hold_jid {} -o {} -e {} -N {}'.format(cmd, lastjob, logfile, errfile, jobname)
+        else:
+            run_cmd = 'echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname)
 
         rtn, out = datman.utils.run(run_cmd)
 
@@ -271,8 +277,10 @@ def make_qc_command(subject_id, study):
 
 def qc_all_scans(config):
     """
-    Creates a dm-qc-report.py command for each scan and submits any
-    commands for human subjects to the queue to run.
+    Creates a dm-qc-report.py command for each scan and submits all jobs to the
+    queue. Phantom jobs are submitted in chained mode, which means they will run
+    one at a time. This is currently needed because some of the phantom pipelines
+    use expensive and limited software liscenses (i.e., MATLAB).
     """
     human_commands = []
     phantom_commands = []
@@ -293,11 +301,8 @@ def qc_all_scans(config):
         submit_qc_jobs(human_commands)
 
     if phantom_commands:
-        for cmd in phantom_commands:
-            logger.debug('running phantom qc job\n{}'.format(cmd))
-            rtn, out = datman.utils.run(cmd)
-            if rtn:
-                logger.error("stdout: {}".format(out))
+        logger.debug('running phantom qc job\n{}'.format(cmd))
+        submit_qc_jobs(phantom_commands, chained=True)
 
 def find_existing_reports(checklist_path):
     found_reports = []
