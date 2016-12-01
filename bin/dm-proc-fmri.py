@@ -36,6 +36,8 @@ import time
 logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
+NODE = os.uname()[1]
+
 def check_inputs(config, tag, path, expected_tags):
     """
     Ensures we have the same number of input files as we have defined in
@@ -158,7 +160,7 @@ def run_epitome(path, config, study):
             except Exception as m:
                 logger.debug('{}'.format(m))
                 with open(output_dir + '/error.log', 'wb') as f:
-                    f.write('Did not find the correct number of fMRI inputs:\n{}'.format(m))
+                    f.write('Did not find the correct number of fMRI inputs:\n{}\n{}'.format(m, NODE))
                 failed = True
                 break
             functionals.extend(candidates)
@@ -172,7 +174,7 @@ def run_epitome(path, config, study):
             if not filter(lambda x: anat in x, files):
                 logger.debug('expected anatomical {} not found in {}'.format(anat, anat_path))
                 with open(output_dir + '/error.log', 'wb') as f:
-                    f.write('expected anatomical {} not found in {}'.format(anat, anat_path))
+                    f.write('expected anatomical {} not found in {}\n{}'.format(anat, anat_path, NODE))
                 failed = True
                 break
             anatomicals.append(os.path.join(anat_path, anat))
@@ -196,7 +198,7 @@ def run_epitome(path, config, study):
         except IOError as e:
             logger.error("unable to copy files to {}\n{}".format(epi_dir, e))
             with open(output_dir + '/error.log', 'wb') as f:
-                f.write("unable to copy files to {}\n{}".format(epi_dir, e))
+                f.write("unable to copy files to {}\n{}\n{}".format(epi_dir, e, NODE))
             continue
 
         # collect command line options
@@ -215,7 +217,7 @@ def run_epitome(path, config, study):
         if rtn:
             logger.debug("epitome script failed: {}\n{}".format(command, out))
             with open(output_dir + '/error.log', 'wb') as f:
-                f.write("epitome script failed: {}\n{}".format(command, out))
+                f.write("epitome script failed: {}\n{}\n{}".format(command, out, NODE))
             continue
         else:
             pass
@@ -231,7 +233,7 @@ def run_epitome(path, config, study):
                 if len(matches) != len(functionals):
                     logger.error('epitome output {} not created for all inputs'.format(name))
                     with open(output_dir + '/error.log', 'wb') as f:
-                        f.write('epitome output {} not created for all inputs'.format(name))
+                        f.write('epitome output {} not created for all inputs\n{}'.format(name, NODE))
                     continue
                 for i, match in enumerate(matches):
                     func_basename = utils.splitext(os.path.basename(functionals[i]))[0]
@@ -249,7 +251,7 @@ def run_epitome(path, config, study):
             except ProcessingError as p:
                 logger.error('error exporting: {}'.format(p))
                 with open(output_dir + '/error.log', 'wb') as f:
-                    f.write('{}'.format(p))
+                    f.write('{}\n{}'.format(p, NODE))
                 continue
 
         # remove temporary directory

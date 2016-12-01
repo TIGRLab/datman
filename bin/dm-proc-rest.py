@@ -33,6 +33,8 @@ import yaml
 logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
+NODE = os.uname()[1]
+
 def get_inputs(config, path, exp, scanid):
     """
     Finds the epitome exports matching the connectivity tag specified in the
@@ -86,7 +88,7 @@ def run_analysis(scanid, config, study):
             if not os.path.isfile(roi_file):
                 rtn, out = utils.run('3dresample -master {} -prefix {} -inset {}'.format(filename, roi_file, atlas))
                 if rtn:
-                    logger.error(out)
+                    logger.error('{}\n{}'.format(out, NODE))
                     raise Exception('Error resampling atlas {} to match {}.'.format(atlas, filename))
                 else:
                     pass
@@ -128,13 +130,13 @@ def main():
     try:
         config = cfg.config(study=study)
     except ValueError:
-        logger.error('study {} not defined in master configuration file'.format(study))
+        logger.error('study {} not defined in master configuration file\n{}'.format(study, NODE))
         sys.exit(1)
 
     study_base = config.get_study_base(study)
 
     if 'fmri' not in config.site_config['paths']:
-        logger.error("paths:fmri not defined in site configuration file")
+        logger.error("paths:fmri not defined in site configuration file\n{}".format(NODE))
         sys.exit(1)
 
     fmri_dir = os.path.join(study_base, config.site_config['paths']['fmri'])
@@ -181,7 +183,7 @@ def main():
                 rtn, out = utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
 
                 if rtn:
-                    logger.error("Job submission failed. Output follows.")
+                    logger.error("Job submission failed. Output follows. {}".format(NODE))
                     logger.error("stdout: {}".format(out))
                     sys.exit(1)
 
