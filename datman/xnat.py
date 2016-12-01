@@ -185,6 +185,54 @@ class xnat(object):
 
         return(result['items'][0])
 
+    def get_scan_list(self, study, session, experiment):
+        """The list of dicom scans in an experiment"""
+        url = '{}/data/archive/projects/{}' \
+              '/subjects/{}/experiments/{}' \
+              '/scans/?format=json'.format(self.server,
+                                           study,
+                                           session,
+                                           experiment)
+        try:
+            result = self._make_xnat_query(url)
+        except:
+            return XnatException('Failed getting scans with url:{}'
+                                 .format(url))
+
+        if result is None:
+            e = XnatException('Scan not found for experiment:{}'
+                              .format(experiment))
+            e.study = study
+            e.session = session
+            raise e
+
+        return(result['ResultSet']['Result'])
+
+    def get_scan_info(self, study, session, experiment, scanid):
+        """Returns info about an xnat scan"""
+        url = '{}/data/archive/projects/{}' \
+              '/subjects/{}/experiments/{}' \
+              '/scans/{}/?format=json'.format(self.server,
+                                              study,
+                                              session,
+                                              experiment,
+                                              scanid)
+        try:
+            result = self._make_xnat_query(url)
+        except:
+            return XnatException('Failed getting scan with url:{}'
+                                 .format(url))
+
+        if result is None:
+            e = XnatException('Scan:{} not found for experiment:{}'
+                              .format(scanid, experiment))
+            e.study = study
+            e.session = session
+            raise e
+
+        return(result['items'][0])
+
+
     def get_resource_list(self, study, session, experiment, resource_id):
         """The list of non-dicom resources associated with an experiment
         returns a list of dicts, mostly interested in ID and name"""
@@ -211,7 +259,7 @@ class xnat(object):
         # define the xml namespace
         ns = {'cat': 'http://nrg.wustl.edu/catalog'}
         entries = result.find('cat:entries', ns)
-        if not entries:
+        if len(entries) == 0:
             # no files found, just a label
             raise XnatException('Resource id:{} in session:{} is empty'
                                 .format(resource_id, session))
@@ -391,6 +439,7 @@ class xnat(object):
 
 
     def _get_xnat_stream(self, url, filename, retries=3):
+        logger.info('Getting data from xnat')
         try:
             response = self.session.get(url, stream=True, timeout=120)
         except requests.exceptions.Timeout as e:
