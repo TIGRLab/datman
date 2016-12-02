@@ -232,6 +232,12 @@ def process_session(session):
                        .format(session_label, xnat_project))
         return
 
+    if not experiments:
+        logger.error('Session:{} in study:{} has no experiments'
+                     .format(session_label))
+        return
+
+
     experiment_label = experiments[0]['label']
     # sesssion_label should be a valid datman scanid
     try:
