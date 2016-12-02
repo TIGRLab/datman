@@ -234,7 +234,7 @@ def process_session(session):
 
     if not experiments:
         logger.error('Session:{} in study:{} has no experiments'
-                     .format(session_label))
+                     .format(session_label, xnat_project))
         return
 
 
