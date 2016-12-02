@@ -528,7 +528,11 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
                          .format(tempdir, platform.node()))
     # finally delete any extra scans that exist in the dashboard
     if dashboard:
-        dashboard.delete_extra_scans(session_label, scans_added)
+        try:
+            dashboard.delete_extra_scans(session_label, scans_added)
+        except:
+            logger.error('Failed deleting extra scans from session:{}'
+                         .format(session_label))
 
 def get_dicom_archive_from_xnat(xnat_project, session_label, experiment_label,
                                 series):

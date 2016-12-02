@@ -211,7 +211,7 @@ class dashboard(object):
         try:
             ident = datman.scanid.parse(session_label)
         except datman.scanid.ParseException:
-            logger.error('Invalid session:{}'.format(session_name))
+            logger.error('Invalid session:{}'.format(session_label))
             raise DashboardException('Invalid session name:{}'
                                       .format(session_label))
         session_label = ident.get_full_subjectid_with_timepoint()
@@ -230,7 +230,7 @@ class dashboard(object):
         db_scans = [scan.name for scan in db_session.scans]
         extra_scans = set(db_scans) - set(scan_names)
         for scan in extra_scans:
-            db_scan = Scan.query.filter_by(name == scan)
+            db_scan = Scan.query.filter(Scan.name == scan).first()
             db.session.delete(db_scan)
         db.session.commit()
 
