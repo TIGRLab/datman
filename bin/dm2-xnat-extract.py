@@ -498,8 +498,8 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
                                                        series_id)
 
         if not src_dir:
-            logger.error('Failed getting series:{}, scan:{} from xnat'
-                         .format(series, session_label))
+            logger.error('Failed getting series:{}, session:{} from xnat'
+                         .format(series_id, session_label))
             continue
 
         try:
@@ -518,7 +518,7 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
                 exporter(src_dir, target_dir, file_stem)
         except:
             logger.error('An error happened exporting {} from scan:{} in session:{}'
-                         .format(export_format, series, session_label), exc_info=True)
+                         .format(export_format, series_id, session_label), exc_info=True)
 
         logger.debug('Completed exports')
         try:
