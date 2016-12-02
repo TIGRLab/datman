@@ -75,6 +75,7 @@ def export_directory(source, destination):
             raise Exception("failed to remove existing folder {}".format(destination))
     try:
         shutil.copytree(source, destination)
+        logger.debug("exporting {} to {}".format(source, destination))
     except:
         raise Exception("failed to export {} to {}".format(source, destination))
 
@@ -132,8 +133,9 @@ def run_epitome(path, config, study):
     experiments = config.study_config['fmri'].keys()
 
     # run file collection --> epitome --> export for each study
+    logger.debug('experiments found {}'.format(experiments))
     for exp in experiments:
-
+        logger.debug('running experiment {}'.format(exp))
         # collect the files needed for each experiment
         expected_names = config.study_config['fmri'][exp]['export']
         expected_tags = config.study_config['fmri'][exp]['tags']
@@ -143,13 +145,14 @@ def run_epitome(path, config, study):
         if outputs_exist(output_dir, expected_names):
             continue
 
+        failed = False
+
         if type(expected_tags) == str:
             expected_tags = [expected_tags]
 
         # locate functional data
         files = glob.glob(path + '/*')
         functionals = []
-        failed = False
         for tag in expected_tags:
             candidates = filter(lambda x: tag in x, files)
             candidates = utils.filter_niftis(candidates)
@@ -169,7 +172,6 @@ def run_epitome(path, config, study):
         anat_path = os.path.join(t1_dir, os.path.basename(path), 'T1w')
         files = glob.glob(anat_path + '/*')
         anatomicals = []
-        failed = False
         for anat in ['aparc+aseg.nii.gz', 'aparc.a2009s+aseg.nii.gz', 'T1w_brain.nii.gz']:
             if not filter(lambda x: anat in x, files):
                 logger.debug('expected anatomical {} not found in {}'.format(anat, anat_path))
@@ -330,8 +332,13 @@ def main():
 
         # submit a list of calls to ourself, one per subject
         commands = []
+        if debug:
+            debugopt = '--debug'
+        else:
+            debugopt = ''
+
         for subject in subjects:
-            commands.append(" ".join([__file__, study, '--subject {}'.format(subject)]))
+            commands.append(" ".join([__file__, study, '--subject {} '.format(subject), debugopt]))
 
         if commands:
             logger.debug('queueing up the following commands:\n'+'\n'.join(commands))
