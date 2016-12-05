@@ -595,9 +595,6 @@ def run_header_qc(subject, standard_dir, log_file):
 
     standards_dict = get_standards(standard_dir, subject.site)
 
-    print(subject.dicoms)
-    print(standards_dict)
-
     for dicom in subject.dicoms:
         try:
             standard = standards_dict[dicom.tag]
