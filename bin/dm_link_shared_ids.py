@@ -148,12 +148,12 @@ def link_shared_ids(config, connection, record):
 
     logger.debug("Working on subject {} in project {}".format(record.id,
             xnat_archive))
-    #
-    # if record.comment and not DRYRUN:
-    #     update_xnat_comment(experiment, subject, record)
+
+    if record.comment and not DRYRUN:
+        update_xnat_comment(experiment, subject, record)
 
     if record.shared_ids and not DRYRUN:
-        # update_xnat_shared_ids(subject, record)
+        update_xnat_shared_ids(subject, record)
         make_links(record)
 
 def update_xnat_comment(experiment, subject, record):
