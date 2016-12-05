@@ -1,13 +1,17 @@
 import os
 import unittest
 import importlib
+import logging
 from random import randint
 
-import datman.project_config
+import datman.config
 import datman.scan
 
 import nose.tools
 from mock import patch, mock_open, call, MagicMock
+
+# Necessary to silence all logging from dm-qc-report during tests.
+logging.disable(logging.CRITICAL)
 
 qc = importlib.import_module('bin.dm-qc-report')
 
