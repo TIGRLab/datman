@@ -148,12 +148,12 @@ def link_shared_ids(config, connection, record):
 
     logger.debug("Working on subject {} in project {}".format(record.id,
             xnat_archive))
-    #
-    # if record.comment and not DRYRUN:
-    #     update_xnat_comment(experiment, subject, record)
+
+    if record.comment and not DRYRUN:
+        update_xnat_comment(experiment, subject, record)
 
     if record.shared_ids and not DRYRUN:
-        # update_xnat_shared_ids(subject, record)
+        update_xnat_shared_ids(subject, record)
         make_links(record)
 
 def update_xnat_comment(experiment, subject, record):
@@ -197,7 +197,7 @@ class Record(object):
         self.dict = record_dict
         self.id = self.__get_id()
         self.study = self.__get_study()
-        self.comment = self.__get_comment()
+        self.comment = self.dict['cmts']
         self.shared_ids = self.__get_shared_ids()
 
     def matches_study(self, study_tag):
@@ -220,10 +220,6 @@ class Record(object):
         if self.id is None:
             return None
         return self.id.study
-
-    def __get_comment(self):
-        comment = self.dict['cmts']
-        return comment
 
     def __get_shared_ids(self):
         keys = self.dict.keys()

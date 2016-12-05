@@ -1,8 +1,8 @@
 ### configuration of all run.sh scripts in TIGR lab server
 ---
 FTPSERVER: ''
-XNATSERVER: ''
-XNATPORT: ''
+XNATSERVER: 'xnat.some-server.someplace.ca'
+XNATPORT: '999'
 
 Projects:
   STUDY: study_settings.yaml
