@@ -354,6 +354,8 @@ def process_resources(xnat_project, session_label, experiment_label, data):
                                                session_label,
                                                experiment_label,
                                                xnat_resource_id)
+            if not resources:
+                continue
         except Exception as e:
             logger.error('Failed getting resource:{} '
                          'for session:{} in project:{}'

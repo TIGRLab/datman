@@ -259,10 +259,9 @@ class xnat(object):
         # define the xml namespace
         ns = {'cat': 'http://nrg.wustl.edu/catalog'}
         entries = result.find('cat:entries', ns)
-        if len(entries) == 0:
+        if entries is None:
             # no files found, just a label
-            raise XnatException('Resource id:{} in session:{} is empty'
-                                .format(resource_id, session))
+            return None
 
         items = [entry.attrib for entry
                  in entries.findall('cat:entry', ns)]
