@@ -1,8 +1,0 @@
-This folder contains some data you can use to test the qc.py pipeline. 
-
-This is a manual test that requires visual comparison. Run it like so from the
-tests/fixture_qc folder: 
-
-  qc.py --verbose
-
-Compare the output in qc/qc_SPN01_CMH_T001.pdf with qc/qc_SPN01_CMH_T001_expected.pdf

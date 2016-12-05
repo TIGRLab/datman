@@ -279,6 +279,7 @@ def make_qc_command(subject_id, study):
 
     if REWRITE:
         command = command + ' --rewrite'
+
     return command
 
 def qc_all_scans(config):
@@ -764,7 +765,7 @@ def prepare_scan(subject_id, config):
         subject = datman.scan.Scan(subject_id, config)
     except datman.scanid.ParseException as e:
         logger.error(e, exc_info=True)
-        return
+        sys.exit(1)
 
     verify_input_paths([subject.nii_path, subject.dcm_path])
 
@@ -782,15 +783,23 @@ def get_config(study):
     Will raise KeyError if an expected path has not been defined for this study.
     """
     logger.info('Loading config')
-    config = datman.config.config(study=study)
+
+    try:
+        config = datman.config.config(study=study)
+    except KeyError:
+        logger.error("Cannot find configuration info for study {}".format(study))
+        sys.exit(1)
 
     required_paths = ['dcm', 'nii', 'qc', 'std', 'meta']
+
     for path in required_paths:
         try:
             config.get_path(path)
         except KeyError:
-            logger.error('Path:{} not found for project: {}'
+            logger.error('Path {} not found for project: {}'
                          .format(path, study))
+            sys.exit(1)
+
     return config
 
 def main():
