@@ -48,7 +48,7 @@ DRYRUN = False
 LINK_FILE_HEADERS = ['subject', 'target_subject', 'tags']
 
 logging.basicConfig(level=logging.WARN,
-        format='[%(name)s] %(levelname)s - %(message)s',
+        format='[%(name)s] %(levelname)s : %(message)s',
         disable_existing_loggers=False)
 logger = logging.getLogger(os.path.basename(__file__))
 
