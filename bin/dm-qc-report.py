@@ -85,7 +85,9 @@ import re
 import glob
 import time
 import logging
-import logging.config
+import copy
+import random
+import string
 
 import numpy as np
 import pandas as pd
@@ -98,11 +100,15 @@ import datman.scan
 
 from datman.docopt import docopt
 
-config_path = os.path.join(os.path.dirname(__file__), "logging.conf")
-logging.config.fileConfig(config_path, disable_existing_loggers=False)
+logging.basicConfig(level=logging.WARN,
+        format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
 REWRITE = False
+
+def random_str(n):
+    """generates a random string of length n"""
+    return(''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(n)))
 
 def slicer(fpath, pic, slicergap, picwidth):
     """
@@ -234,17 +240,22 @@ def dti_qc(filename, qc_dir, report):
     add_image(report, os.path.join(qc_dir, basename + '_directions.png'),
             title='bvec directions')
 
-def submit_qc_jobs(commands):
+def submit_qc_jobs(commands, chained=False):
     """
-    Submits the given commands to the queue.
+    Submits the given commands to the queue. In chained mode, each job will wait
+    for the previous job to finish before attempting to run.
     """
     for i, cmd in enumerate(commands):
-        jobname = "qc_report_{}_{}".format(time.strftime("%Y%m%d-%H%M%S"), i)
+        if chained and i > 0:
+            lastjob = copy.copy(jobname)
+        jobname = "qc_report_{}_{}_{}".format(time.strftime("%Y%m%d"), random_str(5), i)
         logfile = '/tmp/{}.log'.format(jobname)
         errfile = '/tmp/{}.err'.format(jobname)
 
-        run_cmd = 'echo {} | qsub -V -q main.q ' \
-                '-o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname)
+        if chained and i > 0:
+            run_cmd = 'echo {} | qsub -V -q main.q -hold_jid {} -o {} -e {} -N {}'.format(cmd, lastjob, logfile, errfile, jobname)
+        else:
+            run_cmd = 'echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname)
 
         rtn, out = datman.utils.run(run_cmd)
 
@@ -272,8 +283,10 @@ def make_qc_command(subject_id, study):
 
 def qc_all_scans(config):
     """
-    Creates a dm-qc-report.py command for each scan and submits any
-    commands for human subjects to the queue to run.
+    Creates a dm-qc-report.py command for each scan and submits all jobs to the
+    queue. Phantom jobs are submitted in chained mode, which means they will run
+    one at a time. This is currently needed because some of the phantom pipelines
+    use expensive and limited software liscenses (i.e., MATLAB).
     """
     human_commands = []
     phantom_commands = []
@@ -290,13 +303,12 @@ def qc_all_scans(config):
             human_commands.append(command)
 
     if human_commands:
+        logger.debug('submitting human qc jobs\n{}'.format(human_commands))
         submit_qc_jobs(human_commands)
 
     if phantom_commands:
-        for cmd in phantom_commands:
-            rtn, out = datman.utils.run(cmd)
-            if rtn:
-                logger.error("stdout: {}".format(out))
+        logger.debug('running phantom qc jobs\n{}'.format(phantom_commands))
+        submit_qc_jobs(phantom_commands, chained=True)
 
 def find_existing_reports(checklist_path):
     found_reports = []
@@ -375,7 +387,10 @@ def write_report_body(report, expected_files, subject, header_diffs, handlers):
 
         add_header_qc(series, report, header_diffs)
 
-        handlers[series.tag](series.path, subject.qc_path, report)
+        try:
+            handlers[series.tag](series.path, subject.qc_path, report)
+        except KeyError:
+            raise KeyError('series tag {} not defined in handlers:\n{}'.format(series.tag, handlers))
         report.write('<br>')
 
 def find_tech_notes(path):
@@ -469,14 +484,15 @@ def write_report_header(report, subject_id):
 
     report.write('<h1> QC report for {} <h1/>'.format(subject_id))
 
-def generate_qc_report(report_name, subject, expected_files, header_diffs,
-        handlers):
-    with open(report_name, 'wb') as report:
-        write_report_header(report, subject.full_id)
-        write_table(report, expected_files, subject)
-        write_tech_notes_link(report, subject.full_id, subject.resource_path)
-        write_report_body(report, expected_files, subject, header_diffs,
-                handlers)
+def generate_qc_report(report_name, subject, expected_files, header_diffs, handlers):
+    try:
+        with open(report_name, 'wb') as report:
+            write_report_header(report, subject.full_id)
+            write_table(report, expected_files, subject)
+            write_tech_notes_link(report, subject.full_id, subject.resource_path)
+            write_report_body(report, expected_files, subject, header_diffs, handlers)
+    except:
+        raise
 
 def get_position(position_info):
     if isinstance(position_info, list):
@@ -657,8 +673,7 @@ def qc_subject(subject, config):
         "DTI69-1000"    : dti_qc,
     }
 
-    report_name = os.path.join(subject.qc_path,
-            'qc_{}.html'.format(subject.full_id))
+    report_name = os.path.join(subject.qc_path, 'qc_{}.html'.format(subject.full_id))
 
     if os.path.isfile(report_name):
         if not REWRITE:
@@ -681,11 +696,9 @@ def qc_subject(subject, config):
         logger.error("Error adding {} to checklist.".format(subject.full_id))
 
     try:
-        generate_qc_report(report_name, subject, expected_files, header_diffs,
-                handlers)
+        generate_qc_report(report_name, subject, expected_files, header_diffs, handlers)
     except:
-        logger.error("Exception raised during qc-report generation for {}. " \
-                "Removing .html page.".format(subject.full_id), exc_info=True)
+        logger.error("Exception raised during qc-report generation for {}. Removing .html page.".format(subject.full_id), exc_info=True)
         if os.path.exists(report_name):
             os.remove(report_name)
 
@@ -702,11 +715,12 @@ def qc_phantom(subject, config):
         "DTI60-1000"    : phantom_dti_qc,
     }
 
+    logger.debug('qc {}'.format(subject))
     for nifti in subject.niftis:
         if nifti.tag not in handlers:
-            logger.info("No QC tag {} for scan {}. " \
-                    "Skipping.".format(nifti.tag, nifti.path))
+            logger.info("No QC tag {} for scan {}. Skipping.".format(nifti.tag, nifti.path))
             continue
+        logger.debug('qc {}'.format(nifti.path))
         handlers[nifti.tag](nifti.path, subject.qc_path)
 
 def qc_single_scan(subject, config):
