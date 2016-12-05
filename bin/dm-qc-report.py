@@ -446,7 +446,7 @@ def write_table(report, exportinfo, subject):
             except:
                 #Note: this might be expected, e.g., for a T1
                 logging.debug("{} exists but scanlength cannot be read.".format(scan_nii_path))
-                scanlength = "Can't read"
+                scanlength = "N/A"
         except:
             logging.debug("{} does not exist; cannot read scanlength.".format(scan_nii_path))
             scanlength = "No file"
