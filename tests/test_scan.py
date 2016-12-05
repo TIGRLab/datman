@@ -1,3 +1,4 @@
+import os
 import unittest
 
 from nose.tools import raises
@@ -6,9 +7,9 @@ from mock import patch
 import datman.config as cfg
 import datman.scan
 
-FIXTURE = "/projects/dawn/current/datman/tests/fixture_project_settings/"
+FIXTURE = "tests/fixture_project_settings/"
 
-site_config = FIXTURE + "site_config.yaml"
+site_config = os.path.join(FIXTURE + "site_config.yaml")
 system = 'local'
 study = 'STUDY'
 
