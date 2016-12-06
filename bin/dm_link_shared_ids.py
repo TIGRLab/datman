@@ -144,7 +144,8 @@ def link_shared_ids(config, connection, record):
     experiment = get_experiment(subject)
 
     if not experiment:
-        logger.debug("Skipping {}.".format(record.id))
+        logger.error("No matching experiments for subject {}." \
+                " Skipping".format(record.id))
         return
 
     logger.debug("Working on subject {} in project {}".format(record.id,
@@ -161,7 +162,7 @@ def get_experiment(subject):
     experiment_names = subject.experiments().get()
 
     if not experiment_names:
-        logger.error("{} does not have any MR scans".format(subject))
+        logger.debug("{} does not have any MR scans".format(subject))
         return None
     elif len(experiment_names) > 1:
         logger.error("{} has more than one MR scan. Updating only the " \
