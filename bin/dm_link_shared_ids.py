@@ -140,9 +140,9 @@ def link_shared_ids(config, connection, record):
     xnat_archive = config.get_key('XNAT_Archive', site=record.id.site)
     project = connection.select.project(xnat_archive)
     subject = project.subject(str(record.id))
-    experiment = subject.experiments().get()
+    experiments = subject.experiments().get()
 
-    if not experiment:
+    if not experiments:
         logger.debug("No matching experiments for subject {}".format(record.id))
         return
 
@@ -150,23 +150,24 @@ def link_shared_ids(config, connection, record):
             xnat_archive))
 
     if record.comment and not DRYRUN:
-        update_xnat_comment(experiment, subject, record)
+        update_xnat_comment(experiments, subject, record)
 
     if record.shared_ids and not DRYRUN:
         update_xnat_shared_ids(subject, record)
         make_links(record)
 
-def update_xnat_comment(experiment, subject, record):
+def update_xnat_comment(experiments, subject, record):
     logger.debug("Subject {} has comment: \n {}".format(record.id,
             record.comment))
-    try:
-        experiment.attrs.set("note", record.comment)
-        subject.attrs.set("xnat:subjectData/fields/field[name='comments']/field",
-                "See MR Scan notes")
-    except xnat.core.errors.DatabaseError:
-        logger.error('{} scan comment is too long for notes field. Adding ' \
-              'note to check redcap record instead.'.format(record.id))
-        subject.attrs.set("xnat:subjectData/fields/field[name='comments']/field",
+    for experiment in experiments:
+        try:
+            experiment.attrs.set("note", record.comment)
+            subject.attrs.set("xnat:subjectData/fields/field[name='comments']/field",
+                    "See MR Scan notes")
+        except xnat.core.errors.DatabaseError:
+            logger.error('{} scan comment is too long for notes field. Adding ' \
+                  'note to check redcap record instead.'.format(record.id))
+            subject.attrs.set("xnat:subjectData/fields/field[name='comments']/field",
                     'Comment too long, refer to REDCap record.')
 
 def update_xnat_shared_ids(subject, record):
