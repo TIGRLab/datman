@@ -140,10 +140,10 @@ def link_shared_ids(config, connection, record):
     xnat_archive = config.get_key('XNAT_Archive', site=record.id.site)
     project = connection.select.project(xnat_archive)
     subject = project.subject(str(record.id))
-    experiments = subject.experiments().get()
+    experiments = get_experiments(subject)
 
     if not experiments:
-        logger.debug("No matching experiments for subject {}".format(record.id))
+        logger.debug("Skipping {}.".format(record.id))
         return
 
     logger.debug("Working on subject {} in project {}".format(record.id,
@@ -155,6 +155,18 @@ def link_shared_ids(config, connection, record):
     if record.shared_ids and not DRYRUN:
         update_xnat_shared_ids(subject, record)
         make_links(record)
+
+def get_experiments(subject):
+    experiment_names = subject.experiments().get()
+
+    if not experiment_names:
+        logger.error("{} does not have any MR scans".format(subject))
+        return None
+    elif len(experiment_names) > 1:
+        logger.error("{} has more than one MR scan. Updating only the " \
+                "first".format(subject))
+
+    return subject.experiment(experiment_names[0])
 
 def update_xnat_comment(experiments, subject, record):
     logger.debug("Subject {} has comment: \n {}".format(record.id,
