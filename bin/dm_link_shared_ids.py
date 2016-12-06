@@ -118,7 +118,8 @@ def read_credentials(cred_file):
             for line in creds:
                 credentials.append(line.strip('\n'))
     except:
-        logger.error("Cannot read credential file {}.".format(cred_file))
+        logger.error("Cannot read credential file or file does not exist: " \
+                "{}.".format(cred_file))
         sys.exit(1)
     return credentials
 
