@@ -140,9 +140,9 @@ def link_shared_ids(config, connection, record):
     xnat_archive = config.get_key('XNAT_Archive', site=record.id.site)
     project = connection.select.project(xnat_archive)
     subject = project.subject(str(record.id))
-    experiments = get_experiments(subject)
+    experiment = get_experiment(subject)
 
-    if not experiments:
+    if not experiment:
         logger.debug("Skipping {}.".format(record.id))
         return
 
@@ -150,13 +150,13 @@ def link_shared_ids(config, connection, record):
             xnat_archive))
 
     if record.comment and not DRYRUN:
-        update_xnat_comment(experiments, subject, record)
+        update_xnat_comment(experiment, subject, record)
 
     if record.shared_ids and not DRYRUN:
         update_xnat_shared_ids(subject, record)
         make_links(record)
 
-def get_experiments(subject):
+def get_experiment(subject):
     experiment_names = subject.experiments().get()
 
     if not experiment_names:
@@ -168,25 +168,24 @@ def get_experiments(subject):
 
     return subject.experiment(experiment_names[0])
 
-def update_xnat_comment(experiments, subject, record):
+def update_xnat_comment(experiment, subject, record):
     logger.debug("Subject {} has comment: \n {}".format(record.id,
             record.comment))
-    for experiment in experiments:
-        try:
-            experiment.attrs.set("note", record.comment)
-            subject.attrs.set("xnat:subjectData/fields/field[name='comments']/field",
-                    "See MR Scan notes")
-        except xnat.core.errors.DatabaseError:
-            logger.error('{} scan comment is too long for notes field. Adding ' \
-                  'note to check redcap record instead.'.format(record.id))
-            subject.attrs.set("xnat:subjectData/fields/field[name='comments']/field",
-                    'Comment too long, refer to REDCap record.')
+    try:
+        experiment.attrs.set("note", record.comment)
+        subject.attrs.set("xnat:subjectData/fields/field[name='comments']/field",
+                "See MR Scan notes")
+    except xnat.core.errors.DatabaseError:
+        logger.error('{} scan comment is too long for notes field. Adding ' \
+              'note to check redcap record instead.'.format(record.id))
+        subject.attrs.set("xnat:subjectData/fields/field[name='comments']/field",
+                'Comment too long, refer to REDCap record.')
 
 def update_xnat_shared_ids(subject, record):
     logger.debug("{} has alternate id(s) {}".format(record.id, record.shared_ids))
     try:
         subject.attrs.set("xnat:subjectData/fields/field[name='sharedids']/field",
-                  record.shared_ids)
+                  ", ".join(record.shared_ids))
     except xnat.core.errors.DatabaseError:
         logger.error('{} shared id list too long for xnat field, adding note '\
               'to check REDCap record instead.'.format(record.id))
@@ -202,6 +201,8 @@ def make_links(record):
             logger.error("Subject {} shared id {} does not match datman " \
                     "convention. Skipping.".format(record.id, shared_id))
             continue
+        logger.info("Making links from source {} to target {}".format(source,
+                target))
         command = "dm-link-project-scans.py {} {}".format(source, target)
         datman.utils.run(command)
 
