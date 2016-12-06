@@ -697,9 +697,11 @@ def qc_subject(subject, config):
         logger.error("Error adding {} to checklist.".format(subject.full_id))
 
     try:
-        generate_qc_report(report_name, subject, expected_files, header_diffs, handlers)
+        generate_qc_report(report_name, subject, expected_files, header_diffs,
+                handlers)
     except:
-        logger.error("Exception raised during qc-report generation for {}. Removing .html page.".format(subject.full_id), exc_info=True)
+        logger.error("Exception raised during qc-report generation for {}. " \
+                "Removing .html page.".format(subject.full_id), exc_info=True)
         if os.path.exists(report_name):
             os.remove(report_name)
 
