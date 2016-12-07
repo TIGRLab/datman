@@ -205,7 +205,7 @@ def main():
                 except datman.scanid.ParseException:
                     logger.error('Invalid session id:{} in project:{}, skipping.'
                                  .format(session['label'], project))
-                    return
+                    continue
                 sessions.append((project, session['label']))
 
     logger.info('Found {} sessions for study:'
