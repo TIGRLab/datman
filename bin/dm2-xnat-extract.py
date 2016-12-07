@@ -200,7 +200,8 @@ def main():
             for session in project_sessions:
                 try:
                     i = datman.scanid.parse(session['label'])
-                    if not i.session:
+                    if not (i.session ^ datman.scanid.is_phantom(session['label'])):
+                        # raise an exception if scan is not a phantom and series is missing
                         raise datman.scanid.ParseException
                 except datman.scanid.ParseException:
                     logger.error('Invalid session id:{} in project:{}, skipping.'
