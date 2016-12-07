@@ -4,11 +4,11 @@ import importlib
 import logging
 from random import randint
 
-import datman.config
-import datman.scan
-
 import nose.tools
 from mock import patch, mock_open, call, MagicMock
+
+import datman.config as cfg
+import datman.scan
 
 # Necessary to silence all logging from dm-qc-report during tests.
 logging.disable(logging.CRITICAL)
@@ -16,49 +16,24 @@ logging.disable(logging.CRITICAL)
 qc = importlib.import_module('bin.dm-qc-report')
 
 FIXTURE = "tests/fixture_project_settings"
-config_file = os.path.join(FIXTURE, 'project_settings.yml')
 
-class GetProjectConfig(unittest.TestCase):
+site_config_path = os.path.join(FIXTURE, 'site_config.yaml')
+system = 'local'
+study = 'STUDY'
+
+config = cfg.config(filename=site_config_path, system=system, study=study)
+
+class GetConfig(unittest.TestCase):
     @nose.tools.raises(SystemExit)
-    def test_exits_gracefully_with_broken_path(self):
-        bad_path = "./doesnt-exist.yml"
-
-        config = qc.get_project_config(bad_path)
-
-    @nose.tools.raises(SystemExit)
-    @patch('datman.project_config.Config', autospec=True)
-    def test_exits_gracefully_when_paths_missing(self, mock_config):
-        mock_config.return_value.paths = ['dcm', 'nii']
-
-        config = qc.get_project_config(config_file)
-
-    def test_Config_instance_returned(self):
-        config = qc.get_project_config(config_file)
-
-        assert isinstance(config, datman.project_config.Config)
-
-class PrepareScan(unittest.TestCase):
-    config = qc.get_project_config(config_file)
+    def test_exits_gracefully_with_bad_study(self):
+        config = qc.get_config(study="madeupcode")
 
     @nose.tools.raises(SystemExit)
-    def test_exits_gracefully_with_bad_subject_id(self):
-        qc.prepare_scan("STUDYSITE_ID", self.config)
-
-    @patch('bin.dm-qc-report.verify_input_paths')
-    @patch('datman.utils')
-    def test_checks_input_paths(self, mock_utils, mock_verify):
-        assert mock_verify.call_count == 0
-        qc.prepare_scan("STUDY_SITE_ID_01", self.config)
-        assert mock_verify.call_count == 1
-
-    @patch('datman.utils.remove_empty_files')
-    @patch('bin.dm-qc-report.verify_input_paths')
-    @patch('datman.utils.define_folder')
-    def test_makes_qc_folder_if_doesnt_exist(self, mock_create, mock_verify,
-            mock_remove):
-        assert mock_create.call_count == 0
-        scan = qc.prepare_scan("STUDY_SITE_ID_01", self.config)
-        assert mock_create.call_count == 1
+    @patch('datman.config.config')
+    def test_exits_gracefully_when_paths_missing_from_config(self, mock_config):
+        mock_config.return_value.get_path.side_effect = lambda path: {'dcm': '',
+                'nii': ''}[path]
+        config = qc.get_config("STUDY")
 
 class VerifyInputPaths(unittest.TestCase):
 
@@ -72,6 +47,28 @@ class VerifyInputPaths(unittest.TestCase):
         mock_exists.return_value = True
         paths = ["./somepath", "/some/other/path"]
         qc.verify_input_paths(paths)
+
+class PrepareScan(unittest.TestCase):
+
+    @nose.tools.raises(SystemExit)
+    def test_exits_gracefully_with_bad_subject_id(self):
+        qc.prepare_scan("STUDYSITE_ID", config)
+
+    @patch('bin.dm-qc-report.verify_input_paths')
+    @patch('datman.utils')
+    def test_checks_input_paths(self, mock_utils, mock_verify):
+        assert mock_verify.call_count == 0
+        qc.prepare_scan("STUDY_SITE_ID_01", config)
+        assert mock_verify.call_count == 1
+
+    @patch('datman.utils.remove_empty_files')
+    @patch('bin.dm-qc-report.verify_input_paths')
+    @patch('datman.utils.define_folder')
+    def test_makes_qc_folder_if_doesnt_exist(self, mock_create, mock_verify,
+            mock_remove):
+        assert mock_create.call_count == 0
+        scan = qc.prepare_scan("STUDY_SITE_ID_01", config)
+        assert mock_create.call_count == 1
 
 class GetStandards(unittest.TestCase):
     site = "CAMH"
@@ -94,9 +91,13 @@ class GetStandards(unittest.TestCase):
 
     @patch('glob.glob')
     def test_returns_expected_dict(self, mock_glob):
-        standards = ['STUDY_CAMH_9999_01_01_DTI60_05_Ax.dcm',
-                     'STUDY_OTHER_0001_01_01_T1_07_SagT1.dcm',
-                     'STUDY_CAMH_9999_01_01_T1_02_SagT1.dcm']
+        DTI_standard = 'STUDY_CAMH_9999_01_01_DTI60_05_Ax.dcm'
+        T1_standard = 'STUDY_CAMH_9999_01_01_T1_02_SagT1.dcm'
+        T1_diff_site = 'STUDY_OTHER_0001_01_01_T1_07_SagT1.dcm'
+
+        standards = [DTI_standard,
+                     T1_diff_site,
+                     T1_standard]
         mock_glob.return_value = standards
 
         standard_dict = qc.get_standards(self.path, self.site)
@@ -105,8 +106,8 @@ class GetStandards(unittest.TestCase):
         actual_DTI = standard_dict['DTI60'].file_name
 
         assert sorted(standard_dict.keys()) == sorted(['T1', 'DTI60'])
-        assert  actual_T1 == 'STUDY_CAMH_9999_01_01_T1_02_SagT1.dcm'
-        assert  actual_DTI == 'STUDY_CAMH_9999_01_01_DTI60_05_Ax.dcm'
+        assert  actual_T1 == T1_standard
+        assert  actual_DTI == DTI_standard
 
     @patch('glob.glob')
     def test_excludes_badly_named_standards(self, mock_glob):
@@ -123,14 +124,13 @@ class GetStandards(unittest.TestCase):
         assert matched['DTI60'].file_name == expected
 
 class RunHeaderQC(unittest.TestCase):
-    config = datman.project_config.Config(config_file)
     standards = './standards'
     log = './qc/subject_id/header-diff.log'
 
     @patch('bin.dm-qc-report.get_standards')
     @patch('datman.utils.run')
     def test_doesnt_crash_with_empty_dicom_dir(self, mock_run, mock_standards):
-        subject = datman.scan.Scan('STUDY_SITE_ID_01', self.config)
+        subject = datman.scan.Scan('STUDY_SITE_ID_01', config)
         assert subject.dicoms == []
 
         mock_standards.return_value = ['STUDY_CAMH_0001_01_01_T1_02_SagT1-BRAVO.dcm']
@@ -138,14 +138,17 @@ class RunHeaderQC(unittest.TestCase):
         qc.run_header_qc(subject, self.standards, self.log)
         assert mock_run.call_count == 0
 
+    @patch('datman.scan.Scan')
     @patch('bin.dm-qc-report.get_standards')
     @patch('datman.utils.run')
-    def test_doesnt_crash_without_matching_standards(self, mock_run, mock_standards):
-        mock_subject = MagicMock()
-        mock_subject.dicoms.return_value = ['STUDY_CAMH_9999_01_01_T1_02_Sag.dcm']
-        mock_standards = {}
+    def test_doesnt_crash_without_matching_standards(self, mock_run,
+            mock_standards, mock_subject):
+        dicom1 = datman.scan.Series('STUDY_CAMH_9999_01_01_T1_02_Sag.dcm')
 
-        qc.run_header_qc(mock_subject, self.standards, self.log)
+        mock_subject.return_value.dicoms = [dicom1]
+        mock_standards.return_value = {}
+
+        qc.run_header_qc(mock_subject.return_value, self.standards, self.log)
         assert mock_run.call_count == 0
 
     @patch('datman.scan.Scan')
@@ -170,14 +173,15 @@ class RunHeaderQC(unittest.TestCase):
 
         mock_run.assert_called_once_with(expected)
 
-# class FindExpectedFiles(unittest.TestCase):
-
+# # class FindExpectedFiles(unittest.TestCase):
+#
 class FMRIQC(unittest.TestCase):
     file_name = "./nii/STUDY_SITE_0001_01/" \
             "STUDY_SITE_0001_01_01_OBS_09_Ax-Observe-Task.nii"
-    qc_dir = "./qc/STUDY_SITE_0001_01"
+    qc_dir = config.get_path('qc')
     qc_report = MagicMock(spec=file)
-    output_name = qc_dir + "/STUDY_SITE_0001_01_01_OBS_09_Ax-Observe-Task"
+    output_name = os.path.join(qc_dir,
+            "STUDY_SITE_0001_01_01_OBS_09_Ax-Observe-Task")
 
     @patch('os.path.isfile')
     @patch('datman.utils.run')
@@ -271,14 +275,13 @@ class FindTechNotes(unittest.TestCase):
         return walk_list
 
 class QCAllScans(unittest.TestCase):
-    config = datman.project_config.Config(config_file)
 
     @patch('os.listdir', autospec=True)
     @patch('bin.dm-qc-report.make_qc_command', autospec=True)
     @patch('bin.dm-qc-report.submit_qc_jobs', autospec=True)
     @patch('datman.utils.run', autospec=True)
-    def test_subjects_queued_and_phantoms_run(self, mock_run,
-            mock_submit, mock_cmd, mock_dirs):
+    def test_subjects_queued_and_phantoms_run(self, mock_run, mock_submit,
+            mock_cmd, mock_dirs):
 
         # Prevents a ValueError due to trying to access return and out of utils.run
         mock_run.return_value = (0, '')
@@ -287,24 +290,20 @@ class QCAllScans(unittest.TestCase):
                                   '/data/nii/STUDY_SITE_PHA_0002',
                                   '/data/nii/STUDY_SITE_0002_01']
         mock_cmd.side_effect = lambda sub_id, config: 'dm-qc-report.py {} ' \
-                '--subject {}'.format(config_file, sub_id)
+                '{}'.format(study, sub_id)
 
-        qc.qc_all_scans(self.config)
+        qc.qc_all_scans(config)
 
         # Expected calls to submit_qc_jobs should include subjects only
-        expected = ['dm-qc-report.py {} ' \
-                        '--subject STUDY_SITE_0001_01'.format(config_file),
-                    'dm-qc-report.py {} ' \
-                        '--subject STUDY_SITE_0002_01'.format(config_file)]
+        expected = ['dm-qc-report.py {} STUDY_SITE_0001_01'.format(study),
+                    'dm-qc-report.py {} STUDY_SITE_0002_01'.format(study)]
 
         assert mock_submit.call_count == 1
         mock_submit.assert_called_once_with(expected)
 
         # Expected calls to datman.utils.run should include phantoms only
-        phantom1 = 'dm-qc-report.py {} ' \
-                    '--subject STUDY_SITE_PHA_0001'.format(config_file)
-        phantom2 = 'dm-qc-report.py {} ' \
-                    '--subject STUDY_SITE_PHA_0002'.format(config_file)
+        phantom1 = 'dm-qc-report.py {} STUDY_SITE_PHA_0001'.format(study)
+        phantom2 = 'dm-qc-report.py {} STUDY_SITE_PHA_0002'.format(study)
         expected_calls = [call(phantom1), call(phantom2)]
 
         assert mock_run.call_count == 2
@@ -321,7 +320,7 @@ class QCAllScans(unittest.TestCase):
         mock_run.return_value = (0, '')
         mock_dirs.return_value = []
 
-        qc.qc_all_scans(self.config)
+        qc.qc_all_scans(config)
 
         # Expect no jobs were submitted, no commands created,
         # and no calls to utils.run
@@ -339,7 +338,7 @@ class SubmitQCJobs(unittest.TestCase):
         # Prevents a ValueError from trying to access return and out of utils.run
         mock_run.return_value = (0, '')
 
-        commands = ['dm-qc-report.py config_file.yaml --subject STUDY_SITE_ID_01']
+        commands = ['dm-qc-report.py {} STUDY_SITE_ID_01'.format(study)]
         qc.submit_qc_jobs(commands)
 
         job_name = 'qc_report_{}_0'.format(self.time)
