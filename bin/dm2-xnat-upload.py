@@ -270,14 +270,19 @@ def upload_non_dicom_data(archive, xnat_project, scanid):
     for f in resource_files:
         # convert to HTTP language
         try:
+            # split off the first part of the path which is the zipfile named
+            path_bits = datman.utils.split_path(f)
+            new_name = os.path.join(*path_bits[1::])
+
             XNAT.put_resource(xnat_project,
                               scanid,
                               scanid,
-                              os.path.basename(f),
+                              new_name,
                               zf.read(f))
         except Exception as e:
             logger.error("Failed uploading file {} with error:{}"
                          .format(f, str(e)))
+    zf.close()
 
     return True
 
