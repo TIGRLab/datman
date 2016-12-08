@@ -422,6 +422,7 @@ def get_resource(xnat_project, xnat_session, xnat_experiment,
             if not DRYRUN:
                 with open(target_path, 'wb') as target:
                     shutil.copyfileobj(source, target)
+            target.close()
     except:
         logger.error('Failed extracting resources archive:{}'
                      .format(xnat_session), exc_info=True)
