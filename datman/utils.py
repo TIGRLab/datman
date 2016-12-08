@@ -119,7 +119,6 @@ def check_blacklist(scan_name, study=None):
         logger.warning('Unable to open blacklist file:{} for reading'
                        .format(checklist_path))
         return
-
     for line in lines:
         parts = line.split(None, 1)
         if parts:  # fix for empty lines

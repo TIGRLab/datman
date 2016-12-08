@@ -419,9 +419,8 @@ def get_resource(xnat_project, xnat_session, xnat_experiment,
         with zipfile.ZipFile(archive[1]) as zip_file:
             member = zip_file.namelist()[0]
             source = zip_file.open(member)
-            target = file(target_path, 'wb')
             if not DRYRUN:
-                with source, target:
+                with open(target_path, 'wb') as target:
                     shutil.copyfileobj(source, target)
     except:
         logger.error('Failed extracting resources archive:{}'
@@ -498,6 +497,7 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
 
         # check the blacklist
         logger.debug('Checking blacklist for file:{}'.format(file_stem))
+
         blacklist = datman.utils.check_blacklist(file_stem,
                                                  study=cfg.study_name)
         if blacklist:
