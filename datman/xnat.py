@@ -115,7 +115,7 @@ class xnat(object):
                                 .format(url))
 
         if not result:
-            logger.warn('Session:{} not found in study:{}'
+            logger.info('Session:{} not found in study:{}'
                         .format(session, study))
             if create:
                 try:
@@ -454,7 +454,7 @@ class xnat(object):
             response = self.session.get(url, stream=True, timeout=30)
 
         if response.status_code == 404:
-            logger.error("No records returned from xnat server to query:{}"
+            logger.info("No records returned from xnat server to query:{}"
                          .format(url))
             return
         elif response.status_code is 504:

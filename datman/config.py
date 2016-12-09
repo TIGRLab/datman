@@ -187,7 +187,7 @@ class config(object):
             try:
                 result = result['Sites'][site]
             except KeyError:
-                logger.warning('Site:{} not found in study_config:{}'
+                logger.info('Site:{} not found in study_config:{}'
                                .format(site, self.study_config_file))
 
         for val in key:
