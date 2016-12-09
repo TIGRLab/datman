@@ -139,6 +139,15 @@ def is_scanid(identifier):
     except ParseException:
         return False
 
+def is_scanid_with_session(identifier):
+    try:
+        i = parse(identifier)
+        if i.session:
+            return True
+    except ParseException:
+        pass
+    return False
+
 def is_phantom(identifier):
     try:
         x = parse(identifier)
