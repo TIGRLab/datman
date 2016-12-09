@@ -437,10 +437,10 @@ class xnat(object):
                                 .format(url))
 
 
-    def _get_xnat_stream(self, url, filename, retries=3):
+    def _get_xnat_stream(self, url, filename, retries=3, timeout=120):
         logger.info('Getting data from xnat')
         try:
-            response = self.session.get(url, stream=True, timeout=120)
+            response = self.session.get(url, stream=True, timeout=timeout)
         except requests.exceptions.Timeout as e:
             if retries > 0:
                 return(self._get_xnat_stream(url, filename, retries=retries-1))
@@ -451,7 +451,7 @@ class xnat(object):
             # possibly the session has timed out
             logger.info('Session may have expired, resetting')
             self.get_xnat_session()
-            response = self.session.get(url, stream=True, timeout=30)
+            response = self.session.get(url, stream=True, timeout=timeout)
 
         if response.status_code == 404:
             logger.info("No records returned from xnat server to query:{}"
@@ -461,7 +461,8 @@ class xnat(object):
             if retries:
                 logger.warning('xnat server timed out, retrying')
                 time.sleep(30)
-                self._get_xnat_stream(url, filename, retries=retries - 1)
+                self._get_xnat_stream(url, filename, retries=retries - 1,
+                                      timeout=timeout * 2)
             else:
                 logger.error('xnat server timed out, giving up')
                 response.raise_for_status()
