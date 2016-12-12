@@ -119,7 +119,6 @@ def check_blacklist(scan_name, study=None):
         logger.warning('Unable to open blacklist file:{} for reading'
                        .format(checklist_path))
         return
-
     for line in lines:
         parts = line.split(None, 1)
         if parts:  # fix for empty lines
@@ -596,5 +595,20 @@ def filter_niftis(candidates):
 
     return candidates
 
+def split_path(path):
+    """
+    Splits a path into all the component parts, returns a list
 
+    >>> split_path('a/b/c/d.txt')
+    ['a', 'b', 'c', 'd.txt']
+    """
+    dirname = path
+    path_split = []
+    while True:
+        dirname, leaf = os.path.split(dirname)
+        if (leaf):
+            path_split = [leaf] + path_split
+        else:
+            break
+    return(path_split)
 # vim: ts=4 sw=4 sts=4:

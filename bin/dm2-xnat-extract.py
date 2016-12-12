@@ -78,6 +78,7 @@ import sys
 import datman.config
 import datman.xnat
 import datman.utils
+import datman.scanid
 import datman.dashboard
 import datman.exceptions
 import getpass
@@ -186,8 +187,9 @@ def main():
         except datman.exceptions.XnatException as e:
             raise e
 
-        if not xnat_projects:
+        if not xnat_project:
             logger.error('Failed to find session:{} in xnat.'
+                         ' Ensure it is named correctly with timepoint.'
                          .format(xnat_projects))
             return
 
@@ -196,6 +198,15 @@ def main():
         for project in xnat_projects:
             project_sessions = xnat.get_sessions(project)
             for session in project_sessions:
+                try:
+                    i = datman.scanid.parse(session['label'])
+                    if not datman.scanid.is_phantom(session['label']) and i.session == '':
+                        # raise an exception if scan is not a phantom and series is missing
+                        raise datman.scanid.ParseException
+                except datman.scanid.ParseException:
+                    logger.error('Invalid session id:{} in project:{}, skipping.'
+                                 .format(session['label'], project))
+                    continue
                 sessions.append((project, session['label']))
 
     logger.info('Found {} sessions for study:'
@@ -354,6 +365,8 @@ def process_resources(xnat_project, session_label, experiment_label, data):
                                                session_label,
                                                experiment_label,
                                                xnat_resource_id)
+            if not resources:
+                continue
         except Exception as e:
             logger.error('Failed getting resource:{} '
                          'for session:{} in project:{}'
@@ -361,7 +374,8 @@ def process_resources(xnat_project, session_label, experiment_label, data):
             continue
 
         for resource in resources:
-            if os.path.isfile(os.path.join(target_path, resource['name'])):
+            resource_path = os.path.join(target_path, resource['URI'])
+            if os.path.isfile(resource_path):
                 logger.debug('Resource:{} found for session:{}'
                              .format(resource['name'], session_label))
             else:
@@ -371,12 +385,15 @@ def process_resources(xnat_project, session_label, experiment_label, data):
                              session_label,
                              experiment_label,
                              xnat_resource_id,
-                             resource['ID'],
-                             target_path)
+                             resource['URI'],
+                             resource_path)
 
 
 def get_resource(xnat_project, xnat_session, xnat_experiment,
                  xnat_resource_group, xnat_resource_id, target_path):
+    """Download a single resource file from xnat. Target path should be
+    full path to store the file, including filename"""
+
     try:
         archive = xnat.get_resource(xnat_project,
                                     xnat_session,
@@ -387,19 +404,25 @@ def get_resource(xnat_project, xnat_session, xnat_experiment,
         logger.error('Failed downloading resource archive from:{} with reason:{}'
                      .format(xnat_session, e))
         return
+
+    # check that the target path exists
+    target_dir = os.path.split(target_path)[0]
+    if not os.path.exists(target_dir):
+        try:
+            os.makedirs(target_dir)
+        except OSError:
+            logger.error('Failed to create directory:{}'.format(target_dir))
+            return
+
     # extract the files from the archive, ignoring the filestructure
     try:
         with zipfile.ZipFile(archive[1]) as zip_file:
-            for member in zip_file.namelist():
-                filename = os.path.basename(member)
-                if not filename:
-                    continue
-                if DRYRUN:
-                    continue
-                source = zip_file.open(member)
-                target = file(os.path.join(target_path, filename), 'wb')
-                with source, target:
+            member = zip_file.namelist()[0]
+            source = zip_file.open(member)
+            if not DRYRUN:
+                with open(target_path, 'wb') as target:
                     shutil.copyfileobj(source, target)
+            target.close()
     except:
         logger.error('Failed extracting resources archive:{}'
                      .format(xnat_session), exc_info=True)
@@ -475,6 +498,7 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
 
         # check the blacklist
         logger.debug('Checking blacklist for file:{}'.format(file_stem))
+
         blacklist = datman.utils.check_blacklist(file_stem,
                                                  study=cfg.study_name)
         if blacklist:
