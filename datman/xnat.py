@@ -332,6 +332,9 @@ class xnat(object):
 
         if not filename:
             filename = tempfile.mkstemp(prefix="dm2_xnat_extract_")
+            # mkstemp returns a filename and a file object
+            # dealing with the filename in future so close the file object
+            os.close(filename[0])
         try:
             self._get_xnat_stream(url, filename, retries)
             return(filename)
@@ -395,6 +398,9 @@ class xnat(object):
 
         if not filename:
             filename = tempfile.mkstemp(prefix="dm2_xnat_extract_")
+            #  mkstemp returns a file object and a filename
+            #  we will deal with the filename in future so close the file object
+            os.close(filename[0])
 
         try:
             self._get_xnat_stream(url, filename, retries)
@@ -422,7 +428,9 @@ class xnat(object):
 
         if not filename:
             filename = tempfile.mkstemp(prefix="dm2_xnat_extract_")
-
+            #  mkstemp returns a file object and a filename
+            #  we will deal with the filename in future so close the file object
+            os.close(filename[0])
         try:
             self._get_xnat_stream(url, filename, retries)
             return(filename)
@@ -443,7 +451,8 @@ class xnat(object):
             response = self.session.get(url, stream=True, timeout=timeout)
         except requests.exceptions.Timeout as e:
             if retries > 0:
-                return(self._get_xnat_stream(url, filename, retries=retries-1))
+                return(self._get_xnat_stream(url, filename, retries=retries-1,
+                                             timeout=timeout*2))
             else:
                 raise e
 
