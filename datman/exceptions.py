@@ -10,3 +10,7 @@ class XnatException(Exception):
         return 'Study:{} Session:{} Error:{}'.format(self.study,
                                                      self.session,
                                                      self.message)
+
+
+class DashboardException(Exception):
+    """Default exception for dashboard errors"""
