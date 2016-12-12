@@ -141,7 +141,7 @@ def process_session(cfg, db, dir_nii, dir_res, session):
 
 def _add_sprl_to_dashboard(db, filename):
     try:
-        db.get_add_scan(filename)
+        db.get_add_scan(filename, create=True)
     except DashboardException as e:
         logger.error('Failed adding scan:{} to dashboard with error:{}'
                      .format(filename, str(e)))

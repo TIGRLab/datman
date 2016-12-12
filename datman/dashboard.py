@@ -129,7 +129,7 @@ class dashboard(object):
         is True"""
         if not self.study:
             logger.error('Study not set')
-            return DashboardException('Study not set')
+            raise DashboardException('Study not set')
 
         try:
             ident, tag, series, desc = datman.scanid.parse_filename(scan_name)
