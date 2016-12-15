@@ -509,7 +509,7 @@ class xnat(object):
             response = self.session.get(url, timeout=30)
 
         if response.status_code == 404:
-            logger.error("No records returned from xnat server to query:{}"
+            logger.info("No records returned from xnat server to query:{}"
                          .format(url))
             return
         elif not response.status_code == requests.codes.ok:
@@ -536,7 +536,7 @@ class xnat(object):
             response = self.session.get(url, timeout=30)
 
         if response.status_code == 404:
-            logger.error("No records returned from xnat server to query:{}"
+            logger.info("No records returned from xnat server to query:{}"
                          .format(url))
             return
         elif not response.status_code == requests.codes.ok:

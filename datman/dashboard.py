@@ -6,6 +6,7 @@ import dashboard
 import datman.scanid
 import datman.utils
 from datetime import datetime
+from datman.exceptions import DashboardException
 
 logger = logging.getLogger(__name__)
 db = dashboard.db
@@ -13,9 +14,6 @@ Study = dashboard.models.Study
 Session = dashboard.models.Session
 Scan = dashboard.models.Scan
 ScanType = dashboard.models.ScanType
-
-class DashboardException(Exception):
-    pass
 
 
 class dashboard(object):
@@ -131,7 +129,7 @@ class dashboard(object):
         is True"""
         if not self.study:
             logger.error('Study not set')
-            return DashboardException('Study not set')
+            raise DashboardException('Study not set')
 
         try:
             ident, tag, series, desc = datman.scanid.parse_filename(scan_name)
