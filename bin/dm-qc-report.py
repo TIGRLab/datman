@@ -13,6 +13,10 @@ Arguments:
 
 Options:
     --rewrite          Rewrite the html of an existing qc page
+    --log-to-server    If set, all log messages will also be sent to the
+                       configured logging server. This is useful when the script
+                       is run with the Sun Grid Engine, since it swallows
+                       logging messages.
     -q --quiet         Only report errors
     -v --verbose       Be chatty
     -d --debug         Be extra chatty
@@ -85,6 +89,7 @@ import re
 import glob
 import time
 import logging
+import logging.handlers
 import copy
 import random
 import string
@@ -266,6 +271,7 @@ def submit_qc_jobs(commands, chained=False):
 
 def make_qc_command(subject_id, study):
     arguments = docopt(__doc__)
+    use_server = arguments['--log-to-server']
     verbose = arguments['--verbose']
     debug = arguments['--debug']
     quiet = arguments['--quiet']
@@ -276,6 +282,8 @@ def make_qc_command(subject_id, study):
         command = " ".join([command, '-d'])
     if quiet:
         command = " ".join([command, '-q'])
+    if use_server:
+        command = " ".join([command, '--log-to-server'])
 
     if REWRITE:
         command = command + ' --rewrite'
@@ -697,9 +705,11 @@ def qc_subject(subject, config):
         logger.error("Error adding {} to checklist.".format(subject.full_id))
 
     try:
-        generate_qc_report(report_name, subject, expected_files, header_diffs, handlers)
+        generate_qc_report(report_name, subject, expected_files, header_diffs,
+                handlers)
     except:
-        logger.error("Exception raised during qc-report generation for {}. Removing .html page.".format(subject.full_id), exc_info=True)
+        logger.error("Exception raised during qc-report generation for {}. " \
+                "Removing .html page.".format(subject.full_id), exc_info=True)
         if os.path.exists(report_name):
             os.remove(report_name)
 
@@ -802,11 +812,27 @@ def get_config(study):
 
     return config
 
-def main():
+def add_server_handler(config):
+    server_ip = config.get_key('LOGSERVER')
+    server_handler = logging.handlers.SocketHandler(server_ip,
+            logging.handlers.DEFAULT_TCP_LOGGING_PORT)
+    logger.addHandler(server_handler)
 
+def set_logger_name(session):
+    global logger
+    if not session:
+        # Use default log format
+        return
+    # Change to a logger with a name that includes the session being processed
+    # so log entries of different processes can be distinguished from each other.
+    logger = logging.getLogger("{} - {}".format(os.path.basename(__file__),
+            session))
+
+def main():
     global REWRITE
 
     arguments = docopt(__doc__)
+    use_server = arguments['--log-to-server']
     verbose = arguments['--verbose']
     debug = arguments['--debug']
     quiet = arguments['--quiet']
@@ -814,15 +840,18 @@ def main():
     session = arguments['<session>']
     REWRITE = arguments['--rewrite']
 
-    # set log level
+    config = get_config(study)
+
+    if use_server:
+        set_logger_name(session)
+        add_server_handler(config)
+
     if quiet:
         logger.setLevel(logging.ERROR)
     if verbose:
         logger.setLevel(logging.INFO)
     if debug:
         logger.setLevel(logging.DEBUG)
-
-    config = get_config(study)
 
     if session:
         subject = prepare_scan(session, config)
