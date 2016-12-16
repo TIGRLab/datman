@@ -4,13 +4,18 @@ This runs the ENIGMA DTI pipeline on FA maps after DTI-fit has been run.
 Calls (or submits) doInd-enigma-dti.py for each subject in order to do so.
 
 Usage:
-  dm-proc-enigma.py [options] <input-dtifit-dir> <outputdir>
+  dm-proc-enigma.py [options] <study>
 
 Arguments:
-    <input-dtifit-dir>        Top directory for dti-fit output
-    <outputdir>               Top directory for the output of enigma DTI
+    <study>                A study code from the site config file
 
 Options:
+  --config PATH            The path to a site config file. If not set, the
+                           value of the environment variable DM_CONFIG will be
+                           used.
+  --system STR             The system configuration to use from the site config.
+                           If not set, the environment variable DM_SYSTEM will
+                           be used.
   --FA-tag STR             String used to identify FA maps within DTI-fit input
                            (default = '_FA.nii.gz'))
   --calc-MD                Calculate values for MD
@@ -85,6 +90,7 @@ import pandas as pd
 import datman as dm
 import datman.utils
 import datman.proc
+import datman.config
 
 DRYRUN = False
 
@@ -96,8 +102,9 @@ def main():
     global dryrun
 
     arguments       = docopt(__doc__)
-    input_dir       = arguments['<input-dtifit-dir>']
-    output_dir      = arguments['<outputdir>']
+    study           = arguments['<study>']
+    config          = arguments['--config']
+    system          = arguments['--system']
     QC_file         = arguments['--QC-transfer']
     FA_tag          = arguments['--FA-tag']
     subject_filter  = arguments['--subject-filter']
@@ -114,16 +121,19 @@ def main():
     DRYRUN          = arguments['--dry-run']
 
     if quiet:
-        logging.getLogger().setLevel(logging.ERROR)
+        logger.setLevel(logging.ERROR)
 
     if verbose:
-        logging.getLogger().setLevel(logging.INFO)
+        logger.setLevel(logging.INFO)
 
     if debug:
-        logging.getLogger().setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
+
+    config = datman.config.config(filename=config, system=system, study=study)
 
     ## make the output directory if it doesn't exist
-    output_dir = os.path.abspath(output_dir)
+    input_dir = config.get_path('dtifit')
+    output_dir = config.get_path('enigmaDTI')
     log_dir = os.path.join(output_dir,'logs')
     run_dir = os.path.join(output_dir,'bin')
     dm.utils.makedirs(log_dir)
@@ -141,7 +151,7 @@ def main():
         sys.exit(1)
 
     # grab the prefix from the subid if not given
-    prefix = subjects[0][0:3]
+    prefix = config.get_key('STUDY_TAG')
 
     ## write and check the run scripts
     script_names = ['run_engimadti.sh','concatresults.sh']
