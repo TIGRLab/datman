@@ -11,16 +11,21 @@ Arguments:
     <outputdir>               Top directory for the output of enigma DTI
 
 Options:
-  --FA-tag STR             String used to identify FA maps within DTI-fit input (default = '_FA.nii.gz'))
+  --FA-tag STR             String used to identify FA maps within DTI-fit input
+                           (default = '_FA.nii.gz'))
   --calc-MD                Calculate values for MD
   --calc-all               Calculate values for MD, AD, and RD
   --subject-filter STR     String used to filter subject ID (i.e. a site tag?)
-  --FA-filter STR          Optional second filter used (as well as '--FA-tag', ex. 'DTI-60')) to identify the maps within DTI-fit input
-  --QC-transfer QCFILE     QC checklist file - if this option is given than only QCed participants will be processed.
+  --FA-filter STR          Optional second filter used (as well as '--FA-tag',
+                           ex. 'DTI-60')) to identify the maps within DTI-fit
+                           input
+  --QC-transfer QCFILE     QC checklist file - if this option is given than only
+                           QCed participants will be processed.
   --walltime TIME          A walltime for the enigma stage [default: 2:00:00]
   --walltime-post TIME     A walltime for the post-engima stage [default: 2:00:00]
   --no-post                Do not submit the post-processing (concatenation) script
-  --post-only              Submit the post-processing (concatenation) script by itself
+  --post-only              Submit the post-processing (concatenation) script by
+                           itself
   -q, --quiet              Only log errors
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
@@ -34,37 +39,38 @@ Also submits a concatcsv-enigmadti.py and enigmadti-qc.py as a held job
 to concatenate the results from each participant into outputs .csv files
 and create some QC web pages.
 
-This script will look search inside the dti-fit output folder for FA images to process.
-If uses the '--FA-tag' string (which is '_FA.nii.gz' by default) to do so.
-If this optional argument (('--tag2') is given, this string will be used to refine
-the search, if more than one FA file is found inside the participants directory.
+This script will search inside the dti-fit output folder for FA images to
+process. It uses the '--FA-tag' string (which is '_FA.nii.gz' by default) to do
+so. If this optional argument (('--tag2') is given, this string will be used to
+refine the search, if more than one FA file is found inside the participants
+directory.
 
 The FA image found for each participant in printed in the 'FA_nii' column
-of "ENIGMA-DTI-checklist.csv". If no FA image is found, or more than one FA image
-is found, a note to that effect is printed in the "notes" column of the same file.
-You can manually overide this process by editing the "ENIGMA-DTI-checklist.csv"
-with the name of the FA image you would like processed (esp. in the case of repeat scans).
+of "ENIGMA-DTI-checklist.csv". If no FA image is found, or more than one FA
+image is found, a note to that effect is printed in the "notes" column of the
+same file. You can manually overide this process by editing the
+"ENIGMA-DTI-checklist.csv" with the name of the FA image you would like
+processed (esp. in the case of repeat scans).
 
 The script then looks to see if any of the FA images (listed in the
-"ENIGMA-DTI-checklist.csv" "FA_nii" column) have not been processed (i.e. have no outputs).
-These images are then submitted to the queue.
+"ENIGMA-DTI-checklist.csv" "FA_nii" column) have not been processed (i.e. have
+no outputs). These images are then submitted to the queue.
 
 If the "--QC-transfer" option is used, the QC checklist from data transfer
-(i.e. metadata/checklist.csv) and only those participants who passed QC will be processed.
+(i.e. metadata/checklist.csv) and only those participants who passed QC will be
+processed.
 
 Requires ENIGMA dti enviroment to be set (for example):
 module load FSL/5.0.7 R/3.1.1 ENIGMA-DTI/2015.01
 (also requires the datmat python enviroment)
 
 Written by Erin W Dickie, July 30 2015
-Adapted from ENIGMA_MASTER.sh - Generalized October 2nd David Rotenberg Updated Feb 2015 by JP+TB
+Adapted from ENIGMA_MASTER.sh - Generalized October 2nd David Rotenberg
+Updated Feb 2015 by JP+TB
 """
-from docopt import docopt
-import pandas as pd
-import datman as dm
-import glob
 import os
 import sys
+import glob
 import datetime
 import tempfile
 import shutil
@@ -73,10 +79,18 @@ import difflib
 import contextlib
 import logging
 
+from docopt import docopt
+import pandas as pd
+
+import datman as dm
+import datman.utils
+import datman.proc
+
 DRYRUN = False
 
-logger = logging.getLogger(__name__)
-logging.getLogger().setLevel(logging.WARN)
+logging.basicConfig(level=logging.WARN,
+                    format="[%(name)s] %(levelname)s: %(message)s")
+logger = logging.getLogger(os.path.basename(__file__))
 
 def main():
     global dryrun
@@ -131,7 +145,7 @@ def main():
 
     ## write and check the run scripts
     script_names = ['run_engimadti.sh','concatresults.sh']
-    write_run_scripts(script_names, run_dir, output_dir, CALC_MD, CALC_ALL, DEBUG)
+    write_run_scripts(script_names, run_dir, output_dir, CALC_MD, CALC_ALL, debug)
 
     checklist_file = os.path.normpath(output_dir + '/ENIGMA-DTI-checklist.csv')
     checklist_cols = ['id', 'FA_nii', 'date_ran','qc_rator', 'qc_rating', 'notes']
@@ -142,8 +156,7 @@ def main():
     # Update checklist with new FA files to process listed under FA_nii column
     checklist = dm.proc.find_images(checklist, 'FA_nii', input_dir, FA_tag,
                                     subject_filter = subject_filter,
-                                    image_filter = FA_filter,
-                                    DEBUG = DEBUG)
+                                    image_filter = FA_filter)
 
     job_name_prefix="edti{}_{}".format(prefix,datetime.datetime.today().strftime("%Y%m%d-%H%M%S"))
     submit_edti = False
@@ -185,7 +198,7 @@ def main():
                     submit_edti = True
 
             if submit_edti:
-                qbatch_run_cmd = dm.proc.qbatchcmd_file(cmds_file,
+                qbatch_run_cmd = dm.proc.make_file_qbatch_command(cmds_file,
                                                         job_name_prefix,
                                                         log_dir, walltime)
                 os.chdir(run_dir)
@@ -197,7 +210,7 @@ def main():
                     rundir = run_dir,
                     script = script_names[1])
     if submit_edti:
-        qbatch_post_cmd = dm.proc.qbatchcmd_pipe(post_edit_cmd,
+        qbatch_post_cmd = dm.proc.make_piped_qbatch_command(post_edit_cmd,
                                                 '{}_post'.format(job_name_prefix),
                                                 log_dir,
                                                 walltime_post,
@@ -252,12 +265,16 @@ def write_run_script(filename, output_dir, CALC_MD, CALC_ALL):
     if ENGIMASTEP == 'concat':
         enigmash.write('OUTDIR=' + output_dir + ' \n')
         ## add the engima-concat command
-        enigmash.write('\ndm-proc-enigma-concat.py ${OUTDIR} "FA" "${OUTDIR}/enigmaDTI-FA-results.csv"\n')
+        enigmash.write('\ndm-proc-enigma-concat.py ${OUTDIR} "FA"'
+                '"${OUTDIR}/enigmaDTI-FA-results.csv"\n')
         if CALC_MD | CALC_ALL:
-             enigmash.write('\ndm-proc-enigma-concat.py ${OUTDIR} "MD" "${OUTDIR}/enigmaDTI-MD-results.csv"\n')
+             enigmash.write('\ndm-proc-enigma-concat.py ${OUTDIR} "MD"'
+                    '"${OUTDIR}/enigmaDTI-MD-results.csv"\n')
         if CALC_ALL:
-             enigmash.write('\ndm-proc-enigma-concat.py ${OUTDIR} "AD" "${OUTDIR}/enigmaDTI-AD-results.csv"\n')
-             enigmash.write('\ndm-proc-enigma-concat.py ${OUTDIR} "RD" "${OUTDIR}/enigmaDTI-RD-results.csv"\n')
+             enigmash.write('\ndm-proc-enigma-concat.py ${OUTDIR} "AD"'
+                    '"${OUTDIR}/enigmaDTI-AD-results.csv"\n')
+             enigmash.write('\ndm-proc-enigma-concat.py ${OUTDIR} "RD"'
+                    '"${OUTDIR}/enigmaDTI-RD-results.csv"\n')
         # now with a qc step
         enigmash.write('\ndm-qc-enigma.py ')
         if CALC_MD: enigmash.write('--calc-MD ')
@@ -269,11 +286,13 @@ def write_run_script(filename, output_dir, CALC_MD, CALC_ALL):
     os.chmod(filename, 0755)
 
 
-### check the template .sh file that gets submitted to the queue to make sure option haven't changed
+### check the template .sh file that gets submitted to the queue to make sure
+## option haven't changed
 def check_runsh(filename, output_dir, CALC_MD, CALC_ALL, DEBUG):
     """
-    write a temporary (run.sh) file and than checks it againts the run.sh file already there
-    This is used to double check that the pipeline is not being called with different options
+    write a temporary (run.sh) file and than checks it againts the run.sh file
+    already there. This is used to double check that the pipeline is not being
+    called with different options
     """
     with make_temp_directory() as temp_dir:
         tmprunsh = os.path.join(temp_dir,os.path.basename(filename))
