@@ -236,6 +236,8 @@ class AddImage(unittest.TestCase):
 
 class FindTechNotes(unittest.TestCase):
     notes = "TechNotes.pdf"
+    other_pdf1 = "SomeFile.pdf"
+    other_pdf2 = "otherFile.pdf"
     path = "./resources"
 
     def test_doesnt_crash_with_broken_path(self):
@@ -261,15 +263,40 @@ class FindTechNotes(unittest.TestCase):
 
         assert os.path.basename(found_file) == self.notes
 
-    def __mock_file_system(self, depth, add_notes=True):
+    @patch('os.walk', autospec=True)
+    def test_returns_tech_notes_when_multiple_pdfs_present(self, mock_walk):
+        mock_walk.return_value = self.__mock_file_system(randint(1, 10),
+                                                         add_pdf=True)
+
+        found_file = qc.find_tech_notes(self.path)
+
+        assert os.path.basename(found_file) == self.notes
+
+    @patch('os.walk', autospec=True)
+    def test_first_file_returned_when_multiple_pdfs_but_no_tech_notes(self,
+            mock_walk):
+        mock_walk.return_value = self.__mock_file_system(randint(1, 10),
+                                                         add_notes=False,
+                                                         add_pdf=True)
+
+        found_file = qc.find_tech_notes(self.path)
+
+        assert os.path.basename(found_file) == self.other_pdf1
+
+    def __mock_file_system(self, depth, add_notes=True, add_pdf=False):
         walk_list = []
         cur_path = self.path
+        file_list = ["file1.txt", "file2"]
+        if add_pdf:
+            file_list.extend([self.other_pdf1, self.other_pdf2])
+        if add_notes:
+            file_list.append(self.notes)
         for num in xrange(1, depth + 1):
             cur_path = cur_path + "/dir{}".format(num)
             dirs = ("dir{}".format(num + 1),)
             files = ("file1.txt", "file2")
-            if add_notes and num == depth:
-                files = ("file1.txt", "file2", self.notes)
+            if num == depth:
+                files = tuple(file_list)
             level = (cur_path, dirs, files)
             walk_list.append(level)
         return walk_list
