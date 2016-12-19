@@ -72,14 +72,14 @@ def main():
     host = arguments['--host']
     port = arguments['--port']
 
+    logging.basicConfig(format="[%(name)s] %(levelname)s: %(message)s",
+            filename=log_path, filemode='a')
+
     if host is None:
         host = datman.config.config().get_key('LOGSERVER')
 
     if port is None:
         port = logging.handlers.DEFAULT_TCP_LOGGING_PORT
-
-    logging.basicConfig(format="[%(name)s] %(levelname)s: %(message)s",
-        filename=log_path, filemode='a')
 
     # Start server
     tcpserver = LogRecordSocketReceiver(host, port)
