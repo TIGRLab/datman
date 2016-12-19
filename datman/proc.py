@@ -11,6 +11,7 @@ import logging
 import pandas as pd
 
 import datman as dm
+import datman.utils
 
 logger = logging.getLogger(__name__)
 

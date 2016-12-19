@@ -213,7 +213,7 @@ class Record(object):
         self.dict = record_dict
         self.id = self.__get_id()
         self.study = self.__get_study()
-        self.comment = self.__get_comment()
+        self.comment = self.dict['cmts']
         self.shared_ids = self.__get_shared_ids()
 
     def matches_study(self, study_tag):
@@ -236,10 +236,6 @@ class Record(object):
         if self.id is None:
             return None
         return self.id.study
-
-    def __get_comment(self):
-        comment = self.dict['cmts']
-        return comment
 
     def __get_shared_ids(self):
         keys = self.dict.keys()
