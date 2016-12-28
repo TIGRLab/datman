@@ -158,7 +158,7 @@ def link_shared_ids(config, connection, record):
 
     if record.shared_ids and not DRYRUN:
         update_xnat_shared_ids(subject, record)
-        make_links(record)
+        make_links(record, config)
 
 def get_experiment(subject):
     experiment_names = subject.experiments().get()
@@ -189,20 +189,90 @@ def update_xnat_shared_ids(subject, record):
     logger.debug("{} has alternate id(s) {}".format(record.id, record.shared_ids))
     try:
         subject.attrs.set("xnat:subjectData/fields/field[name='sharedids']/field",
-                  ", ".join(record.shared_ids))
+                ", ".join(record.shared_ids))
     except xnat.core.errors.DatabaseError:
         logger.error('{} shared id list too long for xnat field, adding note '\
-              'to check REDCap record instead.'.format(record.id))
+                'to check REDCap record instead.'.format(record.id))
         subject.attrs.set("xnat:subjectData/fields/field[name='sharedids']/field",
-                  'ID list too long, refer to REDCap record.')
+                'ID list too long, refer to REDCap record.')
 
 def make_links(record):
     source = record.id
-    for shared_id in record.shared_ids:
+    for target in record.shared_ids:
         logger.info("Making links from source {} to target {}".format(source,
                 target))
+
         command = "dm-link-project-scans.py {} {}".format(source, target)
-        datman.utils.run(command)
+        return_code, out = datman.utils.run(command)
+        if return_code:
+            logger.error("dm-link-project-scans failed, cannot link source {} "
+                    "to target {}. ".format(source, target))
+            return
+
+        copy_metadata(source, target)
+
+def copy_metadata(source_id, target_id):
+    source_config = datman.config.config(study=source_id.study)
+    target_config = datman.config.config(study=target_id.study)
+    source_metadata = source_config.get_path('meta')
+    target_metadata = target_config.get_path('meta')
+
+    checklist_path = os.path.join(target_metadata, 'checklist.csv')
+    copy_checklist_entry(source_id, target_id, checklist_path)
+
+    source_blacklist = os.path.join(source_metadata, 'blacklist.csv')
+    target_blacklist = os.path.join(target_metadata, 'blacklist.csv')
+
+
+def copy_blacklist_data(source, source_blacklist, target, target_blacklist):
+    blacklist_entries = get_blacklisted_scans(source, source_blacklist,
+            new_id=target)
+
+    if not blacklist_entries:
+        return
+
+    current_entries = get_blacklisted_scans(target, target_blacklist)
+    missing_entries = set(blacklist_entries) - set(current_entries)
+    if not missing_entries:
+        return
+
+    with open(target_blacklist, 'w') as blacklist:
+        for entry in missing_entries:
+            blacklist.write(entry)
+
+def get_blacklisted_scans(subject_id, blacklist_path, new_id=None):
+    try:
+        with open(blacklist_path, 'r') as blacklist:
+            lines = blacklist.readLines()
+    except IOError:
+        lines = []
+
+    entries = []
+    for line in lines:
+        if subject_id in line:
+            if new_id is not None:
+                new_line = line.replace(subject_id, new_id)
+            entries.append(new_line)
+    return entries
+
+def copy_checklist_entry(source_id, target_id, checklist_path):
+    target_comment = datman.utils.check_checklist(str(target_id),
+            study=target_id.study)
+    if target_comment:
+        # Checklist entry already exists
+        return
+
+    source_comment = datman.utils.check_checklist(str(source_id),
+            study=source_id.study)
+    if not source_comment:
+        # No source comment to copy
+        return
+
+    with open(checklist_path, 'w') as target_checklist:
+        qc_report_entry = " ".join(["qc_{}.html".format(target_id),
+                                    source_comment])
+        logger.debug("Updating {} with entry {}".format(checklist_path,
+                qc_report_entry))
 
 class Record(object):
     def __init__(self, record_dict):
