@@ -192,6 +192,8 @@ def link_session_data(source, target, given_tags):
 
     logger.debug("Tags set to {}".format(tags))
 
+    link_resources(source_id, target_id)
+
     dirs = get_dirs_to_search(config, tags)
     for path_key in dirs:
         link_files(tags, source_id, target_id,
@@ -200,6 +202,18 @@ def link_session_data(source, target, given_tags):
 
     # Return tags used for linking, in case links file needs to be updated
     return tags
+
+def link_resources(source_id, target_id):
+    source_resources = get_resources_dir(source_id)
+    target_resources = get_resources_dir(target_id)
+    make_link(source_resources, target_resources)
+
+def get_resources_dir(subid):
+    # Creates its a new config each time to avoid side effects (and future bugs)
+    # due to the fact that config.get_path() modifies the study setting.
+    config = datman.config.config(study=subid.study)
+    result = os.path.join(config.get_path('resources'), str(subid))
+    return result
 
 def main():
     global DRYRUN, CONFIG
