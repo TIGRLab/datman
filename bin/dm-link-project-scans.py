@@ -168,6 +168,112 @@ def get_dirs_to_search(source_config, tag_list):
     dirs_to_search = set(dirs_to_search)
     return dirs_to_search
 
+def tags_match(blacklist_entry, tags):
+    """
+    Returns true if the filename in <blacklist_entry> contains a tag in <tags>
+    """
+    blacklisted_file = blacklist_entry.split()[0]
+    try:
+        _, tag, _, _ = datman.scanid.parse_filename(blacklisted_file)
+    except datman.scanid.ParseException:
+        logger.error("Blacklist entry {} contains non-datman filename. " \
+                "Entry will not be copied to target blacklist.".format(
+                blacklist_entry))
+        return False
+    if tag not in tags:
+        return False
+    return True
+
+def update_file(file_path, line):
+    logger.debug("Updating file {} with entry {}".format(file_path, line))
+    if DRYRUN:
+        return
+    with open(file_path, 'w') as file_name:
+        file_name.write(line)
+
+def get_blacklist_scans(subject_id, blacklist_path, new_id=None):
+    """
+    Finds all entries in <blacklist_path> that belong to the participant with
+    ID <subject_id>. If <new_id> is given, it modifies the found lines to
+    contain the new subject's ID.
+    """
+    try:
+        with open(blacklist_path, 'r') as blacklist:
+            lines = blacklist.readlines()
+    except IOError:
+        lines = []
+
+    entries = []
+    for line in lines:
+        if subject_id in line:
+            if new_id is not None:
+                line = line.replace(subject_id, new_id)
+            entries.append(line)
+    return entries
+
+def copy_blacklist_data(source, source_blacklist, target, target_blacklist, tags):
+    """
+    Adds entries from <source_blacklist> to <target_blacklist> if they contain
+    one of the given tags and have not already been added.
+    """
+    blacklist_entries = get_blacklist_scans(source, source_blacklist,
+            new_id=target)
+
+    if not blacklist_entries:
+        return
+
+    current_entries = get_blacklist_scans(target, target_blacklist)
+    missing_entries = set(blacklist_entries) - set(current_entries)
+    if not missing_entries:
+        return
+
+    for entry in missing_entries:
+        if tags_match(entry, tags):
+            update_file(target_blacklist, entry)
+
+def copy_checklist_entry(source_id, target_id, checklist_path):
+    target_comment = datman.utils.check_checklist(str(target_id),
+            study=target_id.study)
+    if target_comment:
+        # Checklist entry already exists
+        return
+
+    source_comment = datman.utils.check_checklist(str(source_id),
+            study=source_id.study)
+    if not source_comment:
+        # No source comment to copy
+        return
+
+    qc_report_entry = " ".join(["qc_{}.html".format(target_id),
+                                source_comment])
+    update_file(checklist_path, qc_report_entry)
+
+def copy_metadata(source_id, target_id, tags):
+    source_config = datman.config.config(study=source_id.study)
+    target_config = datman.config.config(study=target_id.study)
+    source_metadata = source_config.get_path('meta')
+    target_metadata = target_config.get_path('meta')
+
+    checklist_path = os.path.join(target_metadata, 'checklist.csv')
+    copy_checklist_entry(source_id, target_id, checklist_path)
+
+    source_blacklist = os.path.join(source_metadata, 'blacklist.csv')
+    target_blacklist = os.path.join(target_metadata, 'blacklist.csv')
+    copy_blacklist_data(str(source_id), source_blacklist, str(target_id),
+                        target_blacklist, tags)
+
+def get_resources_dir(subid):
+    # Creates its a new config each time to avoid side effects (and future bugs)
+    # due to the fact that config.get_path() modifies the study setting.
+    config = datman.config.config(study=subid.study)
+    result = os.path.join(config.get_path('resources'), str(subid))
+    return result
+
+def link_resources(source_id, target_id):
+    source_resources = get_resources_dir(source_id)
+    target_resources = get_resources_dir(target_id)
+    make_link(source_resources, target_resources)
+
 def get_datman_scanid(session_id):
     try:
         session = dm.scanid.parse(session_id)
@@ -193,6 +299,7 @@ def link_session_data(source, target, given_tags):
     logger.debug("Tags set to {}".format(tags))
 
     link_resources(source_id, target_id)
+    copy_metadata(source_id, target_id, tags)
 
     dirs = get_dirs_to_search(config, tags)
     for path_key in dirs:
@@ -202,18 +309,6 @@ def link_session_data(source, target, given_tags):
 
     # Return tags used for linking, in case links file needs to be updated
     return tags
-
-def link_resources(source_id, target_id):
-    source_resources = get_resources_dir(source_id)
-    target_resources = get_resources_dir(target_id)
-    make_link(source_resources, target_resources)
-
-def get_resources_dir(subid):
-    # Creates its a new config each time to avoid side effects (and future bugs)
-    # due to the fact that config.get_path() modifies the study setting.
-    config = datman.config.config(study=subid.study)
-    result = os.path.join(config.get_path('resources'), str(subid))
-    return result
 
 def main():
     global DRYRUN, CONFIG
