@@ -2,13 +2,19 @@
 """
 Finds REDCap records for the given study and if a scan has multiple IDs (i.e. it
 is shared with another study) updates xnat to reflect this information and
-tries to create a links from the exported original data to its pseudonyms.
+tries to create a links from the exported original data to its pseudonyms. If
+the original data set has been signed off on or has blacklist entries this
+information will be shared with the newly linked ID.
 
 The XNAT and REDCap URLs are read from the site config file (shell variable
 'DM_CONFIG' by default).
 
 Usage:
     dm_link_shared_ids.py [options] <project>
+
+Arguments:
+    <project>           The name of a project defined in the site config file
+                        that may have multiple IDs for some of its subjects.
 
 Options:
     --xnat FILE         The path to a text file containing the xnat credentials.
@@ -72,6 +78,32 @@ def main():
         for record in scan_complete_records:
             link_shared_ids(config, connection, record)
 
+def get_xnat_credentials(config, xnat_cred):
+    if not xnat_cred:
+        xnat_cred = os.path.join(config.get_path('meta'), 'xnat-credentials')
+
+    try:
+        credentials = read_credentials(xnat_cred)
+        user_name = credentials[0]
+        password = credentials[1]
+    except IndexError:
+        logger.error("XNAT credential file {} is missing the user name or " \
+                "password.".format(xnat_cred))
+        sys.exit(1)
+    return user_name, password
+
+def read_credentials(cred_file):
+    credentials = []
+    try:
+        with open(cred_file, 'r') as creds:
+            for line in creds:
+                credentials.append(line.strip('\n'))
+    except:
+        logger.error("Cannot read credential file or file does not exist: " \
+                "{}.".format(cred_file))
+        sys.exit(1)
+    return credentials
+
 def get_project_redcap_records(config, redcap_cred):
     token = get_redcap_token(config, redcap_cred)
     redcap_url = config.get_key('REDCAPAPI')
@@ -111,32 +143,6 @@ def get_redcap_token(config, redcap_cred):
         sys.exit(1)
     return token
 
-def read_credentials(cred_file):
-    credentials = []
-    try:
-        with open(cred_file, 'r') as creds:
-            for line in creds:
-                credentials.append(line.strip('\n'))
-    except:
-        logger.error("Cannot read credential file or file does not exist: " \
-                "{}.".format(cred_file))
-        sys.exit(1)
-    return credentials
-
-def get_xnat_credentials(config, xnat_cred):
-    if not xnat_cred:
-        xnat_cred = os.path.join(config.get_path('meta'), 'xnat-credentials')
-
-    try:
-        credentials = read_credentials(xnat_cred)
-        user_name = credentials[0]
-        password = credentials[1]
-    except IndexError:
-        logger.error("XNAT credential file {} is missing the user name or " \
-                "password.".format(xnat_cred))
-        sys.exit(1)
-    return user_name, password
-
 def link_shared_ids(config, connection, record):
     xnat_archive = config.get_key('XNAT_Archive', site=record.id.site)
     project = connection.select.project(xnat_archive)
@@ -156,7 +162,7 @@ def link_shared_ids(config, connection, record):
 
     if record.shared_ids and not DRYRUN:
         update_xnat_shared_ids(subject, record)
-        make_links(record)
+        make_links(record, config)
 
 def get_experiment(subject):
     experiment_names = subject.experiments().get()
@@ -187,70 +193,72 @@ def update_xnat_shared_ids(subject, record):
     logger.debug("{} has alternate id(s) {}".format(record.id, record.shared_ids))
     try:
         subject.attrs.set("xnat:subjectData/fields/field[name='sharedids']/field",
-                  ", ".join(record.shared_ids))
+                ", ".join(record.shared_ids))
     except xnat.core.errors.DatabaseError:
         logger.error('{} shared id list too long for xnat field, adding note '\
-              'to check REDCap record instead.'.format(record.id))
+                'to check REDCap record instead.'.format(record.id))
         subject.attrs.set("xnat:subjectData/fields/field[name='sharedids']/field",
-                  'ID list too long, refer to REDCap record.')
+                'ID list too long, refer to REDCap record.')
 
 def make_links(record):
     source = record.id
-    for shared_id in record.shared_ids:
-        try:
-            target = datman.scanid.parse(shared_id)
-        except datman.scanid.ParseException:
-            logger.error("Subject {} shared id {} does not match datman " \
-                    "convention. Skipping.".format(record.id, shared_id))
-            continue
+    for target in record.shared_ids:
         logger.info("Making links from source {} to target {}".format(source,
                 target))
+
         command = "dm-link-project-scans.py {} {}".format(source, target)
-        datman.utils.run(command)
+        return_code, out = datman.utils.run(command)
+        if return_code:
+            logger.error("dm-link-project-scans failed, cannot link source {} "
+                    "to target {}. ".format(source, target))
+            return
 
 class Record(object):
     def __init__(self, record_dict):
-        self.dict = record_dict
-        self.id = self.__get_id()
+        self.record_id = record_dict['record_id']
+        self.id = self.__get_datman_id(record_dict['par_id'])
         self.study = self.__get_study()
-        self.comment = self.dict['cmts']
-        self.shared_ids = self.__get_shared_ids()
+        self.comment = record_dict['cmts']
+        self.shared_ids = self.__get_shared_ids(record_dict)
 
     def matches_study(self, study_tag):
         if study_tag == self.study:
             return True
         return False
 
-    def __get_id(self):
-        par_id = self.dict['par_id']
-        try:
-            subid = datman.scanid.parse(par_id)
-        except datman.scanid.ParseException:
-            logger.error("REDCap record with record_id {} has non-datman" \
-                    " subject ID of {}." \
-                    " Ignoring record.".format(self.dict['record_id'], par_id))
-            return None
-        return subid
-
     def __get_study(self):
         if self.id is None:
             return None
         return self.id.study
 
-    def __get_shared_ids(self):
-        keys = self.dict.keys()
-        shared_keys = []
+    def __get_shared_ids(self, record_dict):
+        keys = record_dict.keys()
+        shared_id_fields = []
         for key in keys:
             if 'shared_parid' in key:
-                shared_keys.append(key)
+                shared_id_fields.append(key)
 
         shared_ids = []
-        for key in shared_keys:
-            value = self.dict[key]
+        for key in shared_id_fields:
+            value = record_dict[key]
             if not value:
+                # No shared id for this field.
+                continue
+            subject_id = self.__get_datman_id(value)
+            if subject_id is None:
+                # Badly named shared id value. Skip it.
                 continue
             shared_ids.append(value)
         return shared_ids
+
+    def __get_datman_id(self, subid):
+        try:
+            subject_id = datman.scanid.parse(subid)
+        except datman.scanid.ParseException:
+            logger.error("REDCap record with record_id {} contains non-datman" \
+                    " ID {}.".format(self.record_id, subid))
+            return None
+        return subject_id
 
 class XNATConnection(object):
     def __init__(self, user_name, password, xnat_url):

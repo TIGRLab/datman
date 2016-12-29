@@ -1,9 +1,14 @@
 import os
 import importlib
 import unittest
+import copy
+import logging
 
 import datman
 import datman.config
+
+# Disable all logging output for tests
+logging.disable(logging.CRITICAL)
 
 link_shared = importlib.import_module('bin.dm_link_shared_ids')
 
@@ -15,15 +20,26 @@ class TestRecord(unittest.TestCase):
             'shared_parid_8': 'OTHER_CMH_1234_01_01',
             'cmts': 'No comment.'}
 
-    def test_doesnt_crash_with_bad_id(self):
+    def test_ignores_records_with_bad_subject_id(self):
         bad_redcap_record = {'par_id': 'STUDY_0001_01',
                 'record_id': 0,
                 'shared_parid': [],
                 'cmts': ''}
+
         record = link_shared.Record(bad_redcap_record)
+
         assert record.id is None
         assert record.study is None
         assert not record.matches_study('STUDY')
+
+    def test_ignores_badly_named_shared_ids(self):
+        bad_shared_id = copy.copy(self.mock_redcap_record)
+        bad_id = 'STUDY_0001_01'
+        bad_shared_id['shared_parid_4'] = bad_id
+
+        record = link_shared.Record(bad_shared_id)
+
+        assert bad_id not in record.shared_ids
 
     def test_finds_all_shared_ids_in_record(self):
         record = link_shared.Record(self.mock_redcap_record)
