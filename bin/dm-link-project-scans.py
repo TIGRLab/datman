@@ -170,9 +170,14 @@ def get_dirs_to_search(source_config, tag_list):
 
 def tags_match(blacklist_entry, tags):
     """
-    Returns true if the filename in <blacklist_entry> contains a tag in <tags>
+    Returns true if the filename in <blacklist_entry> contains a tag in <tags>.
     """
-    blacklisted_file = blacklist_entry.split()[0]
+    try:
+        blacklisted_file = blacklist_entry.split()[0]
+    except IndexError:
+        # Empty line
+        return False
+
     try:
         _, tag, _, _ = datman.scanid.parse_filename(blacklisted_file)
     except datman.scanid.ParseException:
@@ -180,15 +185,17 @@ def tags_match(blacklist_entry, tags):
                 "Entry will not be copied to target blacklist.".format(
                 blacklist_entry))
         return False
+
     if tag not in tags:
         return False
+
     return True
 
 def update_file(file_path, line):
     logger.debug("Updating file {} with entry {}".format(file_path, line))
     if DRYRUN:
         return
-    with open(file_path, 'w') as file_name:
+    with open(file_path, 'a') as file_name:
         file_name.write(line)
 
 def get_blacklist_scans(subject_id, blacklist_path, new_id=None):
@@ -216,14 +223,12 @@ def copy_blacklist_data(source, source_blacklist, target, target_blacklist, tags
     Adds entries from <source_blacklist> to <target_blacklist> if they contain
     one of the given tags and have not already been added.
     """
-    blacklist_entries = get_blacklist_scans(source, source_blacklist,
-            new_id=target)
-
-    if not blacklist_entries:
+    source_entries = get_blacklist_scans(source, source_blacklist, new_id=target)
+    if not source_entries:
         return
 
-    current_entries = get_blacklist_scans(target, target_blacklist)
-    missing_entries = set(blacklist_entries) - set(current_entries)
+    target_entries = get_blacklist_scans(target, target_blacklist)
+    missing_entries = set(source_entries) - set(target_entries)
     if not missing_entries:
         return
 
@@ -231,7 +236,7 @@ def copy_blacklist_data(source, source_blacklist, target, target_blacklist, tags
         if tags_match(entry, tags):
             update_file(target_blacklist, entry)
 
-def copy_checklist_entry(source_id, target_id, checklist_path):
+def copy_checklist_entry(source_id, target_id, target_checklist_path):
     target_comment = datman.utils.check_checklist(str(target_id),
             study=target_id.study)
     if target_comment:
@@ -246,7 +251,7 @@ def copy_checklist_entry(source_id, target_id, checklist_path):
 
     qc_report_entry = " ".join(["qc_{}.html".format(target_id),
                                 source_comment])
-    update_file(checklist_path, qc_report_entry)
+    update_file(target_checklist_path, qc_report_entry)
 
 def copy_metadata(source_id, target_id, tags):
     source_config = datman.config.config(study=source_id.study)

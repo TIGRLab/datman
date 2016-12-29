@@ -12,6 +12,10 @@ The XNAT and REDCap URLs are read from the site config file (shell variable
 Usage:
     dm_link_shared_ids.py [options] <project>
 
+Arguments:
+    <project>           The name of a project defined in the site config file
+                        that may have multiple IDs for some of its subjects.
+
 Options:
     --xnat FILE         The path to a text file containing the xnat credentials.
                         If not set the 'xnat-credentials' file in the project
