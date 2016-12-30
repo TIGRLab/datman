@@ -82,8 +82,9 @@ def check_checklist(session_name, study=None):
                 try:
                     return parts[1].strip()
                 except IndexError:
-                    return
+                    return ''
 
+    return None
 
 def check_blacklist(scan_name, study=None):
     """Reads the checklist identified from the session_name
