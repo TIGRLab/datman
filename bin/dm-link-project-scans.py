@@ -237,13 +237,15 @@ def copy_blacklist_data(source, source_blacklist, target, target_blacklist, tags
             update_file(target_blacklist, entry)
 
 def copy_checklist_entry(source_id, target_id, target_checklist_path):
-    target_comment = datman.utils.check_checklist(str(target_id),
+    target_entry = str(target_id.get_full_subjectid_with_timepoint())
+    target_comment = datman.utils.check_checklist(target_entry,
             study=target_id.study)
     if target_comment:
         # Checklist entry already exists
         return
 
-    source_comment = datman.utils.check_checklist(str(source_id),
+    source_entry = str(source_id.get_full_subjectid_with_timepoint())
+    source_comment = datman.utils.check_checklist(source_entry,
             study=source_id.study)
     if not source_comment:
         # No source comment to copy
@@ -276,6 +278,8 @@ def get_resources_dir(subid):
 
 def link_resources(source_id, target_id):
     source_resources = get_resources_dir(source_id)
+    if not os.path.exists(source_resources):
+        return
     target_resources = get_resources_dir(target_id)
     make_link(source_resources, target_resources)
 
