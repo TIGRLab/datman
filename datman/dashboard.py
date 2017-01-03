@@ -193,9 +193,10 @@ class dashboard(object):
             logger.error('Failed to check blacklist for scan:{} with error:{}'
                          .format(scan_name, str(e)))
 
-        if not bl_comment == dashboard_scan.bl_comment:
-            dashboard_scan.bl_comment = bl_comment
         try:
+            if not bl_comment == dashboard_scan.bl_comment:
+                dashboard_scan.bl_comment = bl_comment
+
             db.session.commit()
         except Exception as e:
             logger.error('An error occured adding scan:{} to the db.Error:{}'
