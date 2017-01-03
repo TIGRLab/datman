@@ -135,22 +135,22 @@ def process_archive(archivefile):
         return
 
     try:
-        missing_data, missing_resource = check_files_exist(archivefile,
+        data_exists, resource_exists = check_files_exist(archivefile,
                                                 xnat_session, str(scanid))
-    except:
+    except Exception as e:
         return
 
-    if not missing_data and not missing_resource:
+    if data_exists and resource_exists:
         return
 
-    if missing_data:
+    if not data_exists:
         logger.info('Uploading dicoms from:{}'.format(archivefile))
         try:
             upload_dicom_data(archivefile, xnat_project, str(scanid))
         except:
             pass
 
-    if missing_resource:
+    if not resource_exists:
         logger.debug('Uploading resource from:{}'.format(archivefile))
         try:
             upload_non_dicom_data(archivefile, xnat_project, str(scanid))
@@ -290,7 +290,7 @@ def check_files_exist(archive, xnat_session, ident):
         xnat_session['children'][0]
     except (KeyError, IndexError):
         # session has no scan data uploaded yet
-        return False
+        return False, False
 
     xnat_experiment_entry = get_experiment_entry(xnat_session)
 
