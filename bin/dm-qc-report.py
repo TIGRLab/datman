@@ -328,12 +328,12 @@ def find_existing_reports(checklist_path):
             found_reports.append(checklist_entry)
     return found_reports
 
-def add_report_to_checklist(qc_report, checklist_path):
+def add_report_to_checklist(qc_report, checklist_path, retry=3):
     """
     Add the given report's name to the QC checklist if it is not already
     present.
     """
-    if not qc_report:
+    if not qc_report or retry == 0:
         return
 
     # remove extension from report name, so we don't double-count .pdfs vs .html
@@ -350,8 +350,13 @@ def add_report_to_checklist(qc_report, checklist_path):
     if report_name in found_reports:
         return
 
-    with open(checklist_path, 'a') as checklist:
-        checklist.write(report_file_name + '\n')
+    try:
+        with open(checklist_path, 'a') as checklist:
+            checklist.write(report_file_name + '\n')
+    except:
+        logger.debug("Failed to write {} to checklist. Tries remaining: "
+                "{}".format(report_file_name, retry))
+        add_report_to_checklist(qc_report, checklist_path, retry=retry-1)
 
 def add_header_qc(nifti, qc_html, log_path):
     """
@@ -832,16 +837,6 @@ def add_server_handler(config):
             logging.handlers.DEFAULT_TCP_LOGGING_PORT)
     logger.addHandler(server_handler)
 
-def set_logger_name(session):
-    global logger
-    if not session:
-        # Use default log format
-        return
-    # Change to a logger with a name that includes the session being processed
-    # so log entries of different processes can be distinguished from each other.
-    logger = logging.getLogger("{} - {}".format(os.path.basename(__file__),
-            session))
-
 def main():
     global REWRITE
 
@@ -857,7 +852,6 @@ def main():
     config = get_config(study)
 
     if use_server:
-        set_logger_name(session)
         add_server_handler(config)
 
     if quiet:
