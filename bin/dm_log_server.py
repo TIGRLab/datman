@@ -64,7 +64,7 @@ class LogRecordStreamHandler(SocketServer.StreamRequestHandler):
     def __get_log_name(self, record):
         name = record.name
         date = str(datetime.date.today())
-        if name == '__init__':
+        if name == '__main__':
             log_name = "{}-all.log".format(date)
         else:
             name = name.replace(".py", "")
