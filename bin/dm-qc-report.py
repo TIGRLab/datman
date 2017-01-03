@@ -823,16 +823,6 @@ def add_server_handler(config):
             logging.handlers.DEFAULT_TCP_LOGGING_PORT)
     logger.addHandler(server_handler)
 
-def set_logger_name(session):
-    global logger
-    if not session:
-        # Use default log format
-        return
-    # Change to a logger with a name that includes the session being processed
-    # so log entries of different processes can be distinguished from each other.
-    logger = logging.getLogger("{} - {}".format(os.path.basename(__file__),
-            session))
-
 def main():
     global REWRITE
 
@@ -848,7 +838,6 @@ def main():
     config = get_config(study)
 
     if use_server:
-        set_logger_name(session)
         add_server_handler(config)
 
     if quiet:
