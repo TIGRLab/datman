@@ -31,6 +31,7 @@ import datman.config
 import datman.utils
 import datman.dashboard
 import logging
+import errno
 from datman.exceptions import DashboardException
 
 logger = logging.getLogger(__name__)
@@ -159,8 +160,12 @@ def _create_symlink(src, target_name, dir_nii):
         try:
             os.symlink(src, target_path)
         except OSError as e:
-            logger.error('Failed creating symlink:{} --> {} with reason:{}'
-                         .format(src, target_path, e.strerror))
+            if e.errno == errno.EEXIST:
+                logger.warning('Failed creating symlink:{} --> {} with reason:{}'
+                             .format(src, target_path, e.strerror))
+            else:
+                logger.error('Failed creating symlink:{} --> {} with reason:{}'
+                             .format(src, target_path, e.strerror))
 
 
 def _get_link_name(path, basepath, ident, tag):

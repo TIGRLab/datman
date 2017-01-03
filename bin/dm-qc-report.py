@@ -409,7 +409,11 @@ def write_report_body(report, expected_files, subject, header_diffs, handlers):
 
 def find_tech_notes(path):
     """
-    Search the file tree rooted at path for the tech notes pdf
+    Search the file tree rooted at path for the tech notes pdf.
+
+    If only one pdf is found it is assumed to be the tech notes. If multiple
+    are found, unless one contains the string 'TechNotes', the first pdf is
+    guessed to be the tech notes.
     """
     resource_folders = glob.glob(path + "*")
 
@@ -418,11 +422,21 @@ def find_tech_notes(path):
     else:
         resources = ""
 
+    pdf_list = []
     for root, dirs, files in os.walk(resources):
         for fname in files:
             if ".pdf" in fname:
-                return os.path.join(root, fname)
-    return ""
+                pdf_list.append(os.path.join(root, fname))
+
+    if not pdf_list:
+        return ""
+    elif len(pdf_list) > 1:
+        for pdf in pdf_list:
+            file_name = os.path.basename(pdf)
+            if 'technotes' in file_name.lower():
+                return pdf
+
+    return pdf_list[0]
 
 def write_tech_notes_link(report, subject_id, resources_path):
     """

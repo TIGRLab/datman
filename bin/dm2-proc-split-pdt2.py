@@ -88,7 +88,7 @@ def main():
             try:
                 ident, tag, series, desc = datman.scanid.parse_filename(f)
             except datman.scanid.ParseException:
-                logger.error('Invalid scanid:{}'.format(f))
+                logger.info('Invalid scanid:{}'.format(f))
                 continue
             if tag == 'PDT2':
                 images.append(os.path.join(base_dir, f))
@@ -98,7 +98,7 @@ def main():
                 try:
                     ident, tag, series, desc = datman.scanid.parse_filename(f)
                 except datman.scanid.ParseException:
-                    logger.error('Invalid scanid:{}'.format(f))
+                    logger.info('Invalid scanid:{}'.format(f))
                     continue
                 if tag == 'PDT2':
                     images.append(os.path.join(root, f))
