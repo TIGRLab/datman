@@ -136,7 +136,7 @@ def process_archive(archivefile):
 
     try:
         data_exists, resource_exists = check_files_exist(archivefile,
-                                                xnat_session, str(scanid))
+                                                xnat_session, scanid)
     except Exception as e:
         return
 
@@ -221,20 +221,21 @@ def get_xnat_resources(xnat_experiment_entry, ident):
     resource_id = get_resource_id(xnat_experiment_entry)
     if resource_id is None:
         return []
-    resource_list = XNAT.get_resource_list(ident.study,
+    xnat_project = CFG.get_key('XNAT_Archive', site=ident.site)
+    resource_list = XNAT.get_resource_list(xnat_project,
             ident.get_full_subjectid_with_timepoint_session(),
             ident.get_full_subjectid_with_timepoint_session(),
             resource_id)
-    xnat_resources = [item['ID'] for item in resource_list]
+    xnat_resources = [item['URI'] for item in resource_list]
     return xnat_resources
 
-def missing_resource_data(xnat_experiment_entry, ident, archive):
+def resource_data_exists(xnat_experiment_entry, ident, archive):
     xnat_resources = get_xnat_resources(xnat_experiment_entry, ident)
     with zipfile.ZipFile(archive) as zf:
         local_resources = get_resources(zf)
     if not set(local_resources).issubset(set(xnat_resources)):
-        return True
-    return False
+        return False
+    return True
 
 def get_xnat_scan_uids(xnat_experiment_entry):
     xnat_experiment_entry = xnat_experiment_entry['children']
@@ -249,7 +250,7 @@ def get_experiment_id(xnat_experiment_entry):
     experiment_id = xnat_experiment_entry['data_fields']['UID']
     return experiment_id
 
-def missing_scan_data(xnat_experiment_entry, local_headers):
+def scan_data_exists(xnat_experiment_entry, local_headers):
     local_scan_uids = [scan.SeriesInstanceUID for scan in local_headers.values()]
     local_experiment_ids = [v.StudyInstanceUID for v in local_headers.values()]
     xnat_experiment_id = get_experiment_id(xnat_experiment_entry)
@@ -262,9 +263,9 @@ def missing_scan_data(xnat_experiment_entry, local_headers):
     xnat_scan_uids = get_xnat_scan_uids(xnat_experiment_entry)
     if not set(local_scan_uids).issubset(set(xnat_scan_uids)):
         logger.info('UIDs in archive:{} not in xnat'.format(archive))
-        return True
+        return False
     # XNAT data matches local archive data
-    return False
+    return True
 
 def get_experiment_entry(xnat_session):
     xnat_entries = [child for child in xnat_session['children']
@@ -284,7 +285,7 @@ def check_files_exist(archive, xnat_session, ident):
         local_headers = datman.utils.get_archive_headers(archive)
     except:
         logger.error('Failed getting archive headers for:'.format(archive))
-        return False
+        return False, False
 
     try:
         xnat_session['children'][0]
@@ -294,12 +295,12 @@ def check_files_exist(archive, xnat_session, ident):
 
     xnat_experiment_entry = get_experiment_entry(xnat_session)
 
-    scan_missing = missing_scan_data(xnat_experiment_entry, local_headers)
+    scans_exist = scan_data_exists(xnat_experiment_entry, local_headers)
 
-    resource_missing = missing_resource_data(xnat_experiment_entry, ident,
+    resources_exist = resource_data_exists(xnat_experiment_entry, ident,
                     archive)
 
-    return scan_missing, resource_missing
+    return scans_exist, resources_exist
 
 def get_resources(open_zipfile):
     # filter dirs
