@@ -4,7 +4,7 @@
 Runs MAGeT Brain
 
 Usage:
-    dm-proc-maget-brain.py [options]
+    dm-proc-maget-brain.py [options] [--tag=TAG]...
 
 Options:
     --inputdir DIR     Parent folder holding exported data [default: data/nii]

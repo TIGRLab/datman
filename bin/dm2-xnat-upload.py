@@ -143,6 +143,9 @@ def process_archive(archivefile):
     if not missing_data and not missing_resource:
         return
 
+    print("Missing data: {} Missing resource: {}".format(missing_data, missing_resource))
+    return
+
     if missing_data:
         logger.info('Uploading dicoms from:{}'.format(archivefile))
         try:
@@ -290,7 +293,7 @@ def check_files_exist(archive, xnat_session, ident):
         xnat_session['children'][0]
     except (KeyError, IndexError):
         # session has no scan data uploaded yet
-        return False
+        return False, False
 
     xnat_experiment_entry = get_experiment_entry(xnat_session)
 
