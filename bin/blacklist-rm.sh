@@ -49,10 +49,10 @@ bl="${2}"
 # Temp file to store all found file names
 tmp=$(mktemp /tmp/series.XXXXXX)
 
-while IFS=" ", read series reason
+while read series reason
 do
   # Skip the first line column headers
-  if [ $series != "series" ]
+  if [ "${series}" != "series" ]
   then
     find $data -name "$series*" >> $tmp
   fi
