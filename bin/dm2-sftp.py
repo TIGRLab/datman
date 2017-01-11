@@ -24,7 +24,7 @@ import os
 import fnmatch
 import paramiko
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(os.path.basename(__file__))
 
 
 def main():
@@ -49,7 +49,8 @@ def main():
     ch.setLevel(log_level)
     logging.getLogger("paramiko").setLevel(log_level)
 
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter('%(asctime)s - %(name)s - {study} - '\
+            ' %(levelname)s - %(message)s'.format(study=study))
     ch.setFormatter(formatter)
 
     logger.addHandler(ch)
@@ -97,6 +98,9 @@ def main():
             #  match remote dir names against names specified in config file
             valid_dirs = [d for d in remote_dirs
                           if fnmatch.fnmatch(d, mr_folder)]
+
+        if len(valid_dirs) < 1:
+            logger.error('Source folders:{} not found'.format(mrfolders))
 
         for valid_dir in valid_dirs:
             #  process each folder in turn
