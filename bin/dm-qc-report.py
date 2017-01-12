@@ -354,7 +354,7 @@ def add_report_to_checklist(qc_report, checklist_path, retry=3):
         with open(checklist_path, 'a') as checklist:
             checklist.write(report_file_name + '\n')
     except:
-        logger.debug("Failed to write {} to checklist. Tries remaining: "
+        logger.error("Failed to write {} to checklist. Tries remaining: "
                 "{}".format(report_file_name, retry))
         add_report_to_checklist(qc_report, checklist_path, retry=retry-1)
 
