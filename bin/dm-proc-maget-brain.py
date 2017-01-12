@@ -61,34 +61,34 @@ def main():
             "Has MAGeT-Brain been setup for this project?".format(subjectsdir))
         sys.exit(1)
 
-    for tag in tags:
-        scans = glob.glob("{}/*/*{}*.nii.gz".format(niidir, tag))
-        for scan in scans:
-            # append _t1 to the end of the name of the scan
-            basename = os.path.basename(scan)
-            extension = ".nii.gz"
-            filestem = basename[:-len(extension)]
-            target = os.path.join(subjectsdir, filestem + '_t1' + extension)
-
-            if os.path.exists(target):
-                continue
-            log.info("linking {} to {}".format(
-                os.path.relpath(scan, subjectsdir),
-                target))
-            if not dryrun:
-                os.symlink(
-                    os.path.relpath(scan, subjectsdir),
-                    target)
-
-    # run MAGeT-Brain
-    cwd = os.getcwd()
-    os.chdir(outputdir)
-    dm.utils.run("mb.sh -n run", dryrun = dryrun)
-    os.chdir(cwd)
+    # for tag in tags:
+    #     scans = glob.glob("{}/*/*{}*.nii.gz".format(niidir, tag))
+    #     for scan in scans:
+    #         # append _t1 to the end of the name of the scan
+    #         basename = os.path.basename(scan)
+    #         extension = ".nii.gz"
+    #         filestem = basename[:-len(extension)]
+    #         target = os.path.join(subjectsdir, filestem + '_t1' + extension)
+    #
+    #         if os.path.exists(target):
+    #             continue
+    #         log.info("linking {} to {}".format(
+    #             os.path.relpath(scan, subjectsdir),
+    #             target))
+    #         if not dryrun:
+    #             os.symlink(
+    #                 os.path.relpath(scan, subjectsdir),
+    #                 target)
+    #
+    # # run MAGeT-Brain
+    # cwd = os.getcwd()
+    # os.chdir(outputdir)
+    # dm.utils.run("mb.sh -n run", dryrun = dryrun)
+    # os.chdir(cwd)
 
     # link scans back into datman output folders, e.g.
     #   pipelines/magetbrain/SPN01_CMH_0001_01/SPN01_CMH_0001_01_01_T1_blah_labels_hc.nii.gz
-    for label in glob.glob("{}/output/labels/majorityvote/*labels_*.nii.gz".format(outputdir)):
+    for label in glob.glob("{}/output/labels/majorityvote/*labels*".format(outputdir)):
 
         # some dirty tricks to clean up the filename
         # we assume it looks something like this:
@@ -100,7 +100,7 @@ def main():
             [ident.study, ident.site, ident.subject, ident.timepoint]))
 
         # extract the label type
-        match = re.match(".*_(labels_.*?.nii.gz)$", label)
+        match = re.match(".*_(labels*?.nii)$", label)
         if match is None:
             log.error(
                 "Label {} does not look like a label. Wut. Skipping.".format(label))
