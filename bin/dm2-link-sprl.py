@@ -126,8 +126,11 @@ def process_session(cfg, db, dir_nii, dir_res, session):
         p = re.compile(sprl[0])
         for root, dirs, files in os.walk(dir_res):
             for f in files:
-                if p.search(f):
-                    src_file = os.path.join(root, f)
+                # limit only to nifti files
+                if not f.endswith('nii'):
+                    continue
+                src_file = os.path.join(root, f)
+                if p.search(src_file):
                     # get a mangled name for the link target
                     target_name = _get_link_name(src_file,
                                                  dir_res,
