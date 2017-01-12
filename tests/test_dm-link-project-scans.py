@@ -41,14 +41,44 @@ class CopyChecklistEntry(unittest.TestCase):
     @patch('datman.utils.check_checklist')
     def test_updates_with_correct_entry(self, mock_check, mock_update):
         comment = "signed off"
+        target_id_timepoint = self.target.get_full_subjectid_with_timepoint()
+        source_id_timepoint = self.source.get_full_subjectid_with_timepoint()
         mock_check.side_effect = lambda subid, study=None: {
-                                  str(self.target): None,
-                                  str(self.source): comment}[subid]
+                                  str(target_id_timepoint): None,
+                                  str(source_id_timepoint): comment}[subid]
 
         link_scans.copy_checklist_entry(self.source, self.target, self.path)
 
-        expected_entry = "qc_{}.html {}".format(self.target, comment)
+        expected_entry = "qc_{}.html {}\n".format(target_id_timepoint, comment)
 
+        assert mock_update.call_count == 1
+        mock_update.assert_called_once_with(self.path, expected_entry)
+
+    @patch('bin.dm-link-project-scans.delete_old_checklist_entry')
+    @patch('bin.dm-link-project-scans.update_file')
+    @patch('datman.utils.check_checklist')
+    def test_no_repeats_when_checklist_entry_exists_but_not_signed_off(self,
+            mock_check, mock_update, mock_delete):
+        comment = "signed off"
+        target_id_timepoint = self.target.get_full_subjectid_with_timepoint()
+        source_id_timepoint = self.source.get_full_subjectid_with_timepoint()
+
+        ## Currently datman.utils.check_comment is used to find checklist
+        ## entries, and this function returns an empty string when there's
+        ## an entry that's not signed off or None when there's no entry at all.
+        ## Therefore: target_id_timepoint gives an empty string to indicate
+        ## only the comment needs to be added
+        mock_check.side_effect = lambda subid, study=None: {
+                                  str(target_id_timepoint): '',
+                                  str(source_id_timepoint): comment}[subid]
+
+        link_scans.copy_checklist_entry(self.source, self.target, self.path)
+
+        page_name = 'qc_{}.html'.format(target_id_timepoint)
+        assert mock_delete.call_count == 1
+        mock_delete.assert_called_once_with(self.path, page_name)
+
+        expected_entry = "{} {}\n".format(page_name, comment)
         assert mock_update.call_count == 1
         mock_update.assert_called_once_with(self.path, expected_entry)
 

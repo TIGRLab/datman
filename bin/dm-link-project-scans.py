@@ -236,22 +236,45 @@ def copy_blacklist_data(source, source_blacklist, target, target_blacklist, tags
         if tags_match(entry, tags):
             update_file(target_blacklist, entry)
 
+def delete_old_checklist_entry(checklist_path, entry):
+    with open(checklist_path, 'r') as checklist:
+        checklist_entries = checklist.readlines()
+
+    new_lines = []
+    for line in checklist_entries:
+        fields = line.split()
+        if not fields:
+            continue
+        if fields[0] == entry:
+            continue
+        new_lines.append(" ".join(fields) + '\n')
+
+    with open(checklist_path, 'w') as new_list:
+        for line in new_lines:
+            new_list.write(line)
+
 def copy_checklist_entry(source_id, target_id, target_checklist_path):
-    target_comment = datman.utils.check_checklist(str(target_id),
+    target_entry = str(target_id.get_full_subjectid_with_timepoint())
+    target_comment = datman.utils.check_checklist(target_entry,
             study=target_id.study)
     if target_comment:
-        # Checklist entry already exists
+        # Checklist entry already exists and has been signed off.
         return
 
-    source_comment = datman.utils.check_checklist(str(source_id),
+    source_entry = str(source_id.get_full_subjectid_with_timepoint())
+    source_comment = datman.utils.check_checklist(source_entry,
             study=source_id.study)
     if not source_comment:
         # No source comment to copy
         return
 
-    qc_report_entry = " ".join(["qc_{}.html".format(target_id),
-                                source_comment])
-    update_file(target_checklist_path, qc_report_entry)
+    qc_page_name = "qc_{}.html".format(target_entry)
+    if target_comment == '':
+        # target_comment == '' means there's a qc page entry, but its not signed
+        # off. Old entry must be deleted to avoid duplication.
+        delete_old_checklist_entry(target_checklist_path, qc_page_name)
+    qc_report_entry = " ".join([qc_page_name, source_comment])
+    update_file(target_checklist_path, qc_report_entry + '\n')
 
 def copy_metadata(source_id, target_id, tags):
     source_config = datman.config.config(study=source_id.study)
@@ -276,6 +299,8 @@ def get_resources_dir(subid):
 
 def link_resources(source_id, target_id):
     source_resources = get_resources_dir(source_id)
+    if not os.path.exists(source_resources):
+        return
     target_resources = get_resources_dir(target_id)
     make_link(source_resources, target_resources)
 

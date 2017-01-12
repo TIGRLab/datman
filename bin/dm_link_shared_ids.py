@@ -162,7 +162,7 @@ def link_shared_ids(config, connection, record):
 
     if record.shared_ids and not DRYRUN:
         update_xnat_shared_ids(subject, record)
-        make_links(record, config)
+        make_links(record)
 
 def get_experiment(subject):
     experiment_names = subject.experiments().get()
