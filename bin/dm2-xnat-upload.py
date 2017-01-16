@@ -143,9 +143,6 @@ def process_archive(archivefile):
     if not missing_data and not missing_resource:
         return
 
-    print("Missing data: {} Missing resource: {}".format(missing_data, missing_resource))
-    return
-
     if missing_data:
         logger.info('Uploading dicoms from:{}'.format(archivefile))
         try:
