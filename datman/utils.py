@@ -462,7 +462,7 @@ def run(cmd, dryrun=False):
 
     if dryrun:
         logger.info("Performing dry-run")
-        return 0
+        return 0, ''
 
     logger.debug("Executing command: {}".format(cmd))
 

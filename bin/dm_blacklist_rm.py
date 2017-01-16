@@ -31,11 +31,9 @@ Options:
 import os
 import re
 import sys
-import glob
 import logging
 
 import datman.config
-import datman.scanid
 import datman.utils
 from datman.docopt import docopt
 
@@ -129,7 +127,8 @@ def get_search_paths(config, ignored_paths):
 
 def find_files(search_path, item):
     command = 'find {} -name \"{}*\"'.format(search_path, item)
-    return_code, out = datman.utils.run(command, DRYRUN)
+    return_code, out = datman.utils.run(command)
+
     if not out:
         return []
     found_files = out.strip().split('\n')
