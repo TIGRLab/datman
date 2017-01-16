@@ -44,10 +44,13 @@ import datman.config, datman.scanid, datman.utils
 
 DRYRUN = False
 
-logging.basicConfig(level=logging.WARN,
-        format='[%(name)s] %(levelname)s : %(message)s',
-        disable_existing_loggers=False)
+## use of stream handler over basic config allows log format to change to more
+## descriptive format later if needed while also ensure a consistent default
 logger = logging.getLogger(os.path.basename(__file__))
+log_handler = logging.StreamHandler()
+log_handler.setFormatter(logging.Formatter('[%(name)s] %(levelname)s : '
+        '%(message)s'))
+logger.addHandler(log_handler)
 
 def main():
     global DRYRUN
@@ -60,6 +63,10 @@ def main():
     debug = arguments['--debug']
     quiet = arguments['--quiet']
     DRYRUN = arguments['--dry-run']
+
+    # Set log format
+    log_handler.setFormatter(logging.Formatter('[%(name)s] %(levelname)s - '
+            '{study}: %(message)s'.format(study=project)))
 
     if verbose:
         logger.setLevel(logging.INFO)

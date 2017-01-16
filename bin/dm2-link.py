@@ -79,7 +79,7 @@ import datman.config
 import datman.utils
 import logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(os.path.basename(__file__))
 already_linked = {}
 lookup = None
 DRYRUN = None
@@ -116,8 +116,9 @@ def main():
         logger.setLevel(logging.DEBUG)
         ch.setLevel(logging.DEBUG)
 
-    formatter = logging.Formatter('%(asctime)s - %(name)s - '
-                                  '%(levelname)s - %(message)s')
+    formatter = logging.Formatter('%(asctime)s - %(name)s - {study} - '
+                                  '%(levelname)s - %(message)s'.format(
+                                  study=study))
     ch.setFormatter(formatter)
 
     logger.addHandler(ch)

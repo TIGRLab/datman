@@ -91,7 +91,7 @@ import platform
 import shutil
 import dicom
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(os.path.basename(__file__))
 xnat = None
 cfg = None
 dashboard = None
@@ -135,8 +135,9 @@ def main():
         logger.setLevel(logging.DEBUG)
         ch.setLevel(logging.DEBUG)
 
-    formatter = logging.Formatter('%(asctime)s - %(name)s - '
-                                  '%(levelname)s - %(message)s')
+    formatter = logging.Formatter('%(asctime)s - %(name)s - {study} - '
+                                  '%(levelname)s - %(message)s'.format(
+                                  study=study))
     ch.setFormatter(formatter)
 
     logger.addHandler(ch)
