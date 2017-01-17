@@ -524,7 +524,12 @@ def generate_qc_report(report_name, subject, expected_files, header_diffs, handl
 
 def get_position(position_info):
     if isinstance(position_info, list):
-        position = position_info.pop(0)
+        try:
+            position = position_info.pop(0)
+        except IndexError:
+            ## More of this scan type than expected in config entry, assign
+            ## last possible position
+            position = 999
     else:
         position = position_info
 
