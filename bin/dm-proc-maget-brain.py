@@ -4,7 +4,7 @@
 Runs MAGeT Brain
 
 Usage:
-    dm-proc-maget-brain.py [options]
+    dm-proc-maget-brain.py [options] [--tag=TAG]...
 
 Options:
     --inputdir DIR     Parent folder holding exported data [default: data/nii]
@@ -88,7 +88,7 @@ def main():
 
     # link scans back into datman output folders, e.g.
     #   pipelines/magetbrain/SPN01_CMH_0001_01/SPN01_CMH_0001_01_01_T1_blah_labels_hc.nii.gz
-    for label in glob.glob("{}/output/labels/majorityvote/*labels_*.nii.gz".format(outputdir)):
+    for label in glob.glob("{}/output/labels/majorityvote/*labels*".format(outputdir)):
 
         # some dirty tricks to clean up the filename
         # we assume it looks something like this:
@@ -100,7 +100,7 @@ def main():
             [ident.study, ident.site, ident.subject, ident.timepoint]))
 
         # extract the label type
-        match = re.match(".*_(labels_.*?.nii.gz)$", label)
+        match = re.match(".*_(labels*?.nii)$", label)
         if match is None:
             log.error(
                 "Label {} does not look like a label. Wut. Skipping.".format(label))

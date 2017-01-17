@@ -119,6 +119,7 @@ def main():
 
     if arguments['--dry-run']:
         DRYRUN = True
+        db_ignore = True
 
     # setup logging
     logging.basicConfig()
@@ -210,7 +211,7 @@ def main():
                     continue
                 sessions.append((project, session['label']))
 
-    logger.info('Found {} sessions for study:'
+    logger.info('Found {} sessions for study: {}'
                 .format(len(sessions), study))
 
     for session in sessions:
