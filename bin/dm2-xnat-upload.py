@@ -148,7 +148,9 @@ def process_archive(archivefile):
         try:
             upload_dicom_data(archivefile, xnat_project, str(scanid))
         except:
-            pass
+            logger.error('Failed uploading archive to xnat project:{}'
+                         ' for subject:{}'.format(xnat_project, str(scanid)))
+            return
 
     if not resource_exists:
         logger.debug('Uploading resource from:{}'.format(archivefile))
@@ -346,8 +348,6 @@ def upload_dicom_data(archive, xnat_project, scanid):
         ##update for XNAT
         XNAT.put_dicoms(xnat_project, scanid, scanid, archive)
     except Exception as e:
-        logger.error('Failed uploading archive to xnat project:{}'
-                     ' for subject:{}'.format(xnat_project, scanid))
         raise e
 
 
