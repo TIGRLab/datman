@@ -592,6 +592,10 @@ class xnat(object):
             if 'multiple imaging sessions.' in response.content:
                 raise XnatException('Multiple imaging sessions in archive,'
                                     ' check prearchive')
+            if '502 Bad Gateway' in response.content:
+                raise XnatException('Bad gateway error: Check tomcat logs')
+            if 'Unable to identify experiment' in response.content:
+                raise XnatException('Unable to identify experiment, did dicom upload fail?')
             else:
                 raise XnatException('An unknown error occured uploading data.'
                                     'Status code:{}, reason:{}'
