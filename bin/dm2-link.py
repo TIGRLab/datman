@@ -310,5 +310,4 @@ def validate_headers(archive_path, lookupinfo, scanid_field):
 
 
 if __name__ == '__main__':
-    logging.basicConfig()
     main()
