@@ -3,8 +3,8 @@
 Extracts data from xnat archive folders into a few well-known formats.
 
 Usage:
-    xnat-extract.py [options] <study>
-    xnat-extract.py [options] <study> <session>
+    dm2-xnat-extract.py [options] <study>
+    dm2-xnat-extract.py [options] <study> <session>
 
 Arguments:
     <study>            Nickname of the study to process
@@ -336,6 +336,7 @@ def create_scan_name(export_info, scan_info, session_label):
     file_stem = "_".join([session_label, tag, padded_series, mangled_descr])
     return(file_stem, tag)
 
+
 def process_resources(xnat_project, session_label, experiment_label, data):
     """Export any non-dicom resources from the xnat archive"""
     global cfg
@@ -343,6 +344,13 @@ def process_resources(xnat_project, session_label, experiment_label, data):
                 .format(len(data), session_label))
     base_path = os.path.join(cfg.get_path('resources'),
                              session_label)
+    if not os.path.isdir(base_path):
+        logger.info('Creating dir:{}'.format(base_path))
+        try:
+            os.makedirs(base_path)
+        except OSError:
+            logger.error('Failed creating resources dir:{}.'.format(base_path))
+            return
 
     for item in data['items']:
         try:
@@ -565,6 +573,7 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
             logger.error('Failed deleting extra scans from session:{}'
                          .format(session_label))
 
+
 def get_dicom_archive_from_xnat(xnat_project, session_label, experiment_label,
                                 series):
     """Downloads and extracts a dicom archive from xnat to a local temp folder
@@ -662,11 +671,26 @@ def check_if_dicom_is_processed(ident, file_stem, export_formats):
     return True
 
 
+def check_create_dir(target):
+    """Checks to see if a directory exists, creates if not"""
+    if not os.path.isdir(target):
+        logger.info('Creating dir:{}'.format(target))
+        try:
+            os.makedirs(target)
+        except OSError as e:
+            logger.error('Failed creating dir:{}.'.format(target))
+            raise e
+
 def export_mnc_command(seriesdir, outputdir, stem):
     """
     Converts a DICOM series to MINC format
     """
     outputfile = os.path.join(outputdir, stem) + ".mnc"
+
+    try:
+        check_create_dir(outputdir)
+    except:
+        return
 
     if os.path.exists(outputfile):
         logger.warn("{}: output {} exists. skipping."
@@ -686,7 +710,10 @@ def export_nii_command(seriesdir, outputdir, stem):
     Converts a DICOM series to NifTi format
     """
     outputfile = os.path.join(outputdir, stem) + ".nii.gz"
-
+    try:
+        check_create_dir(outputdir)
+    except:
+        return
     if os.path.exists(outputfile):
         logger.warn("{}: output {} exists. skipping."
                     .format(seriesdir, outputfile))
@@ -716,7 +743,10 @@ def export_nrrd_command(seriesdir, outputdir, stem):
     Converts a DICOM series to NRRD format
     """
     outputfile = os.path.join(outputdir, stem) + ".nrrd"
-
+    try:
+        check_create_dir(outputdir)
+    except:
+        return
     if os.path.exists(outputfile):
         logger.warn("{}: output {} exists. skipping."
                     .format(seriesdir, outputfile))
@@ -735,6 +765,10 @@ def export_dcm_command(seriesdir, outputdir, stem):
     Copies a single DICOM from the series.
     """
     outputfile = os.path.join(outputdir, stem) + ".dcm"
+    try:
+        check_create_dir(outputdir)
+    except:
+        return
     if os.path.exists(outputfile):
         logger.warn("{}: output {} exists. skipping."
                     .format(seriesdir, outputfile))
