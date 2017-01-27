@@ -76,7 +76,7 @@ def main():
         logger.setLevel(logging.ERROR)
 
     config = datman.config.config(filename=site_config, study=project)
-    user_name, password = get_xnat_credentials(config, xnat_cred)
+    user_name, password = os.environ["XNAT_USER"], os.environ["XNAT_PASS"] #get_xnat_credentials(config, xnat_cred)
     xnat_url = config.get_key('XNATSERVER')
 
     scan_complete_records = get_project_redcap_records(config, redcap_cred)
@@ -85,6 +85,7 @@ def main():
         for record in scan_complete_records:
             link_shared_ids(config, connection, record)
 
+#Not required anymore
 def get_xnat_credentials(config, xnat_cred):
     if not xnat_cred:
         xnat_cred = os.path.join(config.get_path('meta'), 'xnat-credentials')
@@ -99,6 +100,7 @@ def get_xnat_credentials(config, xnat_cred):
         sys.exit(1)
     return user_name, password
 
+#Not required anymore
 def read_credentials(cred_file):
     credentials = []
     try:
