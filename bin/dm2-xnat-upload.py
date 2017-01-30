@@ -388,6 +388,8 @@ def get_xnat(server=None, credfile=None, username=None):
     if username:
         password = getpass.getpass()
     else:
+        #Moving away from storing credentials in text files
+        """
         if not credfile:
             credfile = os.path.join(CFG.get_path('meta', CFG.study_name),
                                     'xnat-credentials')
@@ -395,7 +397,10 @@ def get_xnat(server=None, credfile=None, username=None):
             lines = cf.readlines()
             username = lines[0].strip()
             password = lines[1].strip()
-
+        """
+        username = os.environ["XNAT_USER"]
+        password = os.environ["XNAT_PASS"]
+        
     xnat = datman.xnat.xnat(server, username, password)
     return xnat
 
