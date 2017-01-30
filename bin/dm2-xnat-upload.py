@@ -234,12 +234,21 @@ def get_xnat_resources(xnat_experiment_entry, ident):
     xnat_resources = [item['URI'] for item in resource_list]
     return xnat_resources
 
+
 def resource_data_exists(xnat_experiment_entry, ident, archive):
     xnat_resources = get_xnat_resources(xnat_experiment_entry, ident)
     with zipfile.ZipFile(archive) as zf:
         local_resources = get_resources(zf)
+
+    # split off the first part of the path which is the zipfile named
+    # this is removed on upload
+    for i, v in enumerate(local_resources):
+        path_bits = datman.utils.split_path(v)
+        local_resources[i] = os.path.join(*path_bits[1::])
+
     # paths in xnat are url encoded. Need to fix local paths to match
     local_resources = [urllib.pathname2url(p) for p in local_resources]
+
     if not set(local_resources).issubset(set(xnat_resources)):
         return False
     return True
@@ -305,7 +314,7 @@ def check_files_exist(archive, xnat_session, ident):
     scans_exist = scan_data_exists(xnat_experiment_entry, local_headers)
 
     resources_exist = resource_data_exists(xnat_experiment_entry, ident,
-                    archive)
+                                           archive)
 
     return scans_exist, resources_exist
 
