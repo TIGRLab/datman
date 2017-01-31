@@ -69,42 +69,22 @@ def main():
         logger.setLevel(logging.ERROR)
 
     config = datman.config.config(filename=site_config, study=project)
-    user_name, password = os.environ["XNAT_USER"], os.environ["XNAT_PASS"] #get_xnat_credentials(config, xnat_cred)
-    xnat_url = config.get_key('XNATSERVER')
+
+    user_name, password = os.environ["XNAT_USER"], os.environ["XNAT_PASS"] #datman.utils.get_xnat_credentials(config, xnat_cred)
+    xnat_url = get_xnat_url(config)
 
     scan_complete_records = get_project_redcap_records(config, redcap_cred)
 
-    with XNATConnection(user_name, password, xnat_url) as connection:
+    with datman.utils.XNATConnection(xnat_url, user_name,
+                                     password) as connection:
         for record in scan_complete_records:
             link_shared_ids(config, connection, record)
 
-#Not required anymore
-def get_xnat_credentials(config, xnat_cred):
-    if not xnat_cred:
-        xnat_cred = os.path.join(config.get_path('meta'), 'xnat-credentials')
-
-    try:
-        credentials = read_credentials(xnat_cred)
-        user_name = credentials[0]
-        password = credentials[1]
-    except IndexError:
-        logger.error("XNAT credential file {} is missing the user name or " \
-                "password.".format(xnat_cred))
-        sys.exit(1)
-    return user_name, password
-
-#Not required anymore
-def read_credentials(cred_file):
-    credentials = []
-    try:
-        with open(cred_file, 'r') as creds:
-            for line in creds:
-                credentials.append(line.strip('\n'))
-    except:
-        logger.error("Cannot read credential file or file does not exist: " \
-                "{}.".format(cred_file))
-        sys.exit(1)
-    return credentials
+def get_xnat_url(config):
+    url = config.get_key('XNATSERVER')
+    if 'https' not in url:
+        url = "https://" + url
+    return url
 
 def get_project_redcap_records(config, redcap_cred):
     token = get_redcap_token(config, redcap_cred)
@@ -139,7 +119,7 @@ def get_redcap_token(config, redcap_cred):
         redcap_cred = os.path.join(config.get_path('meta'), 'redcap-token')
 
     try:
-        token = read_credentials(redcap_cred)[0]
+        token = datman.utils.read_credentials(redcap_cred)[0]
     except IndexError:
         logger.error("REDCap credential file {} is empty.".format(redcap_cred))
         sys.exit(1)
