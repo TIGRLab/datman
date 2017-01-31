@@ -232,7 +232,6 @@ class xnat(object):
 
         return(result['items'][0])
 
-
     def get_resource_list(self, study, session, experiment, resource_id):
         """The list of non-dicom resources associated with an experiment
         returns a list of dicts, mostly interested in ID and name"""
@@ -254,7 +253,6 @@ class xnat(object):
             raise XnatException('Experiment:{} not found for session:{}'
                                 ' in study:{}'
                                 .format(experiment, session, study))
-
 
         # define the xml namespace
         ns = {'cat': 'http://nrg.wustl.edu/catalog'}
@@ -378,7 +376,6 @@ class xnat(object):
             err.study = project
             err.session = session
 
-
     def get_resource(self, project, session, experiment,
                      resource_group_id, resource_id,
                      filename=None, retries=3):
@@ -401,7 +398,6 @@ class xnat(object):
             #  mkstemp returns a file object and a filename
             #  we will deal with the filename in future so close the file object
             os.close(filename[0])
-
         try:
             self._get_xnat_stream(url, filename, retries)
             return(filename)
@@ -443,7 +439,6 @@ class xnat(object):
             logger.error('Failed getting resource archive from xnat', exc_info=True)
             raise XnatException("Failed downloading resource archive with url:{}"
                                 .format(url))
-
 
     def _get_xnat_stream(self, url, filename, retries=3, timeout=120):
         logger.info('Getting data from xnat')
@@ -597,6 +592,10 @@ class xnat(object):
             if 'multiple imaging sessions.' in response.content:
                 raise XnatException('Multiple imaging sessions in archive,'
                                     ' check prearchive')
+            if '502 Bad Gateway' in response.content:
+                raise XnatException('Bad gateway error: Check tomcat logs')
+            if 'Unable to identify experiment' in response.content:
+                raise XnatException('Unable to identify experiment, did dicom upload fail?')
             else:
                 raise XnatException('An unknown error occured uploading data.'
                                     'Status code:{}, reason:{}'

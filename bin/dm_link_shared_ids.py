@@ -69,7 +69,8 @@ def main():
         logger.setLevel(logging.ERROR)
 
     config = datman.config.config(filename=site_config, study=project)
-    user_name, password = datman.utils.get_xnat_credentials(config, xnat_cred)
+
+    user_name, password = os.environ["XNAT_USER"], os.environ["XNAT_PASS"] #datman.utils.get_xnat_credentials(config, xnat_cred)
     xnat_url = get_xnat_url(config)
 
     scan_complete_records = get_project_redcap_records(config, redcap_cred)
