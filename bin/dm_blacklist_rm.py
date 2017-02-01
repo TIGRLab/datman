@@ -121,7 +121,12 @@ def collect_blacklisted_items(blacklist, config, ignored_paths):
     return file_list
 
 def get_search_paths(config, ignored_paths):
-    path_keys = config.get_key('paths').keys()
+    paths = config.get_key('paths')
+    try:
+        path_keys = paths.keys()
+    except AttributeError:
+        logger.info("No paths set for {}".format(config.study_name))
+        return []
     search_paths = [path for path in path_keys if path not in ignored_paths]
     return search_paths
 

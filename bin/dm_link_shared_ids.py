@@ -44,10 +44,13 @@ import datman.config, datman.scanid, datman.utils
 
 DRYRUN = False
 
-logging.basicConfig(level=logging.WARN,
-        format='[%(name)s] %(levelname)s : %(message)s',
-        disable_existing_loggers=False)
+## use of stream handler over basic config allows log format to change to more
+## descriptive format later if needed while also ensure a consistent default
 logger = logging.getLogger(os.path.basename(__file__))
+log_handler = logging.StreamHandler()
+log_handler.setFormatter(logging.Formatter('[%(name)s] %(levelname)s : '
+        '%(message)s'))
+logger.addHandler(log_handler)
 
 def main():
     global DRYRUN
@@ -60,6 +63,10 @@ def main():
     debug = arguments['--debug']
     quiet = arguments['--quiet']
     DRYRUN = arguments['--dry-run']
+
+    # Set log format
+    log_handler.setFormatter(logging.Formatter('[%(name)s] %(levelname)s - '
+            '{study}: %(message)s'.format(study=project)))
 
     if verbose:
         logger.setLevel(logging.INFO)
@@ -166,10 +173,10 @@ def update_xnat_comment(experiment, subject, record):
         subject.attrs.set("xnat:subjectData/fields/field[name='comments']/field",
                 "See MR Scan notes")
     except xnat.core.errors.DatabaseError:
-        logger.error('{} scan comment is too long for notes field. Adding ' \
-              'note to check redcap record instead.'.format(record.id))
+        logger.error('Cannot write record {} comment to xnat. Adding note to '
+                'check redcap record instead'.format(record.id))
         subject.attrs.set("xnat:subjectData/fields/field[name='comments']/field",
-                'Comment too long, refer to REDCap record.')
+                'Refer to REDCap record.')
 
 def update_xnat_shared_ids(subject, record):
     logger.debug("{} has alternate id(s) {}".format(record.id, record.shared_ids))
@@ -177,10 +184,10 @@ def update_xnat_shared_ids(subject, record):
         subject.attrs.set("xnat:subjectData/fields/field[name='sharedids']/field",
                 ", ".join(record.shared_ids))
     except xnat.core.errors.DatabaseError:
-        logger.error('{} shared id list too long for xnat field, adding note '\
+        logger.error('{} shared ids cannot be added to XNAT. Adding note '\
                 'to check REDCap record instead.'.format(record.id))
         subject.attrs.set("xnat:subjectData/fields/field[name='sharedids']/field",
-                'ID list too long, refer to REDCap record.')
+                'Refer to REDCap record.')
 
 def make_links(record):
     source = record.id
