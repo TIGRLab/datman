@@ -54,7 +54,7 @@ def process_scan(dirname, headers):
 
     scan_date = datetime.strptime(headers.SeriesDate, '%Y%m%d')
 
-    return(subject_id, i.site, scan_date, is_phantom, is_repeat)
+    return(subject_id, i.session, i.site, scan_date, is_phantom, is_repeat)
 
 
 def main():
@@ -100,16 +100,16 @@ def main():
     scans = dm.utils.get_folder_headers(dcm_dir)
     logger.info('Found {} scans'.format(len(scans)))
 
-    headers = ["SUBJECT", "SCANDATE", "SITE", "SUBJECT/REPEAT/PHANTOM"]
+    headers = ["FOLDER", "SUBJECT", "SESSION", "SCANDATE", "SITE", "SUBJECT/REPEAT/PHANTOM"]
 
     results = []
     for key, val in scans.iteritems():
         res = process_scan(key, val)
         if res:
-            result = [res[0], datetime.strftime(res[2], '%Y-%m-%d'), res[1]]
-            if res[3]:
+            result = [key, res[0], res[1], datetime.strftime(res[3], '%Y-%m-%d'), res[2]]
+            if res[4]:
                 result.append('PHANTOM')
-            elif res[4]:
+            elif res[5]:
                 result.append('REPEAT')
             else:
                 result.append("SUBJECT")
