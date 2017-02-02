@@ -10,17 +10,17 @@ SCANID_RE = '(?P<study>[^_]+)_' \
             '(?P<timepoint>[^_]+)_' \
             '(?P<session>[^_]+)'
 
-SCANID_RE = '(?P<study>[^_]+)_' \
-            '(?P<site>[^_]+)_' \
-            '(?P<subject>[^_]+)_' \
-            '(?P<timepoint>[^_]+)(_*)' \
-            '(?P<session>[^_]*)'
+# SCANID_RE = '(?P<study>[^_]+)_' \
+#             '(?P<site>[^_]+)_' \
+#             '(?P<subject>[^_]+)_' \
+#             '(?P<timepoint>[^_]+)(_*)' \
+#             '(?P<session>[^_]*)'
 
-SCANID_RE = '(?P<study>[^_]+)_' \
-            '(?P<site>[^_]+)_' \
-            '(?P<subject>[^_]+)_' \
-            '(?P<timepoint>[^_]+)(_?)' \
-            '(?P<session>[^_].*)'
+# SCANID_RE = '(?P<study>[^_]+)_' \
+#             '(?P<site>[^_]+)_' \
+#             '(?P<subject>[^_]+)_' \
+#             '(?P<timepoint>[^_]+)(_?)' \
+#             '(?P<session>[^_].*)'
 
 SCANID_PHA_RE = '(?P<study>[^_]+)_' \
                 '(?P<site>[^_]+)_' \
@@ -53,7 +53,18 @@ class Identifier:
         self.site = site
         self.subject = subject
         self.timepoint = timepoint
-        self.session = session
+        self._session = session
+
+    @property
+    def session(self):
+        if self._session == 'XX':
+            return ''
+        return self._session
+
+    @session.setter
+    def session(self, value):
+        self._x = value
+
 
     def get_full_subjectid(self):
         return "_".join([self.study, self.site, self.subject])
@@ -67,7 +78,7 @@ class Identifier:
     def get_full_subjectid_with_timepoint_session(self):
         ident = self.get_full_subjectid_with_timepoint()
         if self.session:
-            ident += "_"+self.session
+            ident += "_" + self.session
         return ident
 
     def __str__(self):
@@ -81,10 +92,13 @@ class Identifier:
             return self.get_full_subjectid()
 
 def parse(identifier):
-    if type(identifier) is not str: raise ParseException()
+    if not isinstance(identifier, basestring):
+        raise ParseException
 
     match = SCANID_PATTERN.match(identifier)
     if not match: match = SCANID_PHA_PATTERN.match(identifier)
+    # work around for matching scanid's when session not supplied
+    if not match: match = SCANID_PATTERN.match(identifier + '_XX')
     if not match: raise ParseException()
 
     ident = Identifier(study    = match.group("study"),
@@ -112,7 +126,7 @@ def parse_filename(path):
     description = match.group("description")
     return ident, tag, series, description
 
-def make_filename(ident, tag, series, description, ext = None):
+def make_filename(ident, tag, series, description, ext=None):
     filename = "_".join([str(ident), tag, series, description])
     if ext:
         filename += ext
@@ -124,6 +138,15 @@ def is_scanid(identifier):
         return True
     except ParseException:
         return False
+
+def is_scanid_with_session(identifier):
+    try:
+        i = parse(identifier)
+        if i.session:
+            return True
+    except ParseException:
+        pass
+    return False
 
 def is_phantom(identifier):
     try:

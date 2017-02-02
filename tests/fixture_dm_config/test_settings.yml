@@ -1,0 +1,6 @@
+paths:
+  zips: data/override/
+
+Sites:
+  CMH:
+    XNAT_Archive: TEST/arc001

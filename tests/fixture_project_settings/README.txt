@@ -1,0 +1,1 @@
+This fixture directory is used by any tests that rely on datman.config.config for configuration info.

@@ -17,7 +17,8 @@ import nibabel as nib
 import contextlib
 import tempfile
 import shutil
-import logging
+import pyxnat
+import datman.config
 
 logger = logging.getLogger(__name__)
 
@@ -40,12 +41,103 @@ SERIES_TAGS_MAP = {
 "Loc"        :  "LOC",
 }
 
+
+def check_checklist(session_name, study=None):
+    """Reads the checklist identified from the session_name
+    If there is an entry returns the comment, otherwise
+    returns None
+    """
+
+    try:
+        ident = scanid.parse(session_name)
+    except scanid.ParseException:
+        logger.warning('Invalid session id:{}'.format(session_name))
+        return
+
+    if study:
+        cfg = datman.config.config(study=study)
+    else:
+        cfg = datman.config.config(study=ident.study)
+
+    try:
+        #study = cfg.map_xnat_archive_to_project(ident.study)
+        checklist_path = os.path.join(cfg.get_path('meta'),
+                                      'checklist.csv')
+    except KeyError:
+        logger.warning('Unable to identify meta path for study:{}'
+                       .format(cfg.study_name))
+        return
+
+    try:
+        with open(checklist_path, 'r') as f:
+            lines = f.readlines()
+    except IOError:
+        logger.warning('Unable to open checklist file:{} for reading'
+                       .format(checklist_path))
+        return
+
+    for line in lines:
+        parts = line.split(None, 1)
+        if parts:  # fix for empty lines
+            if os.path.splitext(parts[0])[0] == 'qc_{}'.format(session_name):
+                try:
+                    return parts[1].strip()
+                except IndexError:
+                    return ''
+
+    return None
+
+def check_blacklist(scan_name, study=None):
+    """Reads the checklist identified from the session_name
+    If there is an entry returns the comment, otherwise
+    returns None
+    """
+
+    try:
+        ident = scanid.parse_filename(scan_name)
+        ident = ident[0]
+    except scanid.ParseException:
+        logger.warning('Invalid session id:{}'.format(scan_name))
+        return
+
+    if study:
+        cfg = datman.config.config(study=study)
+    else:
+        cfg = datman.config.config(study=ident.study)
+
+    try:
+        #study = cfg.map_xnat_archive_to_project(ident.study)
+        checklist_path = os.path.join(cfg.get_path('meta'),
+                                      'blacklist.csv')
+    except KeyError:
+        logger.warning('Unable to identify meta path for study:{}'
+                       .format(study))
+        return
+
+    try:
+        with open(checklist_path, 'r') as f:
+            lines = f.readlines()
+    except IOError:
+        logger.warning('Unable to open blacklist file:{} for reading'
+                       .format(checklist_path))
+        return
+    for line in lines:
+        parts = line.split(None, 1)
+        if parts:  # fix for empty lines
+            if parts[0] == scan_name:
+                try:
+                    return parts[1].strip()
+                except IndexError:
+                    return
+
+
 def get_subject_from_filename(filename):
     filename = os.path.basename(filename)
     filename = filename.split('_')[0:5]
     filename = '_'.join(filename)
 
     return filename
+
 
 def script_path():
     """
@@ -130,7 +222,7 @@ def get_archive_headers(path, stop_after_first = False):
     elif os.path.isfile(path) and path.endswith('.tar.gz'):
         return get_tarfile_headers(path, stop_after_first)
     else:
-	raise Exception("{} must be a file (zip/tar) or folder.".format(path))
+        raise Exception("{} must be a file (zip/tar) or folder.".format(path))
 
 def get_tarfile_headers(path, stop_after_first = False):
     """
@@ -167,6 +259,10 @@ def get_zipfile_headers(path, stop_after_first = False):
             if stop_after_first: break
         except dcm.filereader.InvalidDicomError, e:
             continue
+        except zipfile.BadZipfile:
+            logger.warning('Error in zipfile:{}'
+                           .format(path))
+            break
     return manifest
 
 def get_folder_headers(path, stop_after_first = False):
@@ -239,13 +335,10 @@ def subject_type(subject):
 
         if subject[2] == 'PHA':
             return 'phantom'
-
         elif subject[2] != 'PHA' and subject[2][0] == 'P':
             return 'humanphantom'
-
         elif str.isdigit(subject[2]) == True and len(subject[2]) == 4:
             return 'subject'
-
         else:
             return None
 
@@ -294,13 +387,9 @@ def get_xnat_catalog(data_path, subject):
     for subject in subjects:
         folders = os.listdir(os.path.join(data_path, 'dicom', subject))
         folders.sort()
-        files = os.listdir(os.path.join(data_path, 'dicom', subject,
-                                                            folders[0]))
+        files = os.listdir(os.path.join(data_path, 'dicom', subject, folders[0]))
         files = filter(lambda x: '.xml' in x, files)
-
-        catalogs.append(os.path.join(data_path, 'dicom', subject,
-                                                         folders[0],
-                                                         files[0]))
+        catalogs.append(os.path.join(data_path, 'dicom', subject, folders[0], files[0]))
 
     catalogs.sort()
 
@@ -315,13 +404,13 @@ def define_folder(path):
     if os.path.isdir(path) == False:
         try:
             os.makedirs(path)
-        except:
+        except OSError as e:
             print('ERROR: failed to make directory {}'.format(path))
-            sys.exit(1)
+            raise(e)
 
     if has_permissions(path) == False:
         print('ERROR: does not have permissions to access {}'.format(path))
-        sys.exit(1)
+        raise OSError
 
     return path
 
@@ -375,7 +464,7 @@ def run(cmd, dryrun=False):
 
     if dryrun:
         logger.info("Performing dry-run")
-        return 0
+        return 0, ''
 
     logger.debug("Executing command: {}".format(cmd))
 
@@ -383,8 +472,8 @@ def run(cmd, dryrun=False):
     out, err = p.communicate()
 
     if p.returncode:
-        logger.error('run({}) failed with returncode {}. STDERR: {}'.format(cmd,
-                    p.returncode, err))
+        logger.error('run({}) failed with returncode {}. STDERR: {}'
+                     .format(cmd, p.returncode, err))
 
     return p.returncode, out
 
@@ -489,5 +578,102 @@ def remove_empty_files(path):
             filename = os.path.join(root, f)
             if os.path.getsize(filename) == 0:
                 os.remove(filename)
+
+def nifti_basename(fpath):
+    """
+    return basename without extension (either .nii.gz or .nii)
+    """
+    basefpath = os.path.basename(fpath)
+    stem = basefpath.replace('.nii','').replace('.gz', '')
+
+    return(stem)
+
+def filter_niftis(candidates):
+    """
+    Takes a list and returns all items that contain the extensions '.nii' or '.nii.gz'.
+    """
+    candidates = filter(lambda x: 'nii.gz' == '.'.join(x.split('.')[1:]) or
+                                     'nii' == '.'.join(x.split('.')[1:]), candidates)
+
+    return candidates
+
+def split_path(path):
+    """
+    Splits a path into all the component parts, returns a list
+
+    >>> split_path('a/b/c/d.txt')
+    ['a', 'b', 'c', 'd.txt']
+    """
+    dirname = path
+    path_split = []
+    while True:
+        dirname, leaf = os.path.split(dirname)
+        if (leaf):
+            path_split = [leaf] + path_split
+        else:
+            break
+    return(path_split)
+
+class cd(object):
+    """
+    A context manager for changing directory. Since best practices dictate
+    returning to the original directory, saves the original directory and
+    returns to it after the block has exited.
+
+    May raise OSError if the given path doesn't exist (or the current directory
+    is deleted before switching back)
+    """
+
+    def __init__(self, path):
+        user_path = os.path.expanduser(path)
+        self.new_path = os.path.expandvars(user_path)
+
+    def __enter__(self):
+        self.old_path = os.getcwd()
+        os.chdir(self.new_path)
+
+    def __exit__(self, e, value, traceback):
+        os.chdir(self.old_path)
+
+class XNATConnection(object):
+    def __init__(self,  xnat_url, user_name, password):
+        self.server = xnat_url
+        self.user = user_name
+        self.password = password
+
+    def __enter__(self):
+        self.connection = pyxnat.Interface(server=self.server, user=self.user,
+                password=self.password)
+        return self.connection
+
+    def __exit__(self, type, value, traceback):
+        self.connection.disconnect()
+
+def get_xnat_credentials(config, xnat_cred):
+    if not xnat_cred:
+        xnat_cred = os.path.join(config.get_path('meta'), 'xnat-credentials')
+
+    logger.debug("Retrieving xnat credentials from {}".format(xnat_cred))
+    try:
+        credentials = read_credentials(xnat_cred)
+        user_name = credentials[0]
+        password = credentials[1]
+    except IndexError:
+        logger.error("XNAT credential file {} is missing the user name or " \
+                "password.".format(xnat_cred))
+        sys.exit(1)
+    return user_name, password
+
+def read_credentials(cred_file):
+    credentials = []
+    try:
+        with open(cred_file, 'r') as creds:
+            for line in creds:
+                credentials.append(line.strip('\n'))
+    except:
+        logger.error("Cannot read credential file or file does not exist: " \
+                "{}.".format(cred_file))
+        sys.exit(1)
+    return credentials
 
 # vim: ts=4 sw=4 sts=4:

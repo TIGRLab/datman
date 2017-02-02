@@ -4,10 +4,10 @@ This analyzes imitate observe behavioural data.It could be generalized
 to analyze any rapid event-related design experiment fairly easily.
 
 Usage:
-    dm-proc-imob.py [options] <config>
+    dm-proc-imob.py [options] <study>
 
 Arguments:
-    <config>            Configuration file.
+    <study>             Name of study in system-wide configuration file.
 
 Options:
     --subject SUBJID    If given, run on a single subject
@@ -24,8 +24,8 @@ DETAILS
 DEPENDENCIES
     + afni
 """
-
-import datman as dm
+import datman.utils as utils
+import datman.config as cfg
 from datman.docopt import docopt
 import glob
 import logging
@@ -37,7 +37,20 @@ import yaml
 logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
-def generate_analysis_script(subject, inputs, input_type, config):
+def check_complete(directory, subject):
+    """Checks to see if the output files have been created.
+    Returns True if the files exist
+    """
+    expected_files = ['{}_glm_IM_1stlvl_MNI-nonlin.nii.gz',
+                      '{}_glm_OB_1stlvl_MNI-nonlin.nii.gz']
+
+    for filename in expected_files:
+        if not os.path.isfile(os.path.join(directory, subject, filename.format(subject))):
+            return False
+
+    return True
+
+def generate_analysis_script(subject, inputs, input_type, config, study):
     """
     This writes the analysis script to replicate the methods in [insert paper
     here]. It expects timing files to exist (these are static, and are generated
@@ -51,7 +64,8 @@ def generate_analysis_script(subject, inputs, input_type, config):
     error.
     """
     assets =  os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir, 'assets')
-    subject_dir = os.path.join(config['paths']['fmri'], 'imob', subject)
+    study_base = config.get_study_base(study)
+    subject_dir = os.path.join(study_base, config.site_config['paths']['fmri'], 'imob', subject)
     script = '{subject_dir}/{subject}_glm_1stlevel_{input_type}.sh'.format(
         subject_dir=subject_dir, subject=subject, input_type=input_type)
 
@@ -130,11 +144,11 @@ def get_inputs(files, config):
     respectively) for each epitome stage seperately.
     """
     inputs = {}
-    for exported in config['fmri']['imob']['glm']:
+    for exported in config.study_config['fmri']['imob']['glm']:
         candidates = filter(lambda x: '{}.nii.gz'.format(exported) in x, files)
         tagged_candidates = []
 
-        for tag in config['fmri']['imob']['tags']:
+        for tag in config.study_config['fmri']['imob']['tags']:
             tagged_candidates.extend(filter(lambda x: '_{}_'.format(tag) in x, candidates))
 
         if len(tagged_candidates) == 2:
@@ -149,19 +163,24 @@ def main():
     Loops through subjects, preprocessing using supplied script, and runs a
     first-level GLM using AFNI (tent functions, 15 s window) on all subjects.
     """
-    arguments   = docopt(__doc__)
-    config_file = arguments['<config>']
-    subject     = arguments['--subject']
-    debug       = arguments['--debug']
+    arguments = docopt(__doc__)
+    study     = arguments['<study>']
+    subject   = arguments['--subject']
+    debug     = arguments['--debug']
 
     logging.info('Starting')
     if debug:
         logger.setLevel(logging.DEBUG)
 
-    with open(config_file, 'r') as stream:
-        config = yaml.load(stream)
+    # load config for study
+    try:
+        config = cfg.config(study=study)
+    except ValueError:
+        logger.error('study {} not defined'.format(study))
+        sys.exit(1)
 
-    imob_dir = os.path.join(config['paths']['fmri'], 'imob')
+    study_base = config.get_study_base(study)
+    imob_dir = os.path.join(study_base, config.site_config['paths']['fmri'], 'imob')
 
     # process a single subject
     if subject:
@@ -170,10 +189,15 @@ def main():
         files = glob.glob(os.path.join(imob_dir, subject) + '/*.nii.gz')
         inputs = get_inputs(files, config)
 
-        for input_type in inputs.keys():
+        # check if subject has already been processed
+        if check_complete(imob_dir, subject):
+            logger.info('{} already analysed'.format(subject))
+            sys.exit(0)
 
-            script = generate_analysis_script(subject, inputs, input_type, config)
-            rtn, out = dm.utils.run('chmod 754 {script}; {script}'.format(script=script))
+        # first level GLM for inputs
+        for input_type in inputs.keys():
+            script = generate_analysis_script(subject, inputs, input_type, config, study)
+            rtn, out = utils.run('chmod 754 {script}; {script}'.format(script=script))
             if rtn:
                 logger.error('Failed to analyze {}\n{}'.format(subject, out))
                 sys.exit(1)
@@ -195,7 +219,7 @@ def main():
 
             for exp in expected:
                 if not filter(lambda x: '{}_glm_IM_1stlvl_{}'.format(subject, exp) in x, files):
-                    commands.append(" ".join([__file__, config_file, '--subject {}'.format(subject)]))
+                    commands.append(" ".join([__file__, study, '--subject {}'.format(subject)]))
                     break
 
         if commands:
@@ -207,8 +231,8 @@ def main():
                 jobname = "dm_imob_{}".format(time.strftime("%Y%m%d-%H%M%S"))
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
-                rtn, out = dm.utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
-                #rtn, out, err = dm.utils.run('qbatch -i --logdir {logdir} -N {name} --walltime {wt} {cmds}'.format(logdir = log_path, name = jobname, wt = walltime, cmds = path))
+                rtn, out = utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
+                #rtn, out, err = utils.run('qbatch -i --logdir {logdir} -N {name} --walltime {wt} {cmds}'.format(logdir = log_path, name = jobname, wt = walltime, cmds = path))
 
                 if rtn:
                     logger.error("Job submission failed. Output follows.")
@@ -217,3 +241,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

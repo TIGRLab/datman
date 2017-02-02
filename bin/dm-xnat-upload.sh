@@ -14,7 +14,7 @@
 STUDYNAME="${1}"
 XNAT_ARCHIVE="${2}"
 ZIPFOLDER="${3}"
-CREDFILE="${4}"
+#CREDFILE="${4}"
 
 if [ $# -ne 4 ]; then
   echo "Usage: $0 <studyname> <archivedir> <zipdir> <xnatcredfile>"
@@ -33,6 +33,6 @@ for zip in ${ZIPFOLDER}/*.zip; do
   if [ -e ${XNAT_ARCHIVE}/${scanid} ]; then 
     continue
   fi
-  xnat-upload.py --credfile ${CREDFILE} ${STUDYNAME} ${zip} 
+  xnat-upload.py ${STUDYNAME} ${zip} #--credfile ${CREDFILE} ${STUDYNAME} ${zip} 
 done
 

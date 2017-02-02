@@ -9,6 +9,7 @@ Options:
     --show-newer     Show data files newer than QC doc
     --root PATH      Path to parent folder to all study folders.
                      [default: /archive/data-2.0]
+    --study=<study>  Process a singe study
 
 Expects to be run in the parent folder to all study folders. Looks for the file
 checklist.csv in subfolders, and prints out any QC pdf from those that haven't
@@ -20,6 +21,27 @@ import glob
 import os
 import os.path
 import re
+import datman.config as config
+
+def read_checklist(checklist_file):
+    checklist_dict = {}
+
+    with open(checklist_file) as checklist:
+        lines = checklist.readlines()
+
+    for line in lines:
+        entry = line.strip().split()
+        try:
+            key = os.path.splitext(entry[0])[0]
+        except:
+            # Empty line, skip it
+            continue
+        try:
+            rest = entry[1:]
+        except:
+            entry = ''
+        checklist_dict[key] = rest
+    return checklist_dict
 
 def get_project_dirs(root, maxdepth=2):
     """
@@ -44,26 +66,22 @@ def get_project_dirs(root, maxdepth=2):
 def main():
     arguments = docopt.docopt(__doc__)
     rootdir = arguments['--root']
+    if arguments['--study']:
+        cfg = config.config()
+        rootdir = cfg.get_study_base(arguments['--study'])
 
     for projectdir in get_project_dirs(rootdir):
         checklist = os.path.join(projectdir, 'metadata', 'checklist.csv')
 
-        # map qc pdf to comments
-        checklistdict = {d[0]: d[1:] for d in [l.strip().split()
-                                     for l in open(checklist).readlines() if l.strip()]}
-
-        ## add .html for all .pdf keys
-        for k in checklistdict.keys():
-            if '.pdf' in k:
-                checklistdict[k.replace('.pdf','.html')] = checklistdict[k]
+        checklistdict = read_checklist(checklist)
 
         for timepointdir in sorted(glob.glob(projectdir + '/data/nii/*')):
             if '_PHA_' in timepointdir:
                 continue
 
             timepoint = os.path.basename(timepointdir)
-            qcdocname = 'qc_' + timepoint + '.html'
-            qcdoc = os.path.join(projectdir, 'qc', timepoint, qcdocname)
+            qcdocname = 'qc_' + timepoint
+            qcdoc = os.path.join(projectdir, 'qc', timepoint, (qcdocname + '.html'))
 
             data_mtime = max(map(os.path.getmtime, glob.glob(timepointdir + '/*.nii.gz')+[timepointdir]))
 
