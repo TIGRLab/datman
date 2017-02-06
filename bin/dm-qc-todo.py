@@ -65,19 +65,20 @@ def get_project_dirs(root, maxdepth=2):
 
 def get_mtime(path):
     """
-    Returns the value of os.path.getmtime. If a broken link is found the link
-    is removed and 0 returned.
+    Returns the value of os.path.getmtime. If a broken link is found 0 is
+    returned and a message is given.
 
-    This function is needed because when the target of a link is blacklisted and
-    removed the links to it are not cleaned up, and were causing os.path.getmtime
-    to crash.
+    This is needed because when the target of a link is blacklisted and removed
+    the links are not cleaned up and this was causing crashes. The broken links
+    cannot just be removed from here because this script may be run by many
+    users with insufficient privileges.
     """
+
     try:
         return os.path.getmtime(path)
     except OSError:
         if os.path.islink(path):
-            print("Removing broken link {}".format(path))
-            os.remove(path)
+            print("Found broken link: {}".format(path))
             return 0
         else:
             # Something went very wrong, reraise the OSError! :(
