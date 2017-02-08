@@ -79,7 +79,6 @@ DATMAN SETUP:
 
 """
 import os
-import re
 import sys
 import glob
 import random
@@ -132,9 +131,15 @@ def main():
     # Add any new subjects since the last run
     link_subjects(subject_list, maget_config.subject_dir,
                   maget_config.subject_tags)
+
+    # For future: May be good idea to run mb.sh in stages and wait for process
+    # to finish since running all at once tends to leave the resampling stage
+    # to crash waiting for its dependencies and it often doesn't restart properly.
     run_maget_brain(maget_config.maget_path)
-    # count_voxels()
-    # Clean filenames and link to outputs
+
+    for result_file in glob.glob(os.path.join(maget_config.results, '*')):
+        datmanize_results(maget_config.maget_dir, result_file,
+                          maget_config.subject_tags)
 
 def init_magetbrain(maget_config, subject_list):
     init_dirs(maget_config.maget_path)
@@ -181,8 +186,10 @@ def init_dirs(maget_dir):
         sys.exit(1)
 
 def link_atlases(atlases, atlas_dir):
+    logger.info("Linking atlases {} into destination {}".format(atlases,
+            atlas_dir))
     for atlas in atlases:
-        for source in glob.glob(os.path.join(atlas, '*.nii')):
+        for source in glob.glob(os.path.join(atlas, '*.nii*')):
             target = get_target_path(source, atlas_dir)
             make_link(source, target)
 
@@ -192,7 +199,7 @@ def get_target_path(source, target_dir):
     return target
 
 def make_link(source, target):
-    logger.debug("Linking atlas source file {} to target {}".format(source,
+    logger.debug("Linking source file {} to target {}".format(source,
                  target))
     if DRYRUN:
         return
@@ -203,6 +210,7 @@ def make_link(source, target):
                 "Reason: {}".format(source, target, e.strerror))
 
 def link_subjects(subject_paths, destination, tag_dict):
+    logger.info("Linking new subject data into {}".format(destination))
     for subject_path in subject_paths:
         for series in glob.glob(os.path.join(subject_path, '*.nii*')):
             series_tag = get_series_tag(series)
@@ -244,6 +252,7 @@ def mangle_series_name(series, maget_tag):
 def link_templates(subject_list, requested_templates, template_dir,
                    subject_tags):
     num_templates = set_num_templates(requested_templates, len(subject_list))
+    logger.info("Selecting and linking {} templates".format(num_templates))
     templates = select_random_subjects(num_templates, subject_list)
     link_subjects(templates, template_dir, subject_tags)
 
@@ -287,18 +296,40 @@ def run_maget_brain(maget_path):
             logger.error("mb.sh output: {}".format(out))
         sys.exit(1)
 
-# def count_voxels(maget_config):
-#     for atlas in maget_config.atlases:
-#         label_info = maget_config.read_label_info(atlas)
-#         output_path = os.path.join(maget_config.maget_path, 'voxel_count.csv')
-#         if DRYRUN:
-#             return
-#         headers = set_voxel_count_headers(label_info.values(), output_path)
-#
-# def set_voxel_count_headers(col_headers, output_path):
-#     if os.path.exists(output_path):
-#         return []
-#     return col_headers
+def datmanize_results(maget_dir, results_file, defined_tags):
+    ident, tag, series, description = dm.scanid.parse_filename(results_file)
+    subject_folder = os.path.join(maget_dir, "_".join(
+        [ident.study, ident.site, ident.subject, ident.timepoint]))
+
+    if not os.path.exists(subject_folder):
+        os.makedirs(subject_folder)
+
+    label = extract_label(results_file)
+    if label is None:
+        return
+
+    target = get_new_path(ident, description, series, label, defined_tags,
+                          subject_folder)
+    source = os.path.relpath(results_file, target)
+    make_link(source, target)
+
+def extract_label(file_name):
+    match = re.match(".*_(label.*\.nii.*)$", file_name)
+    try:
+        return "_" + match.group(1)
+    except:
+        logger.error("Output file {} cannot be parsed into datman "
+                "style file name.".format(file_name))
+        return None
+
+def get_new_path(ident, description, series, label, tag_types, output_folder):
+    # Remove the maget_tag for any defined tags
+    for tag in tag_types:
+        tag = '_' + tag
+        untagged = description.replace(tag, "")
+    datman_name = dm.scanid.make_filename(ident, tag, series, description,
+                                          label)
+    return os.path.join(output_folder, datman_name)
 
 class MagetConfig(object):
     def __init__(self, config):
@@ -307,12 +338,13 @@ class MagetConfig(object):
         self.datman_atlas_path = self.__get_datman_atlases()
         self.__maget_settings = self.__get_maget_settings()
         self.__atlas_dict = self.__set_atlas_dict()
-        self.atlases = self.get_input_atlases()
+        self.atlases = self.__set_atlases()
         self.subject_tags = self.get_subject_tags()
         self.num_templates = self.get_number_of_templates()
         self.atlas_dir = os.path.join(self.maget_path, 'input', 'atlas')
         self.subject_dir = os.path.join(self.maget_path, 'input', 'subject')
         self.template_dir = os.path.join(self.maget_path, 'input', 'template')
+        self.results = os.path.join(self.maget_path, 'output/labels/majorityvote')
 
     def __get_magetbrain_path(self):
         try:
@@ -351,18 +383,24 @@ class MagetConfig(object):
             sys.exit(1)
         return atlas_dict
 
-    def get_input_atlases(self):
-        atlases = self.__atlas_dict.keys()
+    def __set_atlases(self):
+        atlas_names = self.__atlas_dict.keys()
+        return [os.path.join(self.datman_atlas_path, name) for name in atlas_names]
 
-        atlas_paths = []
-        for atlas in atlases:
-            atlas_path = os.path.join(self.datman_atlas_path, atlas)
-            if not os.path.exists(atlas_path):
-                logger.error("Cannot find atlas {} in {}".format(atlas,
-                        self.datman_atlas_path))
-                sys.exit(1)
-            atlas_paths.append(atlas_path)
-        return atlas_paths
+    def get_atlas(self, atlas_name):
+        try:
+            settings = self.__atlas_dict[atlas_name]
+        except KeyError:
+            logger.error("Atlas {} not defined in settings".format(atlas_name))
+            return None
+
+        atlas_path = os.path.join(self.datman_atlas_path, atlas_name)
+        if not os.path.exists(atlas_path):
+            logger.error("Cannot find atlas {} in {}".format(atlas_name,
+                         self.datman_atlas_path))
+            return None
+
+        return Atlas(atlas_path, atlas_name, settings)
 
     def get_subject_tags(self):
         try:
@@ -391,49 +429,53 @@ class MagetConfig(object):
             num = 21
         return num
 
-    def read_label_info(self, atlas_name):
-        csv_path = self.get_label_info_path(atlas_name)
-        if not csv_path:
+class Atlas(object):
+    def __init__(self, atlas_path, atlas_name, settings):
+        self.path = atlas_path
+        self.name = atlas_name
+        self.__output_labels = settings
+        self.output_files = self.__output_labels.keys()
+
+    def get_label_info(self, output_type):
+        try:
+            label_files = self.__output_labels[output_type]
+        except KeyError:
+            logger.error("No output label file {} defined for atlas {}."
+                    "".format(output_type, self.name))
             return {}
 
-        lines = self.get_label_info_contents(csv_path)
-        if not lines:
-            return {}
+        if not isinstance(label_files, list):
+            label_files = [label_files]
 
         labels = {}
-        for line in lines:
-            entry = self.split_line(line)
-            if len(entry) is not 2:
-                logger.error("Unreadable entry {} in label file {}. "
-                        "Skipping.".format(line, csv_path))
-                continue
-            labels[entry[0]] = entry[1]
+        for label_file_name in label_files:
+            csv_contents = self._add_labels(label_file_name, labels)
         return labels
 
-    def get_label_info_path(self, atlas_name):
-        try:
-            csv_file = self.__atlas_dict[atlas_name]
-        except KeyError:
-            logger.error("Cannot create {}_voxel_counts.csv: No label file "
-                    "specified.".format(atlas_name))
-            return ''
+    def _add_labels(self, label_csv, labels):
+        lines = self._read_csv(label_csv)
+        for line in lines:
+            fields = self._split_line(line)
+            if len(fields) is not 2:
+                logger.error("Cannot parse line {} in label csv {}."
+                        "".format(line, label_csv))
+                continue
+            labels[fields[0]] = fields[1]
+        return labels
 
-        csv_path = os.path.join(self.datman_atlas_path, atlas_name, csv_file)
-        return csv_path
-
-    def get_label_info_contents(self, csv_path):
+    def _read_csv(self, csv_name):
+        csv_path = os.path.join(self.path, csv_name)
         try:
             with open(csv_path, 'r') as label_file:
                 lines = label_file.readlines()
         except:
-            logger.error("Cannot read label info {}".format(csv_path))
+            logger.error("Cannot read labels info from {}".format(csv_path))
             return []
         return lines
 
-    def split_line(self, line):
-        regex = ",|\s"
-        fields = re.split(regex, line)
-        return [entry for entry in fields if entry]
+    def _split_line(self, line):
+        fields = line.split(',')
+        return [item.strip() for item in fields]
 
 if __name__ == '__main__':
     main()
