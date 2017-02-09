@@ -132,22 +132,11 @@ def main():
     link_subjects(subject_list, maget_config.subject_dir,
                   maget_config.subject_tags)
 
-    # For future: May be good idea to run mb.sh in stages and wait for process
-    # to finish since running all at once tends to leave the resampling stage
-    # to crash waiting for its dependencies and it often doesn't restart properly.
     run_maget_brain(maget_config.maget_path)
 
     for result_file in glob.glob(os.path.join(maget_config.results, '*')):
         datmanize_results(maget_config.maget_dir, result_file,
                           maget_config.subject_tags)
-
-def init_magetbrain(maget_config, subject_list):
-    init_dirs(maget_config.maget_path)
-    link_atlases(maget_config.atlases, maget_config.atlas_dir)
-    link_subjects(subject_list, maget_config.subject_dir,
-                  maget_config.subject_tags)
-    link_templates(subject_list, maget_config.num_templates,
-                   maget_config.template_dir, maget_config.subject_tags)
 
 def get_nifti_dir(config):
     try:
@@ -168,6 +157,14 @@ def get_subject_list(source):
         logger.error("No subjects found in directory {}".format(source))
         sys.exit(1)
     return subjects
+
+def init_magetbrain(maget_config, subject_list):
+    init_dirs(maget_config.maget_path)
+    link_atlases(maget_config.atlases, maget_config.atlas_dir)
+    link_subjects(subject_list, maget_config.subject_dir,
+                  maget_config.subject_tags)
+    link_templates(subject_list, maget_config.num_templates,
+                   maget_config.template_dir, maget_config.subject_tags)
 
 def init_dirs(maget_dir):
     if not os.path.exists(maget_dir):
@@ -297,6 +294,7 @@ def run_maget_brain(maget_path):
         sys.exit(1)
 
 def datmanize_results(maget_dir, results_file, defined_tags):
+    logger.info("Making datman-style named links to results.")
     ident, tag, series, description = dm.scanid.parse_filename(results_file)
     subject_folder = os.path.join(maget_dir, "_".join(
         [ident.study, ident.site, ident.subject, ident.timepoint]))
@@ -385,7 +383,15 @@ class MagetConfig(object):
 
     def __set_atlases(self):
         atlas_names = self.__atlas_dict.keys()
-        return [os.path.join(self.datman_atlas_path, name) for name in atlas_names]
+        atlases = []
+        for name in atlas_names:
+            atlas_path = os.path.join(self.datman_atlas_path, name)
+            if not os.path.exists(atlas_path):
+                logger.error("Specified atlas {} cannot be found in atlas "
+                        "directory {}".format(name, self.datman_atlas_path))
+                sys.exit(1)
+            atlases.append(atlas_path)
+        return atlases
 
     def get_atlas(self, atlas_name):
         try:
