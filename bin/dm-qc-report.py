@@ -358,7 +358,7 @@ def add_report_to_checklist(qc_report, checklist_path, retry=3):
                 "{}".format(report_file_name, retry))
         # Sleep for a short time to shuffle processes that are attempting
         # concurrent writes.
-        wait_time = random.uniform(0, 3)
+        wait_time = random.uniform(0, 10)
         time.sleep(wait_time)
         add_report_to_checklist(qc_report, checklist_path, retry=retry-1)
 
