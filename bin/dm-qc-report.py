@@ -356,6 +356,10 @@ def add_report_to_checklist(qc_report, checklist_path, retry=3):
     except:
         logger.error("Failed to write {} to checklist. Tries remaining: "
                 "{}".format(report_file_name, retry))
+        # Sleep for a short time to shuffle processes that are attempting
+        # concurrent writes.
+        wait_time = random.uniform(0, 3)
+        time.sleep(wait_time)
         add_report_to_checklist(qc_report, checklist_path, retry=retry-1)
 
 def add_header_qc(nifti, qc_html, log_path):
@@ -524,7 +528,12 @@ def generate_qc_report(report_name, subject, expected_files, header_diffs, handl
 
 def get_position(position_info):
     if isinstance(position_info, list):
-        position = position_info.pop(0)
+        try:
+            position = position_info.pop(0)
+        except IndexError:
+            ## More of this scan type than expected in config entry, assign
+            ## last possible position
+            position = 999
     else:
         position = position_info
 

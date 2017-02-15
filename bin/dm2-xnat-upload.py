@@ -46,7 +46,7 @@ import io
 import dicom
 import urllib
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(os.path.basename(__file__))
 
 username = None
 password = None
@@ -72,7 +72,6 @@ def main():
     archive = arguments['<archive>']
 
     # setup logging
-    logging.basicConfig()
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.WARN)
     logger.setLevel(logging.WARN)
@@ -86,8 +85,9 @@ def main():
         logger.setLevel(logging.DEBUG)
         ch.setLevel(logging.DEBUG)
 
-    formatter = logging.Formatter('%(asctime)s - %(name)s - '
-                                  '%(levelname)s - %(message)s')
+    formatter = logging.Formatter('%(asctime)s - %(name)s - {study} - '
+                                  '%(levelname)s - %(message)s'.format(
+                                  study=study))
     ch.setFormatter(formatter)
 
     logger.addHandler(ch)
@@ -111,8 +111,7 @@ def main():
             # a sessionid could have been provided, lets be nice and handle that
             archives = [datman.utils.splitext(archive)[0] + '.zip']
         else:
-            logger.error('Cant find archive:{}'
-                         .format(archives[0]))
+            logger.error('Cant find archive:{}'.format(archive))
             return
     else:
         archives = os.listdir(dicom_dir)

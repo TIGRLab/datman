@@ -17,6 +17,7 @@ import nibabel as nib
 import contextlib
 import tempfile
 import shutil
+import pyxnat
 import datman.config
 
 logger = logging.getLogger(__name__)
@@ -612,4 +613,67 @@ def split_path(path):
         else:
             break
     return(path_split)
+
+class cd(object):
+    """
+    A context manager for changing directory. Since best practices dictate
+    returning to the original directory, saves the original directory and
+    returns to it after the block has exited.
+
+    May raise OSError if the given path doesn't exist (or the current directory
+    is deleted before switching back)
+    """
+
+    def __init__(self, path):
+        user_path = os.path.expanduser(path)
+        self.new_path = os.path.expandvars(user_path)
+
+    def __enter__(self):
+        self.old_path = os.getcwd()
+        os.chdir(self.new_path)
+
+    def __exit__(self, e, value, traceback):
+        os.chdir(self.old_path)
+
+class XNATConnection(object):
+    def __init__(self,  xnat_url, user_name, password):
+        self.server = xnat_url
+        self.user = user_name
+        self.password = password
+
+    def __enter__(self):
+        self.connection = pyxnat.Interface(server=self.server, user=self.user,
+                password=self.password)
+        return self.connection
+
+    def __exit__(self, type, value, traceback):
+        self.connection.disconnect()
+
+def get_xnat_credentials(config, xnat_cred):
+    if not xnat_cred:
+        xnat_cred = os.path.join(config.get_path('meta'), 'xnat-credentials')
+
+    logger.debug("Retrieving xnat credentials from {}".format(xnat_cred))
+    try:
+        credentials = read_credentials(xnat_cred)
+        user_name = credentials[0]
+        password = credentials[1]
+    except IndexError:
+        logger.error("XNAT credential file {} is missing the user name or " \
+                "password.".format(xnat_cred))
+        sys.exit(1)
+    return user_name, password
+
+def read_credentials(cred_file):
+    credentials = []
+    try:
+        with open(cred_file, 'r') as creds:
+            for line in creds:
+                credentials.append(line.strip('\n'))
+    except:
+        logger.error("Cannot read credential file or file does not exist: " \
+                "{}.".format(cred_file))
+        sys.exit(1)
+    return credentials
+
 # vim: ts=4 sw=4 sts=4:
