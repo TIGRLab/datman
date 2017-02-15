@@ -265,7 +265,7 @@ def get_experiment_id(xnat_experiment_entry):
     experiment_id = xnat_experiment_entry['data_fields']['UID']
     return experiment_id
 
-def scan_data_exists(xnat_experiment_entry, local_headers):
+def scan_data_exists(xnat_experiment_entry, local_headers, archive):
     local_scan_uids = [scan.SeriesInstanceUID for scan in local_headers.values()]
     local_experiment_ids = [v.StudyInstanceUID for v in local_headers.values()]
     xnat_experiment_id = get_experiment_id(xnat_experiment_entry)
@@ -310,7 +310,7 @@ def check_files_exist(archive, xnat_session, ident):
 
     xnat_experiment_entry = get_experiment_entry(xnat_session)
 
-    scans_exist = scan_data_exists(xnat_experiment_entry, local_headers)
+    scans_exist = scan_data_exists(xnat_experiment_entry, local_headers, archive)
 
     resources_exist = resource_data_exists(xnat_experiment_entry, ident,
                                            archive)
