@@ -140,7 +140,7 @@ def process_archive(archivefile):
                                                 xnat_session, scanid)
     except Exception as e:
         logger.error('Failed checking xnat for session:{}'
-                     .format(xnat_session))
+                     .format(scanid))
         return
 
     if data_exists and resource_exists:
@@ -400,7 +400,7 @@ def get_xnat(server=None, credfile=None, username=None):
         """
         username = os.environ["XNAT_USER"]
         password = os.environ["XNAT_PASS"]
-        
+
     xnat = datman.xnat.xnat(server, username, password)
     return xnat
 
