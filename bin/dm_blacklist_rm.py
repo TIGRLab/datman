@@ -145,8 +145,11 @@ def remove_item(item):
         if DRYRUN:
             return
         os.remove(item)
-    except OSError:
-        logger.error("Cannot remove file {}".format(item))
+    except OSError as e:
+        if e.errno == 13:
+            logger.error("Cannot remove file, reason: {}".format(e.strerror))
+        else:
+            logger.debug("Cannot remove file {}".format(item))
 
 def remove_parent_dir_if_empty(item):
     parent_dir = os.path.dirname(item)
