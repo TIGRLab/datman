@@ -94,8 +94,8 @@ def check_blacklist(scan_name, study=None):
     """
 
     try:
-        ident = scanid.parse_filename(scan_name)
-        ident = ident[0]
+        ident, tag, series_num, _ = scanid.parse_filename(scan_name)
+        blacklist_id = "_".join([str(ident), tag, series_num])
     except scanid.ParseException:
         logger.warning('Invalid session id:{}'.format(scan_name))
         return
@@ -124,7 +124,7 @@ def check_blacklist(scan_name, study=None):
     for line in lines:
         parts = line.split(None, 1)
         if parts:  # fix for empty lines
-            if parts[0] == scan_name:
+            if blacklist_id in parts[0]:
                 try:
                     return parts[1].strip()
                 except IndexError:
