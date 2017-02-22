@@ -119,7 +119,7 @@ class dashboard(object):
             db.session.commit()
         except Exception as e:
             logger.error('An error occured adding session:{} to the database'
-                         'Error:{}'
+                         ' Error:{}'
                          .format(session_name, str(e)))
             return None
         return dashboard_session
@@ -240,3 +240,15 @@ class dashboard(object):
             raise DashboardException('Invalid scantype')
         else:
             return qry.first()
+
+    def delete_session(self, session_name):
+        session = self.get_add_session(session_name, create=False)
+        db.session.delete(session)
+        try:
+            db.session.commit()
+        except Exception as e:
+            logger.error('An error occured deleting session:{} from the database'
+                         ' Error:{}'
+                         .format(session_name, str(e)))
+            return False
+        return True
