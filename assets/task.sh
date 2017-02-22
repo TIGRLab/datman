@@ -1212,7 +1212,7 @@ done
 echo '*** MODULE: volsmooth. Spatially smooths volume data. ******************'
 export input=func_detrend
 export mask=anat_EPI_mask
-export fwhm=10.0
+export fwhm=12.0
 export mode=normal
 
 DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
