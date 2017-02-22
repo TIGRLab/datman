@@ -92,6 +92,11 @@ import shutil
 import dicom
 
 logger = logging.getLogger(os.path.basename(__file__))
+log_handler = logging.StreamHandler()
+log_handler.setFormatter(logging.Formatter('[%(name)s] %(levelname)s : '
+        '%(message)s'))
+logger.addHandler(log_handler)
+
 xnat = None
 cfg = None
 dashboard = None
@@ -172,7 +177,7 @@ def main():
         """
         username = os.environ["XNAT_USER"]
         password = os.environ["XNAT_PASS"]
-        
+
     xnat = datman.xnat.xnat(server, username, password)
 
     # setup the dashboard object
