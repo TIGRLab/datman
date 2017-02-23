@@ -3,8 +3,8 @@
 Extracts data from xnat archive folders into a few well-known formats.
 
 Usage:
-    xnat-extract.py [options] <study>
-    xnat-extract.py [options] <study> <session>
+    dm2-xnat-extract.py [options] <study>
+    dm2-xnat-extract.py [options] <study> <session>
 
 Arguments:
     <study>            Nickname of the study to process
@@ -78,6 +78,7 @@ import sys
 import datman.config
 import datman.xnat
 import datman.utils
+import datman.scanid
 import datman.dashboard
 import datman.exceptions
 import getpass
@@ -90,7 +91,12 @@ import platform
 import shutil
 import dicom
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(os.path.basename(__file__))
+log_handler = logging.StreamHandler()
+log_handler.setFormatter(logging.Formatter('[%(name)s] %(levelname)s : '
+        '%(message)s'))
+logger.addHandler(log_handler)
+
 xnat = None
 cfg = None
 dashboard = None
@@ -118,9 +124,9 @@ def main():
 
     if arguments['--dry-run']:
         DRYRUN = True
+        db_ignore = True
 
     # setup logging
-    logging.basicConfig()
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.WARN)
     logger.setLevel(logging.WARN)
@@ -134,8 +140,9 @@ def main():
         logger.setLevel(logging.DEBUG)
         ch.setLevel(logging.DEBUG)
 
-    formatter = logging.Formatter('%(asctime)s - %(name)s - '
-                                  '%(levelname)s - %(message)s')
+    formatter = logging.Formatter('%(asctime)s - %(name)s - {study} - '
+                                  '%(levelname)s - %(message)s'.format(
+                                  study=study))
     ch.setFormatter(formatter)
 
     logger.addHandler(ch)
@@ -158,6 +165,8 @@ def main():
     if username:
         password = getpass.getpass()
     else:
+        #Moving away from storing credentials in text files
+        """
         if not credfile:
             credfile = os.path.join(cfg.get_path('meta', study),
                                     'xnat-credentials')
@@ -165,6 +174,9 @@ def main():
             lines = cf.readlines()
             username = lines[0].strip()
             password = lines[1].strip()
+        """
+        username = os.environ["XNAT_USER"]
+        password = os.environ["XNAT_PASS"]
 
     xnat = datman.xnat.xnat(server, username, password)
 
@@ -186,8 +198,9 @@ def main():
         except datman.exceptions.XnatException as e:
             raise e
 
-        if not xnat_projects:
+        if not xnat_project:
             logger.error('Failed to find session:{} in xnat.'
+                         ' Ensure it is named correctly with timepoint.'
                          .format(xnat_projects))
             return
 
@@ -196,9 +209,18 @@ def main():
         for project in xnat_projects:
             project_sessions = xnat.get_sessions(project)
             for session in project_sessions:
+                try:
+                    i = datman.scanid.parse(session['label'])
+                    if not datman.scanid.is_phantom(session['label']) and i.session == '':
+                        # raise an exception if scan is not a phantom and series is missing
+                        raise datman.scanid.ParseException
+                except datman.scanid.ParseException:
+                    logger.error('Invalid session id:{} in project:{}, skipping.'
+                                 .format(session['label'], project))
+                    continue
                 sessions.append((project, session['label']))
 
-    logger.info('Found {} sessions for study:'
+    logger.info('Found {} sessions for study: {}'
                 .format(len(sessions), study))
 
     for session in sessions:
@@ -231,6 +253,12 @@ def process_session(session):
                        'in study:{} Skipping'
                        .format(session_label, xnat_project))
         return
+
+    if not experiments:
+        logger.error('Session:{} in study:{} has no experiments'
+                     .format(session_label, xnat_project))
+        return
+
 
     experiment_label = experiments[0]['label']
     # sesssion_label should be a valid datman scanid
@@ -287,7 +315,10 @@ def process_session(session):
 
 def create_scan_name(export_info, scan_info, session_label):
     """Creates name suitable for a scan including the tags"""
-    series_id = scan_info['data_fields']['ID']
+    try:
+        series_id = scan_info['data_fields']['ID']
+    except TypeError as e:
+        logger.error("{} failed. Cause: {}".format(session_label, e.strerror))
     # try and get the scan description, this isn't always in the correct field
     if 'series_description' in scan_info['data_fields'].keys():
         description = scan_info['data_fields']['series_description']
@@ -318,6 +349,7 @@ def create_scan_name(export_info, scan_info, session_label):
     file_stem = "_".join([session_label, tag, padded_series, mangled_descr])
     return(file_stem, tag)
 
+
 def process_resources(xnat_project, session_label, experiment_label, data):
     """Export any non-dicom resources from the xnat archive"""
     global cfg
@@ -325,6 +357,13 @@ def process_resources(xnat_project, session_label, experiment_label, data):
                 .format(len(data), session_label))
     base_path = os.path.join(cfg.get_path('resources'),
                              session_label)
+    if not os.path.isdir(base_path):
+        logger.info('Creating dir:{}'.format(base_path))
+        try:
+            os.makedirs(base_path)
+        except OSError:
+            logger.error('Failed creating resources dir:{}.'.format(base_path))
+            return
 
     for item in data['items']:
         try:
@@ -348,6 +387,8 @@ def process_resources(xnat_project, session_label, experiment_label, data):
                                                session_label,
                                                experiment_label,
                                                xnat_resource_id)
+            if not resources:
+                continue
         except Exception as e:
             logger.error('Failed getting resource:{} '
                          'for session:{} in project:{}'
@@ -355,7 +396,8 @@ def process_resources(xnat_project, session_label, experiment_label, data):
             continue
 
         for resource in resources:
-            if os.path.isfile(os.path.join(target_path, resource['name'])):
+            resource_path = os.path.join(target_path, resource['URI'])
+            if os.path.isfile(resource_path):
                 logger.debug('Resource:{} found for session:{}'
                              .format(resource['name'], session_label))
             else:
@@ -365,12 +407,15 @@ def process_resources(xnat_project, session_label, experiment_label, data):
                              session_label,
                              experiment_label,
                              xnat_resource_id,
-                             resource['ID'],
-                             target_path)
+                             resource['URI'],
+                             resource_path)
 
 
 def get_resource(xnat_project, xnat_session, xnat_experiment,
                  xnat_resource_group, xnat_resource_id, target_path):
+    """Download a single resource file from xnat. Target path should be
+    full path to store the file, including filename"""
+
     try:
         archive = xnat.get_resource(xnat_project,
                                     xnat_session,
@@ -381,19 +426,25 @@ def get_resource(xnat_project, xnat_session, xnat_experiment,
         logger.error('Failed downloading resource archive from:{} with reason:{}'
                      .format(xnat_session, e))
         return
+
+    # check that the target path exists
+    target_dir = os.path.split(target_path)[0]
+    if not os.path.exists(target_dir):
+        try:
+            os.makedirs(target_dir)
+        except OSError:
+            logger.error('Failed to create directory:{}'.format(target_dir))
+            return
+
     # extract the files from the archive, ignoring the filestructure
     try:
         with zipfile.ZipFile(archive[1]) as zip_file:
-            for member in zip_file.namelist():
-                filename = os.path.basename(member)
-                if not filename:
-                    continue
-                if DRYRUN:
-                    continue
-                source = zip_file.open(member)
-                target = file(os.path.join(target_path, filename), 'wb')
-                with source, target:
+            member = zip_file.namelist()[0]
+            source = zip_file.open(member)
+            if not DRYRUN:
+                with open(target_path, 'wb') as target:
                     shutil.copyfileobj(source, target)
+            target.close()
     except:
         logger.error('Failed extracting resources archive:{}'
                      .format(xnat_session), exc_info=True)
@@ -469,6 +520,7 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
 
         # check the blacklist
         logger.debug('Checking blacklist for file:{}'.format(file_stem))
+
         blacklist = datman.utils.check_blacklist(file_stem,
                                                  study=cfg.study_name)
         if blacklist:
@@ -498,8 +550,8 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
                                                        series_id)
 
         if not src_dir:
-            logger.error('Failed getting series:{}, scan:{} from xnat'
-                         .format(series, session_label))
+            logger.error('Failed getting series:{}, session:{} from xnat'
+                         .format(series_id, session_label))
             continue
 
         try:
@@ -518,7 +570,7 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
                 exporter(src_dir, target_dir, file_stem)
         except:
             logger.error('An error happened exporting {} from scan:{} in session:{}'
-                         .format(export_format, series, session_label), exc_info=True)
+                         .format(export_format, series_id, session_label), exc_info=True)
 
         logger.debug('Completed exports')
         try:
@@ -528,7 +580,12 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
                          .format(tempdir, platform.node()))
     # finally delete any extra scans that exist in the dashboard
     if dashboard:
-        dashboard.delete_extra_scans(session_label, scans_added)
+        try:
+            dashboard.delete_extra_scans(session_label, scans_added)
+        except:
+            logger.error('Failed deleting extra scans from session:{}'
+                         .format(session_label))
+
 
 def get_dicom_archive_from_xnat(xnat_project, session_label, experiment_label,
                                 series):
@@ -627,11 +684,26 @@ def check_if_dicom_is_processed(ident, file_stem, export_formats):
     return True
 
 
+def check_create_dir(target):
+    """Checks to see if a directory exists, creates if not"""
+    if not os.path.isdir(target):
+        logger.info('Creating dir:{}'.format(target))
+        try:
+            os.makedirs(target)
+        except OSError as e:
+            logger.error('Failed creating dir:{}.'.format(target))
+            raise e
+
 def export_mnc_command(seriesdir, outputdir, stem):
     """
     Converts a DICOM series to MINC format
     """
     outputfile = os.path.join(outputdir, stem) + ".mnc"
+
+    try:
+        check_create_dir(outputdir)
+    except:
+        return
 
     if os.path.exists(outputfile):
         logger.warn("{}: output {} exists. skipping."
@@ -651,7 +723,10 @@ def export_nii_command(seriesdir, outputdir, stem):
     Converts a DICOM series to NifTi format
     """
     outputfile = os.path.join(outputdir, stem) + ".nii.gz"
-
+    try:
+        check_create_dir(outputdir)
+    except:
+        return
     if os.path.exists(outputfile):
         logger.warn("{}: output {} exists. skipping."
                     .format(seriesdir, outputfile))
@@ -681,7 +756,10 @@ def export_nrrd_command(seriesdir, outputdir, stem):
     Converts a DICOM series to NRRD format
     """
     outputfile = os.path.join(outputdir, stem) + ".nrrd"
-
+    try:
+        check_create_dir(outputdir)
+    except:
+        return
     if os.path.exists(outputfile):
         logger.warn("{}: output {} exists. skipping."
                     .format(seriesdir, outputfile))
@@ -700,6 +778,10 @@ def export_dcm_command(seriesdir, outputdir, stem):
     Copies a single DICOM from the series.
     """
     outputfile = os.path.join(outputdir, stem) + ".dcm"
+    try:
+        check_create_dir(outputdir)
+    except:
+        return
     if os.path.exists(outputfile):
         logger.warn("{}: output {} exists. skipping."
                     .format(seriesdir, outputfile))

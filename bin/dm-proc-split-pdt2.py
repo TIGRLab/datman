@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 """
-Splits up a PDT2 image into two images, a PD and a T2 image. 
+Splits up a PDT2 image into two images, a PD and a T2 image.
 
-Usage: 
+Usage:
     dm-proc-split-pdt2.py <image.nii>...
 
-Output images are put in the same folder as the input image. 
+Output images are put in the same folder as the input image.
 
 It is expected that the input image is named according to the Scan ID filename
 format, and has the tag 'PDT2'. The output PD file has the tag "PD" and the
-output T2 file has the tag "PD". 
+output T2 file has the tag "PD".
 
 The PD volume is the volume with a higher mean intensity.
 """
@@ -17,7 +17,7 @@ from docopt import docopt
 import numpy as np
 import nibabel as nib
 import datman as dm
-import tempfile 
+import tempfile
 import shutil
 import glob
 import os.path
@@ -31,32 +31,32 @@ def main():
         split(image)
 
 def split(image):
-    try: 
+    try:
         ident, tag, series, description = dm.scanid.parse_filename(image)
-    except dm.scanid.ParseException: 
+    except dm.scanid.ParseException:
         print "{}: not a properly formatted filename".format( image)
-        return 
+        return
 
     ext = dm.utils.get_extension(image)
-    
+
     pd_path = os.path.join(os.path.dirname(image),
             dm.scanid.make_filename(ident, "PD", series, description, ext))
     t2_path = os.path.join(os.path.dirname(image),
             dm.scanid.make_filename(ident, "T2", series, description, ext))
 
-    if os.path.exists(pd_path) and os.path.exists(t2_path): 
-        return  
+    if os.path.exists(pd_path) and os.path.exists(t2_path):
+        return
 
     tempdir = tempfile.mkdtemp()
-  
-    dm.utils.run("fslsplit {} {}/".format(image, tempdir)) 
+
+    dm.utils.run("fslsplit {} {}/".format(image, tempdir))
 
     vols = glob.glob('{}/*.nii.gz'.format(tempdir))
-    if len(vols) != 2: 
+    if len(vols) != 2:
         print "{}: Expected exactly 2 volumes, got: {}".format(
                 image, ", ".join(vols))
         print tempdir
-        #shutil.rmtree(tempdir) 
+        #shutil.rmtree(tempdir)
         return
 
     vol0_mean = np.mean(nib.load(vols[0]).get_data())
@@ -69,10 +69,10 @@ def split(image):
 
     if not os.path.exists(pd_path):
         shutil.move(pd_tmp, pd_path)
-    if not os.path.exists(t2_path): 
+    if not os.path.exists(t2_path):
         shutil.move(t2_tmp, t2_path)
 
-    shutil.rmtree(tempdir) 
+    shutil.rmtree(tempdir)
 
 if __name__ == "__main__":
     main()

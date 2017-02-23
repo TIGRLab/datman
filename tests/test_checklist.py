@@ -2,6 +2,7 @@
 from StringIO import StringIO
 from nose.tools import *
 import datman as dm
+import datman.checklist
 
 
 def test_load_empty_checklist():
@@ -85,7 +86,7 @@ def test_load_and_blacklist_new_stage():
         """
     blacklist:
       stage:
-        series1: 
+        series1:
     """))
     checklist.blacklist("stage", "series2")
     assert checklist.is_blacklisted("stage", "series1"), checklist

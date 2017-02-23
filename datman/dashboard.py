@@ -6,6 +6,7 @@ import dashboard
 import datman.scanid
 import datman.utils
 from datetime import datetime
+from datman.exceptions import DashboardException
 
 logger = logging.getLogger(__name__)
 db = dashboard.db
@@ -13,9 +14,6 @@ Study = dashboard.models.Study
 Session = dashboard.models.Session
 Scan = dashboard.models.Scan
 ScanType = dashboard.models.ScanType
-
-class DashboardException(Exception):
-    pass
 
 
 class dashboard(object):
@@ -121,7 +119,7 @@ class dashboard(object):
             db.session.commit()
         except Exception as e:
             logger.error('An error occured adding session:{} to the database'
-                         'Error:{}'
+                         ' Error:{}'
                          .format(session_name, str(e)))
             return None
         return dashboard_session
@@ -131,7 +129,7 @@ class dashboard(object):
         is True"""
         if not self.study:
             logger.error('Study not set')
-            return DashboardException('Study not set')
+            raise DashboardException('Study not set')
 
         try:
             ident, tag, series, desc = datman.scanid.parse_filename(scan_name)
@@ -195,9 +193,10 @@ class dashboard(object):
             logger.error('Failed to check blacklist for scan:{} with error:{}'
                          .format(scan_name, str(e)))
 
-        if not bl_comment == dashboard_scan.bl_comment:
-            dashboard_scan.bl_comment = bl_comment
         try:
+            if not bl_comment == dashboard_scan.bl_comment:
+                dashboard_scan.bl_comment = bl_comment
+
             db.session.commit()
         except Exception as e:
             logger.error('An error occured adding scan:{} to the db.Error:{}'
@@ -211,7 +210,7 @@ class dashboard(object):
         try:
             ident = datman.scanid.parse(session_label)
         except datman.scanid.ParseException:
-            logger.error('Invalid session:{}'.format(session_name))
+            logger.error('Invalid session:{}'.format(session_label))
             raise DashboardException('Invalid session name:{}'
                                       .format(session_label))
         session_label = ident.get_full_subjectid_with_timepoint()
@@ -230,7 +229,7 @@ class dashboard(object):
         db_scans = [scan.name for scan in db_session.scans]
         extra_scans = set(db_scans) - set(scan_names)
         for scan in extra_scans:
-            db_scan = Scan.query.filter_by(name == scan)
+            db_scan = Scan.query.filter(Scan.name == scan).first()
             db.session.delete(db_scan)
         db.session.commit()
 
@@ -241,3 +240,15 @@ class dashboard(object):
             raise DashboardException('Invalid scantype')
         else:
             return qry.first()
+
+    def delete_session(self, session_name):
+        session = self.get_add_session(session_name, create=False)
+        db.session.delete(session)
+        try:
+            db.session.commit()
+        except Exception as e:
+            logger.error('An error occured deleting session:{} from the database'
+                         ' Error:{}'
+                         .format(session_name, str(e)))
+            return False
+        return True

@@ -23,6 +23,26 @@ import os.path
 import re
 import datman.config as config
 
+def read_checklist(checklist_file):
+    checklist_dict = {}
+
+    with open(checklist_file) as checklist:
+        lines = checklist.readlines()
+
+    for line in lines:
+        entry = line.strip().split()
+        try:
+            key = os.path.splitext(entry[0])[0]
+        except:
+            # Empty line, skip it
+            continue
+        try:
+            rest = entry[1:]
+        except:
+            entry = ''
+        checklist_dict[key] = rest
+    return checklist_dict
+
 def get_project_dirs(root, maxdepth=2):
     """
     Search for datman project directories below root.
@@ -43,6 +63,27 @@ def get_project_dirs(root, maxdepth=2):
             del dirs[:]
     return paths
 
+def get_mtime(path):
+    """
+    Returns the value of os.path.getmtime. If a broken link is found 0 is
+    returned and a message is given.
+
+    This is needed because when the target of a link is blacklisted and removed
+    the links are not cleaned up and this was causing crashes. The broken links
+    cannot just be removed from here because this script may be run by many
+    users with insufficient privileges.
+    """
+
+    try:
+        return os.path.getmtime(path)
+    except OSError:
+        if os.path.islink(path):
+            print("Found broken link: {}".format(path))
+            return 0
+        else:
+            # Something went very wrong, reraise the OSError! :(
+            raise
+
 def main():
     arguments = docopt.docopt(__doc__)
     rootdir = arguments['--root']
@@ -53,24 +94,17 @@ def main():
     for projectdir in get_project_dirs(rootdir):
         checklist = os.path.join(projectdir, 'metadata', 'checklist.csv')
 
-        # map qc pdf to comments
-        checklistdict = {d[0]: d[1:] for d in [l.strip().split()
-                                     for l in open(checklist).readlines() if l.strip()]}
-
-        ## add .html for all .pdf keys
-        for k in checklistdict.keys():
-            if '.pdf' in k:
-                checklistdict[k.replace('.pdf','.html')] = checklistdict[k]
+        checklistdict = read_checklist(checklist)
 
         for timepointdir in sorted(glob.glob(projectdir + '/data/nii/*')):
             if '_PHA_' in timepointdir:
                 continue
 
             timepoint = os.path.basename(timepointdir)
-            qcdocname = 'qc_' + timepoint + '.html'
-            qcdoc = os.path.join(projectdir, 'qc', timepoint, qcdocname)
+            qcdocname = 'qc_' + timepoint
+            qcdoc = os.path.join(projectdir, 'qc', timepoint, (qcdocname + '.html'))
 
-            data_mtime = max(map(os.path.getmtime, glob.glob(timepointdir + '/*.nii.gz')+[timepointdir]))
+            data_mtime = max(map(get_mtime, glob.glob(timepointdir + '/*.nii.gz')+[timepointdir]))
 
             # notify about missing QC reports or those with no checklist entry
             if qcdocname not in checklistdict:

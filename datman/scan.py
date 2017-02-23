@@ -110,6 +110,9 @@ class Series(DatmanNamed):
     def __str__(self):
         return self.file_name
 
+    def __repr__(self):
+        return "<datman.scan.Series: {}>".format(self.path)
+
 class Scan(DatmanNamed):
     """
     Holds all information for a single scan.
@@ -215,3 +218,6 @@ class Scan(DatmanNamed):
 
     def __str__(self):
         return self.full_id
+
+    def __repr__(self):
+        return "<datman.scan.Scan: {}>".format(self.full_id)

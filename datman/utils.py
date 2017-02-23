@@ -17,6 +17,7 @@ import nibabel as nib
 import contextlib
 import tempfile
 import shutil
+import pyxnat
 import datman.config
 
 logger = logging.getLogger(__name__)
@@ -82,8 +83,9 @@ def check_checklist(session_name, study=None):
                 try:
                     return parts[1].strip()
                 except IndexError:
-                    return
+                    return ''
 
+    return None
 
 def check_blacklist(scan_name, study=None):
     """Reads the checklist identified from the session_name
@@ -92,8 +94,8 @@ def check_blacklist(scan_name, study=None):
     """
 
     try:
-        ident = scanid.parse_filename(scan_name)
-        ident = ident[0]
+        ident, tag, series_num, _ = scanid.parse_filename(scan_name)
+        blacklist_id = "_".join([str(ident), tag, series_num])
     except scanid.ParseException:
         logger.warning('Invalid session id:{}'.format(scan_name))
         return
@@ -119,11 +121,10 @@ def check_blacklist(scan_name, study=None):
         logger.warning('Unable to open blacklist file:{} for reading'
                        .format(checklist_path))
         return
-
     for line in lines:
         parts = line.split(None, 1)
         if parts:  # fix for empty lines
-            if parts[0] == scan_name:
+            if blacklist_id in parts[0]:
                 try:
                     return parts[1].strip()
                 except IndexError:
@@ -463,7 +464,7 @@ def run(cmd, dryrun=False):
 
     if dryrun:
         logger.info("Performing dry-run")
-        return 0
+        return 0, ''
 
     logger.debug("Executing command: {}".format(cmd))
 
@@ -596,5 +597,83 @@ def filter_niftis(candidates):
 
     return candidates
 
+def split_path(path):
+    """
+    Splits a path into all the component parts, returns a list
+
+    >>> split_path('a/b/c/d.txt')
+    ['a', 'b', 'c', 'd.txt']
+    """
+    dirname = path
+    path_split = []
+    while True:
+        dirname, leaf = os.path.split(dirname)
+        if (leaf):
+            path_split = [leaf] + path_split
+        else:
+            break
+    return(path_split)
+
+class cd(object):
+    """
+    A context manager for changing directory. Since best practices dictate
+    returning to the original directory, saves the original directory and
+    returns to it after the block has exited.
+
+    May raise OSError if the given path doesn't exist (or the current directory
+    is deleted before switching back)
+    """
+
+    def __init__(self, path):
+        user_path = os.path.expanduser(path)
+        self.new_path = os.path.expandvars(user_path)
+
+    def __enter__(self):
+        self.old_path = os.getcwd()
+        os.chdir(self.new_path)
+
+    def __exit__(self, e, value, traceback):
+        os.chdir(self.old_path)
+
+class XNATConnection(object):
+    def __init__(self,  xnat_url, user_name, password):
+        self.server = xnat_url
+        self.user = user_name
+        self.password = password
+
+    def __enter__(self):
+        self.connection = pyxnat.Interface(server=self.server, user=self.user,
+                password=self.password)
+        return self.connection
+
+    def __exit__(self, type, value, traceback):
+        self.connection.disconnect()
+
+def get_xnat_credentials(config, xnat_cred):
+    if not xnat_cred:
+        xnat_cred = os.path.join(config.get_path('meta'), 'xnat-credentials')
+
+    logger.debug("Retrieving xnat credentials from {}".format(xnat_cred))
+    try:
+        credentials = read_credentials(xnat_cred)
+        user_name = credentials[0]
+        password = credentials[1]
+    except IndexError:
+        logger.error("XNAT credential file {} is missing the user name or " \
+                "password.".format(xnat_cred))
+        sys.exit(1)
+    return user_name, password
+
+def read_credentials(cred_file):
+    credentials = []
+    try:
+        with open(cred_file, 'r') as creds:
+            for line in creds:
+                credentials.append(line.strip('\n'))
+    except:
+        logger.error("Cannot read credential file or file does not exist: " \
+                "{}.".format(cred_file))
+        sys.exit(1)
+    return credentials
 
 # vim: ts=4 sw=4 sts=4:

@@ -13,6 +13,10 @@ Arguments:
 
 Options:
     --rewrite          Rewrite the html of an existing qc page
+    --log-to-server    If set, all log messages will also be sent to the
+                       configured logging server. This is useful when the script
+                       is run with the Sun Grid Engine, since it swallows
+                       logging messages.
     -q --quiet         Only report errors
     -v --verbose       Be chatty
     -d --debug         Be extra chatty
@@ -85,7 +89,10 @@ import re
 import glob
 import time
 import logging
+import logging.handlers
 import copy
+import random
+import string
 
 import numpy as np
 import pandas as pd
@@ -103,6 +110,10 @@ logging.basicConfig(level=logging.WARN,
 logger = logging.getLogger(os.path.basename(__file__))
 
 REWRITE = False
+
+def random_str(n):
+    """generates a random string of length n"""
+    return(''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(n)))
 
 def slicer(fpath, pic, slicergap, picwidth):
     """
@@ -242,7 +253,7 @@ def submit_qc_jobs(commands, chained=False):
     for i, cmd in enumerate(commands):
         if chained and i > 0:
             lastjob = copy.copy(jobname)
-        jobname = "qc_report_{}_{}".format(time.strftime("%Y%m%d-%H%M%S"), i)
+        jobname = "qc_report_{}_{}_{}".format(time.strftime("%Y%m%d"), random_str(5), i)
         logfile = '/tmp/{}.log'.format(jobname)
         errfile = '/tmp/{}.err'.format(jobname)
 
@@ -260,6 +271,7 @@ def submit_qc_jobs(commands, chained=False):
 
 def make_qc_command(subject_id, study):
     arguments = docopt(__doc__)
+    use_server = arguments['--log-to-server']
     verbose = arguments['--verbose']
     debug = arguments['--debug']
     quiet = arguments['--quiet']
@@ -270,9 +282,12 @@ def make_qc_command(subject_id, study):
         command = " ".join([command, '-d'])
     if quiet:
         command = " ".join([command, '-q'])
+    if use_server:
+        command = " ".join([command, '--log-to-server'])
 
     if REWRITE:
         command = command + ' --rewrite'
+
     return command
 
 def qc_all_scans(config):
@@ -301,7 +316,7 @@ def qc_all_scans(config):
         submit_qc_jobs(human_commands)
 
     if phantom_commands:
-        logger.debug('running phantom qc job\n{}'.format(cmd))
+        logger.debug('running phantom qc jobs\n{}'.format(phantom_commands))
         submit_qc_jobs(phantom_commands, chained=True)
 
 def find_existing_reports(checklist_path):
@@ -313,12 +328,12 @@ def find_existing_reports(checklist_path):
             found_reports.append(checklist_entry)
     return found_reports
 
-def add_report_to_checklist(qc_report, checklist_path):
+def add_report_to_checklist(qc_report, checklist_path, retry=3):
     """
     Add the given report's name to the QC checklist if it is not already
     present.
     """
-    if not qc_report:
+    if not qc_report or retry == 0:
         return
 
     # remove extension from report name, so we don't double-count .pdfs vs .html
@@ -335,8 +350,17 @@ def add_report_to_checklist(qc_report, checklist_path):
     if report_name in found_reports:
         return
 
-    with open(checklist_path, 'a') as checklist:
-        checklist.write(report_file_name + '\n')
+    try:
+        with open(checklist_path, 'a') as checklist:
+            checklist.write(report_file_name + '\n')
+    except:
+        logger.error("Failed to write {} to checklist. Tries remaining: "
+                "{}".format(report_file_name, retry))
+        # Sleep for a short time to shuffle processes that are attempting
+        # concurrent writes.
+        wait_time = random.uniform(0, 10)
+        time.sleep(wait_time)
+        add_report_to_checklist(qc_report, checklist_path, retry=retry-1)
 
 def add_header_qc(nifti, qc_html, log_path):
     """
@@ -389,7 +413,11 @@ def write_report_body(report, expected_files, subject, header_diffs, handlers):
 
 def find_tech_notes(path):
     """
-    Search the file tree rooted at path for the tech notes pdf
+    Search the file tree rooted at path for the tech notes pdf.
+
+    If only one pdf is found it is assumed to be the tech notes. If multiple
+    are found, unless one contains the string 'TechNotes', the first pdf is
+    guessed to be the tech notes.
     """
     resource_folders = glob.glob(path + "*")
 
@@ -398,11 +426,21 @@ def find_tech_notes(path):
     else:
         resources = ""
 
+    pdf_list = []
     for root, dirs, files in os.walk(resources):
         for fname in files:
             if ".pdf" in fname:
-                return os.path.join(root, fname)
-    return ""
+                pdf_list.append(os.path.join(root, fname))
+
+    if not pdf_list:
+        return ""
+    elif len(pdf_list) > 1:
+        for pdf in pdf_list:
+            file_name = os.path.basename(pdf)
+            if 'technotes' in file_name.lower():
+                return pdf
+
+    return pdf_list[0]
 
 def write_tech_notes_link(report, subject_id, resources_path):
     """
@@ -440,7 +478,7 @@ def write_table(report, exportinfo, subject):
             except:
                 #Note: this might be expected, e.g., for a T1
                 logging.debug("{} exists but scanlength cannot be read.".format(scan_nii_path))
-                scanlength = "Can't read"
+                scanlength = "N/A"
         except:
             logging.debug("{} does not exist; cannot read scanlength.".format(scan_nii_path))
             scanlength = "No file"
@@ -490,7 +528,12 @@ def generate_qc_report(report_name, subject, expected_files, header_diffs, handl
 
 def get_position(position_info):
     if isinstance(position_info, list):
-        position = position_info.pop(0)
+        try:
+            position = position_info.pop(0)
+        except IndexError:
+            ## More of this scan type than expected in config entry, assign
+            ## last possible position
+            position = 999
     else:
         position = position_info
 
@@ -690,9 +733,11 @@ def qc_subject(subject, config):
         logger.error("Error adding {} to checklist.".format(subject.full_id))
 
     try:
-        generate_qc_report(report_name, subject, expected_files, header_diffs, handlers)
+        generate_qc_report(report_name, subject, expected_files, header_diffs,
+                handlers)
     except:
-        logger.error("Exception raised during qc-report generation for {}. Removing .html page.".format(subject.full_id), exc_info=True)
+        logger.error("Exception raised during qc-report generation for {}. " \
+                "Removing .html page.".format(subject.full_id), exc_info=True)
         if os.path.exists(report_name):
             os.remove(report_name)
 
@@ -758,7 +803,7 @@ def prepare_scan(subject_id, config):
         subject = datman.scan.Scan(subject_id, config)
     except datman.scanid.ParseException as e:
         logger.error(e, exc_info=True)
-        return
+        sys.exit(1)
 
     verify_input_paths([subject.nii_path, subject.dcm_path])
 
@@ -776,22 +821,36 @@ def get_config(study):
     Will raise KeyError if an expected path has not been defined for this study.
     """
     logger.info('Loading config')
-    config = datman.config.config(study=study)
+
+    try:
+        config = datman.config.config(study=study)
+    except KeyError:
+        logger.error("Cannot find configuration info for study {}".format(study))
+        sys.exit(1)
 
     required_paths = ['dcm', 'nii', 'qc', 'std', 'meta']
+
     for path in required_paths:
         try:
             config.get_path(path)
         except KeyError:
-            logger.error('Path:{} not found for project: {}'
+            logger.error('Path {} not found for project: {}'
                          .format(path, study))
+            sys.exit(1)
+
     return config
 
-def main():
+def add_server_handler(config):
+    server_ip = config.get_key('LOGSERVER')
+    server_handler = logging.handlers.SocketHandler(server_ip,
+            logging.handlers.DEFAULT_TCP_LOGGING_PORT)
+    logger.addHandler(server_handler)
 
+def main():
     global REWRITE
 
     arguments = docopt(__doc__)
+    use_server = arguments['--log-to-server']
     verbose = arguments['--verbose']
     debug = arguments['--debug']
     quiet = arguments['--quiet']
@@ -799,15 +858,17 @@ def main():
     session = arguments['<session>']
     REWRITE = arguments['--rewrite']
 
-    # set log level
+    config = get_config(study)
+
+    if use_server:
+        add_server_handler(config)
+
     if quiet:
         logger.setLevel(logging.ERROR)
     if verbose:
         logger.setLevel(logging.INFO)
     if debug:
         logger.setLevel(logging.DEBUG)
-
-    config = get_config(study)
 
     if session:
         subject = prepare_scan(session, config)

@@ -115,7 +115,7 @@ class xnat(object):
                                 .format(url))
 
         if not result:
-            logger.warn('Session:{} not found in study:{}'
+            logger.info('Session:{} not found in study:{}'
                         .format(session, study))
             if create:
                 try:
@@ -232,7 +232,6 @@ class xnat(object):
 
         return(result['items'][0])
 
-
     def get_resource_list(self, study, session, experiment, resource_id):
         """The list of non-dicom resources associated with an experiment
         returns a list of dicts, mostly interested in ID and name"""
@@ -255,14 +254,12 @@ class xnat(object):
                                 ' in study:{}'
                                 .format(experiment, session, study))
 
-
         # define the xml namespace
         ns = {'cat': 'http://nrg.wustl.edu/catalog'}
         entries = result.find('cat:entries', ns)
-        if len(entries) == 0:
+        if entries is None:
             # no files found, just a label
-            raise XnatException('Resource id:{} in session:{} is empty'
-                                .format(resource_id, session))
+            return None
 
         items = [entry.attrib for entry
                  in entries.findall('cat:entry', ns)]
@@ -333,6 +330,9 @@ class xnat(object):
 
         if not filename:
             filename = tempfile.mkstemp(prefix="dm2_xnat_extract_")
+            # mkstemp returns a filename and a file object
+            # dealing with the filename in future so close the file object
+            os.close(filename[0])
         try:
             self._get_xnat_stream(url, filename, retries)
             return(filename)
@@ -376,7 +376,6 @@ class xnat(object):
             err.study = project
             err.session = session
 
-
     def get_resource(self, project, session, experiment,
                      resource_group_id, resource_id,
                      filename=None, retries=3):
@@ -396,7 +395,9 @@ class xnat(object):
 
         if not filename:
             filename = tempfile.mkstemp(prefix="dm2_xnat_extract_")
-
+            #  mkstemp returns a file object and a filename
+            #  we will deal with the filename in future so close the file object
+            os.close(filename[0])
         try:
             self._get_xnat_stream(url, filename, retries)
             return(filename)
@@ -423,7 +424,9 @@ class xnat(object):
 
         if not filename:
             filename = tempfile.mkstemp(prefix="dm2_xnat_extract_")
-
+            #  mkstemp returns a file object and a filename
+            #  we will deal with the filename in future so close the file object
+            os.close(filename[0])
         try:
             self._get_xnat_stream(url, filename, retries)
             return(filename)
@@ -437,14 +440,14 @@ class xnat(object):
             raise XnatException("Failed downloading resource archive with url:{}"
                                 .format(url))
 
-
-    def _get_xnat_stream(self, url, filename, retries=3):
+    def _get_xnat_stream(self, url, filename, retries=3, timeout=120):
         logger.info('Getting data from xnat')
         try:
-            response = self.session.get(url, stream=True, timeout=120)
+            response = self.session.get(url, stream=True, timeout=timeout)
         except requests.exceptions.Timeout as e:
             if retries > 0:
-                return(self._get_xnat_stream(url, filename, retries=retries-1))
+                return(self._get_xnat_stream(url, filename, retries=retries-1,
+                                             timeout=timeout*2))
             else:
                 raise e
 
@@ -452,17 +455,18 @@ class xnat(object):
             # possibly the session has timed out
             logger.info('Session may have expired, resetting')
             self.get_xnat_session()
-            response = self.session.get(url, stream=True, timeout=30)
+            response = self.session.get(url, stream=True, timeout=timeout)
 
         if response.status_code == 404:
-            logger.error("No records returned from xnat server to query:{}"
+            logger.info("No records returned from xnat server to query:{}"
                          .format(url))
             return
         elif response.status_code is 504:
             if retries:
                 logger.warning('xnat server timed out, retrying')
                 time.sleep(30)
-                self._get_xnat_stream(url, filename, retries=retries - 1)
+                self._get_xnat_stream(url, filename, retries=retries - 1,
+                                      timeout=timeout * 2)
             else:
                 logger.error('xnat server timed out, giving up')
                 response.raise_for_status()
@@ -500,7 +504,7 @@ class xnat(object):
             response = self.session.get(url, timeout=30)
 
         if response.status_code == 404:
-            logger.error("No records returned from xnat server to query:{}"
+            logger.info("No records returned from xnat server to query:{}"
                          .format(url))
             return
         elif not response.status_code == requests.codes.ok:
@@ -527,7 +531,7 @@ class xnat(object):
             response = self.session.get(url, timeout=30)
 
         if response.status_code == 404:
-            logger.error("No records returned from xnat server to query:{}"
+            logger.info("No records returned from xnat server to query:{}"
                          .format(url))
             return
         elif not response.status_code == requests.codes.ok:
@@ -588,6 +592,10 @@ class xnat(object):
             if 'multiple imaging sessions.' in response.content:
                 raise XnatException('Multiple imaging sessions in archive,'
                                     ' check prearchive')
+            if '502 Bad Gateway' in response.content:
+                raise XnatException('Bad gateway error: Check tomcat logs')
+            if 'Unable to identify experiment' in response.content:
+                raise XnatException('Unable to identify experiment, did dicom upload fail?')
             else:
                 raise XnatException('An unknown error occured uploading data.'
                                     'Status code:{}, reason:{}'
