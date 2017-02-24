@@ -1,14 +1,14 @@
 #!/bin/bash
 
-# rendered script-it from rest_master_170223.sh
-# generated: 2017/02/23 -- 20:13:10 by jviviano.
+# rendered script-it from master_161006_datman.sh
+# generated: 2016/10/06 -- 14:23:51 by jviviano.
 
 set -e
 
 export DIR_MODULES=/archive/code/epitome/modules
 export DIR_EXPT=TEMP
 export DATA_TYPE=FUNC
-export ID=datman_rest
+export ID=datman
 
 # command line arguments
 export SUB=SUBJ
@@ -114,8 +114,30 @@ for SESS in $(ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/); do
     done
 done
 
-echo '*** MODULE: slice_time_correct. Corrects slice timing. *****************'
+echo '*** MODULE: despike. Removes time series outliers via L1 regression. ***'
 export input=func_del
+
+# loop through sessions
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+
+    # loop through runs
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+
+        if [ ! -f ${SESS}/func_despike.${ID}.${NUM}.nii.gz ]; then
+	        3dDespike \
+	            -prefix ${SESS}/func_despike.${ID}.${NUM}.nii.gz \
+	            -ssave ${SESS}/PARAMS/spikes.${ID}.${NUM}.nii.gz \
+	            -quiet \
+	             ${SESS}/${input}.${ID}.${NUM}.nii.gz
+        fi
+    done
+done
+
+echo '*** MODULE: slice_time_correct. Corrects slice timing. *****************'
+export input=func_despike
 export direction=z
 export ascending=yes
 export interleave=yes
@@ -167,10 +189,48 @@ for SESS in ${DIR_SESS}; do
     done
 done
 
+echo '*** MODULE: deoblique. Alters image to have no obliquity. **************'
+export input=func_tshift
+
+# loop through sessions
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+
+    # loop through runs
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+        FILE=`echo ${RUN}/*.nii.gz`
+
+        if [ ! -f ${SESS}/func_ob.${ID}.${NUM}.nii.gz ]; then
+            if [ ${NUM} == '01' ]; then
+                # deoblique run (unconstrained for first run)
+                3dWarp \
+                    -prefix ${SESS}/func_ob.${ID}.${NUM}.nii.gz \
+                    -deoblique \
+                    -quintic \
+                    -verb \
+                    ${SESS}/${input}.${ID}.${NUM}.nii.gz > \
+                    ${SESS}/PARAMS/deoblique.${ID}.${NUM}.1D
+
+            else
+                # deoblique run, matching dimensions to first run
+                3dWarp \
+                   -prefix ${SESS}/func_ob.${ID}.${NUM}.nii.gz \
+                   -deoblique \
+                   -quintic \
+                   -verb \
+                   -gridset ${SESS}/func_ob.${ID}.01.nii.gz \
+                   ${SESS}/${input}.${ID}.${NUM}.nii.gz > \
+                   ${SESS}/PARAMS/deoblique.${ID}.${NUM}.1D
+            fi
+        fi
+    done
+done
 
 echo '*** MODULE: motion_deskull. Motion correction and brain masking. ***'
-export input=func_tshift
-export masking=loose
+export input=func_ob
+export masking=normal
 export method=FSL
 
 # loop through sessions
@@ -349,89 +409,8 @@ for SESS in ${DIR_SESS}; do
     done
 done
 
-echo '*** MODULE: despike. Removes time series outliers via L1 regression. ***'
-export input=func_deskull
-
-# loop through sessions
-DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
-for SESS in ${DIR_SESS}; do
-
-    # loop through runs
-    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
-    for RUN in ${DIR_RUNS}; do
-        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
-
-        if [ ! -f ${SESS}/func_despike.${ID}.${NUM}.nii.gz ]; then
-	        3dDespike \
-	            -prefix ${SESS}/func_despike.${ID}.${NUM}.nii.gz \
-	            -ssave ${SESS}/PARAMS/spikes.${ID}.${NUM}.nii.gz \
-	            -quiet \
-	             ${SESS}/${input}.${ID}.${NUM}.nii.gz
-        fi
-    done
-done
-
-echo '*** MODULE: calc-dvars. Calculates the DVARS regressors. ***************'
-export INPUT=func_despike
-
-DIR_SESS=$(ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/)
-for SESS in ${DIR_SESS}; do
-    DIR_RUNS=$(ls -d -- ${SESS}/RUN*)
-    for RUN in ${DIR_RUNS}; do
-        NUM=$(basename ${RUN} | sed 's/[^0-9]//g')
-
-        # DVARS (Power et. al Neuroimage 2012)
-        if [ ! -f ${SESS}/PARAMS/DVARS.${ID}.${NUM}.1D ]; then
-            3dcalc \
-                -a ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz \
-                -b 'a[0,0,0,-1]' \
-                -expr '(a - b)^2' \
-                -prefix ${SESS}/func_tmp_backdif.${ID}.${NUM}.nii.gz
-
-            3dmaskave \
-                -mask ${SESS}/anat_EPI_mask.nii.gz \
-                -quiet ${SESS}/func_tmp_backdif.${ID}.${NUM}.nii.gz \
-                > ${SESS}/PARAMS/tmp_backdif.${ID}.${NUM}.1D
-
-            1deval \
-                -a ${SESS}/PARAMS/tmp_backdif.${ID}.${NUM}.1D \
-                -expr 'sqrt(a)' > ${SESS}/PARAMS/DVARS.${ID}.${NUM}.1D
-
-            rm ${SESS}/PARAMS/tmp_backdif.${ID}.${NUM}.1D
-            rm ${SESS}/func_tmp_backdif.${ID}.${NUM}.nii.gz
-
-        fi
-    done
-done
-
-echo '*** MODULE: calc_censor. Flags TRs corrupted by motion.******************'
-export input=func_despike
-export headrad=50.0
-export fd=0.3
-export dv=3.0
-
-DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
-for SESS in ${DIR_SESS}; do
-    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
-    for RUN in ${DIR_RUNS}; do
-        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
-
-        if [ ! -f ${SESS}/PARAMS/censor.${ID}.${NUM}.1D ]; then
-            epi-censor \
-                ${SESS}/${input}.${ID}.${NUM}.nii.gz \
-                ${SESS}/PARAMS/censor.${ID}.${NUM}.1D \
-                ${SESS}/PARAMS/motion.${ID}.${NUM}.1D \
-                --DVARS ${SESS}/PARAMS/DVARS.${ID}.${NUM}.1D \
-                --report ${SESS}/PARAMS/retained_TRs.${ID}.${NUM}.1D \
-                --head ${headrad} \
-                --FD ${fd} \
-                --DV ${dv}
-        fi
-    done
-done
-
 echo '*** MODULE: scale. Normalizes time series. *****************************'
-export input=func_despike
+export input=func_deskull
 export normalize=scale
 
 # loop through sessions
@@ -578,6 +557,28 @@ for SESS in ${DIR_SESS}; do
     fi
 done
 
+echo '*** MODULE: nonlinreg_calc_fsl. Calcs MNI warp from linreg outputs. ****'
+
+DIR_SESS=$(ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/)
+for SESS in ${DIR_SESS}; do
+    SESS=$(basename ${SESS})
+    DIR="${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}"
+
+    # calculate nonlinear warp of T1 to MNI space
+    if [ ! -f ${DIR}/${SESS}/reg_nlin_TAL_WARP.nii.gz ]; then
+        fnirt \
+            --ref=${DIR_DATA}/${DIR_EXPT}/anat_MNI.nii.gz \
+            --refmask=${DIR_DATA}/${DIR_EXPT}/anat_MNI_mask.nii.gz \
+            --in=${DIR}/${SESS}/reg_T1_to_TAL.nii.gz \
+            --config=T1_2_MNI152_2mm.cnf \
+            --iout=${DIR}/${SESS}/reg_nlin_TAL.nii.gz \
+            --fout=${DIR}/${SESS}/reg_nlin_TAL_FIELD.nii.gz \
+            --cout=${DIR}/${SESS}/reg_nlin_TAL_WARP.nii.gz \
+            --intout=${DIR}/${SESS}/reg_nlin_TAL_INTOUT.nii.gz \
+            --interp=spline
+    fi
+done
+
 echo '*** MODULE: linreg_fs2epi_fsl. Puts freesurfer atlases in EPI space. ***'
 
 DIR_SESS=$(ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/)
@@ -622,8 +623,6 @@ export SQ=on
 export STD=on
 export GM=on
 export DV=off
-export CENSOR=interpolate
-export BANDPASS=on
 export ANATICOR=off
 export COMPCOR=3
 export MASK=anat_EPI_mask
@@ -775,213 +774,347 @@ for SESS in ${DIR_SESS}; do
 
             # motion paramaters, detrend, lag, dif, sq
             3dDetrend \
-                -prefix - -DAFNI_1D_TRANOUT=YES -polort ${POLORT} \
+                -prefix - \
+                -DAFNI_1D_TRANOUT=YES \
+                -polort ${POLORT} \
                 ${SESS}/PARAMS/motion.${ID}.${NUM}.1D\' > \
                 ${SESS}/PARAMS/det.motion.${ID}.${NUM}.1D
 
             3dDetrend \
-                -prefix - -DAFNI_1D_TRANOUT=YES -polort ${POLORT} \
+                -prefix - \
+                -DAFNI_1D_TRANOUT=YES \
+                -polort ${POLORT} \
                 ${SESS}/PARAMS/lag.motion.${ID}.${NUM}.1D\' > \
                 ${SESS}/PARAMS/det.lag.motion.${ID}.${NUM}.1D
 
             3dDetrend \
-                -prefix - -DAFNI_1D_TRANOUT=YES -polort ${POLORT} \
+                -prefix - \
+                -DAFNI_1D_TRANOUT=YES \
+                -polort ${POLORT} \
                 ${SESS}/PARAMS/dif.motion.${ID}.${NUM}.1D\' > \
                 ${SESS}/PARAMS/det.dif.motion.${ID}.${NUM}.1D
 
             # squares of detrended head motion
-            1deval -a ${SESS}/PARAMS/det.motion.${ID}.${NUM}.1D[0] -expr 'a^2' > ${SESS}/PARAMS/sq.1.det.motion.${ID}.${NUM}.1D
-            1deval -a ${SESS}/PARAMS/det.motion.${ID}.${NUM}.1D[1] -expr 'a^2' > ${SESS}/PARAMS/sq.2.det.motion.${ID}.${NUM}.1D
-            1deval -a ${SESS}/PARAMS/det.motion.${ID}.${NUM}.1D[2] -expr 'a^2' > ${SESS}/PARAMS/sq.3.det.motion.${ID}.${NUM}.1D
-            1deval -a ${SESS}/PARAMS/det.motion.${ID}.${NUM}.1D[3] -expr 'a^2' > ${SESS}/PARAMS/sq.4.det.motion.${ID}.${NUM}.1D
-            1deval -a ${SESS}/PARAMS/det.motion.${ID}.${NUM}.1D[4] -expr 'a^2' > ${SESS}/PARAMS/sq.5.det.motion.${ID}.${NUM}.1D
-            1deval -a ${SESS}/PARAMS/det.motion.${ID}.${NUM}.1D[5] -expr 'a^2' > ${SESS}/PARAMS/sq.6.det.motion.${ID}.${NUM}.1D
+            1deval \
+                -a ${SESS}/PARAMS/det.motion.${ID}.${NUM}.1D[0] \
+                -expr 'a^2' > ${SESS}/PARAMS/sq.1.det.motion.${ID}.${NUM}.1D
+            1deval \
+                -a ${SESS}/PARAMS/det.motion.${ID}.${NUM}.1D[1] \
+                -expr 'a^2' > ${SESS}/PARAMS/sq.2.det.motion.${ID}.${NUM}.1D
+            1deval \
+                -a ${SESS}/PARAMS/det.motion.${ID}.${NUM}.1D[2] \
+                -expr 'a^2' > ${SESS}/PARAMS/sq.3.det.motion.${ID}.${NUM}.1D
+            1deval \
+                -a ${SESS}/PARAMS/det.motion.${ID}.${NUM}.1D[3] \
+                -expr 'a^2' > ${SESS}/PARAMS/sq.4.det.motion.${ID}.${NUM}.1D
+            1deval \
+                -a ${SESS}/PARAMS/det.motion.${ID}.${NUM}.1D[4] \
+                -expr 'a^2' > ${SESS}/PARAMS/sq.5.det.motion.${ID}.${NUM}.1D
+            1deval \
+                -a ${SESS}/PARAMS/det.motion.${ID}.${NUM}.1D[5] \
+                -expr 'a^2' > ${SESS}/PARAMS/sq.6.det.motion.${ID}.${NUM}.1D
 
             # squares of detrended + lagged head motion
-            1deval -a ${SESS}/PARAMS/det.lag.motion.${ID}.${NUM}.1D[0] -expr 'a^2' > ${SESS}/PARAMS/sq.1.det.lag.motion.${ID}.${NUM}.1D
-            1deval -a ${SESS}/PARAMS/det.lag.motion.${ID}.${NUM}.1D[1] -expr 'a^2' > ${SESS}/PARAMS/sq.2.det.lag.motion.${ID}.${NUM}.1D
-            1deval -a ${SESS}/PARAMS/det.lag.motion.${ID}.${NUM}.1D[2] -expr 'a^2' > ${SESS}/PARAMS/sq.3.det.lag.motion.${ID}.${NUM}.1D
-            1deval -a ${SESS}/PARAMS/det.lag.motion.${ID}.${NUM}.1D[3] -expr 'a^2' > ${SESS}/PARAMS/sq.4.det.lag.motion.${ID}.${NUM}.1D
-            1deval -a ${SESS}/PARAMS/det.lag.motion.${ID}.${NUM}.1D[4] -expr 'a^2' > ${SESS}/PARAMS/sq.5.det.lag.motion.${ID}.${NUM}.1D
-            1deval -a ${SESS}/PARAMS/det.lag.motion.${ID}.${NUM}.1D[5] -expr 'a^2' > ${SESS}/PARAMS/sq.6.det.lag.motion.${ID}.${NUM}.1D
+            1deval \
+                -a ${SESS}/PARAMS/det.lag.motion.${ID}.${NUM}.1D[0] \
+                -expr 'a^2' > ${SESS}/PARAMS/sq.1.det.lag.motion.${ID}.${NUM}.1D
+            1deval \
+                -a ${SESS}/PARAMS/det.lag.motion.${ID}.${NUM}.1D[1] \
+                -expr 'a^2' > ${SESS}/PARAMS/sq.2.det.lag.motion.${ID}.${NUM}.1D
+            1deval \
+                -a ${SESS}/PARAMS/det.lag.motion.${ID}.${NUM}.1D[2] \
+                -expr 'a^2' > ${SESS}/PARAMS/sq.3.det.lag.motion.${ID}.${NUM}.1D
+            1deval \
+                -a ${SESS}/PARAMS/det.lag.motion.${ID}.${NUM}.1D[3] \
+                -expr 'a^2' > ${SESS}/PARAMS/sq.4.det.lag.motion.${ID}.${NUM}.1D
+            1deval \
+                -a ${SESS}/PARAMS/det.lag.motion.${ID}.${NUM}.1D[4] \
+                -expr 'a^2' > ${SESS}/PARAMS/sq.5.det.lag.motion.${ID}.${NUM}.1D
+            1deval \
+                -a ${SESS}/PARAMS/det.lag.motion.${ID}.${NUM}.1D[5] \
+                -expr 'a^2' > ${SESS}/PARAMS/sq.6.det.lag.motion.${ID}.${NUM}.1D
 
             # diff of detrended + squared head motion
-            1d_tool.py -infile ${SESS}/PARAMS/sq.1.det.motion.${ID}.${NUM}.1D -backward_diff -overwrite -write ${SESS}/PARAMS/dif.sq.1.det.motion.${ID}.${NUM}.1D
-            1d_tool.py -infile ${SESS}/PARAMS/sq.2.det.motion.${ID}.${NUM}.1D -backward_diff -overwrite -write ${SESS}/PARAMS/dif.sq.2.det.motion.${ID}.${NUM}.1D
-            1d_tool.py -infile ${SESS}/PARAMS/sq.3.det.motion.${ID}.${NUM}.1D -backward_diff -overwrite -write ${SESS}/PARAMS/dif.sq.3.det.motion.${ID}.${NUM}.1D
-            1d_tool.py -infile ${SESS}/PARAMS/sq.4.det.motion.${ID}.${NUM}.1D -backward_diff -overwrite -write ${SESS}/PARAMS/dif.sq.4.det.motion.${ID}.${NUM}.1D
-            1d_tool.py -infile ${SESS}/PARAMS/sq.5.det.motion.${ID}.${NUM}.1D -backward_diff -overwrite -write ${SESS}/PARAMS/dif.sq.5.det.motion.${ID}.${NUM}.1D
-            1d_tool.py -infile ${SESS}/PARAMS/sq.6.det.motion.${ID}.${NUM}.1D -backward_diff -overwrite -write ${SESS}/PARAMS/dif.sq.6.det.motion.${ID}.${NUM}.1D
+            1d_tool.py \
+                -infile ${SESS}/PARAMS/sq.1.det.motion.${ID}.${NUM}.1D \
+                -backward_diff \
+                -overwrite \
+                -write ${SESS}/PARAMS/dif.sq.1.det.motion.${ID}.${NUM}.1D
+            1d_tool.py \
+                -infile ${SESS}/PARAMS/sq.2.det.motion.${ID}.${NUM}.1D \
+                -backward_diff \
+                -overwrite \
+                -write ${SESS}/PARAMS/dif.sq.2.det.motion.${ID}.${NUM}.1D
+            1d_tool.py \
+                -infile ${SESS}/PARAMS/sq.3.det.motion.${ID}.${NUM}.1D \
+                -backward_diff \
+                -overwrite \
+                -write ${SESS}/PARAMS/dif.sq.3.det.motion.${ID}.${NUM}.1D
+            1d_tool.py \
+                -infile ${SESS}/PARAMS/sq.4.det.motion.${ID}.${NUM}.1D \
+                -backward_diff \
+                -overwrite \
+                -write ${SESS}/PARAMS/dif.sq.4.det.motion.${ID}.${NUM}.1D
+            1d_tool.py \
+                -infile ${SESS}/PARAMS/sq.5.det.motion.${ID}.${NUM}.1D \
+                -backward_diff \
+                -overwrite \
+                -write ${SESS}/PARAMS/dif.sq.5.det.motion.${ID}.${NUM}.1D
+            1d_tool.py \
+                -infile ${SESS}/PARAMS/sq.6.det.motion.${ID}.${NUM}.1D \
+                -backward_diff \
+                -overwrite \
+                -write ${SESS}/PARAMS/dif.sq.6.det.motion.${ID}.${NUM}.1D
 
             # detrend physiological regressors, if they exist
             if [ -f ${SESS}/PARAMS/phys.${ID}.${NUM}.1D ]; then
                 3dDetrend \
-                    -prefix - -DAFNI_1D_TRANOUT=YES -polort ${POLORT} \
+                    -prefix - \
+                    -DAFNI_1D_TRANOUT=YES \
+                    -polort ${POLORT} \
                     ${SESS}/PARAMS/phys.${ID}.${NUM}.1D\' > \
                     ${SESS}/PARAMS/det.phys.${ID}.${NUM}.1D
             fi
 
             # initialize filter command
-            CMD="3dTproject -input ${SESS}/func_tmp_det.${ID}.${NUM}.nii.gz -prefix ${SESS}/func_det_filtered.${ID}.${NUM}.nii.gz -mask ${SESS}/${MASK}.nii.gz -polort 2 -quiet"
+            CMD=`echo 3dTfitter \
+                          -prefix ${SESS}/func_noise_betas.${ID}.${NUM}.nii.gz \
+                          -fitts ${SESS}/func_noise.${ID}.${NUM}.nii.gz \
+                          -polort 0 \
+                          -quiet \
+                          -RHS ${SESS}/func_tmp_det.${ID}.${NUM}.nii.gz \
+                          -LHS `
 
             # add the physio regressors if they exist
             if [ -f ${SESS}/PARAMS/det.phys.${ID}.${NUM}.1D ]; then
-                CMD="${CMD} -ort ${SESS}/PARAMS/det.phys.${ID}.${NUM}.1D"
+                CMD=`echo ${CMD} ${SESS}/PARAMS/det.phys.${ID}.${NUM}.1D`
             fi
 
-            # mean white matter + csf regressor
-            if [ ${STD} = 'on' ]; then
+            if [ `echo ${STD}` = 'on' ]; then
 
-                # white matter mean
-                3dmaskave -q -mask ${SESS}/anat_wm.nii.gz ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz > ${SESS}/PARAMS/wm.${ID}.${NUM}.1D
-                # white matter lag
-                1dcat ${SESS}/PARAMS/wm.${ID}.${NUM}.1D'{0}' > ${SESS}/PARAMS/lag.wm.${ID}.${NUM}.1D
-                1dcat ${SESS}/PARAMS/wm.${ID}.${NUM}.1D'{0..$}' >> ${SESS}/PARAMS/lag.wm.${ID}.${NUM}.1D
-                # white matter 1st derivative (backwards differences)
-                1d_tool.py -infile ${SESS}/PARAMS/wm.${ID}.${NUM}.1D -backward_diff -overwrite -write ${SESS}/PARAMS/dif.wm.${ID}.${NUM}.1D
-                # white matter squared
-                1deval -a ${SESS}/PARAMS/wm.${ID}.${NUM}.1D -expr 'a^2' > ${SESS}/PARAMS/sq.wm.${ID}.${NUM}.1D
-                # white matter lag squared
-                1deval -a ${SESS}/PARAMS/lag.wm.${ID}.${NUM}.1D -expr 'a^2' > ${SESS}/PARAMS/sq.lag.wm.${ID}.${NUM}.1D
-                # white matter squared 1st derivative
-                1d_tool.py -infile ${SESS}/PARAMS/sq.wm.${ID}.${NUM}.1D -backward_diff -overwrite -write ${SESS}/PARAMS/dif.sq.wm.${ID}.${NUM}.1D
+                # white matter mean, lag, dif, sq
+                3dmaskave \
+                    -q -mask ${SESS}/anat_wm.nii.gz \
+                    ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz > \
+                    ${SESS}/PARAMS/wm.${ID}.${NUM}.1D
+                1dcat \
+                    ${SESS}/PARAMS/wm.${ID}.${NUM}.1D'{0}' > \
+                    ${SESS}/PARAMS/lag.wm.${ID}.${NUM}.1D
+                1dcat \
+                    ${SESS}/PARAMS/wm.${ID}.${NUM}.1D'{0..$}' >> \
+                    ${SESS}/PARAMS/lag.wm.${ID}.${NUM}.1D
+                1d_tool.py \
+                    -infile ${SESS}/PARAMS/wm.${ID}.${NUM}.1D \
+                    -backward_diff \
+                    -overwrite \
+                    -write ${SESS}/PARAMS/dif.wm.${ID}.${NUM}.1D
+                1deval \
+                    -a ${SESS}/PARAMS/wm.${ID}.${NUM}.1D \
+                    -expr 'a^2' > ${SESS}/PARAMS/sq.wm.${ID}.${NUM}.1D
+                1deval \
+                    -a ${SESS}/PARAMS/lag.wm.${ID}.${NUM}.1D \
+                    -expr 'a^2' > ${SESS}/PARAMS/sq.lag.wm.${ID}.${NUM}.1D
+                1d_tool.py \
+                    -infile ${SESS}/PARAMS/sq.wm.${ID}.${NUM}.1D \
+                    -backward_diff \
+                    -overwrite \
+                    -write ${SESS}/PARAMS/dif.sq.wm.${ID}.${NUM}.1D
 
-                # csf (calculate means, lags, squares, and derivatives)
-                3dmaskave -q -mask ${SESS}/anat_vent.nii.gz ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz > ${SESS}/PARAMS/vent.${ID}.${NUM}.1D
-                1dcat ${SESS}/PARAMS/vent.${ID}.${NUM}.1D'{0}' > ${SESS}/PARAMS/lag.vent.${ID}.${NUM}.1D
-                1dcat ${SESS}/PARAMS/vent.${ID}.${NUM}.1D'{0..$}' >> ${SESS}/PARAMS/lag.vent.${ID}.${NUM}.1D
-                1d_tool.py -infile ${SESS}/PARAMS/vent.${ID}.${NUM}.1D -backward_diff -overwrite -write ${SESS}/PARAMS/dif.vent.${ID}.${NUM}.1D
-                1deval -a ${SESS}/PARAMS/vent.${ID}.${NUM}.1D -expr 'a^2' > ${SESS}/PARAMS/sq.vent.${ID}.${NUM}.1D
-                1deval -a ${SESS}/PARAMS/lag.vent.${ID}.${NUM}.1D -expr 'a^2' > ${SESS}/PARAMS/sq.lag.vent.${ID}.${NUM}.1D
-                1d_tool.py -infile ${SESS}/PARAMS/sq.vent.${ID}.${NUM}.1D -backward_diff -overwrite -write ${SESS}/PARAMS/dif.sq.vent.${ID}.${NUM}.1D
+                # ventricle mean, lag, dif, sq
+                3dmaskave \
+                    -q -mask ${SESS}/anat_vent.nii.gz \
+                    ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz > \
+                    ${SESS}/PARAMS/vent.${ID}.${NUM}.1D
+                1dcat \
+                    ${SESS}/PARAMS/vent.${ID}.${NUM}.1D'{0}' > \
+                    ${SESS}/PARAMS/lag.vent.${ID}.${NUM}.1D
+                1dcat \
+                    ${SESS}/PARAMS/vent.${ID}.${NUM}.1D'{0..$}' >> \
+                    ${SESS}/PARAMS/lag.vent.${ID}.${NUM}.1D
+                1d_tool.py \
+                    -infile ${SESS}/PARAMS/vent.${ID}.${NUM}.1D \
+                    -backward_diff \
+                    -overwrite \
+                    -write ${SESS}/PARAMS/dif.vent.${ID}.${NUM}.1D
+                1deval \
+                    -a ${SESS}/PARAMS/vent.${ID}.${NUM}.1D \
+                    -expr 'a^2' > ${SESS}/PARAMS/sq.vent.${ID}.${NUM}.1D
+                1deval \
+                    -a ${SESS}/PARAMS/lag.vent.${ID}.${NUM}.1D \
+                    -expr 'a^2' > ${SESS}/PARAMS/sq.lag.vent.${ID}.${NUM}.1D
+                1d_tool.py \
+                    -infile ${SESS}/PARAMS/sq.vent.${ID}.${NUM}.1D \
+                    -backward_diff \
+                    -overwrite \
+                    -write ${SESS}/PARAMS/dif.sq.vent.${ID}.${NUM}.1D
 
-                # add motion, csf, white matter regressors
-                CMD="${CMD} -ort ${SESS}/PARAMS/det.motion.${ID}.${NUM}.1D"
-                CMD="${CMD} -ort ${SESS}/PARAMS/vent.${ID}.${NUM}.1D"
-                CMD="${CMD} -ort ${SESS}/PARAMS/wm.${ID}.${NUM}.1D"
+                CMD=`echo ${CMD} ${SESS}/PARAMS/det.motion.${ID}.${NUM}.1D`
+                CMD=`echo ${CMD} ${SESS}/PARAMS/vent.${ID}.${NUM}.1D`
+                CMD=`echo ${CMD} ${SESS}/PARAMS/wm.${ID}.${NUM}.1D`
 
-                if [ ${SQ} = 'on' ]; then
-                    CMD="${CMD} -ort ${SESS}/PARAMS/sq.1.det.motion.${ID}.${NUM}.1D"
-                    CMD="${CMD} -ort ${SESS}/PARAMS/sq.2.det.motion.${ID}.${NUM}.1D"
-                    CMD="${CMD} -ort ${SESS}/PARAMS/sq.3.det.motion.${ID}.${NUM}.1D"
-                    CMD="${CMD} -ort ${SESS}/PARAMS/sq.4.det.motion.${ID}.${NUM}.1D"
-                    CMD="${CMD} -ort ${SESS}/PARAMS/sq.5.det.motion.${ID}.${NUM}.1D"
-                    CMD="${CMD} -ort ${SESS}/PARAMS/sq.6.det.motion.${ID}.${NUM}.1D"
-                    CMD="${CMD} -ort ${SESS}/PARAMS/sq.vent.${ID}.${NUM}.1D"
-                    CMD="${CMD} -ort ${SESS}/PARAMS/sq.wm.${ID}.${NUM}.1D"
+                if [ `echo ${SQ}` = 'on' ]; then
+                    CMD=`echo ${CMD} ${SESS}/PARAMS/sq.1.det.motion.${ID}.${NUM}.1D`
+                    CMD=`echo ${CMD} ${SESS}/PARAMS/sq.2.det.motion.${ID}.${NUM}.1D`
+                    CMD=`echo ${CMD} ${SESS}/PARAMS/sq.3.det.motion.${ID}.${NUM}.1D`
+                    CMD=`echo ${CMD} ${SESS}/PARAMS/sq.4.det.motion.${ID}.${NUM}.1D`
+                    CMD=`echo ${CMD} ${SESS}/PARAMS/sq.5.det.motion.${ID}.${NUM}.1D`
+                    CMD=`echo ${CMD} ${SESS}/PARAMS/sq.6.det.motion.${ID}.${NUM}.1D`
+                    CMD=`echo ${CMD} ${SESS}/PARAMS/sq.vent.${ID}.${NUM}.1D`
+                    CMD=`echo ${CMD} ${SESS}/PARAMS/sq.wm.${ID}.${NUM}.1D`
 
-                    if [ ${DIFF} = 'on' ]; then
-                        CMD="${CMD} -ort ${SESS}/PARAMS/dif.sq.1.det.motion.${ID}.${NUM}.1D"
-                        CMD="${CMD} -ort ${SESS}/PARAMS/dif.sq.2.det.motion.${ID}.${NUM}.1D"
-                        CMD="${CMD} -ort ${SESS}/PARAMS/dif.sq.3.det.motion.${ID}.${NUM}.1D"
-                        CMD="${CMD} -ort ${SESS}/PARAMS/dif.sq.4.det.motion.${ID}.${NUM}.1D"
-                        CMD="${CMD} -ort ${SESS}/PARAMS/dif.sq.5.det.motion.${ID}.${NUM}.1D"
-                        CMD="${CMD} -ort ${SESS}/PARAMS/dif.sq.6.det.motion.${ID}.${NUM}.1D"
-                        CMD="${CMD} -ort ${SESS}/PARAMS/dif.sq.vent.${ID}.${NUM}.1D"
-                        CMD="${CMD} -ort ${SESS}/PARAMS/dif.sq.wm.${ID}.${NUM}.1D"
+                    if [ `echo ${DIFF}` = 'on' ]; then
+                        CMD=`echo ${CMD} ${SESS}/PARAMS/dif.sq.1.det.motion.${ID}.${NUM}.1D`
+                        CMD=`echo ${CMD} ${SESS}/PARAMS/dif.sq.2.det.motion.${ID}.${NUM}.1D`
+                        CMD=`echo ${CMD} ${SESS}/PARAMS/dif.sq.3.det.motion.${ID}.${NUM}.1D`
+                        CMD=`echo ${CMD} ${SESS}/PARAMS/dif.sq.4.det.motion.${ID}.${NUM}.1D`
+                        CMD=`echo ${CMD} ${SESS}/PARAMS/dif.sq.5.det.motion.${ID}.${NUM}.1D`
+                        CMD=`echo ${CMD} ${SESS}/PARAMS/dif.sq.6.det.motion.${ID}.${NUM}.1D`
+                        CMD=`echo ${CMD} ${SESS}/PARAMS/dif.sq.vent.${ID}.${NUM}.1D`
+                        CMD=`echo ${CMD} ${SESS}/PARAMS/dif.sq.wm.${ID}.${NUM}.1D`
                     fi
+
                 fi
 
-                if [ ${DIFF} = 'on' ]; then
-                    CMD="${CMD} -ort ${SESS}/PARAMS/det.dif.motion.${ID}.${NUM}.1D"
-                    CMD="${CMD} -ort ${SESS}/PARAMS/dif.vent.${ID}.${NUM}.1D"
-                    CMD="${CMD} -ort ${SESS}/PARAMS/dif.wm.${ID}.${NUM}.1D"
+                if [ `echo ${DIFF}` = 'on' ]; then
+                    CMD=`echo ${CMD} ${SESS}/PARAMS/det.dif.motion.${ID}.${NUM}.1D`
+                    CMD=`echo ${CMD} ${SESS}/PARAMS/dif.vent.${ID}.${NUM}.1D`
+                    CMD=`echo ${CMD} ${SESS}/PARAMS/dif.wm.${ID}.${NUM}.1D`
                 fi
 
                 # note the difference in the order of operations from the diff method,
                 # above. It isn't clear to me if there is a meaningful difference in the
                 # lag case. -- jdv may 2015
-                if [ ${LAG} == 'on' ]; then
-                    CMD="${CMD} -ort ${SESS}/PARAMS/det.lag.motion.${ID}.${NUM}.1D"
-                    CMD="${CMD} -ort ${SESS}/PARAMS/lag.vent.${ID}.${NUM}.1D"
-                    CMD="${CMD} -ort ${SESS}/PARAMS/lag.wm.${ID}.${NUM}.1D"
+                if [ `echo ${LAG}` == 'on' ]; then
+                    CMD=`echo ${CMD} ${SESS}/PARAMS/det.lag.motion.${ID}.${NUM}.1D`
+                    CMD=`echo ${CMD} ${SESS}/PARAMS/lag.vent.${ID}.${NUM}.1D`
+                    CMD=`echo ${CMD} ${SESS}/PARAMS/lag.wm.${ID}.${NUM}.1D`
 
-                    if [ ${SQ} = 'on' ]; then
-                        CMD="${CMD} -ort ${SESS}/PARAMS/sq.1.det.lag.motion.${ID}.${NUM}.1D"
-                        CMD="${CMD} -ort ${SESS}/PARAMS/sq.2.det.lag.motion.${ID}.${NUM}.1D"
-                        CMD="${CMD} -ort ${SESS}/PARAMS/sq.3.det.lag.motion.${ID}.${NUM}.1D"
-                        CMD="${CMD} -ort ${SESS}/PARAMS/sq.4.det.lag.motion.${ID}.${NUM}.1D"
-                        CMD="${CMD} -ort ${SESS}/PARAMS/sq.5.det.lag.motion.${ID}.${NUM}.1D"
-                        CMD="${CMD} -ort ${SESS}/PARAMS/sq.6.det.lag.motion.${ID}.${NUM}.1D"
-                        CMD="${CMD} -ort ${SESS}/PARAMS/sq.lag.vent.${ID}.${NUM}.1D"
-                        CMD="${CMD} -ort ${SESS}/PARAMS/sq.lag.wm.${ID}.${NUM}.1D"
+                    if [ `echo ${SQ}` = 'on' ]; then
+                        CMD=`echo ${CMD} ${SESS}/PARAMS/sq.1.det.lag.motion.${ID}.${NUM}.1D`
+                        CMD=`echo ${CMD} ${SESS}/PARAMS/sq.2.det.lag.motion.${ID}.${NUM}.1D`
+                        CMD=`echo ${CMD} ${SESS}/PARAMS/sq.3.det.lag.motion.${ID}.${NUM}.1D`
+                        CMD=`echo ${CMD} ${SESS}/PARAMS/sq.4.det.lag.motion.${ID}.${NUM}.1D`
+                        CMD=`echo ${CMD} ${SESS}/PARAMS/sq.5.det.lag.motion.${ID}.${NUM}.1D`
+                        CMD=`echo ${CMD} ${SESS}/PARAMS/sq.6.det.lag.motion.${ID}.${NUM}.1D`
+                        CMD=`echo ${CMD} ${SESS}/PARAMS/sq.lag.vent.${ID}.${NUM}.1D`
+                        CMD=`echo ${CMD} ${SESS}/PARAMS/sq.lag.wm.${ID}.${NUM}.1D`
                     fi
                 fi
             fi
 
-            # global mean regression
             if [ ${GM} = 'on' ]; then
 
-                # global mean (calculate means, lags, squares, and derivatives)
-                3dmaskave -mask ${SESS}/anat_EPI_mask.nii.gz -quiet ${SESS}/func_tmp_det.${ID}.${NUM}.nii.gz > ${SESS}/PARAMS/global_mean.${ID}.${NUM}.1D
-                1dcat ${SESS}/PARAMS/global_mean.${ID}.${NUM}.1D'{0}' > ${SESS}/PARAMS/lag.global_mean.${ID}.${NUM}.1D
-                1dcat ${SESS}/PARAMS/global_mean.${ID}.${NUM}.1D'{0..$}' >> ${SESS}/PARAMS/lag.global_mean.${ID}.${NUM}.1D
-                1d_tool.py -infile ${SESS}/PARAMS/global_mean.${ID}.${NUM}.1D -backward_diff -overwrite -write ${SESS}/PARAMS/dif.global_mean.${ID}.${NUM}.1D
-                1deval -a ${SESS}/PARAMS/global_mean.${ID}.${NUM}.1D -expr 'a^2' > ${SESS}/PARAMS/sq.global_mean.${ID}.${NUM}.1D
-                1deval -a ${SESS}/PARAMS/lag.global_mean.${ID}.${NUM}.1D -expr 'a^2' > ${SESS}/PARAMS/sq.lag.global_mean.${ID}.${NUM}.1D
-                1d_tool.py -infile ${SESS}/PARAMS/sq.global_mean.${ID}.${NUM}.1D -backward_diff -overwrite -write ${SESS}/PARAMS/dif.sq.global_mean.${ID}.${NUM}.1D
+                # global mean, lag, dif, sq
+                3dmaskave \
+                    -mask ${SESS}/anat_EPI_mask.nii.gz \
+                    -quiet ${SESS}/func_tmp_det.${ID}.${NUM}.nii.gz \
+                    > ${SESS}/PARAMS/global_mean.${ID}.${NUM}.1D
+                1dcat \
+                    ${SESS}/PARAMS/global_mean.${ID}.${NUM}.1D'{0}' > \
+                    ${SESS}/PARAMS/lag.global_mean.${ID}.${NUM}.1D
+                1dcat \
+                    ${SESS}/PARAMS/global_mean.${ID}.${NUM}.1D'{0..$}' >> \
+                    ${SESS}/PARAMS/lag.global_mean.${ID}.${NUM}.1D
+                1d_tool.py \
+                    -infile ${SESS}/PARAMS/global_mean.${ID}.${NUM}.1D \
+                    -backward_diff \
+                    -overwrite \
+                    -write ${SESS}/PARAMS/dif.global_mean.${ID}.${NUM}.1D
+                1deval \
+                    -a ${SESS}/PARAMS/global_mean.${ID}.${NUM}.1D \
+                    -expr 'a^2' > ${SESS}/PARAMS/sq.global_mean.${ID}.${NUM}.1D
+                1deval \
+                    -a ${SESS}/PARAMS/lag.global_mean.${ID}.${NUM}.1D \
+                    -expr 'a^2' > ${SESS}/PARAMS/sq.lag.global_mean.${ID}.${NUM}.1D
+                1d_tool.py \
+                    -infile ${SESS}/PARAMS/sq.global_mean.${ID}.${NUM}.1D \
+                    -backward_diff \
+                    -overwrite \
+                    -write ${SESS}/PARAMS/dif.sq.global_mean.${ID}.${NUM}.1D
 
-                CMD="${CMD} -ort ${SESS}/PARAMS/global_mean.${ID}.${NUM}.1D"
-                if [ ${SQ} = 'on' ]; then
-                    CMD="${CMD} -ort ${SESS}/PARAMS/sq.global_mean.${ID}.${NUM}.1D"
-                    if [ ${DIFF} = 'on' ]; then
-                        CMD="${CMD} -ort ${SESS}/PARAMS/dif.sq.global_mean.${ID}.${NUM}.1D"
+                CMD=`echo ${CMD} ${SESS}/PARAMS/global_mean.${ID}.${NUM}.1D`
+                if [ `echo ${SQ}` = 'on' ]; then
+                    CMD=`echo ${CMD} ${SESS}/PARAMS/sq.global_mean.${ID}.${NUM}.1D`
+
+                    if [ `echo ${DIFF}` = 'on' ]; then
+                        CMD=`echo ${CMD} ${SESS}/PARAMS/dif.sq.global_mean.${ID}.${NUM}.1D`
                     fi
                 fi
 
-                if [ ${DIFF} = 'on' ]; then
-                    CMD="${CMD} -ort ${SESS}/PARAMS/dif.global_mean.${ID}.${NUM}.1D"
+                if [ `echo ${DIFF}` = 'on' ]; then
+                    CMD=`echo ${CMD} ${SESS}/PARAMS/dif.global_mean.${ID}.${NUM}.1D`
                 fi
 
                 # note the difference in the order of operations from the diff method,
                 # above. It isn't clear to me if there is a meaningful difference in the
                 # lag case. -- jdv may 2015
-                if [ ${LAG} = 'on' ]; then
-                    CMD="${CMD} -ort ${SESS}/PARAMS/lag.global_mean.${ID}.${NUM}.1D"
-                    if [ ${SQ} = 'on' ]; then
-                        CMD="${CMD} -ort ${SESS}/PARAMS/sq.lag.global_mean.${ID}.${NUM}.1D"
+                if [ `echo ${LAG}` = 'on' ]; then
+                    CMD=`echo ${CMD} ${SESS}/PARAMS/lag.global_mean.${ID}.${NUM}.1D`
+
+                    if [ `echo ${SQ}` = 'on' ]; then
+                        CMD=`echo ${CMD} ${SESS}/PARAMS/sq.lag.global_mean.${ID}.${NUM}.1D`
                     fi
                 fi
             fi
 
-            # regression of draining vessels
-            if [ ${DV} = 'on' ]; then
+            if [ `echo ${DV}` = 'on' ]; then
 
-                # draining vessel (calculate means, lags, squares, and derivatives)
-                3dmaskave -q -mask ${SESS}/anat_dv.nii.gz ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz > ${SESS}/PARAMS/dv.${ID}.${NUM}.1D
-                1dcat ${SESS}/PARAMS/dv.${ID}.${NUM}.1D'{0}' > ${SESS}/PARAMS/lag.dv.${ID}.${NUM}.1D
-                1dcat ${SESS}/PARAMS/dv.${ID}.${NUM}.1D'{0..$}' >> ${SESS}/PARAMS/lag.dv.${ID}.${NUM}.1D
-                1d_tool.py -infile ${SESS}/PARAMS/dv.${ID}.${NUM}.1D -backward_diff -overwrite -write ${SESS}/PARAMS/dif.dv.${ID}.${NUM}.1D
-                1deval -a ${SESS}/PARAMS/dv.${ID}.${NUM}.1D -expr 'a^2' > ${SESS}/PARAMS/sq.dv.${ID}.${NUM}.1D
-                1deval -a ${SESS}/PARAMS/lag.dv.${ID}.${NUM}.1D -expr 'a^2' > ${SESS}/PARAMS/sq.lag.dv.${ID}.${NUM}.1D
-                1d_tool.py -infile ${SESS}/PARAMS/sq.dv.${ID}.${NUM}.1D -backward_diff -overwrite -write ${SESS}/PARAMS/dif.sq.dv.${ID}.${NUM}.1D
+                # draining vessel mean, lag, dif, sq
+                3dmaskave \
+                    -q -mask ${SESS}/anat_dv.nii.gz \
+                    ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz > \
+                    ${SESS}/PARAMS/dv.${ID}.${NUM}.1D
+                1dcat \
+                    ${SESS}/PARAMS/dv.${ID}.${NUM}.1D'{0}' > \
+                    ${SESS}/PARAMS/lag.dv.${ID}.${NUM}.1D
+                1dcat \
+                    ${SESS}/PARAMS/dv.${ID}.${NUM}.1D'{0..$}' >> \
+                    ${SESS}/PARAMS/lag.dv.${ID}.${NUM}.1D
+                1d_tool.py \
+                    -infile ${SESS}/PARAMS/dv.${ID}.${NUM}.1D \
+                    -backward_diff \
+                    -overwrite \
+                    -write ${SESS}/PARAMS/dif.dv.${ID}.${NUM}.1D
+                1deval \
+                    -a ${SESS}/PARAMS/dv.${ID}.${NUM}.1D \
+                    -expr 'a^2' > ${SESS}/PARAMS/sq.dv.${ID}.${NUM}.1D
+                1deval \
+                    -a ${SESS}/PARAMS/lag.dv.${ID}.${NUM}.1D \
+                    -expr 'a^2' > ${SESS}/PARAMS/sq.lag.dv.${ID}.${NUM}.1D
+                1d_tool.py \
+                    -infile ${SESS}/PARAMS/sq.dv.${ID}.${NUM}.1D \
+                    -backward_diff \
+                    -overwrite \
+                    -write ${SESS}/PARAMS/dif.sq.dv.${ID}.${NUM}.1D
 
-                CMD="${CMD} ${SESS}/PARAMS/dv.${ID}.${NUM}.1D"
-                if [ ${SQ} = 'on' ]; then
-                    CMD="${CMD} -ort ${SESS}/PARAMS/sq.dv.${ID}.${NUM}.1D"
-                    if [ ${DIFF} = 'on' ]; then
-                        CMD="${CMD} -ort ${SESS}/PARAMS/dif.sq.dv.${ID}.${NUM}.1D"
+                CMD=`echo ${CMD} ${SESS}/PARAMS/dv.${ID}.${NUM}.1D`
+                if [ `echo ${SQ}` = 'on' ]; then
+                    CMD=`echo ${CMD} ${SESS}/PARAMS/sq.dv.${ID}.${NUM}.1D`
+
+                    if [ `echo ${DIFF}` = 'on' ]; then
+                        CMD=`echo ${CMD} ${SESS}/PARAMS/dif.sq.dv.${ID}.${NUM}.1D`
                     fi
                 fi
 
-                if [ "${DIFF}" = 'on' ]; then
-                    CMD="${CMD} -ort ${SESS}/PARAMS/dif.dv.${ID}.${NUM}.1D"
+                if [ `echo ${DIFF}` = 'on' ]; then
+                    CMD=`echo ${CMD} ${SESS}/PARAMS/dif.dv.${ID}.${NUM}.1D`
                 fi
 
                 # note the difference in the order of operations from the diff method,
                 # above. It isn't clear to me if there is a meaningful difference in the
                 # lag case. -- jdv may 2015
-                if [ ${LAG} = 'on' ]; then
-                    CMD="${CMD} -ort ${SESS}/PARAMS/lag.dv.${ID}.${NUM}.1D"
-                    if [ ${SQ} = 'on' ]; then
-                        CMD="${CMD} -ort ${SESS}/PARAMS/sq.lag.dv.${ID}.${NUM}.1D"
+                if [ `echo ${LAG}` = 'on' ]; then
+                    CMD=`echo ${CMD} ${SESS}/PARAMS/lag.dv.${ID}.${NUM}.1D`
+
+                    if [ `echo ${SQ}` = 'on' ]; then
+                        CMD=`echo ${CMD} ${SESS}/PARAMS/sq.lag.dv.${ID}.${NUM}.1D`
                     fi
                 fi
             fi
 
-            # local white matter regression
-            if [ ${ANATICOR} = 'on' ]; then
+            if [ `echo ${ANATICOR}` = 'on' ]; then
 
+                # local white matter (+ lag)
                 if [ ! -f ${SESS}/PARAMS/lag.wm_local15.${ID}.${NUM}.nii.gz ]; then
                     3dLocalstat \
                         -prefix ${SESS}/PARAMS/wm_local15.${ID}.${NUM}.nii.gz \
@@ -996,8 +1129,8 @@ for SESS in ${DIR_SESS}; do
                         ${SESS}/PARAMS/wm_local15.${ID}.${NUM}.nii.gz'[0..$]'
                 fi
 
-                CMD="${CMD} -dsort ${SESS}/PARAMS/wm_local15.${ID}.${NUM}.nii.gz"
-                CMD="${CMD} -dsort ${SESS}/PARAMS/lag.wm_local15.${ID}.${NUM}.nii.gz"
+                CMD=`echo ${CMD} ${SESS}/PARAMS/wm_local15.${ID}.${NUM}.nii.gz`
+                CMD=`echo ${CMD} ${SESS}/PARAMS/lag.wm_local15.${ID}.${NUM}.nii.gz`
             fi
 
             if [ ${COMPCOR} -gt 0 ]; then
@@ -1020,177 +1153,31 @@ for SESS in ${DIR_SESS}; do
                 fi
 
                 # https://www.youtube.com/watch?v=oavMtUWDBTM
-                CMD="${CMD} -ort ${SESS}/PARAMS/wm_pc.${ID}.${NUM}.1D"
-                CMD="${CMD} -ort ${SESS}/PARAMS/vent_pc.${ID}.${NUM}.1D"
+                CMD=`echo ${CMD} ${SESS}/PARAMS/wm_pc.${ID}.${NUM}.1D`
+                CMD=`echo ${CMD} ${SESS}/PARAMS/vent_pc.${ID}.${NUM}.1D`
             fi
 
-            # add optional bandpass
-            if [ ${BANDPASS} = 'on' ]; then
-                CMD="${CMD} -passband 0.01 0.1"
-            fi
-
-            # if censor vector exists
-            if [ -f ${SESS}/PARAMS/censor.${ID}.${NUM}.1D ]; then
-                CMD="${CMD} -censor ${SESS}/PARAMS/censor.${ID}.${NUM}.1D"
-                if [ ${CENSOR} = 'drop' ]; then
-                    CMD="${CMD} -cenmode KILL"
-                elif [ ${CENSOR} = 'interp' ]; then
-                    CMD="${CMD} -cenmode NTRP"
-                fi
-            fi
-
-            # run the regression
+            ####################################################################
+            # Finally, run the command
             ${CMD}
 
-            # add in mean
+            # subtracts nuisances from inputs, retaining the mean
             3dcalc \
-                -a ${SESS}/func_det_filtered.${ID}.${NUM}.nii.gz \
-                -b ${SESS}/func_tmp_mean.${ID}.${NUM}.nii.gz \
-                -expr "a+b" \
+                -float \
+                -a ${SESS}/func_tmp_det.${ID}.${NUM}.nii.gz \
+                -b ${SESS}/func_noise.${ID}.${NUM}.nii.gz \
+                -c ${SESS}/func_tmp_mean.${ID}.${NUM}.nii.gz \
+                -expr 'a-b+c' \
                 -prefix ${SESS}/func_filtered.${ID}.${NUM}.nii.gz
 
-            # delete temporary files
-            rm ${SESS}/func_det_filtered.${ID}.${NUM}.nii.gz
-            rm ${SESS}/func_tmp_det.${ID}.${NUM}.nii.gz
-            rm ${SESS}/func_tmp_mean.${ID}.${NUM}.nii.gz
-            rm ${SESS}/func_tmp_stdev.${ID}.${NUM}.nii.gz
         fi
     done
-done
-
-echo '*** MODULE: nonlinreg_calc_fsl. Calcs MNI warp from linreg outputs. ****'
-
-# copy template from FSL folder
-FSLDIR=$(dirname $(dirname $(which fsl)))
-cp ${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz ${DIR_DATA}/${DIR_EXPT}/anat_MNI.nii.gz
-cp ${FSLDIR}/data/standard/MNI152_T1_2mm_brain_mask_dil.nii.gz ${DIR_DATA}/${DIR_EXPT}/anat_MNI_mask.nii.gz
-
-DIR_SESS=$(ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/)
-for SESS in ${DIR_SESS}; do
-    SESS=$(basename ${SESS})
-    DIR="${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}"
-
-    # calculate nonlinear warp of T1 to MNI space
-    if [ ! -f ${DIR}/${SESS}/reg_nlin_TAL_WARP.nii.gz ]; then
-        fnirt \
-            --ref=${DIR_DATA}/${DIR_EXPT}/anat_MNI.nii.gz \
-            --refmask=${DIR_DATA}/${DIR_EXPT}/anat_MNI_mask.nii.gz \
-            --in=${DIR}/${SESS}/reg_T1_to_TAL.nii.gz \
-            --config=T1_2_MNI152_2mm.cnf \
-            --iout=${DIR}/${SESS}/reg_nlin_TAL.nii.gz \
-            --fout=${DIR}/${SESS}/reg_nlin_TAL_FIELD.nii.gz \
-            --cout=${DIR}/${SESS}/reg_nlin_TAL_WARP.nii.gz \
-            --intout=${DIR}/${SESS}/reg_nlin_TAL_INTOUT.nii.gz \
-            --interp=spline
-    fi
-done
-
-echo '*** MODULE: linreg_epi2t1_fsl. T1-transforms functional data. **********'
-export input=func_filtered
-
-DIR_SESS=$(ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/)
-for SESS in ${DIR_SESS}; do
-    SESS=$(basename ${SESS})
-    DIR="${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/${SESS}"
-    DIR_T1="${DIR_DATA}/${DIR_EXPT}/${SUB}/T1/${SESS}"
-
-    # create registration dummy for FSL
-    if [ -f ${DIR}/anat_EPI_reg_target.nii.gz ]; then
-      rm ${DIR}/anat_EPI_reg_target.nii.gz
-    fi
-    3dresample \
-        -dxyz ${dims} ${dims} ${dims} \
-        -prefix ${DIR}/anat_EPI_reg_target.nii.gz \
-        -inset ${DIR_T1}/anat_T1_brain.nii.gz
-
-    DIR_RUNS=$(ls -d -- ${DIR}/RUN*)
-    for RUN in ${DIR_RUNS}; do
-        NUM=$(basename ${RUN} | sed 's/[^0-9]//g')
-
-        # register runs with individual T1s
-        if [ ! -f ${DIR}/func_T1.${ID}.${NUM}.nii.gz ]; then
-            flirt \
-                -in ${DIR}/${input}.${ID}.${NUM}.nii.gz \
-                -ref ${DIR}/anat_EPI_reg_target.nii.gz \
-                -applyxfm -init ${DIR}/mat_EPI_to_T1.mat \
-                -out ${DIR}/func_T1.${ID}.${NUM}.nii.gz \
-                -interp sinc \
-                -sincwidth 7 \
-                -sincwindow blackman
-        fi
-
-    done
-
-    # register session masks with T1
-    if [ ! -f ${DIR}/anat_EPI_mask_T1.nii.gz ]; then
-        flirt \
-          -in ${DIR}/anat_EPI_mask.nii.gz \
-          -ref ${DIR}/anat_EPI_reg_target.nii.gz \
-          -applyxfm -init ${DIR}/mat_EPI_to_T1.mat \
-          -interp nearestneighbour \
-          -out ${DIR}/anat_EPI_mask_T1.nii.gz
-    fi
-done
-
-echo '*** MODULE: nonlinreg_epi2mni_fsl. Warps EPI data to MNI space. ********'
-export input=func_filtered
-
-FSLDIR=$(dirname $(dirname $(which fsl)))
-DIR_SESS=$(ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/)
-for SESS in ${DIR_SESS}; do
-    SESS=$(basename ${SESS})
-    DIR="${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/${SESS}"
-
-    # create registration dummy for FSL
-    if [ ! -f ${DIR}/anat_EPI_reg_target.nii.gz ]; then
-        3dresample \
-            -dxyz ${dims} ${dims} ${dims} \
-            -prefix ${DIR}/anat_EPI_reg_target.nii.gz \
-            -inset ${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz
-    fi
-
-    DIR_RUNS=$(ls -d -- ${DIR}/RUN*)
-    for RUN in ${DIR_RUNS}; do
-        NUM=$(basename ${RUN} | sed 's/[^0-9]//g')
-
-        # register runs with MNI
-        if [ ! -f ${DIR}/func_MNI-nonlin.${ID}.${NUM}.nii.gz ]; then
-            applywarp \
-                --ref=${DIR}/anat_EPI_reg_target.nii.gz \
-                --in=${DIR}/${input}.${ID}.${NUM}.nii.gz \
-                --warp=${DIR}/reg_nlin_TAL_WARP.nii.gz \
-                --premat=${DIR}/mat_EPI_to_TAL.mat \
-                --interp=spline \
-                --out=${DIR}/func_MNI-nonlin.${ID}.${NUM}.nii.gz
-        fi
-    done
-
-    # register session masks with MNI-lin
-    if [ ! -f ${DIR}/anat_EPI_mask_MNI-lin.nii.gz ]; then
-        flirt \
-            -in ${DIR}/anat_EPI_mask.nii.gz \
-            -ref ${DIR}/anat_EPI_reg_target.nii.gz \
-            -applyxfm -init ${DIR}/mat_EPI_to_TAL.mat \
-            -interp nearestneighbour \
-            -out ${DIR}/anat_EPI_mask_MNI-lin.nii.gz
-    fi
-
-    # register session masks with MNI-nonlin
-    if [ ! -f ${DIR}/anat_EPI_mask_MNI-nonlin.nii.gz ]; then
-        applywarp \
-            --ref=${DIR}/anat_EPI_reg_target.nii.gz \
-            --in=${DIR}/anat_EPI_mask.nii.gz \
-            --warp=${DIR}/reg_nlin_TAL_WARP.nii.gz \
-            --premat=${DIR}/mat_EPI_to_TAL.mat \
-            --interp=nn \
-            --out=${DIR}/anat_EPI_mask_MNI-nonlin.nii.gz
-    fi
 done
 
 echo '*** MODULE: volsmooth. Spatially smooths volume data. ******************'
-export input=func_MNI-nonlin
-export mask=anat_EPI_mask_MNI-nonlin
-export fwhm=8.0
+export input=func_filtered
+export mask=anat_EPI_mask
+export fwhm=12.0
 export mode=normal
 
 DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
@@ -1248,3 +1235,58 @@ for SESS in ${DIR_SESS}; do
         fi
     done
 done
+
+echo '*** MODULE: nonlinreg_epi2mni_fsl. Warps EPI data to MNI space. ********'
+export input=func_volsmooth
+
+DIR_SESS=$(ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/)
+for SESS in ${DIR_SESS}; do
+    SESS=$(basename ${SESS})
+    DIR="${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/${SESS}"
+
+    # create registration dummy for FSL
+    if [ ! -f ${DIR}/anat_EPI_reg_target.nii.gz ]; then
+        3dresample \
+            -dxyz ${dims} ${dims} ${dims} \
+            -prefix ${DIR}/anat_EPI_reg_target.nii.gz \
+            -inset ${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz
+    fi
+
+    DIR_RUNS=$(ls -d -- ${DIR}/RUN*)
+    for RUN in ${DIR_RUNS}; do
+        NUM=$(basename ${RUN} | sed 's/[^0-9]//g')
+
+        # register runs with MNI
+        if [ ! -f ${DIR}/func_MNI-nonlin.${ID}.${NUM}.nii.gz ]; then
+            applywarp \
+                --ref=${DIR}/anat_EPI_reg_target.nii.gz \
+                --in=${DIR}/${input}.${ID}.${NUM}.nii.gz \
+                --warp=${DIR}/reg_nlin_TAL_WARP.nii.gz \
+                --premat=${DIR}/mat_EPI_to_TAL.mat \
+                --interp=spline \
+                --out=${DIR}/func_MNI-nonlin.${ID}.${NUM}.nii.gz
+        fi
+    done
+
+    # register session masks with MNI-lin
+    if [ ! -f ${DIR}/anat_EPI_mask_MNI-lin.nii.gz ]; then
+        flirt \
+            -in ${DIR}/anat_EPI_mask.nii.gz \
+            -ref ${DIR}/anat_EPI_reg_target.nii.gz \
+            -applyxfm -init ${DIR}/mat_EPI_to_TAL.mat \
+            -interp nearestneighbour \
+            -out ${DIR}/anat_EPI_mask_MNI-lin.nii.gz
+    fi
+
+    # register session masks with MNI-nonlin
+    if [ ! -f ${DIR}/anat_EPI_mask_MNI-nonlin.nii.gz ]; then
+        applywarp \
+            --ref=${DIR}/anat_EPI_reg_target.nii.gz \
+            --in=${DIR}/anat_EPI_mask.nii.gz \
+            --warp=${DIR}/reg_nlin_TAL_WARP.nii.gz \
+            --premat=${DIR}/mat_EPI_to_TAL.mat \
+            --interp=nn \
+            --out=${DIR}/anat_EPI_mask_MNI-nonlin.nii.gz
+    fi
+done
+
