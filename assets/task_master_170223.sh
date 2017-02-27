@@ -11,7 +11,7 @@ DIR_MODULES=/archive/code/epitome/modules
 DIR_DATA=/projects/jviviano/data/epitome
 DIR_EXPT=TEMP
 DATA_TYPE=FUNC
-ID=datman_rest
+ID=datman_task
 
 fsrecon
 init_basic high 4
@@ -24,9 +24,7 @@ scale func_despike scale
 linreg_calc_fsl high corratio 6
 nonlinreg_calc_fsl
 linreg_fs2epi_fsl
-trscrub func_scaled 50 0.3 3 interp
-filter func_scrubbed 2 diff off sq std gm off off 3
-lowpass_freq func_filtered butterworth 0.1
-linreg_epi2t1_fsl func_lowpass 3.0
-nonlinreg_epi2mni_fsl func_lowpass 3.0
+filter func_scaled 2 diff off sq std gm off off 3
+linreg_epi2t1_fsl func_scaled 3.0
+nonlinreg_epi2mni_fsl func_scaled 3.0
 volsmooth func_MNI-nonlin 12.0 normal
