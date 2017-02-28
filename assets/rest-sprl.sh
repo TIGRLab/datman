@@ -1,15 +1,14 @@
 #!/bin/bash
 
 # rendered script-it from rest-sprl_master_170223.sh
-# generated: 2017/02/24 -- 19:24:16 by jviviano.
+# generated: 2017/02/28 -- 13:19:09 by jviviano.
 
 set -e
 
 export DIR_MODULES=/archive/code/epitome/modules
-export DIR_DATA=/projects/jviviano/data/epitome
 export DIR_EXPT=TEMP
 export DATA_TYPE=FUNC
-export ID=datman_rest-sprl
+export ID=datman_rest
 
 # command line arguments
 export SUB=SUBJ
@@ -31,6 +30,10 @@ fi
 # sets some handy AFNI defaults
 export AFNI_NIFTI_TYPE_WARN='NO'
 export AFNI_DECONFLICT=OVERWRITE
+
+# variable used to keep track of the current 'space' of the functional data
+# space = 'native', 'T1', 'MNI'
+export space='native'
 
 echo '*** MODULE: init_basic. Reorients, phys regression, removes init TRs. ***'
 export data_quality=high
@@ -127,7 +130,7 @@ for SESS in ${DIR_SESS}; do
     for RUN in ${DIR_RUNS}; do
         NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
         FILE=`echo ${RUN}/*.nii.gz`
-    
+
         if [ ! -f ${SESS}/func_ob.${ID}.${NUM}.nii.gz ]; then
             if [ ${NUM} == '01' ]; then
                 # deoblique run (unconstrained for first run)
@@ -154,6 +157,7 @@ for SESS in ${DIR_SESS}; do
     done
 done
 
+
 echo '*** MODULE: motion_deskull. Motion correction and brain masking. ***'
 export input=func_ob
 export masking=loose
@@ -175,13 +179,7 @@ for SESS in ${DIR_SESS}; do
             3dvolreg \
                 -prefix ${SESS}/func_motion.${ID}.${NUM}.nii.gz \
                 -base ${SESS}/${input}.${ID}'.01.nii.gz[8]' \
-                -twopass \
-                -twoblur 3 \
-                -twodup \
-                -coarse 10 3 \
-                -Fourier \
-                -zpad 10 \
-                -float \
+                -twopass -twoblur 3 -twodup -coarse 10 3 -Fourier -zpad 10 -float \
                 -1Dfile ${SESS}/PARAMS/motion.${ID}.${NUM}.1D \
                 -1Dmatrix_save ${SESS}/PARAMS/3dvolreg.${ID}.${NUM}.aff12.1D \
                 ${SESS}/${input}.${ID}.${NUM}.nii.gz
@@ -221,12 +219,7 @@ for SESS in ${DIR_SESS}; do
                 3dvolreg \
                     -prefix ${SESS}/anat_EPI_initTR_reg.nii.gz \
                     -base ${SESS}/${input}.${ID}.'01.nii.gz[8]' \
-                    -twopass \
-                    -twoblur 3 \
-                    -twodup \
-                    -Fourier \
-                    -zpad 2 \
-                    -float \
+                    -twopass -twoblur 3 -twodup -Fourier -zpad 2 -float \
                     ${SESS}/anat_EPI_initTR_ob.nii.gz
             fi
         fi
@@ -335,6 +328,10 @@ for SESS in ${DIR_SESS}; do
     done
 done
 
+# set mask to native space
+mask=anat_EPI_mask.nii.gz
+
+
 echo '*** MODULE: despike. Removes time series outliers via L1 regression. ***'
 export input=func_deskull
 
@@ -362,6 +359,7 @@ export INPUT=func_despike
 
 DIR_SESS=$(ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/)
 for SESS in ${DIR_SESS}; do
+
     DIR_RUNS=$(ls -d -- ${SESS}/RUN*)
     for RUN in ${DIR_RUNS}; do
         NUM=$(basename ${RUN} | sed 's/[^0-9]//g')
@@ -375,7 +373,7 @@ for SESS in ${DIR_SESS}; do
                 -prefix ${SESS}/func_tmp_backdif.${ID}.${NUM}.nii.gz
 
             3dmaskave \
-                -mask ${SESS}/anat_EPI_mask.nii.gz \
+                -mask ${SESS}/${mask} \
                 -quiet ${SESS}/func_tmp_backdif.${ID}.${NUM}.nii.gz \
                 > ${SESS}/PARAMS/tmp_backdif.${ID}.${NUM}.1D
 
@@ -437,26 +435,39 @@ for SESS in ${DIR_SESS}; do
                 -mean \
                 ${SESS}/${input}.${ID}.${NUM}.nii.gz
 
-            # % SIGNAL CHANGE: mean = 0, 1% == 1 (normalized by mean)... careful using this with event-related designs
+            # % SIGNAL CHANGE: mean=100, 1%=1 (normalized by mean)... careful using this with event-related designs
             if [ ${normalize} == 'pct' ]; then
                 3dcalc \
                    -prefix ${SESS}/func_scaled.${ID}.${NUM}.nii.gz \
                    -datum float \
                    -a ${SESS}/${input}.${ID}.${NUM}.nii.gz \
                    -b ${SESS}/func_tmp_mean.${ID}.${NUM}.nii.gz \
-                   -c ${SESS}/anat_EPI_mask.nii.gz \
+                   -c ${SESS}/${mask} \
                    -expr "(a-b)/b*c*100"
-            fi
-
-            # SCALE: set global mean = 1000, arbitrary units, no normalization
-            if [ ${normalize} == 'scale' ]; then
+            # SCALE: set global mean=1000, arbitrary units, no normalization
+            elif [ ${normalize} == 'scale' ]; then
                 MEAN=$(3dmaskave -quiet -mask ${SESS}/anat_EPI_brain.nii.gz ${SESS}/func_tmp_mean.${ID}.${NUM}.nii.gz)
                 3dcalc \
                     -prefix ${SESS}/func_scaled.${ID}.${NUM}.nii.gz \
                     -datum float \
                     -a ${SESS}/${input}.${ID}.${NUM}.nii.gz \
-                    -b ${SESS}/anat_EPI_mask.nii.gz \
+                    -b ${SESS}/${mask} \
                     -expr "a*(1000/${MEAN})*b"
+            # ZSCORE: mean=0, SD=1
+            elif [ ${normalize} == 'zscore' ]; then
+                3dTstat \
+                    -prefix ${SESS}/func_tmp_std.${ID}.${NUM}.nii.gz \
+                    -stdev \
+                    ${SESS}/${input}.${ID}.${NUM}.nii.gz
+
+                3dcalc \
+                    -prefix ${SESS}/func_scaled.${ID}.${NUM}.nii.gz \
+                    -a ${SESS}/${input}.${ID}.${NUM}.nii.gz \
+                    -b ${SESS}/func_tmp_mean.${ID}.${NUM}.nii.gz \
+                    -c ${SESS}/func_tmp_std.${ID}.${NUM}.nii.gz \
+                    -d ${SESS}/${mask} \
+                    -expr "(a-b)/c*d"
+                rm ${SESS}/func_tmp_std.${ID}.${NUM}.nii.gz
             fi
             rm ${SESS}/func_tmp_mean.${ID}.${NUM}.nii.gz
         fi
@@ -638,7 +649,6 @@ export GM=gm
 export DV=off
 export ANATICOR=off
 export COMPCOR=3
-export MASK=anat_EPI_mask
 
 DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
 for SESS in ${DIR_SESS}; do
@@ -661,7 +671,7 @@ for SESS in ${DIR_SESS}; do
         3dcalc \
             -a ${SESS}/anat_wm.nii.gz \
             -b a+i -c a-i -d a+j -e a-j -f a+k -g a-k \
-            -h ${SESS}/${MASK}.nii.gz \
+            -h ${SESS}/${mask} \
             -expr 'a*(1-amongst(0,b,c,d,e,f,g))*h' \
             -prefix ${SESS}/anat_wm_ero.nii.gz
     fi
@@ -692,7 +702,7 @@ for SESS in ${DIR_SESS}; do
         3dcalc \
             -a ${SESS}/anat_vent.nii.gz \
             -b ${SESS}/anat_tmp_nonvent_dia.nii.gz \
-            -c ${SESS}/${MASK}.nii.gz \
+            -c ${SESS}/${mask} \
             -expr 'a-step(a*b)*c' \
             -prefix ${SESS}/anat_vent_ero.nii.gz
     fi
@@ -709,7 +719,7 @@ for SESS in ${DIR_SESS}; do
     # dialated brain mask
     if [ ! -f ${SESS}/anat_EPI_mask_dia.nii.gz ]; then
         3dcalc \
-            -a ${SESS}/${MASK}.nii.gz \
+            -a ${SESS}/${mask} \
             -b a+i -c a-i -d a+j -e a-j -f a+k -g a-k \
             -expr 'amongst(1,a,b,c,d,e,f,g)' \
             -prefix ${SESS}/anat_EPI_mask_dia.nii.gz
@@ -719,7 +729,7 @@ for SESS in ${DIR_SESS}; do
     if [ ! -f ${SESS}/anat_bstem.nii.gz ]; then
         3dcalc \
             -a ${SESS}/anat_aparc_reg.nii.gz \
-            -b ${SESS}/${MASK}.nii.gz \
+            -b ${SESS}/${mask} \
             -expr "equals(a,8)*b  + \
                    equals(a,47)*b + \
                    equals(a,16)*b + \
@@ -741,7 +751,7 @@ for SESS in ${DIR_SESS}; do
     # eroded draining vessel mask
     if [ ! -f ${SESS}/anat_dv_ero.nii.gz ]; then
         3dcalc \
-            -a ${SESS}/${MASK}.nii.gz \
+            -a ${SESS}/${mask} \
             -b ${SESS}/anat_gm.nii.gz \
             -c ${SESS}/anat_wm.nii.gz \
             -d ${SESS}/anat_vent.nii.gz \
@@ -1058,12 +1068,12 @@ done
 
 echo '*** MODULE: lowpass_freq. Low pass using frequency domain filter. ******'
 export input=func_filtered
-export mask=anat_EPI_mask
 export filter=butterworth
 export cutoff=0.1
 
 DIR_SESS=$(ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/)
 for SESS in ${DIR_SESS}; do
+
     DIR_RUNS=$(ls -d -- ${SESS}/RUN*)
     for RUN in ${DIR_RUNS}; do
         NUM=$(basename ${RUN} | sed 's/[^0-9]//g')
@@ -1071,7 +1081,7 @@ for SESS in ${DIR_SESS}; do
         if [ ! -f ${SESS}/func_lowpass.${ID}.${NUM}.nii.gz ]; then
             epi-lowpass \
                 ${SESS}/${input}.${ID}.${NUM}.nii.gz \
-                ${SESS}/${mask}.nii.gz \
+                ${SESS}/${mask} \
                 ${SESS}/func_lowpass.${ID}.${NUM}.nii.gz \
                 --type ${filter} \
                 --cutoff ${cutoff}
@@ -1135,9 +1145,16 @@ for SESS in ${DIR_SESS}; do
                 -ref ${DIR}/anat_EPI_reg_target.nii.gz \
                 -applyxfm -init ${DIR}/mat_EPI_to_T1.mat \
                 -out ${DIR}/func_T1.${ID}.${NUM}.nii.gz \
-                -interp sinc \
-                -sincwidth 7 \
-                -sincwindow blackman
+                -interp sinc -sincwidth 7 -sincwindow blackman
+            # if func noise exists, bring it along
+            if [ -f ${DIR}/func_noise.${ID}.${NUM}.nii.gz ]; then
+                flirt \
+                    -in ${DIR}/func_noise.${ID}.${NUM}.nii.gz \
+                    -ref ${DIR}/anat_EPI_reg_target.nii.gz \
+                    -applyxfm -init ${DIR}/mat_EPI_to_T1.mat \
+                    -out ${DIR}/func_noise_T1.${ID}.${NUM}.nii.gz \
+                    -interp sinc -sincwidth 7 -sincwindow blackman
+            fi
         fi
 
     done
@@ -1153,6 +1170,9 @@ for SESS in ${DIR_SESS}; do
     fi
 done
 
+space='T1'
+mask=anat_EPI_mask_T1.nii.gz
+
 echo '*** MODULE: nonlinreg_epi2mni_fsl. Warps EPI data to MNI space. ********'
 export input=func_lowpass
 
@@ -1163,12 +1183,13 @@ for SESS in ${DIR_SESS}; do
     DIR="${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/${SESS}"
 
     # create registration dummy for FSL
-    if [ ! -f ${DIR}/anat_EPI_reg_target.nii.gz ]; then
-        3dresample \
-            -dxyz ${dims} ${dims} ${dims} \
-            -prefix ${DIR}/anat_EPI_reg_target.nii.gz \
-            -inset ${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz
+    if [ -f ${DIR}/anat_EPI_reg_target.nii.gz ]; then
+      rm ${DIR}/anat_EPI_reg_target.nii.gz
     fi
+    3dresample \
+        -dxyz ${dims} ${dims} ${dims} \
+        -prefix ${DIR}/anat_EPI_reg_target.nii.gz \
+        -inset ${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz
 
     DIR_RUNS=$(ls -d -- ${DIR}/RUN*)
     for RUN in ${DIR_RUNS}; do
@@ -1183,6 +1204,16 @@ for SESS in ${DIR_SESS}; do
                 --premat=${DIR}/mat_EPI_to_TAL.mat \
                 --interp=spline \
                 --out=${DIR}/func_MNI-nonlin.${ID}.${NUM}.nii.gz
+            # if func noise exists, bring it along
+            if [ -f ${DIR}/func_noise.${ID}.${NUM}.nii.gz ]; then
+                applywarp \
+                    --ref=${DIR}/anat_EPI_reg_target.nii.gz \
+                    --in=${DIR}/func_noise.${ID}.${NUM}.nii.gz \
+                    --warp=${DIR}/reg_nlin_TAL_WARP.nii.gz \
+                    --premat=${DIR}/mat_EPI_to_TAL.mat \
+                    --interp=spline \
+                    --out=${DIR}/func_noise_MNI-nonlin.${ID}.${NUM}.nii.gz
+            fi
         fi
     done
 
@@ -1208,10 +1239,12 @@ for SESS in ${DIR_SESS}; do
     fi
 done
 
+space='MNI'
+mask=anat_EPI_mask_MNI-nonlin.nii.gz
+
 echo '*** MODULE: volsmooth. Spatially smooths volume data. ******************'
 export input=func_MNI-nonlin
-export mask=anat_EPI_mask_MNI-nonlin
-export fwhm=8.0
+export fwhm=12.0
 export mode=normal
 
 DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
@@ -1230,7 +1263,7 @@ for SESS in ${DIR_SESS}; do
             -prefix ${SESS}/anat_tmp_smoothmask.nii.gz \
             -master ${SESS}/${input}.${ID}.01.nii.gz \
             -rmode NN \
-            -inset ${SESS}/${mask}.nii.gz
+            -inset ${SESS}/${mask}
 
         # smooth to specified fwhm
         if [ ! -f ${SESS}/func_volsmooth.${ID}.${NUM}.nii.gz ]; then
@@ -1239,14 +1272,44 @@ for SESS in ${DIR_SESS}; do
             if [ ${mode} == 'normal' ]; then
                 # If already run filter, use noise model from it as blurmaster
                 if [ -f ${SESS}/func_noise.${ID}.${NUM}.nii.gz ]; then
-                    echo 'MSG: func_noise found. ensure that the filter module was run in the same space as volsmooth, or this command will fail and complain about grid spacing of the BLURMASTER!'
-                    3dBlurToFWHM \
-                        -quiet \
-                        -prefix ${SESS}/func_volsmooth.${ID}.${NUM}.nii.gz \
-                        -mask ${SESS}/anat_tmp_smoothmask.nii.gz \
-                        -FWHM ${fwhm} \
-                        -blurmaster ${SESS}/func_noise.${ID}.${NUM}.nii.gz \
-                        -input ${SESS}/${input}.${ID}.${NUM}.nii.gz
+                    if [ ${space} == 'native' ]; then
+                        3dBlurToFWHM \
+                            -quiet \
+                            -prefix ${SESS}/func_volsmooth.${ID}.${NUM}.nii.gz \
+                            -mask ${SESS}/anat_tmp_smoothmask.nii.gz \
+                            -FWHM ${fwhm} \
+                            -blurmaster ${SESS}/func_noise.${ID}.${NUM}.nii.gz \
+                            -input ${SESS}/${input}.${ID}.${NUM}.nii.gz
+                    elif [ ${space} == 'T1' ]; then
+                        3dBlurToFWHM \
+                            -quiet \
+                            -prefix ${SESS}/func_volsmooth.${ID}.${NUM}.nii.gz \
+                            -mask ${SESS}/anat_tmp_smoothmask.nii.gz \
+                            -FWHM ${fwhm} \
+                            -blurmaster ${SESS}/func_noise_T1.${ID}.${NUM}.nii.gz \
+                            -input ${SESS}/${input}.${ID}.${NUM}.nii.gz
+                    elif [ ${space} == 'MNI' ]; then
+                        if [ -f ${SESS}/func_noise_MNI-nonlin.${ID}.${NUM}.nii.gz ]; then
+                            # nonlinear MNI space
+                            3dBlurToFWHM \
+                                -quiet \
+                                -prefix ${SESS}/func_volsmooth.${ID}.${NUM}.nii.gz \
+                                -mask ${SESS}/anat_tmp_smoothmask.nii.gz \
+                                -FWHM ${fwhm} \
+                                -blurmaster ${SESS}/func_noise_MNI-nonlin.${ID}.${NUM}.nii.gz \
+                                -input ${SESS}/${input}.${ID}.${NUM}.nii.gz
+                        else
+                            # linear MNI space
+                            3dBlurToFWHM \
+                                -quiet \
+                                -prefix ${SESS}/func_volsmooth.${ID}.${NUM}.nii.gz \
+                                -mask ${SESS}/anat_tmp_smoothmask.nii.gz \
+                                -FWHM ${fwhm} \
+                                -blurmaster ${SESS}/func_noise_MNI-lin.${ID}.${NUM}.nii.gz \
+                                -input ${SESS}/${input}.${ID}.${NUM}.nii.gz
+                        fi
+                    fi
+                # haven't run filter, so we just use the data itself as the blurmaster
                 else
                     3dBlurToFWHM \
                         -quiet \
