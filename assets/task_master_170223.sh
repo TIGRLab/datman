@@ -16,7 +16,8 @@ ID=datman_task
 fsrecon
 init_basic high 4
 slice_time_correct func_del 3.0 Z yes yes
-motion_deskull func_tshift loose FSL
+deoblique func_tshift
+motion_deskull func_ob loose FSL
 despike func_deskull
 calc_dvars func_despike
 calc_censor func_despike 50.0 0.3 3.0

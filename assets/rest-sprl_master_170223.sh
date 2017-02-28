@@ -15,7 +15,8 @@ ID=datman_rest-sprl
 
 fsrecon
 init_basic high 4
-motion_deskull func_tshift loose FSL
+deoblique func_del
+motion_deskull func_ob loose FSL
 despike func_deskull
 calc_dvars func_despike
 calc_censor func_despike 50.0 0.3 3.0
