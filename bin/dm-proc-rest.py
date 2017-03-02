@@ -109,7 +109,7 @@ def run_analysis(scanid, config, study):
                     output[i, :] = np.mean(data[idx, :], axis=0)
 
             # save the raw time series
-            np.savetxt(os.path.join(path, basename + '_roi-timeseries.csv'), output.transpose(), delimiter=',')
+            np.savetxt(os.path.join(path, basename + '_roi-timeseries.csv'), output, delimiter=',')
 
             # save the full correlation matrix
             corrs = np.corrcoef(output)
