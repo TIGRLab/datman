@@ -687,6 +687,7 @@ def qc_subject(subject, config):
         "NBK"           : fmri_qc,
         "EMP"           : fmri_qc,
         "VN-SPRL"       : fmri_qc,
+        "VN"            : fmri_qc,
         "SID"           : fmri_qc,
         "MID"           : fmri_qc,
         "TRG"           : fmri_qc,
