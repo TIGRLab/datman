@@ -614,8 +614,8 @@ def get_dicom_archive_from_xnat(xnat_project, session_label, experiment_label,
         with zipfile.ZipFile(dicom_archive[1], 'r') as myzip:
             myzip.extractall(tempdir)
     except:
-        logger.error('An error occured unpaking dicom archive for:{}'
-                     ' skipping')
+        logger.error('An error occurred unpacking dicom archive for:{}'
+                     ' skipping'.format(session_label))
         os.remove(dicom_archive[1])
         return None, None
 
