@@ -248,16 +248,13 @@ def export_nii_command(seriesdir, outputdir, stem):
 
     # convert into tempdir
     tmpdir = tempfile.mkdtemp()
-    dm.utils.run('dcm2nii -x n -g y -o {} {}'.format(tmpdir,seriesdir), DRYRUN)
+    dm.utils.run('dcm2niix -z y -b y -o {} {}'.format(tmpdir, seriesdir), DRYRUN)
 
-    # move nii in tempdir to proper location
+    # move nii and accompanying files (BIDS, dirs, etc) from tempdir/ to nii/
     for f in glob.glob("{}/*".format(tmpdir)):
         bn = os.path.basename(f)
         ext = dm.utils.get_extension(f)
-        if bn.startswith("o") or bn.startswith("co"):
-            continue
-        else:
-            dm.utils.run("mv {} {}/{}{}".format(f, outputdir, stem, ext), DRYRUN)
+        dm.utils.run("mv {} {}/{}{}".format(f, outputdir, stem, ext), DRYRUN)
     shutil.rmtree(tmpdir)
 
 def export_nrrd_command(seriesdir, outputdir, stem):
