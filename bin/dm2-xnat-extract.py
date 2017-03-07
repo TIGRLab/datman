@@ -91,7 +91,7 @@ import platform
 import shutil
 import dicom
 
-logger = logging.getLogger(os.path.basename(__file__))
+logger = logging.getLogger()
 log_handler = logging.StreamHandler()
 log_handler.setFormatter(logging.Formatter('[%(name)s] %(levelname)s : '
         '%(message)s'))
@@ -567,6 +567,8 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
                     raise(e)
 
                 exporter = xporters[export_format]
+                logger.info('Exporting scan {} to format {}'
+                            .format(file_stem, export_format))
                 exporter(src_dir, target_dir, file_stem)
         except:
             logger.error('An error happened exporting {} from scan:{} in session:{}'
@@ -736,17 +738,14 @@ def export_nii_command(seriesdir, outputdir, stem):
 
     # convert into tempdir
     tmpdir = tempfile.mkdtemp(prefix="dm2_xnat_extract_")
-    datman.utils.run('dcm2nii -x n -g y -o {} {}'
+    datman.utils.run('dcm2niix -z y -b y -o {} {}'
                      .format(tmpdir, seriesdir), DRYRUN)
 
-    # move nii in tempdir to proper location
+    # move nii and accompanying files (BIDS, dirs, etc) from tempdir/ to nii/
     for f in glob.glob("{}/*".format(tmpdir)):
         bn = os.path.basename(f)
         ext = datman.utils.get_extension(f)
-        if bn.startswith("o") or bn.startswith("co"):
-            continue
-        else:
-            datman.utils.run("mv {} {}/{}{}"
+        datman.utils.run("mv {} {}/{}{}"
                              .format(f, outputdir, stem, ext), DRYRUN)
     shutil.rmtree(tmpdir)
 
