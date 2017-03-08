@@ -145,6 +145,8 @@ class dashboard(object):
                         .filter(Session.name == session_name) \
                         .filter(Study.nickname == self.study.nickname) \
                         .filter(Scan.name == scan_id)
+        if ident.session:
+            qry = qry.filter(Scan.repeat_number == int(ident.session))
 
         if qry.count() == 1:
             logger.debug('Found scan:{} in database'.format(scan_name))
@@ -183,6 +185,8 @@ class dashboard(object):
             dashboard_scan.series_number = series
             dashboard_scan.scantype = dashboard_scantype
             dashboard_scan.description = desc
+            if ident.session:
+                dashboard_scan.repeat_number = int(ident.session)
 
             db.session.add(dashboard_scan)
         # finally check the blacklist
@@ -203,7 +207,7 @@ class dashboard(object):
                          .format(scan_name, str(e)))
         return(dashboard_scan)
 
-    def delete_extra_scans(self, session_label, scanlist):
+    def delete_extra_scans(self, session_label, scanlist, repeat=1):
         """Checks scans associated with session,
         deletes scans not in scanlist"""
 
@@ -225,8 +229,7 @@ class dashboard(object):
             except:
                 continue
 
-
-        db_scans = [scan.name for scan in db_session.scans]
+        db_scans = [scan.name for scan in db_session.scans if scan.repeat_number == repeat]
         extra_scans = set(db_scans) - set(scan_names)
         for scan in extra_scans:
             db_scan = Scan.query.filter(Scan.name == scan).first()
