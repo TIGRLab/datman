@@ -4,7 +4,7 @@ This pre-processes fmri data using the settings found in project_config.yml
 If subject is not defined, this runs in batch mode for all subjects.
 
 Usage:
-    dm-proc-fmri.py [options] <study>
+    dm_proc_fmri.py [options] <study>
 
 Arguments:
     <study>          study name defined in master configuration .yml file
@@ -148,7 +148,7 @@ def run_epitome(path, config, study):
         # reset / remove error.log
         error_log = os.path.join(output_dir, 'error.log')
         if os.path.isfile(error_log):
-        os.remove(error_log)
+            os.remove(error_log)
 
         failed = False
 

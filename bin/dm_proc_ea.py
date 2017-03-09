@@ -3,7 +3,7 @@
 Process empathic accuracy experiment data.
 
 Usage:
-    dm-proc-ea.py [options] <study>
+    dm_proc_ea.py [options] <study>
 
 Arguments:
     <study>             study name defined in master Configuration .yml file.

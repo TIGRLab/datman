@@ -3,7 +3,7 @@
 This runs freesurfer T1 images using the settings found in project_config.yml
 
 Usage:
-  dm-proc-freesurfer.py [options] <study>
+  dm_proc_freesurfer.py [options] <study>
 
 Arguments:
     <study>             study name defined in master configuration .yml file
@@ -44,7 +44,7 @@ def run_freesurfer(path, config, study):
     nii_dir = os.path.join(study_base, config.site_config['paths']['nii'])
     freesurfer_dir = os.path.join(study_base, config.site_config['paths']['freesurfer'])
 
-    # don't run if the outputs of epitome already exist
+    # don't run if the outputs already exist
     output_dir = utils.define_folder(os.path.join(freesurfer_dir, subject))
     if outputs_exist(output_dir):
         continue
