@@ -3,7 +3,7 @@
 This will convert freesurfer outputs to hcp workbench-compatible format.
 
 Usage:
-  dm-proc-fs2wb.py [options] <config>
+  dm_proc_fs2hcp.py [options] <config>
 
 Arguments:
     <study>            study name defined in master configuration .yml file
