@@ -411,6 +411,30 @@ def write_report_body(report, expected_files, subject, header_diffs, handlers):
             raise KeyError('series tag {} not defined in handlers:\n{}'.format(series.tag, handlers))
         report.write('<br>')
 
+def find_all_tech_notes(path):
+    """
+    Extract the session identifier without the repeat label from the path:
+    i.e. SPN01_CMH_0002_01_01 becomes SPN01_CMH_0002_01
+    Search all folders matching the session identifier for potential
+    technotes, returns a list of tuples: (repeat_number, file_path)
+    """
+    technotes = []
+    base_dir = os.path.dirname(path)
+    full_session = os.path.basename(path)
+    ident = datman.scanid.parse(full_session)
+    session = ident.get_full_subjectid_with_timepoint()
+    session_paths = glob.glob(os.path.join(base_dir, session) + '*')
+    for path in session_paths:
+        ident = datman.scanid.parse(path)
+        # Some resource folders don't have a repeat number,
+        # this is an error and should be ignored
+        if ident.session:
+            technote = find_tech_notes(path)
+            if technote:
+                technotes.append((ident.session, technote))
+
+    return technotes
+
 def find_tech_notes(path):
     """
     Search the file tree rooted at path for the tech notes pdf.
@@ -449,17 +473,19 @@ def write_tech_notes_link(report, subject_id, resources_path):
     if 'CMH' not in subject_id:
         return
 
-    tech_notes = find_tech_notes(resources_path)
+    tech_notes = find_all_tech_notes(resources_path)
 
     if not tech_notes:
         report.write('<p>Tech Notes not found</p>\n')
         return
 
-    notes_path = os.path.relpath(os.path.abspath(tech_notes),
-                        os.path.dirname(report.name))
-    report.write('<a href="{}">'.format(notes_path))
-    report.write('Click Here to open Tech Notes')
-    report.write('</a><br>')
+    for technote in tech_notes:
+        notes_path = os.path.relpath(os.path.abspath(technote[1]),
+                                     os.path.dirname(report.name))
+        report.write('<a href="{}">'.format(notes_path))
+        report.write('Click Here to open Tech Notes - Session {}:'
+                     .format(technote[0]))
+        report.write('</a><br>')
 
 def write_table(report, exportinfo, subject):
     report.write('<table><tr>'
