@@ -96,6 +96,8 @@ class dashboard(object):
                 dashboard_session.name = session_name
                 dashboard_session.study = self.study
                 dashboard_session.date = date
+                dashboard_session.is_repeated = False
+                dashboard_session.repeat_count = 1
                 if datman.scanid.is_phantom(session_name):
                     dashboard_session.is_phantom = True
                 db.session.add(dashboard_session)
