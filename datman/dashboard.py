@@ -207,19 +207,24 @@ class dashboard(object):
                          .format(scan_name, str(e)))
         return(dashboard_scan)
 
-    def delete_extra_scans(self, session_label, scanlist, repeat=1):
+    def delete_extra_scans(self, session_label, scanlist):
         """Checks scans associated with session,
         deletes scans not in scanlist"""
-
         try:
             ident = datman.scanid.parse(session_label)
         except datman.scanid.ParseException:
             logger.error('Invalid session:{}'.format(session_label))
             raise DashboardException('Invalid session name:{}'
                                       .format(session_label))
+
+        # extract the repeat number
+        if datman.scanid.is_phantom(session_label):
+            repeat = None
+        else:
+            repeat = int(ident.session)
+
         session_label = ident.get_full_subjectid_with_timepoint()
         db_session = self.get_add_session(session_label)
-
         scan_names = []
         # need to convert full scan names to scanid's in the db
         for scan_name in scanlist:
@@ -231,6 +236,7 @@ class dashboard(object):
 
         db_scans = [scan.name for scan in db_session.scans if scan.repeat_number == repeat]
         extra_scans = set(db_scans) - set(scan_names)
+
         for scan in extra_scans:
             db_scan = Scan.query.filter(Scan.name == scan).first()
             db.session.delete(db_scan)
