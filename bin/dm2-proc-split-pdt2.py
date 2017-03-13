@@ -103,7 +103,14 @@ def add_session_PDT2s(files, images, base_dir):
             continue
         ext = datman.utils.get_extension(f)
         if tag == 'PDT2' and 'nii' in ext:
-            images.append(os.path.join(base_dir, f))
+            f_shape = nib.load(f).shape
+            # this will fail if we load a 3D image, though some 3D images also
+            # report the 4th dimension as 1, so we need to check the value
+            try:
+                if f_shape[3] >= 2:
+                    images.append(os.path.join(base_dir, f))
+            except:
+                pass
 
 def split(image):
 
