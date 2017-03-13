@@ -565,8 +565,8 @@ def splitext(path):
     return os.path.splitext(path)
 
 @contextlib.contextmanager
-def make_temp_directory():
-    temp_dir = tempfile.mkdtemp()
+def make_temp_directory(suffix='', prefix='tmp', path=None):
+    temp_dir = tempfile.mkdtemp(suffix=suffix, prefix=prefix, dir=path)
     try:
         yield temp_dir
     finally:
