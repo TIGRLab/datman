@@ -43,13 +43,15 @@ import platform
 logger = logging.getLogger(__file__)
 cfg = None
 
+DRYRUN = False
 
 def main():
-    global cfg
+    global cfg, DRYRUN
     arguments = docopt(__doc__)
     verbose = arguments['--verbose']
     debug = arguments['--debug']
     quiet = arguments['--quiet']
+    DRYRUN = arguments['--dry-run']
     study = arguments['<study>']
     session = arguments['<session>']
 
@@ -83,32 +85,33 @@ def main():
     if session:
         base_dir = os.path.join(nii_dir, session)
         files = os.listdir(base_dir)
-        for f in files:
-            try:
-                ident, tag, series, desc = datman.scanid.parse_filename(f)
-            except datman.scanid.ParseException:
-                logger.info('Invalid scanid:{}'.format(f))
-                continue
-            if tag == 'PDT2':
-                images.append(os.path.join(base_dir, f))
+        add_session_PDT2s(files, images, base_dir)
     else:
         for root, dirs, files in os.walk(nii_dir):
-            for f in files:
-                try:
-                    ident, tag, series, desc = datman.scanid.parse_filename(f)
-                except datman.scanid.ParseException:
-                    logger.info('Invalid scanid:{}'.format(f))
-                    continue
-                if tag == 'PDT2':
-                    images.append(os.path.join(root, f))
+            add_session_PDT2s(files, images, root)
 
-    logger.info('Found {} files with tag "PDT2"'.format(len(images)))
+    logger.info('Found {} nifti files with tag "PDT2"'.format(len(images)))
     for image in images:
         split(image)
 
+def add_session_PDT2s(files, images, base_dir):
+    for f in files:
+        try:
+            ident, tag, series, desc = datman.scanid.parse_filename(f)
+        except datman.scanid.ParseException:
+            logger.info('Invalid scanid:{}'.format(f))
+            continue
+        ext = datman.utils.get_extension(f)
+        if tag == 'PDT2' and 'nii' in ext:
+            images.append(os.path.join(base_dir, f))
 
 def split(image):
-    logger.info('Spliting image:{}'.format(image))
+
+    if DRYRUN:
+        logger.info('dry-run: Skipping split of image: {}'.format(image))
+        return
+
+    logger.info('Splitting image:{}'.format(image))
     ext = datman.utils.get_extension(image)
     try:
         ident, tag, series, desc = datman.scanid.parse_filename(image)
