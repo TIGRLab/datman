@@ -91,7 +91,7 @@ import platform
 import shutil
 import dicom
 
-logger = logging.getLogger()
+logger = logging.getLogger(os.path.basename(__file__))
 log_handler = logging.StreamHandler()
 log_handler.setFormatter(logging.Formatter('[%(name)s] %(levelname)s : '
         '%(message)s'))
