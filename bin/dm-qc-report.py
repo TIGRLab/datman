@@ -826,11 +826,23 @@ def prepare_scan(subject_id, config):
     from needed directories and ensures that if needed input directories do
     not exist that the program exits.
     """
+    global REWRITE
     try:
         subject = datman.scan.Scan(subject_id, config)
     except datman.scanid.ParseException as e:
         logger.error(e, exc_info=True)
         sys.exit(1)
+
+    # going to query the dashboard database to see if this session
+    # has updated scans (repeat scans)
+    # if yes force the qc pages to be re-written and the database to
+    # be updated.
+    db_session = subject.get_db_object()
+    if db_session.last_repeat_qc_generated < db_session.repeat_count:
+        # this is a new session, going to cheat and overwrite REWRITE
+        REWRITE = True
+        db_session.last_repeat_qc_generated = db_session.repeat_count
+        db_session.flush_changes()
 
     verify_input_paths([subject.nii_path, subject.dcm_path])
 
@@ -898,8 +910,12 @@ def main():
         logger.setLevel(logging.DEBUG)
 
     if session:
+        # going to stash value of REWRITE as this may be overwritten
+        # if a repeat session has appeared
+        old_rewrite = REWRITE
         subject = prepare_scan(session, config)
         qc_single_scan(subject, config)
+        REWRITE = old_rewrite
         return
 
     qc_all_scans(config)
