@@ -90,7 +90,8 @@ def main():
         for root, dirs, files in os.walk(nii_dir):
             add_session_PDT2s(files, images, root)
 
-    logger.info('Found {} nifti files with tag "PDT2"'.format(len(images)))
+    logger.info('Found {} splittable nifti files with tag "PDT2"'.format(
+            len(images)))
     for image in images:
         split(image)
 
@@ -103,12 +104,13 @@ def add_session_PDT2s(files, images, base_dir):
             continue
         ext = datman.utils.get_extension(f)
         if tag == 'PDT2' and 'nii' in ext:
-            f_shape = nib.load(f).shape
+            file_path = os.path.join(base_dir, f)
+            f_shape = nib.load(file_path).shape
             # this will fail if we load a 3D image, though some 3D images also
             # report the 4th dimension as 1, so we need to check the value
             try:
                 if f_shape[3] >= 2:
-                    images.append(os.path.join(base_dir, f))
+                    images.append(file_path)
             except:
                 pass
 
@@ -143,35 +145,30 @@ def split(image):
         logger.info('Image:{} is already split, skipping.'.format(image))
         return
 
-    tempdir = tempfile.mkdtemp(prefix='dm2-proc-split-pdt2')
+    with datman.utils.make_temp_directory(prefix='dm2-proc-split-pdt2') as tempdir:
+        ret = datman.utils.run("fslsplit {} {}/".format(image, tempdir))
+        if ret[0]:
+            logger.error('pdt2 split failed in image:{} with fslsplit error:{}'
+                         .format(image, ret[1]))
+        vols = glob.glob('{}/*.nii.gz'.format(tempdir))
+        if len(vols) != 2:
+            logger.error('{}: Expected exactly 2 volumes, got: {}'
+                         ' in tempfile: {} on system :{}'
+                         .format(image, ", ".join(vols), tempdir, platform.node()))
+            return
 
-    ret = datman.utils.run("fslsplit {} {}/".format(image, tempdir))
-    if ret[0]:
-        logger.error('pdt2 split failed in image:{} with fslsplit error:{}'
-                     .format(image, ret[1]))
-    vols = glob.glob('{}/*.nii.gz'.format(tempdir))
-    if len(vols) != 2:
-        logger.error('{}: Expected exactly 2 volumes, got: {}'
-                     ' in tempfile: {} on system :{}'
-                     .format(image, ", ".join(vols), tempdir, platform.node()))
+        vol0_mean = np.mean(nib.load(vols[0]).get_data())
+        vol1_mean = np.mean(nib.load(vols[1]).get_data())
 
-        #shutil.rmtree(tempdir)
-        return
+        if vol0_mean > vol1_mean:      # PD should have a higher mean intensity
+            pd_tmp, t2_tmp = vols[0], vols[1]
+        else:
+            t2_tmp, pd_tmp = vols[0], vols[1]
 
-    vol0_mean = np.mean(nib.load(vols[0]).get_data())
-    vol1_mean = np.mean(nib.load(vols[1]).get_data())
-
-    if vol0_mean > vol1_mean:      # PD should have a higher mean intensity
-        pd_tmp, t2_tmp = vols[0], vols[1]
-    else:
-        t2_tmp, pd_tmp = vols[0], vols[1]
-
-    if not os.path.exists(pd_path):
-        shutil.move(pd_tmp, pd_path)
-    if not os.path.exists(t2_path):
-        shutil.move(t2_tmp, t2_path)
-
-    shutil.rmtree(tempdir)
+        if not os.path.exists(pd_path):
+            shutil.move(pd_tmp, pd_path)
+        if not os.path.exists(t2_path):
+            shutil.move(t2_tmp, t2_path)
 
 if __name__ == "__main__":
     main()
