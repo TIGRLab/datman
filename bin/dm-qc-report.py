@@ -200,17 +200,17 @@ def fmri_qc(file_name, qc_dir, report):
     image_corr = output_name + '_corr.png'
 
     if not os.path.isfile(image_raw):
-        slicer(file_name, image_raw, 2, 1600)
+        slicer(file_name, image_raw, 2, 600)
     add_image(report, image_raw, title='BOLD montage')
 
     if not os.path.isfile(image_sfnr):
         slicer(os.path.join(qc_dir, base_name + '_sfnr.nii.gz'), image_sfnr, 2,
-                1600)
+                600)
     add_image(report, image_sfnr, title='SFNR map')
 
     if not os.path.isfile(image_corr):
         slicer(os.path.join(qc_dir, base_name + '_corr.nii.gz'), image_corr, 2,
-                1600)
+                600)
     add_image(report, image_corr, title='correlation map')
 
 def anat_qc(filename, qc_dir, report):
