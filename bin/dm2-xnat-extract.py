@@ -295,7 +295,7 @@ def process_session(session):
             db_session = dashboard.get_add_session(db_session_name,
                                                    date=experiment['data_fields']['date'],
                                                    create=True)
-            if ident.session > 1:
+            if ident.session and int(ident.session) > 1:
                 db_session.is_repeated = True
                 db_session.repeat_count = int(ident.session)
 
