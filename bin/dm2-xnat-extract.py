@@ -91,6 +91,7 @@ import platform
 import shutil
 import dicom
 
+logging.basicConfig()
 logger = logging.getLogger(os.path.basename(__file__))
 log_handler = logging.StreamHandler()
 log_handler.setFormatter(logging.Formatter('[%(name)s] %(levelname)s : '
@@ -568,7 +569,7 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
                 except OSError as e:
                     logger.error('Failed creating target folder:{}'
                                  .format(target_dir))
-                    raise(e)
+                    continue
 
                 exporter = xporters[export_format]
                 logger.info('Exporting scan {} to format {}'
