@@ -91,6 +91,7 @@ import platform
 import shutil
 import dicom
 
+logging.basicConfig()
 logger = logging.getLogger(os.path.basename(__file__))
 log_handler = logging.StreamHandler()
 log_handler.setFormatter(logging.Formatter('[%(name)s] %(levelname)s : '
@@ -200,7 +201,7 @@ def main():
 
         if not xnat_project:
             logger.error('Failed to find session:{} in xnat.'
-                         ' Ensure it is named correctly with timepoint.'
+                         ' Ensure it is named correctly with timepoint and repeat.'
                          .format(xnat_projects))
             return
 
