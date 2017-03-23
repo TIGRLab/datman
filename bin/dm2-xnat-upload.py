@@ -46,6 +46,7 @@ import io
 import dicom
 import urllib
 
+logging.basicConfig()
 logger = logging.getLogger(os.path.basename(__file__))
 
 username = None
@@ -149,9 +150,10 @@ def process_archive(archivefile):
         logger.info('Uploading dicoms from:{}'.format(archivefile))
         try:
             upload_dicom_data(archivefile, xnat_project, str(scanid))
-        except:
+        except Exception as e:
             logger.error('Failed uploading archive to xnat project:{}'
                          ' for subject:{}'.format(xnat_project, str(scanid)))
+            logger.info('Upload failed with reason:{}'.format(str(e)))
             return
 
     if not resource_exists:
@@ -201,7 +203,7 @@ def get_scanid(archivefile):
     scanid = archivefile[:-len(datman.utils.get_extension(archivefile))]
 
     if not datman.scanid.is_scanid_with_session(scanid):
-        logger.warning('Invalid scanid:{} from archive:{}'
+        logger.error('Invalid scanid:{} from archive:{}'
                        .format(scanid, archivefile))
         return False
 
