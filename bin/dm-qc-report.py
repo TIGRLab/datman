@@ -838,18 +838,20 @@ def prepare_scan(subject_id, config):
     # if yes force the qc pages to be re-written and the database to
     # be updated.
     db_session = subject.get_db_object()
-    if db_session.last_repeat_qc_generated < db_session.repeat_count:
-        # this is a new session, going to cheat and overwrite REWRITE
-        REWRITE = True
-        db_session.last_repeat_qc_generated = db_session.repeat_count
-        db_session.flush_changes()
+    # db_session is None if entry doesn't exist in dashboard
+    logger.warning('Subject:{} not found in database'.format(subject_id))
+    if db_session:
+        if db_session.last_repeat_qc_generated < db_session.repeat_count:
+            # this is a new session, going to cheat and overwrite REWRITE
+            REWRITE = True
+            db_session.last_repeat_qc_generated = db_session.repeat_count
+            db_session.flush_changes()
 
     verify_input_paths([subject.nii_path, subject.dcm_path])
 
     qc_dir = datman.utils.define_folder(subject.qc_path)
     # If qc_dir already existed and had empty files left over clean up
     datman.utils.remove_empty_files(qc_dir)
-
     return subject
 
 def get_config(study):

@@ -569,7 +569,7 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
                 except OSError as e:
                     logger.error('Failed creating target folder:{}'
                                  .format(target_dir))
-                    raise(e)
+                    continue
 
                 exporter = xporters[export_format]
                 logger.info('Exporting scan {} to format {}'
