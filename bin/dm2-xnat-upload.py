@@ -202,7 +202,7 @@ def get_scanid(archivefile):
     # this could look inside the dicoms similar to dm2-link.py
     scanid = archivefile[:-len(datman.utils.get_extension(archivefile))]
 
-    if not datman.scanid.is_scanid_with_session(scanid):
+    if not datman.scanid.is_scanid_with_session(scanid) and not datman.scanid.is_phantom(scanid):
         logger.error('Invalid scanid:{} from archive:{}'
                        .format(scanid, archivefile))
         return False
