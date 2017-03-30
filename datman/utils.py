@@ -10,6 +10,7 @@ import tarfile
 import io
 import glob
 import shlex
+import pipes
 import numpy as np
 import logging
 import subprocess as proc
@@ -430,7 +431,7 @@ def has_permissions(path):
 def make_epitome_folders(path, n_runs):
     """
     Makes an epitome-compatible folder structure with functional data FUNC of n
-    runs, and a single T1.
+    import pipesruns, and a single T1.
 
     This works assuming we've run everything through freesurfer.
 
@@ -466,7 +467,7 @@ def run(cmd, dryrun=False):
     # perform shell quoting for special characters in filenames
     args = shlex.split(cmd)
     args_q = [pipes.quote(a) for a in args]
-    cmd = " ".join(cmd)
+    cmd = " ".join(args_q)
 
     if dryrun:
         logger.info("Performing dry-run")
