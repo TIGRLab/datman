@@ -462,6 +462,11 @@ def run(cmd, dryrun=False):
     if isinstance(cmd, list):
         cmd = " ".join(cmd)
 
+    # perform shell quoting for special characters in filenames
+    args = shlex.split(cmd)
+    args_q = [pipes.quote(a) for a in args]
+    cmd = " ".join(cmd)
+
     if dryrun:
         logger.info("Performing dry-run")
         return 0, ''
