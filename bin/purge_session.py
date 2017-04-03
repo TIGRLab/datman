@@ -71,6 +71,7 @@ def purge_filesystem(session, base_dir, out_dir):
        """
     cmd_rsync = ['rsync',
                  '-rmz',
+                 '--remove-source-files',
                  '--include={}*/**'.format(session),
                  '--include=*/',
                  '--exclude=*',
