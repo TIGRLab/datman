@@ -91,7 +91,8 @@ import platform
 import shutil
 import dicom
 
-logger = logging.getLogger()
+logging.basicConfig()
+logger = logging.getLogger(os.path.basename(__file__))
 log_handler = logging.StreamHandler()
 log_handler.setFormatter(logging.Formatter('[%(name)s] %(levelname)s : '
         '%(message)s'))
@@ -200,7 +201,7 @@ def main():
 
         if not xnat_project:
             logger.error('Failed to find session:{} in xnat.'
-                         ' Ensure it is named correctly with timepoint.'
+                         ' Ensure it is named correctly with timepoint and repeat.'
                          .format(xnat_projects))
             return
 
@@ -295,6 +296,10 @@ def process_session(session):
             db_session = dashboard.get_add_session(db_session_name,
                                                    date=experiment['data_fields']['date'],
                                                    create=True)
+            if ident.session and int(ident.session) > 1:
+                db_session.is_repeated = True
+                db_session.repeat_count = int(ident.session)
+
         except datman.dashboard.DashboardException as e:
                 logger.error('Failed adding session:{} to dashboard'
                              .format(session_label))
@@ -564,7 +569,7 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
                 except OSError as e:
                     logger.error('Failed creating target folder:{}'
                                  .format(target_dir))
-                    raise(e)
+                    continue
 
                 exporter = xporters[export_format]
                 logger.info('Exporting scan {} to format {}'

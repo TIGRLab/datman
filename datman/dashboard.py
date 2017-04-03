@@ -96,6 +96,8 @@ class dashboard(object):
                 dashboard_session.name = session_name
                 dashboard_session.study = self.study
                 dashboard_session.date = date
+                dashboard_session.is_repeated = False
+                dashboard_session.repeat_count = 1
                 if datman.scanid.is_phantom(session_name):
                     dashboard_session.is_phantom = True
                 db.session.add(dashboard_session)
@@ -145,6 +147,8 @@ class dashboard(object):
                         .filter(Session.name == session_name) \
                         .filter(Study.nickname == self.study.nickname) \
                         .filter(Scan.name == scan_id)
+        if ident.session:
+            qry = qry.filter(Scan.repeat_number == int(ident.session))
 
         if qry.count() == 1:
             logger.debug('Found scan:{} in database'.format(scan_name))
@@ -183,6 +187,8 @@ class dashboard(object):
             dashboard_scan.series_number = series
             dashboard_scan.scantype = dashboard_scantype
             dashboard_scan.description = desc
+            if ident.session:
+                dashboard_scan.repeat_number = int(ident.session)
 
             db.session.add(dashboard_scan)
         # finally check the blacklist
@@ -206,16 +212,21 @@ class dashboard(object):
     def delete_extra_scans(self, session_label, scanlist):
         """Checks scans associated with session,
         deletes scans not in scanlist"""
-
         try:
             ident = datman.scanid.parse(session_label)
         except datman.scanid.ParseException:
             logger.error('Invalid session:{}'.format(session_label))
             raise DashboardException('Invalid session name:{}'
                                       .format(session_label))
+
+        # extract the repeat number
+        if datman.scanid.is_phantom(session_label):
+            repeat = None
+        else:
+            repeat = int(ident.session)
+
         session_label = ident.get_full_subjectid_with_timepoint()
         db_session = self.get_add_session(session_label)
-
         scan_names = []
         # need to convert full scan names to scanid's in the db
         for scan_name in scanlist:
@@ -225,9 +236,9 @@ class dashboard(object):
             except:
                 continue
 
-
-        db_scans = [scan.name for scan in db_session.scans]
+        db_scans = [scan.name for scan in db_session.scans if scan.repeat_number == repeat]
         extra_scans = set(db_scans) - set(scan_names)
+
         for scan in extra_scans:
             db_scan = Scan.query.filter(Scan.name == scan).first()
             db.session.delete(db_scan)

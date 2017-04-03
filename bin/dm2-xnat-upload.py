@@ -46,6 +46,7 @@ import io
 import dicom
 import urllib
 
+logging.basicConfig()
 logger = logging.getLogger(os.path.basename(__file__))
 
 username = None
@@ -149,9 +150,10 @@ def process_archive(archivefile):
         logger.info('Uploading dicoms from:{}'.format(archivefile))
         try:
             upload_dicom_data(archivefile, xnat_project, str(scanid))
-        except:
+        except Exception as e:
             logger.error('Failed uploading archive to xnat project:{}'
                          ' for subject:{}'.format(xnat_project, str(scanid)))
+            logger.info('Upload failed with reason:{}'.format(str(e)))
             return
 
     if not resource_exists:
@@ -200,37 +202,54 @@ def get_scanid(archivefile):
     # this could look inside the dicoms similar to dm2-link.py
     scanid = archivefile[:-len(datman.utils.get_extension(archivefile))]
 
-    if not datman.scanid.is_scanid_with_session(scanid):
-        logger.warning('Invalid scanid:{} from archive:{}'
+    if not datman.scanid.is_scanid_with_session(scanid) and not datman.scanid.is_phantom(scanid):
+        logger.error('Invalid scanid:{} from archive:{}'
                        .format(scanid, archivefile))
         return False
 
     ident = datman.scanid.parse(scanid)
     return(ident)
 
-def get_resource_id(xnat_experiment_entry):
+
+def get_resource_ids(xnat_experiment_entry):
+
     xnat_experiment_entry = xnat_experiment_entry['children']
     xnat_resources = [r['items'] for r in xnat_experiment_entry
                       if r['field'] == 'resources/resource']
+
     if not xnat_resources:
         return None
 
-    # Only one 'resource' entry is expected if resources are present.
-    resource_entry = xnat_resources[0][0]
-    resource_id = resource_entry['data_fields']['xnat_abstractresource_id']
+    resource_ids = {}
+    for resource in xnat_resources[0]:
+        try:
+            label = resource['data_fields']['label']
+            resource_ids[label] = resource['data_fields']['xnat_abstractresource_id']
+        except KeyError:
+            resource_ids['No Label'] = resource['data_fields']['xnat_abstractresource_id']
 
-    return resource_id
+    # Only one 'resource' entry is expected if resources are present.
+    # resource_entry = xnat_resources[0][0]
+    # resource_id = resource_entry['data_fields']['xnat_abstractresource_id']
+    return resource_ids
+
 
 def get_xnat_resources(xnat_experiment_entry, ident):
-    resource_id = get_resource_id(xnat_experiment_entry)
-    if resource_id is None:
+    resource_ids = get_resource_ids(xnat_experiment_entry)
+
+    if resource_ids is None:
         return []
     xnat_project = CFG.get_key('XNAT_Archive', site=ident.site)
-    resource_list = XNAT.get_resource_list(xnat_project,
-            ident.get_full_subjectid_with_timepoint_session(),
-            ident.get_full_subjectid_with_timepoint_session(),
-            resource_id)
-    xnat_resources = [item['URI'] for item in resource_list]
+    xnat_resources = []
+    for key, val in resource_ids.iteritems():
+        resource_list = XNAT.get_resource_list(xnat_project,
+                ident.get_full_subjectid_with_timepoint_session(),
+                ident.get_full_subjectid_with_timepoint_session(),
+                val)
+        if resource_list:
+            for item in resource_list:
+                xnat_resources.append(item['URI'])
+    #xnat_resources = [item['URI'] for item in resource_list]
     return xnat_resources
 
 
@@ -241,13 +260,14 @@ def resource_data_exists(xnat_experiment_entry, ident, archive):
 
     # split off the first part of the path which is the zipfile named
     # this is removed on upload
-    for i, v in enumerate(local_resources):
-        path_bits = datman.utils.split_path(v)
-        local_resources[i] = os.path.join(*path_bits[1::])
+    ### TEST
+    #for i, v in enumerate(local_resources):
+    #    path_bits = datman.utils.split_path(v)
+    #    local_resources[i] = os.path.join(*path_bits[1::])
 
     # paths in xnat are url encoded. Need to fix local paths to match
-    local_resources = [urllib.pathname2url(p) for p in local_resources]
 
+    local_resources = [urllib.pathname2url(p) for p in local_resources]
     if not set(local_resources).issubset(set(xnat_resources)):
         return False
     return True
@@ -344,14 +364,17 @@ def upload_non_dicom_data(archive, xnat_project, scanid):
             # convert to HTTP language
             try:
                 # split off the first part of the path which is the zipfile named
-                path_bits = datman.utils.split_path(f)
-                new_name = os.path.join(*path_bits[1::])
+                #### TEST
+                #path_bits = datman.utils.split_path(f)
+                #new_name = os.path.join(*path_bits[1::])
+                new_name = f
 
                 XNAT.put_resource(xnat_project,
                                   scanid,
                                   scanid,
                                   new_name,
-                                  zf.read(f))
+                                  zf.read(f),
+                                  'MISC')
             except Exception as e:
                 logger.error("Failed uploading file {} with error:{}"
                              .format(f, str(e)))

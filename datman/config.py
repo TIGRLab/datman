@@ -22,6 +22,16 @@ class config(object):
     study_config_file = None
 
     def __init__(self, filename=None, system=None, study=None):
+        """Class object representing the site-wide configuration files.
+        Inputs:
+            filename - path to the site-wide config file (tigrlab_config.yaml)
+                       If filename is not set will check the environment variable
+                       DM_CONFIG (set during module load datman.module)
+            system - Used to generate different paths when running on SCC or locally
+                     Can be used to create test environments, checks environment variable
+                    DM_SYSTEM if not set
+            study - optional, limits searches to the defined study
+            """
 
         if not filename:
             try:

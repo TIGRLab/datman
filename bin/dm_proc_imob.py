@@ -84,7 +84,7 @@ def generate_analysis_script(subject, inputs, input_type, config, study):
 3dDeconvolve \\
     -input {IM_data} \\
     -mask {subject_dir}/anat_EPI_mask_MNI-nonlin.nii.gz \\
-    -ortvec {subject_dir}/PARAMS/motion.datman.01.1D motion_paramaters \\
+    -ortvec {subject_dir}/PARAMS/motion.*.01.1D motion_paramaters \\
     -polort 4 \\
     -num_stimts 6 \\
     -local_times \\
@@ -110,7 +110,7 @@ def generate_analysis_script(subject, inputs, input_type, config, study):
 3dDeconvolve \\
     -input {OB_data} \\
     -mask {subject_dir}/anat_EPI_mask_MNI-nonlin.nii.gz \\
-    -ortvec {subject_dir}/PARAMS/motion.datman.02.1D motion_paramaters \\
+    -ortvec {subject_dir}/PARAMS/motion.*.02.1D motion_paramaters \\
     -polort 4 \\
     -num_stimts 6 \\
     -local_times \\

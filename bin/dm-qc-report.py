@@ -200,17 +200,17 @@ def fmri_qc(file_name, qc_dir, report):
     image_corr = output_name + '_corr.png'
 
     if not os.path.isfile(image_raw):
-        slicer(file_name, image_raw, 2, 1600)
+        slicer(file_name, image_raw, 2, 600)
     add_image(report, image_raw, title='BOLD montage')
 
     if not os.path.isfile(image_sfnr):
         slicer(os.path.join(qc_dir, base_name + '_sfnr.nii.gz'), image_sfnr, 2,
-                1600)
+                600)
     add_image(report, image_sfnr, title='SFNR map')
 
     if not os.path.isfile(image_corr):
         slicer(os.path.join(qc_dir, base_name + '_corr.nii.gz'), image_corr, 2,
-                1600)
+                600)
     add_image(report, image_corr, title='correlation map')
 
 def anat_qc(filename, qc_dir, report):
@@ -411,6 +411,30 @@ def write_report_body(report, expected_files, subject, header_diffs, handlers):
             raise KeyError('series tag {} not defined in handlers:\n{}'.format(series.tag, handlers))
         report.write('<br>')
 
+def find_all_tech_notes(path):
+    """
+    Extract the session identifier without the repeat label from the path:
+    i.e. SPN01_CMH_0002_01_01 becomes SPN01_CMH_0002_01
+    Search all folders matching the session identifier for potential
+    technotes, returns a list of tuples: (repeat_number, file_path)
+    """
+    technotes = []
+    base_dir = os.path.dirname(path)
+    full_session = os.path.basename(path)
+    ident = datman.scanid.parse(full_session)
+    session = ident.get_full_subjectid_with_timepoint()
+    session_paths = glob.glob(os.path.join(base_dir, session) + '*')
+    for path in session_paths:
+        ident = datman.scanid.parse(path)
+        # Some resource folders don't have a repeat number,
+        # this is an error and should be ignored
+        if ident.session:
+            technote = find_tech_notes(path)
+            if technote:
+                technotes.append((ident.session, technote))
+
+    return technotes
+
 def find_tech_notes(path):
     """
     Search the file tree rooted at path for the tech notes pdf.
@@ -449,17 +473,19 @@ def write_tech_notes_link(report, subject_id, resources_path):
     if 'CMH' not in subject_id:
         return
 
-    tech_notes = find_tech_notes(resources_path)
+    tech_notes = find_all_tech_notes(resources_path)
 
     if not tech_notes:
         report.write('<p>Tech Notes not found</p>\n')
         return
 
-    notes_path = os.path.relpath(os.path.abspath(tech_notes),
-                        os.path.dirname(report.name))
-    report.write('<a href="{}">'.format(notes_path))
-    report.write('Click Here to open Tech Notes')
-    report.write('</a><br>')
+    for technote in tech_notes:
+        notes_path = os.path.relpath(os.path.abspath(technote[1]),
+                                     os.path.dirname(report.name))
+        report.write('<a href="{}">'.format(notes_path))
+        report.write('Click Here to open Tech Notes - Session {}:'
+                     .format(technote[0]))
+        report.write('</a><br>')
 
 def write_table(report, exportinfo, subject):
     report.write('<table><tr>'
@@ -800,18 +826,32 @@ def prepare_scan(subject_id, config):
     from needed directories and ensures that if needed input directories do
     not exist that the program exits.
     """
+    global REWRITE
     try:
         subject = datman.scan.Scan(subject_id, config)
     except datman.scanid.ParseException as e:
         logger.error(e, exc_info=True)
         sys.exit(1)
 
+    # going to query the dashboard database to see if this session
+    # has updated scans (repeat scans)
+    # if yes force the qc pages to be re-written and the database to
+    # be updated.
+    db_session = subject.get_db_object()
+    # db_session is None if entry doesn't exist in dashboard
+    logger.warning('Subject:{} not found in database'.format(subject_id))
+    if db_session:
+        if db_session.last_repeat_qc_generated < db_session.repeat_count:
+            # this is a new session, going to cheat and overwrite REWRITE
+            REWRITE = True
+            db_session.last_repeat_qc_generated = db_session.repeat_count
+            db_session.flush_changes()
+
     verify_input_paths([subject.nii_path, subject.dcm_path])
 
     qc_dir = datman.utils.define_folder(subject.qc_path)
     # If qc_dir already existed and had empty files left over clean up
     datman.utils.remove_empty_files(qc_dir)
-
     return subject
 
 def get_config(study):
@@ -872,8 +912,12 @@ def main():
         logger.setLevel(logging.DEBUG)
 
     if session:
+        # going to stash value of REWRITE as this may be overwritten
+        # if a repeat session has appeared
+        old_rewrite = REWRITE
         subject = prepare_scan(session, config)
         qc_single_scan(subject, config)
+        REWRITE = old_rewrite
         return
 
     qc_all_scans(config)
