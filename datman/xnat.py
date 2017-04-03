@@ -75,7 +75,8 @@ class xnat(object):
 
         if not result:
             logger.warn('Project:{} not found'.format(project))
-            raise XnatException("Project:{} not found".format(project))
+            raise XnatException("Project:{} not found. Are credentials defined"
+                                " in project metadata folder?".format(project))
 
         return(result['items'][0])
 
