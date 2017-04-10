@@ -152,7 +152,8 @@ def process_archive(archivefile):
             upload_dicom_data(archivefile, xnat_project, str(scanid))
         except Exception as e:
             logger.error('Failed uploading archive to xnat project:{}'
-                         ' for subject:{}'.format(xnat_project, str(scanid)))
+                         ' for subject:{}. Check Prearchive.'
+                         .format(xnat_project, str(scanid)))
             logger.info('Upload failed with reason:{}'.format(str(e)))
             return
 

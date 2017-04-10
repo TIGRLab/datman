@@ -200,7 +200,13 @@ class dashboard(object):
                          .format(scan_name, str(e)))
 
         try:
-            if not bl_comment == dashboard_scan.bl_comment:
+            if not bl_comment and not bl_comment == dashboard_scan.bl_comment:
+                # this shouldn't happen but is possible
+                logger.error('Scan:{} has a blacklist comment in dashboard db'
+                             ' which is not present in metadata/blacklist.csv.'
+                             ' Comment:{}'.format(dashboard_scan.name,
+                                                  dashboard_scan.bl_comment))
+            elif bl_comment and not bl_comment == dashboard_scan.bl_comment:
                 dashboard_scan.bl_comment = bl_comment
 
             db.session.commit()

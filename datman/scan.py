@@ -140,9 +140,9 @@ class Scan(DatmanNamed):
 
         try:
             self.project = config.map_xnat_archive_to_project(ident.study)
-        except datman.exceptions.DashboardException:
-            message = "Failed to identify project for session:{}".format(subject_id)
-            raise datman.exceptions.DashboardException(message)
+        except Exception as e:
+            logger.error('Failed getting project from config:{}'
+                         .format(str(e)))
 
         DatmanNamed.__init__(self, ident)
 
