@@ -31,7 +31,7 @@ Options:
 
 import logging
 import sys
-from docopt import docopt
+from datman.docopt import docopt
 import datman.config
 import datman.utils
 import datman.scanid
