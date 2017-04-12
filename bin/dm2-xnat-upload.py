@@ -11,19 +11,9 @@ Arguments:
     <archive>             Properly named zip file
 
 Options:
-    --server URL          XNAT server to connect to,
-                            overrides the server defined
-                            in the site config file.
-
-    -c --credfile FILE    File containing XNAT username and password. The
-                          username should be on the first line, and password
-                          on the next. Overrides the credfile in the project
-                          metadata
-
-    -u --username USER    XNAT username. If specified then the credentials
-                          file is ignored and you are prompted for password.
-
-
+    --server URL          XNAT server to connect to, overrides the server defined in the site config file.
+    -c --credfile FILE    File containing XNAT username and password. The username should be on the first line, and password on the next. Overrides the credfile in the project metadata
+    -u --username USER    XNAT username. If specified then the credentials file is ignored and you are prompted for password.
     -v --verbose          Be chatty
     -d --debug            Be very chatty
     -q --quiet            Be quiet
