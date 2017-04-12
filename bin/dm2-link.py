@@ -70,7 +70,7 @@ IGNORING EXAM ARCHIVES
         source_name      target_name            dicom_StudyID
         2014_0126_FB001  <ignore>
 """
-from docopt import docopt
+from datman.docopt import docopt
 import sys
 import os
 import glob

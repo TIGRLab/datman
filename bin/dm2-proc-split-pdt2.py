@@ -11,8 +11,7 @@ Arguments:
     <session>          Fullname of the session to process
 
 Options:
-    --blacklist FILE    Table listing series to ignore
-                            override the default metadata/blacklist.csv
+    --blacklist FILE    Table listing series to ignore override the default metadata/blacklist.csv
     -v --verbose        Show intermediate steps
     -d --debug          Show debug messages
     -q --quiet          Show minimal output
@@ -26,7 +25,7 @@ output T2 file has the tag "PD".
 
 The PD volume is the volume with a higher mean intensity.
 """
-from docopt import docopt
+from datman.docopt import docopt
 import numpy as np
 import nibabel as nib
 import datman.config
