@@ -1,0 +1,141 @@
+#!/usr/bin/env python
+"""
+This will convert freesurfer outputs to hcp workbench-compatible format.
+
+Usage:
+  dm_proc_fs2hcp.py [options] <config>
+
+Arguments:
+    <study>            study name defined in master configuration .yml file
+
+Options:
+  --subject SUBJID     subject name to run on
+  --debug              debug logging
+  --dry-run            don't do anything
+"""
+from datman.docopt import docopt
+import datman.scanid as sid
+import datman.utils as utils
+import datman.config as cfg
+
+import glob
+import os, sys
+import datetime
+import tempfile
+import shutil
+import filecmp
+import difflib
+
+def outputs_exist(subject_dir):
+    """True if a late-stage output of fs2hcp.py is found, else False"""
+    subject = os.path.basename(subject_dir)
+    test_file = os.path.join(subject_dir, MNINonLinear, '{}.164k_fs_LR.wb.spec'.format(subject))
+    if os.path.isfile(test_file):
+        return True
+    else:
+        return False
+
+def run_hcp_convert(path, config, study):
+    """Runs fs2hcp on the input subject"""
+    study_base = config.get_study_base(study)
+    subject = os.path.basename(path)
+    freesurfer_dir = os.path.join(study_base, config.site_config['paths']['freesurfer'])
+    hcp_dir = os.path.join(study_base, config.site_config['paths']['hcp'])
+    output_dir = utils.define_folder(os.path.join(hcp_dir, subject))
+
+    if outputs_exist(output_dir):
+        logger.debug('outputs found in {}'.format(path))
+        sys.exit()
+
+    # reset / remove error.log
+    error_log = os.path.join(output_dir, 'error.log')
+    if os.path.isfile(error_log):
+        os.remove(error_log)
+
+    # run fs2hcp
+    command = 'fs2hcp --FSpath={} --HCPpath={} --subject={}'.format(freesurfer_dir, hcp_dir, subject)
+    rtn, out = utils.run(command)
+    if rtn:
+        error_message = "fs2hcp failed: {}\n{}".format(command, out)
+        logger.debug(error_message)
+        with open(error_log, 'wb') as f:
+            f.write('{}\n{}'.format(error_message, NODE))
+
+def main():
+    arguments = docopt(__doc__)
+    study     = arguments['<study>']
+    scanid    = arguments['--subject']
+    debug     = arguments['--debug']
+    dryrun    = arguments['--dry-run']
+
+    # configure logging
+    logging.info('Starting')
+    if debug:
+        logger.setLevel(logging.DEBUG)
+
+    # load config for study
+    try:
+        config = cfg.config(study=study)
+    except ValueError:
+        logger.error('study {} not defined'.format(study))
+        sys.exit(1)
+
+    study_base = config.get_study_base(study)
+
+    for k in ['freesurfer', 'hcp']:
+        if k not in config.site_config['paths']:
+            logger.error("paths:{} not defined in site config".format(k))
+            sys.exit(1)
+
+    freesurfer_dir = os.path.join(study_base, config.site_config['paths']['freesurfer'])
+    hcp_dir = os.path.join(study_base, config.site_config['paths']['hcp'])
+
+    if scanid:
+        path = os.path.join(freesurfer_dir, scanid)
+        try:
+            run_hcp_convert(path, config, study)
+        except Exception as e:
+            logging.error(e)
+            sys.exit(1)
+
+    # run in batch mode
+    else:
+        subjects = []
+        freesurfer_dirs = glob.glob('{}/*'.format(freesurfer_dir))
+
+        # find subjects where at least one expected output does not exist
+        for path in nii_dirs:
+            subject = os.path.basename(path)
+
+            hcp_dir = utils.define_folder(os.path.join(study_base, config.site_config['paths']['hcp']))
+            if not outputs_exist(subj_dir):
+                subjects.append(subject)
+
+        subjects = list(set(subjects))
+
+        # submit a list of calls to ourself, one per subject
+        commands = []
+        if debug:
+            debugopt = '--debug'
+        else:
+            debugopt = ''
+
+        for subject in subjects:
+            commands.append(" ".join([__file__, study, '--subject {} '.format(subject), debugopt]))
+
+        if commands:
+            logger.debug('queueing up the following commands:\n'+'\n'.join(commands))
+            for cmd in commands:
+                jobname = 'dm_fs2hcp_{}'.format(time.strftime("%Y%m%d-%H%M%S"))
+                logfile = '/tmp/{}.log'.format(jobname)
+                errfile = '/tmp/{}.err'.format(jobname)
+                rtn, out = utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
+                #rtn, out = utils.run('echo bash -l {}/{} {} | qbatch -N {} --logdir {} --walltime {} -'.format(bin_dir, script, subid, jobname, logs_dir, walltime))
+                if rtn:
+                    logger.error("Job submission failed. Output follows.")
+                    logger.error("stdout: {}".format(out))
+                    sys.exit(1)
+
+if __name__ == '__main__':
+    main()
+

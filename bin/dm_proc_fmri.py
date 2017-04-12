@@ -4,7 +4,7 @@ This pre-processes fmri data using the settings found in project_config.yml
 If subject is not defined, this runs in batch mode for all subjects.
 
 Usage:
-    dm-proc-fmri.py [options] <study>
+    dm_proc_fmri.py [options] <study>
 
 Arguments:
     <study>          study name defined in master configuration .yml file
@@ -145,6 +145,11 @@ def run_epitome(path, config, study):
         if outputs_exist(output_dir, expected_names):
             continue
 
+        # reset / remove error.log
+        error_log = os.path.join(output_dir, 'error.log')
+        if os.path.isfile(error_log):
+            os.remove(error_log)
+
         failed = False
 
         if type(expected_tags) == str:
@@ -161,9 +166,10 @@ def run_epitome(path, config, study):
             try:
                 check_inputs(config, tag, path, candidates)
             except Exception as m:
-                logger.debug('{}'.format(m))
-                with open(output_dir + '/error.log', 'wb') as f:
-                    f.write('Did not find the correct number of fMRI inputs:\n{}\n{}'.format(m, NODE))
+                error_message = 'Did not find the correct number of fMRI inputs:\n{}'.format(m)
+                logger.debug(error_message)
+                with open(error_log, 'wb') as f:
+                    f.write('{}\n{}'.format(error_message, NODE))
                 failed = True
                 break
             functionals.extend(candidates)
@@ -174,9 +180,10 @@ def run_epitome(path, config, study):
         anatomicals = []
         for anat in ['aparc+aseg.nii.gz', 'aparc.a2009s+aseg.nii.gz', 'T1w_brain.nii.gz']:
             if not filter(lambda x: anat in x, files):
-                logger.debug('expected anatomical {} not found in {}'.format(anat, anat_path))
-                with open(output_dir + '/error.log', 'wb') as f:
-                    f.write('expected anatomical {} not found in {}\n{}'.format(anat, anat_path, NODE))
+                error_message = 'expected anatomical {} not found in {}'.format(anat, anat_path)
+                logger.debug(error_message)
+                with open(error_log, 'wb') as f:
+                    f.write('{}\n{}'.format(error_message, NODE))
                 failed = True
                 break
             anatomicals.append(os.path.join(anat_path, anat))
@@ -198,9 +205,10 @@ def run_epitome(path, config, study):
             for i, d in enumerate(functionals):
                 shutil.copyfile(d, '{}/RUN{}/FUNC.nii.gz'.format(epi_func_dir, '%02d' % (i + 1)))
         except IOError as e:
-            logger.error("unable to copy files to {}\n{}".format(epi_dir, e))
-            with open(output_dir + '/error.log', 'wb') as f:
-                f.write("unable to copy files to {}\n{}\n{}".format(epi_dir, e, NODE))
+            error_message = 'unable to copy files to {}\n{}'.format(epi_dir, e)
+            logger.error(error_message)
+            with open(error_log, 'wb') as f:
+                f.write('{}\n{}'.format(error_message, NODE))
             continue
 
         # collect command line options
@@ -217,9 +225,10 @@ def run_epitome(path, config, study):
         command = '{} {} {} {} {}'.format(pipeline, epi_dir, delete, tr, dims)
         rtn, out = utils.run(command)
         if rtn:
-            logger.debug("epitome script failed: {}\n{}".format(command, out))
-            with open(output_dir + '/error.log', 'wb') as f:
-                f.write("epitome script failed: {}\n{}\n{}".format(command, out, NODE))
+            error_message = "epitome script failed: {}\n{}".format(command, out)
+            logger.debug(error_message)
+            with open(error_log, 'wb') as f:
+                f.write('{}\n{}'.format(error_message, NODE))
             continue
         else:
             pass
@@ -233,9 +242,10 @@ def run_epitome(path, config, study):
 
                 # attempt to export the defined epitome stages for all runs
                 if len(matches) != len(functionals):
-                    logger.error('epitome output {} not created for all inputs'.format(name))
-                    with open(output_dir + '/error.log', 'wb') as f:
-                        f.write('epitome output {} not created for all inputs\n{}'.format(name, NODE))
+                    error_message = 'epitome output {} not created for all inputs'.format(name)
+                    logger.error(error_message)
+                    with open(error_log, 'wb') as f:
+                        f.write('{}\n{}'.format(error_message, NODE))
                     continue
                 for i, match in enumerate(matches):
                     func_basename = utils.splitext(os.path.basename(functionals[i]))[0]
@@ -251,9 +261,10 @@ def run_epitome(path, config, study):
                 export_directory(os.path.join(epi_func_dir, 'PARAMS'), os.path.join(output_dir, 'PARAMS'))
 
             except ProcessingError as p:
-                logger.error('error exporting: {}'.format(p))
-                with open(output_dir + '/error.log', 'wb') as f:
-                    f.write('{}\n{}'.format(p, NODE))
+                error_message = 'error exporting: {}'.format(p)
+                logger.error(error_message)
+                with open(error_log, 'wb') as f:
+                    f.write('{}\n{}'.format(error_message, NODE))
                 continue
 
         # remove temporary directory

@@ -5,7 +5,7 @@ spheres). This data is returned as the time series & a full correlation matrix,
 in .csv format).
 
 Usage:
-    dm-proc-rest.py [options] <study>
+    dm_proc_rest.py [options] <study>
 
 Arguments:
     <study>             study name defined in master configuration .yml file

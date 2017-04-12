@@ -4,7 +4,7 @@ This analyzes imitate observe behavioural data.It could be generalized
 to analyze any rapid event-related design experiment fairly easily.
 
 Usage:
-    dm-proc-imob.py [options] <study>
+    dm_proc_imob.py [options] <study>
 
 Arguments:
     <study>             Name of study in system-wide configuration file.
