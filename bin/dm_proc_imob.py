@@ -197,9 +197,11 @@ def main():
         # first level GLM for inputs
         for input_type in inputs.keys():
             script = generate_analysis_script(subject, inputs, input_type, config, study)
-            rtn, out = utils.run('chmod 754 {script}; {script}'.format(script=script))
+            rtn, out = utils.run('chmod 754 {}'.format(script))
+            rtn, out = utils.run(script)
             if rtn:
-                logger.error('Failed to analyze {}\n{}'.format(subject, out))
+                logger.error('Script {} failed to run on subject {} with error:\n{}'.format(
+                    subject, out))
                 sys.exit(1)
 
     # process all subjects
