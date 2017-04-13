@@ -233,9 +233,9 @@ def main():
                 jobname = "dm_imob_{}".format(time.strftime("%Y%m%d-%H%M%S"))
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
-                rtn, out = utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
+                rtn, out = utils.run('qsub -V -q main.q -o {} -e {} -N {} {}'.format(
+                    logfile, errfile, jobname, cmd))
                 #rtn, out, err = utils.run('qbatch -i --logdir {logdir} -N {name} --walltime {wt} {cmds}'.format(logdir = log_path, name = jobname, wt = walltime, cmds = path))
-
                 if rtn:
                     logger.error("Job submission failed. Output follows.")
                     logger.error("stdout: {}".format(out))
