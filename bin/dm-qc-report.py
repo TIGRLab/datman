@@ -254,10 +254,14 @@ def submit_qc_jobs(commands, chained=False):
         logfile = '/tmp/{}.log'.format(jobname)
         errfile = '/tmp/{}.err'.format(jobname)
 
+        job_file = make_job_file(jobname, cmd)
+
         if chained and i > 0:
-            run_cmd = 'echo {} | qsub -V -q main.q -hold_jid {} -o {} -e {} -N {}'.format(cmd, lastjob, logfile, errfile, jobname)
+            run_cmd = 'qsub -V -q main.q -hold_jid {} -o {} -e {} -N {} {}'.format(
+                    lastjob, logfile, errfile, jobname, job_file)
         else:
-            run_cmd = 'echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname)
+            run_cmd = 'qsub -V -q main.q -o {} -e {} -N {} {}'.format(logfile,
+                    errfile, jobname, job_file)
 
         rtn, out = datman.utils.run(run_cmd)
 
@@ -265,6 +269,13 @@ def submit_qc_jobs(commands, chained=False):
             logger.error("stdout: {}".format(out))
         elif out:
             logger.debug(out)
+
+def make_job_file(job_name, cmd):
+    job_file = '/tmp/{}'.format(job_name)
+    with open(job_file, 'wb') as fid:
+        fid.write('#!/bin/bash\n')
+        fid.write(cmd)
+    return job_file
 
 def make_qc_command(subject_id, study):
     arguments = docopt(__doc__)
