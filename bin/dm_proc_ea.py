@@ -651,12 +651,13 @@ def main():
 
         if commands:
             logger.debug("queueing up the following commands:\n"+'\n'.join(commands))
-            for cmd in commands:
-                jobname = "dm_ea_{}".format(time.strftime("%Y%m%d-%H%M%S"))
+            for i, cmd in enumerate(commands):
+                jobname = "dm_ea_{}_{}".format(i, time.strftime("%Y%m%d-%H%M%S"))
+                jobfile = '/tmp/{}'.format(jobname)
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
                 rtn, out = utils.run('qsub -V -q main.q -o {} -e {} -N {} {}'.format(
-                    logfile, errfile, jobname, err))
+                    logfile, errfile, jobname, jobfile))
                 # qbacth method -- might bring it back, but really needed yet
                 #fd, path = tempfile.mkstemp()
                 #os.write(fd, '\n'.join(commands))

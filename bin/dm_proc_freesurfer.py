@@ -171,11 +171,17 @@ def main():
 
         if commands:
             logger.debug('queueing up the following commands:\n'+'\n'.join(commands))
-            for cmd in commands:
-                jobname = 'dm_freesurfer_{}'.format(time.strftime("%Y%m%d-%H%M%S"))
+            for i, cmd in enumerate(commands):
+                jobname = 'dm_freesurfer_{}_{}'.format(i, time.strftime("%Y%m%d-%H%M%S"))
+                jobfile = '/tmp/{}'.format(jobname)
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
-                rtn, out = utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, j
+                with open(jobfile, 'wb') as fid:
+                    fid.write('#!/bin/bash\n')
+                    fid.write(cmd)
+
+                rtn, out = utils.run('qsub -V -q main.q -o {} -e {} -N {} {}'.format(
+                    logfile, errfile, jobname, jobfile))
 
                 if rtn:
                     logger.error("Job submission failed. Output follows.")
