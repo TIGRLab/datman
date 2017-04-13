@@ -201,7 +201,7 @@ def main():
             rtn, out = utils.run(script)
             if rtn:
                 logger.error('Script {} failed to run on subject {} with error:\n{}'.format(
-                    subject, out))
+                    script, subject, out))
                 sys.exit(1)
 
     # process all subjects
