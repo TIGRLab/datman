@@ -61,7 +61,7 @@ class QJob(object):
         subprocess.call('qsub < ' + self.qs_n, shell=True)
 
 
-def make_job(src_dir, dst_dir, protocol_dir, log_dir, scan_name, cleanup=True):
+def make_job(src_dir, dst_dir, protocol_dir, log_dir, scan_name, protocol_file=None, cleanup=True):
     # create a job file from template and use qsub to submit
     code = ("singularity run -B {src_dir}:/input -B {dst_dir}:/output -B {protocol_dir}:/meta {container} {scan_name}"
             .format(src_dir=src_dir,
@@ -69,6 +69,9 @@ def make_job(src_dir, dst_dir, protocol_dir, log_dir, scan_name, cleanup=True):
                     protocol_dir=protocol_dir,
                     container=CONTAINER,
                     scan_name=scan_name))
+
+    if protocol_file:
+        code = code + '--protocol_file={protocol_file}'.format(protocol_file=protocol_file)
 
     with QJob() as qjob:
         #logfile = '{}:/tmp/output.$JOB_ID'.format(socket.gethostname())
@@ -79,15 +82,16 @@ def make_job(src_dir, dst_dir, protocol_dir, log_dir, scan_name, cleanup=True):
 
 
 def process_nrrd(src_dir, dst_dir, protocol_dir, log_dir, nrrd_file):
-    scan, ext = os.path.splitext(nrrd_file)
+    scan, ext = os.path.splitext(nrrd_file[0])
 
     # expected name for the output file
     out_file = os.path.join(dst_dir, scan + '_QCed' + ext)
     if os.path.isfile(out_file):
         logger.info('File:{} already processed, skipping.'
-                    .format(nrrd_file))
+                    .format(nrrd_file[0]))
         return
-    make_job(src_dir, dst_dir, protocol_dir, log_dir, scan)
+    protocol_file = 'dtiprep_protocol_' + tag + '.xml'
+    make_job(src_dir, dst_dir, protocol_dir, log_dir, scan, protocol_file)
 
 
 def process_session(src_dir, out_dir, protocol_dir, log_dir, session):
@@ -105,7 +109,7 @@ def process_session(src_dir, out_dir, protocol_dir, log_dir, session):
             continue
 
         if 'DTI' in tag:
-            nrrd_dti.append(f)
+            nrrd_dti.append(f, tag)
 
     if not nrrd_dti:
         logger.warning('No DTI nrrd files found for session:{}'.format(session))
