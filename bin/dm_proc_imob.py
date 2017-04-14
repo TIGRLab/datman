@@ -4,7 +4,7 @@ This analyzes imitate observe behavioural data.It could be generalized
 to analyze any rapid event-related design experiment fairly easily.
 
 Usage:
-    dm-proc-imob.py [options] <study>
+    dm_proc_imob.py [options] <study>
 
 Arguments:
     <study>             Name of study in system-wide configuration file.
@@ -197,9 +197,11 @@ def main():
         # first level GLM for inputs
         for input_type in inputs.keys():
             script = generate_analysis_script(subject, inputs, input_type, config, study)
-            rtn, out = utils.run('chmod 754 {script}; {script}'.format(script=script))
+            rtn, out = utils.run('chmod 754 {}'.format(script))
+            rtn, out = utils.run(script)
             if rtn:
-                logger.error('Failed to analyze {}\n{}'.format(subject, out))
+                logger.error('Script {} failed to run on subject {} with error:\n{}'.format(
+                    script, subject, out))
                 sys.exit(1)
 
     # process all subjects
@@ -227,13 +229,18 @@ def main():
             #fd, path = tempfile.mkstemp()
             #os.write(fd, '\n'.join(commands))
             #os.close(fd)
-            for cmd in commands:
-                jobname = "dm_imob_{}".format(time.strftime("%Y%m%d-%H%M%S"))
+            for i, cmd in enumerate(commands):
+                jobname = "dm_imob_{}_{}".format(i, time.strftime("%Y%m%d-%H%M%S"))
+                jobfile = '/tmp/{}'.format(jobname)
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
-                rtn, out = utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
-                #rtn, out, err = utils.run('qbatch -i --logdir {logdir} -N {name} --walltime {wt} {cmds}'.format(logdir = log_path, name = jobname, wt = walltime, cmds = path))
+                with open(jobfile, 'wb') as fid:
+                    fid.write('#!/bin/bash\n')
+                    fid.write(cmd)
 
+                rtn, out = utils.run('qsub -V -q main.q -o {} -e {} -N {} {}'.format(
+                    logfile, errfile, jobname, jobfile))
+                #rtn, out, err = utils.run('qbatch -i --logdir {logdir} -N {name} --walltime {wt} {cmds}'.format(logdir = log_path, name = jobname, wt = walltime, cmds = path))
                 if rtn:
                     logger.error("Job submission failed. Output follows.")
                     logger.error("stdout: {}".format(out))

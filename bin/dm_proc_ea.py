@@ -3,7 +3,7 @@
 Process empathic accuracy experiment data.
 
 Usage:
-    dm-proc-ea.py [options] <study>
+    dm_proc_ea.py [options] <study>
 
 Arguments:
     <study>             study name defined in master Configuration .yml file.
@@ -587,9 +587,11 @@ def analyze_subject(subject, config, study):
     for input_type in inputs.keys():
 
         script = generate_analysis_script(subject, inputs, input_type, config, study)
-        rtn, out = utils.run('chmod 754 {script}; {script}'.format(script=script))
+        rtn, out = utils.run('chmod 754 {}'.format(script))
+        rtn, out = utils.run(script)
         if rtn:
-            logger.error('Failed to analyze {}\n{}'.format(subject, out))
+            logger.error('Script {} failed to run on subject {} with error:\n{}'.format(
+                script, subject, out))
             sys.exit(1)
 
 def main():
@@ -649,18 +651,18 @@ def main():
 
         if commands:
             logger.debug("queueing up the following commands:\n"+'\n'.join(commands))
-            for cmd in commands:
-                jobname = "dm_ea_{}".format(time.strftime("%Y%m%d-%H%M%S"))
+            for i, cmd in enumerate(commands):
+                jobname = "dm_ea_{}_{}".format(i, time.strftime("%Y%m%d-%H%M%S"))
+                jobfile = '/tmp/{}'.format(jobname)
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
-                rtn, out = utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
-
+                rtn, out = utils.run('qsub -V -q main.q -o {} -e {} -N {} {}'.format(
+                    logfile, errfile, jobname, jobfile))
                 # qbacth method -- might bring it back, but really needed yet
                 #fd, path = tempfile.mkstemp()
                 #os.write(fd, '\n'.join(commands))
                 #os.close(fd)
                 #rtn, out, err = utils.run('qbatch -i --logdir {ld} -N {name} --walltime {wt} {cmds}'.format(ld=logdir, name=jobname, wt=walltime, cmds=path))
-
                 if rtn:
                     logger.error("Job submission failed\nstdout: {}".format(out))
                     sys.exit(1)

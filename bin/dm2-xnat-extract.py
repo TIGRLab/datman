@@ -11,26 +11,15 @@ Arguments:
     <session>          Fullname of the session to process
 
 Options:
-    --blacklist FILE    Table listing series to ignore
-                            override the default metadata/blacklist.csv
-    -v --verbose        Show intermediate steps
-    -d --debug          Show debug messages
-    -q --quiet          Show minimal output
-    -n --dry-run        Do nothing
-    --server URL          XNAT server to connect to,
-                            overrides the server defined
-                            in the site config file.
-
-    -c --credfile FILE    File containing XNAT username and password. The
-                          username should be on the first line, and password
-                          on the next. Overrides the credfile in the project
-                          metadata
-
-    -u --username USER    XNAT username. If specified then the credentials
-                          file is ignored and you are prompted for password.
-
+    --blacklist FILE         Table listing series to ignore override the default metadata/blacklist.csv
+    -v --verbose             Show intermediate steps
+    -d --debug               Show debug messages
+    -q --quiet               Show minimal output
+    -n --dry-run             Do nothing
+    --server URL             XNAT server to connect to, overrides the server defined in the site config file.
+    -c --credfile FILE       File containing XNAT username and password. The username should be on the first line, and password on the next. Overrides the credfile in the project metadata
+    -u --username USER       XNAT username. If specified then the credentials file is ignored and you are prompted for password.
     --dont-update-dashboard  Dont update the dashboard database
-
 
 OUTPUT FOLDERS
     Each dicom series will be converted and placed into a subfolder of the
@@ -72,7 +61,7 @@ DEPENDENCIES
     dcm2nii
 
 """
-from docopt import docopt
+from datman.docopt import docopt
 import logging
 import sys
 import datman.config

@@ -13,10 +13,7 @@ Arguments:
 
 Options:
     --rewrite          Rewrite the html of an existing qc page
-    --log-to-server    If set, all log messages will also be sent to the
-                       configured logging server. This is useful when the script
-                       is run with the Sun Grid Engine, since it swallows
-                       logging messages.
+    --log-to-server    If set, all log messages will also be sent to the configured logging server. This is useful when the script is run with the Sun Grid Engine, since it swallows logging messages.
     -q --quiet         Only report errors
     -v --verbose       Be chatty
     -d --debug         Be extra chatty

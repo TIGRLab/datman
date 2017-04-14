@@ -17,15 +17,9 @@ Arguments:
                         that may have multiple IDs for some of its subjects.
 
 Options:
-    --xnat FILE         The path to a text file containing the xnat credentials.
-                        If not set the 'xnat-credentials' file in the project
-                        metadata folder will be used.
-    --redcap FILE       The path to a text file containing a redcap token to
-                        access 'Scan completed' surveys. If not set the
-                        'redcap-token' file in the project metadata folder will
-                        be used.
-    --site-config FILE  The path to a site configuration file. If not set, the
-                        default defined for datman.config.config() is used.
+    --xnat FILE         The path to a text file containing the xnat credentials. If not set the 'xnat-credentials' file in the project metadata folder will be used.
+    --redcap FILE       The path to a text file containing a redcap token to access 'Scan completed' surveys. If not set the 'redcap-token' file in the project metadata folder will be used.
+    --site-config FILE  The path to a site configuration file. If not set, the default defined for datman.config.config() is used.
     -v, --verbose
     -d, --debug
     -q, --quiet
@@ -35,7 +29,7 @@ import os
 import sys
 import logging
 
-from docopt import docopt
+from datman.docopt import docopt
 import requests
 import pyxnat as xnat
 

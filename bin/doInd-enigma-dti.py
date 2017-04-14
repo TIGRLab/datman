@@ -4,11 +4,11 @@ This run ENIGMA DTI pipeline on one FA map.
 This was made to be called from dm-proc-engimadti.py.
 
 Usage:
-  doInd-enigma-dti.py [options] <outputdir> <FAmap>
+  doInd-enigma-dti.py [options] <output_dir> <input_fa>
 
 Arguments:
-    <outputdir>        Top directory for the output file structure
-    <FAmap>            Full path to input FA map to process
+    <output_dir>        Top directory for the output file structure
+    <input_fa>         Full path to input FA map to process
 
 Options:
   --calc-MD                Option to process MD image as well
@@ -52,162 +52,139 @@ import glob
 import os
 import sys
 
-arguments       = docopt(__doc__)
-outputdir       = arguments['<outputdir>']
-FAmap           = arguments['<FAmap>']
-CALC_MD         = arguments['--calc-MD']
-CALC_ALL        = arguments['--calc-all']
-VERBOSE         = arguments['--verbose']
-DEBUG           = arguments['--debug']
-DRYRUN          = arguments['--dry-run']
+def main():
+    arguments = docopt(__doc__)
+    output_di = arguments['<outputdir>']
+    FAmap     = arguments['<FAmap>']
+    CALC_MD   = arguments['--calc-MD']
+    CALC_ALL  = arguments['--calc-all']
+    VERBOSE   = arguments['--verbose']
+    DEBUG     = arguments['--debug']
+    DRYRUN    = arguments['--dry-run']
 
-if DEBUG:
-    print arguments
+    if DEBUG:
+        print arguments
 
-# check that ENIGMAHOME environment variable exists
-ENIGMAHOME = os.getenv('ENIGMAHOME')
-if ENIGMAHOME==None:
-    sys.exit("ENIGMAHOME environment variable is undefined. Try again.")
-# check that FSLDIR environment variable exists
-FSLDIR = os.getenv('FSLDIR')
-if FSLDIR==None:
-    sys.exit("FSLDIR environment variable is undefined. Try again.")
-# check that the input FA map exists
-if os.path.isfile(FAmap) == False:
-    sys.exit("Input file {} doesn't exist.".format(FAmap))
-# check that the input MD map exists - if MD CALC chosen
-if CALC_MD | CALC_ALL:
-    MDmap = FAmap.replace('FA.nii.gz','MD.nii.gz')
-    if os.path.isfile(MDmap) == False:
-      sys.exit("Input file {} doesn't exist.".format(MDmap))
-# check that the input L1, L2, and L3 maps exists - if CALC_ALL chosen
-if CALC_ALL:
-    for L in ['L1.nii.gz','L2.nii.gz','L3.nii.gz']:
-        Lmap = FAmap.replace('FA.nii.gz', L)
+    if os.path.isfile(FAmap) == False:
+        sys.exit("Input file {} doesn't exist.".format(FAmap))
+
+    if CALC_MD | CALC_ALL:
+        MDmap = FAmap.replace('FA.nii.gz','MD.nii.gz')
         if os.path.isfile(MDmap) == False:
-          sys.exit("Input file {} doesn't exist.".format(Lmap))
+          sys.exit("Input file {} doesn't exist.".format(MDmap))
 
-# make some output directories
-outputdir = os.path.abspath(outputdir)
+    if CALC_ALL:
+        for L in ['L1.nii.gz','L2.nii.gz','L3.nii.gz']:
+            Lmap = FAmap.replace('FA.nii.gz', L)
+            if os.path.isfile(MDmap) == False:
+              sys.exit("Input file {} doesn't exist.".format(Lmap))
 
-## These are the links to some templates and settings from enigma
-skel_thresh = 0.049
-distancemap = os.path.join(ENIGMAHOME,'ENIGMA_DTI_FA_skeleton_mask_dst.nii.gz')
-search_rule_mask = os.path.join(FSLDIR,'data','standard','LowerCingulum_1mm.nii.gz')
-tbss_skeleton_input = os.path.join(ENIGMAHOME,'ENIGMA_DTI_FA.nii.gz')
-tbss_skeleton_alt = os.path.join(ENIGMAHOME, 'ENIGMA_DTI_FA_skeleton_mask.nii.gz')
-ROIoutdir = os.path.join(outputdir, 'ROI')
-dm.utils.makedirs(ROIoutdir)
-image_noext = os.path.basename(FAmap.replace('_FA.nii.gz',''))
-FAimage = image_noext + '.nii.gz'
-csvout1 = os.path.join(ROIoutdir, image_noext + '_FAskel_ROIout')
-csvout2 = os.path.join(ROIoutdir, image_noext + '_FAskel_ROIout_avg')
-FAskel = os.path.join(outputdir,'FA', image_noext + '_FAskel.nii.gz')
-###############################################################################
-## setting up
-## if teh outputfile is not inside the outputdir than copy is there
-outdir_niis = glob.glob(outputdir + '/*.nii.gz') + glob.glob(outputdir + '*.nii')
-if len(outdir_niis) == 0:
-    dm.utils.run(['cp',FAmap,os.path.join(outputdir,FAimage)])
-else:
-    # if more than one FA image is present in outputdir...we have a problem.
-    sys.exit("Ouputdir already contains nii images..bad news..exiting")
+    output_dir = os.path.abspath(output_dir)
+    skel_thresh = 0.049
 
-## cd into the output directory
-os.chdir(outputdir)
-os.putenv('SGE_ON','false')
-###############################################################################
-print("TBSS STEP 1")
+    # if the output directory exists, delete it
+    if os.path.isdir(output_dir):
+        shutil.rmtree(output_dir)
 
-dm.utils.run(['tbss_1_preproc', FAimage])
+    # find enigma and freesurfer
+    enigma_home = os.path.dirname(utils.run('which ENIGMA_MASTER_MD.sh')[1].strip())
+    fsl_dir = os.path.dirname(os.path.dirname(utils.run('which fsl')[1].strip()))
 
-###############################################################################
-print("TBSS STEP 2")
-dm.utils.run(['tbss_2_reg', '-t', os.path.join(ENIGMAHOME,'ENIGMA_DTI_FA.nii.gz')])
+    if len(enigma_home) == 0:
+        logger.error('enigma is not on your path')
+        sys.exit(1)
+    elif len(fsl_dir) == 0:
+        logger.error('fsl is not on your path')
+        sys.exit(1)
 
-###############################################################################
-print("TBSS STEP 3")
-dm.utils.run(['tbss_3_postreg','-S'])
+    # find atlas nifti files
+    distance_map = os.path.join(enigma_home,'ENIGMA_DTI_FA_skeleton_mask_dst.nii.gz')
+    search_rule_mask = os.path.join(fsl_dir,'data','standard','LowerCingulum_1mm.nii.gz')
+    tbss_skeleton_input = os.path.join(enigma_home,'ENIGMA_DTI_FA.nii.gz')
+    tbss_skeleton_alt = os.path.join(enigma_home, 'ENIGMA_DTI_FA_skeleton_mask.nii.gz')
 
-###############################################################################
-print("Skeletonize...")
-# Note many of the options for this are printed at the top of this script
-dm.utils.run(['tbss_skeleton', \
-      '-i', tbss_skeleton_input, \
-      '-s', tbss_skeleton_alt, \
-      '-p', str(skel_thresh), distancemap, search_rule_mask,
-       'FA/' + image_noext + '_FA_to_target.nii.gz',
-       FAskel])
+    # output file names
+    roi_dir = utils.define_folder(os.path.join(output_dir, 'ROI'))
+    img_basename = os.path.basename(input_fa.replace('_FA.nii.gz',''))
+    img_fa = img_basename + '.nii.gz'
+    img_skel = os.path.join(outputdir,'FA', img_basename + '_FAskel.nii.gz')
 
-###############################################################################
-print("Convert skeleton datatype to 'float'...")
-dm.utils.run(['fslmaths', FAskel, '-mul', '1', FAskel, '-odt', 'float'])
+    csv_out = os.path.join(roi_dir, img_basename + '_FAskel_ROIout.csv')
+    csv_out_avg = os.path.join(roi_dir, img_basename + '_FAskel_ROIout_avg.csv')
 
-###############################################################################
-print("ROI part 1...")
-## note - right now this uses the _exe for ENIGMA - can probably rewrite this with nibabel
-dm.utils.run([os.path.join(ENIGMAHOME,'singleSubjROI_exe'),
-          os.path.join(ENIGMAHOME,'ENIGMA_look_up_table.txt'), \
-          os.path.join(ENIGMAHOME, 'ENIGMA_DTI_FA_skeleton.nii.gz'), \
-          os.path.join(ENIGMAHOME, 'JHU-WhiteMatter-labels-1mm.nii'), \
-          csvout1, FAskel])
+    # copy input fa file to working directory
+    utils.run('cp {} {} '.format(input_fa, os.path.join(output_dir, img_fa))
 
-###############################################################################
-## part 2 - loop through all subjects to create ROI file
-##			removing ROIs not of interest and averaging others
-##          note: also using the _exe files to do this at the moment
-print("ROI part 2...")
-dm.utils.run([os.path.join(ENIGMAHOME, 'averageSubjectTracts_exe'), csvout1 + '.csv', csvout2 + '.csv'])
+    os.chdir(output_dir)
 
-##############################################################################
-## Now process the MD if that option was asked for
-## if processing MD also set up for MD-ness
-def run_non_FA(DTItag):
-    """
-    The Pipeline to run to extract non-FA values (MD, AD or RD)
-    """
+    logger.debug("TBSS step 1: preproc")
+    utils.run('tbss_1_preproc {}'.format(img_fa))
+
+    logger.debug("TBSS step 2: reg")
+    utils.run('tbss_2_reg -t {}'.format(os.path.join(ENIGMAHOME,'ENIGMA_DTI_FA.nii.gz')))
+
+    logger.debug("TBSS step 3: postreg")
+    utils.run('tbss_3_postreg -S')
+
+    logger.debug("TBSS step 4: skeletonize")
+    utils.run('tbss_skeleton -i {} -s {} -p {} {} {} {} {}'.format(
+        tbss_skeleton_input, tbss_skeleton_alt, skel_thresh, distancemap, search_rule_mask, 'FA/{}_FA_to_target.nii.gz'.format(img_basename), img_skel))
+
+    logger.debug("Convert skeleton datatype to 'float'...")
+    utils.run('fslmaths {} -mul 1 {} -odt float'.format(img_skel, img_skel))
+
+    logger.debug('roi extraction step 1')
+    utils.run('{} {} {} {} {} {}'.format(
+        os.path.join(enigma_home, 'singleSubjROI_exe'),
+        os.path.join(enigma_home, 'ENIGMA_look_up_table.txt'),
+        os.path.join(enigma_home, 'ENIGMA_DTI_FA_skeleton.nii.gz'),
+        os.path.join(enigma_home, 'JHU-WhiteMatter-labels-1mm.nii'),
+        csv_out, img_skel))
+
+    logger.debug('roi extraction step 2')
+    utils.run('{} {} {}'.format(os.path.join(ENIGMAHOME, 'averageSubjectTracts_exe'), csv_out, csv_out_avg))
+
+    ## jdv: ok -- what is going on here?
+    # extract medial, axial, radial diffusivity
     O_dir = os.path.join(outputdir,DTItag)
     O_dir_orig = os.path.join(O_dir, 'origdata')
     dm.utils.makedirs(O_dir_orig)
 
     if DTItag == 'MD':
-        image_i = FAmap.replace('FA.nii.gz','MD.nii.gz')
+        image_i = input_fa.replace('FA.nii.gz','MD.nii.gz')
         image_o = os.path.join(O_dir_orig,image_noext + '_' + DTItag + '.nii.gz')
         # copy over the MD image if not done already
         if os.path.isfile(image_o) == False:
             dm.utils.run(['cp',image_i,image_o])
 
     if DTItag == 'AD':
-        image_i = FAmap.replace('FA.nii.gz','L1.nii.gz')
+        image_i = input_fa.replace('FA.nii.gz','L1.nii.gz')
         image_o = os.path.join(O_dir_orig,image_noext + '_' + DTItag + '.nii.gz')
         # copy over the AD image - this is _L1 in dti-fit
         if os.path.isfile(image_o) == False:
             dm.utils.run(['cp',image_i,image_o])
 
     if DTItag == 'RD':
-        imageL2 = FAmap.replace('FA.nii.gz','L2.nii.gz')
-        imageL3 = FAmap.replace('FA.nii.gz','L3.nii.gz')
+        imageL2 = input_fa.replace('FA.nii.gz','L2.nii.gz')
+        imageL3 = input_fa.replace('FA.nii.gz','L3.nii.gz')
         image_o = os.path.join(O_dir_orig,image_noext + '_' + DTItag + '.nii.gz')
+
         # create the RD image as an average of '_L2' and '_L3' images from dti-fit
         if os.path.isfile(image_o) == False:
-            dm.utils.run(['fslmaths', imageL2, '-add', imageL3, '-div', "2", image_o])
+            utils.run(['fslmaths', imageL2, '-add', imageL3, '-div', "2", image_o])
 
-    masked =    os.path.join(O_dir,image_noext + '_' + DTItag + '.nii.gz')
-    to_target = os.path.join(O_dir,image_noext + '_' + DTItag + '_to_target.nii.gz')
-    skel =      os.path.join(O_dir, image_noext + '_' + DTItag +'skel.nii.gz')
-    csvout1 =   os.path.join(ROIoutdir, image_noext + '_' + DTItag + 'skel_ROIout')
-    csvout2 =   os.path.join(ROIoutdir, image_noext + '_' + DTItag + 'skel_ROIout_avg')
+    masked =    os.path.join(O_dir, img_basename + '_' + DTItag + '.nii.gz')
+    to_target = os.path.join(O_dir, img_basename + '_' + DTItag + '_to_target.nii.gz')
+    skel =      os.path.join(O_dir, img_basename + '_' + DTItag +'skel.nii.gz')
+    csvout1 =   os.path.join(ROIoutdir, img_basename + '_' + DTItag + 'skel_ROIout')
+    csvout2 =   os.path.join(ROIoutdir, img_basename + '_' + DTItag + 'skel_ROIout_avg')
 
     ## mask with subjects FA mask
-    dm.utils.run(['fslmaths', image_o, '-mas', \
-      os.path.join(outputdir,'FA', image_noext + '_FA_mask.nii.gz'), \
-      masked])
+    utils.run('fslmaths {} -mas {} {}'.format(image_o, os.path.join(outputdir,'FA', image_noext + '_FA_mask.nii.gz'), masked))
 
     # applywarp calculated for FA map
-    dm.utils.run(['applywarp', '-i', masked, \
-        '-o', to_target, \
-        '-r', os.path.join(outputdir,'FA', 'target'),\
-        '-w', os.path.join(outputdir,'FA', image_noext + '_FA_to_target_warp.nii.gz')])
+    utils.run('applywarp -i {} -o {} -r {} -w {}'.format(
+        masked, to_target, os.path.join(outputdir,'FA', 'target'), os.path.join(outputdir,'FA', image_noext + '_FA_to_target_warp.nii.gz')))
 
     ## tbss_skeleton step
     dm.utils.run(['tbss_skeleton', \
@@ -227,15 +204,18 @@ def run_non_FA(DTItag):
     dm.utils.run([os.path.join(ENIGMAHOME, 'averageSubjectTracts_exe'),
                   csvout1 + '.csv', csvout2 + '.csv'])
 
-## run the pipeline for MD - if asked
-if CALC_MD | CALC_ALL:
-    run_non_FA('MD')
+    ## run the pipeline for MD - if asked
+    if CALC_MD | CALC_ALL:
+        run_non_FA('MD')
 
-## run the pipeline for AD and RD - if asked
-if CALC_ALL:
-    run_non_FA('AD')
-    run_non_FA('RD')
+    ## run the pipeline for AD and RD - if asked
+    if CALC_ALL:
+        run_non_FA('AD')
+        run_non_FA('RD')
 
-###############################################################################
-os.putenv('SGE_ON','true')
-print("Done !!")
+    ###############################################################################
+    os.putenv('SGE_ON','true')
+    print("Done !!")
+
+if __name__ == '__main__':
+    main()

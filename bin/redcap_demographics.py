@@ -11,13 +11,12 @@ Arguments:
 
 Options:
     --URL PATH         set the REDCap URL [default: https://redcap.smh.ca/redcap/api/]
-    --output PATH      set the location to save the output csv file
-                       [default: clinical/demographics.csv]
+    --output PATH      set the location to save the output csv file [default: clinical/demographics.csv]
 
 '''
 
 from requests import post
-from docopt import docopt
+from datman.docopt import docopt
 import os
 import sys
 import datman.config
