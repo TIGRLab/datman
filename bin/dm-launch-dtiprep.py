@@ -90,7 +90,17 @@ def process_nrrd(src_dir, dst_dir, protocol_dir, log_dir, nrrd_file):
         logger.info('File:{} already processed, skipping.'
                     .format(nrrd_file[0]))
         return
+
     protocol_file = 'dtiprep_protocol_' + nrrd_file[1] + '.xml'
+
+    if not os.path.isfile(os.path.join(protocol_dir, protocol_file)):
+        # fall back to the default name
+        protocol_file = 'dtiprep_protocol.xml'
+
+    if not os.path.isfile(os.path.join(protocol_dir, protocol_file)):
+        logger.error('Protocol file not found for tag:{}. A default protocol'
+                     ' dtiprep_protocol.xml can be used.'
+                     .format(nrrd_file[1]))
     make_job(src_dir, dst_dir, protocol_dir, log_dir, scan, protocol_file)
 
 
@@ -172,7 +182,7 @@ if __name__ == '__main__':
         logger.error("Src directory:{} not found".format(nrrd_path))
         sys.exit(1)
 
-    protocol_file = os.path.join(meta_path, 'dtiprep_protocol.xml')
+    #protocol_file = os.path.join(meta_path, 'dtiprep_protocol.xml')
 
     #if not os.path.isfile(protocol_file):
     #    logger.error("Protocol xml file :{} not found".format(protocol_file))
