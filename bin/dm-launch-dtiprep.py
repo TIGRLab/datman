@@ -109,7 +109,7 @@ def process_session(src_dir, out_dir, protocol_dir, log_dir, session):
             continue
 
         if 'DTI' in tag:
-            nrrd_dti.append(f, tag)
+            nrrd_dti.append((f, tag))
 
     if not nrrd_dti:
         logger.warning('No DTI nrrd files found for session:{}'.format(session))
