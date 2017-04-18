@@ -90,7 +90,7 @@ def process_nrrd(src_dir, dst_dir, protocol_dir, log_dir, nrrd_file):
         logger.info('File:{} already processed, skipping.'
                     .format(nrrd_file[0]))
         return
-    protocol_file = 'dtiprep_protocol_' + tag + '.xml'
+    protocol_file = 'dtiprep_protocol_' + nrrd_file[1] + '.xml'
     make_job(src_dir, dst_dir, protocol_dir, log_dir, scan, protocol_file)
 
 
@@ -174,9 +174,9 @@ if __name__ == '__main__':
 
     protocol_file = os.path.join(meta_path, 'dtiprep_protocol.xml')
 
-    if not os.path.isfile(protocol_file):
-        logger.error("Protocol xml file :{} not found".format(protocol_file))
-        sys.exit(1)
+    #if not os.path.isfile(protocol_file):
+    #    logger.error("Protocol xml file :{} not found".format(protocol_file))
+    #    sys.exit(1)
 
     if not args.session:
         sessions = [d for d
