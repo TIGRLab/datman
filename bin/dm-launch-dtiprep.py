@@ -133,7 +133,14 @@ if __name__ == '__main__':
     parser.add_argument("--session", dest="session", help="Session identifier")
     parser.add_argument("--outDir", dest="outDir", help="output directory")
     parser.add_argument("--logDir", dest="logDir", help="log directory")
+    parser.add_argument("--quiet", dest="quiet", help="Minimal logging")
+    parser.add_argument("--verbose", dest="verbose", help="Maximal logging")
     args = parser.parse_args()
+
+    if args.quiet:
+        logger.setLevel(logging.ERROR)
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
 
     cfg = datman.config.config(study=args.study)
 
