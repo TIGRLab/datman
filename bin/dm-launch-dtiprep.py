@@ -71,7 +71,7 @@ def make_job(src_dir, dst_dir, protocol_dir, log_dir, scan_name, protocol_file=N
                     scan_name=scan_name))
 
     if protocol_file:
-        code = code + ' --protocol_file={protocol_file}'.format(protocol_file=protocol_file)
+        code = code + ' --protocolFile={protocol_file}'.format(protocol_file=protocol_file)
 
     with QJob() as qjob:
         #logfile = '{}:/tmp/output.$JOB_ID'.format(socket.gethostname())

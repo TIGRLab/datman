@@ -82,10 +82,6 @@ import dicom
 
 logging.basicConfig()
 logger = logging.getLogger(os.path.basename(__file__))
-log_handler = logging.StreamHandler()
-log_handler.setFormatter(logging.Formatter('[%(name)s] %(levelname)s : '
-        '%(message)s'))
-logger.addHandler(log_handler)
 
 xnat = None
 cfg = None
@@ -117,25 +113,13 @@ def main():
         db_ignore = True
 
     # setup logging
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.WARN)
     logger.setLevel(logging.WARN)
     if quiet:
         logger.setLevel(logging.ERROR)
-        ch.setLevel(logging.ERROR)
     if verbose:
         logger.setLevel(logging.INFO)
-        ch.setLevel(logging.INFO)
     if debug:
         logger.setLevel(logging.DEBUG)
-        ch.setLevel(logging.DEBUG)
-
-    formatter = logging.Formatter('%(asctime)s - %(name)s - {study} - '
-                                  '%(levelname)s - %(message)s'.format(
-                                  study=study))
-    ch.setFormatter(formatter)
-
-    logger.addHandler(ch)
 
     # setup the config object
     logger.info('Loading config')
