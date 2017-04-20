@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Runs dtifit (on humans) (╯°□°）╯︵ ┻━┻
+Runs dtifit (on humans). Runs on files with the _DTI_ tag only.
 
 Usage:
     dm-proc-dtifit.py [options]
@@ -12,13 +12,9 @@ Options:
     --logdir DIR       Logdir [default: logs]
     --ref_vol N        Registration volume index [default: 0]
     --fa_thresh N      FA threshold for bet [default: 0.3]
-    --script PATH      Path to dtifit script.  [default: dtifit.sh]
-                       This script should accept the following arguments:
-                            dwifile outputdir ref_vol fa_threshold
+    --script PATH      Path to dtifit script. This script should accept the following arguments: dwifile outputdir ref_vol fa_threshold [default: dtifit.sh]
     --tag TAG          A string to filter inputs by [ex. site name]
     --walltime TIME    A walltime to pass to qbatch [default: 0:30:00]
-    --quiet            Be quiet
-    --verbose          Be chatty
     --debug            Be extra chatty
     --dry-run          Show, don't do
 """
@@ -51,15 +47,14 @@ def main():
     verbose   = arguments['--verbose']
     DRYRUN    = arguments['--dry-run']
 
-    loglevel = log.WARN
-    if verbose: loglevel = log.INFO
-    if debug:   loglevel = log.DEBUG
-    if quiet:   loglevel = log.ERROR
-    log.basicConfig(level=loglevel)
+    if debug:
+        log.basicConfig(level=log.DEBUG)
+    else:
+        log.basicConfig(level=log.WARN)
 
     nii_dir = os.path.normpath(inputdir)
 
-    ## get the list of subjects
+    # get the list of subjects
     subjectnames = dm.utils.get_subjects(nii_dir)
 
     commands = []
@@ -69,26 +64,30 @@ def main():
         files = dm.utils.get_files_with_tag(inputpath, 'DTI', fuzzy = True)
         dwifiles = filter(lambda x: x.endswith('.nii.gz'), files)
 
+
         # skip phantoms
         if '_PHA_' in subjectname:
+            log.debug('skipping subject {}, is phantom'.format(subjectname))
             continue
 
-        log.info("Processing DWI volumes: {}".format(dwifiles))
+        log.debug('{} inputs found with tag "_DTI_" for subject {}'.format(len(dwifiles), subjectname))
+        log.debug('processing dwi volumes: {}'.format(dwifiles))
         dm.utils.makedirs(outputpath)
 
         for dwi in dwifiles:
+            # filter even further using an optional input tag
             if TAG and TAG not in dwi:
-                log.debug("Tag '{}' not found in file {}. Skipping".format(TAG, dwi))
+                log.debug('tag "{}" not found in file {}, skipping'.format(TAG, dwi))
                 continue
 
             stem = os.path.basename(dwi).replace('.nii','').replace('.gz','')
 
-            dtifit_output = outputpath+'/'+stem+'_eddy_correct_dtifit_FA.nii.gz'
+            dtifit_output = '{}/{}_eddy_correct_dtifit_FA.nii.gz'.format(outputpath, stem)
             if os.path.exists(dtifit_output):
-                log.debug("{} exists. Skipping.".format(dtifit_output))
+                log.debug('output {} exists, skipping'.format(dtifit_output))
             else:
-                commands.append("{script} {dwi} {output} {ref} {fa}".format(
-                    script=script, dwi=dwi, output=outputpath, ref=ref_vol, fa=fa_thresh))
+                commands.append('{} {} {} {} {}'.format(
+                    script, dwi, outputpath, ref_vol, fa_thresh))
 
     if commands:
         os.chdir(outputdir)
@@ -97,15 +96,11 @@ def main():
         with tempfile.NamedTemporaryFile() as tmp:
             tmp.write('\n'.join(commands))
             tmp.flush()
-            cmd = "qbatch --walltime {wt} --logdir {logdir} -N {name} {file} ".format(
-                wt = walltime,
-                logdir = logdir,
-                name = jobname,
-                file = tmp.name)
+            cmd = "qbatch --walltime {} --logdir {} -N {} {} ".format(
+                walltime, logdir, jobname, tmp.name)
             dm.utils.run(cmd, dryrun=DRYRUN)
 
 
 if __name__ == '__main__':
     main()
 
-# vim: ts=4 sw=4:
