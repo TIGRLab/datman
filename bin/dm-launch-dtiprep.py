@@ -143,8 +143,8 @@ if __name__ == '__main__':
     parser.add_argument("--session", dest="session", help="Session identifier")
     parser.add_argument("--outDir", dest="outDir", help="output directory")
     parser.add_argument("--logDir", dest="logDir", help="log directory")
-    parser.add_argument("--quiet", dest="quiet", help="Minimal logging")
-    parser.add_argument("--verbose", dest="verbose", help="Maximal logging")
+    parser.add_argument("--quiet", help="Minimal logging", action="store_true")
+    parser.add_argument("--verbose", help="Maximal logging", action="store_true")
     args = parser.parse_args()
 
     if args.quiet:

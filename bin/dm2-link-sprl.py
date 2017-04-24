@@ -147,7 +147,9 @@ def _add_sprl_to_dashboard(db, filename):
     try:
         db.get_add_scan(filename, create=True)
     except DashboardException as e:
-        logger.error('Failed adding scan:{} to dashboard with error:{}'
+        logger.error('Failed adding scan:{} to dashboard.'
+                     .format(filename))
+        logger.debug('Failed adding scan:{} to dashboard with error:{}'
                      .format(filename, str(e)))
 
 
