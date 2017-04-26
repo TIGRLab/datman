@@ -9,7 +9,7 @@ import os
 import tempfile
 import sys
 import subprocess
-import socket
+import re
 
 CONTAINER = '/archive/code/containers/DTIPREP/dtiprep.img'
 
@@ -104,11 +104,16 @@ def process_nrrd(src_dir, dst_dir, protocol_dir, log_dir, nrrd_file):
     make_job(src_dir, dst_dir, protocol_dir, log_dir, scan, protocol_file)
 
 
-def process_session(src_dir, out_dir, protocol_dir, log_dir, session):
+def process_session(src_dir, out_dir, protocol_dir, log_dir, session, **kwargs):
     """Launch DTI prep on all nrrd files in a directory"""
     src_dir = os.path.join(src_dir, session)
     out_dir = os.path.join(out_dir, session)
     nrrds = [f for f in os.listdir(src_dir) if f.endswith('.nrrd')]
+
+    if 'tags' in kwargs:
+        tags = kwargs['tags']
+    if not tags:
+        tags = ['DTI']
 
     # Who knew, not all nrrd files are DTI's
     nrrd_dti = []
@@ -117,8 +122,8 @@ def process_session(src_dir, out_dir, protocol_dir, log_dir, session):
             _, tag, _, _ = datman.scanid.parse_filename(f)
         except datman.scanid.ParseException:
             continue
-
-        if 'DTI' in tag:
+        tag_match = [re.search(t, tag) for t in tags]
+        if any(tag_match):
             nrrd_dti.append((f, tag))
 
     if not nrrd_dti:
@@ -143,6 +148,12 @@ if __name__ == '__main__':
     parser.add_argument("--session", dest="session", help="Session identifier")
     parser.add_argument("--outDir", dest="outDir", help="output directory")
     parser.add_argument("--logDir", dest="logDir", help="log directory")
+    parser.add_argument("--tag",
+                        dest="tags",
+                        help="Tag to process,"
+                        " --tag can be specified more than once."
+                        "Defaults to all tags containing 'DTI'",
+                        action="append")
     parser.add_argument("--quiet", help="Minimal logging", action="store_true")
     parser.add_argument("--verbose", help="Maximal logging", action="store_true")
     args = parser.parse_args()
@@ -196,4 +207,4 @@ if __name__ == '__main__':
         sessions = [args.session]
 
     for session in sessions:
-        process_session(nrrd_path, args.outDir, meta_path, args.logDir, session)
+        process_session(nrrd_path, args.outDir, meta_path, args.logDir, session, tags=args.tags)
