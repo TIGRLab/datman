@@ -70,7 +70,7 @@ All other files are used for chronological analysis. They will have a 'prefix' b
 
 + `${prefix}_stats.csv`
     + mean_fd: average framewise displacement (instantaneous head motion) across the whole run.
-    + n_bad_fd: number of FD measures above 2 mm.
+    + n_bad_fd: number of FD measures above 0.2 mm.
     + %_bad_fd: % of the run that are 'bad' FD measures.
     + global_corr: takes the average of the average correlation of each voxel with the rest of the brain.
     + mean_sfnr: average signal fluctuation to noise ratio measure across the brain.

@@ -2,11 +2,11 @@
 """Read all scans in data/nii extract the subject Id and scan date info
 
 Usage:
-    dm-get-session-info.py [options] <config_file>
-    dm-get-session-info.py [options] <config_file> <csv_file>
+    dm-get-session-info.py [options] <study>
+    dm-get-session-info.py [options] <study> <csv_file>
 
 Arguments:
-    <config_file>   Path to the project config file
+    <study>   Path to the project config file
     <csv_file>      Path to the csv file
 
 Options:
@@ -21,8 +21,11 @@ import logging
 import yaml
 import csv
 from datetime import datetime
-import datman as dm
+
 from docopt import docopt
+import datman.config
+import datman.utils
+import datman.scanid
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARN)
@@ -34,15 +37,15 @@ def process_scan(dirname, headers):
     scan_date = None
     subject_id = None
 
-    is_phantom = dm.scanid.is_phantom(dirname)
+    is_phantom = datman.scanid.is_phantom(dirname)
 
     try:
-        i = dm.scanid.parse(dirname)
-    except dm.scanid.ParseException:
+        i = datman.scanid.parse(dirname)
+    except datman.scanid.ParseException:
         logger.warning('Failed to parse:{}, adding session'.format(dirname))
         try:
-            i = dm.scanid.parse(dirname + '_01')
-        except dm.scanid.ParseException:
+            i = datman.scanid.parse(dirname + '_01')
+        except datman.scanid.ParseException:
             logger.error('Failed to parse:{}'.format(dirname))
             return
 
@@ -54,12 +57,12 @@ def process_scan(dirname, headers):
 
     scan_date = datetime.strptime(headers.SeriesDate, '%Y%m%d')
 
-    return(subject_id, i.site, scan_date, is_phantom, is_repeat)
+    return(subject_id, i.session, i.site, scan_date, is_phantom, is_repeat)
 
 
 def main():
     arguments = docopt(__doc__)
-    config_yaml = arguments['<config_file>']
+    study = arguments['<study>']
     output_csv = arguments['<csv_file>']
     verbose = arguments['--verbose']
     debug = arguments['--debug']
@@ -79,37 +82,40 @@ def main():
     # Check the yaml file can be read correctly
     logger.debug('Reading yaml file.')
 
-    ## Read in the configuration yaml file
-    if not os.path.isfile(config_yaml):
-        raise ValueError("configuration file {} not found. Try again."
-                         .format(config_yaml))
+    cfg = datman.config.config(study=study)
+    #
+    # ## Read in the configuration yaml file
+    # if not os.path.isfile(config_yaml):
+    #     raise ValueError("configuration file {} not found. Try again."
+    #                      .format(config_yaml))
+    #
+    # ## load the yml file
+    # with open(config_yaml, 'r') as stream:
+    #     CONFIG = yaml.load(stream)
+    #
+    # ## check that the required keys are there
+    # ExpectedKeys = ['paths']
+    # diffs = set(ExpectedKeys) - set(CONFIG.keys())
+    # if len(diffs) > 0:
+    #     raise ImportError("configuration file missing {}".format(diffs))
 
-    ## load the yml file
-    with open(config_yaml, 'r') as stream:
-        CONFIG = yaml.load(stream)
-
-    ## check that the required keys are there
-    ExpectedKeys = ['paths']
-    diffs = set(ExpectedKeys) - set(CONFIG.keys())
-    if len(diffs) > 0:
-        raise ImportError("configuration file missing {}".format(diffs))
-
-    dcm_dir = CONFIG['paths']['dcm']
+    #dcm_dir = CONFIG['paths']['dcm']
+    dcm_dir = cfg.get_path('dcm')
 
     logger.debug('Getting scan list for {}'.format(dcm_dir))
-    scans = dm.utils.get_folder_headers(dcm_dir)
+    scans = datman.utils.get_folder_headers(dcm_dir)
     logger.info('Found {} scans'.format(len(scans)))
 
-    headers = ["SUBJECT", "SCANDATE", "SITE", "SUBJECT/REPEAT/PHANTOM"]
+    headers = ["FOLDER", "SUBJECT", "SESSION", "SCANDATE", "SITE", "SUBJECT/REPEAT/PHANTOM"]
 
     results = []
     for key, val in scans.iteritems():
         res = process_scan(key, val)
         if res:
-            result = [res[0], datetime.strftime(res[2], '%Y-%m-%d'), res[1]]
-            if res[3]:
+            result = [key, res[0], res[1], datetime.strftime(res[3], '%Y-%m-%d'), res[2]]
+            if res[4]:
                 result.append('PHANTOM')
-            elif res[4]:
+            elif res[5]:
                 result.append('REPEAT')
             else:
                 result.append("SUBJECT")

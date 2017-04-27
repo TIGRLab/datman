@@ -22,6 +22,16 @@ class config(object):
     study_config_file = None
 
     def __init__(self, filename=None, system=None, study=None):
+        """Class object representing the site-wide configuration files.
+        Inputs:
+            filename - path to the site-wide config file (tigrlab_config.yaml)
+                       If filename is not set will check the environment variable
+                       DM_CONFIG (set during module load datman.module)
+            system - Used to generate different paths when running on SCC or locally
+                     Can be used to create test environments, checks environment variable
+                    DM_SYSTEM if not set
+            study - optional, limits searches to the defined study
+            """
 
         if not filename:
             try:
@@ -105,7 +115,14 @@ class config(object):
     def map_xnat_archive_to_project(self, filename):
         """Maps the XNAT tag (e.g. SPN01) to the project name e.g. SPINS
         Can either supply a full filename in which case only the first part
-        is considered or just a tag
+        is considered or just a tag.
+        By default the project tag is extracted from the filename and matched
+        to the "STUDY_TAG" in the study config file. If a study has used
+        multiple site tags (e.g. SPN01, SPINS) these can be defined in the
+        site specific [SITE_TAGS] key.
+        One project tag (DTI) is shared between two xnat archives (DTI15TT and DTI3T)
+        this is handled specially, the site is used to differentiate between
+        them.
         """
         logger.debug('Searching projects for:{}'.format(filename))
         try:
@@ -116,10 +133,14 @@ class config(object):
             tag = parts[0]
 
         for project in self.site_config['Projects'].keys():
+            # search each project for a match to the study tag,
+            # this loop exits as soon as a match is found.
             logger.debug('Searching project:{}'.format(project))
             try:
                 self.set_study(project)
                 site_tags = []
+                # Check the study_config contains a 'Sites' key,
+                # this may contain site specific study names
                 if 'Sites' in self.study_config.keys():
                     for key, site_cfg in self.study_config['Sites'].iteritems():
                         if 'SITE_TAGS' in site_cfg.keys():
@@ -129,7 +150,6 @@ class config(object):
             except (ValueError, KeyError):
                 pass
 
-            # Check the study_config contains a 'Sites' key
 
             site_tags = site_tags + [self.study_config['STUDY_TAG'].lower()]
 

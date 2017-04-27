@@ -15,7 +15,7 @@ Options:
     --dry-run
 
 """
-from docopt import docopt
+from datman.docopt import docopt
 import datman.config
 import pysftp
 import logging

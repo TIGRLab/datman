@@ -11,8 +11,7 @@ Arguments:
     <session>          Fullname of the session to process
 
 Options:
-    --blacklist FILE    Table listing series to ignore
-                            override the default metadata/blacklist.csv
+    --blacklist FILE    Table listing series to ignore override the default metadata/blacklist.csv
     -v --verbose        Show intermediate steps
     -d --debug          Show debug messages
     -q --quiet          Show minimal output
@@ -26,7 +25,7 @@ output T2 file has the tag "PD".
 
 The PD volume is the volume with a higher mean intensity.
 """
-from docopt import docopt
+from datman.docopt import docopt
 import numpy as np
 import nibabel as nib
 import datman.config
@@ -43,18 +42,19 @@ import platform
 logger = logging.getLogger(__file__)
 cfg = None
 
+DRYRUN = False
 
 def main():
-    global cfg
+    global cfg, DRYRUN
     arguments = docopt(__doc__)
     verbose = arguments['--verbose']
     debug = arguments['--debug']
     quiet = arguments['--quiet']
+    DRYRUN = arguments['--dry-run']
     study = arguments['<study>']
     session = arguments['<session>']
 
     # setup logging
-    logging.basicConfig()
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.WARN)
     logger.setLevel(logging.WARN)
@@ -84,32 +84,42 @@ def main():
     if session:
         base_dir = os.path.join(nii_dir, session)
         files = os.listdir(base_dir)
-        for f in files:
-            try:
-                ident, tag, series, desc = datman.scanid.parse_filename(f)
-            except datman.scanid.ParseException:
-                logger.info('Invalid scanid:{}'.format(f))
-                continue
-            if tag == 'PDT2':
-                images.append(os.path.join(base_dir, f))
+        add_session_PDT2s(files, images, base_dir)
     else:
         for root, dirs, files in os.walk(nii_dir):
-            for f in files:
-                try:
-                    ident, tag, series, desc = datman.scanid.parse_filename(f)
-                except datman.scanid.ParseException:
-                    logger.info('Invalid scanid:{}'.format(f))
-                    continue
-                if tag == 'PDT2':
-                    images.append(os.path.join(root, f))
+            add_session_PDT2s(files, images, root)
 
-    logger.info('Found {} files with tag "PDT2"'.format(len(images)))
+    logger.info('Found {} splittable nifti files with tag "PDT2"'.format(
+            len(images)))
     for image in images:
         split(image)
 
+def add_session_PDT2s(files, images, base_dir):
+    for f in files:
+        try:
+            ident, tag, series, desc = datman.scanid.parse_filename(f)
+        except datman.scanid.ParseException:
+            logger.info('Invalid scanid:{}'.format(f))
+            continue
+        ext = datman.utils.get_extension(f)
+        if tag == 'PDT2' and 'nii' in ext:
+            file_path = os.path.join(base_dir, f)
+            f_shape = nib.load(file_path).shape
+            # this will fail if we load a 3D image, though some 3D images also
+            # report the 4th dimension as 1, so we need to check the value
+            try:
+                if f_shape[3] >= 2:
+                    images.append(file_path)
+            except:
+                pass
 
 def split(image):
-    logger.info('Spliting image:{}'.format(image))
+
+    if DRYRUN:
+        logger.info('dry-run: Skipping split of image: {}'.format(image))
+        return
+
+    logger.info('Splitting image:{}'.format(image))
     ext = datman.utils.get_extension(image)
     try:
         ident, tag, series, desc = datman.scanid.parse_filename(image)
@@ -134,35 +144,30 @@ def split(image):
         logger.info('Image:{} is already split, skipping.'.format(image))
         return
 
-    tempdir = tempfile.mkdtemp(prefix='dm2-proc-split-pdt2')
+    with datman.utils.make_temp_directory(prefix='dm2-proc-split-pdt2') as tempdir:
+        ret = datman.utils.run("fslsplit {} {}/".format(image, tempdir))
+        if ret[0]:
+            logger.error('pdt2 split failed in image:{} with fslsplit error:{}'
+                         .format(image, ret[1]))
+        vols = glob.glob('{}/*.nii.gz'.format(tempdir))
+        if len(vols) != 2:
+            logger.error('{}: Expected exactly 2 volumes, got: {}'
+                         ' in tempfile: {} on system :{}'
+                         .format(image, ", ".join(vols), tempdir, platform.node()))
+            return
 
-    ret = datman.utils.run("fslsplit {} {}/".format(image, tempdir))
-    if ret[0]:
-        logger.error('pdt2 split failed in image:{} with fslsplit error:{}'
-                     .format(image, ret[1]))
-    vols = glob.glob('{}/*.nii.gz'.format(tempdir))
-    if len(vols) != 2:
-        logger.error('{}: Expected exactly 2 volumes, got: {}'
-                     ' in tempfile: {} on system :{}'
-                     .format(image, ", ".join(vols), tempdir, platform.node()))
+        vol0_mean = np.mean(nib.load(vols[0]).get_data())
+        vol1_mean = np.mean(nib.load(vols[1]).get_data())
 
-        #shutil.rmtree(tempdir)
-        return
+        if vol0_mean > vol1_mean:      # PD should have a higher mean intensity
+            pd_tmp, t2_tmp = vols[0], vols[1]
+        else:
+            t2_tmp, pd_tmp = vols[0], vols[1]
 
-    vol0_mean = np.mean(nib.load(vols[0]).get_data())
-    vol1_mean = np.mean(nib.load(vols[1]).get_data())
-
-    if vol0_mean > vol1_mean:      # PD should have a higher mean intensity
-        pd_tmp, t2_tmp = vols[0], vols[1]
-    else:
-        t2_tmp, pd_tmp = vols[0], vols[1]
-
-    if not os.path.exists(pd_path):
-        shutil.move(pd_tmp, pd_path)
-    if not os.path.exists(t2_path):
-        shutil.move(t2_tmp, t2_path)
-
-    shutil.rmtree(tempdir)
+        if not os.path.exists(pd_path):
+            shutil.move(pd_tmp, pd_path)
+        if not os.path.exists(t2_path):
+            shutil.move(t2_tmp, t2_path)
 
 if __name__ == "__main__":
     main()

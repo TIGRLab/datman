@@ -9,6 +9,8 @@ import zipfile
 import tarfile
 import io
 import glob
+import shlex
+import pipes
 import numpy as np
 import logging
 import subprocess as proc
@@ -94,8 +96,8 @@ def check_blacklist(scan_name, study=None):
     """
 
     try:
-        ident = scanid.parse_filename(scan_name)
-        ident = ident[0]
+        ident, tag, series_num, _ = scanid.parse_filename(scan_name)
+        blacklist_id = "_".join([str(ident), tag, series_num])
     except scanid.ParseException:
         logger.warning('Invalid session id:{}'.format(scan_name))
         return
@@ -124,7 +126,7 @@ def check_blacklist(scan_name, study=None):
     for line in lines:
         parts = line.split(None, 1)
         if parts:  # fix for empty lines
-            if parts[0] == scan_name:
+            if blacklist_id in parts[0]:
                 try:
                     return parts[1].strip()
                 except IndexError:
@@ -429,7 +431,7 @@ def has_permissions(path):
 def make_epitome_folders(path, n_runs):
     """
     Makes an epitome-compatible folder structure with functional data FUNC of n
-    runs, and a single T1.
+    import pipesruns, and a single T1.
 
     This works assuming we've run everything through freesurfer.
 
@@ -461,6 +463,11 @@ def run(cmd, dryrun=False):
     # Popen needs a string command.
     if isinstance(cmd, list):
         cmd = " ".join(cmd)
+
+    # perform shell quoting for special characters in filenames
+    args = shlex.split(cmd)
+    args_q = [pipes.quote(a) for a in args]
+    cmd = " ".join(args_q)
 
     if dryrun:
         logger.info("Performing dry-run")
@@ -565,8 +572,8 @@ def splitext(path):
     return os.path.splitext(path)
 
 @contextlib.contextmanager
-def make_temp_directory():
-    temp_dir = tempfile.mkdtemp()
+def make_temp_directory(suffix='', prefix='tmp', path=None):
+    temp_dir = tempfile.mkdtemp(suffix=suffix, prefix=prefix, dir=path)
     try:
         yield temp_dir
     finally:

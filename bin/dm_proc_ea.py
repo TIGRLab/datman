@@ -3,7 +3,7 @@
 Process empathic accuracy experiment data.
 
 Usage:
-    dm-proc-ea.py [options] <study>
+    dm_proc_ea.py [options] <study>
 
 Arguments:
     <study>             study name defined in master Configuration .yml file.
@@ -13,25 +13,27 @@ Options:
     --debug             Show lots of output.
 
 """
-import sys
+# allows matplotlib to function sans Xwindows
+import matplotlib
+matplotlib.use('Agg')
+
+import os, sys
 import logging
-import os
-import sys
 import glob
 import copy
 import time
 import tempfile
 import shutil
-import numpy as np
-import StringIO as io
-import scipy.interpolate as interpolate
 import yaml
+import StringIO as io
+
+import matplotlib.pyplot as plt
+import numpy as np
+import scipy.interpolate as interpolate
+
 import datman.utils as utils
 import datman.config as cfg
-import matplotlib
-matplotlib.use('Agg')   # Force matplotlib to not use any Xwindows backend
-import matplotlib.pyplot as plt
-from docopt import docopt
+from datman.docopt import docopt
 
 logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
@@ -398,7 +400,7 @@ def generate_analysis_script(subject, inputs, input_type, config, study):
         subject_dir=subject_dir, subject=subject, input_type=input_type)
 
     # generate full motion paramater file
-    rtn, out = utils.run('cat {d}/PARAMS/motion.datman.01.1D {d}/PARAMS/motion.datman.02.1D {d}/PARAMS/motion.datman.03.1D > {d}/{subject}_motion.1D'.format(
+    rtn, out = utils.run('cat {d}/PARAMS/motion.*.01.1D {d}/PARAMS/motion.*.02.1D {d}/PARAMS/motion.*.03.1D > {d}/{subject}_motion.1D'.format(
         d=subject_dir, subject=subject))
 
     # get input data, turn into a single string
@@ -520,7 +522,7 @@ def analyze_subject(subject, config, study):
 
     # if we have the wrong number of logs, don't guess which to use, just fail
     if len(logs) != 3:
-        logger.error('Did not find exactly 3 logs for {}.'.format(subject))
+        logger.error('Did not find exactly 3 logs for {}\nfound:{}.'.format(subject, logs))
         sys.exit(1)
 
     # parse and write the logs seperately for each experiment condition (video or shapes/colours video)
@@ -585,9 +587,11 @@ def analyze_subject(subject, config, study):
     for input_type in inputs.keys():
 
         script = generate_analysis_script(subject, inputs, input_type, config, study)
-        rtn, out = utils.run('chmod 754 {script}; {script}'.format(script=script))
+        rtn, out = utils.run('chmod 754 {}'.format(script))
+        rtn, out = utils.run(script)
         if rtn:
-            logger.error('Failed to analyze {}\n{}'.format(subject, out))
+            logger.error('Script {} failed to run on subject {} with error:\n{}'.format(
+                script, subject, out))
             sys.exit(1)
 
 def main():
@@ -647,18 +651,18 @@ def main():
 
         if commands:
             logger.debug("queueing up the following commands:\n"+'\n'.join(commands))
-            for cmd in commands:
-                jobname = "dm_ea_{}".format(time.strftime("%Y%m%d-%H%M%S"))
+            for i, cmd in enumerate(commands):
+                jobname = "dm_ea_{}_{}".format(i, time.strftime("%Y%m%d-%H%M%S"))
+                jobfile = '/tmp/{}'.format(jobname)
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
-                rtn, out = utils.run('echo {} | qsub -V -q main.q -o {} -e {} -N {}'.format(cmd, logfile, errfile, jobname))
-
+                rtn, out = utils.run('qsub -V -q main.q -o {} -e {} -N {} {}'.format(
+                    logfile, errfile, jobname, jobfile))
                 # qbacth method -- might bring it back, but really needed yet
                 #fd, path = tempfile.mkstemp()
                 #os.write(fd, '\n'.join(commands))
                 #os.close(fd)
                 #rtn, out, err = utils.run('qbatch -i --logdir {ld} -N {name} --walltime {wt} {cmds}'.format(ld=logdir, name=jobname, wt=walltime, cmds=path))
-
                 if rtn:
                     logger.error("Job submission failed\nstdout: {}".format(out))
                     sys.exit(1)

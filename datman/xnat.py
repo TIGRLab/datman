@@ -75,7 +75,10 @@ class xnat(object):
 
         if not result:
             logger.warn('Project:{} not found'.format(project))
-            raise XnatException("Project:{} not found".format(project))
+            raise XnatException("Project:{} not found. Are credentials"
+                                "exported to the environment and clevis given"
+                                "permission on the xnat project?"
+                                .format(project))
 
         return(result['items'][0])
 
@@ -232,6 +235,78 @@ class xnat(object):
 
         return(result['items'][0])
 
+    def get_resource_ids(self, study, session, experiment, folderName=None, create=True):
+        """
+        Return a list of resource id's (subfolders) from an experiment
+        """
+        logger.debug('Getting resource ids for expeiment:{}'
+                     .format(experiment))
+        url = '{}/data/archive/projects/{}' \
+              '/subjects/{}/experiments/{}' \
+              '/resources/?format=json'.format(self.server,
+                                               study,
+                                               session,
+                                               experiment)
+        try:
+            result = self._make_xnat_query(url)
+        except:
+            raise XnatException("Failed getting resource ids with url:"
+                                .format(url))
+        if result is None:
+            raise XnatException('Experiment:{} not found for session:{}'
+                                ' in study:{}'
+                                .format(experiment, session, study))
+
+        if create and int(result['ResultSet']['totalRecords']) < 1:
+            return self.create_resource_folder(study,
+                                               session,
+                                               experiment,
+                                               folderName)
+
+        resource_ids = {}
+        for r in result['ResultSet']['Result']:
+            try:
+                label = r['label']
+                resource_ids[label] = r['xnat_abstractresource_id']
+            except KeyError:
+                # some resource folders have no label
+                resource_ids['No Label'] = r['xnat_abstractresource_id']
+
+        if not folderName:
+            # foldername not specified return them all
+            resource_id = [val for val in resource_ids.itervalues()]
+        else:
+            # check if folder exists, if not create it
+            try:
+                resource_id = resource_ids[folderName]
+            except KeyError:
+                # folder doesn't exist, create it
+                if not create:
+                    return None
+                else:
+                    resource_id = self.create_resource_folder(study,
+                                                              session,
+                                                              experiment,
+                                                              folderName)
+
+        return resource_id
+
+    def create_resource_folder(self, study, session, experiment, label):
+        """
+        Creates a resource subfolder and returns the xnat identifier.
+        """
+        url = '{}/data/archive/projects/{}' \
+              '/subjects/{}/experiments/{}' \
+              '/resources/{}/'.format(self.server,
+                                        study,
+                                        session,
+                                        experiment,
+                                        label)
+        self._make_xnat_put(url)
+        return self.get_resource_ids(study, session, experiment, label)
+
+
+
     def get_resource_list(self, study, session, experiment, resource_id):
         """The list of non-dicom resources associated with an experiment
         returns a list of dicts, mostly interested in ID and name"""
@@ -347,22 +422,31 @@ class xnat(object):
             err.session = session
             raise err
 
-    def put_resource(self, project, session, experiment, filename, data,
+    def put_resource(self, project, session, experiment, filename, data, folder,
                      retries=3):
         """POST a resource file to the xnat server
         filename: string to store filename as
         data: string containing data
             (such as produced by zipfile.ZipFile.read())"""
+        resource_id = self.get_resource_ids(project,
+                                            session,
+                                             experiment,
+                                             folderName=folder)
+
         attach_url = "{server}/data/archive/projects/{project}/" \
                      "subjects/{subject}/experiments/{experiment}/" \
+                     "resources/{resource_id}/" \
                      "files/{filename}?inbody=true"
 
         uploadname = urllib.quote(filename)
+
         url = attach_url.format(server=self.server,
                                 project=project,
                                 subject=session,
                                 experiment=experiment,
+                                resource_id=resource_id,
                                 filename=uploadname)
+
         try:
             self._make_xnat_post(url, data)
         except XnatException as err:

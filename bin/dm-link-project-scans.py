@@ -42,7 +42,7 @@ import csv
 import re
 import datman as dm
 import datman.scanid, datman.utils
-from docopt import docopt
+from datman.docopt import docopt
 
 DRYRUN = False
 LINK_FILE_HEADERS = ['subject', 'target_subject', 'tags']

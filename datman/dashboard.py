@@ -96,6 +96,8 @@ class dashboard(object):
                 dashboard_session.name = session_name
                 dashboard_session.study = self.study
                 dashboard_session.date = date
+                dashboard_session.is_repeated = False
+                dashboard_session.repeat_count = 1
                 if datman.scanid.is_phantom(session_name):
                     dashboard_session.is_phantom = True
                 db.session.add(dashboard_session)
@@ -119,7 +121,7 @@ class dashboard(object):
             db.session.commit()
         except Exception as e:
             logger.error('An error occured adding session:{} to the database'
-                         'Error:{}'
+                         ' Error:{}'
                          .format(session_name, str(e)))
             return None
         return dashboard_session
@@ -145,6 +147,8 @@ class dashboard(object):
                         .filter(Session.name == session_name) \
                         .filter(Study.nickname == self.study.nickname) \
                         .filter(Scan.name == scan_id)
+        if ident.session:
+            qry = qry.filter(Scan.repeat_number == int(ident.session))
 
         if qry.count() == 1:
             logger.debug('Found scan:{} in database'.format(scan_name))
@@ -183,6 +187,8 @@ class dashboard(object):
             dashboard_scan.series_number = series
             dashboard_scan.scantype = dashboard_scantype
             dashboard_scan.description = desc
+            if ident.session:
+                dashboard_scan.repeat_number = int(ident.session)
 
             db.session.add(dashboard_scan)
         # finally check the blacklist
@@ -194,7 +200,13 @@ class dashboard(object):
                          .format(scan_name, str(e)))
 
         try:
-            if not bl_comment == dashboard_scan.bl_comment:
+            if not bl_comment and not bl_comment == dashboard_scan.bl_comment:
+                # this shouldn't happen but is possible
+                logger.error('Scan:{} has a blacklist comment in dashboard db'
+                             ' which is not present in metadata/blacklist.csv.'
+                             ' Comment:{}'.format(dashboard_scan.name,
+                                                  dashboard_scan.bl_comment))
+            elif bl_comment and not bl_comment == dashboard_scan.bl_comment:
                 dashboard_scan.bl_comment = bl_comment
 
             db.session.commit()
@@ -206,16 +218,21 @@ class dashboard(object):
     def delete_extra_scans(self, session_label, scanlist):
         """Checks scans associated with session,
         deletes scans not in scanlist"""
-
         try:
             ident = datman.scanid.parse(session_label)
         except datman.scanid.ParseException:
             logger.error('Invalid session:{}'.format(session_label))
             raise DashboardException('Invalid session name:{}'
                                       .format(session_label))
+
+        # extract the repeat number
+        if datman.scanid.is_phantom(session_label):
+            repeat = None
+        else:
+            repeat = int(ident.session)
+
         session_label = ident.get_full_subjectid_with_timepoint()
         db_session = self.get_add_session(session_label)
-
         scan_names = []
         # need to convert full scan names to scanid's in the db
         for scan_name in scanlist:
@@ -225,9 +242,9 @@ class dashboard(object):
             except:
                 continue
 
-
-        db_scans = [scan.name for scan in db_session.scans]
+        db_scans = [scan.name for scan in db_session.scans if scan.repeat_number == repeat]
         extra_scans = set(db_scans) - set(scan_names)
+
         for scan in extra_scans:
             db_scan = Scan.query.filter(Scan.name == scan).first()
             db.session.delete(db_scan)
@@ -240,3 +257,15 @@ class dashboard(object):
             raise DashboardException('Invalid scantype')
         else:
             return qry.first()
+
+    def delete_session(self, session_name):
+        session = self.get_add_session(session_name, create=False)
+        db.session.delete(session)
+        try:
+            db.session.commit()
+        except Exception as e:
+            logger.error('An error occured deleting session:{} from the database'
+                         ' Error:{}'
+                         .format(session_name, str(e)))
+            return False
+        return True

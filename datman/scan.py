@@ -63,6 +63,7 @@ import logging
 
 import datman.utils
 import datman.scanid as scanid
+import datman.dashboard
 
 class DatmanNamed(object):
     """
@@ -115,7 +116,7 @@ class Series(DatmanNamed):
 
 class Scan(DatmanNamed):
     """
-    Holds all information for a single scan.
+    Holds all information for a single scan (session).
 
         subject_id:     A subject id of the format STUDY_SITE_ID_TIMEPOINT
                         _SESSION may be included, but will be set to the
@@ -136,6 +137,12 @@ class Scan(DatmanNamed):
         except datman.scanid.ParseException:
             message = "{} does not match datman convention".format(subject_id)
             raise datman.scanid.ParseException(message)
+
+        try:
+            self.project = config.map_xnat_archive_to_project(ident.study)
+        except Exception as e:
+            logger.error('Failed getting project from config:{}'
+                         .format(str(e)))
 
         DatmanNamed.__init__(self, ident)
 
@@ -166,6 +173,17 @@ class Scan(DatmanNamed):
         except KeyError:
             matched_dicoms = []
         return matched_dicoms
+
+    def get_db_object(self):
+        """
+        Returns the dashboard database object representing the scan (session)
+        """
+        db = datman.dashboard.dashboard(self.project)
+        try:
+            db_session = db.get_add_session(self.full_id)
+        except:
+            db_session = None
+        return db_session
 
     def __check_session(self, id_str):
         """

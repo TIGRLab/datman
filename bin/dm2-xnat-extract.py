@@ -11,26 +11,15 @@ Arguments:
     <session>          Fullname of the session to process
 
 Options:
-    --blacklist FILE    Table listing series to ignore
-                            override the default metadata/blacklist.csv
-    -v --verbose        Show intermediate steps
-    -d --debug          Show debug messages
-    -q --quiet          Show minimal output
-    -n --dry-run        Do nothing
-    --server URL          XNAT server to connect to,
-                            overrides the server defined
-                            in the site config file.
-
-    -c --credfile FILE    File containing XNAT username and password. The
-                          username should be on the first line, and password
-                          on the next. Overrides the credfile in the project
-                          metadata
-
-    -u --username USER    XNAT username. If specified then the credentials
-                          file is ignored and you are prompted for password.
-
+    --blacklist FILE         Table listing series to ignore override the default metadata/blacklist.csv
+    -v --verbose             Show intermediate steps
+    -d --debug               Show debug messages
+    -q --quiet               Show minimal output
+    -n --dry-run             Do nothing
+    --server URL             XNAT server to connect to, overrides the server defined in the site config file.
+    -c --credfile FILE       File containing XNAT username and password. The username should be on the first line, and password on the next. Overrides the credfile in the project metadata
+    -u --username USER       XNAT username. If specified then the credentials file is ignored and you are prompted for password.
     --dont-update-dashboard  Dont update the dashboard database
-
 
 OUTPUT FOLDERS
     Each dicom series will be converted and placed into a subfolder of the
@@ -72,7 +61,7 @@ DEPENDENCIES
     dcm2nii
 
 """
-from docopt import docopt
+from datman.docopt import docopt
 import logging
 import sys
 import datman.config
@@ -91,7 +80,9 @@ import platform
 import shutil
 import dicom
 
+logging.basicConfig()
 logger = logging.getLogger(os.path.basename(__file__))
+
 xnat = None
 cfg = None
 dashboard = None
@@ -122,25 +113,13 @@ def main():
         db_ignore = True
 
     # setup logging
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.WARN)
     logger.setLevel(logging.WARN)
     if quiet:
         logger.setLevel(logging.ERROR)
-        ch.setLevel(logging.ERROR)
     if verbose:
         logger.setLevel(logging.INFO)
-        ch.setLevel(logging.INFO)
     if debug:
         logger.setLevel(logging.DEBUG)
-        ch.setLevel(logging.DEBUG)
-
-    formatter = logging.Formatter('%(asctime)s - %(name)s - {study} - '
-                                  '%(levelname)s - %(message)s'.format(
-                                  study=study))
-    ch.setFormatter(formatter)
-
-    logger.addHandler(ch)
 
     # setup the config object
     logger.info('Loading config')
@@ -172,7 +151,7 @@ def main():
         """
         username = os.environ["XNAT_USER"]
         password = os.environ["XNAT_PASS"]
-        
+
     xnat = datman.xnat.xnat(server, username, password)
 
     # setup the dashboard object
@@ -195,7 +174,7 @@ def main():
 
         if not xnat_project:
             logger.error('Failed to find session:{} in xnat.'
-                         ' Ensure it is named correctly with timepoint.'
+                         ' Ensure it is named correctly with timepoint and repeat.'
                          .format(xnat_projects))
             return
 
@@ -290,6 +269,10 @@ def process_session(session):
             db_session = dashboard.get_add_session(db_session_name,
                                                    date=experiment['data_fields']['date'],
                                                    create=True)
+            if ident.session and int(ident.session) > 1:
+                db_session.is_repeated = True
+                db_session.repeat_count = int(ident.session)
+
         except datman.dashboard.DashboardException as e:
                 logger.error('Failed adding session:{} to dashboard'
                              .format(session_label))
@@ -559,9 +542,11 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
                 except OSError as e:
                     logger.error('Failed creating target folder:{}'
                                  .format(target_dir))
-                    raise(e)
+                    continue
 
                 exporter = xporters[export_format]
+                logger.info('Exporting scan {} to format {}'
+                            .format(file_stem, export_format))
                 exporter(src_dir, target_dir, file_stem)
         except:
             logger.error('An error happened exporting {} from scan:{} in session:{}'
@@ -609,8 +594,8 @@ def get_dicom_archive_from_xnat(xnat_project, session_label, experiment_label,
         with zipfile.ZipFile(dicom_archive[1], 'r') as myzip:
             myzip.extractall(tempdir)
     except:
-        logger.error('An error occured unpaking dicom archive for:{}'
-                     ' skipping')
+        logger.error('An error occurred unpacking dicom archive for:{}'
+                     ' skipping'.format(session_label))
         os.remove(dicom_archive[1])
         return None, None
 
@@ -731,17 +716,14 @@ def export_nii_command(seriesdir, outputdir, stem):
 
     # convert into tempdir
     tmpdir = tempfile.mkdtemp(prefix="dm2_xnat_extract_")
-    datman.utils.run('dcm2nii -x n -g y -o {} {}'
+    datman.utils.run('dcm2niix -z y -b y -o {} {}'
                      .format(tmpdir, seriesdir), DRYRUN)
 
-    # move nii in tempdir to proper location
+    # move nii and accompanying files (BIDS, dirs, etc) from tempdir/ to nii/
     for f in glob.glob("{}/*".format(tmpdir)):
         bn = os.path.basename(f)
         ext = datman.utils.get_extension(f)
-        if bn.startswith("o") or bn.startswith("co"):
-            continue
-        else:
-            datman.utils.run("mv {} {}/{}{}"
+        datman.utils.run("mv {} {}/{}{}"
                              .format(f, outputdir, stem, ext), DRYRUN)
     shutil.rmtree(tmpdir)
 
