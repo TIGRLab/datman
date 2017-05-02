@@ -145,7 +145,6 @@ def process_archive(archivefile):
             logger.info('Upload failed with reason:{}'.format(str(e)))
             return
 
-    resource_exists = False
     if not resource_exists:
         logger.debug('Uploading resource from:{}'.format(archivefile))
         try:
