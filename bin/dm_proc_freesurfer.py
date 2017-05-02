@@ -33,6 +33,8 @@ DRYRUN = False
 NODE = os.uname()[1]
 
 def submit_job(cmd, i):
+    if DRYRUN:
+        return
     jobname = 'dm_freesurfer_{}_{}'.format(i, time.strftime("%Y%m%d-%H%M%S"))
     jobfile = '/tmp/{}'.format(jobname)
     logfile = '/tmp/{}.log'.format(jobname)
