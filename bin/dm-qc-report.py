@@ -847,8 +847,9 @@ def prepare_scan(subject_id, config):
     # be updated.
     db_session = subject.get_db_object()
     # db_session is None if entry doesn't exist in dashboard
-    logger.warning('Subject:{} not found in database'.format(subject_id))
-    if db_session:
+    if not db_session:
+        logger.warning('Subject:{} not found in database'.format(subject_id))
+    else:
         if db_session.last_repeat_qc_generated < db_session.repeat_count:
             # this is a new session, going to cheat and overwrite REWRITE
             REWRITE = True
