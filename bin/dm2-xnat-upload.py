@@ -29,8 +29,6 @@ import datman.xnat
 import datman.exceptions
 import os
 import getpass
-import requests
-import time
 import zipfile
 import io
 import dicom
@@ -133,8 +131,8 @@ def process_archive(archivefile):
                      .format(scanid))
         return
 
-    if data_exists and resource_exists:
-        return
+    #if data_exists and resource_exists:
+    #    return
 
     if not data_exists:
         logger.info('Uploading dicoms from:{}'.format(archivefile))
@@ -147,12 +145,19 @@ def process_archive(archivefile):
             logger.info('Upload failed with reason:{}'.format(str(e)))
             return
 
+    resource_exists = False
     if not resource_exists:
         logger.debug('Uploading resource from:{}'.format(archivefile))
         try:
-            upload_non_dicom_data(archivefile, xnat_project, str(scanid))
-        except:
+            upload_non_dicom_data(archivefile,
+                                  xnat_project,
+                                  str(scanid))
+        except Exception as e:
+            logger.debug('An exception occurred:{}'.format(e))
             pass
+
+    check_duplicate_resources(archivefile, xnat_session, scanid)
+
 
 def get_xnat_session(ident):
     """Get an xnat session from the archive.
@@ -263,6 +268,7 @@ def resource_data_exists(xnat_experiment_entry, ident, archive):
         return False
     return True
 
+
 def get_xnat_scan_uids(xnat_experiment_entry):
     xnat_experiment_entry = xnat_experiment_entry['children']
     xnat_scans = [r['items'] for r in xnat_experiment_entry
@@ -272,9 +278,11 @@ def get_xnat_scan_uids(xnat_experiment_entry):
                       for scan in xnat_scans[0]]
     return xnat_scan_uids
 
+
 def get_experiment_id(xnat_experiment_entry):
     experiment_id = xnat_experiment_entry['data_fields']['UID']
     return experiment_id
+
 
 def scan_data_exists(xnat_experiment_entry, local_headers, archive):
     local_scan_uids = [scan.SeriesInstanceUID for scan in local_headers.values()]
@@ -293,12 +301,14 @@ def scan_data_exists(xnat_experiment_entry, local_headers, archive):
     # XNAT data matches local archive data
     return True
 
+
 def get_experiment_entry(xnat_session):
     xnat_entries = [child for child in xnat_session['children']
                   if child['field'] == 'experiments/experiment']
     xnat_entries = xnat_entries[0]
     experiment_entry = xnat_entries['items'][0]
     return experiment_entry
+
 
 def check_files_exist(archive, xnat_session, ident):
     """Check to see if the dicom files in the local archive have
@@ -328,6 +338,64 @@ def check_files_exist(archive, xnat_session, ident):
 
     return scans_exist, resources_exist
 
+
+def check_duplicate_resources(archive, xnat_session, ident):
+    """
+    Checks the xnat archive for duplicate resources
+    Only  checks if non-dicom files in the archive exist and have duplicates
+    Deletes any duplicate copies from xnat
+    """
+    # process the archive to find out what files have been uploaded
+    uploaded_files = []
+    xnat_resources = []
+    with zipfile.ZipFile(archive) as zf:
+        resource_files = get_resources(zf)
+        for f in resource_files:
+            uploaded_files.append(f)
+
+    # get the list of resources on XNAT
+    xnat_experiment_entry = get_experiment_entry(xnat_session)
+    resource_ids = get_resource_ids(xnat_experiment_entry)
+
+    if resource_ids is None:
+        return
+    xnat_project = CFG.get_key('XNAT_Archive', site=ident.site)
+    xnat_resources = []
+    for key, val in resource_ids.iteritems():
+        resource_list = XNAT.get_resource_list(xnat_project,
+                ident.get_full_subjectid_with_timepoint_session(),
+                ident.get_full_subjectid_with_timepoint_session(),
+                val)
+        if resource_list:
+            for item in resource_list:
+                xnat_resources.append(((key, val), item))
+    # iterate throught the uploded files, finding any duplicates
+    # the one to keep should have the same folder structure
+    # and be in the MISC folder
+    # N.B. default folder is defined in
+    for f in uploaded_files:
+        fname = os.path.basename(f)
+        dups = [resource for resource
+                in xnat_resources if resource[1]['name'] == fname]
+        orig = [i for i, v in enumerate(dups) if v[1]['URI'] == f]
+
+        orig = [o for o in orig if dups[o][0][0] == 'MISC']
+        if len(orig) > 1:
+            logger.warning('Failed to identify original resource file:{} '
+                           'in session:{}'.format(fname, ident))
+            return
+        # Delete the original entry from the list
+        dups.pop(orig[0])
+
+        # Finally iterate through the duplicates, deleting from xnat
+        for d in dups:
+            XNAT.delete_resource(xnat_project,
+                                 ident.get_full_subjectid_with_timepoint_session(),
+                                 ident.get_full_subjectid_with_timepoint_session(),
+                                 d[0][1],
+                                 d[1]['ID'])
+
+
 def get_resources(open_zipfile):
     # filter dirs
     files = open_zipfile.namelist()
@@ -346,29 +414,37 @@ def get_resources(open_zipfile):
             logger.error('Error in zipfile:{}'.format(f))
     return resource_files
 
+
 def upload_non_dicom_data(archive, xnat_project, scanid):
     with zipfile.ZipFile(archive) as zf:
         resource_files = get_resources(zf)
         logger.info("Uploading {} files of non-dicom data..."
                     .format(len(resource_files)))
+        uploaded_files = []
         for f in resource_files:
             # convert to HTTP language
             try:
-                # split off the first part of the path which is the zipfile named
+                # split off the first part of the path which is the zipfile
+                # named
                 #### TEST
                 #path_bits = datman.utils.split_path(f)
                 #new_name = os.path.join(*path_bits[1::])
                 new_name = f
-
+                # By default files are placed in a MISC subfolder
+                # if this is changed it may require changes to
+                # check_duplicate_resources()
                 XNAT.put_resource(xnat_project,
                                   scanid,
                                   scanid,
                                   new_name,
                                   zf.read(f),
                                   'MISC')
+                uploaded_files.append(f)
             except Exception as e:
                 logger.error("Failed uploading file {} with error:{}"
                              .format(f, str(e)))
+        return uploaded_files
+
 
 def upload_dicom_data(archive, xnat_project, scanid):
     try:
@@ -389,6 +465,7 @@ def is_dicom(fileobj):
         return True
     except dicom.filereader.InvalidDicomError:
         return False
+
 
 def get_xnat(server=None, credfile=None, username=None):
     """Create an xnat object,
