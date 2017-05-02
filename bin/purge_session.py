@@ -6,7 +6,7 @@ easily be removed with rm -r <session>.
 
 
 Usage:
-purge_session.py [options] <study> <session>
+    purge_session.py [options] <study> <session>
 
 Arguments:
     <study>             Study/Project name
