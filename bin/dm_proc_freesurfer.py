@@ -202,7 +202,11 @@ def main():
         if subject.is_phantom:
             sys.exit('Subject {} is a phantom, cannot be analyzed'.format(scanid))
 
-        run_freesurfer(subject, blacklisted_series, config)
+        try:
+            run_freesurfer(subject, blacklisted_series, config)
+        except Exception as e:
+            logger.error("Could not process subject {}, reason: "
+                    "{}".format(scanid, e))
     else:
         # batch mode
         update_aggregate_stats(config)
