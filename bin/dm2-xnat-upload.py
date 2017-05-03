@@ -384,6 +384,10 @@ def check_duplicate_resources(archive, xnat_session, ident):
                            'in session:{}'.format(fname, ident))
             return
         # Delete the original entry from the list
+        if not orig:
+            logger.warning('Failed to identify original resource file:{} '
+                           'in session:{}'.format(fname, ident))
+            return
         dups.pop(orig[0])
 
         # Finally iterate through the duplicates, deleting from xnat
