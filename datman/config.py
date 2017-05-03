@@ -389,6 +389,7 @@ class config(object):
 
         blacklist = {}
         with open(blacklist_path, 'r') as blacklist_file:
+            header_line = blacklist_file.readline()
             for entry in blacklist_file:
                 fields = entry.split(None, 1)
                 try:

@@ -19,6 +19,7 @@ import os, sys
 import glob
 import time
 import logging
+import logging.handlers
 
 from datman.docopt import docopt
 import datman.scanid as sid
@@ -105,7 +106,7 @@ def run_freesurfer(subject, blacklist, config):
     # don't run if the outputs already exist
     output_dir = utils.define_folder(freesurfer_dir)
     if outputs_exist(output_dir):
-        continue
+        return
 
     # reset / remove error.log
     error_log = os.path.join(output_dir, 'error.log')
@@ -121,7 +122,7 @@ def run_freesurfer(subject, blacklist, config):
             site_iter = config.study_config['freesurfer']['nu_iter'][subject.site]
             command += '-nuiterations {} '.format(site_iter)
     except KeyError:
-        logging.debug("nu_iter setting for site {} not found".format(subject.site))
+        logger.debug("nu_iter setting for site {} not found".format(subject.site))
 
     for anatomical in anatomicals:
         command += '-i {} '.format(anatomical)
@@ -182,14 +183,14 @@ def main():
     debug     = arguments['--debug']
     DRYRUN    = arguments['--dry-run']
 
-    # configure logging
+    config = load_config(study)
+
     if use_server:
         add_server_handler(config)
     if debug:
         logger.setLevel(logging.DEBUG)
 
-    logging.info('Starting')
-    config = load_config(study)
+    logger.info('Starting')
     check_input_paths(config)
     qc_subjects = config.get_subject_metadata()
 
@@ -201,12 +202,7 @@ def main():
         if subject.is_phantom:
             sys.exit('Subject {} is a phantom, cannot be analyzed'.format(scanid))
 
-        try:
-            run_freesurfer(subject, blacklisted_series, config)
-        except Exception as e:
-            logging.error("Experienced an error while processing {} : "
-                    "{}".format(scanid, e))
-            sys.exit(1)
+        run_freesurfer(subject, blacklisted_series, config)
     else:
         # batch mode
         update_aggregate_stats(config)
