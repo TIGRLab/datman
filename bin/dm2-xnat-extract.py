@@ -381,12 +381,60 @@ def process_resources(xnat_project, session_label, experiment_label, data):
             else:
                 logger.info('Resource:{} not found for session:{}'
                             .format(resource['name'], session_label))
-                get_resource(xnat_project,
-                             session_label,
-                             experiment_label,
-                             xnat_resource_id,
-                             resource['URI'],
-                             resource_path)
+                target_file = get_resource(xnat_project,
+                                           session_label,
+                                           experiment_label,
+                                           xnat_resource_id,
+                                           resource['URI'],
+                                           resource_path)
+            check_duplicates(resource, base_path, target_path)
+
+
+
+def check_duplicates(resource, base_path, target_path):
+    """Checks to see if a resource file has duplicate copies on the file system
+    backs up any duplicates found"""
+    fname = os.path.basename(resource['URI'])
+    target_file = os.path.join(target_path, resource['URI'])
+
+    dups = []
+    for root, dirs, files in os.walk(base_path):
+        if 'BACKUPS' in root:
+            continue
+        if fname in files:
+            dups.append(os.path.join(root, fname))
+    # remove the target
+    logger.debug('Original resource:{}'.format(target_file))
+
+    del dups[dups.index(target_file)]
+
+    for dup in dups:
+        try:
+            backup_resource(base_path, dup)
+        except IOError:
+            logger.error('Failed backing up resource file:{}'
+                         .format(dup))
+
+
+def backup_resource(base_path, resource_file):
+    backup_path = os.path.join(base_path, 'BACKUPS')
+
+    rel_path = os.path.dirname(os.path.relpath(resource_file, base_path))
+    target_dir = os.path.join(backup_path, rel_path)
+    if not os.path.isdir(target_dir):
+        try:
+            os.makedirs(target_dir)
+        except Exception as e:
+            logger.debug('Failed creating backup target:{}'
+                         .format(target_dir))
+            raise e
+    try:
+        logger.debug('Moving {} to {}'.format(resource_file, target_dir))
+        shutil.move(resource_file, target_dir)
+    except Exception as e:
+        logger.debug('Failed moving resource file:{} to {}'
+                     .format(resource_file, target_dir))
+        raise e
 
 
 def get_resource(xnat_project, xnat_session, xnat_experiment,
@@ -433,6 +481,7 @@ def get_resource(xnat_project, xnat_session, xnat_experiment,
     except OSError:
         logger.error('Failed to remove temporary archive:{} on system:{}'
                      .format(archive, platform.node()))
+    return(target)
 
 
 def process_scans(xnat_project, session_label, experiment_label, scans):
