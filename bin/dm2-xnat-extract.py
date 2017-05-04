@@ -381,12 +381,13 @@ def process_resources(xnat_project, session_label, experiment_label, data):
             else:
                 logger.info('Resource:{} not found for session:{}'
                             .format(resource['name'], session_label))
-                target_file = get_resource(xnat_project,
-                                           session_label,
-                                           experiment_label,
-                                           xnat_resource_id,
-                                           resource['URI'],
-                                           resource_path)
+                _ = get_resource(xnat_project,
+                                 session_label,
+                                 experiment_label,
+                                 xnat_resource_id,
+                                 resource['URI'],
+                                 resource_path)
+                
             check_duplicates(resource, base_path, target_path)
 
 
@@ -406,6 +407,8 @@ def check_duplicates(resource, base_path, target_path):
     # remove the target
     logger.debug('Original resource:{}'.format(target_file))
 
+    # potentially throws a value error.
+    # target file should always
     del dups[dups.index(target_file)]
 
     for dup in dups:
