@@ -63,7 +63,15 @@ import logging
 
 import datman.utils
 import datman.scanid as scanid
-import datman.dashboard
+
+try:
+    # Only one function uses dashboard, and it may not always be setup in the
+    # user's environment. So, configured as an optional feature
+    import datman.dashboard
+except:
+    dash_available = False
+else:
+    dash_available = True
 
 class DatmanNamed(object):
     """
@@ -178,6 +186,9 @@ class Scan(DatmanNamed):
         """
         Returns the dashboard database object representing the scan (session)
         """
+        if not dash_available:
+            raise ImportError("Scan.get_db_object requires the dashboard be "
+                    "installed")
         db = datman.dashboard.dashboard(self.project)
         try:
             db_session = db.get_add_session(self.full_id)
