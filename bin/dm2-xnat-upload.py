@@ -378,7 +378,7 @@ def check_duplicate_resources(archive, xnat_session, ident):
                 in xnat_resources if resource[1]['name'] == fname]
         orig = [i for i, v in enumerate(dups) if v[1]['URI'] == f]
 
-        orig = [o for o in orig if dups[o][0][0] == 'MISC']
+        #orig = [o for o in orig if dups[o][0][0] == 'MISC']
         if len(orig) > 1:
             logger.warning('Failed to identify original resource file:{} '
                            'in session:{}'.format(fname, ident))
