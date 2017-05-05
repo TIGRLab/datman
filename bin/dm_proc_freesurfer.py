@@ -26,6 +26,7 @@ import datman.scanid as sid
 import datman.utils as utils
 import datman.config as cfg
 import datman.scan as dm_scan
+import datman.fs_log_scraper as fs_scraper
 
 logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
@@ -134,6 +135,88 @@ def run_freesurfer(subject, blacklist, config):
         with open(error_log, 'wb') as f:
             f.write('{}\n{}'.format(error_message, NODE))
 
+def get_run_script(freesurfer_dir, site):
+    site_script = os.path.join(freesurfer_dir,
+            'bin/run_freesurfer_{}.sh'.format(site))
+    generic_script = os.path.join(freesurfer_dir, 'bin/run_freesurfer.sh')
+    if os.path.isfile(site_script):
+        script = site_script
+    elif os.path.isfile(generic_script):
+        script = generic_script
+    else:
+        logger.info("No freesurfer run scripts found. Using default "
+                "freesurfer standards.")
+        script = None
+    return script
+
+def get_site_standards(freesurfer_dir, site, subject_folder):
+    run_script = get_run_script(freesurfer_dir, site)
+    if not run_script:
+        return None
+
+    with open(run_script, 'r') as text_stream:
+        run_contents = text_stream.readlines()
+    recon_cmd = filter(lambda x: 'recon-all' in x, run_contents)
+    if not recon_cmd or len(recon_cmd) > 1:
+        logger.debug("Could not parse recon-all command from site script "
+                "{}".format(run_script))
+        return None
+
+    args = fs_scraper.FSLog.get_args(recon_cmd[0])
+    if not args:
+        return None
+
+    standard_log = fs_scraper.FSLog(subject_folder)
+    str_args = " ".join(sorted(args))
+
+    standards = {'build': standard_log.build,
+                 'kernel': standard_log.kernel,
+                 'args': str_args}
+    return standards
+
+def get_freesurfer_folders(freesurfer_dir, qc_subjects):
+    fs_data = {}
+    for subject in qc_subjects:
+        try:
+            ident = sid.parse(subject)
+        except datman.scanid.ParseException:
+            logger.error("Subject {} from checklist does not match datman "
+                    "convention. Skipping".format(subject))
+            continue
+        fs_path = os.path.join(freesurfer_dir, subject)
+        if not os.path.exists(fs_path) or not os.listdir(fs_path):
+            logger.info("Subject {} does not have freesurfer outputs. "
+                    "Skipping.".format(subject))
+            continue
+        fs_data.setdefault(ident.site, []).append(fs_path)
+    return fs_data
+
+def update_aggregate_log(config, qc_subjects):
+    freesurfer_dir = config.get_path('freesurfer')
+    site_fs_folders = get_freesurfer_folders(freesurfer_dir, qc_subjects)
+
+    if not site_fs_folders:
+        logger.info("No freesurfer output logs to scrape for project "
+                "{}.".format(config.study_name))
+        return
+
+    header = 'Subject,Status,Start,End,Build,Kernel,Arguments,Nifti Inputs\n'
+    log = []
+    log.append(header)
+
+    for site in site_fs_folders:
+        log.append("Logs for site: {}\n".format(site))
+        first_subject = site_fs_folders[site][0]
+        site_standards = get_site_standards(freesurfer_dir, site, first_subject)
+        site_logs = fs_scraper.scrape_logs(site_fs_folders[site],
+                standards=site_standards)
+        if not site_logs:
+            logger.info("No log data found for site {}".format(site))
+            continue
+        log.extend(site_logs)
+
+    return log
+
 def update_aggregate_stats(config):
     freesurfer_dir = config.get_path('freesurfer')
     enigma_ctx = os.path.join(config.system_config['DATMAN_ASSETSDIR'],
@@ -210,6 +293,8 @@ def main():
     else:
         # batch mode
         update_aggregate_stats(config)
+        update_aggregate_log(config, qc_subjects)
+
         fs_subjects = get_new_subjects(config, qc_subjects)
 
         for i, subject in enumerate(fs_subjects):

@@ -38,7 +38,7 @@ def scrape_logs(fs_output_folders, standards=None, col_headers=False):
         header = 'Name,Start,End,Build,Kernel,Arguments,Nifti Inputs\n'
         scraped_data.append(header)
 
-    standards_line = 'Expected Values,,,{build},{kernel},{args},\n'.format(
+    standards_line = 'Expected Values,,,,{build},{kernel},{args},\n'.format(
         **standards)
     scraped_data.append(standards_line)
 
@@ -79,6 +79,11 @@ def check_diff(log_field, standards_field):
 
 class FSLog(object):
 
+    _MAYBE_HALTED = "FS may have halted."
+    _RUNNING = "Job still running."
+    _TIMEDOUT = "FS halted at {}"
+    _ERROR = "Exited with error."
+
     def __init__(self, freesurfer_folder):
         fs_scripts = os.path.join(freesurfer_folder, 'scripts')
         self.status = self._get_status(fs_scripts)
@@ -111,7 +116,7 @@ class FSLog(object):
         if run_logs:
             status = self._parse_isrunning(run_logs[0])
         elif os.path.exists(error_log):
-            status = 'Exited with error'
+            status = self._ERROR
         elif os.path.exists(recon_log):
             status = ''
         else:
@@ -125,17 +130,17 @@ class FSLog(object):
         date_entry = [line for line in contents if line.startswith('DATE')]
 
         if not contents or not date_entry:
-            status = "FS may have halted.".format(isrunning_path)
+            status = self._MAYBE_HALTED
             return status
 
         _, date_str = date_entry[0].strip('\n').split(None, 1)
-        date = self._get_date(date_str)
+        date = self.get_date(date_str)
         now = datetime.datetime.now()
         diff = now - date
         if diff < datetime.timedelta(hours=24):
-            status = "Still running."
+            status = self._RUNNING
             return status
-        status = "FS halted at {}".format(os.path.basename(isrunning_path))
+        status = self._TIMEDOUT.format(os.path.basename(isrunning_path))
         return status
 
     def _get_build(self, build_stamp):
@@ -162,7 +167,7 @@ class FSLog(object):
 
     def get_date(self, date_str):
         if not date_str:
-            return datetime.datetime.min
+            return ''
         return datetime.datetime.strptime(date_str, '%a %b %d %X %Z %Y')
 
     def get_kernel(self, log_uname):
@@ -170,7 +175,8 @@ class FSLog(object):
             return ''
         return log_uname.split()[2]
 
-    def get_args(self, cmd_args):
+    @staticmethod
+    def get_args(cmd_args):
         if not cmd_args:
             return ''
         cmd_pieces = re.split('^-|\s-', cmd_args)
@@ -180,7 +186,8 @@ class FSLog(object):
         str_args = ' -'.join(sorted(args))
         return str_args.strip()
 
-    def get_niftis(self, cmd_args):
+    @staticmethod
+    def get_niftis(cmd_args):
         if not cmd_args:
             return ''
         # Will break on paths containing white space
