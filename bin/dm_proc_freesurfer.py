@@ -167,11 +167,10 @@ def get_site_standards(freesurfer_dir, site, subject_folder):
         return None
 
     standard_log = fs_scraper.FSLog(subject_folder)
-    str_args = " ".join(sorted(args))
 
     standards = {'build': standard_log.build,
                  'kernel': standard_log.kernel,
-                 'args': str_args}
+                 'args': args}
     return standards
 
 def get_freesurfer_folders(freesurfer_dir, qc_subjects):
