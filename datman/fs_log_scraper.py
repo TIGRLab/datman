@@ -85,14 +85,14 @@ class FSLog(object):
         self.build = self._get_build(os.path.join(fs_scripts,
                 'build-stamp.txt'))
 
-        recon_contents = self._parse_recon_done(os.path.join(fs_scripts,
+        recon_contents = self.parse_recon_done(os.path.join(fs_scripts,
                 'recon-all.done'))
         self.subject = recon_contents.get('SUBJECT', '')
-        self.start = self._get_date(recon_contents.get('START_TIME', ''))
-        self.end = self._get_date(recon_contents.get('END_TIME', ''))
-        self.kernel = self._get_kernel(recon_contents.get('UNAME', ''))
-        self.args = self._get_args(recon_contents.get('CMDARGS', ''))
-        self.nii_inputs = self._get_niftis(recon_contents.get('CMDARGS', ''))
+        self.start = self.get_date(recon_contents.get('START_TIME', ''))
+        self.end = self.get_date(recon_contents.get('END_TIME', ''))
+        self.kernel = self.get_kernel(recon_contents.get('UNAME', ''))
+        self.args = self.get_args(recon_contents.get('CMDARGS', ''))
+        self.nii_inputs = self.get_niftis(recon_contents.get('CMDARGS', ''))
 
     def read_log(self, path):
         try:
@@ -144,7 +144,7 @@ class FSLog(object):
             return ''
         return contents[0].strip('\n')
 
-    def _parse_recon_done(self, recon_done):
+    def parse_recon_done(self, recon_done):
         recon_contents = self.read_log(recon_done)
 
         if len(recon_contents) < 2:
@@ -160,26 +160,27 @@ class FSLog(object):
 
         return parsed_contents
 
-    def _get_date(self, date_str):
+    def get_date(self, date_str):
         if not date_str:
             return datetime.datetime.min
         return datetime.datetime.strptime(date_str, '%a %b %d %X %Z %Y')
 
-    def _get_kernel(self, log_uname):
+    def get_kernel(self, log_uname):
         if not log_uname:
             return ''
         return log_uname.split()[2]
 
-    def _get_args(self, cmd_args):
+    def get_args(self, cmd_args):
         if not cmd_args:
             return ''
-        cmd_pieces = cmd_args.split(None)
-        non_args = ['-subjid', '-i', '-T2']
-        args = filter(lambda item: item.startswith('-') and item not in non_args,
-                cmd_pieces)
-        return ' '.join(sorted(args))
+        cmd_pieces = re.split('^-|\s-', cmd_args)
+        args = cmd_pieces
+        for item in ['i ', 'T2 ', 'subjid ']:
+            args = filter(lambda x: not x.startswith(item), args)
+        str_args = ' -'.join(sorted(args))
+        return str_args.strip()
 
-    def _get_niftis(self, cmd_args):
+    def get_niftis(self, cmd_args):
         if not cmd_args:
             return ''
         # Will break on paths containing white space
