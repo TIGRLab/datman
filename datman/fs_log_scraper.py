@@ -22,6 +22,9 @@ def scrape_logs(fs_output_folders, standards=None, col_headers=False):
     """
     Takes a list of paths to freesurfer output folders and generates a list of
     log lines containing differences relative to a 'standard' subject.
+
+    For the log data that's checked against a standard, the field will be left
+    empty if no differences are found
     """
     subject_logs = [FSLog(subject) for subject in fs_output_folders]
 
