@@ -660,9 +660,14 @@ def main():
                 jobfile = '/tmp/{}'.format(jobname)
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
+
+                with open(jobfile, 'wb') as fid:
+                    fid.write('#!/bin/bash\n')
+                    fid.write(cmd)
+
                 rtn, out = utils.run('qsub -V -q main.q -o {} -e {} -N {} {}'.format(
                     logfile, errfile, jobname, jobfile))
-                # qbacth method -- might bring it back, but really needed yet
+                # qbacth method -- might bring it back, but not needed
                 #fd, path = tempfile.mkstemp()
                 #os.write(fd, '\n'.join(commands))
                 #os.close(fd)
