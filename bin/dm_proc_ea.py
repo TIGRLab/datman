@@ -400,9 +400,12 @@ def generate_analysis_script(subject, inputs, input_type, config, study):
     script = '{subject_dir}/{subject}_glm_1stlevel_{input_type}.sh'.format(
         subject_dir=subject_dir, subject=subject, input_type=input_type)
 
-    # generate full motion paramater file
-    rtn, out = utils.run('cat {d}/PARAMS/motion.*.01.1D {d}/PARAMS/motion.*.02.1D {d}/PARAMS/motion.*.03.1D > {d}/{subject}_motion.1D'.format(
-        d=subject_dir, subject=subject))
+    # combine motion paramaters (glob because run does not expand * any longer)
+    f1 = glob.glob('{}/PARAMS/motion.*.01.1D'.format(subject_dir))[0]
+    f2 = glob.glob('{}/PARAMS/motion.*.02.1D'.format(subject_dir))[0]
+    f3 = glob.glob('{}/PARAMS/motion.*.03.1D'.format(subject_dir))[0]
+    rtn, out = utils.run('cat {} {} {} > {}/{}_motion.1D'.format(
+        f1, f2, f3, subject_dir, subject), specialquote=False)
 
     # get input data, turn into a single string
     input_list = inputs[input_type]
