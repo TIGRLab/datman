@@ -129,9 +129,10 @@ def find_ratings(pic, blk_start, blk_end, blk_start_time, duration):
     102,103 -- person responses
     104     -- MRI responses
     """
-
+    duration = int(duration)
     ratings = []
     pushes = []
+    print(pic)
     if blk_end == None:
         # find the final response number, take that as the end of our block
         trial_list = np.linspace(blk_start, pic[-1][1], pic[-1][1]-blk_start+1)
@@ -147,8 +148,6 @@ def find_ratings(pic, blk_start, blk_end, blk_start_time, duration):
     if len(responses) == 0:
         ratings = np.array([5])
         return ratings, 0, 0
-
-    n_pushes = len(responses)
 
     for response in responses:
         ratings.append((int(response[3][-1]), response[4]))
@@ -166,10 +165,12 @@ def find_ratings(pic, blk_start, blk_end, blk_start_time, duration):
             idx = last + 1
         logger.debug('last={} idx={} t={} rating={}'.format(last, idx, t, rating))
 
-        r[last:idx] = val  # fill in all the values before the button push\
-        val = rating[0]    # update the value to insert
-        last = idx         # keep track of the last button push
-    r[last:] = val         # fill in the tail end of the vector with the last recorded value
+        idx = int(idx[-1])  # take last element, convert to int
+        r[last:idx] = val   # fill in all the values before the button push
+        val = rating[0]     # update the value to insert
+        last = idx          # keep track of the last button push
+    r[last:] = val          # fill in the tail end of the vector with the last recorded value
+    n_pushes = len(ratings) # number of button pushes (the number of ratings)
 
     return r, n_pushes, ratings
 
