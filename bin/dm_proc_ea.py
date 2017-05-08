@@ -306,29 +306,27 @@ def process_behav_data(log, out_path, sub, trial_type, block_id):
         duration = find_column_data(blk_name, os.path.join(assets, 'EA-vid-lengths.csv'))[0]
 
         logger.debug('Finding ratings for block {}'.format(i))
-
         subj_rate, n_pushes, ratings = find_ratings(pic, blk_start, blk_end, blk_start_time, duration*10000)
-
         logger.debug('Found {} ratings for {} events'.format(len(subj_rate), n_pushes))
 
-        # interpolate the gold standard sample to match the subject sample
-        logger.debug('Interpolating gold standard')
+        logger.debug('Interpolating subject ratings to match gold standard')
         if n_pushes != 0:
-            gold_rate = match_lengths(subj_rate, gold_rate)
+            subj_rate = match_lengths(gold_rate, subj_rate)
         else:
             subj_rate = np.repeat(5, len(gold_rate))
 
-        # z-score both ratings
-        logger.debug('Converting ratings to Z-scores')
+        # save a copy of the length-matched rating vector for the subject
+        np.savetxt('{}/{}_{}_ratings.csv'.format(out_path, sub, blk_name), subj_rate, delimiter=',')
+
+        # z-score both ratings, correlate, and then zscore correlation value
+        logger.debug('calcuating z-scored correlations')
         gold_rate = zscore(gold_rate)
         subj_rate = zscore(subj_rate)
-
         corr = np.corrcoef(subj_rate, gold_rate)[1][0]
-
         if np.isnan(corr):
             corr = 0  # this happens when we get no responses
+        corr = r2z(corr)
 
-        corr = r2z(corr) # z score correlations
 
         logger.debug('Adding data to plot')
         axs[i].plot(gold_rate, color='black', linewidth=2)
