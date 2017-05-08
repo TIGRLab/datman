@@ -29,7 +29,8 @@ def scrape_logs(fs_output_folders, standards=None, col_headers=False):
     subject_logs = [FSLog(subject) for subject in fs_output_folders]
 
     if not standards:
-        standards = make_standards(subject_logs[0])
+        standard_sub = choose_standard_sub(subject_logs)
+        standards = make_standards(standard_sub)
 
     verify_standards(standards, ['build', 'kernel', 'args'])
 
@@ -58,6 +59,18 @@ def scrape_logs(fs_output_folders, standards=None, col_headers=False):
         scraped_data.append(entry_line)
     return scraped_data
 
+def choose_standard_sub(subject_logs):
+    standard_sub = None
+    for subject in subject_logs:
+        if subject.status:
+            # Dont choose a subject that has not successfully finished
+            continue
+        standard_sub = subject
+    if not standard_sub:
+        raise Exception("Could not create standards. No subjects have "
+                "complete freesurfer outputs.")
+    return standard_sub
+
 def make_standards(standard_log):
     standards = {'build': standard_log.build,
                  'kernel': standard_log.kernel,
@@ -85,6 +98,7 @@ class FSLog(object):
     _ERROR = "Exited with error."
 
     def __init__(self, freesurfer_folder):
+        self._path = freesurfer_folder
         fs_scripts = os.path.join(freesurfer_folder, 'scripts')
         self.status = self._get_status(fs_scripts)
         self.build = self._get_build(os.path.join(fs_scripts,
@@ -92,7 +106,7 @@ class FSLog(object):
 
         recon_contents = self.parse_recon_done(os.path.join(fs_scripts,
                 'recon-all.done'))
-        self.subject = recon_contents.get('SUBJECT', '')
+        self.subject = self.get_subject(recon_contents.get('SUBJECT', ''))
         self.start = self.get_date(recon_contents.get('START_TIME', ''))
         self.end = self.get_date(recon_contents.get('END_TIME', ''))
         self.kernel = self.get_kernel(recon_contents.get('UNAME', ''))
@@ -164,6 +178,12 @@ class FSLog(object):
             parsed_contents[fields[0]] = fields[1]
 
         return parsed_contents
+
+    def get_subject(self, subject_field):
+        if subject_field:
+            return subject_field
+        subject = os.path.basename(self._path)
+        return subject
 
     def get_date(self, date_str):
         if not date_str:

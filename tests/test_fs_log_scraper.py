@@ -80,7 +80,9 @@ class TestFSLog(unittest.TestCase):
         my_log = scraper.FSLog(self.fs_path)
 
         assert my_log.status == ''
-        assert my_log.subject == ''
+        # Subject will be set to basename of the freesurfer path if
+        # recon-all.done isnt present/is unreadable
+        # assert my_log.subject == ''
         assert my_log.start == ''
         assert my_log.end == ''
         assert my_log.kernel == ''
@@ -128,6 +130,32 @@ class TestFSLog(unittest.TestCase):
         for arg in ['-all', '-qcache', '-notal-check', '-nuiterations 8',
                 '-subjid SOMEID12345']:
             assert arg not in nii_inputs
+
+class TestChooseStandardSub(unittest.TestCase):
+
+    def test_chooses_subject_without_status_set(self):
+        class LogStub(object):
+            def __init__(self, subid, status):
+                self.subject = subid
+                self.status = status
+        subject1 = LogStub('SUBJECT1111', 'Exited')
+        subject2 = LogStub('SUBJECT2222', '')
+        subject3 = LogStub('SUBJECT3333', 'Still Running')
+
+        standard_sub = scraper.choose_standard_sub([subject1, subject2, subject3])
+
+        assert standard_sub.subject == subject2.subject
+
+    @raises(Exception)
+    def test_raises_exception_if_no_subjects_have_completed_pipeline(self):
+        class LogStub(object):
+            def __init__(self, subid, status):
+                self.subject = subid
+                self.status = status
+        subject1 = LogStub('SUBJECT1', 'Exited with error')
+        subject2 = LogStub('SUBJECT2', 'Still Running')
+
+        standard_sub = scraper.choose_standard_sub([subject1, subject2])
 
 class TestVerifyStandards(unittest.TestCase):
 

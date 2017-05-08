@@ -154,6 +154,8 @@ def get_site_standards(freesurfer_dir, site, subject_folder):
     if not run_script:
         return None
 
+    logger.debug("Using subject {} to generate standards.".format(subject_folder))
+
     with open(run_script, 'r') as text_stream:
         run_contents = text_stream.readlines()
     recon_cmd = filter(lambda x: 'recon-all' in x, run_contents)
@@ -174,6 +176,14 @@ def get_site_standards(freesurfer_dir, site, subject_folder):
                  'args': args}
     return standards
 
+def choose_standard_subject(site_folders):
+    standard_sub = None
+    for subject in site_folders:
+        if os.path.exists(os.path.join(subject, 'scripts/recon-all.done')):
+            standard_sub = subject
+            break
+    return standard_sub
+
 def get_freesurfer_folders(freesurfer_dir, qc_subjects):
     fs_data = {}
     for subject in qc_subjects:
@@ -191,7 +201,7 @@ def get_freesurfer_folders(freesurfer_dir, qc_subjects):
         fs_data.setdefault(ident.site, []).append(fs_path)
     return fs_data
 
-def update_aggregate_log(config, qc_subjects):
+def update_aggregate_log(config, qc_subjects, destination):
     freesurfer_dir = config.get_path('freesurfer')
     site_fs_folders = get_freesurfer_folders(freesurfer_dir, qc_subjects)
 
@@ -206,8 +216,12 @@ def update_aggregate_log(config, qc_subjects):
 
     for site in site_fs_folders:
         log.append("Logs for site: {}\n".format(site))
-        first_subject = site_fs_folders[site][0]
-        site_standards = get_site_standards(freesurfer_dir, site, first_subject)
+        standard_sub = choose_standard_subject(site_fs_folders[site])
+        if standard_sub is None:
+            logger.info("{} does not have any subjects that have completed the "
+                    "pipeline. Skipping".format(site))
+            continue
+        site_standards = get_site_standards(freesurfer_dir, site, standard_sub)
         site_logs = fs_scraper.scrape_logs(site_fs_folders[site],
                 standards=site_standards)
         if not site_logs:
@@ -215,7 +229,9 @@ def update_aggregate_log(config, qc_subjects):
             continue
         log.extend(site_logs)
 
-    return log
+    with open(destination, 'w') as log_stream:
+        for line in log:
+            log_stream.write(line)
 
 def update_aggregate_stats(config):
     freesurfer_dir = config.get_path('freesurfer')
@@ -293,7 +309,9 @@ def main():
     else:
         # batch mode
         update_aggregate_stats(config)
-        update_aggregate_log(config, qc_subjects)
+        destination = os.path.join(config.get_path('freesurfer'),
+                'freesurfer_aggregate_log.csv')
+        update_aggregate_log(config, qc_subjects, destination)
 
         fs_subjects = get_new_subjects(config, qc_subjects)
 
