@@ -162,7 +162,8 @@ def get_site_standards(freesurfer_dir, site, subject_folder):
                 "{}".format(run_script))
         return None
 
-    args = fs_scraper.FSLog.get_args(recon_cmd[0])
+    args = fs_scraper.FSLog.get_args(recon_cmd[0].strip('recon-all'))
+
     if not args:
         return None
 
@@ -178,7 +179,7 @@ def get_freesurfer_folders(freesurfer_dir, qc_subjects):
     for subject in qc_subjects:
         try:
             ident = sid.parse(subject)
-        except datman.scanid.ParseException:
+        except sid.ParseException:
             logger.error("Subject {} from checklist does not match datman "
                     "convention. Skipping".format(subject))
             continue
