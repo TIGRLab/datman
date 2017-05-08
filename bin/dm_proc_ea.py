@@ -129,9 +129,10 @@ def find_ratings(pic, blk_start, blk_end, blk_start_time, duration):
     102,103 -- person responses
     104     -- MRI responses
     """
-
+    duration = int(duration)
     ratings = []
     pushes = []
+    print(pic)
     if blk_end == None:
         # find the final response number, take that as the end of our block
         trial_list = np.linspace(blk_start, pic[-1][1], pic[-1][1]-blk_start+1)
@@ -147,8 +148,6 @@ def find_ratings(pic, blk_start, blk_end, blk_start_time, duration):
     if len(responses) == 0:
         ratings = np.array([5])
         return ratings, 0, 0
-
-    n_pushes = len(responses)
 
     for response in responses:
         ratings.append((int(response[3][-1]), response[4]))
@@ -166,10 +165,12 @@ def find_ratings(pic, blk_start, blk_end, blk_start_time, duration):
             idx = last + 1
         logger.debug('last={} idx={} t={} rating={}'.format(last, idx, t, rating))
 
-        r[last:idx] = val  # fill in all the values before the button push\
-        val = rating[0]    # update the value to insert
-        last = idx         # keep track of the last button push
-    r[last:] = val         # fill in the tail end of the vector with the last recorded value
+        idx = int(idx[-1])  # take last element, convert to int
+        r[last:idx] = val   # fill in all the values before the button push
+        val = rating[0]     # update the value to insert
+        last = idx          # keep track of the last button push
+    r[last:] = val          # fill in the tail end of the vector with the last recorded value
+    n_pushes = len(ratings) # number of button pushes (the number of ratings)
 
     return r, n_pushes, ratings
 
@@ -399,9 +400,12 @@ def generate_analysis_script(subject, inputs, input_type, config, study):
     script = '{subject_dir}/{subject}_glm_1stlevel_{input_type}.sh'.format(
         subject_dir=subject_dir, subject=subject, input_type=input_type)
 
-    # generate full motion paramater file
-    rtn, out = utils.run('cat {d}/PARAMS/motion.*.01.1D {d}/PARAMS/motion.*.02.1D {d}/PARAMS/motion.*.03.1D > {d}/{subject}_motion.1D'.format(
-        d=subject_dir, subject=subject))
+    # combine motion paramaters (glob because run does not expand * any longer)
+    f1 = glob.glob('{}/PARAMS/motion.*.01.1D'.format(subject_dir))[0]
+    f2 = glob.glob('{}/PARAMS/motion.*.02.1D'.format(subject_dir))[0]
+    f3 = glob.glob('{}/PARAMS/motion.*.03.1D'.format(subject_dir))[0]
+    rtn, out = utils.run('cat {} {} {} > {}/{}_motion.1D'.format(
+        f1, f2, f3, subject_dir, subject), specialquote=False)
 
     # get input data, turn into a single string
     input_list = inputs[input_type]
@@ -656,9 +660,14 @@ def main():
                 jobfile = '/tmp/{}'.format(jobname)
                 logfile = '/tmp/{}.log'.format(jobname)
                 errfile = '/tmp/{}.err'.format(jobname)
+
+                with open(jobfile, 'wb') as fid:
+                    fid.write('#!/bin/bash\n')
+                    fid.write(cmd)
+
                 rtn, out = utils.run('qsub -V -q main.q -o {} -e {} -N {} {}'.format(
                     logfile, errfile, jobname, jobfile))
-                # qbacth method -- might bring it back, but really needed yet
+                # qbacth method -- might bring it back, but not needed
                 #fd, path = tempfile.mkstemp()
                 #os.write(fd, '\n'.join(commands))
                 #os.close(fd)

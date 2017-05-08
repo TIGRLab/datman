@@ -455,7 +455,7 @@ def run_dummy_q(list_of_names):
     run(cmd)
     logger.info('... Done.')
 
-def run(cmd, dryrun=False):
+def run(cmd, dryrun=False, specialquote=True):
     """
     Runs the command in default shell, returning STDOUT and a return code.
     The return code uses the python convention of 0 for success, non-zero for
@@ -466,9 +466,10 @@ def run(cmd, dryrun=False):
         cmd = " ".join(cmd)
 
     # perform shell quoting for special characters in filenames
-    args = shlex.split(cmd)
-    args_q = [pipes.quote(a) for a in args]
-    cmd = " ".join(args_q)
+    if specialquote:
+        args = shlex.split(cmd)
+        args_q = [pipes.quote(a) for a in args]
+        cmd = " ".join(args_q)
 
     if dryrun:
         logger.info("Performing dry-run")
