@@ -106,8 +106,11 @@ def make_link(source, target):
         logger.debug('Creating target dir: {}'.format(parent_folder))
         os.makedirs(parent_folder)
 
+    # Make relative, so the link works from the SCC too
+    rel_source = os.path.relpath(source, target)
+
     try:
-        os.symlink(source, target)
+        os.symlink(rel_source, target)
     except OSError as e:
         logger.debug('Failed to create symlink: {}'.format(e.strerror))
 
