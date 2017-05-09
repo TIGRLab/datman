@@ -37,15 +37,25 @@ NODE = os.uname()[1]
 def submit_job(cmd, i):
     if DRYRUN:
         return
+
     job_name = 'dm_freesurfer_{}_{}'.format(i, time.strftime("%Y%m%d-%H%M%S"))
-    rtn, out = utils.run('echo {} | qsub -V -q main.q -o /dev/null '
-            '-e /dev/null -N {}'.format(job_name))
+    job_file = '/tmp/{}'.format(job_name)
+    log_file = '/tmp/{}.log'.format(job_name)
+    err_file = '/tmp/{}.err'.format(job_name)
+    
+    with open(job_file, 'wb') as fid:
+        fid.write('#!/bin/bash\n')
+        fid.write(cmd)
+
+    rtn, out = utils.run("qsub -V -o {} -e {} -N {} {}".format(log_file,
+            err_file, job_name, job_file))
+
     if rtn:
         logger.error("Job submission failed.")
         if out:
             logger.error("stdout: {}".format(out))
         sys.exit(1)
-        
+
 def create_command(subject, study, debug):
     debugopt = ' --debug' if debug else ''
     dryrunopt = ' --dry-run' if DRYRUN else ''
@@ -132,15 +142,14 @@ def outputs_exist(output_dir):
 
 def run_freesurfer(subject, blacklist, config):
     """Finds the inputs for subject and runs freesurfer."""
-    freesurfer_dir = os.path.join(config.get_path('freesurfer'), subject.full_id)
+    freesurfer_path = config.get_path('freesurfer')
+    output_dir = os.path.join(freesurfer_path, subject.full_id)
 
-    # don't run if the outputs already exist
-    output_dir = utils.define_folder(freesurfer_dir)
     if outputs_exist(output_dir):
         return
 
     # reset / remove error.log
-    error_log = os.path.join(output_dir, 'error.log')
+    error_log = os.path.join(freesurfer_path, 'error.log')
     if os.path.isfile(error_log):
         os.remove(error_log)
 
@@ -159,7 +168,7 @@ def run_freesurfer(subject, blacklist, config):
         input_files.extend(found_files)
 
     command = "recon-all {args} -subjid {subid} {inputs}".format(args=args,
-            subid=subject.full_id, inputs=input_files)
+            subid=subject.full_id, inputs=" ".join(input_files))
 
     rtn, out = utils.run(command, dryrun=DRYRUN)
     if rtn:
@@ -168,25 +177,7 @@ def run_freesurfer(subject, blacklist, config):
         with open(error_log, 'wb') as f:
             f.write('{}\n{}'.format(error_message, NODE))
 
-def get_run_script(freesurfer_dir, site):
-    site_script = os.path.join(freesurfer_dir,
-            'bin/run_freesurfer_{}.sh'.format(site))
-    generic_script = os.path.join(freesurfer_dir, 'bin/run_freesurfer.sh')
-    if os.path.isfile(site_script):
-        script = site_script
-    elif os.path.isfile(generic_script):
-        script = generic_script
-    else:
-        logger.info("No freesurfer run scripts found. Using default "
-                "freesurfer standards.")
-        script = None
-    return script
-
-def get_site_standards(freesurfer_dir, site, subject_folder):
-    run_script = get_run_script(freesurfer_dir, site)
-    if not run_script:
-        return None
-
+def get_site_standards(freesurfer_dir, args, subject_folder):
     logger.debug("Using subject {} to generate standards.".format(subject_folder))
 
     with open(run_script, 'r') as text_stream:
@@ -196,8 +187,6 @@ def get_site_standards(freesurfer_dir, site, subject_folder):
         logger.debug("Could not parse recon-all command from site script "
                 "{}".format(run_script))
         return None
-
-    args = fs_scraper.FSLog.get_args(recon_cmd[0].strip('recon-all'))
 
     if not args:
         return None
@@ -254,7 +243,9 @@ def update_aggregate_log(config, qc_subjects, destination):
             logger.info("{} does not have any subjects that have completed the "
                     "pipeline. Skipping".format(site))
             continue
-        site_standards = get_site_standards(freesurfer_dir, site, standard_sub)
+        site_args = get_freesurfer_arguments(config, site)
+        site_standards = get_site_standards(freesurfer_dir, site_args,
+                standard_sub)
         site_logs = fs_scraper.scrape_logs(site_fs_folders[site],
                 standards=site_standards)
         if not site_logs:
@@ -334,11 +325,8 @@ def main():
         if subject.is_phantom:
             sys.exit('Subject {} is a phantom, cannot be analyzed'.format(scanid))
 
-        try:
-            run_freesurfer(subject, blacklisted_series, config)
-        except Exception as e:
-            logger.error("Could not process subject {}, reason: "
-                    "{}".format(scanid, e))
+        run_freesurfer(subject, blacklisted_series, config)
+
     else:
         # batch mode
         update_aggregate_stats(config)
