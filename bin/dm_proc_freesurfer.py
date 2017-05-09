@@ -37,20 +37,15 @@ NODE = os.uname()[1]
 def submit_job(cmd, i):
     if DRYRUN:
         return
-    jobname = 'dm_freesurfer_{}_{}'.format(i, time.strftime("%Y%m%d-%H%M%S"))
-    jobfile = '/tmp/{}'.format(jobname)
-    logfile = '/tmp/{}.log'.format(jobname)
-    errfile = '/tmp/{}.err'.format(jobname)
-    with open(jobfile, 'wb') as fid:
-        fid.write('#!/bin/bash\n')
-        fid.write(cmd)
-    rtn, out = utils.run('qsub -V -q main.q -o {} -e {} -N {} {}'.format(
-        logfile, errfile, jobname, jobfile))
+    job_name = 'dm_freesurfer_{}_{}'.format(i, time.strftime("%Y%m%d-%H%M%S"))
+    rtn, out = utils.run('echo {} | qsub -V -q main.q -o /dev/null '
+            '-e /dev/null -N {}'.format(job_name))
     if rtn:
-        logger.error("Job submission failed. Output follows.")
-        logger.error("stdout: {}".format(out))
+        logger.error("Job submission failed.")
+        if out:
+            logger.error("stdout: {}".format(out))
         sys.exit(1)
-
+        
 def create_command(subject, study, debug):
     debugopt = ' --debug' if debug else ''
     dryrunopt = ' --dry-run' if DRYRUN else ''
@@ -70,15 +65,52 @@ def get_new_subjects(config, qc_subjects):
             fs_subjects.append(subject)
     return fs_subjects
 
-def get_anatomical_images(subject, blacklist, config, error_log):
-    expected_tags = config.study_config['freesurfer']['tags']
-    if type(expected_tags) == str:
-        expected_tags = [expected_tags]
+def get_freesurfer_arguments(config, site):
+    args = ['-all', '-qcache', '-notal-check']
 
-    anatomicals = []
-    for tag in expected_tags:
-        n_expected = config.study_config['Sites'][site]['ExportInfo'][tag]['Count']
-        candidates = filter(lambda nii: utils.splitext(nii)[0] not in blacklist,
+    try:
+        nu_iter = get_freesurfer_setting(config, 'nu_iter')
+        if isinstance(nu_iter, dict):
+            site_iter = config.study_config['freesurfer']['nu_iter'][site]
+        else:
+            site_iter = nu_iter
+        args.append('-nuiterations {}'.format(site_iter))
+    except KeyError:
+        pass
+
+    return " ".join(args)
+
+def make_arg_string(key, value):
+    return "-{} {}".format(key, value)
+
+def get_site_exportinfo(config, site):
+    try:
+        site_info = config.study_config['Sites'][site]['ExportInfo']
+    except KeyError:
+        logger.error("Can't retrieve export info for site {}".format(site))
+        sys.exit(1)
+    return site_info
+
+def get_freesurfer_setting(config, setting):
+    try:
+        fs_setting = config.study_config['freesurfer'][setting]
+    except KeyError:
+        raise KeyError("Project config file's freesurfer settings missing "
+                "setting: {}".format(setting))
+    return fs_setting
+
+def get_anatomical_images(key, subject, blacklist, config, error_log):
+    input_tags = get_freesurfer_setting(config, key)
+
+    if type(input_tags) == str:
+        input_tags = [input_tags]
+
+    site_info = get_site_exportinfo(config, subject.site)
+
+    inputs = []
+    for tag in input_tags:
+        n_expected = site_info[tag]['Count']
+        candidates = filter(lambda nii: utils.splitext(nii.path)[0] not in blacklist,
                 subject.get_tagged_nii(tag))
 
         # fail if the wrong number of inputs for any tag is found (implies
@@ -88,17 +120,15 @@ def get_anatomical_images(subject, blacklist, config, error_log):
                     subject.full_id, len(candidates), tag, n_expected,
                     subject.site)
             logger.debug(error_message)
-            with open(error_log, 'wb') as f:
+            with open(error_log, 'ab') as f:
                 f.write('{}\n{}'.format(error_message, NODE))
-        anatomicals.extend(candidates)
-    return anatomicals
+        inputs.extend(candidates)
+
+    return [make_arg_string(key, series.path) for series in inputs]
 
 def outputs_exist(output_dir):
     """Returns True if all expected outputs exist, else False."""
-    if os.path.isfile(os.path.join(output_dir, 'scripts/recon-all.done')):
-        return True
-    else:
-        return False
+    return os.path.isfile(os.path.join(output_dir, 'scripts/recon-all.done'))
 
 def run_freesurfer(subject, blacklist, config):
     """Finds the inputs for subject and runs freesurfer."""
@@ -114,19 +144,22 @@ def run_freesurfer(subject, blacklist, config):
     if os.path.isfile(error_log):
         os.remove(error_log)
 
-    anatomicals = get_anatomical_images(subject, blacklist, config, error_log)
+    args = get_freesurfer_arguments(config, subject.site)
 
-    # run freesurfer
-    command = 'recon-all -all -qcache -notal-check -subjid {} '.format(subject.full_id)
-    try:
-        if subject.site in config.study_config['freesurfer']['nu_iter']:
-            site_iter = config.study_config['freesurfer']['nu_iter'][subject.site]
-            command += '-nuiterations {} '.format(site_iter)
-    except KeyError:
-        logger.debug("nu_iter setting for site {} not found".format(subject.site))
+    input_files = get_anatomical_images('i', subject, blacklist, config,
+            error_log)
+    for added_type in ['T2', 'FLAIR']:
+        try:
+            found_files = get_anatomical_images(added_type, subject, blacklist,
+                    config, error_log)
+        except KeyError:
+            # These types are not needed to run freesurfer, so just skip if not
+            # defined for the study.
+            found_files = []
+        input_files.extend(found_files)
 
-    for anatomical in anatomicals:
-        command += '-i {} '.format(anatomical)
+    command = "recon-all {args} -subjid {subid} {inputs}".format(args=args,
+            subid=subject.full_id, inputs=input_files)
 
     rtn, out = utils.run(command, dryrun=DRYRUN)
     if rtn:
