@@ -10,6 +10,8 @@ Arguments:
 
 Options:
   --subject SUBJID      subject name to run on
+  --parallel            Specifies that the freesurfer job should run in parallel,
+                        only available in Freesurfer 6.
   --log-to-server       If set, all log messages are sent to the configured
                         logging server.
   --debug               debug logging
@@ -32,6 +34,7 @@ logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(mess
 logger = logging.getLogger(os.path.basename(__file__))
 
 DRYRUN = False
+PARALLEL = False
 NODE = os.uname()[1]
 
 def submit_job(cmd, i):
@@ -42,7 +45,7 @@ def submit_job(cmd, i):
     job_file = '/tmp/{}'.format(job_name)
     log_file = '/tmp/{}.log'.format(job_name)
     err_file = '/tmp/{}.err'.format(job_name)
-    
+
     with open(job_file, 'wb') as fid:
         fid.write('#!/bin/bash\n')
         fid.write(cmd)
@@ -56,11 +59,12 @@ def submit_job(cmd, i):
             logger.error("stdout: {}".format(out))
         sys.exit(1)
 
-def create_command(subject, study, debug):
+def create_command(subject, study, debug, use_server):
     debugopt = ' --debug' if debug else ''
+    serveropt = ' --log-to-server' if use_server else ''
     dryrunopt = ' --dry-run' if DRYRUN else ''
-    cmd = "{} {} --subject {}{}{}".format(__file__, study, subject,
-            debugopt, dryrunopt)
+    cmd = "{} {} --subject {}{}{}{}".format(__file__, study, subject,
+            debugopt, dryrunopt, serveropt)
     return cmd
 
 def get_new_subjects(config, qc_subjects):
@@ -78,10 +82,13 @@ def get_new_subjects(config, qc_subjects):
 def get_freesurfer_arguments(config, site):
     args = ['-all', '-qcache', '-notal-check']
 
+    if PARALLEL:
+        args.append('-parallel')
+
     try:
         nu_iter = get_freesurfer_setting(config, 'nu_iter')
         if isinstance(nu_iter, dict):
-            site_iter = config.study_config['freesurfer']['nu_iter'][site]
+            site_iter = nu_iter[site]
         else:
             site_iter = nu_iter
         args.append('-nuiterations {}'.format(site_iter))
@@ -217,8 +224,6 @@ def get_freesurfer_folders(freesurfer_dir, qc_subjects):
             continue
         fs_path = os.path.join(freesurfer_dir, subject)
         if not os.path.exists(fs_path) or not os.listdir(fs_path):
-            logger.info("Subject {} does not have freesurfer outputs. "
-                    "Skipping.".format(subject))
             continue
         fs_data.setdefault(ident.site, []).append(fs_path)
     return fs_data
@@ -298,12 +303,13 @@ def add_server_handler(config):
     logger.addHandler(server_handler)
 
 def main():
-    global DRYRUN
+    global DRYRUN, PARALLEL
     arguments = docopt(__doc__)
     study     = arguments['<study>']
     use_server = arguments['--log-to-server']
     scanid    = arguments['--subject']
     debug     = arguments['--debug']
+    PARALLEL = arguments['--parallel']
     DRYRUN    = arguments['--dry-run']
 
     config = load_config(study)
@@ -337,7 +343,7 @@ def main():
         fs_subjects = get_new_subjects(config, qc_subjects)
 
         for i, subject in enumerate(fs_subjects):
-            cmd = create_command(subject, study, debug)
+            cmd = create_command(subject, study, debug, use_server)
             logger.debug("Queueing command: {}".format(cmd))
             submit_job(cmd, i)
 
