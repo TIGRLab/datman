@@ -1,26 +1,28 @@
 """
 A collection of utilities for generally munging imaging data.
 """
-import os, sys
-import os.path
+import os
+import sys
 import re
-import dicom as dcm
-import zipfile
-import tarfile
 import io
 import glob
-import shlex
-import pipes
-import numpy as np
+import zipfile
+import tarfile
 import logging
-import subprocess as proc
-import scanid
-import nibabel as nib
-import contextlib
 import tempfile
 import shutil
+import shlex
+import pipes
+import contextlib
+import subprocess as proc
+
+import dicom as dcm
+import numpy as np
+import nibabel as nib
 import pyxnat
+
 import datman.config
+import datman.scanid as scanid
 
 logger = logging.getLogger(__name__)
 
@@ -403,16 +405,15 @@ def define_folder(path):
     exist, this makes it so, unless we lack the permissions to do so, which
     leads to a graceful exit.
     """
-    if os.path.isdir(path) == False:
+    if not os.path.isdir(path):
         try:
             os.makedirs(path)
         except OSError as e:
-            print('ERROR: failed to make directory {}'.format(path))
+            logger.error('failed to make directory {}'.format(path))
             raise(e)
 
-    if has_permissions(path) == False:
-        print('ERROR: does not have permissions to access {}'.format(path))
-        raise OSError
+    if not has_permissions(path):
+        raise OSError("User does not have permission to access {}".format(path))
 
     return path
 
@@ -423,7 +424,7 @@ def has_permissions(path):
     if os.access(path, 7) == True:
         flag = True
     else:
-        print('\nYou do not have write access to path ' + str(path))
+        logger.error('You do not have write access to path {}'.format(path))
         flag = False
 
     return flag
@@ -447,12 +448,12 @@ def run_dummy_q(list_of_names):
     """
     This holds the script until all of the queued items are done.
     """
-    print('Holding for remaining processes.')
+    logger.info('Holding for remaining processes.')
     opts = 'h_vmem=3G,mem_free=3G,virtual_free=3G'
     holds = ",".join(list_of_names)
     cmd = 'qsub -sync y -hold_jid {} -l {} -b y echo'.format(holds, opts)
     run(cmd)
-    print('... Done.')
+    logger.info('... Done.')
 
 def run(cmd, dryrun=False, specialquote=True):
     """
