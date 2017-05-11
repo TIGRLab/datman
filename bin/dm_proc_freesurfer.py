@@ -36,6 +36,15 @@ logger = logging.getLogger(os.path.basename(__file__))
 DRYRUN = False
 PARALLEL = False
 NODE = os.uname()[1]
+LOG_DIR = None
+
+def write_lines(output_file, lines):
+    if DRYRUN:
+        logger.debug("Dry-run set. Skipping write of {} to {}.".format(lines,
+                output_file))
+        return
+    with open(output_file, 'a') as output_stream:
+        output_stream.writelines(lines)
 
 def submit_job(cmd, i):
     if DRYRUN:
@@ -137,8 +146,7 @@ def get_anatomical_images(key, subject, blacklist, config, error_log):
                     subject.full_id, len(candidates), tag, n_expected,
                     subject.site)
             logger.debug(error_message)
-            with open(error_log, 'ab') as f:
-                f.write('{}\n{}'.format(error_message, NODE))
+            write_lines(error_log, ['{}\n{}'.format(error_message, NODE)])
         inputs.extend(candidates)
 
     return [make_arg_string(key, series.path) for series in inputs]
@@ -156,7 +164,7 @@ def run_freesurfer(subject, blacklist, config):
         return
 
     # reset / remove error.log
-    error_log = os.path.join(freesurfer_path, 'error.log')
+    error_log = os.path.join(LOG_DIR, '{}_error.log'.format(subject.full_id))
     if os.path.isfile(error_log):
         os.remove(error_log)
 
@@ -181,19 +189,10 @@ def run_freesurfer(subject, blacklist, config):
     if rtn:
         error_message = 'freesurfer failed: {}\n{}'.format(command, out)
         logger.debug(error_message)
-        with open(error_log, 'wb') as f:
-            f.write('{}\n{}'.format(error_message, NODE))
+        write_lines(error_log, '{}\n{}'.format(error_message, NODE))
 
 def get_site_standards(freesurfer_dir, args, subject_folder):
     logger.debug("Using subject {} to generate standards.".format(subject_folder))
-
-    with open(run_script, 'r') as text_stream:
-        run_contents = text_stream.readlines()
-    recon_cmd = filter(lambda x: 'recon-all' in x, run_contents)
-    if not recon_cmd or len(recon_cmd) > 1:
-        logger.debug("Could not parse recon-all command from site script "
-                "{}".format(run_script))
-        return None
 
     if not args:
         return None
@@ -208,6 +207,7 @@ def get_site_standards(freesurfer_dir, args, subject_folder):
 def choose_standard_subject(site_folders):
     standard_sub = None
     for subject in site_folders:
+        # Loop until a subject with complete FS outputs is found
         if os.path.exists(os.path.join(subject, 'scripts/recon-all.done')):
             standard_sub = subject
             break
@@ -225,6 +225,7 @@ def get_freesurfer_folders(freesurfer_dir, qc_subjects):
         fs_path = os.path.join(freesurfer_dir, subject)
         if not os.path.exists(fs_path) or not os.listdir(fs_path):
             continue
+        # Add to list of subjects for the site
         fs_data.setdefault(ident.site, []).append(fs_path)
     return fs_data
 
@@ -258,9 +259,7 @@ def update_aggregate_log(config, qc_subjects, destination):
             continue
         log.extend(site_logs)
 
-    with open(destination, 'w') as log_stream:
-        for line in log:
-            log_stream.write(line)
+    write_lines(destination, log)
 
 def update_aggregate_stats(config):
     freesurfer_dir = config.get_path('freesurfer')
@@ -288,6 +287,25 @@ def check_input_paths(config):
             logger.error("paths:{} not defined in site config".format(k))
             sys.exit(1)
 
+def make_error_log_dir(freesurfer_path):
+    # Error logs no longer placed in subject folders because it required that
+    # the subject folder be created (so a log had somewhere to be written)
+    # before the freesurfer job ran, but freesurfer wont run a subject
+    # if the folder already exists.
+    log_dir = os.path.join(freesurfer_path, 'logs')
+    try:
+        if not DRYRUN:
+            os.mkdir(log_dir)
+    except:
+        pass
+    return log_dir
+
+def add_server_handler(config):
+    server_ip = config.get_key('LOGSERVER')
+    server_handler = logging.handlers.SocketHandler(server_ip,
+            logging.handlers.DEFAULT_TCP_LOGGING_PORT)
+    logger.addHandler(server_handler)
+
 def load_config(study):
     try:
         config = cfg.config(study=study)
@@ -296,14 +314,8 @@ def load_config(study):
         sys.exit(1)
     return config
 
-def add_server_handler(config):
-    server_ip = config.get_key('LOGSERVER')
-    server_handler = logging.handlers.SocketHandler(server_ip,
-            logging.handlers.DEFAULT_TCP_LOGGING_PORT)
-    logger.addHandler(server_handler)
-
 def main():
-    global DRYRUN, PARALLEL
+    global DRYRUN, PARALLEL, LOG_DIR
     arguments = docopt(__doc__)
     study     = arguments['<study>']
     use_server = arguments['--log-to-server']
@@ -322,6 +334,8 @@ def main():
     logger.info('Starting')
     check_input_paths(config)
     qc_subjects = config.get_subject_metadata()
+
+    LOG_DIR = make_error_log_dir(config.get_path('freesurfer'))
 
     if scanid:
         # single subject mode
