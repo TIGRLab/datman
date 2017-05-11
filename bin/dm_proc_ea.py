@@ -38,6 +38,8 @@ from datman.docopt import docopt
 logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
+NODE = os.uname()[1]
+
 def check_complete(directory, subject):
     """Checks to see if the output files have been created.
     Returns True if the files exist
@@ -501,13 +503,18 @@ def analyze_subject(subject, config, study):
     study_base = config.get_study_base(study)
     resources_dir = os.path.join(study_base, config.site_config['paths']['resources'])
     ea_dir = os.path.join(study_base, config.site_config['paths']['fmri'], 'ea')
-    subject_dir = utils.define_folder(os.path.join(study_base, config.site_config['paths']['fmri'], 'ea', subject))
+    output_dir = utils.define_folder(os.path.join(study_base, config.site_config['paths']['fmri'], 'ea', subject))
 
     # check if subject has already been processed
     if check_complete(ea_dir, subject):
         msg = '{} already analysed'.format(subject)
         logger.info(msg)
         sys.exit(0)
+
+    # reset / remove error.log
+    error_log = os.path.join(output_dir, 'error.log')
+    if os.path.isfile(error_log):
+        os.remove(error_log)
 
     # find the behavioural data, and exit if we fail to find it
     try:
@@ -524,7 +531,10 @@ def analyze_subject(subject, config, study):
 
     # if we have the wrong number of logs, don't guess which to use, just fail
     if len(logs) != 3:
-        logger.error('Did not find exactly 3 logs for {}\nfound:{}.'.format(subject, logs))
+        error_message = 'Did not find exactly 3 logs for {}\nfound:{}.'.format(subject, logs)
+        logger.error(error_message)
+        with open(error_log, 'wb') as f:
+            f.write('{}\n{}'.format(error_message, NODE))
         sys.exit(1)
 
     # parse and write the logs seperately for each experiment condition (video or shapes/colours video)
@@ -536,7 +546,7 @@ def analyze_subject(subject, config, study):
             for log in logs:
                 # extract the block id from the logfilename
                 block_id = os.path.splitext(os.path.basename(log))[0][-1]
-                on, dur, corr, push, timings = process_behav_data(log, subject_dir, subject, test_type, block_id)
+                on, dur, corr, push, timings = process_behav_data(log, output_dir, subject, test_type, block_id)
                 on_all.extend(on)
                 dur_all.extend(dur)
                 corr_all.extend(corr)
@@ -557,10 +567,10 @@ def analyze_subject(subject, config, study):
             #         30*5,0.002:12
             # OFFSET 4 TRs == 8 Seconds!
             # on = on - 8.0
-            f1 = open('{}/{}_{}_block-times_ea.1D'.format(subject_dir, subject, test_type), 'wb') # stim timing file
-            f2 = open('{}/{}_{}_corr_push.csv'.format(subject_dir, subject, test_type), 'wb')     # r values and num pushes / minute
-            f3 = open('{}/{}_{}_button-times.csv'.format(subject_dir, subject, test_type), 'wb')  # button responses and timings
-            f4 = open('{}/{}_{}_vid-onsets.csv'.format(subject_dir, subject, test_type), 'wb')    # button responses and timings
+            f1 = open('{}/{}_{}_block-times_ea.1D'.format(output_dir, subject, test_type), 'wb') # stim timing file
+            f2 = open('{}/{}_{}_corr_push.csv'.format(output_dir, subject, test_type), 'wb')     # r values and num pushes / minute
+            f3 = open('{}/{}_{}_button-times.csv'.format(output_dir, subject, test_type), 'wb')  # button responses and timings
+            f4 = open('{}/{}_{}_vid-onsets.csv'.format(output_dir, subject, test_type), 'wb')    # button responses and timings
             f2.write('correlation,n-pushes-per-minute\n')
             f3.write('Block_ID,Video,Response,Timing\n')
             f4.write('Block_ID,Video, Onset\n')
