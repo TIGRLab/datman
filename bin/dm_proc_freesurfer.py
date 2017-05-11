@@ -46,21 +46,19 @@ def write_lines(output_file, lines):
     with open(output_file, 'a') as output_stream:
         output_stream.writelines(lines)
 
-def submit_job(cmd, i):
+def submit_job(cmd, i, walltime="24:00:00"):
     if DRYRUN:
         return
 
     job_name = 'dm_freesurfer_{}_{}'.format(i, time.strftime("%Y%m%d-%H%M%S"))
     job_file = '/tmp/{}'.format(job_name)
-    log_file = '/tmp/{}.log'.format(job_name)
-    err_file = '/tmp/{}.err'.format(job_name)
 
     with open(job_file, 'wb') as fid:
         fid.write('#!/bin/bash\n')
         fid.write(cmd)
 
-    rtn, out = utils.run("qsub -V -o {} -e {} -N {} {}".format(log_file,
-            err_file, job_name, job_file))
+    rtn, out = utils.run("qbatch -N {} --logdir {} --walltime {} {}".format(
+            job_name, LOG_DIR,  walltime, job_file))
 
     if rtn:
         logger.error("Job submission failed.")
@@ -72,8 +70,9 @@ def create_command(subject, study, debug, use_server):
     debugopt = ' --debug' if debug else ''
     serveropt = ' --log-to-server' if use_server else ''
     dryrunopt = ' --dry-run' if DRYRUN else ''
-    cmd = "{} {} --subject {}{}{}{}".format(__file__, study, subject,
-            debugopt, dryrunopt, serveropt)
+    parallel = ' --parallel' if PARALLEL else ''
+    cmd = "{} {} --subject {}{}{}{}{}".format(__file__, study, subject,
+            debugopt, dryrunopt, serveropt, parallel)
     return cmd
 
 def get_new_subjects(config, qc_subjects):
@@ -125,6 +124,18 @@ def get_freesurfer_setting(config, setting):
                 "setting: {}".format(setting))
     return fs_setting
 
+def get_optional_images(subject, blacklist, config, error_log):
+    optional_files = []
+    for added_type in ['T2', 'FLAIR']:
+        try:
+            found_files = get_anatomical_images(added_type, subject, blacklist,
+                    config, error_log)
+        except KeyError:
+            continue
+        else:
+            optional_files.extend(found_files)
+    return optional_files
+
 def get_anatomical_images(key, subject, blacklist, config, error_log):
     input_tags = get_freesurfer_setting(config, key)
 
@@ -172,15 +183,8 @@ def run_freesurfer(subject, blacklist, config):
 
     input_files = get_anatomical_images('i', subject, blacklist, config,
             error_log)
-    for added_type in ['T2', 'FLAIR']:
-        try:
-            found_files = get_anatomical_images(added_type, subject, blacklist,
-                    config, error_log)
-        except KeyError:
-            # These types are not needed to run freesurfer, so just skip if not
-            # defined for the study.
-            found_files = []
-        input_files.extend(found_files)
+    optional_files = get_optional_images(subject, blacklist, config, error_log)
+    input_files.extend(optional_files)
 
     command = "recon-all {args} -subjid {subid} {inputs}".format(args=args,
             subid=subject.full_id, inputs=" ".join(input_files))
@@ -349,17 +353,20 @@ def main():
 
     else:
         # batch mode
+        fs_path = config.get_path('freesurfer')
         update_aggregate_stats(config)
-        destination = os.path.join(config.get_path('freesurfer'),
-                'freesurfer_aggregate_log.csv')
+        destination = os.path.join(fs_path, 'freesurfer_aggregate_log.csv')
         update_aggregate_log(config, qc_subjects, destination)
 
         fs_subjects = get_new_subjects(config, qc_subjects)
 
-        for i, subject in enumerate(fs_subjects):
-            cmd = create_command(subject, study, debug, use_server)
-            logger.debug("Queueing command: {}".format(cmd))
-            submit_job(cmd, i)
+        # Change to freesurfer directory, because qbatch leaves .qbatch
+        # folders in the current working directory
+        with utils.cd(fs_path):
+            for i, subject in enumerate(fs_subjects):
+                cmd = create_command(subject, study, debug, use_server)
+                logger.debug("Queueing command: {}".format(cmd))
+                submit_job(cmd, i)
 
 if __name__ == '__main__':
     main()
