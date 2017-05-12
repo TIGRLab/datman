@@ -179,6 +179,32 @@ class TestVerifyStandards(unittest.TestCase):
         # Function always passes if extra key doesnt cause exception
         assert True
 
+class CheckDiff(unittest.TestCase):
+
+    def test_no_diffs_returns_empty_string(self):
+        log_field = 'kernel1234'
+        standard_field = 'kernel1234'
+
+        diffs = scraper.check_diff(log_field, standard_field)
+
+        assert diffs == ''
+
+    def test_order_of_args_string_doesnt_fool_comparison(self):
+        subject_args = '-parallel -notal-check -qcache'
+        standard_args = '-qcache -parallel -notal-check'
+
+        diffs = scraper.check_diff(subject_args, standard_args)
+
+        assert not diffs
+
+    def test_returned_differences_are_string(self):
+        subject_args = 'kernel1'
+        standard_args = 'kernel2'
+
+        diffs = scraper.check_diff(subject_args, standard_args)
+
+        assert isinstance(diffs, str)
+
 # A timezone class, to fill in the expected (but not used) datetime timezone
 class EST(datetime.tzinfo):
 

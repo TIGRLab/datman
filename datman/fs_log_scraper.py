@@ -86,9 +86,16 @@ def verify_standards(standards_dict, expected_keys):
             "standards".format(key))
 
 def check_diff(log_field, standards_field):
-    if log_field != standards_field:
-        return log_field
-    return ''
+    diffs = ''
+    if isinstance(log_field, str):
+        sorted_args = sorted(log_field.split())
+        sorted_standards = sorted(standards_field.split())
+        if sorted_args != sorted_standards:
+            diffs = log_field
+    else:
+        if log_field != standards_field:
+            diffs = log_field
+    return diffs
 
 class FSLog(object):
 

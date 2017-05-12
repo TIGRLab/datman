@@ -327,6 +327,10 @@ def main():
     debug     = arguments['--debug']
     PARALLEL = arguments['--parallel']
     DRYRUN    = arguments['--dry-run']
+    # If you add an option/argument that needs to be propagated to subject jobs
+    # after a batch submit make sure to add it to create_command()
+    # If it needs to be propagated to recon-all add it to
+    # get_freesurfer_arguments()
 
     config = load_config(study)
 
