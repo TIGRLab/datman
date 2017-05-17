@@ -277,6 +277,9 @@ def update_aggregate_stats(config):
             config.study_config['STUDY_TAG']), dryrun=DRYRUN)
 
 def get_blacklist(qc_subjects, scanid):
+    # This function is here as bug prevention: If a subject ID is given that
+    # isnt signed off in the checklist.csv this will catch the key error here
+    # instead of later on after work may have been done
     try:
         blacklisted_series = qc_subjects[scanid]
     except KeyError:
@@ -343,7 +346,8 @@ def main():
     check_input_paths(config)
     qc_subjects = config.get_subject_metadata()
 
-    LOG_DIR = make_error_log_dir(config.get_path('freesurfer'))
+    fs_path = config.get_path('freesurfer')
+    LOG_DIR = make_error_log_dir(fs_path)
 
     if scanid:
         # single subject mode
@@ -357,12 +361,12 @@ def main():
 
     else:
         # batch mode
-        fs_path = config.get_path('freesurfer')
         update_aggregate_stats(config)
         destination = os.path.join(fs_path, 'freesurfer_aggregate_log.csv')
         update_aggregate_log(config, qc_subjects, destination)
 
         fs_subjects = get_new_subjects(config, qc_subjects)
+        logger.debug("Running on subjects: {}".format(fs_subjects))
 
         # Change to freesurfer directory, because qbatch leaves .qbatch
         # folders in the current working directory
