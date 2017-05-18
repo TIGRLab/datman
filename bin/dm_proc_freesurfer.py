@@ -46,7 +46,7 @@ def write_lines(output_file, lines):
         logger.debug("Dry-run set. Skipping write of {} to {}.".format(lines,
                 output_file))
         return
-    with open(output_file, 'a') as output_stream:
+    with open(output_file, 'w') as output_stream:
         output_stream.writelines(lines)
 
 def submit_job(cmd, i, walltime="24:00:00"):
@@ -140,9 +140,6 @@ def get_freesurfer_arguments(config, site):
 
     return " ".join(args)
 
-def make_arg_string(key, value):
-    return "-{} {}".format(key, value)
-
 def get_site_exportinfo(config, site):
     try:
         site_info = config.study_config['Sites'][site]['ExportInfo']
@@ -170,6 +167,9 @@ def get_optional_images(subject, blacklist, config, error_log):
         else:
             optional_files.extend(found_files)
     return optional_files
+
+def make_arg_string(key, value):
+    return "-{} {}".format(key, value)
 
 def get_anatomical_images(key, subject, blacklist, config, error_log):
     input_tags = get_freesurfer_setting(config, key)
@@ -294,6 +294,7 @@ def get_freesurfer_folders(freesurfer_dir, qc_subjects):
     return fs_data
 
 def update_aggregate_log(config, qc_subjects, destination):
+    logger.info("Updating aggregate log")
     freesurfer_dir = config.get_path('freesurfer')
     site_fs_folders = get_freesurfer_folders(freesurfer_dir, qc_subjects)
 
@@ -326,6 +327,7 @@ def update_aggregate_log(config, qc_subjects, destination):
     write_lines(destination, log)
 
 def update_aggregate_stats(config):
+    logger.info("Updating aggregate stats")
     freesurfer_dir = config.get_path('freesurfer')
     enigma_ctx = os.path.join(config.system_config['DATMAN_ASSETSDIR'],
             'ENGIMA_ExtractCortical.sh')
@@ -418,7 +420,7 @@ def main():
         if subject.is_phantom:
             sys.exit('Subject {} is a phantom, cannot be analyzed'.format(scanid))
 
-        run_freesurfer(subject, blacklisted_series, config)
+        run_freesurfer(subject, blacklisted_series, config, resubmit)
         return
 
     # batch mode
