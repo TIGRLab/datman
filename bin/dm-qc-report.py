@@ -832,34 +832,50 @@ def verify_input_paths(path_list):
                 "{}".format("\n".join(broken_paths)))
         sys.exit(1)
 
+def check_for_repeat_session(subject):
+    """
+    Will modify the REWRITE flag, causing a page to be regenerated, if new
+    data from a repeat session has been added since the page was originally
+    created.
+
+    WARNING: If it cannot find the dashboard/database pages will not be updated
+    """
+    global REWRITE
+
+    try:
+        db_session = subject.get_db_object()
+    except ImportError:
+        logger.error("Cannot access dashboard database, {} may become out of date "
+                "if repeat sessions exist".format(subject.full_id))
+        return
+
+    # db_session is None if entry doesn't exist in dashboard
+    if not db_session:
+        logger.warning('Subject:{} not found in database'.format(subject.full_id))
+        return
+
+    if db_session.last_repeat_qc_generated >= db_session.repeat_count:
+        # Not out of date, no rewrite needed
+        return
+
+    # this is a new session, going to cheat and overwrite REWRITE
+    REWRITE = True
+    db_session.last_repeat_qc_generated = db_session.repeat_count
+    db_session.flush_changes()
+
 def prepare_scan(subject_id, config):
     """
     Makes a new Scan object for this participant, clears out any empty files
     from needed directories and ensures that if needed input directories do
     not exist that the program exits.
     """
-    global REWRITE
     try:
         subject = datman.scan.Scan(subject_id, config)
     except datman.scanid.ParseException as e:
         logger.error(e, exc_info=True)
         sys.exit(1)
 
-    # going to query the dashboard database to see if this session
-    # has updated scans (repeat scans)
-    # if yes force the qc pages to be re-written and the database to
-    # be updated.
-    db_session = subject.get_db_object()
-    # db_session is None if entry doesn't exist in dashboard
-    if not db_session:
-        logger.warning('Subject:{} not found in database'.format(subject_id))
-    else:
-        if db_session.last_repeat_qc_generated < db_session.repeat_count:
-            # this is a new session, going to cheat and overwrite REWRITE
-            REWRITE = True
-            db_session.last_repeat_qc_generated = db_session.repeat_count
-            db_session.flush_changes()
-
+    check_for_repeat_session(subject)
     verify_input_paths([subject.nii_path, subject.dcm_path])
 
     qc_dir = datman.utils.define_folder(subject.qc_path)
@@ -878,7 +894,7 @@ def get_config(study):
 
     try:
         config = datman.config.config(study=study)
-    except KeyError:
+    except:
         logger.error("Cannot find configuration info for study {}".format(study))
         sys.exit(1)
 
@@ -925,12 +941,8 @@ def main():
         logger.setLevel(logging.DEBUG)
 
     if session:
-        # going to stash value of REWRITE as this may be overwritten
-        # if a repeat session has appeared
-        old_rewrite = REWRITE
         subject = prepare_scan(session, config)
         qc_single_scan(subject, config)
-        REWRITE = old_rewrite
         return
 
     qc_all_scans(config)
