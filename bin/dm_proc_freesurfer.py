@@ -97,10 +97,16 @@ def get_halted_subjects(fs_path, subjects):
 
     halted = []
     for subject in subjects:
+        if sid.is_phantom(subject):
+            continue
         fs_folder = os.path.join(fs_path, subject)
-        log = fs_scraper.FSLog(fs_folder)
-        if log.status.startswith(timed_out_msg):
-            halted.append(subject)
+        try:
+            log = fs_scraper.FSLog(fs_folder)
+        except:
+            pass
+        else:
+            if log.status.startswith(timed_out_msg):
+                halted.append(subject)
 
     return halted
 
@@ -195,6 +201,11 @@ def remove_IsRunning(scripts):
     scripts_regex = os.path.join(scripts, '*')
     isrunning_files = [item for item in glob.glob(scripts_regex)
                             if 'IsRunning' in item]
+    if DRYRUN:
+        logger.debug("Dry-run: skipping removal of {}".format(
+                " ".join(isrunning_files)))
+        return
+
     for found_file in isrunning_files:
         try:
             os.remove(found_file)
@@ -202,8 +213,13 @@ def remove_IsRunning(scripts):
             pass
 
 def outputs_exist(output_dir):
-    """Returns True if all expected outputs exist, else False."""
-    return os.path.isfile(os.path.join(output_dir, 'scripts/recon-all.done'))
+    """
+    Will return false as long as a freesurfer 'scripts' folder exists. This
+    prevents resubmission if a subject failed with an error or timed out,
+    because in these cases manual clean up or rerunning with --resubmit is
+    required to prevent freesurfer jobs from failing.
+    """
+    return os.path.exists(os.path.join(output_dir, 'scripts'))
 
 def run_freesurfer(subject, blacklist, config, resubmit=False):
     """Finds the inputs for subject and runs freesurfer."""
@@ -411,13 +427,13 @@ def main():
     update_aggregate_log(config, qc_subjects, destination)
 
     fs_subjects = get_new_subjects(config, qc_subjects)
-    logger.debug("Submitting {} new subjects".format(len(fs_subjects)))
+    logger.info("Submitting {} new subjects".format(len(fs_subjects)))
 
     if resubmit:
         # Filter out subjects that were just submitted to reduce search space
         remaining_subjects = filter(lambda x: x not in fs_subjects, qc_subjects)
         halted_subjects = get_halted_subjects(fs_path, remaining_subjects)
-        logger.debug("Resubmitting {} subjects".format(len(halted_subjects)))
+        logger.info("Resubmitting {} subjects".format(len(halted_subjects)))
         fs_subjects.extend(halted_subjects)
 
     submit_proc_freesurfer(fs_path, fs_subjects, arguments)
