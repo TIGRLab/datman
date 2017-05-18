@@ -12,6 +12,9 @@ Options:
   --subject SUBJID      subject name to run on
   --parallel            Specifies that the freesurfer job should run in parallel,
                         only available in Freesurfer 6.
+  --resubmit            Will resubmit a subject (or subjects if in batch mode)
+                        that timed out on the queue. This means recon-all will
+                        be run from the last stage that was in progress.
   --log-to-server       If set, all log messages are sent to the configured
                         logging server.
   --debug               debug logging
@@ -66,14 +69,40 @@ def submit_job(cmd, i, walltime="24:00:00"):
             logger.error("stdout: {}".format(out))
         sys.exit(1)
 
-def create_command(subject, study, debug, use_server):
-    debugopt = ' --debug' if debug else ''
-    serveropt = ' --log-to-server' if use_server else ''
-    dryrunopt = ' --dry-run' if DRYRUN else ''
-    parallel = ' --parallel' if PARALLEL else ''
-    cmd = "{} {} --subject {}{}{}{}{}".format(__file__, study, subject,
-            debugopt, dryrunopt, serveropt, parallel)
+def create_command(subject, arguments):
+    study = arguments['<study>']
+    debug_flag = ' --debug' if arguments['--debug'] else ''
+    server_flag = ' --log-to-server' if arguments['--log-to-server'] else ''
+    dryrun_flag = ' --dry-run' if DRYRUN else ''
+    parallel_flag = ' --parallel' if PARALLEL else ''
+    redo_flag = ' --resubmit' if arguments['--resubmit'] else ''
+
+    options = "".join([debug_flag, server_flag, dryrun_flag, parallel_flag,
+            redo_flag])
+
+    cmd = "{} {} --subject {}{}".format(__file__, study, subject, options)
     return cmd
+
+def submit_proc_freesurfer(fs_path, fs_subjects, arguments):
+    # Change to freesurfer directory, because qbatch leaves .qbatch
+    # folders in the current working directory
+    with utils.cd(fs_path):
+        for i, subject in enumerate(fs_subjects):
+            cmd = create_command(subject, arguments)
+            logger.debug("Queueing command: {}".format(cmd))
+            submit_job(cmd, i)
+
+def get_halted_subjects(fs_path, subjects):
+    timed_out_msg = fs_scraper.FSLog._TIMEDOUT.format("")
+
+    halted = []
+    for subject in subjects:
+        fs_folder = os.path.join(fs_path, subject)
+        log = fs_scraper.FSLog(fs_folder)
+        if log.status.startswith(timed_out_msg):
+            halted.append(subject)
+
+    return halted
 
 def get_new_subjects(config, qc_subjects):
     fs_subjects = []
@@ -162,16 +191,26 @@ def get_anatomical_images(key, subject, blacklist, config, error_log):
 
     return [make_arg_string(key, series.path) for series in inputs]
 
+def remove_IsRunning(scripts):
+    scripts_regex = os.path.join(scripts, '*')
+    isrunning_files = [item for item in glob.glob(scripts_regex)
+                            if 'IsRunning' in item]
+    for found_file in isrunning_files:
+        try:
+            os.remove(found_file)
+        except:
+            pass
+
 def outputs_exist(output_dir):
     """Returns True if all expected outputs exist, else False."""
     return os.path.isfile(os.path.join(output_dir, 'scripts/recon-all.done'))
 
-def run_freesurfer(subject, blacklist, config):
+def run_freesurfer(subject, blacklist, config, resubmit=False):
     """Finds the inputs for subject and runs freesurfer."""
     freesurfer_path = config.get_path('freesurfer')
     output_dir = os.path.join(freesurfer_path, subject.full_id)
 
-    if outputs_exist(output_dir):
+    if outputs_exist(output_dir) and not resubmit:
         return
 
     # reset / remove error.log
@@ -181,10 +220,15 @@ def run_freesurfer(subject, blacklist, config):
 
     args = get_freesurfer_arguments(config, subject.site)
 
-    input_files = get_anatomical_images('i', subject, blacklist, config,
-            error_log)
-    optional_files = get_optional_images(subject, blacklist, config, error_log)
-    input_files.extend(optional_files)
+    scripts_dir = os.path.join(output_dir, 'scripts')
+    if resubmit and os.path.exists(scripts_dir):
+        remove_IsRunning(scripts_dir)
+        input_files = []
+    else:
+        input_files = get_anatomical_images('i', subject, blacklist, config,
+                error_log)
+        optional_files = get_optional_images(subject, blacklist, config, error_log)
+        input_files.extend(optional_files)
 
     command = "recon-all {args} -subjid {subid} {inputs}".format(args=args,
             subid=subject.full_id, inputs=" ".join(input_files))
@@ -328,6 +372,7 @@ def main():
     use_server = arguments['--log-to-server']
     scanid    = arguments['--subject']
     debug     = arguments['--debug']
+    resubmit = arguments['--resubmit']
     PARALLEL = arguments['--parallel']
     DRYRUN    = arguments['--dry-run']
     # If you add an option/argument that needs to be propagated to subject jobs
@@ -358,23 +403,24 @@ def main():
             sys.exit('Subject {} is a phantom, cannot be analyzed'.format(scanid))
 
         run_freesurfer(subject, blacklisted_series, config)
+        return
 
-    else:
-        # batch mode
-        update_aggregate_stats(config)
-        destination = os.path.join(fs_path, 'freesurfer_aggregate_log.csv')
-        update_aggregate_log(config, qc_subjects, destination)
+    # batch mode
+    update_aggregate_stats(config)
+    destination = os.path.join(fs_path, 'freesurfer_aggregate_log.csv')
+    update_aggregate_log(config, qc_subjects, destination)
 
-        fs_subjects = get_new_subjects(config, qc_subjects)
-        logger.debug("Running on subjects: {}".format(fs_subjects))
+    fs_subjects = get_new_subjects(config, qc_subjects)
+    logger.debug("Submitting {} new subjects".format(len(fs_subjects)))
 
-        # Change to freesurfer directory, because qbatch leaves .qbatch
-        # folders in the current working directory
-        with utils.cd(fs_path):
-            for i, subject in enumerate(fs_subjects):
-                cmd = create_command(subject, study, debug, use_server)
-                logger.debug("Queueing command: {}".format(cmd))
-                submit_job(cmd, i)
+    if resubmit:
+        # Filter out subjects that were just submitted to reduce search space
+        remaining_subjects = filter(lambda x: x not in fs_subjects, qc_subjects)
+        halted_subjects = get_halted_subjects(fs_path, remaining_subjects)
+        logger.debug("Resubmitting {} subjects".format(len(halted_subjects)))
+        fs_subjects.extend(halted_subjects)
+
+    submit_proc_freesurfer(fs_path, fs_subjects, arguments)
 
 if __name__ == '__main__':
     main()
