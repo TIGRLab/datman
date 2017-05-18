@@ -39,6 +39,7 @@ import requests
 import pyxnat
 
 import datman.config
+import datman.utils
 
 logging.basicConfig(level=logging.WARN,
         format="[%(name)s] %(levelname)s: %(message)s")
@@ -68,11 +69,12 @@ def main():
     output_file = set_output_name(output_loc, config)
 
     xnat_url = get_xnat_url(config)
-    username, password = get_xnat_credentials(config, xnat_cred)
+    username, password = datman.utils.get_xnat_credentials(config, xnat_cred)
     xnat_project_names = config.get_xnat_projects()
     logger.debug("Summarizing XNAT projects {}".format(xnat_project_names))
 
-    with XNATConnection(xnat_url, username, password) as xnat_connection:
+    with datman.utils.XNATConnection(xnat_url, username,
+            password) as xnat_connection:
         overviews = get_session_overviews(xnat_connection, xnat_project_names)
 
     with requests.Session() as session:
@@ -98,33 +100,6 @@ def get_xnat_url(config):
     if 'https' not in url:
         url = "https://" + url
     return url
-
-def get_xnat_credentials(config, xnat_cred):
-    if not xnat_cred:
-        xnat_cred = os.path.join(config.get_path('meta'), 'xnat-credentials')
-
-    logger.debug("Retrieving xnat credentials from {}".format(xnat_cred))
-    try:
-        credentials = read_credentials(xnat_cred)
-        user_name = credentials[0]
-        password = credentials[1]
-    except IndexError:
-        logger.error("XNAT credential file {} is missing the user name or " \
-                "password.".format(xnat_cred))
-        sys.exit(1)
-    return user_name, password
-
-def read_credentials(cred_file):
-    credentials = []
-    try:
-        with open(cred_file, 'r') as creds:
-            for line in creds:
-                credentials.append(line.strip('\n'))
-    except:
-        logger.error("Cannot read credential file or file does not exist: " \
-                "{}.".format(cred_file))
-        sys.exit(1)
-    return credentials
 
 def get_session_overviews(xnat, project_names):
     overview = []
@@ -255,20 +230,6 @@ def get_item(record, key):
         logger.debug("Key {} does not exist in record {}".format(key, record))
         item = "Not found in record."
     return item
-
-class XNATConnection(object):
-    def __init__(self,  xnat_url, user_name, password):
-        self.server = xnat_url
-        self.user = user_name
-        self.password = password
-
-    def __enter__(self):
-        self.connection = pyxnat.Interface(server=self.server, user=self.user,
-                password=self.password)
-        return self.connection
-
-    def __exit__(self, type, value, traceback):
-        self.connection.disconnect()
 
 if __name__ == "__main__":
     main()

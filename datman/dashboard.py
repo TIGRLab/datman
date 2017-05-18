@@ -213,6 +213,7 @@ class dashboard(object):
         except Exception as e:
             logger.error('An error occured adding scan:{} to the db.Error:{}'
                          .format(scan_name, str(e)))
+            raise DashboardException
         return(dashboard_scan)
 
     def delete_extra_scans(self, session_label, scanlist):
