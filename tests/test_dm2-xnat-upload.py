@@ -38,22 +38,6 @@ class CheckFilesExist(unittest.TestCase):
     archive_experiment_id = '1.2.840.113619.6.336.' \
                              '254801968553430904107911738210738061468'
 
-    @patch('bin.dm2-xnat-upload.missing_resource_data')
-    @patch('datman.utils.get_archive_headers')
-    def test_returns_true_when_all_data_present_in_xnat_session(self,
-            mock_headers, mock_missing_resources):
-        # Set up
-        mock_headers.return_value = self.__generate_mock_headers()
-        mock_missing_resources.return_value = False
-        xnat_session = self.__get_xnat_session(self.session)
-
-        # Run
-        files_exist = upload.check_files_exist(self.archive, xnat_session,
-                                               self.ident)
-
-        # Assert
-        assert files_exist
-
     @raises(Exception)
     @patch('bin.dm2-xnat-upload.missing_resource_data')
     @patch('datman.utils.get_archive_headers')
