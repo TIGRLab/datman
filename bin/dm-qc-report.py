@@ -850,6 +850,8 @@ def prepare_scan(subject_id, config):
     if not db_session:
         logger.warning('Subject:{} not found in database'.format(subject_id))
     else:
+        clean_resources
+        
         if db_session.last_repeat_qc_generated < db_session.repeat_count:
             # this is a new session, going to cheat and overwrite REWRITE
             REWRITE = True

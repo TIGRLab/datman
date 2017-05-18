@@ -347,8 +347,78 @@ class config(object):
             exportinfo = {}
         return ExportInfo(exportinfo)
 
+    def get_qced_subjects(self):
+        """
+        Returns a dictionary of all the subjects that have been signed off on
+        for a study. The'value' field for each subject is an empty list.
 
+        Why a dictionary?
+            1. Dicts dont allow duplicate keys, so it handles redundant
+            checklist entries easily.
+            2. It makes it easy and efficient to keep track of additional data
+            on a per subject basis, e.g. all series a subject has
+            3. Dicts can be treated like a list, so if the 'value' for
+            each subject 'key' isn't needed it can just be ignored.
+        """
+        checklist_path = os.path.join(self.get_path('meta'), 'checklist.csv')
+        if not os.path.isfile(checklist_path):
+            raise ValueError("Checklist {} not found".format(checklist_path))
 
+        qced_subjects = {}
+        with open(checklist_path, 'r') as checklist:
+            for entry in checklist:
+                fields = entry.split(None, 1)
+                if len(fields) < 2:
+                    continue
+                subid, _ = os.path.splitext(fields[0].strip('qc_'))
+                qced_subjects[subid] = []
+        return qced_subjects
+
+    def get_blacklist(self):
+        """
+        Returns a dictionary mapping the subject id to a list of its blacklisted
+        series. A subject id will not appear in the key list if none of that
+        subject's data has been blacklisted.
+
+        Blacklist entries with file names that violate the datman convention
+        will be skipped.
+        """
+        blacklist_path = os.path.join(self.get_path('meta'), 'blacklist.csv')
+        if not os.path.isfile(blacklist_path):
+            raise ValueError("Blacklist {} not found.".format(blacklist_path))
+
+        blacklist = {}
+        with open(blacklist_path, 'r') as blacklist_file:
+            header_line = blacklist_file.readline()
+            for entry in blacklist_file:
+                fields = entry.split(None, 1)
+                try:
+                    ident, _, _, _ = datman.scanid.parse_filename(fields[0])
+                except datman.scanid.ParseException:
+                    logger.warn("Bad subject id in series. Ignoring "
+                            "blacklist entry {}".format(entry))
+                    continue
+                subid = ident.get_full_subjectid_with_timepoint()
+                blacklist.setdefault(subid, []).append(fields[0])
+        return blacklist
+
+    def get_subject_metadata(self):
+        """
+        Returns a dictionary of all qced subjects, with any blacklisted
+        series mapped to the subject id.
+        """
+        qced_subjects = self.get_qced_subjects()
+        blacklist = self.get_blacklist()
+
+        # Update is not used because it will add keys
+        # That is, if a subject has NOT been signed off but has a blacklist
+        # entry update would add them to qc'd subjects, which is not desirable.
+        for subject in blacklist:
+            try:
+                qced_subjects[subject] = blacklist[subject]
+            except KeyError:
+                continue
+        return qced_subjects
 
 class ExportInfo(object):
     """
