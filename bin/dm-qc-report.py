@@ -845,8 +845,8 @@ def check_for_repeat_session(subject):
     try:
         db_session = subject.get_db_object()
     except ImportError:
-        logger.error("Cannot access dashboard database, {} may become out of date "
-                "if repeat sessions exist".format(subject.full_id))
+        logger.error("Cannot access dashboard database, {} QC may become out of "
+                "date if repeat sessions exist".format(subject.full_id))
         return
 
     # db_session is None if entry doesn't exist in dashboard
