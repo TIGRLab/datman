@@ -428,6 +428,7 @@ class xnat(object):
         filename: string to store filename as
         data: string containing data
             (such as produced by zipfile.ZipFile.read())"""
+
         resource_id = self.get_resource_ids(project,
                                             session,
                                              experiment,
