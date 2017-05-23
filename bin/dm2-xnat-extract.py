@@ -79,6 +79,7 @@ import fnmatch
 import platform
 import shutil
 import dicom
+import hashlib
 
 logging.basicConfig()
 logger = logging.getLogger(os.path.basename(__file__))
@@ -387,7 +388,7 @@ def process_resources(xnat_project, session_label, experiment_label, data):
                                  xnat_resource_id,
                                  resource['URI'],
                                  resource_path)
-                
+
             check_duplicates(resource, base_path, target_path)
 
 
@@ -414,9 +415,9 @@ def check_duplicates(resource, base_path, target_path):
     for dup in dups:
         try:
             backup_resource(base_path, dup)
-        except IOError:
-            logger.error('Failed backing up resource file:{}'
-                         .format(dup))
+        except (IOError, OSError) as e:
+            logger.error('Failed backing up resource file:{} with excuse:{}'
+                         .format(dup, str(e)))
 
 
 def backup_resource(base_path, resource_file):
@@ -433,11 +434,29 @@ def backup_resource(base_path, resource_file):
             raise e
     try:
         logger.debug('Moving {} to {}'.format(resource_file, target_dir))
-        shutil.move(resource_file, target_dir)
+        dst_file = os.path.join(target_dir, os.path.basename(resource_file))
+        if os.path.isfile(dst_file):
+            is_identical = check_files_are_identical([resource_file, dst_file])
+            if is_identical:
+                os.remove(resource_file)
+            else:
+                os.rename(resource_file, dst_file)
+
     except Exception as e:
         logger.debug('Failed moving resource file:{} to {}'
                      .format(resource_file, target_dir))
         raise e
+
+
+def check_files_are_identical(files):
+    """Checks if files are identical
+    Expects an iterable list of filenames"""
+    hash1 = hashlib.sha256(open(files.pop(), 'rb').read()).digest()
+    for f in files:
+        hash2 = hashlib.sha256(open(f, 'rb').read()).digest()
+        if hash2 != hash1:
+            return False
+    return True
 
 
 def get_resource(xnat_project, xnat_session, xnat_experiment,
