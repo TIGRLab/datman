@@ -237,13 +237,16 @@ def run_freesurfer(subject, blacklist, config, resubmit=False):
     args = get_freesurfer_arguments(config, subject.site)
 
     scripts_dir = os.path.join(output_dir, 'scripts')
-    if resubmit and os.path.exists(scripts_dir):
+    if outputs_exist(scripts_dir):
+        # If outputs exist and the script didnt return above, it means
+        # 'resubmit' == True and the subject must be restarted
         remove_IsRunning(scripts_dir)
         input_files = []
     else:
         input_files = get_anatomical_images('i', subject, blacklist, config,
                 error_log)
-        optional_files = get_optional_images(subject, blacklist, config, error_log)
+        optional_files = get_optional_images(subject, blacklist, config,
+                error_log)
         input_files.extend(optional_files)
 
     command = "recon-all {args} -subjid {subid} {inputs}".format(args=args,
