@@ -95,6 +95,17 @@ def get_external_links_csv(session_name):
     csv_path = os.path.join(metadata_path, 'external-links.csv')
     return csv_path
 
+def get_relative_source(source, target):
+    if os.path.isfile(source):
+        source_file = os.path.basename(source)
+        source = os.path.dirname(source)
+    else:
+        source_file = ''
+
+    rel_source_dir = os.path.relpath(source, os.path.dirname(target))
+    rel_source = os.path.join(rel_source_dir, source_file)
+    return rel_source
+
 def make_link(source, target):
     logger.debug('Linking {} to {}'.format(source, target))
 
@@ -106,8 +117,11 @@ def make_link(source, target):
         logger.debug('Creating target dir: {}'.format(parent_folder))
         os.makedirs(parent_folder)
 
+    # Make relative, so the link works from the SCC too
+    rel_source = get_relative_source(source, target)
+
     try:
-        os.symlink(source, target)
+        os.symlink(rel_source, target)
     except OSError as e:
         logger.debug('Failed to create symlink: {}'.format(e.strerror))
 
