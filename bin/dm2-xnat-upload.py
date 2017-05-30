@@ -303,9 +303,14 @@ def scan_data_exists(xnat_experiment_entry, local_headers, archive):
 
 def get_experiment_entry(xnat_session):
     xnat_entries = [child for child in xnat_session['children']
-                  if child['field'] == 'experiments/experiment']
-    xnat_entries = xnat_entries[0]
-    experiment_entry = xnat_entries['items'][0]
+                    if child['field'] == 'experiments/experiment']
+    try:
+        xnat_entries = xnat_entries[0]
+        experiment_entry = xnat_entries['items'][0]
+    except KeyError:
+        logger.error('No xnat experiments found for:{}'
+                     .format(xnat_session['data_fields']['label']))
+        return None
     return experiment_entry
 
 
