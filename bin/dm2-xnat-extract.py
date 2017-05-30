@@ -407,7 +407,6 @@ def check_duplicates(resource, base_path, target_path):
             dups.append(os.path.join(root, fname))
     # remove the target
     logger.debug('Original resource:{}'.format(target_file))
-
     # potentially throws a value error.
     # target file should always
     del dups[dups.index(target_file)]
@@ -422,7 +421,6 @@ def check_duplicates(resource, base_path, target_path):
 
 def backup_resource(base_path, resource_file):
     backup_path = os.path.join(base_path, 'BACKUPS')
-
     rel_path = os.path.dirname(os.path.relpath(resource_file, base_path))
     target_dir = os.path.join(backup_path, rel_path)
     if not os.path.isdir(target_dir):
@@ -440,13 +438,22 @@ def backup_resource(base_path, resource_file):
             if is_identical:
                 os.remove(resource_file)
             else:
-                os.rename(resource_file, dst_file)
+                # This shouldn't happen, but one file may be corrupt.
+                # rename the target file.
+                fname, ext = os.path.splitext(dst_file)
+                dst_file = '{}_copy{}'.format(fname, ext)
+
+        os.rename(resource_file, dst_file)
 
     except Exception as e:
         logger.debug('Failed moving resource file:{} to {}'
                      .format(resource_file, target_dir))
         raise e
 
+def get_new_backup_name(name):
+    # renames a file with _copy
+
+    return(fname + ext)
 
 def check_files_are_identical(files):
     """Checks if files are identical
