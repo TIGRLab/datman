@@ -8,7 +8,9 @@ Usage:
 
 Arguments:
     <study>              Name of the study to process
-    <session>           Single Zipfile to process
+    <session>            Name of a single session to process. Must include
+                         timepoint and session number or the resources folder
+                         will not be found.
 
 Options:
     -v --verbose         Verbose logging
@@ -99,8 +101,8 @@ def process_session(cfg, db, dir_nii, dir_res, session):
                            ident.get_full_subjectid_with_timepoint())
 
     if not os.path.isdir(dir_res):
-        logger.warning('Resources data not found for session:{}'
-                       .format(session))
+        logger.warning('Could not find session {} resources at expected '
+                'location {}'.format(session, dir_res))
         return
 
     if not os.path.isdir(dir_nii):
