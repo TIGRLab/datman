@@ -442,8 +442,8 @@ def backup_resource(base_path, resource_file):
                 # rename the target file.
                 fname, ext = os.path.splitext(dst_file)
                 dst_file = '{}_copy{}'.format(fname, ext)
-
-        os.rename(resource_file, dst_file)
+        else:
+            os.rename(resource_file, dst_file)
 
     except Exception as e:
         logger.debug('Failed moving resource file:{} to {}'
