@@ -96,14 +96,22 @@ def process_session(cfg, db, dir_nii, dir_res, session):
     except datman.scanid.ParseException:
         logger.error('Invalid session:{}'.format(session))
 
-    dir_res = os.path.join(dir_res, str(ident))
+    subject_res = os.path.join(dir_res, str(ident))
     dir_nii = os.path.join(dir_nii,
                            ident.get_full_subjectid_with_timepoint())
 
-    if not os.path.isdir(dir_res):
-        logger.warning('Could not find session {} resources at expected '
-                'location {}'.format(session, dir_res))
-        return
+    if not os.path.isdir(subject_res):
+        # Resources folders now require timepoint and session number. If user only
+        # gives the first, check with a default session number before giving up.
+        if not ident.session:
+            ident.session = '01'
+            session_res = os.path.join(dir_res, str(ident))
+        if os.path.isdir(session_res):
+            subject_res = session_res
+        else:            
+            logger.warning('Could not find session {} resources at expected '
+                    'location {}'.format(session, subject_res))
+            return
 
     if not os.path.isdir(dir_nii):
         logger.warning('nii dir doesnt exist for session:{}, creating.'
@@ -126,7 +134,7 @@ def process_session(cfg, db, dir_nii, dir_res, session):
     sprl_files = []
     for sprl in sprls:
         p = re.compile(sprl[0])
-        for root, dirs, files in os.walk(dir_res):
+        for root, dirs, files in os.walk(subject_res):
             for f in files:
                 # limit only to nifti files
                 if not f.endswith('nii'):
@@ -135,7 +143,7 @@ def process_session(cfg, db, dir_nii, dir_res, session):
                 if p.search(src_file):
                     # get a mangled name for the link target
                     target_name = _get_link_name(src_file,
-                                                 dir_res,
+                                                 subject_res,
                                                  ident,
                                                  sprl[1])
                     sprl_files.append((src_file, target_name))
