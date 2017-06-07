@@ -84,7 +84,10 @@ def main():
 
     logger.info('Processing {} sessions'.format(len(sessions)))
     for session in sessions:
-        process_session(cfg, db, dir_nii, dir_res, session)
+        try:
+            process_session(cfg, db, dir_nii, dir_res, session)
+        except:
+            logger.error('Failed processing session:{}'.format(session))
 
 
 def process_session(cfg, db, dir_nii, dir_res, session):
@@ -93,6 +96,7 @@ def process_session(cfg, db, dir_nii, dir_res, session):
         ident = datman.scanid.parse(session)
     except datman.scanid.ParseException:
         logger.error('Invalid session:{}'.format(session))
+        return
 
     dir_res = os.path.join(dir_res, str(ident))
     dir_nii = os.path.join(dir_nii,
