@@ -108,7 +108,7 @@ def process_session(cfg, db, dir_nii, dir_res, session):
             session_res = os.path.join(dir_res, str(ident))
         if os.path.isdir(session_res):
             subject_res = session_res
-        else:            
+        else:
             logger.warning('Could not find session {} resources at expected '
                     'location {}'.format(session, subject_res))
             return
@@ -175,17 +175,19 @@ def _create_symlink(src, target_name, dir_nii):
         return
 
     target_path = os.path.join(dir_nii, target_name)
+    rel_src = datman.utils.get_relative_source(src, target_path)
+
     if not os.path.islink(target_path):
-        logger.info('Linking:{} to {}'.format(src, target_name))
+        logger.info('Linking:{} to {}'.format(rel_src, target_name))
         try:
-            os.symlink(src, target_path)
+            os.symlink(rel_src, target_path)
         except OSError as e:
             if e.errno == errno.EEXIST:
                 logger.warning('Failed creating symlink:{} --> {} with reason:{}'
-                             .format(src, target_path, e.strerror))
+                             .format(rel_src, target_path, e.strerror))
             else:
                 logger.error('Failed creating symlink:{} --> {} with reason:{}'
-                             .format(src, target_path, e.strerror))
+                             .format(rel_src, target_path, e.strerror))
 
 
 def _get_link_name(path, basepath, ident, tag):
