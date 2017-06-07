@@ -125,6 +125,9 @@ def process_session(cfg, db, dir_nii, dir_res, session):
     for sprl in sprls:
         p = re.compile(sprl[0])
         for root, dirs, files in os.walk(dir_res):
+            # exclude the backup resources directory
+            if 'BACKUPS' in root:
+                continue
             for f in files:
                 # limit only to nifti files
                 if not f.endswith('nii'):
