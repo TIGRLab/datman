@@ -463,20 +463,23 @@ class xnat(object):
 
     def get_resource(self, project, session, experiment,
                      resource_group_id, resource_id,
-                     filename=None, retries=3):
+                     filename=None, retries=3, zipped=True):
         """Download a single resource from xnat to filename
         If filename is not specified creates a temporary file and
         retrns the path to that, user needs to be responsible for
         cleaning up any created tempfiles"""
 
+
         url = '{}/data/archive/projects/{}/' \
               'subjects/{}/experiments/{}/' \
-              'resources/{}/files/{}?format=zip'.format(self.server,
-                                                        project,
-                                                        session,
-                                                        experiment,
-                                                        resource_group_id,
-                                                        resource_id)
+              'resources/{}/files/{}'.format(self.server,
+                                             project,
+                                             session,
+                                             experiment,
+                                             resource_group_id,
+                                             resource_id)
+        if zipped:
+            url = url + '?format=zip'
 
         if not filename:
             filename = tempfile.mkstemp(prefix="dm2_xnat_extract_")

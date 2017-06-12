@@ -480,7 +480,8 @@ def get_resource(xnat_project, xnat_session, xnat_experiment,
                                     xnat_session,
                                     xnat_experiment,
                                     xnat_resource_group,
-                                    xnat_resource_id)
+                                    xnat_resource_id,
+                                    zipped=False)
     except Exception as e:
         logger.error('Failed downloading resource archive from:{} with reason:{}'
                      .format(xnat_session, e))
@@ -495,18 +496,27 @@ def get_resource(xnat_project, xnat_session, xnat_experiment,
             logger.error('Failed to create directory:{}'.format(target_dir))
             return
 
-    # extract the files from the archive, ignoring the filestructure
+    # copy the downloaded file to the target location
     try:
-        with zipfile.ZipFile(archive[1]) as zip_file:
-            member = zip_file.namelist()[0]
-            source = zip_file.open(member)
-            if not DRYRUN:
-                with open(target_path, 'wb') as target:
-                    shutil.copyfileobj(source, target)
-            target.close()
+        source = archive[1]
+        if not DRYRUN:
+            shutil.copyfile(source, target_path)
     except:
-        logger.error('Failed extracting resources archive:{}'
-                     .format(xnat_session), exc_info=True)
+        logger.error('Failed copying resource:{} to target:{}.'
+                     .format(source, target_path))
+
+    # # extract the files from the archive, ignoring the filestructure
+    # try:
+    #     with zipfile.ZipFile(archive[1]) as zip_file:
+    #         member = zip_file.namelist()[0]
+    #         source = zip_file.open(member)
+    #         if not DRYRUN:
+    #             with open(target_path, 'wb') as target:
+    #                 shutil.copyfileobj(source, target)
+    #         target.close()
+    # except:
+    #     logger.error('Failed extracting resources archive:{}'
+    #                  .format(xnat_session), exc_info=True)
 
     # finally delete the temporary archive
     try:
@@ -514,7 +524,7 @@ def get_resource(xnat_project, xnat_session, xnat_experiment,
     except OSError:
         logger.error('Failed to remove temporary archive:{} on system:{}'
                      .format(archive, platform.node()))
-    return(target)
+    return(target_path)
 
 
 def process_scans(xnat_project, session_label, experiment_label, scans):
