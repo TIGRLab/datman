@@ -385,7 +385,7 @@ def check_duplicate_resources(archive, xnat_session, ident):
 
         #orig = [o for o in orig if dups[o][0][0] == 'MISC']
         if len(orig) > 1:
-            logger.warning('Failed to identify original resource file:{} '
+            logger.warning('Failed to identify unique original resource file:{} '
                            'in session:{}'.format(fname, ident))
             return
         # Delete the original entry from the list
