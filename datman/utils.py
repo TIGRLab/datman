@@ -467,9 +467,7 @@ def run(cmd, dryrun=False, specialquote=True):
 
     # perform shell quoting for special characters in filenames
     if specialquote:
-        args = shlex.split(cmd)
-        args_q = [pipes.quote(a) for a in args]
-        cmd = " ".join(args_q)
+        cmd = _escape_shell_chars(cmd)
 
     if dryrun:
         logger.info("Performing dry-run")
@@ -485,6 +483,20 @@ def run(cmd, dryrun=False, specialquote=True):
                      .format(cmd, p.returncode, err))
 
     return p.returncode, out
+
+
+def _escape_shell_chars(arg):
+    """
+    An attempt to sanitize shell arguments without disabling
+    shell expansion.
+
+    >>> _escape_shell_chars('This (; file has funky chars')
+    'This \\(\\; file has funky chars'
+    """
+    arg = arg.replace('(', '\\(')
+    arg = arg.replace(';', '\\;')
+    return(arg)
+
 
 def get_files_with_tag(parentdir, tag, fuzzy = False):
     """
