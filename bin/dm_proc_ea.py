@@ -132,7 +132,6 @@ def find_ratings(pic, blk_start, blk_end, blk_start_time, duration):
     duration = int(duration)
     ratings = []
     pushes = []
-    print(pic)
     if blk_end == None:
         # find the final response number, take that as the end of our block
         trial_list = np.linspace(blk_start, pic[-1][1], pic[-1][1]-blk_start+1)
@@ -157,12 +156,13 @@ def find_ratings(pic, blk_start, blk_end, blk_start_time, duration):
 
     val = 5
     last = 0
+    logger.debug('looping through ratings: {}'.format(ratings))
     for rating in ratings:
         idx = np.where(t == rating[1])[0]
 
         # hack to save malformed data
         if len(idx) == 0:
-            idx = last + 1
+            idx = [last + 1]
         logger.debug('last={} idx={} t={} rating={}'.format(last, idx, t, rating))
 
         idx = int(idx[-1])  # take last element, convert to int
