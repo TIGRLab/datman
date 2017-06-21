@@ -44,6 +44,12 @@ SCANID_PHA_PATTERN   = re.compile('^'+SCANID_PHA_RE+'$')
 FILENAME_PATTERN     = re.compile('^'+FILENAME_RE+'$')
 FILENAME_PHA_PATTERN = re.compile('^'+FILENAME_PHA_RE+'$')
 
+#python 2 - 3 compatibility hack
+try:
+    basestring
+except NameError:
+    basestring = str
+
 class ParseException(Exception):
     pass
 
