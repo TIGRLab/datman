@@ -351,11 +351,8 @@ def check_duplicate_resources(archive, ident):
     """
     # process the archive to find out what files have been uploaded
     uploaded_files = []
-    xnat_resources = []
     with zipfile.ZipFile(archive) as zf:
-        resource_files = get_resources(zf)
-        for f in resource_files:
-            uploaded_files.append(f)
+        uploaded_files = get_resources(zf)
 
     # Get an updated copy of the xnat_session (otherwise it crashes the first
     # time a subject is uploaded)
