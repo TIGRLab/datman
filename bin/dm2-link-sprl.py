@@ -8,7 +8,9 @@ Usage:
 
 Arguments:
     <study>              Name of the study to process
-    <session>           Single Zipfile to process
+    <session>            Name of a single session to process. Must include
+                         timepoint and session number or the resources folder
+                         will not be found.
 
 Options:
     -v --verbose         Verbose logging
@@ -84,7 +86,10 @@ def main():
 
     logger.info('Processing {} sessions'.format(len(sessions)))
     for session in sessions:
-        process_session(cfg, db, dir_nii, dir_res, session)
+        try:
+            process_session(cfg, db, dir_nii, dir_res, session)
+        except:
+            logger.error('Failed processing session:{}'.format(session))
 
 
 def process_session(cfg, db, dir_nii, dir_res, session):
@@ -93,15 +98,24 @@ def process_session(cfg, db, dir_nii, dir_res, session):
         ident = datman.scanid.parse(session)
     except datman.scanid.ParseException:
         logger.error('Invalid session:{}'.format(session))
+        return
 
-    dir_res = os.path.join(dir_res, str(ident))
+    subject_res = os.path.join(dir_res, str(ident))
     dir_nii = os.path.join(dir_nii,
                            ident.get_full_subjectid_with_timepoint())
 
-    if not os.path.isdir(dir_res):
-        logger.warning('Resources data not found for session:{}'
-                       .format(session))
-        return
+    if not os.path.isdir(subject_res):
+        # Resources folders now require timepoint and session number. If user only
+        # gives the first, check with a default session number before giving up.
+        if not ident.session:
+            ident.session = '01'
+            session_res = os.path.join(dir_res, str(ident))
+        if os.path.isdir(session_res):
+            subject_res = session_res
+        else:
+            logger.warning('Could not find session {} resources at expected '
+                    'location {}'.format(session, subject_res))
+            return
 
     if not os.path.isdir(dir_nii):
         logger.warning('nii dir doesnt exist for session:{}, creating.'
@@ -124,7 +138,12 @@ def process_session(cfg, db, dir_nii, dir_res, session):
     sprl_files = []
     for sprl in sprls:
         p = re.compile(sprl[0])
-        for root, dirs, files in os.walk(dir_res):
+
+        for root, dirs, files in os.walk(subject_res):
+            # exclude the backup resources directory
+            if 'BACKUPS' in root:
+                continue
+
             for f in files:
                 # limit only to nifti files
                 if not f.endswith('nii'):
@@ -133,7 +152,7 @@ def process_session(cfg, db, dir_nii, dir_res, session):
                 if p.search(src_file):
                     # get a mangled name for the link target
                     target_name = _get_link_name(src_file,
-                                                 dir_res,
+                                                 subject_res,
                                                  ident,
                                                  sprl[1])
                     sprl_files.append((src_file, target_name))
@@ -160,17 +179,19 @@ def _create_symlink(src, target_name, dir_nii):
         return
 
     target_path = os.path.join(dir_nii, target_name)
+    rel_src = datman.utils.get_relative_source(src, target_path)
+
     if not os.path.islink(target_path):
-        logger.info('Linking:{} to {}'.format(src, target_name))
+        logger.info('Linking:{} to {}'.format(rel_src, target_name))
         try:
-            os.symlink(src, target_path)
+            os.symlink(rel_src, target_path)
         except OSError as e:
             if e.errno == errno.EEXIST:
                 logger.warning('Failed creating symlink:{} --> {} with reason:{}'
-                             .format(src, target_path, e.strerror))
+                             .format(rel_src, target_path, e.strerror))
             else:
                 logger.error('Failed creating symlink:{} --> {} with reason:{}'
-                             .format(src, target_path, e.strerror))
+                             .format(rel_src, target_path, e.strerror))
 
 
 def _get_link_name(path, basepath, ident, tag):

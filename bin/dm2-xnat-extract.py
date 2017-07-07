@@ -79,6 +79,7 @@ import fnmatch
 import platform
 import shutil
 import dicom
+import hashlib
 
 logging.basicConfig()
 logger = logging.getLogger(os.path.basename(__file__))
@@ -113,13 +114,25 @@ def main():
         db_ignore = True
 
     # setup logging
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.WARN)
     logger.setLevel(logging.WARN)
     if quiet:
         logger.setLevel(logging.ERROR)
+        ch.setLevel(logging.ERROR)
     if verbose:
         logger.setLevel(logging.INFO)
+        ch.setLevel(logging.INFO)
     if debug:
         logger.setLevel(logging.DEBUG)
+        ch.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter('%(asctime)s - %(name)s - {study} - '
+                                  '%(levelname)s - %(message)s'.format(
+                                      study=study))
+    ch.setFormatter(formatter)
+
+    logger.addHandler(ch)
 
     # setup the config object
     logger.info('Loading config')
@@ -381,12 +394,92 @@ def process_resources(xnat_project, session_label, experiment_label, data):
             else:
                 logger.info('Resource:{} not found for session:{}'
                             .format(resource['name'], session_label))
-                get_resource(xnat_project,
-                             session_label,
-                             experiment_label,
-                             xnat_resource_id,
-                             resource['URI'],
-                             resource_path)
+                _ = get_resource(xnat_project,
+                                 session_label,
+                                 experiment_label,
+                                 xnat_resource_id,
+                                 resource['URI'],
+                                 resource_path)
+
+            check_duplicates(resource, base_path, target_path)
+
+
+
+def check_duplicates(resource, base_path, target_path):
+    """Checks to see if a resource file has duplicate copies on the file system
+    backs up any duplicates found"""
+    fname = os.path.basename(resource['URI'])
+    target_file = os.path.join(target_path, resource['URI'])
+
+    dups = []
+    for root, dirs, files in os.walk(base_path):
+        if 'BACKUPS' in root:
+            continue
+        if fname in files:
+            dups.append(os.path.join(root, fname))
+    # remove the target
+    logger.debug('Original resource:{}'.format(target_file))
+    # potentially throws a value error.
+    # target file should always exist
+    try:
+        del dups[dups.index(target_file)]
+    except:
+        logger.error('Resource file:{} not found on file system.'
+                     ' Did the download fail due to timeout?')
+
+    for dup in dups:
+        try:
+            backup_resource(base_path, dup)
+        except (IOError, OSError) as e:
+            logger.error('Failed backing up resource file:{} with excuse:{}'
+                         .format(dup, str(e)))
+
+
+def backup_resource(base_path, resource_file):
+    backup_path = os.path.join(base_path, 'BACKUPS')
+    rel_path = os.path.dirname(os.path.relpath(resource_file, base_path))
+    target_dir = os.path.join(backup_path, rel_path)
+    if not os.path.isdir(target_dir):
+        try:
+            os.makedirs(target_dir)
+        except Exception as e:
+            logger.debug('Failed creating backup target:{}'
+                         .format(target_dir))
+            raise e
+    try:
+        logger.debug('Moving {} to {}'.format(resource_file, target_dir))
+        dst_file = os.path.join(target_dir, os.path.basename(resource_file))
+        if os.path.isfile(dst_file):
+            is_identical = check_files_are_identical([resource_file, dst_file])
+            if is_identical:
+                os.remove(resource_file)
+            else:
+                # This shouldn't happen, but one file may be corrupt.
+                # rename the target file.
+                fname, ext = os.path.splitext(dst_file)
+                dst_file = '{}_copy{}'.format(fname, ext)
+        else:
+            os.rename(resource_file, dst_file)
+
+    except Exception as e:
+        logger.debug('Failed moving resource file:{} to {}'
+                     .format(resource_file, target_dir))
+        raise e
+
+def get_new_backup_name(name):
+    # renames a file with _copy
+
+    return(fname + ext)
+
+def check_files_are_identical(files):
+    """Checks if files are identical
+    Expects an iterable list of filenames"""
+    hash1 = hashlib.sha256(open(files.pop(), 'rb').read()).digest()
+    for f in files:
+        hash2 = hashlib.sha256(open(f, 'rb').read()).digest()
+        if hash2 != hash1:
+            return False
+    return True
 
 
 def get_resource(xnat_project, xnat_session, xnat_experiment,
@@ -399,7 +492,8 @@ def get_resource(xnat_project, xnat_session, xnat_experiment,
                                     xnat_session,
                                     xnat_experiment,
                                     xnat_resource_group,
-                                    xnat_resource_id)
+                                    xnat_resource_id,
+                                    zipped=False)
     except Exception as e:
         logger.error('Failed downloading resource archive from:{} with reason:{}'
                      .format(xnat_session, e))
@@ -414,18 +508,27 @@ def get_resource(xnat_project, xnat_session, xnat_experiment,
             logger.error('Failed to create directory:{}'.format(target_dir))
             return
 
-    # extract the files from the archive, ignoring the filestructure
+    # copy the downloaded file to the target location
     try:
-        with zipfile.ZipFile(archive[1]) as zip_file:
-            member = zip_file.namelist()[0]
-            source = zip_file.open(member)
-            if not DRYRUN:
-                with open(target_path, 'wb') as target:
-                    shutil.copyfileobj(source, target)
-            target.close()
+        source = archive[1]
+        if not DRYRUN:
+            shutil.copyfile(source, target_path)
     except:
-        logger.error('Failed extracting resources archive:{}'
-                     .format(xnat_session), exc_info=True)
+        logger.error('Failed copying resource:{} to target:{}.'
+                     .format(source, target_path))
+
+    # # extract the files from the archive, ignoring the filestructure
+    # try:
+    #     with zipfile.ZipFile(archive[1]) as zip_file:
+    #         member = zip_file.namelist()[0]
+    #         source = zip_file.open(member)
+    #         if not DRYRUN:
+    #             with open(target_path, 'wb') as target:
+    #                 shutil.copyfileobj(source, target)
+    #         target.close()
+    # except:
+    #     logger.error('Failed extracting resources archive:{}'
+    #                  .format(xnat_session), exc_info=True)
 
     # finally delete the temporary archive
     try:
@@ -433,6 +536,7 @@ def get_resource(xnat_project, xnat_session, xnat_experiment,
     except OSError:
         logger.error('Failed to remove temporary archive:{} on system:{}'
                      .format(archive, platform.node()))
+    return(target_path)
 
 
 def process_scans(xnat_project, session_label, experiment_label, scans):

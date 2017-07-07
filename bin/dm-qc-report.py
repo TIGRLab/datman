@@ -108,6 +108,10 @@ logger = logging.getLogger(os.path.basename(__file__))
 
 REWRITE = False
 
+SLICER_GAP = 2
+SLICER_RES = 1600
+SLICER_FMRI_RES = 600
+
 def random_str(n):
     """generates a random string of length n"""
     return(''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(n)))
@@ -197,24 +201,24 @@ def fmri_qc(file_name, qc_dir, report):
     image_corr = output_name + '_corr.png'
 
     if not os.path.isfile(image_raw):
-        slicer(file_name, image_raw, 2, 600)
+        slicer(file_name, image_raw, SLICER_GAP, SLICER_FMRI_RES)
     add_image(report, image_raw, title='BOLD montage')
 
     if not os.path.isfile(image_sfnr):
-        slicer(os.path.join(qc_dir, base_name + '_sfnr.nii.gz'), image_sfnr, 2,
-                600)
+        slicer(os.path.join(qc_dir, base_name + '_sfnr.nii.gz'), image_sfnr,
+                SLICER_GAP, SLICER_FMRI_RES)
     add_image(report, image_sfnr, title='SFNR map')
 
     if not os.path.isfile(image_corr):
-        slicer(os.path.join(qc_dir, base_name + '_corr.nii.gz'), image_corr, 2,
-                600)
+        slicer(os.path.join(qc_dir, base_name + '_corr.nii.gz'), image_corr,
+                SLICER_GAP, SLICER_FMRI_RES)
     add_image(report, image_corr, title='correlation map')
 
 def anat_qc(filename, qc_dir, report):
 
     image = os.path.join(qc_dir, datman.utils.nifti_basename(filename) + '.png')
     if not os.path.isfile(image):
-        slicer(filename, image, 5, 1600)
+        slicer(filename, image, 5, SLICER_RES)
     add_image(report, image)
 
 def dti_qc(filename, qc_dir, report):
@@ -237,7 +241,7 @@ def dti_qc(filename, qc_dir, report):
 
     image = os.path.join(qc_dir, basename + '_b0.png')
     if not os.path.isfile(image):
-        slicer(filename, image, 2, 1600)
+        slicer(filename, image, SLICER_GAP, SLICER_RES)
     add_image(report, image, title='b0 montage')
     add_image(report, os.path.join(qc_dir, basename + '_directions.png'),
             title='bvec directions')
@@ -828,34 +832,50 @@ def verify_input_paths(path_list):
                 "{}".format("\n".join(broken_paths)))
         sys.exit(1)
 
+def check_for_repeat_session(subject):
+    """
+    Will modify the REWRITE flag, causing a page to be regenerated, if new
+    data from a repeat session has been added since the page was originally
+    created.
+
+    WARNING: If it cannot find the dashboard/database pages will not be updated
+    """
+    global REWRITE
+
+    try:
+        db_session = subject.get_db_object()
+    except ImportError:
+        logger.error("Cannot access dashboard database, {} QC may become out of "
+                "date if repeat sessions exist".format(subject.full_id))
+        return
+
+    # db_session is None if entry doesn't exist in dashboard
+    if not db_session:
+        logger.warning('Subject:{} not found in database'.format(subject.full_id))
+        return
+
+    if db_session.last_repeat_qc_generated >= db_session.repeat_count:
+        # Not out of date, no rewrite needed
+        return
+
+    # this is a new session, going to cheat and overwrite REWRITE
+    REWRITE = True
+    db_session.last_repeat_qc_generated = db_session.repeat_count
+    db_session.flush_changes()
+
 def prepare_scan(subject_id, config):
     """
     Makes a new Scan object for this participant, clears out any empty files
     from needed directories and ensures that if needed input directories do
     not exist that the program exits.
     """
-    global REWRITE
     try:
         subject = datman.scan.Scan(subject_id, config)
     except datman.scanid.ParseException as e:
         logger.error(e, exc_info=True)
         sys.exit(1)
 
-    # going to query the dashboard database to see if this session
-    # has updated scans (repeat scans)
-    # if yes force the qc pages to be re-written and the database to
-    # be updated.
-    db_session = subject.get_db_object()
-    # db_session is None if entry doesn't exist in dashboard
-    if not db_session:
-        logger.warning('Subject:{} not found in database'.format(subject_id))
-    else:
-        if db_session.last_repeat_qc_generated < db_session.repeat_count:
-            # this is a new session, going to cheat and overwrite REWRITE
-            REWRITE = True
-            db_session.last_repeat_qc_generated = db_session.repeat_count
-            db_session.flush_changes()
-
+    check_for_repeat_session(subject)
     verify_input_paths([subject.nii_path, subject.dcm_path])
 
     qc_dir = datman.utils.define_folder(subject.qc_path)
@@ -874,7 +894,7 @@ def get_config(study):
 
     try:
         config = datman.config.config(study=study)
-    except KeyError:
+    except:
         logger.error("Cannot find configuration info for study {}".format(study))
         sys.exit(1)
 
@@ -921,12 +941,8 @@ def main():
         logger.setLevel(logging.DEBUG)
 
     if session:
-        # going to stash value of REWRITE as this may be overwritten
-        # if a repeat session has appeared
-        old_rewrite = REWRITE
         subject = prepare_scan(session, config)
         qc_single_scan(subject, config)
-        REWRITE = old_rewrite
         return
 
     qc_all_scans(config)

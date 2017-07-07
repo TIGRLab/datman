@@ -467,9 +467,7 @@ def run(cmd, dryrun=False, specialquote=True):
 
     # perform shell quoting for special characters in filenames
     if specialquote:
-        args = shlex.split(cmd)
-        args_q = [pipes.quote(a) for a in args]
-        cmd = " ".join(args_q)
+        cmd = _escape_shell_chars(cmd)
 
     if dryrun:
         logger.info("Performing dry-run")
@@ -485,6 +483,20 @@ def run(cmd, dryrun=False, specialquote=True):
                      .format(cmd, p.returncode, err))
 
     return p.returncode, out
+
+
+def _escape_shell_chars(arg):
+    """
+    An attempt to sanitize shell arguments without disabling
+    shell expansion.
+
+    >>> _escape_shell_chars('This (; file has funky chars')
+    'This \\(\\; file has funky chars'
+    """
+    arg = arg.replace('(', '\\(')
+    arg = arg.replace(';', '\\;')
+    return(arg)
+
 
 def get_files_with_tag(parentdir, tag, fuzzy = False):
     """
@@ -684,5 +696,16 @@ def read_credentials(cred_file):
                 "{}.".format(cred_file))
         sys.exit(1)
     return credentials
+
+def get_relative_source(source, target):
+    if os.path.isfile(source):
+        source_file = os.path.basename(source)
+        source = os.path.dirname(source)
+    else:
+        source_file = ''
+
+    rel_source_dir = os.path.relpath(source, os.path.dirname(target))
+    rel_source = os.path.join(rel_source_dir, source_file)
+    return rel_source
 
 # vim: ts=4 sw=4 sts=4:

@@ -131,15 +131,22 @@ def main():
     zips_path = cfg.get_path('zips')
 
     if not os.path.isdir(dicom_path):
-        logger.error('Dicom path:{} doesnt exist'.format(dicom_path))
+        logger.warning('Dicom path:{} doesnt exist'.format(dicom_path))
+        try:
+            os.makedirs(dicom_path)
+        except IOError:
+            logger.error('Failed to create dicom path:{}'.format(dicom_path))
+            return
 
     if not os.path.isdir(zips_path):
         logger.error('Zips path:{} doesnt exist'.format(zips_path))
+        return
 
     try:
         lookup = pd.read_table(lookup_path, sep='\s+', dtype=str)
     except IOError:
         logger.error('Lookup file:{} not found'.format(lookup_path))
+        return
 
     # identify which zip files have already been linked
     already_linked = {os.path.realpath(f): f
