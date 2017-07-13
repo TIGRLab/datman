@@ -398,6 +398,9 @@ class config(object):
                     logger.warn("Bad subject id in series. Ignoring "
                             "blacklist entry {}".format(entry))
                     continue
+                except IndexError:
+                    # Empty line present in blacklist. Skip it.
+                    continue
                 subid = ident.get_full_subjectid_with_timepoint()
                 blacklist.setdefault(subid, []).append(fields[0])
         return blacklist
