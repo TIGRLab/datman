@@ -65,8 +65,7 @@ def main():
     if use_server:
         add_server_handler(config)
     if debug:
-        logger.setLevel(logging.DEBUG)
-        logging.getLogger('datman.utils').setLevel(logging.DEBUG)
+        logging.getLogger().setLevel(logging.DEBUG)
 
     check_environment()
 
@@ -177,8 +176,8 @@ def add_pipeline_blacklist(subjects, blacklist_file):
         try:
             subjects[subid].append(entry)
         except IndexError:
-            logger.debug("Blacklisted item given for subject not signed off on "
-                    "in study's checklist.csv. Ignoring entry {}".format(entry))
+            logger.debug("Blacklisted item given for subject not in "
+                    "checklist.csv. Ignoring entry {}".format(entry))
             continue
     return subjects
 
@@ -197,6 +196,9 @@ def update_aggregate_log(pipeline_path, subjects):
         output_dir = os.path.join(pipeline_path, subject)
         if os.path.exists(output_dir):
             fs_output_folders.append(output_dir)
+    if not fs_output_folders:
+        # No outputs yet, skip log scraping
+        return
     scraped_data = log_scraper.scrape_logs(fs_output_folders, col_headers=True)
     agg_log = os.path.join(pipeline_path, 'aggregate_log.csv')
     try:
