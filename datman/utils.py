@@ -469,7 +469,7 @@ def run(cmd, dryrun=False, specialquote=True):
         cmd = _escape_shell_chars(cmd)
 
     if dryrun:
-        logger.info("Performing dry-run")
+        logger.info("Performing dry-run. Skipped command: {}".format(cmd))
         return 0, ''
 
     logger.debug("Executing command: {}".format(cmd))
