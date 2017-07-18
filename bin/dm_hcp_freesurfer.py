@@ -65,6 +65,7 @@ def main():
         add_server_handler(config)
     if debug:
         logger.setLevel(logging.DEBUG)
+        logging.getLogger('datman.utils').setLevel(logging.DEBUG)
 
     check_environment()
 
@@ -99,12 +100,14 @@ def run_pipeline(config, subject, t1, t2):
     if not input_exists(t1) or not input_exists(t2):
         sys.exit(1)
     base_dir = utils.define_folder(config.get_path('hcp_fs'))
-    hcp_pipeline = "hcp-freesurfer.sh {} {} {} {}".format(base_dir, subject,
-            t1, t2)
-    rtn, out = utils.run(hcp_pipeline, dryrun=DRYRUN)
-    if rtn:
-        logger.error("hcp-freesurfer.sh exited with non-zero status code. "
-                "Output: {}".format(out))
+    dest_dir = utils.define_folder(os.path.join(base_dir, subject))
+    with utils.cd(dest_dir):
+        hcp_pipeline = "hcp-freesurfer.sh {} {} {} {}".format(base_dir, subject,
+                t1, t2)
+        rtn, out = utils.run(hcp_pipeline, dryrun=DRYRUN)
+        if rtn:
+            logger.error("hcp-freesurfer.sh exited with non-zero status code. "
+                    "Output: {}".format(out))
 
 def input_exists(anat_input):
     if not os.path.exists(anat_input):
