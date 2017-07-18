@@ -26,6 +26,8 @@ Options:
                         match the T1 or T2 tag need to be blacklisted. Note that
                         the study specific blacklist will be consulted first
                         even if this option is not set.
+    --log-to-server     If set, all log messages will also be set to the logging
+                        server configured in the site configuration file
     --debug
     --dry-run
 """
@@ -34,6 +36,7 @@ import sys
 import glob
 import time
 import logging
+import logging.handlers
 
 from datman.docopt import docopt
 import datman.utils as utils
@@ -52,20 +55,30 @@ def main():
     arguments = docopt(__doc__)
     study = arguments['<study>']
     subject = arguments['<subject>']
+    use_server = arguments['--log-to-server']
     debug = arguments['--debug']
     DRYRUN = arguments['--dry-run']
 
+    config = datman.config.config(study=study)
+
+    if use_server:
+        add_server_handler(config)
     if debug:
         logger.setLevel(logging.DEBUG)
 
     check_environment()
-    config = datman.config.config(study=study)
 
     if subject:
         run_pipeline(config, subject, arguments['<T1>'], arguments['<T2>'])
         return
 
     run_all_subjects(config, arguments)
+
+def add_server_handler(config):
+    server_ip = config.get_key('LOGSERVER')
+    server_handler = logging.handlers.SocketHandler(server_ip,
+            logging.handlers.DEFAULT_TCP_LOGGING_PORT)
+    logger.addHandler(server_handler)
 
 def check_environment():
     try:
@@ -126,7 +139,7 @@ def run_all_subjects(config, arguments):
         except ValueError as e:
             logger.error("Skipping subject. Reason: {}".format(e.message))
             continue
-        cmd = create_command(config.study, subject, t1, t2, arguments)
+        cmd = create_command(config.study_name, subject, t1, t2, arguments)
         submit_job(cmd, subject)
 
 def add_pipeline_blacklist(subjects, blacklist_file):
@@ -201,6 +214,8 @@ def create_command(study, subject, t1, t2, args):
         cmd.append('--debug')
     if args['--dry-run']:
         cmd.append('--dry-run')
+    if args['--log-to-server']:
+        cmd.append('--log-to-server')
     return " ".join(cmd)
 
 def submit_job(cmd, subid, walltime="24:00:00"):
@@ -208,7 +223,7 @@ def submit_job(cmd, subid, walltime="24:00:00"):
             time.strftime("%Y%m%d-%H%M%S"))
 
     rtn, out = utils.run("echo {} | qbatch -N {} --walltime {} -".format(cmd,
-            job_name, walltime), dryrun=DRYRUN)
+            job_name, walltime), specialquote=False, dryrun=DRYRUN)
 
     if rtn:
         logger.error("Job submission failed.")
