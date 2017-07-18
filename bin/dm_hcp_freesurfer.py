@@ -43,6 +43,7 @@ import datman.utils as utils
 import datman.config
 import datman.scan
 import datman.scanid as scanid
+import datman.fs_log_scraper as log_scraper
 
 logging.basicConfig(level=logging.WARN,
         format="[%(name)s] %(levelname)s: %(message)s")
@@ -124,12 +125,16 @@ def run_all_subjects(config, arguments):
     if blacklist_file:
         subjects = add_pipeline_blacklist(subjects, blacklist_file)
 
+    hcp_fs_path = config.get_path('hcp_fs')
+    logs = make_log_dir(hcp_fs_path)
+    update_aggregate_log(hcp_fs_path, subjects)
+
     # Update FS log ?
     commands = []
     for subject in subjects:
-        if is_completed(subject, config.get_path('hcp_fs')):
+        if is_completed(subject, hcp_fs_path):
             continue
-        if is_started(subject, config.get_path('hcp_fs')):
+        if is_started(subject, hcp_fs_path):
             logger.debug("{} has partial outputs and may still be running. "
                     "Skipping".format(subject))
             continue
@@ -143,7 +148,7 @@ def run_all_subjects(config, arguments):
             logger.error("Skipping subject. Reason: {}".format(e.message))
             continue
         cmd = create_command(config.study_name, subject, t1, t2, arguments)
-        submit_job(cmd, subject)
+        submit_job(cmd, subject, logs)
 
 def add_pipeline_blacklist(subjects, blacklist_file):
     if not os.path.exists(blacklist_file):
@@ -176,6 +181,29 @@ def add_pipeline_blacklist(subjects, blacklist_file):
                     "in study's checklist.csv. Ignoring entry {}".format(entry))
             continue
     return subjects
+
+def make_log_dir(path):
+    log_dir = os.path.join(path, 'logs')
+    try:
+        if not DRYRUN:
+            os.mkdir(log_dir)
+    except:
+        pass
+    return log_dir
+
+def update_aggregate_log(pipeline_path, subjects):
+    fs_output_folders = []
+    for subject in subjects:
+        output_dir = os.path.join(pipeline_path, subject)
+        if os.path.exists(output_dir):
+            fs_output_folders.append(output_dir)
+    scraped_data = log_scraper.scrape_logs(fs_output_folders, col_headers=True)
+    agg_log = os.path.join(pipeline_path, 'aggregate_log.csv')
+    try:
+        with open(agg_log, 'w') as log:
+            log.write_lines(scraped_data)
+    except Exception as e:
+        logger.error("Could not update aggregate log. Reason: {}".format(e.message))
 
 def is_completed(subject, pipeline_dir):
     fs_scripts = os.path.join(pipeline_dir, subject, 'MNINonLinear',
@@ -221,12 +249,13 @@ def create_command(study, subject, t1, t2, args):
         cmd.append('--log-to-server')
     return " ".join(cmd)
 
-def submit_job(cmd, subid, walltime="24:00:00"):
+def submit_job(cmd, subid, log_dir, walltime="24:00:00"):
     job_name = "dm_hcp_freesurfer_{}_{}".format(subid,
             time.strftime("%Y%m%d-%H%M%S"))
 
-    rtn, out = utils.run("echo {} | qbatch -N {} --walltime {} -".format(cmd,
-            job_name, walltime), specialquote=False, dryrun=DRYRUN)
+    rtn, out = utils.run("echo {} | qbatch -N {} --walltime {} "
+            "--logdir {} -".format(cmd, job_name, walltime, log_dir),
+            specialquote=False, dryrun=DRYRUN)
 
     if rtn:
         logger.error("Job submission failed.")
