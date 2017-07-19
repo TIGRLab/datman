@@ -35,7 +35,7 @@ def scrape_logs(fs_output_folders, standards=None, col_headers=False):
 
     scraped_data = []
     if col_headers:
-        header = 'Name,Start,End,Build,Kernel,Arguments,Nifti Inputs\n'
+        header = 'Name,Status,Start,End,Build,Kernel,Arguments,Nifti Inputs\n'
         scraped_data.append(header)
 
     standards_line = 'Expected Values,,,,{build},{kernel},{args},\n'.format(
