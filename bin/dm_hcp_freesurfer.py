@@ -194,8 +194,9 @@ def update_aggregate_log(pipeline_path, subjects):
     fs_output_folders = []
     for subject in subjects:
         output_dir = os.path.join(pipeline_path, subject)
-        if os.path.exists(output_dir):
-            fs_output_folders.append(output_dir)
+        fs_dir = os.path.join(output_dir, 'T1w', subject)
+        if os.path.exists(fs_dir):
+            fs_output_folders.append(fs_dir)
     if not fs_output_folders:
         # No outputs yet, skip log scraping
         return
@@ -203,7 +204,7 @@ def update_aggregate_log(pipeline_path, subjects):
     agg_log = os.path.join(pipeline_path, 'aggregate_log.csv')
     try:
         with open(agg_log, 'w') as log:
-            log.write_lines(scraped_data)
+            log.writelines(scraped_data)
     except Exception as e:
         logger.error("Could not update aggregate log. Reason: {}".format(e.message))
 
@@ -251,7 +252,7 @@ def create_command(study, subject, t1, t2, args):
         cmd.append('--log-to-server')
     return " ".join(cmd)
 
-def submit_job(cmd, subid, log_dir, walltime="24:00:00"):
+def submit_job(cmd, subid, log_dir, walltime="36:00:00"):
     job_name = "dm_hcp_freesurfer_{}_{}".format(subid,
             time.strftime("%Y%m%d-%H%M%S"))
 
