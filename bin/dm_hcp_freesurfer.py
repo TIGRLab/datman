@@ -26,6 +26,8 @@ Options:
                         match the T1 or T2 tag need to be blacklisted. Note that
                         the study specific blacklist will be consulted first
                         even if this option is not set.
+    --walltime INT      The maximum wall time when running in batch mode.
+                        [default: 36:00:00]
     --log-to-server     If set, all log messages will also be set to the logging
                         server configured in the site configuration file
     --debug
@@ -119,6 +121,7 @@ def run_all_subjects(config, arguments):
     t1_tag = arguments['--t1-tag']
     t2_tag = arguments['--t2-tag']
     blacklist_file = arguments['--blacklist']
+    walltime = arguments['--walltime']
 
     subjects = config.get_subject_metadata()
     if blacklist_file:
@@ -147,7 +150,7 @@ def run_all_subjects(config, arguments):
             logger.error("Skipping subject. Reason: {}".format(e.message))
             continue
         cmd = create_command(config.study_name, subject, t1, t2, arguments)
-        submit_job(cmd, subject, logs)
+        submit_job(cmd, subject, logs, walltime=walltime)
 
 def add_pipeline_blacklist(subjects, blacklist_file):
     if not os.path.exists(blacklist_file):
@@ -202,6 +205,10 @@ def update_aggregate_log(pipeline_path, subjects):
         return
     scraped_data = log_scraper.scrape_logs(fs_output_folders, col_headers=True)
     agg_log = os.path.join(pipeline_path, 'aggregate_log.csv')
+
+    if DRYRUN:
+        return
+
     try:
         with open(agg_log, 'w') as log:
             log.writelines(scraped_data)
