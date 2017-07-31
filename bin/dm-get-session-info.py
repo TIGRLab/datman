@@ -22,7 +22,7 @@ import yaml
 import csv
 from datetime import datetime
 
-from datman import docopt
+from datman.docopt import docopt
 import datman.config
 import datman.utils
 import datman.scanid
