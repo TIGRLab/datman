@@ -45,7 +45,6 @@ SERIES_TAGS_MAP = {
 "Loc"        :  "LOC",
 }
 
-
 def check_checklist(session_name, study=None):
     """Reads the checklist identified from the session_name
     If there is an entry returns the comment, otherwise
@@ -470,7 +469,7 @@ def run(cmd, dryrun=False, specialquote=True):
         cmd = _escape_shell_chars(cmd)
 
     if dryrun:
-        logger.info("Performing dry-run")
+        logger.info("Performing dry-run. Skipped command: {}".format(cmd))
         return 0, ''
 
     logger.debug("Executing command: {}".format(cmd))
@@ -696,5 +695,49 @@ def read_credentials(cred_file):
                 "{}.".format(cred_file))
         sys.exit(1)
     return credentials
+
+def get_relative_source(source, target):
+    if os.path.isfile(source):
+        source_file = os.path.basename(source)
+        source = os.path.dirname(source)
+    else:
+        source_file = ''
+
+    rel_source_dir = os.path.relpath(source, os.path.dirname(target))
+    rel_source = os.path.join(rel_source_dir, source_file)
+    return rel_source
+
+def check_dependency_configured(program_name, shell_cmd=None, env_vars=None):
+    """
+    <program_name>      Name to add to the exception message if the program is
+                        not correctly configured.
+    <shell_cmd>         A command line command that will be put into 'which', to
+                        check whether the shell can find it.
+    <env_vars>          A list of shell variables that are expected to be set.
+                        Doesnt verify the value of these vars, only that they are
+                        all set.
+
+    Raises EnvironmentError if the command is not findable or if any environment
+    variable isnt configured.
+    """
+    message = ("{} required but not found. Please check that "
+            "it is installed and correctly configured.".format(program_name))
+
+    if shell_cmd is not None:
+        return_val, found = run('which {}'.format(shell_cmd))
+        if return_val or not found:
+            raise EnvironmentError(message)
+
+    if env_vars is None:
+        return
+
+    if not isinstance(env_vars, list):
+        env_vars = [env_vars]
+
+    try:
+        for variable in env_vars:
+            os.environ[variable]
+    except KeyError:
+        raise EnvironmentError(message)
 
 # vim: ts=4 sw=4 sts=4:

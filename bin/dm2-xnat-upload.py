@@ -155,7 +155,7 @@ def process_archive(archivefile):
             logger.debug('An exception occurred:{}'.format(e))
             pass
 
-    check_duplicate_resources(archivefile, xnat_session, scanid)
+    check_duplicate_resources(archivefile, scanid)
 
 
 def get_xnat_session(ident):
@@ -343,7 +343,7 @@ def check_files_exist(archive, xnat_session, ident):
     return scans_exist, resources_exist
 
 
-def check_duplicate_resources(archive, xnat_session, ident):
+def check_duplicate_resources(archive, ident):
     """
     Checks the xnat archive for duplicate resources
     Only  checks if non-dicom files in the archive exist and have duplicates
@@ -357,6 +357,9 @@ def check_duplicate_resources(archive, xnat_session, ident):
         for f in resource_files:
             uploaded_files.append(f)
 
+    # Get an updated copy of the xnat_session (otherwise it crashes the first
+    # time a subject is uploaded)
+    _, xnat_session = get_xnat_session(ident)
     # get the list of resources on XNAT
     xnat_experiment_entry = get_experiment_entry(xnat_session)
     resource_ids = get_resource_ids(xnat_experiment_entry)
