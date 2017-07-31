@@ -244,7 +244,7 @@ def get_tarfile_headers(path, stop_after_first = False):
         try:
             manifest[dirname] = dcm.read_file(tar.extractfile(f))
             if stop_after_first: break
-        except dcm.filereader.InvalidDicomError, e:
+        except dcm.filereader.InvalidDicomError as e:
             continue
     return manifest
 
@@ -261,7 +261,7 @@ def get_zipfile_headers(path, stop_after_first = False):
         try:
             manifest[dirname] = dcm.read_file(io.BytesIO(zf.read(f)))
             if stop_after_first: break
-        except dcm.filereader.InvalidDicomError, e:
+        except dcm.filereader.InvalidDicomError as e:
             continue
         except zipfile.BadZipfile:
             logger.warning('Error in zipfile:{}'
@@ -287,7 +287,7 @@ def get_folder_headers(path, stop_after_first = False):
                 continue
             manifest[path] = dcm.read_file(filepath)
             break
-        except dcm.filereader.InvalidDicomError, e:
+        except dcm.filereader.InvalidDicomError as e:
             pass
 
     if stop_after_first: return manifest
@@ -312,7 +312,7 @@ def get_all_headers_in_folder(path, recurse = False):
             headers = None
             try:
                 headers = dcm.read_file(filepath)
-            except dcm.filereader.InvalidDicomError, e:
+            except dcm.filereader.InvalidDicomError as e:
                 continue
             manifest[filepath] = headers
         if not recurse: break
