@@ -26,7 +26,7 @@ Options:
                         match the T1 or T2 tag need to be blacklisted. Note that
                         the study specific blacklist will be consulted first
                         even if this option is not set.
-    --walltime INT      The maximum wall time when running in batch mode.
+    --walltime STR      The maximum wall time when running in batch mode.
                         [default: 36:00:00]
     --log-to-server     If set, all log messages will also be set to the logging
                         server configured in the site configuration file
