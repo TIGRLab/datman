@@ -154,7 +154,7 @@ class config(object):
             site_tags = site_tags + [self.study_config['STUDY_TAG'].lower()]
 
             if tag.lower() in site_tags:
-                if project.lower() == 'DTI':
+                if project.upper() == 'DTI15T' or project.upper() == 'DTI3T':
                     # could be DTI15T or DTI3T
                     if type(parts) is list:
                         try:
