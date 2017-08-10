@@ -30,7 +30,7 @@ echo "Job ended on" `date`
 echo "------------------------------------------------------------------------"
 """
 
-logging.basicConfig(level=logging.WARN,
+logging.basicConfig(level=logging.INFO,
                     format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -78,6 +78,7 @@ def make_job(src_dir, dst_dir, protocol_dir, log_dir, scan_name, protocol_file=N
         #errfile = '{}:/tmp/error.$JOB_ID'.format(socket.gethostname())
         logfile = os.path.join(log_dir, 'output.$JOB_ID')
         errfile = os.path.join(log_dir, 'error.$JOB_ID')
+        logger.info('Making job DTIPrep for scan:{}'.format(scan_name))
         qjob.run(code=code, logfile=logfile, errfile=errfile)
 
 

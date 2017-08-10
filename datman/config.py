@@ -10,8 +10,15 @@ import logging
 import yaml
 import os
 import datman.scanid
+from future.utils import iteritems
 
 logger = logging.getLogger(__name__)
+
+#python 2 - 3 compatibility hack
+try:
+    basestring
+except NameError:
+    basestring = str
 
 
 class config(object):
@@ -142,7 +149,7 @@ class config(object):
                 # Check the study_config contains a 'Sites' key,
                 # this may contain site specific study names
                 if 'Sites' in self.study_config.keys():
-                    for key, site_cfg in self.study_config['Sites'].iteritems():
+                    for key, site_cfg in iteritems(self.study_config['Sites']):
                         if 'SITE_TAGS' in site_cfg.keys():
                             site_tags = site_tags + [t.lower()
                                                      for t
