@@ -24,6 +24,8 @@ Options:
                                     [default: ^.*cluster_\d{5}]
     --mitk_container=<mirtk_file>   Path to the mirtk singularity image
                                     [default: /archive/code/containers/MIRTK/MIRTK.img]
+    --tags=<tags>                   Comma seperated list of tags to process
+                                    [default: DTI60-1000]
     --leave_temp_files              Delete temporary files.
                                     [default: True]
     --debug                         Extra logging information
@@ -166,9 +168,10 @@ def get_files(session, filename):
         logger.info(msg)
         return
 
-    if not 'DTI' in tag:
-        msg = ("File:{} is not type DTI. Skipping"
-               .format(os.path.basename(filename)))
+    if not tag in TAGS:
+        msg = ("File:{} is not in taglist:{}. Skipping"
+               .format(os.path.basename(filename),
+                       TAGS))
         return
 
     base_name = scanid.make_filename(ident, tag, series, desc) + '_SlicerTractography.vtk'
@@ -235,6 +238,9 @@ if __name__ == '__main__':
     CLEANUP = arguments['--leave_temp_files']
     LOGDIR = arguments['--logDir']
     OVERWRITE = arguments['--rewrite']
+    TAGS = arguments['--tags']
+
+    TAGS = [tag.strip() for tag in TAGS.split(',')]
 
     QUIET = False
     DEBUG = False
