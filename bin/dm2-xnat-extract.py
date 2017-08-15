@@ -309,7 +309,7 @@ def create_scan_name(export_info, scan_info, session_label):
     try:
         series_id = scan_info['data_fields']['ID']
     except TypeError as e:
-        logger.error("{} failed. Cause: {}".format(session_label, e.strerror))
+        logger.error("{} failed. Cause: {}".format(session_label, e.message))
     # try and get the scan description, this isn't always in the correct field
     if 'series_description' in scan_info['data_fields'].keys():
         description = scan_info['data_fields']['series_description']
