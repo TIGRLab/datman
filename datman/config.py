@@ -166,7 +166,7 @@ class config(object):
                     if type(parts) is list:
                         try:
                             site = parts[1]
-                        except KeyError:
+                        except IndexError:
                             logger.error('Detected project DTI but '
                                          ' failed to identify using site')
                             raise
