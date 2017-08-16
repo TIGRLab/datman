@@ -147,9 +147,9 @@ class Scan(DatmanNamed):
             raise datman.scanid.ParseException(message)
 
         try:
-            self.project = config.map_xnat_archive_to_project(ident.study)
+            self.project = config.map_xnat_archive_to_project(subject_id)
         except Exception as e:
-            logger.error('Failed getting project from config:{}'
+            logger.error('Failed getting project from config: {}'
                          .format(str(e)))
 
         DatmanNamed.__init__(self, ident)
