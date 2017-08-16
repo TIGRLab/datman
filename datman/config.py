@@ -10,8 +10,15 @@ import logging
 import yaml
 import os
 import datman.scanid
+from future.utils import iteritems
 
 logger = logging.getLogger(__name__)
+
+#python 2 - 3 compatibility hack
+try:
+    basestring
+except NameError:
+    basestring = str
 
 
 class config(object):
