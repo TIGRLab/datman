@@ -114,64 +114,67 @@ class config(object):
         """Maps the XNAT tag (e.g. SPN01) to the project name e.g. SPINS
         Can either supply a full filename in which case only the first part
         is considered or just a tag.
+
         By default the project tag is extracted from the filename and matched
         to the "STUDY_TAG" in the study config file. If a study has used
         multiple site tags (e.g. SPN01, SPINS) these can be defined in the
         site specific [SITE_TAGS] key.
-        One project tag (DTI) is shared between two xnat archives (DTI15TT and DTI3T)
-        this is handled specially, the site is used to differentiate between
-        them.
+
+        One project tag (DTI) is shared between two xnat archives (DTI15T and
+        DTI3T), the site is used to differentiate between them. As a result, if
+        only a 'DTI' project tag is given this function raises an exception.
         """
-        logger.debug('Searching projects for:{}'.format(filename))
+        logger.debug('Searching projects for: {}'.format(filename))
+
         try:
             parts = datman.scanid.parse(filename)
             tag = parts.study
         except datman.scanid.ParseException:
+            # The exception may be because a study tag was given instead of a
+            # full ID. Check for this case, exit if it's just a bad ID
             parts = filename.split('_')
+            if len(parts) > 1:
+                raise datman.scanid.ParseException("Malformed ID: {}".format(filename))
             tag = parts[0]
+
+        if tag == 'DTI' and not isinstance(parts, datman.scanid.Identifier):
+            # if parts isnt a datman scanid, only the study tag was given. Cant
+            # be sure which DTI study is correct without site info
+            raise RuntimeError("Cannot determine if DTI15T or DTI3T based on "
+                    "input: {}".format(filename))
 
         for project in self.site_config['Projects'].keys():
             # search each project for a match to the study tag,
             # this loop exits as soon as a match is found.
-            logger.debug('Searching project:{}'.format(project))
-            try:
-                self.set_study(project)
-                site_tags = []
-                # Check the study_config contains a 'Sites' key,
-                # this may contain site specific study names
-                if 'Sites' in self.study_config.keys():
-                    for key, site_cfg in self.study_config['Sites'].iteritems():
-                        if 'SITE_TAGS' in site_cfg.keys():
-                            site_tags = site_tags + [t.lower()
-                                                     for t
-                                                     in site_cfg['SITE_TAGS']]
-            except (ValueError, KeyError):
-                pass
+            logger.debug('Searching project: {}'.format(project))
 
+            self.set_study(project)
+            site_tags = []
 
-            site_tags = site_tags + [self.study_config['STUDY_TAG'].lower()]
+            if 'Sites' not in self.study_config.keys():
+                logger.debug("No sites defined for {}".format(project))
+                continue
+
+            for key, site_config in self.study_config['Sites'].iteritems():
+                try:
+                    add_tags = [t.lower() for t in site_config['SITE_TAGS']]
+                except KeyError:
+                    add_tags = []
+                site_tags.extend(add_tags)
+
+            site_tags.append(self.study_config['STUDY_TAG'].lower())
 
             if tag.lower() in site_tags:
+                # Hack to deal with DTI not being a unique tag :(
                 if project.upper() == 'DTI15T' or project.upper() == 'DTI3T':
-                    # could be DTI15T or DTI3T
-                    if type(parts) is list:
-                        try:
-                            site = parts[1]
-                        except KeyError:
-                            logger.error('Detected project DTI but '
-                                         ' failed to identify using site')
-                            raise
-                    else:
-                        site = parts.site
-
-                    if site == 'TGH':
+                    if parts.site == 'TGH':
                         project = 'DTI15T'
                     else:
                         project = 'DTI3T'
 
-                return(project)
-        # didn't find a match throw a worning
-        logger.warn('Failed to find a valid project for xnat id:{}'
+                return project
+        # didn't find a match throw a warning
+        logger.warn('Failed to find a valid project for xnat id: {}'
                     .format(tag))
         raise ValueError
 
