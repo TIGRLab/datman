@@ -80,18 +80,16 @@ class config(object):
         if study_name.lower() in valid_projects.keys():
             study_name = study_name.upper()
         else:
-            study_name = self.map_xnat_archive_to_project(study_name)
-
-        if not study_name:
-            logger.error('Invalid project:{}'.format(study_name))
-            raise KeyError
+            # DTI is mapped to DTI15T and DTI3T so it's not safe to guess based
+            # only on the study_name
+            raise RuntimeError("Study name not recognized: {}".format(study_name))
 
         self.study_name = study_name
 
         config_path = self.system_config['CONFIG_DIR']
 
         project_settings_file = os.path.join(config_path,
-                                             self.site_config['Projects'][study_name])
+                self.site_config['Projects'][study_name])
 
         self.study_config = self.load_yaml(project_settings_file)
         self.study_config_name = project_settings_file
