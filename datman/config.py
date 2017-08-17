@@ -80,6 +80,11 @@ class config(object):
         self.system_config = self.site_config['SystemSettings'][system]
 
     def set_study(self, study_name):
+        """
+        This function can take just the study ID for every study except DTI. So
+        where possible, please give it an exact match to a project name or a full
+        session ID.
+        """
         # make the supplied project_name case insensitive
         valid_projects = {k.lower(): k
                           for k in self.site_config['Projects'].keys()}
@@ -87,9 +92,10 @@ class config(object):
         if study_name.lower() in valid_projects.keys():
             study_name = study_name.upper()
         else:
-            # DTI is mapped to DTI15T and DTI3T so it's not safe to guess based
-            # only on the study_name
-            raise RuntimeError("Study name not recognized: {}".format(study_name))
+            ## This will raise an exception if given only the 'DTI' id because
+            ## two studies are mapped to this ID. Give set_study() a full
+            ## session ID to avoid this
+            study_name = self.map_xnat_archive_to_project(study_name)
 
         self.study_name = study_name
 

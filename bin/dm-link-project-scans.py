@@ -89,9 +89,9 @@ def write_link_file(link_file, src_session, trg_session, tags):
             spamwriter.writerow(entry)
 
 def get_external_links_csv(session_name):
-    session = get_datman_scanid(session_name)
+    # Give whole session_name in case it's 'DTI'
     metadata_path = datman.config.config().get_path('meta',
-            study=session.study)
+            study=session_name)
     csv_path = os.path.join(metadata_path, 'external-links.csv')
     return csv_path
 
@@ -280,8 +280,8 @@ def copy_checklist_entry(source_id, target_id, target_checklist_path):
     update_file(target_checklist_path, qc_report_entry + '\n')
 
 def copy_metadata(source_id, target_id, tags):
-    source_config = datman.config.config(study=source_id.study)
-    target_config = datman.config.config(study=target_id.study)
+    source_config = datman.config.config(study=source_id)
+    target_config = datman.config.config(study=target_id)
     source_metadata = source_config.get_path('meta')
     target_metadata = target_config.get_path('meta')
 
@@ -296,7 +296,7 @@ def copy_metadata(source_id, target_id, tags):
 def get_resources_dir(subid):
     # Creates its a new config each time to avoid side effects (and future bugs)
     # due to the fact that config.get_path() modifies the study setting.
-    config = datman.config.config(study=subid.study)
+    config = datman.config.config(study=subid)
     result = os.path.join(config.get_path('resources'), str(subid))
     return result
 
@@ -319,7 +319,8 @@ def link_session_data(source, target, given_tags):
     source_id = get_datman_scanid(source)
     target_id = get_datman_scanid(target)
 
-    config = datman.config.config(study=source_id.study)
+    # Must give whole source ID, in case the study portion is 'DTI'
+    config = datman.config.config(study=source)
 
     if given_tags:
         # Use the supplied list of tags to link
