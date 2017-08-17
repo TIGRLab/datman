@@ -60,7 +60,7 @@ def check_checklist(session_name, study=None):
     if study:
         cfg = datman.config.config(study=study)
     else:
-        cfg = datman.config.config(study=ident.study)
+        cfg = datman.config.config(study=session_name)
 
     try:
         checklist_path = os.path.join(cfg.get_path('meta'),
@@ -105,7 +105,7 @@ def check_blacklist(scan_name, study=None):
     if study:
         cfg = datman.config.config(study=study)
     else:
-        cfg = datman.config.config(study=ident.study)
+        cfg = datman.config.config(study=ident.get_full_subjectid_with_timepoint())
 
     try:
         checklist_path = os.path.join(cfg.get_path('meta'),
