@@ -30,7 +30,7 @@ echo "Job ended on" `date`
 echo "------------------------------------------------------------------------"
 """
 
-logging.basicConfig(level=logging.INFO,
+logging.basicConfig(level=logging.WARN,
                     format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
