@@ -89,9 +89,9 @@ def write_link_file(link_file, src_session, trg_session, tags):
             spamwriter.writerow(entry)
 
 def get_external_links_csv(session_name):
-    session = get_datman_scanid(session_name)
+    # Give whole session_name in case it's 'DTI'
     metadata_path = datman.config.config().get_path('meta',
-            study=session.study)
+            study=session_name)
     csv_path = os.path.join(metadata_path, 'external-links.csv')
     return csv_path
 
@@ -257,21 +257,17 @@ def delete_old_checklist_entry(checklist_path, entry):
             new_list.write(line)
 
 def copy_checklist_entry(source_id, target_id, target_checklist_path):
-    target_entry = str(target_id.get_full_subjectid_with_timepoint())
-    target_comment = datman.utils.check_checklist(target_entry,
-            study=target_id.study)
+    target_comment = datman.utils.check_checklist(target_id, study=target_id)
     if target_comment:
         # Checklist entry already exists and has been signed off.
         return
 
-    source_entry = str(source_id.get_full_subjectid_with_timepoint())
-    source_comment = datman.utils.check_checklist(source_entry,
-            study=source_id.study)
+    source_comment = datman.utils.check_checklist(source_id, study=source_id)
     if not source_comment:
         # No source comment to copy
         return
 
-    qc_page_name = "qc_{}.html".format(target_entry)
+    qc_page_name = "qc_{}.html".format(target_id)
     if target_comment == '':
         # target_comment == '' means there's a qc page entry, but its not signed
         # off. Old entry must be deleted to avoid duplication.
@@ -280,8 +276,8 @@ def copy_checklist_entry(source_id, target_id, target_checklist_path):
     update_file(target_checklist_path, qc_report_entry + '\n')
 
 def copy_metadata(source_id, target_id, tags):
-    source_config = datman.config.config(study=source_id.study)
-    target_config = datman.config.config(study=target_id.study)
+    source_config = datman.config.config(study=source_id)
+    target_config = datman.config.config(study=target_id)
     source_metadata = source_config.get_path('meta')
     target_metadata = target_config.get_path('meta')
 
@@ -290,14 +286,14 @@ def copy_metadata(source_id, target_id, tags):
 
     source_blacklist = os.path.join(source_metadata, 'blacklist.csv')
     target_blacklist = os.path.join(target_metadata, 'blacklist.csv')
-    copy_blacklist_data(str(source_id), source_blacklist, str(target_id),
+    copy_blacklist_data(source_id, source_blacklist, target_id,
                         target_blacklist, tags)
 
 def get_resources_dir(subid):
     # Creates its a new config each time to avoid side effects (and future bugs)
     # due to the fact that config.get_path() modifies the study setting.
-    config = datman.config.config(study=subid.study)
-    result = os.path.join(config.get_path('resources'), str(subid))
+    config = datman.config.config(study=subid)
+    result = os.path.join(config.get_path('resources'), subid)
     return result
 
 def link_resources(source_id, target_id):
@@ -319,7 +315,8 @@ def link_session_data(source, target, given_tags):
     source_id = get_datman_scanid(source)
     target_id = get_datman_scanid(target)
 
-    config = datman.config.config(study=source_id.study)
+    # Must give whole source ID, in case the study portion is 'DTI'
+    config = datman.config.config(study=source)
 
     if given_tags:
         # Use the supplied list of tags to link
@@ -331,14 +328,14 @@ def link_session_data(source, target, given_tags):
 
     logger.debug("Tags set to {}".format(tags))
 
-    link_resources(source_id, target_id)
-    copy_metadata(source_id, target_id, tags)
+    link_resources(source, target)
+    copy_metadata(source, target, tags)
 
     dirs = get_dirs_to_search(config, tags)
     for path_key in dirs:
         link_files(tags, source_id, target_id,
-                config.get_path(path_key, study=source_id.study),
-                config.get_path(path_key, study=target_id.study))
+                config.get_path(path_key, study=source),
+                config.get_path(path_key, study=target))
 
     # Return tags used for linking, in case links file needs to be updated
     return tags
