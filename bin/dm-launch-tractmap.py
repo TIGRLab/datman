@@ -251,7 +251,7 @@ if __name__ == '__main__':
         QUIET = True
         logger.setLevel(logging.ERROR)
     else:
-        logger.setLevel(logging.INFO)
+        logger.setLevel(logging.WARN)
 
     CFG = config.config(study=study)
 
