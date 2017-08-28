@@ -5,6 +5,7 @@ import dashboard
 #from dashboard.models import Study, Session, Scan, ScanType
 import datman.scanid
 import datman.utils
+import datman.config
 from datetime import datetime
 from datman.exceptions import DashboardException
 
@@ -24,7 +25,9 @@ class dashboard(object):
 
     def set_study(self, study):
         """Sets the object study"""
-        qry = Study.query.filter(Study.nickname == study)
+        cfg = datman.config.config()
+        study_name = cfg.map_xnat_archive_to_project(study)
+        qry = Study.query.filter(Study.nickname == study_name)
         if qry.count() < 1:
             logger.error('Study:{} not found in dashboard')
             raise DashboardException("Study not found")
