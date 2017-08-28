@@ -478,14 +478,27 @@ def find_tech_notes(path):
 
     return pdf_list[0]
 
-def write_tech_notes_link(report, subject_id, resources_path):
+def notes_expected(site, study_name):
+    """
+    Messy hardcoded way to find tech notes just for the one SPINS site (MRC/MRP)
+    and all CMH participants that actually have tech notes
+    """
+    if study_name == 'SPINS' and (site == "MRC" or site == 'MRP'):
+        return True
+
+    if site == 'CMH':
+        return True
+
+    return False
+
+def write_tech_notes_link(report, site, study_name, resource_path):
     """
     Adds a link to the tech notes for this subject to the given QC report
     """
-    if 'CMH' not in subject_id:
+    if not notes_expected(site, study_name):
         return
 
-    tech_notes = find_all_tech_notes(resources_path)
+    tech_notes = find_all_tech_notes(resource_path)
 
     if not tech_notes:
         report.write('<p>Tech Notes not found</p>\n')
@@ -554,12 +567,14 @@ def write_report_header(report, subject_id):
 
     report.write('<h1> QC report for {} <h1/>'.format(subject_id))
 
-def generate_qc_report(report_name, subject, expected_files, header_diffs, handlers):
+def generate_qc_report(report_name, subject, expected_files, header_diffs,
+        handlers, config):
     try:
         with open(report_name, 'wb') as report:
             write_report_header(report, subject.full_id)
             write_table(report, expected_files, subject)
-            write_tech_notes_link(report, subject.full_id, subject.resource_path)
+            write_tech_notes_link(report, subject.site, config.study_name,
+                    subject.resource_path)
             write_report_body(report, expected_files, subject, header_diffs, handlers)
     except:
         raise
@@ -773,7 +788,7 @@ def qc_subject(subject, config):
 
     try:
         generate_qc_report(report_name, subject, expected_files, header_diffs,
-                handlers)
+                handlers, config)
     except:
         logger.error("Exception raised during qc-report generation for {}. " \
                 "Removing .html page.".format(subject.full_id), exc_info=True)
