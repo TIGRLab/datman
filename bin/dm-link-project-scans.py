@@ -43,6 +43,7 @@ import re
 import datman as dm
 import datman.scanid, datman.utils
 from datman.docopt import docopt
+import datman.dashboard
 
 DRYRUN = False
 LINK_FILE_HEADERS = ['subject', 'target_subject', 'tags']
@@ -57,6 +58,7 @@ def read_link_file(link_file):
     """Reads a link_file returns each line"""
     logger.info('Reading link file {}'.format(link_file))
     with open(link_file, 'r') as f:
+        f.readline()
         for line in f:
             # Doing it this way so the file can be human readable
             line = re.split('\\s*', line)
@@ -114,6 +116,46 @@ def make_link(source, target):
     except OSError as e:
         logger.debug('Failed to create symlink: {}'.format(e.strerror))
 
+
+def add_link_to_dbase(source, target):
+    logger.debug('Creating database entry linking {} to {}.'.format(source,
+                                                                    target))
+    ident_src = dm.scanid.parse_filename(source)
+    ident_trg = dm.scanid.parse_filename(target)
+
+    db_src = datman.dashboard.dashboard(ident_src[0].study)
+    db_trg = datman.dashboard.dashboard(ident_trg[0].study)
+
+    src_session_db = db_src.get_add_session(ident_src[0].get_full_subjectid_with_timepoint())
+    trg_session_db = db_trg.get_add_session(ident_trg[0].get_full_subjectid_with_timepoint())
+
+    if not src_session_db:
+        logger.debug('Failed to find source session:{} in database.'
+                     .format(os.path.basename(source)))
+        return
+
+    if not trg_session_db:
+        logger.debug('Failed to find target session:{} in database.'
+                     .format(os.path.basename(target)))
+        return
+
+    src_scan_db = db_src.get_add_scan(os.path.basename(source))
+
+    if not src_scan_db:
+        logger.debug('Failed to find src scan:{} in database.'
+                     .format(os.path.basename(source)))
+
+    new_name = datman.scanid.make_filename(ident_trg[0],
+                                           ident_trg[1],
+                                           ident_trg[2],
+                                           ident_trg[3])
+    if not DRYRUN:
+        datman.dashboard.get_add_session_scan_link(trg_session_db,
+                                                   src_scan_db,
+                                                   new_name,
+                                                   is_primary=False)
+
+
 def link_files(tags, src_session, trg_session, src_data_dir, trg_data_dir):
     """Check the tags list to see if a file should be linked,
         if true link the file
@@ -138,7 +180,8 @@ def link_files(tags, src_session, trg_session, src_data_dir, trg_data_dir):
                 continue
             if file_tag in tags:
                 # need to create the link
-                ## first need to capture the file extension
+                # first need to capture the file extension as it gets lost
+                # when using dm.scanid to make the new name
                 ext = dm.utils.get_extension(filename)
 
                 trg_name = dm.scanid.make_filename(trg_session, file_tag,
@@ -147,6 +190,7 @@ def link_files(tags, src_session, trg_session, src_data_dir, trg_data_dir):
                 trg_file = os.path.join(trg_dir, trg_name) + ext
 
                 make_link(src_file, trg_file)
+                add_link_to_dbase(src_file, trg_file)
 
 
 def get_file_types_for_tag(export_settings, tag):

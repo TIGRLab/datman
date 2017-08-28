@@ -8,6 +8,7 @@ import datman.utils
 import datman.config
 from datetime import datetime
 from datman.exceptions import DashboardException
+from sqlalchemy import exc
 
 logger = logging.getLogger(__name__)
 db = dashboard.db
@@ -304,3 +305,25 @@ class dashboard(object):
                          .format(session_name, str(e)))
             return False
         return True
+
+def get_add_session_scan_link(target_session, scan, new_name=None, is_primary=False):
+    """
+    Creates an entry in the Session_Scans table, linking a scan to session
+    """
+    qry = Session_Scan.query.filter(Session_Scan.session == target_session,
+                                    Session_Scan.scan == scan)
+
+    if qry.count() == 1:
+        return qry.first()
+
+    link = Session_Scan()
+    link.scan = scan
+    link.session = target_session
+    if new_name:
+        link.scan_name = new_name
+    else:
+        link.scan_name = scan.name
+    link.is_primary = False
+    db.session.add(link)
+    db.session.commit()
+    return link
