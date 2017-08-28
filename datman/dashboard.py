@@ -14,6 +14,7 @@ Study = dashboard.models.Study
 Session = dashboard.models.Session
 Scan = dashboard.models.Scan
 ScanType = dashboard.models.ScanType
+Session_Scan = dashboard.models.Session_Scan
 
 
 class dashboard(object):
@@ -142,6 +143,7 @@ class dashboard(object):
         session_name = ident.get_full_subjectid_with_timepoint()
 
         qry = db.session.query(Scan) \
+                        .join(Session_Scan) \
                         .join(Session) \
                         .join(Study, Session.study) \
                         .filter(Session.name == session_name) \
@@ -187,10 +189,27 @@ class dashboard(object):
             dashboard_scan.series_number = series
             dashboard_scan.scantype = dashboard_scantype
             dashboard_scan.description = desc
+
             if ident.session:
                 dashboard_scan.repeat_number = int(ident.session)
 
             db.session.add(dashboard_scan)
+            # need to flush changes to the db to get the primary key scan.id
+            # flushing isn't a commit, so entering the session_scan link fails
+            # the whole transaction, including adding the scan will rollback
+            # note - the session will still have been added as this is a
+            # seperate transaction
+            db.session.flush()
+
+            dashboard_session_scan_link = Session_Scan()
+            dashboard_session_scan_link.scan_id = dashboard_scan.id
+            dashboard_session_scan_link.session_id = dashboard_scan.session.id
+            # Anything entered this way is a primary scan, linked scans should
+            # come from dm-link-project-scans.py
+            dashboard_session_scan_link.is_primary = True
+            dashboard_session_scan_link.scan_name = scan_id
+
+            db.session.add(dashboard_session_scan_link)
         # finally check the blacklist
         try:
             bl_comment = datman.utils.check_blacklist(scan_name,
@@ -218,7 +237,14 @@ class dashboard(object):
 
     def delete_extra_scans(self, session_label, scanlist):
         """Checks scans associated with session,
-        deletes scans not in scanlist"""
+        deletes scans not in scanlist.
+
+        Sorry about this, but watch for the difference between:
+        db.session - the database session
+            and
+        db_session - a session (visit) object in the database
+
+        """
         try:
             ident = datman.scanid.parse(session_label)
         except datman.scanid.ParseException:
@@ -243,12 +269,17 @@ class dashboard(object):
             except:
                 continue
 
-        db_scans = [scan.name for scan in db_session.scans if scan.repeat_number == repeat]
+        # need to get the scan objects from the session_scan links
+        session_scans = [link.scan for link in db_session.scans]
+        db_scans = [scan.name for scan in session_scans if scan.repeat_number == repeat]
         extra_scans = set(db_scans) - set(scan_names)
 
         for scan in extra_scans:
             db_scan = Scan.query.filter(Scan.name == scan).first()
+            db_session_scan_link = Session_Scan.query.filter(Session_Scan.scan_id == db_scan.id,
+                                                             Session_Scan.session_id == db_session.id)
             db.session.delete(db_scan)
+            db.session.delete(db_session_scan_link)
         db.session.commit()
 
     def get_scantype(self, scantype):
