@@ -184,7 +184,10 @@ class config(object):
                         project = 'DTI15T'
                     else:
                         project = 'DTI3T'
-
+                # Needs to be set here in addition to at the top of the loop in
+                # case the wrong DTI study settings were encountered
+                # for the last set_study call. Ugh.
+                self.set_study(project)
                 return project
         # didn't find a match throw a warning
         logger.warn('Failed to find a valid project for xnat id: {}'
