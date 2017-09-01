@@ -666,9 +666,9 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
     if dashboard:
         try:
             dashboard.delete_extra_scans(session_label, scans_added)
-        except:
-            logger.error('Failed deleting extra scans from session:{}'
-                         .format(session_label))
+        except Exception as e:
+            logger.error('Failed deleting extra scans from session:{} with excuse:{}'
+                         .format(session_label, e))
 
 
 def get_dicom_archive_from_xnat(xnat_project, session_label, experiment_label,
