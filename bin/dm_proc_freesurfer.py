@@ -160,7 +160,7 @@ def get_optional_images(subject, blacklist, config, error_log):
     optional_files = []
     for added_type in ['T2', 'FLAIR']:
         try:
-            found_files = get_anatomical_images(added_type, subject, blacklist,
+            found_files = get_anatomical_images(added_type, added_type, subject, blacklist,
                     config, error_log)
         except KeyError:
             continue
@@ -171,7 +171,7 @@ def get_optional_images(subject, blacklist, config, error_log):
 def make_arg_string(key, value):
     return "-{} {}".format(key, value)
 
-def get_anatomical_images(key, subject, blacklist, config, error_log):
+def get_anatomical_images(key, cmd_line_arg, subject, blacklist, config, error_log):
     input_tags = get_freesurfer_setting(config, key)
 
     if type(input_tags) == str:
@@ -195,7 +195,7 @@ def get_anatomical_images(key, subject, blacklist, config, error_log):
             write_lines(error_log, ['{}\n{}'.format(error_message, NODE)])
         inputs.extend(candidates)
 
-    return [make_arg_string(key, series.path) for series in inputs]
+    return [make_arg_string(cmd_line_arg, series.path) for series in inputs]
 
 def remove_IsRunning(scripts):
     scripts_regex = os.path.join(scripts, '*')
@@ -243,7 +243,7 @@ def run_freesurfer(subject, blacklist, config, resubmit=False):
         remove_IsRunning(scripts_dir)
         input_files = []
     else:
-        input_files = get_anatomical_images('tags', subject, blacklist, config,
+        input_files = get_anatomical_images('tags', 'i', subject, blacklist, config,
                 error_log)
         optional_files = get_optional_images(subject, blacklist, config,
                 error_log)
