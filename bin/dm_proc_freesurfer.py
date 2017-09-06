@@ -243,7 +243,7 @@ def run_freesurfer(subject, blacklist, config, resubmit=False):
         remove_IsRunning(scripts_dir)
         input_files = []
     else:
-        input_files = get_anatomical_images('i', subject, blacklist, config,
+        input_files = get_anatomical_images('tags', subject, blacklist, config,
                 error_log)
         optional_files = get_optional_images(subject, blacklist, config,
                 error_log)
