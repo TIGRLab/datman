@@ -156,6 +156,11 @@ class config(object):
             raise RuntimeError("Cannot determine if DTI15T or DTI3T based on "
                     "input: {}".format(filename))
 
+        # If a valid project name was given instead of a study tag, return that
+        if tag in self.site_config['Projects'].keys():
+            self.set_study(tag)
+            return tag
+
         for project in self.site_config['Projects'].keys():
             # search each project for a match to the study tag,
             # this loop exits as soon as a match is found.
