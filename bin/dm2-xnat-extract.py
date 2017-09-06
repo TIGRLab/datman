@@ -81,7 +81,6 @@ import shutil
 import dicom
 import hashlib
 
-logging.basicConfig()
 logger = logging.getLogger(os.path.basename(__file__))
 
 xnat = None
