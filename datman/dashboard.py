@@ -282,8 +282,8 @@ class dashboard(object):
             db_scan = Scan.query.filter(Scan.name == scan).first()
             db_session_scan_link = Session_Scan.query.filter(Session_Scan.scan_id == db_scan.id,
                                                              Session_Scan.session_id == db_session.id)
+            db.session.delete(db_session_scan_link.first())
             db.session.delete(db_scan)
-            db.session.delete(db_session_scan_link)
         db.session.commit()
 
     def get_scantype(self, scantype):
