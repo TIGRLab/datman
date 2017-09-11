@@ -128,15 +128,16 @@ def get_freesurfer_arguments(config, site):
     if PARALLEL:
         args.append('-parallel')
 
-    try:
-        nu_iter = get_freesurfer_setting(config, 'nu_iter')
-        if isinstance(nu_iter, dict):
-            site_iter = nu_iter[site]
-        else:
-            site_iter = nu_iter
-        args.append('-nuiterations {}'.format(site_iter))
-    except KeyError:
-        pass
+    # not compatible with freesurfer 6
+    #try:
+    #    nu_iter = get_freesurfer_setting(config, 'nu_iter')
+    #    if isinstance(nu_iter, dict):
+    #        site_iter = nu_iter[site]
+    #    else:
+    #        site_iter = nu_iter
+    #    args.append('-nuiterations {}'.format(site_iter))
+    #except KeyError:
+    #   pass
 
     return " ".join(args)
 
