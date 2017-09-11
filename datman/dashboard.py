@@ -188,7 +188,6 @@ class dashboard(object):
                 raise DashboardException('Invalid scantype')
 
             dashboard_scan = Scan()
-            dashboard_scan.session = dashboard_session
             dashboard_scan.name = scan_id
             dashboard_scan.series_number = series
             dashboard_scan.scantype = dashboard_scantype
@@ -207,7 +206,7 @@ class dashboard(object):
 
             dashboard_session_scan_link = Session_Scan()
             dashboard_session_scan_link.scan_id = dashboard_scan.id
-            dashboard_session_scan_link.session_id = dashboard_scan.session.id
+            dashboard_session_scan_link.session_id = dashboard_session.id
             # Anything entered this way is a primary scan, linked scans should
             # come from dm-link-project-scans.py
             dashboard_session_scan_link.is_primary = True
