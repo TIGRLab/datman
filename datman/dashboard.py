@@ -272,8 +272,11 @@ class dashboard(object):
             except:
                 continue
 
+        # Need to filter out linked scans and spirals (which are also links,
+        # but are considered 'primary' in the database).
+        source_scans = list(filter(lambda x: not is_linked(x), db_session.scans))
         # need to get the scan objects from the session_scan links
-        session_scans = [link.scan for link in db_session.scans]
+        session_scans = [link.scan for link in source_scans]
         db_scans = [scan.name for scan in session_scans if scan.repeat_number == repeat]
         extra_scans = set(db_scans) - set(scan_names)
 
@@ -304,6 +307,17 @@ class dashboard(object):
                          .format(session_name, str(e)))
             return False
         return True
+
+def is_linked(scan):
+    if not scan.is_primary:
+        return True
+    # Ugh, sorry about the naming. Result of the database query :(
+    scan_type = scan.scan.scantype
+    # Sort of hacky way of identifying spirals. Need a refactor to really fix
+    # this whole issue. Again, sorry.
+    if scan_type.name == 'SPRL':
+        return True
+    return False
 
 def get_add_session_scan_link(target_session, scan, new_name=None, is_primary=False):
     """

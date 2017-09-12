@@ -543,7 +543,6 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
     scanid is a valid datman.scanid object
     Scans is the json output from xnat query representing scans
     in an experiment"""
-    global cfg
     logger.info('Processing scans in session:{}'
                 .format(session_label))
     # setup the export functions for each format
@@ -661,6 +660,7 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
         except shutil.Error:
             logger.error('Failed to delete tempdir:{} on system:{}'
                          .format(tempdir, platform.node()))
+                         
     # finally delete any extra scans that exist in the dashboard
     if dashboard:
         try:
