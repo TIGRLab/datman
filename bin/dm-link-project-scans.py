@@ -123,8 +123,8 @@ def add_link_to_dbase(source, target):
     ident_src = dm.scanid.parse_filename(source)
     ident_trg = dm.scanid.parse_filename(target)
 
-    db_src = datman.dashboard.dashboard(ident_src[0].study)
-    db_trg = datman.dashboard.dashboard(ident_trg[0].study)
+    db_src = datman.dashboard.dashboard(ident_src[0].get_full_subjectid_with_timepoint())
+    db_trg = datman.dashboard.dashboard(ident_trg[0].get_full_subjectid_with_timepoint())
 
     src_session_db = db_src.get_add_session(ident_src[0].get_full_subjectid_with_timepoint())
     trg_session_db = db_trg.get_add_session(ident_trg[0].get_full_subjectid_with_timepoint())
