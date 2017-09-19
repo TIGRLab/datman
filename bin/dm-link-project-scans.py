@@ -385,6 +385,21 @@ def link_session_data(source, target, given_tags):
     # Return tags used for linking, in case links file needs to be updated
     return tags
 
+def create_linked_session(src_session, trg_session, tags):
+    """
+    A helper function to allow the main functionality of dm-link-project-scans
+    to be imported elsewhere.
+    """
+    logger.info("Linking the provided source {} and target " \
+            "{}".format(src_session, trg_session))
+    tags = link_session_data(src_session, trg_session, tags)
+
+    src_link_file = get_external_links_csv(src_session)
+    trg_link_file = get_external_links_csv(trg_session)
+
+    for link_file in [src_link_file, trg_link_file]:
+        write_link_file(link_file, src_session, trg_session, tags)
+
 def main():
     global DRYRUN, CONFIG
     arguments    = docopt(__doc__)
@@ -414,15 +429,7 @@ def main():
             link_session_data(line[0], line[1], line[2])
         return
 
-    logger.info("Linking the provided source {} and target " \
-            "{}".format(src_session, trg_session))
-    tags = link_session_data(src_session, trg_session, tags)
-
-    src_link_file = get_external_links_csv(src_session)
-    trg_link_file = get_external_links_csv(trg_session)
-
-    for link_file in [src_link_file, trg_link_file]:
-        write_link_file(link_file, src_session, trg_session, tags)
+    create_linked_session(src_session, trg_session, tags)
 
 if __name__ == '__main__':
     main()

@@ -28,6 +28,7 @@ Options:
 import os
 import sys
 import logging
+import importlib
 
 from datman.docopt import docopt
 import requests
@@ -36,15 +37,17 @@ import pyxnat as xnat
 import datman
 import datman.config, datman.scanid, datman.utils
 
+link_scans = importlib.import_module('dm-link-project-scans')
+
 DRYRUN = False
 
 ## use of stream handler over basic config allows log format to change to more
 ## descriptive format later if needed while also ensure a consistent default
 logger = logging.getLogger(os.path.basename(__file__))
 log_handler = logging.StreamHandler()
+logger.addHandler(log_handler)
 log_handler.setFormatter(logging.Formatter('[%(name)s] %(levelname)s : '
         '%(message)s'))
-logger.addHandler(log_handler)
 
 def main():
     global DRYRUN
@@ -189,12 +192,7 @@ def make_links(record):
         logger.info("Making links from source {} to target {}".format(source,
                 target))
 
-        command = "dm-link-project-scans.py {} {}".format(source, target)
-        return_code, out = datman.utils.run(command)
-        if return_code:
-            logger.error("dm-link-project-scans failed, cannot link source {} "
-                    "to target {}. ".format(source, target))
-            return
+        link_scans.create_linked_session(str(source), str(target), [])
 
 class Record(object):
     def __init__(self, record_dict):
