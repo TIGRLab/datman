@@ -458,17 +458,20 @@ class config(object):
         try:
             default_tag = self.study_config['STUDY_TAG']
         except KeyError:
+            logger.info("No default study tag defined for {}".format(self.study_name))
             default_tag = None
 
         tags = {}
         tags[default_tag] = []
 
         for site, site_config in self.study_config['Sites'].iteritems():
+            # Some sites use both the default and a site_tag so every defined
+            # site should be in the default list (if a default is defined)
+            tags[default_tag].append(site)
+
             try:
                 site_tags = site_config['SITE_TAGS']
             except KeyError:
-                # No tag defined for this site, just apply the default
-                tags[default_tag].append(site)
                 continue
 
             if type(site_tags) is str:
@@ -476,10 +479,6 @@ class config(object):
 
             for tag_name in site_tags:
                 tags.setdefault(tag_name, []).append(site)
-
-        if None in tags and tags[None]:
-            raise ValueError("Site(s) {} do not have a study tag defined."
-                    "".format(", ".join(tags[None])))
 
         return tags
 
