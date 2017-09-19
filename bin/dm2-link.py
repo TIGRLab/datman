@@ -192,7 +192,7 @@ def link_archive(archive_path, dicom_path, scanid_field, config):
         scanid, lookupinfo = scanid
 
     if scanid == '<ignore>':
-        logger.warn('Ignoring {}'.format(archive_path))
+        logger.info('Ignoring {}'.format(archive_path))
         return
 
     # if we have a scan id, then validate any expected DICOM headers,
@@ -212,14 +212,14 @@ def link_archive(archive_path, dicom_path, scanid_field, config):
     try:
         datman.utils.validate_subject_id(scanid, config)
     except RuntimeError as e:
-        logger.error(str(e))
+        logger.error(str(e) + ". Cannot make link for {}".format(archive_path))
         return
 
     # do the linking
     target = os.path.join(dicom_path, scanid)
     target = target + datman.utils.get_extension(archive_path)
     if os.path.exists(target):
-        logger.warn('Target:{} already exists for archive:{}'
+        logger.warn('Target: {} already exists for archive: {}'
                     .format(target, archive_path))
         return
 
