@@ -347,20 +347,21 @@ def link_resources(source_id, target_id):
     target_resources = get_resources_dir(target_id)
     make_link(source_resources, target_resources)
 
-def get_datman_scanid(session_id):
+def get_datman_scanid(session_id, config):
     try:
-        session = dm.scanid.parse(session_id)
-    except dm.scanid.ParseException:
-        logger.error("Invalid session ID given: {}. Exiting".format(session_id))
+        session = datman.utils.validate_subject_id(session_id, config)
+    except RuntimeError as e:
+        logger.error("Invalid session ID given: {}. Exiting".format(str(e)))
         sys.exit(1)
     return session
 
 def link_session_data(source, target, given_tags):
-    source_id = get_datman_scanid(source)
-    target_id = get_datman_scanid(target)
-
     # Must give whole source ID, in case the study portion is 'DTI'
     config = datman.config.config(study=source)
+    config_target = datman.config.config(study=target)
+
+    source_id = get_datman_scanid(source, config)
+    target_id = get_datman_scanid(target, config_target)
 
     if given_tags:
         # Use the supplied list of tags to link

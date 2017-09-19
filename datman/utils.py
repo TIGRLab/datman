@@ -742,8 +742,12 @@ def validate_subject_id(subject_id, config):
     """
     Checks that a given subject id
         a) Matches the datman convention
-        b) Matches a study tag that is defined in the configuration files
+        b) Matches a study tag that is defined in the configuration file for
+           the current study
         c) Matches a site that is defined for the given study tag
+
+    If all validation checks pass, will return a datman scanid instance. This
+    can be ignored if the validation is all that's wanted.
     """
     try:
         scanid = datman.scanid.parse(subject_id)
@@ -762,5 +766,7 @@ def validate_subject_id(subject_id, config):
     if scanid.site not in sites:
         raise RuntimeError("Subject id {} has undefined site {} for study {}".format(
                 subject_id, scanid.site, scanid.study))
+
+    return scanid
 
 # vim: ts=4 sw=4 sts=4:
