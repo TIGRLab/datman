@@ -347,20 +347,21 @@ def link_resources(source_id, target_id):
     target_resources = get_resources_dir(target_id)
     make_link(source_resources, target_resources)
 
-def get_datman_scanid(session_id):
+def get_datman_scanid(session_id, config):
     try:
-        session = dm.scanid.parse(session_id)
-    except dm.scanid.ParseException:
-        logger.error("Invalid session ID given: {}. Exiting".format(session_id))
+        session = datman.utils.validate_subject_id(session_id, config)
+    except RuntimeError as e:
+        logger.error("Invalid session ID given: {}. Exiting".format(str(e)))
         sys.exit(1)
     return session
 
 def link_session_data(source, target, given_tags):
-    source_id = get_datman_scanid(source)
-    target_id = get_datman_scanid(target)
-
     # Must give whole source ID, in case the study portion is 'DTI'
     config = datman.config.config(study=source)
+    config_target = datman.config.config(study=target)
+
+    source_id = get_datman_scanid(source, config)
+    target_id = get_datman_scanid(target, config_target)
 
     if given_tags:
         # Use the supplied list of tags to link
@@ -383,6 +384,21 @@ def link_session_data(source, target, given_tags):
 
     # Return tags used for linking, in case links file needs to be updated
     return tags
+
+def create_linked_session(src_session, trg_session, tags):
+    """
+    A helper function to allow the main functionality of dm-link-project-scans
+    to be imported elsewhere.
+    """
+    logger.info("Linking the provided source {} and target " \
+            "{}".format(src_session, trg_session))
+    tags = link_session_data(src_session, trg_session, tags)
+
+    src_link_file = get_external_links_csv(src_session)
+    trg_link_file = get_external_links_csv(trg_session)
+
+    for link_file in [src_link_file, trg_link_file]:
+        write_link_file(link_file, src_session, trg_session, tags)
 
 def main():
     global DRYRUN, CONFIG
@@ -413,15 +429,7 @@ def main():
             link_session_data(line[0], line[1], line[2])
         return
 
-    logger.info("Linking the provided source {} and target " \
-            "{}".format(src_session, trg_session))
-    tags = link_session_data(src_session, trg_session, tags)
-
-    src_link_file = get_external_links_csv(src_session)
-    trg_link_file = get_external_links_csv(trg_session)
-
-    for link_file in [src_link_file, trg_link_file]:
-        write_link_file(link_file, src_session, trg_session, tags)
+    create_linked_session(src_session, trg_session, tags)
 
 if __name__ == '__main__':
     main()

@@ -175,7 +175,7 @@ def main():
 
     # get the list of xnat projects linked to the datman study
     xnat_projects = cfg.get_xnat_projects(study)
-    sessions = []
+
     if session:
         # if session has been provided on the command line, identify which
         # project it is in
@@ -185,26 +185,14 @@ def main():
             raise e
 
         if not xnat_project:
-            logger.error('Failed to find session:{} in xnat.'
+            logger.error('Failed to find session: {} in xnat.'
                          ' Ensure it is named correctly with timepoint and repeat.'
                          .format(xnat_projects))
             return
 
-        sessions.append((xnat_project, session))
+        sessions = [(xnat_project, session)]
     else:
-        for project in xnat_projects:
-            project_sessions = xnat.get_sessions(project)
-            for session in project_sessions:
-                try:
-                    i = datman.scanid.parse(session['label'])
-                    if not datman.scanid.is_phantom(session['label']) and i.session == '':
-                        # raise an exception if scan is not a phantom and series is missing
-                        raise datman.scanid.ParseException
-                except datman.scanid.ParseException:
-                    logger.error('Invalid session id:{} in project:{}, skipping.'
-                                 .format(session['label'], project))
-                    continue
-                sessions.append((project, session['label']))
+        sessions = collect_sessions(xnat_projects, cfg)
 
     logger.info('Found {} sessions for study: {}'
                 .format(len(sessions), study))
@@ -212,6 +200,27 @@ def main():
     for session in sessions:
         process_session(session)
 
+def collect_sessions(xnat_projects, config):
+    sessions = []
+    for project in xnat_projects:
+        project_sessions = xnat.get_sessions(project)
+        for session in project_sessions:
+            try:
+                sub_id = datman.utils.validate_subject_id(session['label'],
+                        config)
+            except RuntimeError as e:
+                logger.error("Invalid ID {} in project {}. Reason: {}".format(
+                        session['label'], project, str(e)))
+                continue
+
+            if not datman.scanid.is_phantom(session['label']) and sub_id.session == '':
+                logger.error("Invalid ID {} in project {}. Reason: Not a "
+                        "phantom, but missing series number".format(session['label'],
+                        project))
+                continue
+
+            sessions.append((project, session['label']))
+    return sessions
 
 def process_session(session):
     xnat_project = session[0]
@@ -660,7 +669,7 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
         except shutil.Error:
             logger.error('Failed to delete tempdir:{} on system:{}'
                          .format(tempdir, platform.node()))
-                         
+
     # finally delete any extra scans that exist in the dashboard
     if dashboard:
         try:
