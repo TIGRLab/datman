@@ -738,4 +738,35 @@ def check_dependency_configured(program_name, shell_cmd=None, env_vars=None):
     except KeyError:
         raise EnvironmentError(message)
 
+def validate_subject_id(subject_id, config):
+    """
+    Checks that a given subject id
+        a) Matches the datman convention
+        b) Matches a study tag that is defined in the configuration file for
+           the current study
+        c) Matches a site that is defined for the given study tag
+
+    If all validation checks pass, will return a datman scanid instance. This
+    can be ignored if the validation is all that's wanted.
+    """
+    try:
+        scanid = datman.scanid.parse(subject_id)
+    except datman.scanid.ParseException:
+        raise RuntimeError("Subject id {} does not match datman"
+                " convention".format(subject_id))
+
+    valid_tags = config.get_study_tags()
+
+    try:
+        sites = valid_tags[scanid.study]
+    except KeyError:
+        raise RuntimeError("Subject id {} has undefined study code {}".format(
+                subject_id, scanid.study))
+
+    if scanid.site not in sites:
+        raise RuntimeError("Subject id {} has undefined site {} for study {}".format(
+                subject_id, scanid.site, scanid.study))
+
+    return scanid
+
 # vim: ts=4 sw=4 sts=4:

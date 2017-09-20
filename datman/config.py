@@ -87,9 +87,9 @@ class config(object):
         """
         # make the supplied project_name case insensitive
         valid_projects = {k.lower(): k
-                          for k in self.site_config['Projects'].keys()}
+                          for k in self.site_config['Projects']}
 
-        if study_name.lower() in valid_projects.keys():
+        if study_name.lower() in valid_projects:
             study_name = study_name.upper()
         else:
             ## This will raise an exception if given only the 'DTI' id because
@@ -444,6 +444,43 @@ class config(object):
             except KeyError:
                 continue
         return qced_subjects
+
+    def get_study_tags(self):
+        """
+        Returns a dictionary of study tags mapped to the sites defined for
+        that tag.
+
+        If a study has not been set then an exception is raised
+        """
+        if not self.study_config:
+            raise RuntimeError("Study tags cannot be returned, a study hasn't been set")
+
+        try:
+            default_tag = self.study_config['STUDY_TAG']
+        except KeyError:
+            logger.info("No default study tag defined for {}".format(self.study_name))
+            default_tag = None
+
+        tags = {}
+        tags[default_tag] = []
+
+        for site, site_config in self.study_config['Sites'].iteritems():
+            # Some sites use both the default and a site_tag so every defined
+            # site should be in the default list (if a default is defined)
+            tags[default_tag].append(site)
+
+            try:
+                site_tags = site_config['SITE_TAGS']
+            except KeyError:
+                continue
+
+            if type(site_tags) is str:
+                site_tags = [site_tags]
+
+            for tag_name in site_tags:
+                tags.setdefault(tag_name, []).append(site)
+
+        return tags
 
 class ExportInfo(object):
     """

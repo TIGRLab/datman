@@ -77,6 +77,7 @@ import glob
 import pandas as pd
 import datman.config
 import datman.utils
+import datman.scanid
 import logging
 
 logger = logging.getLogger(os.path.basename(__file__))
@@ -166,21 +167,21 @@ def main():
 
     logger.info('Found {} archives'.format(len(archives)))
     for archive in archives:
-        link_archive(archive, dicom_path, scanid_field)
+        link_archive(archive, dicom_path, scanid_field, cfg)
 
 
-def link_archive(archive_path, dicom_path, scanid_field):
-    global already_linked
-    global DRYRUN
-
+def link_archive(archive_path, dicom_path, scanid_field, config):
     if not os.path.isfile(archive_path):
         logger.error('Archive:{} not found'.format(archive_path))
         return
 
-    if os.path.realpath(archive_path) in already_linked.keys():
-        logger.info("{} already linked at {}"
-                    .format(archive_path,
-                            already_linked[os.path.realpath(archive_path)]))
+    try:
+        linked_path = already_linked[os.path.realpath(archive_path)]
+    except KeyError:
+        linked_path = ""
+
+    if linked_path:
+        logger.info("{} already linked at {}".format(archive_path, linked_path))
         return
 
     scanid = get_scanid_from_lookup_table(archive_path)
@@ -191,7 +192,7 @@ def link_archive(archive_path, dicom_path, scanid_field):
         scanid, lookupinfo = scanid
 
     if scanid == '<ignore>':
-        logger.warn('Ignoring {}'.format(archive_path))
+        logger.info('Ignoring {}'.format(archive_path))
         return
 
     # if we have a scan id, then validate any expected DICOM headers,
@@ -208,11 +209,17 @@ def link_archive(archive_path, dicom_path, scanid_field):
         logger.error('Scanid not found for archive:{}'.format(archive_path))
         return
 
+    try:
+        datman.utils.validate_subject_id(scanid, config)
+    except RuntimeError as e:
+        logger.error(str(e) + ". Cannot make link for {}".format(archive_path))
+        return
+
     # do the linking
     target = os.path.join(dicom_path, scanid)
     target = target + datman.utils.get_extension(archive_path)
     if os.path.exists(target):
-        logger.warn('Target:{} already exists for archive:{}'
+        logger.warn('Target: {} already exists for archive: {}'
                     .format(target, archive_path))
         return
 
@@ -282,9 +289,6 @@ def get_scanid_from_header(archive_path, scanid_field):
                     .format(archive_path, scanid, scanid_field))
         return None
 
-
-
-
 def validate_headers(archive_path, lookupinfo, scanid_field):
     """
     Validates an exam archive against the lookup table
@@ -314,7 +318,6 @@ def validate_headers(archive_path, lookupinfo, scanid_field):
                          .format(archive_path, f, actual, expected))
             return False
     return True
-
 
 if __name__ == '__main__':
     main()
