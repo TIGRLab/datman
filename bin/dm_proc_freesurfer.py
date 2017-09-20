@@ -60,8 +60,8 @@ def submit_job(cmd, i, walltime="24:00:00"):
         fid.write('#!/bin/bash\n')
         fid.write(cmd)
 
-    rtn, out = utils.run("qbatch -N {} --logdir {} --walltime {} {}".format(
-            job_name, LOG_DIR,  walltime, job_file))
+    rtn, out = utils.run("qsub -V -q main.q -N {} {}".format(
+            job_name, job_file))
 
     if rtn:
         logger.error("Job submission failed.")
