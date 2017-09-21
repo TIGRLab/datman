@@ -300,6 +300,9 @@ class dashboard(object):
         session = self.get_add_session(session_name, create=False)
         try:
             session.delete()
+        except AttributeError:
+            logger.error("Cannot delete session {}, does not exist.".format(session_name))
+            return False
         except Exception as e:
             logger.error('An error occured deleting session:{} from the database'
                          ' Error:{}'
