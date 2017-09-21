@@ -298,9 +298,8 @@ class dashboard(object):
 
     def delete_session(self, session_name):
         session = self.get_add_session(session_name, create=False)
-        db.session.delete(session)
         try:
-            db.session.commit()
+            session.delete()
         except Exception as e:
             logger.error('An error occured deleting session:{} from the database'
                          ' Error:{}'
