@@ -187,7 +187,7 @@ def main():
         if not xnat_project:
             logger.error('Failed to find session: {} in xnat.'
                          ' Ensure it is named correctly with timepoint and repeat.'
-                         .format(xnat_projects))
+                         .format(session))
             return
 
         sessions = [(xnat_project, session)]
