@@ -525,19 +525,6 @@ def get_resource(xnat_project, xnat_session, xnat_experiment,
         logger.error('Failed copying resource:{} to target:{}.'
                      .format(source, target_path))
 
-    # # extract the files from the archive, ignoring the filestructure
-    # try:
-    #     with zipfile.ZipFile(archive[1]) as zip_file:
-    #         member = zip_file.namelist()[0]
-    #         source = zip_file.open(member)
-    #         if not DRYRUN:
-    #             with open(target_path, 'wb') as target:
-    #                 shutil.copyfileobj(source, target)
-    #         target.close()
-    # except:
-    #     logger.error('Failed extracting resources archive:{}'
-    #                  .format(xnat_session), exc_info=True)
-
     # finally delete the temporary archive
     try:
         os.remove(archive[1])
@@ -632,43 +619,37 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
             continue
 
         logger.debug('Getting scan from xnat')
-        # scan hasn't been completly processed, get it from xnat
-        tempdir, src_dir = get_dicom_archive_from_xnat(xnat_project,
-                                                       session_label,
-                                                       experiment_label,
-                                                       series_id)
+        # scan hasn't been completely processed, get it from xnat
+        with datman.utils.make_temp_directory(prefix='dm2_xnat_extract_') as temp_dir:
+            src_dir = get_dicom_archive_from_xnat(xnat_project, session_label,
+                    experiment_label, series_id, temp_dir)
 
-        if not src_dir:
-            logger.error('Failed getting series:{}, session:{} from xnat'
-                         .format(series_id, session_label))
-            continue
+            if not src_dir:
+                logger.error('Failed getting series:{}, session:{} from xnat'
+                             .format(series_id, session_label))
+                continue
 
-        try:
-            for export_format in export_formats.keys():
-                target_base_dir = cfg.get_path(export_format)
-                target_dir = os.path.join(target_base_dir,
-                                          ident.get_full_subjectid_with_timepoint())
-                try:
-                    target_dir = datman.utils.define_folder(target_dir)
-                except OSError as e:
-                    logger.error('Failed creating target folder:{}'
-                                 .format(target_dir))
-                    continue
+            try:
+                for export_format in export_formats.keys():
+                    target_base_dir = cfg.get_path(export_format)
+                    target_dir = os.path.join(target_base_dir,
+                                              ident.get_full_subjectid_with_timepoint())
+                    try:
+                        target_dir = datman.utils.define_folder(target_dir)
+                    except OSError as e:
+                        logger.error('Failed creating target folder:{}'
+                                     .format(target_dir))
+                        continue
 
-                exporter = xporters[export_format]
-                logger.info('Exporting scan {} to format {}'
-                            .format(file_stem, export_format))
-                exporter(src_dir, target_dir, file_stem)
-        except:
-            logger.error('An error happened exporting {} from scan:{} in session:{}'
-                         .format(export_format, series_id, session_label), exc_info=True)
+                    exporter = xporters[export_format]
+                    logger.info('Exporting scan {} to format {}'
+                                .format(file_stem, export_format))
+                    exporter(src_dir, target_dir, file_stem)
+            except:
+                logger.error('An error happened exporting {} from scan:{} in session:{}'
+                             .format(export_format, series_id, session_label), exc_info=True)
 
         logger.debug('Completed exports')
-        try:
-            shutil.rmtree(tempdir)
-        except shutil.Error:
-            logger.error('Failed to delete tempdir:{} on system:{}'
-                         .format(tempdir, platform.node()))
 
     # finally delete any extra scans that exist in the dashboard
     if dashboard:
@@ -680,14 +661,12 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
 
 
 def get_dicom_archive_from_xnat(xnat_project, session_label, experiment_label,
-                                series):
+                                series, tempdir):
     """Downloads and extracts a dicom archive from xnat to a local temp folder
     Returns the path to the tempdir (for later cleanup) as well as the
     path to the .dcm files inside the tempdir
     """
-    # going to create a local directory and make a copy of the
-    # dicom files there
-    tempdir = tempfile.mkdtemp(prefix='dm2_xnat_extract_')
+    # make a copy of the dicom files in a local directory
     logger.debug('Downloading dicoms for:{}, series:{}.'
                  .format(session_label, series))
     try:
@@ -698,7 +677,7 @@ def get_dicom_archive_from_xnat(xnat_project, session_label, experiment_label,
     except Exception as e:
         logger.error('Failed to download dicom archive for:{}, series:{}'
                      .format(session_label, series))
-        return None, None
+        return None
 
     logger.debug('Unpacking archive')
 
@@ -709,7 +688,7 @@ def get_dicom_archive_from_xnat(xnat_project, session_label, experiment_label,
         logger.error('An error occurred unpacking dicom archive for:{}'
                      ' skipping'.format(session_label))
         os.remove(dicom_archive[1])
-        return None, None
+        return None
 
     logger.debug('Deleting archive file')
     os.remove(dicom_archive[1])
@@ -726,10 +705,8 @@ def get_dicom_archive_from_xnat(xnat_project, session_label, experiment_label,
     except IndexError:
         logger.warning('There were no valid dicom files in xnat session:{}, series:{}'
                        .format(session_label, series))
-        shutil.rmtree(tempdir)
-        return None, None
-    return(tempdir, base_dir)
-
+        return None
+    return base_dir
 
 def is_valid_dicom(filename):
     try:
@@ -827,18 +804,20 @@ def export_nii_command(seriesdir, outputdir, stem):
     logger.debug("Exporting series {} to {}".format(seriesdir, outputfile))
 
     # convert into tempdir
-    tmpdir = tempfile.mkdtemp(prefix="dm2_xnat_extract_")
-    datman.utils.run('dcm2niix -z y -b y -o {} {}'
-                     .format(tmpdir, seriesdir), DRYRUN)
+    with datman.utils.make_temp_directory(prefix="dm2_xnat_extract_") as tmpdir:
+        datman.utils.run('dcm2niix -z y -b y -o {} {}'
+                         .format(tmpdir, seriesdir), DRYRUN)
 
-    # move nii and accompanying files (BIDS, dirs, etc) from tempdir/ to nii/
-    for f in glob.glob("{}/*".format(tmpdir)):
-        bn = os.path.basename(f)
-        ext = datman.utils.get_extension(f)
-        datman.utils.run("mv {} {}/{}{}"
-                             .format(f, outputdir, stem, ext), DRYRUN)
-    shutil.rmtree(tmpdir)
-
+        # move nii and accompanying files (BIDS, dirs, etc) from tempdir/ to nii/
+        for f in glob.glob("{}/*".format(tmpdir)):
+            bn = os.path.basename(f)
+            ext = datman.utils.get_extension(f)
+            return_code, _ = datman.utils.run("mv {} {}/{}{}"
+                                 .format(f, outputdir, stem, ext), DRYRUN)
+            if return_code:
+                logger.error("Moving dcm2niix output {} to {} has failed.".format(
+                        f, outputdir))
+                continue
 
 def export_nrrd_command(seriesdir, outputdir, stem):
     """

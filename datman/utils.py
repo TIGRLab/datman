@@ -492,6 +492,8 @@ def _escape_shell_chars(arg):
     """
     arg = arg.replace('(', '\\(')
     arg = arg.replace(';', '\\;')
+    arg = arg.replace(')', '\\)')
+
     return(arg)
 
 
