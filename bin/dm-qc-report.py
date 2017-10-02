@@ -417,11 +417,45 @@ def write_report_body(report, expected_files, subject, header_diffs, handlers):
 
         add_header_qc(series, report, header_diffs)
 
-        try:
-            handlers[series.tag](series.path, subject.qc_path, report)
-        except KeyError:
-            raise KeyError('series tag {} not defined in handlers:\n{}'.format(series.tag, handlers))
-        report.write('<br>')
+        # This is to deal with the fact that PDT2s are split and both images
+        # need to be displayed
+        new_series = get_series_to_add(series, subject)
+
+        for series in new_series:
+            try:
+                handlers[series.tag](series.path, subject.qc_path, report)
+            except KeyError:
+                raise KeyError('series tag {} not defined in handlers:\n{}'.format(
+                        series.tag, handlers))
+            report.write('<br>')
+
+def get_series_to_add(series, subject):
+    """
+    Returns the original series in a list if it's not a PDT2. If it is a PDT2,
+    finds the split T2 and PD series and returns those in a list.
+    """
+    if series.tag != 'PDT2':
+        return [series]
+
+    try:
+        t2 = get_split_image(subject, series.series_num, 'T2')
+        pd = get_split_image(subject, series.series_num, 'PD')
+    except RuntimeError as e:
+        logger.error("Can't add PDT2 {} to QC page. Reason: {}".format(
+                series.path, e.message))
+        return []
+
+    return [pd, t2]
+
+def get_split_image(subject, num, tag):
+    image = None
+    for series in subject.get_tagged_nii(tag):
+        if series.series_num != num:
+            continue
+        image = series
+    if not image:
+        raise RuntimeError("No file found with tag {}".format(tag))
+    return image
 
 def find_all_tech_notes(path):
     """
@@ -657,7 +691,7 @@ def find_expected_files(subject, config):
             expected_files.loc[idx] = [tag, '', '', notes,
                     expected_positions[tag]]
             idx += 1
-    expected_files = expected_files.sort('Sequence')
+    expected_files = expected_files.sort_values('Sequence')
     return(expected_files)
 
 def get_standards(standard_dir, site):
