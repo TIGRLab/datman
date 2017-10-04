@@ -169,5 +169,4 @@ def check_exists_isnewer(sftp, filename, target):
     return False
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
     main()
