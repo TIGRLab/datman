@@ -88,8 +88,7 @@ def process_nrrd(src_dir, dst_dir, protocol_dir, log_dir, nrrd_file):
     # expected name for the output file
     out_file = os.path.join(dst_dir, scan + '_QCed' + ext)
     if os.path.isfile(out_file):
-        logger.info('File:{} already processed, skipping.'
-                    .format(nrrd_file[0]))
+        logger.info('File:{} already processed, skipping.'.format(nrrd_file[0]))
         return
 
     protocol_file = 'dtiprep_protocol_' + nrrd_file[1] + '.xml'
@@ -99,10 +98,28 @@ def process_nrrd(src_dir, dst_dir, protocol_dir, log_dir, nrrd_file):
         protocol_file = 'dtiprep_protocol.xml'
 
     if not os.path.isfile(os.path.join(protocol_dir, protocol_file)):
-        logger.error('Protocol file not found for tag:{}. A default protocol'
-                     ' dtiprep_protocol.xml can be used.'
-                     .format(nrrd_file[1]))
+        logger.error('Protocol file not found for tag:{}. A default protocol dtiprep_protocol.xml can be used.'.format(
+            nrrd_file[1]))
     make_job(src_dir, dst_dir, protocol_dir, log_dir, scan, protocol_file)
+
+
+def convert_nii(dst_dir, log_dir):
+    """
+    Inspects output directory for nrrds, and converts them to nifti for
+    downstream pipelines.
+    """
+    for nrrd_file in filter(lambda x: '.nrrd' in x, os.listdir(dst_dir)):
+        file_stem = os.path.splitext(nrrd_file)[0]
+        nii_file = file_stem + '.nii.gz'
+        bvec_file = file_stem + '.bvec'
+        bval_file = file_stem + '.bval'
+
+        if nii_file not in listdir(dst_dir):
+            logger.info('converting {} to {}'.format(nrrd, nii))
+            rtn, msg = datman.utils.run('DWIConvert --inputVolume {d}/{nrrd} --conversionMode NrrdToFSL --outputVolume {d}/{nii} --outputBVectors {d}/{bvec} --outputBValues {d}{bval}'.format(
+                d=dst_dir, nrrd=nrrd_file, nii=nii_file, bvec=bvec_file, bval=bval_file))
+            if rtn != 0:
+                logger.error('File:{} failed to convert to NII.GZ\n{}'.format(nrrd, msg))
 
 
 def process_session(src_dir, out_dir, protocol_dir, log_dir, session, **kwargs):
@@ -116,7 +133,7 @@ def process_session(src_dir, out_dir, protocol_dir, log_dir, session, **kwargs):
     if not tags:
         tags = ['DTI']
 
-    # Who knew, not all nrrd files are DTI's
+    # filter for tags
     nrrd_dti = []
     for f in nrrds:
         try:
@@ -136,12 +153,15 @@ def process_session(src_dir, out_dir, protocol_dir, log_dir, session, **kwargs):
         try:
             os.mkdir(out_dir)
         except OSError:
-            logger.error('Failed to create output directory:{}'
-                         .format(out_dir))
+            logger.error('Failed to create output directory:{}'.format(out_dir))
             return
 
+    # dtiprep on nrrd files
     for nrrd in nrrd_dti:
         process_nrrd(src_dir, out_dir, protocol_dir, log_dir, nrrd)
+
+    # convert output nrrd files to nifti
+    convert_nii(out_dir, log_dir)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("Run DTIPrep on a DTI File")
@@ -149,12 +169,9 @@ if __name__ == '__main__':
     parser.add_argument("--session", dest="session", help="Session identifier")
     parser.add_argument("--outDir", dest="outDir", help="output directory")
     parser.add_argument("--logDir", dest="logDir", help="log directory")
-    parser.add_argument("--tag",
-                        dest="tags",
-                        help="Tag to process,"
-                        " --tag can be specified more than once."
-                        "Defaults to all tags containing 'DTI'",
-                        action="append")
+    parser.add_argument("--tag", dest="tags",
+        help="Tag to process, --tag can be specified more than once. Defaults to all tags containing 'DTI'",
+        action="append")
     parser.add_argument("--quiet", help="Minimal logging", action="store_true")
     parser.add_argument("--verbose", help="Maximal logging", action="store_true")
     args = parser.parse_args()
@@ -166,6 +183,7 @@ if __name__ == '__main__':
 
     cfg = datman.config.config(study=args.study)
 
+    nii_path = cfg.get_path('nii')
     nrrd_path = cfg.get_path('nrrd')
     meta_path = cfg.get_path('meta')
 
@@ -188,24 +206,17 @@ if __name__ == '__main__':
         try:
             os.mkdir(args.logDir)
         except OSError:
-            logger.error('Faied creating log directory"{}'.format(args.logDir))
+            logger.error('Failed creating log directory"{}'.format(args.logDir))
 
     if not os.path.isdir(nrrd_path):
         logger.error("Src directory:{} not found".format(nrrd_path))
         sys.exit(1)
 
-    #protocol_file = os.path.join(meta_path, 'dtiprep_protocol.xml')
-
-    #if not os.path.isfile(protocol_file):
-    #    logger.error("Protocol xml file :{} not found".format(protocol_file))
-    #    sys.exit(1)
-
     if not args.session:
-        sessions = [d for d
-                    in os.listdir(nrrd_path)
-                    if os.path.isdir(os.path.join(nrrd_path, d))]
+        sessions = [d for d in os.listdir(nrrd_path) if os.path.isdir(os.path.join(nrrd_path, d))]
     else:
         sessions = [args.session]
 
     for session in sessions:
         process_session(nrrd_path, args.outDir, meta_path, args.logDir, session, tags=args.tags)
+
