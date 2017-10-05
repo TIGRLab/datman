@@ -25,19 +25,21 @@ output T2 file has the tag "PD".
 
 The PD volume is the volume with a higher mean intensity.
 """
-from datman.docopt import docopt
-import numpy as np
-import nibabel as nib
-import datman.config
-import datman.scanid
-import datman.utils
+import logging
+import os
+import sys
 import tempfile
 import shutil
 import glob
-import os.path
-import logging
-import sys
 import platform
+
+import numpy as np
+import nibabel as nib
+
+from datman.docopt import docopt
+import datman.config
+import datman.scanid
+import datman.utils
 
 logger = logging.getLogger(__file__)
 cfg = None
@@ -111,7 +113,7 @@ def add_session_PDT2s(files, images, base_dir):
                 if f_shape[3] >= 2:
                     images.append(file_path)
             except:
-                pass
+                link_T2(file_path)
 
 def split(image):
 
@@ -168,6 +170,17 @@ def split(image):
             shutil.move(pd_tmp, pd_path)
         if not os.path.exists(t2_path):
             shutil.move(t2_tmp, t2_path)
+
+def link_T2(pdt2_path):
+    """
+    This makes a link to a PDT2 file with the 'T2' tag for PDT2s that cant
+    actually be split. This makes it explicit that the PDT2 only contains a T2
+    series (despite being labeled at PDT2), and makes sure it shows up in the
+    papaya viewer on the dashboard.
+    """
+    pdt2_file = os.path.basename(pdt2_path)
+    t2_path = pdt2_path.replace('_PDT2_', '_T2_')
+    os.symlink(pdt2_file, t2_path)
 
 if __name__ == "__main__":
     main()
