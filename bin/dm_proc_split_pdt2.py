@@ -180,7 +180,10 @@ def link_T2(pdt2_path):
     """
     pdt2_file = os.path.basename(pdt2_path)
     t2_path = pdt2_path.replace('_PDT2_', '_T2_')
-    os.symlink(pdt2_file, t2_path)
+    try:
+        os.symlink(pdt2_file, t2_path)
+    except OSError:
+        logger.info("Link {} already exists")
 
 if __name__ == "__main__":
     main()
