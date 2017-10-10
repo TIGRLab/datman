@@ -69,7 +69,7 @@ def run_all(nrrd_dir, config, study):
     tags = config.study_config['unring']['tags']
 
     for subject in subjects:
-        output_dir = utils.define_folder(os.path.join(unring_dir, subject)
+        output_dir = utils.define_folder(os.path.join(unring_dir, subject))
         inputs = os.listdir(os.path.join(nrrd_dir, subject))
         inputs = select_inputs(inputs, tags) # selects inputs with matching tag
 
