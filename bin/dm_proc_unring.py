@@ -63,7 +63,7 @@ def outputs_exist(output_dir, input_file):
 def run_all(nrrd_dir, config, study):
     """Finds all non-phantom input nrrds and run unring.py in serial."""
     study_base = config.get_study_base(study)
-    subjects = os.listdir(study_base)
+    subjects = os.listdir(nrrd_dir)
     subjects = filter(lambda x: '_PHA_' not in x, subjects)
     unring_dir = utils.define_folder(os.path.join(study_base, config.site_config['paths']['unring']))
     tags = config.study_config['unring']['tags']
@@ -84,11 +84,13 @@ def run_all(nrrd_dir, config, study):
             if os.path.isfile(error_log):
                 os.remove(error_log)
 
-            cmd = 'unring.py {} {} -v'.format(input_file, os.path.join(output_dir, input_file))
+            output_fname = os.path.join(output_dir, input_file)
+            input_fname = os.path.join(nrrd_dir, subject, input_file)
+            cmd = 'unring.py {} {} -v'.format(input_fname, output_fname)
             logger.debug('running {}'.format(cmd))
-            rtn, out = utils.run(command)
+            rtn, out = utils.run(cmd)
             if rtn:
-                error_message = "unring.py failed: {}\n{}".format(command, out)
+                error_message = "unring.py failed: {}\n{}".format(cmd, out)
                 logger.info(error_message)
                 with open(error_log, 'wb') as f:
                     f.write('{}\n{}'.format(error_message, NODE))
@@ -145,7 +147,7 @@ def main():
             debugopt = ''
 
         cmd = 'python {} {} --batch {}'.format(__file__, study, debugopt)
-        jobname = 'dm_unring_{}'.format(i, time.strftime("%Y%m%d-%H%M%S"))
+        jobname = 'dm_unring_{}'.format(time.strftime("%Y%m%d-%H%M%S"))
         jobfile = '/tmp/{}'.format(jobname)
         logfile = '/tmp/{}.log'.format(jobname)
         errfile = '/tmp/{}.err'.format(jobname)
