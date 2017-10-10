@@ -23,15 +23,10 @@ DEPENDENCIES
 """
 
 from datman.docopt import docopt
-import datman.scanid as sid
 import datman.utils as utils
 import datman.config as cfg
-import yaml
 import logging
 import os, sys
-import glob
-import shutil
-import tempfile
 import time
 
 logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
