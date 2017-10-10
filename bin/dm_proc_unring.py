@@ -23,15 +23,10 @@ DEPENDENCIES
 """
 
 from datman.docopt import docopt
-import datman.scanid as sid
 import datman.utils as utils
 import datman.config as cfg
-import yaml
 import logging
 import os, sys
-import glob
-import shutil
-import tempfile
 import time
 
 logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
@@ -59,15 +54,14 @@ def outputs_exist(output_dir, input_file):
     outputs = os.listdir(output_dir)
 
     if input_file in outputs:
+        logger.debug('output {} found'.format(input_file))
         return True
     else:
         return False
 
 
 def run_all(nrrd_dir, config, study):
-    """
-    Finds all non-phantom input nrrds and run unring.py in serial.
-    """
+    """Finds all non-phantom input nrrds and run unring.py in serial."""
     study_base = config.get_study_base(study)
     subjects = os.listdir(study_base)
     subjects = filter(lambda x: '_PHA_' not in x, subjects)
@@ -91,10 +85,11 @@ def run_all(nrrd_dir, config, study):
                 os.remove(error_log)
 
             cmd = 'unring.py {} {} -v'.format(input_file, os.path.join(output_dir, input_file))
+            logger.debug('running {}'.format(cmd))
             rtn, out = utils.run(command)
             if rtn:
                 error_message = "unring.py failed: {}\n{}".format(command, out)
-                logger.debug(error_message)
+                logger.info(error_message)
                 with open(error_log, 'wb') as f:
                     f.write('{}\n{}'.format(error_message, NODE))
                 continue
@@ -166,6 +161,7 @@ def main():
                 logger.error("Job submission failed. Output follows.")
                 logger.error("stdout: {}".format(out))
                 sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
