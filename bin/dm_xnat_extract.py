@@ -474,11 +474,6 @@ def backup_resource(base_path, resource_file):
                      .format(resource_file, target_dir))
         raise e
 
-def get_new_backup_name(name):
-    # renames a file with _copy
-
-    return(fname + ext)
-
 def check_files_are_identical(files):
     """Checks if files are identical
     Expects an iterable list of filenames"""

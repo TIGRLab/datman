@@ -223,9 +223,6 @@ def get_resource_ids(xnat_experiment_entry):
         except KeyError:
             resource_ids['No Label'] = resource['data_fields']['xnat_abstractresource_id']
 
-    # Only one 'resource' entry is expected if resources are present.
-    # resource_entry = xnat_resources[0][0]
-    # resource_id = resource_entry['data_fields']['xnat_abstractresource_id']
     return resource_ids
 
 
@@ -244,7 +241,6 @@ def get_xnat_resources(xnat_experiment_entry, ident):
         if resource_list:
             for item in resource_list:
                 xnat_resources.append(item['URI'])
-    #xnat_resources = [item['URI'] for item in resource_list]
     return xnat_resources
 
 
@@ -252,13 +248,6 @@ def resource_data_exists(xnat_experiment_entry, ident, archive):
     xnat_resources = get_xnat_resources(xnat_experiment_entry, ident)
     with zipfile.ZipFile(archive) as zf:
         local_resources = get_resources(zf)
-
-    # split off the first part of the path which is the zipfile named
-    # this is removed on upload
-    ### TEST
-    #for i, v in enumerate(local_resources):
-    #    path_bits = datman.utils.split_path(v)
-    #    local_resources[i] = os.path.join(*path_bits[1::])
 
     # paths in xnat are url encoded. Need to fix local paths to match
 
@@ -432,11 +421,6 @@ def upload_non_dicom_data(archive, xnat_project, scanid):
         for f in resource_files:
             # convert to HTTP language
             try:
-                # split off the first part of the path which is the zipfile
-                # named
-                #### TEST
-                #path_bits = datman.utils.split_path(f)
-                #new_name = os.path.join(*path_bits[1::])
                 new_name = f
                 # By default files are placed in a MISC subfolder
                 # if this is changed it may require changes to
