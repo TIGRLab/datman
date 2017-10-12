@@ -26,25 +26,6 @@ import datman.scanid as scanid
 
 logger = logging.getLogger(__name__)
 
-SERIES_TAGS_MAP = {
-"T1"         :  "T1",
-"T2"         :  "T2",
-"DTI"        :  "DTI",
-"Back"       :  "NBACK",
-"Rest"       :  "REST",
-"FLAIR"      :  "FLAIR",
-"Imitat"     :  "IMI",
-"Observ"     :  "OBS",
-"EA.Task"    :  "EMP",
-"MRS.sgACC"  :  "MRS-sgACC",
-"MRS.DLPFC"  :  "MRS-DLPFC",
-"TE6.5"      :  "TE6.5",
-"TE8.5"      :  "TE8.5",
-"Frac"       :  "ANI",
-"Cal"        :  "CAL",
-"Loc"        :  "LOC",
-}
-
 def check_checklist(session_name, study=None):
     """Reads the checklist identified from the session_name
     If there is an entry returns the comment, otherwise
@@ -146,7 +127,7 @@ def script_path():
     """
     return os.path.abspath(os.path.dirname(sys.argv[0]))
 
-def guess_tag(description, tagmap = SERIES_TAGS_MAP):
+def guess_tag(description, tagmap):
     """
     Given a series description return a list of series tags this might be.
 
