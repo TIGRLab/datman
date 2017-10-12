@@ -482,17 +482,62 @@ class config(object):
 
         return tags
 
-class ExportInfo(object):
-    """
-    Simplifies access to an export info dictionary
-    """
-    def __init__(self, export_dict):
-        self.export_info = export_dict
-        self.tags = export_dict.keys()
+class TagInfo(object):
 
-    def get_tag_info(self, tag):
+    def __init__(self, export_settings, site_settings=None):
+        if not site_settings:
+            self.tags = export_settings
+            return
+        self.tags = self._merge_tags(export_settings, site_settings)
+
+    def _merge_tags(self, export, site):
+        tags = {}
+        for entry in site:
+            new_entry = {}
+            site_info = site[entry]
+            try:
+                export_info = export[entry]
+            except KeyError:
+                logger.info("{} not defined in ExportSettings.".format(entry))
+                export_info = {}
+            # Update with export info first, so that site_info will override it
+            # if there's a key conflict
+            new_entry.update(export_info)
+            new_entry.update(site_info)
+            tags[entry] = new_entry
+        return tags
+
+    def get_series_map(self):
+        """
+        Maps the 'pattern' fields onto the expected tags. If multiple patterns
+        exist, they're joined with '|'.
+        """
+        series_map = {}
+        for tag in self:
+            try:
+                pattern = self.get(tag, 'Pattern')
+            except KeyError:
+                raise KeyError("Cant retrieve 'Pattern' from config. Did you "
+                        "specify a site?")
+            if type(pattern) is list:
+                pattern = "|".join(pattern)
+            series_map[pattern] = tag
+        return series_map
+
+    def get(self, tag, field=None):
         try:
-            tag_info = self.export_info[tag]
+            tag_entry = self.tags[tag]
         except KeyError:
-            tag_info = {}
-        return tag_info
+            raise KeyError("Series tag {} not defined".format(tag))
+
+        if field:
+            try:
+                field_val = tag_entry[field]
+            except KeyError:
+                raise KeyError("Tag {} does not define {}".format(tag, field))
+            return field_val
+
+        return tag_entry
+
+    def __iter__(self):
+        return self.tags.__iter__()
