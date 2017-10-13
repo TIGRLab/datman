@@ -545,7 +545,8 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
     }
     ident = datman.scanid.parse(session_label)
     # load the export info from the site config files
-    exportinfo = cfg.get_exportinfo(site=ident.site)
+    tags = cfg.get_tags(site=ident.site)
+    exportinfo = tags.series_map
 
     if not exportinfo:
         logger.error('Failed to get exportinfo for study:{} at site:{}'

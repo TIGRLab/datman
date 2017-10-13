@@ -368,8 +368,7 @@ def link_session_data(source, target, given_tags):
          tags = [tag.upper() for tag in given_tags.split(',')]
     else:
         # Use the list of tags from the source site's export info
-        source_export_info = config.get_export_info_object(source_id.site)
-        tags = source_export_info.tags
+        tags = config.get_tags(source_id.site).keys()
 
     logger.debug("Tags set to {}".format(tags))
 

@@ -633,13 +633,12 @@ def initialize_counts(export_info):
 
     for tag in export_info.tags:
         tag_counts[tag] = 0
-        tag_info = export_info.get_tag_info(tag)
-
         # If ordering has been imposed on the scans get it for later sorting.
-        if 'Order' in tag_info.keys():
-            expected_position[tag] = min([tag_info['Order']])
-        else:
-            expected_position[tag] = 0
+        try:
+            ordering = export_info.get(tag, 'Order')
+        except KeyError:
+            ordering = [0]
+        expected_position[tag] = min(ordering)
 
     return tag_counts, expected_position
 
@@ -648,7 +647,7 @@ def find_expected_files(subject, config):
     Reads the export_info from the config for this site and compares it to the
     contents of the nii folder. Data written to a pandas dataframe.
     """
-    export_info = config.get_export_info_object(subject.site)
+    export_info = config.get_tags(subject.site)
     sorted_niftis = sorted(subject.niftis, key=lambda item: item.series_num)
 
     tag_counts, expected_positions = initialize_counts(export_info)
@@ -663,9 +662,8 @@ def find_expected_files(subject, config):
         tag = nifti.tag
 
         # only check data that is defined in the config file
-        if tag in export_info.tags:
-            tag_info = export_info.get_tag_info(tag)
-            expected_count = tag_info['Count']
+        if tag in export_info:
+            expected_count = export_info.get(tag, 'Count')
         else:
             continue
 
@@ -683,8 +681,8 @@ def find_expected_files(subject, config):
         idx += 1
 
     # note any missing data
-    for tag in export_info.tags:
-        expected_count = export_info.get_tag_info(tag)['Count']
+    for tag in export_info:
+        expected_count = export_info.get(tag, 'Count')
         if tag_counts[tag] < expected_count:
             n_missing = expected_count - tag_counts[tag]
             notes = 'missing({})'.format(n_missing)

@@ -129,7 +129,8 @@ def process_session(cfg, db, dir_nii, dir_res, session):
     # end of Checks
 
     # get the regex expressions from the config file
-    export_info = cfg.get_exportinfo(site=ident.site)
+    tags = cfg.get_tags(site=ident.site)
+    export_info = tags.series_map
     # Doing it this way will enable matching multiple types of SPRL with
     # different regexs
     sprls = [(i, v) for i, v in export_info.iteritems() if 'SPRL' in v]

@@ -503,6 +503,9 @@ class TagInfo(object):
             series_map[pattern] = tag
         return series_map
 
+    def keys(self):
+        return self.tags.keys()
+
     def get(self, tag, field=None):
         try:
             tag_entry = self.tags[tag]
@@ -520,3 +523,6 @@ class TagInfo(object):
 
     def __iter__(self):
         return self.tags.__iter__()
+
+    def __repr__(self):
+        return str(self.tags)
