@@ -304,37 +304,36 @@ class config(object):
             return(os.path.join(self.get_study_base(),
                                 self.site_config['paths'][path_type]))
 
-    def get_exportinfo(self, site, study=None):
+    def get_tags(self, site=None):
         """
-        Takes the dictionary structure from project_settings.yaml and returns a
-        pattern:tag dictionary.
+        Returns a TagInfo instance.
 
-        If multiple patterns are specified in the configuration file, these are
-        joined with an '|' (OR) symbol.
+        If you get the tags without a study set or without specifying a site
+        you get the configuration of all defined tags from 'ExportSettings' in
+        the system config file.
+
+        If you specify a site, you get the configuration for that site merged
+        with the configuration of 'ExportSettings' for the tags matching that
+        site. If there's a key conflict between 'ExportInfo' (study config) and
+        'ExportSettings' (system config) the values in 'ExportInfo' will override
+        the values in 'ExportSettings'.
         """
-        if study:
-            self.set_study(study)
-        if not self.study_config:
-            logger.error('Study not set')
+        if site:
+            if not self.study_config:
+                logger.error("Cannot return site tags, study not set.")
+                raise KeyError
+            export_info = self.get_key(['ExportInfo'], site=site)
+        else:
+            export_info = {}
+
+        try:
+            export_settings = self.site_config['ExportSettings']
+        except KeyError:
+            logger.error("Tag dictionary 'ExportSettings' not defined in main "
+                    "configuration file.")
             raise KeyError
 
-        exportinfo = self.get_key(['ExportInfo'], site=site)
-        if not exportinfo:
-            return
-
-        tags = exportinfo.keys()
-        patterns = [tagtype["Pattern"] for tagtype in exportinfo.values()]
-
-        regex = []
-        for pattern in patterns:
-            if type(pattern) == list:
-                regex.append(("|").join(pattern))
-            else:
-                regex.append(pattern)
-
-        tagmap = dict(zip(regex, tags))
-
-        return(tagmap)
+        return TagInfo(export_settings, export_info)
 
     def get_xnat_projects(self, study=None):
         if study:
@@ -347,27 +346,6 @@ class config(object):
                          for site in self.get_key(['Sites']).values()]
 
         return(xnat_projects)
-
-    def get_export_info_object(self, site, study=None):
-        """
-        Takes the dictionary structure from project_settings.yaml and returns a
-        pattern:tag dictionary.
-
-        If multiple patterns are specified in the configuration file, these are
-        joined with an '|' (OR) symbol.
-        """
-        if study:
-            self.set_study(study)
-        if not self.study_config:
-            logger.error('Study not set')
-            raise KeyError
-
-        exportinfo = self.get_key(['ExportInfo'], site=site)
-        if not exportinfo:
-            logger.error('Failed to get Export info for study:{} at site:{}'
-                         .format(self.study_name, site))
-            exportinfo = {}
-        return ExportInfo(exportinfo)
 
     def get_qced_subjects(self):
         """
@@ -507,7 +485,8 @@ class TagInfo(object):
             tags[entry] = new_entry
         return tags
 
-    def get_series_map(self):
+    @property
+    def series_map(self):
         """
         Maps the 'pattern' fields onto the expected tags. If multiple patterns
         exist, they're joined with '|'.
