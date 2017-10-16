@@ -870,29 +870,5 @@ def export_dcm_command(seriesdir, outputdir, stem):
 
     datman.utils.run(cmd, DRYRUN)
 
-
-def parse_exportinfo(exportinfo):
-    """
-    Takes the dictionary structure from project_settings.yaml and returns a
-    pattern:tag dictionary.
-
-    If multiple patterns are specified in the configuration file, these are
-    joined with an '|' (OR) symbol.
-    """
-    tags = exportinfo.keys()
-    patterns = [tagtype["Pattern"] for tagtype in exportinfo.values()]
-
-    regex = []
-    for pattern in patterns:
-        if type(pattern) == list:
-            regex.append(("|").join(pattern))
-        else:
-            regex.append(pattern)
-
-    tagmap = dict(zip(regex, tags))
-
-    return tagmap
-
-
 if __name__ == '__main__':
     main()
