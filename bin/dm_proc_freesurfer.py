@@ -128,22 +128,11 @@ def get_freesurfer_arguments(config, site):
     if PARALLEL:
         args.append('-parallel')
 
-    # not compatible with freesurfer 6
-    #try:
-    #    nu_iter = get_freesurfer_setting(config, 'nu_iter')
-    #    if isinstance(nu_iter, dict):
-    #        site_iter = nu_iter[site]
-    #    else:
-    #        site_iter = nu_iter
-    #    args.append('-nuiterations {}'.format(site_iter))
-    #except KeyError:
-    #   pass
-
     return " ".join(args)
 
 def get_site_exportinfo(config, site):
     try:
-        site_info = config.study_config['Sites'][site]['ExportInfo']
+        site_info = config.get_tags(site)
     except KeyError:
         logger.error("Can't retrieve export info for site {}".format(site))
         sys.exit(1)
@@ -182,7 +171,7 @@ def get_anatomical_images(key, cmd_line_arg, subject, blacklist, config, error_l
 
     inputs = []
     for tag in input_tags:
-        n_expected = site_info[tag]['Count']
+        n_expected = site_info.get(tag, 'Count')
         candidates = filter(lambda nii: utils.splitext(nii.path)[0] not in blacklist,
                 subject.get_tagged_nii(tag))
 
