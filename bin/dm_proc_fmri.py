@@ -48,10 +48,11 @@ def check_inputs(config, tag, path, expected_tags):
     n_found = len(expected_tags)
 
     site = sid.parse_filename(expected_tags[0])[0].site
+    tag_info = config.get_tags(site)
 
     try:
-        if tag in config.study_config['Sites'][site]['ExportInfo'].keys():
-            n_expected = config.study_config['Sites'][site]['ExportInfo'][tag]['Count']
+        if tag in tag_info:
+            n_expected = tag_info.get(tag, 'Count')
         elif tag in config.study_config['Sites'][site]['links'].keys():
             n_expected = config.study_config['Sites'][site]['links'][tag]['Count']
         else:
@@ -372,4 +373,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
