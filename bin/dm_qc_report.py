@@ -484,7 +484,8 @@ def find_all_tech_notes(path):
     session = ident.get_full_subjectid_with_timepoint()
     session_paths = glob.glob(os.path.join(base_dir, session) + '*')
     for path in session_paths:
-        ident = datman.scanid.parse(path)
+        base_name = os.path.basename(path)
+        ident = datman.scanid.parse(base_name)
         # Some resource folders don't have a repeat number,
         # this is an error and should be ignored
         if ident.session:
