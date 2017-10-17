@@ -602,7 +602,7 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
 
         # first check if the scan has already been processed
         try:
-            export_formats = cfg.get_key(['ExportSettings', tag])
+            export_formats = cfg.get_key(['ExportSettings', tag, 'formats'])
         except KeyError:
             logger.error('Export settings for tag:{} not found for study:{}'
                          .format(tag, cfg.study_name))
