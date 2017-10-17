@@ -602,7 +602,7 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
 
         # first check if the scan has already been processed
         try:
-            export_formats = cfg.get_key(['ExportSettings', tag])
+            export_formats = cfg.get_key(['ExportSettings', tag, 'formats'])
         except KeyError:
             logger.error('Export settings for tag:{} not found for study:{}'
                          .format(tag, cfg.study_name))
@@ -869,30 +869,6 @@ def export_dcm_command(seriesdir, outputdir, stem):
     cmd = 'cp {} {}'.format(dcmfile, outputfile)
 
     datman.utils.run(cmd, DRYRUN)
-
-
-def parse_exportinfo(exportinfo):
-    """
-    Takes the dictionary structure from project_settings.yaml and returns a
-    pattern:tag dictionary.
-
-    If multiple patterns are specified in the configuration file, these are
-    joined with an '|' (OR) symbol.
-    """
-    tags = exportinfo.keys()
-    patterns = [tagtype["Pattern"] for tagtype in exportinfo.values()]
-
-    regex = []
-    for pattern in patterns:
-        if type(pattern) == list:
-            regex.append(("|").join(pattern))
-        else:
-            regex.append(pattern)
-
-    tagmap = dict(zip(regex, tags))
-
-    return tagmap
-
 
 if __name__ == '__main__':
     main()
