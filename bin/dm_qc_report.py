@@ -400,7 +400,14 @@ def add_header_qc(nifti, qc_html, log_path):
         qc_html.write('<tr><td>{}</td></tr>'.format(l))
     qc_html.write('</table>\n')
 
-def write_report_body(report, expected_files, subject, header_diffs, handlers):
+def write_report_body(report, expected_files, subject, header_diffs, tag_settings):
+    handlers = {
+    # List of qc functions available mapped to 'qc_type' from user settings
+        "anat"      : anat_qc,
+        "fmri"      : fmri_qc,
+        "dti"       : dti_qc,
+        "ignore"    : ignore
+    }
     for idx in range(0,len(expected_files)):
         series = expected_files.loc[idx,'File']
         if not series:
@@ -410,9 +417,15 @@ def write_report_body(report, expected_files, subject, header_diffs, handlers):
         report.write('<h2 id="{}">{}</h2>\n'.format(expected_files.loc[idx,'bookmark'],
                 series.file_name))
 
-        if series.tag not in handlers:
-            logger.info("No QC tag {} for scan {}. Skipping.".format(series.tag,
-                    series.path))
+        if series.tag not in tag_settings:
+            logger.error("Tag not defined in config files: {}".format(series.tag))
+            continue
+
+        try:
+            qc_type = tag_settings.get(series.tag, "qc_type")
+        except KeyError:
+            logger.info("qc_type not defined for tag {}. Skipping.".format(
+                    series.tag))
             continue
 
         add_header_qc(series, report, header_diffs)
@@ -423,7 +436,7 @@ def write_report_body(report, expected_files, subject, header_diffs, handlers):
 
         for series in new_series:
             try:
-                handlers[series.tag](series.path, subject.qc_path, report)
+                handlers[qc_type](series.path, subject.qc_path, report)
             except KeyError:
                 raise KeyError('series tag {} not defined in handlers:\n{}'.format(
                         series.tag, handlers))
@@ -601,15 +614,16 @@ def write_report_header(report, subject_id):
 
     report.write('<h1> QC report for {} <h1/>'.format(subject_id))
 
-def generate_qc_report(report_name, subject, expected_files, header_diffs,
-        handlers, config):
+def generate_qc_report(report_name, subject, expected_files, header_diffs, config):
+    tag_settings = config.get_tags()
     try:
         with open(report_name, 'wb') as report:
             write_report_header(report, subject.full_id)
             write_table(report, expected_files, subject)
             write_tech_notes_link(report, subject.site, config.study_name,
                     subject.resource_path)
-            write_report_body(report, expected_files, subject, header_diffs, handlers)
+            write_report_body(report, expected_files, subject, header_diffs,
+                    tag_settings)
     except:
         raise
 
@@ -755,47 +769,6 @@ def qc_subject(subject, config):
 
     Returns the path to the qc_<subject_id>.html file
     """
-    handlers = {   # map from tag to QC function
-        "T1"            : anat_qc,
-        "T2"            : anat_qc,
-        "PD"            : anat_qc,
-        "PDT2"          : anat_qc,
-        "FLAIR"         : anat_qc,
-        "FMAP"          : ignore,
-        "FMAP-6.5"      : ignore,
-        "FMAP-8.5"      : ignore,
-        "RST"           : fmri_qc,
-        "EPI"           : fmri_qc,
-        "SPRL"          : fmri_qc,
-        "OBS"           : fmri_qc,
-        "IMI"           : fmri_qc,
-        "NBK"           : fmri_qc,
-        "EMP"           : fmri_qc,
-        "VN-SPRL"       : fmri_qc,
-        "VN"            : fmri_qc,
-        "SID"           : fmri_qc,
-        "MID"           : fmri_qc,
-        "TRG"           : fmri_qc,
-        "DTI"           : dti_qc,
-        "DTI21"         : dti_qc,
-        "DTI22"         : dti_qc,
-        "DTI23"         : dti_qc,
-        "DTI60-29-1000" : dti_qc,
-        "DTI60-20-1000" : dti_qc,
-        "DTI60-1000-20" : dti_qc,
-        "DTI60-1000-29" : dti_qc,
-        "DTI60-1000"    : dti_qc,
-        "DTI60-b1000"   : dti_qc,
-        "DTI33-1000"    : dti_qc,
-        "DTI33-b1000"   : dti_qc,
-        "DTI33-3000"    : dti_qc,
-        "DTI33-b3000"   : dti_qc,
-        "DTI33-4500"    : dti_qc,
-        "DTI33-b4500"   : dti_qc,
-        "DTI23-1000"    : dti_qc,
-        "DTI69-1000"    : dti_qc,
-    }
-
     report_name = os.path.join(subject.qc_path, 'qc_{}.html'.format(subject.full_id))
 
     if os.path.isfile(report_name):
@@ -820,7 +793,7 @@ def qc_subject(subject, config):
 
     try:
         generate_qc_report(report_name, subject, expected_files, header_diffs,
-                handlers, config)
+                config)
     except:
         logger.error("Exception raised during qc-report generation for {}. " \
                 "Removing .html page.".format(subject.full_id), exc_info=True)
