@@ -609,7 +609,7 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
             continue
         if check_if_dicom_is_processed(ident,
                                        file_stem,
-                                       export_formats.keys()):
+                                       export_formats):
             logger.info('Scan:{} has been processed, skipping'
                         .format(file_stem))
             continue
