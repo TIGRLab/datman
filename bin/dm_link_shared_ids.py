@@ -36,8 +36,7 @@ import pyxnat as xnat
 
 import datman
 import datman.config, datman.scanid, datman.utils
-
-link_scans = importlib.import_module('dm-link-project-scans')
+import dm_link_project_scans as link_scans
 
 DRYRUN = False
 
