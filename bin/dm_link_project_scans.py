@@ -193,18 +193,18 @@ def link_files(tags, src_session, trg_session, src_data_dir, trg_data_dir):
                 add_link_to_dbase(src_file, trg_file)
 
 
-def get_file_types_for_tag(export_settings, tag):
+def get_file_types_for_tag(tag_settings, tag):
     """Check which file types should be processed for each tag"""
     try:
-        return export_settings[tag].keys()
+        return tag_settings.get(tag, 'formats')
     except KeyError:
         return []
 
 def get_dirs_to_search(source_config, tag_list):
     dirs_to_search = []
+    tag_settings = source_config.get_tags()
     for tag in tag_list:
-        filetypes = get_file_types_for_tag(source_config.get_key('ExportSettings'),
-                tag)
+        filetypes = get_file_types_for_tag(tag_settings, tag)
         if filetypes:
             dirs_to_search.extend(filetypes)
         else:
