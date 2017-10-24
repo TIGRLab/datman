@@ -114,7 +114,7 @@ def convert_nii(dst_dir, log_dir):
         bvec_file = file_stem + '.bvec'
         bval_file = file_stem + '.bval'
 
-        if nii_file not in listdir(dst_dir):
+        if nii_file not in os.listdir(dst_dir):
             logger.info('converting {} to {}'.format(nrrd, nii))
             rtn, msg = datman.utils.run('DWIConvert --inputVolume {d}/{nrrd} --conversionMode NrrdToFSL --outputVolume {d}/{nii} --outputBVectors {d}/{bvec} --outputBValues {d}{bval}'.format(
                 d=dst_dir, nrrd=nrrd_file, nii=nii_file, bvec=bvec_file, bval=bval_file))
