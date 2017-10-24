@@ -625,25 +625,30 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
                              .format(series_id, session_label))
                 continue
 
-            try:
-                for export_format in export_formats.keys():
-                    target_base_dir = cfg.get_path(export_format)
-                    target_dir = os.path.join(target_base_dir,
-                                              ident.get_full_subjectid_with_timepoint())
-                    try:
-                        target_dir = datman.utils.define_folder(target_dir)
-                    except OSError as e:
-                        logger.error('Failed creating target folder:{}'
-                                     .format(target_dir))
-                        continue
-
+            for export_format in export_formats:
+                target_base_dir = cfg.get_path(export_format)
+                target_dir = os.path.join(target_base_dir,
+                                          ident.get_full_subjectid_with_timepoint())
+                try:
+                    target_dir = datman.utils.define_folder(target_dir)
+                except OSError as e:
+                    logger.error('Failed creating target folder:{}'
+                                 .format(target_dir))
+                    continue
+                
+                try:
                     exporter = xporters[export_format]
-                    logger.info('Exporting scan {} to format {}'
-                                .format(file_stem, export_format))
+                except KeyError:
+                    logger.error("Export format {} not defined.".format(export_format))
+
+                logger.info('Exporting scan {} to format {}'.format(file_stem,
+                        export_format))
+                try:
                     exporter(src_dir, target_dir, file_stem)
-            except:
-                logger.error('An error happened exporting {} from scan:{} in session:{}'
-                             .format(export_format, series_id, session_label), exc_info=True)
+                except:
+                    logger.error("An error happened exporting {} from scan: {} "
+                            "in session: {}".format(export_format, series_id,
+                            session_label), exc_info=True)
 
         logger.debug('Completed exports')
 
