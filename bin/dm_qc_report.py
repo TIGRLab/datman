@@ -452,13 +452,22 @@ def get_series_to_add(series, subject):
 
     try:
         t2 = get_split_image(subject, series.series_num, 'T2')
-        pd = get_split_image(subject, series.series_num, 'PD')
+        split_series = [t2]
     except RuntimeError as e:
         logger.error("Can't add PDT2 {} to QC page. Reason: {}".format(
                 series.path, e.message))
         return []
 
-    return [pd, t2]
+    try:
+        pd = get_split_image(subject, series.series_num, 'PD')
+    except RuntimeError as e:
+        # A PD image may not exist if the PDT2 is actually just a T2...
+        pass
+    else:
+        # If one does exist, add it to the results
+        split_series.append(pd)
+
+    return split_series
 
 def get_split_image(subject, num, tag):
     image = None
