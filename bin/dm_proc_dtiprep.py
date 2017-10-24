@@ -115,11 +115,11 @@ def convert_nii(dst_dir, log_dir):
         bval_file = file_stem + '.bval'
 
         if nii_file not in os.listdir(dst_dir):
-            logger.info('converting {} to {}'.format(nrrd, nii))
-            rtn, msg = datman.utils.run('DWIConvert --inputVolume {d}/{nrrd} --conversionMode NrrdToFSL --outputVolume {d}/{nii} --outputBVectors {d}/{bvec} --outputBValues {d}{bval}'.format(
+            logger.info('converting {} to {}'.format(nrrd_file, nii_file))
+            rtn, msg = datman.utils.run('DWIConvert --inputVolume {d}/{nrrd} --allowLossyConversion --conversionMode NrrdToFSL --outputVolume {d}/{nii} --outputBVectors {d}/{bvec} --outputBValues {d}/{bval}'.format(
                 d=dst_dir, nrrd=nrrd_file, nii=nii_file, bvec=bvec_file, bval=bval_file))
             if rtn != 0:
-                logger.error('File:{} failed to convert to NII.GZ\n{}'.format(nrrd, msg))
+                logger.error('File:{} failed to convert to NII.GZ\n{}'.format(nrrd_file, msg))
 
 
 def process_session(src_dir, out_dir, protocol_dir, log_dir, session, **kwargs):
