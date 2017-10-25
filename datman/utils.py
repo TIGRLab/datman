@@ -433,7 +433,7 @@ def run_dummy_q(list_of_names):
     run(cmd)
     logger.info('... Done.')
 
-def run(cmd, dryrun=False, specialquote=True):
+def run(cmd, dryrun=False, specialquote=True, verbose=True):
     """
     Runs the command in default shell, returning STDOUT and a return code.
     The return code uses the python convention of 0 for success, non-zero for
@@ -456,7 +456,7 @@ def run(cmd, dryrun=False, specialquote=True):
     p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
     out, err = p.communicate()
 
-    if p.returncode:
+    if p.returncode and verbose:
         logger.error('run({}) failed with returncode {}. STDERR: {}'
                      .format(cmd, p.returncode, err))
 
