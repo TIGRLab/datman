@@ -116,9 +116,16 @@ def convert_nii(dst_dir, log_dir):
 
         if nii_file not in os.listdir(dst_dir):
             logger.info('converting {} to {}'.format(nrrd_file, nii_file))
-            rtn, msg = datman.utils.run('DWIConvert --inputVolume {d}/{nrrd} --allowLossyConversion --conversionMode NrrdToFSL --outputVolume {d}/{nii} --outputBVectors {d}/{bvec} --outputBValues {d}/{bval}'.format(
-                d=dst_dir, nrrd=nrrd_file, nii=nii_file, bvec=bvec_file, bval=bval_file))
-            if rtn != 0:
+
+            cmd = 'DWIConvert --inputVolume {d}/{nrrd} --allowLossyConversion --conversionMode NrrdToFSL --outputVolume {d}/{nii} --outputBVectors {d}/{bvec} --outputBValues {d}/{bval}'.format(
+                d=dst_dir, nrrd=nrrd_file, nii=nii_file, bvec=bvec_file, bval=bval_file)
+            rtn, msg = datman.utils.run(cmd, verbose=False)
+
+            # only report errors for actual diffusion-weighted data with directions 
+            # since DWIConvert is noisy when converting non-diffusion data from nrrd
+            # we assume if this conversion is broken then all other conversion must be
+            # suspect as well -- jdv
+            if '_QCed.nrrd' in nrrd_file and rtn != 0:
                 logger.error('File:{} failed to convert to NII.GZ\n{}'.format(nrrd_file, msg))
 
 
