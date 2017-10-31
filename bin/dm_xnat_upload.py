@@ -418,23 +418,27 @@ def upload_non_dicom_data(archive, xnat_project, scanid):
         logger.info("Uploading {} files of non-dicom data..."
                     .format(len(resource_files)))
         uploaded_files = []
-        for f in resource_files:
+        for item in resource_files:
             # convert to HTTP language
             try:
-                new_name = f
+                contents = zf.read(item)
+                if not contents:
+                    logger.error("Cannot upload empty resource file {}, "
+                            "skipping.".format(item))
+                    continue
                 # By default files are placed in a MISC subfolder
                 # if this is changed it may require changes to
                 # check_duplicate_resources()
                 XNAT.put_resource(xnat_project,
                                   scanid,
                                   scanid,
-                                  new_name,
-                                  zf.read(f),
+                                  item,
+                                  contents,
                                   'MISC')
-                uploaded_files.append(f)
+                uploaded_files.append(item)
             except Exception as e:
                 logger.error("Failed uploading file {} with error:{}"
-                             .format(f, str(e)))
+                             .format(item, str(e)))
         return uploaded_files
 
 
