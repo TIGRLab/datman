@@ -66,7 +66,7 @@ echo "------------------------------------------------------------------------"
 
 CODE_TEMPLATE = """
 module load python/2.7.13_sci_01
-module load whitematteranalysis/latest
+module load whitematteranalysis/2016-08-26
 module load tractconverter/0.8.1
 module load tractmap/latest
 source activate
