@@ -77,6 +77,7 @@ class config(object):
         if not self.site_config:
             logger.error('Site config not set')
             raise ValueError
+        self.system = system
         self.system_config = self.site_config['SystemSettings'][system]
 
     def set_study(self, study_name):

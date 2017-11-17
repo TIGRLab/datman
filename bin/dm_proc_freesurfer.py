@@ -40,6 +40,7 @@ DRYRUN = False
 PARALLEL = False
 NODE = os.uname()[1]
 LOG_DIR = None
+SYSTEM = None
 
 def write_lines(output_file, lines):
     if DRYRUN:
@@ -49,19 +50,26 @@ def write_lines(output_file, lines):
     with open(output_file, 'w') as output_stream:
         output_stream.writelines(lines)
 
-def submit_job(cmd, i, walltime="24:00:00"):
+def submit_job(cmd, i, walltime="23:00:00"):
     if DRYRUN:
         return
 
     job_name = 'dm_freesurfer_{}_{}'.format(i, time.strftime("%Y%m%d-%H%M%S"))
-    job_file = '/tmp/{}'.format(job_name)
 
-    with open(job_file, 'wb') as fid:
-        fid.write('#!/bin/bash\n')
-        fid.write(cmd)
+    # Bit of an ugly hack to allow job submission on the scc. Should be replaced
+    # with drmaa or some other queue interface later
+    if SYSTEM is 'kimel':
+        job_file = '/tmp/{}'.format(job_name)
 
-    rtn, out = utils.run("qsub -V -q main.q -N {} {}".format(
-            job_name, job_file))
+        with open(job_file, 'wb') as fid:
+            fid.write('#!/bin/bash\n')
+            fid.write(cmd)
+        job = "qsub -V -q main.q -N {} {}".format(job_name, job_file)
+        rtn, out = utils.run(job)
+    else:
+        job = "echo {} | qbatch -N {} --logdir {} --walltime {} -".format(
+                cmd, job_name, LOG_DIR, walltime)
+        rtn, out = utils.run(job, specialquote=False)
 
     if rtn:
         logger.error("Job submission failed.")
@@ -377,7 +385,7 @@ def load_config(study):
     return config
 
 def main():
-    global DRYRUN, PARALLEL, LOG_DIR
+    global DRYRUN, PARALLEL, LOG_DIR, SYSTEM
     arguments = docopt(__doc__)
     study     = arguments['<study>']
     use_server = arguments['--log-to-server']
@@ -404,6 +412,7 @@ def main():
 
     fs_path = config.get_path('freesurfer')
     LOG_DIR = make_error_log_dir(fs_path)
+    SYSTEM = config.system
 
     if scanid:
         # single subject mode
