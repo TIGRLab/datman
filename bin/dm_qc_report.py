@@ -312,10 +312,9 @@ def qc_all_scans(config):
     human_commands = []
     phantom_commands = []
 
-    nii_dir = config.get_path('nii')
+    new_subs = get_new_subjects(config)
 
-    for path in os.listdir(nii_dir):
-        subject = os.path.basename(path)
+    for subject in new_subs:
         command = make_qc_command(subject, config.study_name)
 
         if '_PHA_' in subject:
@@ -330,6 +329,21 @@ def qc_all_scans(config):
     if phantom_commands:
         logger.debug('running phantom qc jobs\n{}'.format(phantom_commands))
         submit_qc_jobs(phantom_commands, chained=True)
+
+def get_new_subjects(config):
+    qc_dir = config.get_path('qc')
+    nii_dir = config.get_path('nii')
+
+    # Finished subjects are those that have an html file in their qc output dir
+    html_pages = glob.glob(os.path.join(qc_dir, '*/*.html'))
+    subject_qc_dirs = [os.path.dirname(qc_path) for qc_path in html_pages]
+    finished_subs = [os.path.basename(path) for path in subject_qc_dirs]
+
+    subject_nii_dirs = glob.glob(os.path.join(nii_dir, '*'))
+    all_subs = [os.path.basename(path) for path in subject_nii_dirs]
+
+    new_subs = filter(lambda sub: sub not in finished_subs, all_subs)
+    return new_subs
 
 def find_existing_reports(checklist_path):
     found_reports = []
