@@ -235,7 +235,7 @@ def run_freesurfer(subject, blacklist, config, resubmit=False):
     args = get_freesurfer_arguments(config, subject.site)
 
     scripts_dir = os.path.join(output_dir, 'scripts')
-    if outputs_exist(scripts_dir):
+    if outputs_exist(output_dir):
         # If outputs exist and the script didnt return above, it means
         # 'resubmit' == True and the subject must be restarted
         remove_IsRunning(scripts_dir)
