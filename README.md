@@ -9,6 +9,7 @@ A set of python scripts we use for three major functions:
 **links**
 
 + [Introduction](#introduction)
++ [Datman Overview](#datman-overview)
 + [Quality Control](#quality-control)
 + [XNAT Database](http://imaging-genetics.camh.ca/database/)
 
@@ -48,6 +49,10 @@ Your environment needs to be set up as so:
 
 + Set `DATMAN_ASSETS` to point to datman/assets.
 + Add datman/assets to your PYTHONPATH`and `MATLABPATH`.
+
+Datman Overview
+---------------
+![](assets/data_flow.png)
 
 Quality Control
 ---------------
