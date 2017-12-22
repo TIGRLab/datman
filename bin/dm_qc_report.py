@@ -339,10 +339,18 @@ def get_new_subjects(config):
     subject_qc_dirs = [os.path.dirname(qc_path) for qc_path in html_pages]
     finished_subs = [os.path.basename(path) for path in subject_qc_dirs]
 
+    # Finished phantoms are those that have a non-empty folder
+    # (so if qc outputs are missing, delete the folder to get it to re-run!)
+    qced_phantoms_paths = [subj for subj in glob.glob(os.path.join(qc_dir, '*_PHA_*'))
+            if len(os.listdir(subj)) > 0]
+    finished_phantoms = [os.path.basename(path) for path in qced_phantoms_paths]
+
     subject_nii_dirs = glob.glob(os.path.join(nii_dir, '*'))
     all_subs = [os.path.basename(path) for path in subject_nii_dirs]
 
     new_subs = filter(lambda sub: sub not in finished_subs, all_subs)
+    # also filter out the finished phantoms
+    new_subs = filter(lambda sub: sub not in finished_phantoms, new_subs)
     return new_subs
 
 def find_existing_reports(checklist_path):
