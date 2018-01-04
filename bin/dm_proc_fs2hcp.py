@@ -95,8 +95,8 @@ def main():
             logger.error("paths:{} not defined in site config".format(k))
             sys.exit(1)
 
-    freesurfer_dir = os.path.join(study_base, config.site_config['paths']['freesurfer'])
-    hcp_dir = os.path.join(study_base, config.site_config['paths']['hcp'])
+    freesurfer_dir = config.get_path('freesurfer')
+    hcp_dir = utils.define_folder(config.get_path('hcp'))
 
     if scanid:
         path = os.path.join(freesurfer_dir, scanid)
@@ -105,50 +105,46 @@ def main():
         except Exception as e:
             logging.error(e)
             sys.exit(1)
+        return
 
-    # run in batch mode
+    qced_subjects = config.get_subject_metadata()
+    new_subjects = []
+
+    # find subjects where at least one expected output does not exist
+    for subject in qced_subjects:
+        subj_dir = os.path.join(hcp_dir, subject)
+        if not outputs_exist(subj_dir):
+            new_subjects.append(subject)
+
+    # submit a list of calls to ourself, one per subject
+    commands = []
+    if debug:
+        debugopt = '--debug'
     else:
-        subjects = []
-        freesurfer_dirs = glob.glob('{}/*'.format(freesurfer_dir))
+        debugopt = ''
 
-        # find subjects where at least one expected output does not exist
-        for path in nii_dirs:
-            subject = os.path.basename(path)
+    for subject in new_subjects:
+        commands.append(" ".join([__file__, study, '--subject {} '.format(subject), debugopt]))
 
-            hcp_dir = utils.define_folder(os.path.join(study_base, config.site_config['paths']['hcp']))
-            if not outputs_exist(subj_dir):
-                subjects.append(subject)
+    if commands:
+        logger.debug('queueing up the following commands:\n'+'\n'.join(commands))
+        
+    for i, cmd in enumerate(commands):
+        jobname = 'dm_fs2hcp_{}_{}'.format(i, time.strftime("%Y%m%d-%H%M%S"))
+        jobfile = '/tmp/{}'.format(jobname)
+        logfile = '/tmp/{}.log'.format(jobname)
+        errfile = '/tmp/{}.err'.format(jobname)
+        with open(jobfile, 'wb') as fid:
+            fid.write('#!/bin/bash\n')
+            fid.write(cmd)
 
-        subjects = list(set(subjects))
+        rtn, out = utils.run('qsub -V -q main.q -o {} -e {} -N {} {}'.format(
+            logfile, errfile, jobname, jobfile))
 
-        # submit a list of calls to ourself, one per subject
-        commands = []
-        if debug:
-            debugopt = '--debug'
-        else:
-            debugopt = ''
-
-        for subject in subjects:
-            commands.append(" ".join([__file__, study, '--subject {} '.format(subject), debugopt]))
-
-        if commands:
-            logger.debug('queueing up the following commands:\n'+'\n'.join(commands))
-            for i, cmd in enumerate(commands):
-                jobname = 'dm_fs2hcp_{}_{}'.format(i, time.strftime("%Y%m%d-%H%M%S"))
-                jobfile = '/tmp/{}'.format(jobname)
-                logfile = '/tmp/{}.log'.format(jobname)
-                errfile = '/tmp/{}.err'.format(jobname)
-                with open(jobfile, 'wb') as fid:
-                    fid.write('#!/bin/bash\n')
-                    fid.write(cmd)
-
-                rtn, out = utils.run('qsub -V -q main.q -o {} -e {} -N {} {}'.format(
-                    logfile, errfile, jobname, jobfile))
-                #rtn, out = utils.run('echo bash -l {}/{} {} | qbatch -N {} --logdir {} --walltime {} -'.format(bin_dir, script, subid, jobname, logs_dir, walltime))
-                if rtn:
-                    logger.error("Job submission failed. Output follows.")
-                    logger.error("stdout: {}".format(out))
-                    sys.exit(1)
+        if rtn:
+            logger.error("Job submission failed. Output follows.")
+            logger.error("stdout: {}".format(out))
+            sys.exit(1)
 
 if __name__ == '__main__':
     main()
