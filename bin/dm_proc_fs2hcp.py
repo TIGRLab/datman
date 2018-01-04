@@ -3,7 +3,7 @@
 This will convert freesurfer outputs to hcp workbench-compatible format.
 
 Usage:
-  dm_proc_fs2hcp.py [options] <config>
+  dm_proc_fs2hcp.py [options] <study>
 
 Arguments:
     <study>            study name defined in master configuration .yml file
@@ -17,6 +17,9 @@ from datman.docopt import docopt
 import datman.scanid as sid
 import datman.utils as utils
 import datman.config as cfg
+import logging
+import logging.handlers
+
 
 import glob
 import os, sys
@@ -26,10 +29,19 @@ import shutil
 import filecmp
 import difflib
 
+logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
+logger = logging.getLogger(os.path.basename(__file__))
+
+DRYRUN = False
+PARALLEL = False
+NODE = os.uname()[1]
+LOG_DIR = None
+
+
 def outputs_exist(subject_dir):
     """True if a late-stage output of fs2hcp.py is found, else False"""
     subject = os.path.basename(subject_dir)
-    test_file = os.path.join(subject_dir, MNINonLinear, '{}.164k_fs_LR.wb.spec'.format(subject))
+    test_file = os.path.join(subject_dir, 'MNINonLinear', '{}.164k_fs_LR.wb.spec'.format(subject))
     if os.path.isfile(test_file):
         return True
     else:
@@ -39,27 +51,23 @@ def run_hcp_convert(path, config, study):
     """Runs fs2hcp on the input subject"""
     study_base = config.get_study_base(study)
     subject = os.path.basename(path)
-    freesurfer_dir = os.path.join(study_base, config.site_config['paths']['freesurfer'])
-    hcp_dir = os.path.join(study_base, config.site_config['paths']['hcp'])
-    output_dir = utils.define_folder(os.path.join(hcp_dir, subject))
-
-    if outputs_exist(output_dir):
-        logger.debug('outputs found in {}'.format(path))
-        sys.exit()
-
-    # reset / remove error.log
-    error_log = os.path.join(output_dir, 'error.log')
-    if os.path.isfile(error_log):
-        os.remove(error_log)
+    freesurfer_dir = config.get_path('freesurfer')
+    hcp_dir =       config.get_path('hcp')
+    output_dir = os.path.join(hcp_dir, subject)
 
     # run fs2hcp
-    command = 'fs2hcp --FSpath={} --HCPpath={} --subject={}'.format(freesurfer_dir, hcp_dir, subject)
+    #command = 'fs2hcp --FSpath={} --HCPpath={} --subject={}'.format(freesurfer_dir, hcp_dir, subject)
+    command = 'ciftify_recon_all --fs-subjects-dir {} --hcp-data-dir {} {}'.format(freesurfer_dir, hcp_dir, subject)
     rtn, out = utils.run(command)
     if rtn:
         error_message = "fs2hcp failed: {}\n{}".format(command, out)
         logger.debug(error_message)
-        with open(error_log, 'wb') as f:
-            f.write('{}\n{}'.format(error_message, NODE))
+
+    command2 = 'cifti_vis_recon_all snaps --hcp-data-dir {} {}'.format(hcp_dir, subject)
+    rtn, out = utils.run(command2)
+    if rtn:
+        error_message = "fs2hcp failed: {}\n{}".format(command2, out)
+        logger.debug(error_message)
 
 def main():
     arguments = docopt(__doc__)
@@ -144,4 +152,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
