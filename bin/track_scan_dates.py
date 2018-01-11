@@ -8,92 +8,68 @@ from datman import scanid
 username = "mathum"
 dateformat = "%Y-%m-%d"
 datetimeformat = "%Y-%m-%d %H:%M:%S.%f"
-xdate = "date"
-xuploaddate = "insert_date"
-xuploaddiff = "upload_difference"
+date = "date"
+uploaddate = "insert_date"
+uploaddiff = "upload_difference"
+
+phan="phantom"
+hum="human"
 
 def main():
     quit = "n"
-    #central = Interface(server="https://xnat.imaging-genetics.camh.ca", user=username)
+    central = Interface(server="https://xnat.imaging-genetics.camh.ca", user=username)
 
 
     while (quit != "y"):
         study = raw_input("Which study do you want to track scans for? ")
-        print study
 
         con = CON.config()
+
 
         try:
             projects = set(con.get_xnat_projects(study))
         except ValueError:
             print "Study does not exist"
+            return 0
 
+        tracking_table = dict()
 
-        if False:
-            constraints = [('xnat:mrSessionData/PROJECT', '=', project)]
-
-            table = central.select('xnat:mrSessionData', ['xnat:mrSessionData/XNAT_COL_MRSESSIONDATAACQUISITION_SITE']).where(constraints)
-            a = set()
-            for item in table:
-                for val in item.values():
-                    a.add(val)
-
-            output = dict()
-            first = True
-
+        for project in projects:
             constraints = [('xnat:mrSessionData/PROJECT', '=', project)]
             table = central.select('xnat:mrSessionData',
-                                ['xnat:mrSessionData/DATE',
-                                'xnat:mrSessionData/INSERT_DATE',
-                                'xnat:mrSessionData/XNAT_COL_MRSESSIONDATAACQUISITION_SITE']
+                                [
+                                'xnat:mrSessionData/SUBJECT_LABEL',
+                                'xnat:mrSessionData/DATE',
+                                'xnat:mrSessionData/INSERT_DATE']
                                  ).where(constraints)
-
-
-            for value in a:
-                output[value] = dict()
-                constraints = [('xnat:mrSessionData/XNAT_COL_MRSESSIONDATAACQUISITION_SITE', '=', value), 'AND', ('xnat:mrSessionData/PROJECT', '=', project)]
-                table = central.select('xnat:mrSessionData',
-                                    ['xnat:mrSessionData/DATE',
-                                    'xnat:mrSessionData/INSERT_DATE']
-                                     ).where(constraints)
-
-
-                sort = sorted(table.items(), key=operator.itemgetter(1), reverse=True)
-                if (len(sort) >=2):
-                    output[value][xdate] = sort[0][0]
-                    output[value][xuploaddate] = sort[0][1]
-                    latest = datetime.strptime(output[value][xuploaddate], datetimeformat)
-                    secondlatest = datetime.strptime(sort[1][1], datetimeformat)
-                    output[value][xuploaddiff] =  latest - secondlatest
-                elif (len(sort) ==1):
-                    output[value][xdate] = sort[0][0]
-                    output[value][xuploaddate] = sort[0][1]
-                    output[value][xuploaddiff] = None
-                elif (len(sort) ==0):
-                    output[value][xdate] = None
-                    output[value][xuploaddate] = None
-                    output[value][xuploaddiff] = None
-
-
-                    printdict(output)
-
-
+            sort = sorted(table.items(), key=operator.itemgetter(2))
+            for item in sort:
+                site_name = scanid.parse(item[0]).site
+                if scanid.is_phantom(item[0]):
+                    site_name += "_PHA"
+                site_dict = tracking_table.setdefault(site_name, dict())
+                last_update = site_dict.setdefault(uploaddate, datetime.min)
+                current_update = datetime.strptime(item[2], datetimeformat)
+                if last_update < current_update:
+                    site_dict[date] = item[1]
+                    site_dict[uploaddate] = current_update
+                    if last_update == datetime.min:
+                        site_dict[uploaddiff] = "No Other Uploads"
+                    else:
+                        site_dict[uploaddiff] = current_update - last_update
+                #break
+        printdict(tracking_table)
 
         quit = raw_input("Quit? y/n ")
 
 
 def printdict(output):
-    print "{:<30} {:<15} {:<30} {:<40}".format("Project", "Scan Date", "Latest Upload Date", "Time Since Last Upload")
+    print "{:<10} {:<15} {:<30} {:<40}".format("Site", "Scan Date", "Latest Upload Date", "Time Since Previous Upload")
     for key, values in output.iteritems():
-        pdate = values[xdate]
-        uploaddate = values[xuploaddate]
-        updiff = values[xuploaddiff]
-        print "{:<30} {:<15} {:<30} {:<40}".format(key, str(pdate), str(uploaddate), str(updiff))
-
-def json_to_string(obj):
-        if isinstance(obj, (datetime, date)):
-            return obj.isoformat()
-        raise TypeError ("Type %s not serializable" % type(obj))
+        pdate = values[date]
+        update = values[uploaddate]
+        updiff = values[uploaddiff]
+        print "{:<10} {:<15} {:<30} {:<40}".format(key, str(pdate), str(update), str(updiff))
 
 
 if __name__ == "__main__":
