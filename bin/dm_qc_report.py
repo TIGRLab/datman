@@ -536,16 +536,12 @@ def find_tech_notes(path):
     """
     resource_folders = glob.glob(path + "*")
 
-    if resource_folders:
-        resources = resource_folders[0]
-    else:
-        resources = ""
-
     pdf_list = []
-    for root, dirs, files in os.walk(resources):
-        for fname in files:
-            if ".pdf" in fname:
-                pdf_list.append(os.path.join(root, fname))
+    for resources in resource_folders:
+        for root, dirs, files in os.walk(resources):
+            for fname in files:
+                if ".pdf" in fname:
+                    pdf_list.append(os.path.join(root, fname))
 
     if not pdf_list:
         return ""
