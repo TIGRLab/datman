@@ -534,18 +534,13 @@ def find_tech_notes(path):
     are found, unless one contains the string 'TechNotes', the first pdf is
     guessed to be the tech notes.
     """
-    resource_folders = glob.glob(path + "*")
-
-    if resource_folders:
-        resources = resource_folders[0]
-    else:
-        resources = ""
 
     pdf_list = []
-    for root, dirs, files in os.walk(resources):
+    for root, dirs, files in os.walk(path):
         for fname in files:
             if ".pdf" in fname:
                 pdf_list.append(os.path.join(root, fname))
+
 
     if not pdf_list:
         return ""
