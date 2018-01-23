@@ -24,6 +24,7 @@ import logging.handlers
 import glob
 import os, sys
 import datetime
+import time
 import tempfile
 import shutil
 import filecmp
@@ -38,14 +39,21 @@ NODE = os.uname()[1]
 LOG_DIR = None
 
 
-def outputs_exist(subject_dir):
-    """True if a late-stage output of fs2hcp.py is found, else False"""
+def ciftify_outputs_exist(subject_dir):
+    """True if a late-stage output of ciftify_recon_all is found, else False"""
     subject = os.path.basename(subject_dir)
     test_file = os.path.join(subject_dir, 'MNINonLinear', '{}.164k_fs_LR.wb.spec'.format(subject))
     if os.path.isfile(test_file):
         return True
     else:
         return False
+
+def fs_outputs_exist(output_dir):
+    """
+    Will return false as long as a freesurfer 'recon-all.done" file exists in
+    the 'scripts' folder exists. This indicates that freesurfer finished without errors
+    """
+    return os.path.exists(os.path.join(output_dir, 'scripts', 'recon-all.done'))
 
 def run_hcp_convert(path, config, study):
     """Runs fs2hcp on the input subject"""
@@ -68,6 +76,15 @@ def run_hcp_convert(path, config, study):
     if rtn:
         error_message = "fs2hcp failed: {}\n{}".format(command2, out)
         logger.debug(error_message)
+
+def create_indices_bm(config, study):
+    hcp_dir = config.get_path('hcp')
+    command = 'cifti_vis_recon_all index --hcp-data-dir {}'.format(hcp_dir)
+    rtn, out = utils.run(command)
+    if rtn:
+        error_message = "fs2hcp failed: {}\n{}".format(command, out)
+        logger.debug(error_message)
+
 
 def main():
     arguments = docopt(__doc__)
@@ -96,7 +113,8 @@ def main():
             sys.exit(1)
 
     freesurfer_dir = config.get_path('freesurfer')
-    hcp_dir = utils.define_folder(config.get_path('hcp'))
+    hcp_dir = config.get_path('hcp')
+
 
     if scanid:
         path = os.path.join(freesurfer_dir, scanid)
@@ -107,14 +125,20 @@ def main():
             sys.exit(1)
         return
 
+    config = cfg.config(study=study)
     qced_subjects = config.get_subject_metadata()
-    new_subjects = []
 
+# running for batch mode
+
+    new_subjects = []
     # find subjects where at least one expected output does not exist
     for subject in qced_subjects:
         subj_dir = os.path.join(hcp_dir, subject)
-        if not outputs_exist(subj_dir):
-            new_subjects.append(subject)
+        if not ciftify_outputs_exist(subj_dir):
+            if fs_outputs_exist(os.path.join(freesurfer_dir, subject)):
+                new_subjects.append(subject)
+
+    create_indices_bm(config, study)
 
     # submit a list of calls to ourself, one per subject
     commands = []
@@ -128,7 +152,7 @@ def main():
 
     if commands:
         logger.debug('queueing up the following commands:\n'+'\n'.join(commands))
-        
+
     for i, cmd in enumerate(commands):
         jobname = 'dm_fs2hcp_{}_{}'.format(i, time.strftime("%Y%m%d-%H%M%S"))
         jobfile = '/tmp/{}'.format(jobname)
