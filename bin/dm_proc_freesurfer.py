@@ -133,6 +133,20 @@ def get_new_subjects(config, qc_subjects):
 def get_freesurfer_arguments(config, site):
     args = ['-all', '-qcache', '-notal-check']
 
+    fs_path = config.get_path('freesurfer')
+    args.append('-sd ' + fs_path)
+
+    try:
+        nu_iter = config.study_config['freesurfer']['nu_iter'][site]
+    except KeyError:
+        nu_iter = None
+
+    if nu_iter:
+        ex_path = config.get_path('freesurfer') + "expert.opts"
+        expertcmd = 'echo "mri_nu_correct.mni --n {}" > {}'.format(nu_iter, ex_path)
+        os.system(expertcmd)
+        args.append('-expert ' + ex_path)
+
     if PARALLEL:
         args.append('-parallel')
 
@@ -235,6 +249,7 @@ def run_freesurfer(subject, blacklist, config, resubmit=False):
     args = get_freesurfer_arguments(config, subject.site)
 
     scripts_dir = os.path.join(output_dir, 'scripts')
+
     if outputs_exist(output_dir):
         # If outputs exist and the script didnt return above, it means
         # 'resubmit' == True and the subject must be restarted
