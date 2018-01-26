@@ -40,7 +40,6 @@ DRYRUN = False
 PARALLEL = False
 NODE = os.uname()[1]
 LOG_DIR = None
-SYSTEM = None
 
 def write_lines(output_file, lines):
     if DRYRUN:
@@ -50,32 +49,6 @@ def write_lines(output_file, lines):
     with open(output_file, 'w') as output_stream:
         output_stream.writelines(lines)
 
-def submit_job(cmd, i, walltime="23:00:00"):
-    if DRYRUN:
-        return
-
-    job_name = 'dm_freesurfer_{}_{}'.format(i, time.strftime("%Y%m%d-%H%M%S"))
-
-    # Bit of an ugly hack to allow job submission on the scc. Should be replaced
-    # with drmaa or some other queue interface later
-    if SYSTEM is 'kimel':
-        job_file = '/tmp/{}'.format(job_name)
-
-        with open(job_file, 'wb') as fid:
-            fid.write('#!/bin/bash\n')
-            fid.write(cmd)
-        job = "qsub -V -q main.q -N {} {}".format(job_name, job_file)
-        rtn, out = utils.run(job)
-    else:
-        job = "echo {} | qbatch -N {} --logdir {} --walltime {} -".format(
-                cmd, job_name, LOG_DIR, walltime)
-        rtn, out = utils.run(job, specialquote=False)
-
-    if rtn:
-        logger.error("Job submission failed.")
-        if out:
-            logger.error("stdout: {}".format(out))
-        sys.exit(1)
 
 def create_command(subject, arguments):
     study = arguments['<study>']
@@ -91,14 +64,18 @@ def create_command(subject, arguments):
     cmd = "{} {} --subject {}{}".format(__file__, study, subject, options)
     return cmd
 
-def submit_proc_freesurfer(fs_path, fs_subjects, arguments):
+def submit_proc_freesurfer(fs_path, fs_subjects, arguments, config):
     # Change to freesurfer directory, because qbatch leaves .qbatch
     # folders in the current working directory
     with utils.cd(fs_path):
         for i, subject in enumerate(fs_subjects):
             cmd = create_command(subject, arguments)
             logger.debug("Queueing command: {}".format(cmd))
-            submit_job(cmd, i)
+            job_name = 'dm_freesurfer_{}_{}'.format(i, time.strftime("%Y%m%d-%H%M%S"))
+            utils.submit_job(cmd, job_name, log_dir = LOG_DIR,
+                    system = config.system, cpu_cores=1,
+                    walltime="23:00:00", dryrun = False)
+
 
 def get_halted_subjects(fs_path, subjects):
     timed_out_msg = fs_scraper.FSLog._TIMEDOUT.format("")
@@ -400,7 +377,7 @@ def load_config(study):
     return config
 
 def main():
-    global DRYRUN, PARALLEL, LOG_DIR, SYSTEM
+    global DRYRUN, PARALLEL, LOG_DIR
     arguments = docopt(__doc__)
     study     = arguments['<study>']
     use_server = arguments['--log-to-server']
@@ -427,7 +404,6 @@ def main():
 
     fs_path = config.get_path('freesurfer')
     LOG_DIR = make_error_log_dir(fs_path)
-    SYSTEM = config.system
 
     if scanid:
         # single subject mode
@@ -455,7 +431,7 @@ def main():
         logger.info("Resubmitting {} subjects".format(len(halted_subjects)))
         fs_subjects.extend(halted_subjects)
 
-    submit_proc_freesurfer(fs_path, fs_subjects, arguments)
+    submit_proc_freesurfer(fs_path, fs_subjects, arguments, config)
 
 if __name__ == '__main__':
     main()
