@@ -48,6 +48,15 @@ def ciftify_outputs_exist(subject_dir):
     else:
         return False
 
+def make_error_log_dir(hcp_path):
+    log_dir = os.path.join(hcp_path, 'logs')
+    try:
+        if not DRYRUN:
+            os.mkdir(log_dir)
+    except:
+        pass
+    return log_dir
+
 def fs_outputs_exist(output_dir):
     """
     Will return false as long as a freesurfer 'recon-all.done" file exists in
@@ -68,22 +77,25 @@ def run_hcp_convert(path, config, study):
     command = 'ciftify_recon_all --fs-subjects-dir {} --hcp-data-dir {} {}'.format(freesurfer_dir, hcp_dir, subject)
     rtn, out = utils.run(command)
     if rtn:
-        error_message = "fs2hcp failed: {}\n{}".format(command, out)
+        error_message = "ciftify_recon_all failed: {}\n{}".format(command, out)
         logger.debug(error_message)
 
     command2 = 'cifti_vis_recon_all snaps --hcp-data-dir {} {}'.format(hcp_dir, subject)
     rtn, out = utils.run(command2)
     if rtn:
-        error_message = "fs2hcp failed: {}\n{}".format(command2, out)
+        error_message = "cifti_vis_recon_all snaps failed: {}\n{}".format(command2, out)
         logger.debug(error_message)
 
 def create_indices_bm(config, study):
     hcp_dir = config.get_path('hcp')
-    command = 'cifti_vis_recon_all index --hcp-data-dir {}'.format(hcp_dir)
-    rtn, out = utils.run(command)
-    if rtn:
-        error_message = "fs2hcp failed: {}\n{}".format(command, out)
-        logger.debug(error_message)
+    if os.path.exists(os.path.join(hcp_dir, 'qc_recon_all')):
+        command = 'cifti_vis_recon_all index --hcp-data-dir {}'.format(hcp_dir)
+        rtn, out = utils.run(command)
+        if rtn:
+            error_message = "qc index creation failed: {}\n{}".format(command, out)
+            logger.debug(error_message)
+    else:
+        logger.debug('qc_recon_all directory does not exist, not generating index')
 
 
 def main():
@@ -114,7 +126,7 @@ def main():
 
     freesurfer_dir = config.get_path('freesurfer')
     hcp_dir = config.get_path('hcp')
-
+    logs_dir = make_error_log_dir(hcp_dir)
 
     if scanid:
         path = os.path.join(freesurfer_dir, scanid)
@@ -125,7 +137,6 @@ def main():
             sys.exit(1)
         return
 
-    config = cfg.config(study=study)
     qced_subjects = config.get_subject_metadata()
 
 # running for batch mode
@@ -154,21 +165,10 @@ def main():
         logger.debug('queueing up the following commands:\n'+'\n'.join(commands))
 
     for i, cmd in enumerate(commands):
-        jobname = 'dm_fs2hcp_{}_{}'.format(i, time.strftime("%Y%m%d-%H%M%S"))
-        jobfile = '/tmp/{}'.format(jobname)
-        logfile = '/tmp/{}.log'.format(jobname)
-        errfile = '/tmp/{}.err'.format(jobname)
-        with open(jobfile, 'wb') as fid:
-            fid.write('#!/bin/bash\n')
-            fid.write(cmd)
+        job_name = 'dm_fs2hcp_{}_{}'.format(i, time.strftime("%Y%m%d-%H%M%S"))
+        utils.submit_job(cmd, job_name, logs_dir,
+            system = config.system, dryrun = dryrun)
 
-        rtn, out = utils.run('qsub -V -q main.q -o {} -e {} -N {} {}'.format(
-            logfile, errfile, jobname, jobfile))
-
-        if rtn:
-            logger.error("Job submission failed. Output follows.")
-            logger.error("stdout: {}".format(out))
-            sys.exit(1)
 
 if __name__ == '__main__':
     main()
