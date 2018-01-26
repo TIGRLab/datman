@@ -7,6 +7,7 @@ import json
 import re
 import datetime
 import traceback
+import nibabel
 from datman.docopt import docopt
 from shutil import copyfile
 from queue import *
@@ -16,6 +17,15 @@ logger = logging.getLogger(os.path.basename(__file__))
 
 bid_types = ["anat", "func", "fmap", "dwi"]
 tags_pattern = re.compile(r'^T1$|^T2$|^FMRI-DAP$|^FMRI-DPA$|^RST$|^FACES$|^DTI-[A-Z]+')
+
+def calculate_trt(data, nii_file):
+    axis = {'i':0, 'j':1, 'k':2}[data['PhaseEncodingDirection'][0]]
+    npe = nibabel.load(nii_file).shape[axis]
+    acc = 1.0
+    if 'ParallelReductionFactorInPlane' in data.keys():
+        acc = dat['ParallelReductionFactorInPlane']
+    trt = str(float(data["EffectiveEchoSpacing"])*(npe/acc-1))
+    return trt
 
 def to_sub(ident):
     try:
@@ -193,6 +203,11 @@ def init_setup(study, debug):
     bids_folder =  cfg.get_path('data') + "bids/"
     create_dir(bids_folder)
 
+    bidsignore_path = bids_folder + ".bidsignore"
+    bidsignore = 'echo "*-opt_to_bids.log" > {}'.format(bidsignore_path)
+    os.system(bidsignore)
+
+
     setup_logger(bids_folder, debug, cfg)
     logger.info("BIDS folder will be {}".format(bids_folder))
 
@@ -234,19 +249,29 @@ def main():
                 bids_name = to_bids_name(ident, tag, cnt[tag], type_folders, ext)
                 copyfile(item_list_path + initem,bids_name)
                 logger.info("{:<80} {:<80}".format(initem, to_bids_name(ident, tag, cnt[tag], type_folders, ext)))
-                if initem in fmap_dict.keys():
+                cnt[tag] +=1
+                if ext == ".json":
                     try:
                         with open(bids_name, "r+") as jsonFile:
                             data = json.load(jsonFile)
 
-                            data["Intended For"] = fmap_dict[initem]
+                            if initem in fmap_dict.keys():
+                                data["Intended For"] = fmap_dict[initem]
 
+                            if "TotalReadoutTime" not in data.keys():
+                                try:
+                                    nii_file = str.replace(item_list_path + initem, 'json', 'nii.gz')
+                                    data["TotalReadoutTime"] = calculate_trt(data, nii_file)
+                                except KeyError, key:
+                                    logger.error(
+                                    "Total readout time cannot be calculated due to missing information {} in JSON for: {}".format(key, initem))
+                                    continue
                             jsonFile.seek(0)  # rewind
                             json.dump(data, jsonFile, sort_keys=True, indent=4, separators=(',', ': '))
                             jsonFile.truncate()
+
                     except IOError:
-                        logger.error('Failed to open: {}'.format(file_path), exc_info=True)
-                cnt[tag] +=1
+                        logger.error('Failed to open: {}'.format(bids_name), exc_info=True)
 
             for key in type_folders.keys():
                 if os.listdir(type_folders[key]) == []:
