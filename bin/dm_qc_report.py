@@ -679,7 +679,8 @@ def initialize_counts(export_info):
             ordering = export_info.get(tag, 'Order')
         except KeyError:
             ordering = [0]
-        expected_position[tag] = min(ordering)
+
+        expected_position[tag] = ordering
 
     return tag_counts, expected_position
 
