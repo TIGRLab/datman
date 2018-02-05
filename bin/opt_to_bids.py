@@ -17,6 +17,8 @@ logger = logging.getLogger(os.path.basename(__file__))
 
 bid_types = ["anat", "func", "fmap", "dwi"]
 tags_pattern = re.compile(r'^T1$|^T2$|^FMRI-DAP$|^FMRI-DPA$|^RST$|^FACES$|^DTI-[A-Z]+')
+tag_map = dict()
+needed_json = set()
 
 def calculate_trt(data, nii_file):
     axis = {'i':0, 'j':1, 'k':2}[data['PhaseEncodingDirection'][0]]
@@ -44,32 +46,42 @@ def to_run(run, tag):
         run_num = "run-{:02}".format(int(run//2)+1)
     return run_num
 
-def to_bids_name(ident, tag, run, type_folder, ex):
+def to_bids_name(ident, tag, cnt_run, type_folder, ex):
     subject = to_sub(ident)
     timepoint = to_ses(ident.timepoint)
-    run_num = to_run(run, tag)
+    run_num = to_run(cnt_run[tag], tag)
 
     if ex == ".gz":
         ext = ".nii.gz"
     else:
         ext = ex
 
-    if not tags_pattern.match(tag):
-        return "File could not be changed to bids format:{} {}".format(str(ident), tag)
-    elif (tag == "T1" or tag == "T2"):
+    if (tag == "T1" or tag == "T2"):
         return type_folder["anat"] + "{}_{}_{}w{}".format(subject, timepoint, tag, ext)
-    elif (tag == "RST"):
-        return type_folder["func"] + "{}_{}_task-{}_{}_bold{}".format(subject, timepoint, "rest", run_num, ext)
-    elif (tag == "FACES"):
-        return type_folder["func"] + "{}_{}_task-{}_bold{}".format(subject, timepoint, "faces", ext)
-    elif ("-DAP" in tag):
-        return type_folder["fmap"] + "{}_{}_dir-{}_{}_epi{}".format(subject, timepoint, "AP", run_num, ext)
-    elif ("-DPA" in tag):
-        return type_folder["fmap"] + "{}_{}_dir-{}_{}_epi{}".format(subject, timepoint, "PA", run_num, ext)
-    elif ("DTI" in tag):
-        return type_folder["dwi"] + "{}_{}_dwi{}".format(subject, timepoint, ext)
+    elif (tag in tag_map["fmri"]):
+        if (tag == "RST" or tag == "VN-SPRL"):
+            run_num = to_run(cnt_run["RST"] + cnt_run["VN-SPRL"], tag)
+            return type_folder["func"] + "{}_{}_task-{}_{}_bold{}".format(subject, timepoint, "rest", run_num, ext)
+        elif (tag == "FACES"):
+            return type_folder["func"] + "{}_{}_task-{}_bold{}".format(subject, timepoint, "faces", ext)
+        elif (tag == "TMS-FMRI"):
+            return type_folder["func"] + "{}_{}_task-{}_bold{}".format(subject, timepoint, "tmsfmri", ext)
+        else:
+            return type_folder["func"] + "{}_{}_task-{}_bold{}".format(subject, timepoint, tag.lower(), ext)
+    elif (tag in tag_map["dmap_fmri"]):
+        if ("-DAP" in tag):
+            return type_folder["fmap"] + "{}_{}_dir-{}_{}_epi{}".format(subject, timepoint, "AP", run_num, ext)
+        elif ("-DPA" in tag):
+            return type_folder["fmap"] + "{}_{}_dir-{}_{}_epi{}".format(subject, timepoint, "PA", run_num, ext)
+    elif (tag in tag_map["dti"]):
+        return type_folder["dwi"] + "{}_{}_{}_dwi{}".format(subject, timepoint, run_num, ext)
+    else:
+        raise ValueError("File could not be changed to bids format:{} {}".format(str(ident), tag))
+
+
 
 def validify_file(path, file_list):
+    global needed_json
 
     series_list = [scanid.parse_filename(x)[2] for x in file_list]
     valid_files = { k : list() for k in series_list }
@@ -83,12 +95,7 @@ def validify_file(path, file_list):
         ident, tag, series, description = scanid.parse_filename(filename)
         valid_files[series].append(filename)
         ext = os.path.splitext(path + filename)[1]
-        # general validation
-        if not tags_pattern.match(tag):
-            logger.error("File does not match tag pattern to convert to BIDS format: {}".format(
-                scanid.make_filename(ident, tag, series, description, ext=ext)))
-            blacklist_files.add(series)
-            continue
+
         # anat validation
         if (tag == "T1" or tag == "T2") and (ext == ".json"):
             json_data = json.load(open(path + filename))
@@ -96,26 +103,32 @@ def validify_file(path, file_list):
                 logger.info("File has ImageType NORM and will be excluded from conversion: {}".format(
                     scanid.make_filename(ident, tag, series, description)))
                 blacklist_files.add(series)
-        elif ((tag == "FACES" or tag == "RST") and ext == ".gz"):
+        elif ((tag in tag_map["fmri"]) and ext == ".gz"):
             if (tag == "FACES"):
                 num_faces+= 1
             dap_queue.put(series)
             dpa_queue.put(series)
-        elif (tag == "FMRI-DAP" and ext == ".json"):
+            needed_json.add(tag)
+        elif (tag in tag_map["dmap_fmri"] and ext == ".json"):
             fmap_dict[filename] = list()
-            while not dap_queue.empty():
-                func_file = sorted(valid_files[dap_queue.get()])[1]
-                logger.info("{} has been mapped to {}".format(filename, func_file))
-                fmap_dict[filename].append(func_file)
-        elif (tag == "FMRI-DPA" and ext == ".json"):
-            fmap_dict[filename] = list()
-            while not dpa_queue.empty():
-                func_file = sorted(valid_files[dpa_queue.get()])[1]
-                logger.info("{} has been mapped to {}".format(filename, func_file))
-                fmap_dict[filename].append(func_file)
+            if ("-DAP" in tag):
+                while not dap_queue.empty():
+                    func_file = sorted(valid_files[dap_queue.get()])[1]
+                    logger.info("{} has been mapped to {}".format(filename, func_file))
+                    fmap_dict[filename].append(func_file)
+            elif ("-DPA" in tag):
+                while not dpa_queue.empty():
+                    func_file = sorted(valid_files[dpa_queue.get()])[1]
+                    logger.info("{} has been mapped to {}".format(filename, func_file))
+                    fmap_dict[filename].append(func_file)
+        # general validation
+        # else:
+        #     logger.error("File does not match tag pattern to convert to BIDS format: {}".format(
+        #         scanid.make_filename(ident, tag, series, description, ext=ext)))
+        #     blacklist_files.add(series)
 
     if num_faces > 1:
-        log.error("More than one session of FACES in {}".format(path))
+        logger.error("More than one session of FACES in {}".format(path))
 
     for key in blacklist_files:
         valid_files.pop(key, None)
@@ -128,10 +141,16 @@ def validify_file(path, file_list):
 
 def create_task_json(file_path, tags_list):
     task_names = dict()
-    if "RST" in tags_list:
-        task_names["RST"] = ["RestingState", "task-rest_bold.json"]
-    if "FACES" in tags_list:
-        task_names["FACES"] = ["Faces", "task-faces_bold.json"]
+    for tag in tags_list:
+        if tag == "RST" or tag == "VN-SPRL":
+            task_names["RST"] = ["RestingState", "task-rest_bold.json"]
+        elif tag == "FACES":
+            task_names["FACES"] = ["Faces", "task-faces_bold.json"]
+        elif (tag == "TMS-FMRI"):
+            task_names["TMS-FMRI"] = ["TMS-FMRI", "task-tmsfmri_bold.json"]
+        else:
+            task_names[tag] = [tag.lower(), "task-{}_bold.json".format(tag.lower())]
+
     for task in task_names.keys():
         data = dict()
         data["TaskName"] = task_names[task][0]
@@ -218,19 +237,25 @@ def init_setup(study, debug):
     create_json(bids_folder + "dataset_description.json", data )
     logger.info("Location of Dataset Description: {}".format(bids_folder + "dataset_description.json"))
 
-    all_tags = cfg.get_tags().keys()
-    create_task_json(bids_folder, all_tags)
+    all_tags = cfg.get_tags()
+    global tag_map
+    tag_map = {all_tags.get(x, "qc_type") : [] for x in all_tags.keys()}
+    for tag in all_tags.keys():
+        tag_map[all_tags.get(tag, "qc_type")].append(tag)
+    for tag in tag_map:
+        print "{:<20} {:<100}".format(tag, tag_map[tag])
 
     nii_path = cfg.get_path('nii')
     logger.info("Nii files to be converted to BIDS format will be from: {}".format(nii_path))
     to_delete = set()
-    return cfg, bids_folder,all_tags, nii_path, to_delete
+    return cfg, bids_folder,all_tags.keys(), nii_path, to_delete
 
 
 def main():
-    cfg, bids_folder,all_tags, nii_path, to_delete = init_setup("OPT", "--debug" in sys.argv)
+    cfg, bids_folder,all_tags, nii_path, to_delete = init_setup("NEUR", "--debug" in sys.argv)
 
     logger.info("Beginning to iteratre through folders/files in {}".format(nii_path))
+    study_tags = set()
     for item in os.listdir(nii_path):
         if scanid.is_phantom(item):
             logger.info("File is phantom and will be ignored: {}".format(item))
@@ -246,9 +271,15 @@ def main():
             for initem in sorted(valid_files, key=lambda x: scanid.parse_filename(x)[2]):
                 ident, tag, series, description =scanid.parse_filename(initem)
                 ext = os.path.splitext(item_list_path + initem)[1]
-                bids_name = to_bids_name(ident, tag, cnt[tag], type_folders, ext)
+                if tag in tag_map["fmri"]:
+                    study_tags.add(tag)
+                try:
+                    bids_name = to_bids_name(ident, tag, cnt, type_folders, ext)
+                except ValueError, err:
+                    logger.error(err)
+                    continue
                 copyfile(item_list_path + initem,bids_name)
-                logger.info("{:<80} {:<80}".format(initem, to_bids_name(ident, tag, cnt[tag], type_folders, ext)))
+                logger.info("{:<80} {:<80}".format(initem, to_bids_name(ident, tag, cnt, type_folders, ext)))
                 cnt[tag] +=1
                 if ext == ".json":
                     try:
@@ -276,6 +307,9 @@ def main():
             for key in type_folders.keys():
                 if os.listdir(type_folders[key]) == []:
                     to_delete.add(type_folders[key])
+
+    create_task_json(bids_folder, study_tags)
+
 
     logger.info("Deleting unecessary BIDS folders")
     for folder in to_delete:
