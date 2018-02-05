@@ -602,7 +602,7 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
 
         # first check if the scan has already been processed
         try:
-            export_formats = cfg.get_key(['ExportSettings', tag, 'formats'])
+            export_formats = tags.get(tag)['formats']
         except KeyError:
             logger.error('Export settings for tag:{} not found for study:{}'
                          .format(tag, cfg.study_name))
@@ -635,7 +635,7 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
                     logger.error('Failed creating target folder:{}'
                                  .format(target_dir))
                     continue
-                
+
                 try:
                     exporter = xporters[export_format]
                 except KeyError:
