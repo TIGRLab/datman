@@ -1,4 +1,21 @@
 #!/usr/bin/env python
+"""
+This copies and converts files in nii folder to a bids folder in BIDS format
+
+Usage:
+  to_bids.py [options] <study>
+
+Arguments:
+    <study>             study name defined in master configuration .yml file
+                        to convert to BIDS format
+
+Options:
+    --nii_dir PATH     Path to directory to copy nifti data from
+    --bids_dir PATH     Path to directory to store data in BIDS format
+    --log-to-server     If set, all log messages are sent to the configured
+                        logging server.
+    --debug             debug logging
+"""
 import datman.config as config
 import datman.scanid as scanid
 import logging, logging.handlers
@@ -8,7 +25,7 @@ import re
 import datetime
 import traceback
 import nibabel
-from datman.docopt import docopt
+from docopt import docopt
 from shutil import copyfile
 from queue import *
 from collections import Counter
@@ -59,15 +76,20 @@ def to_bids_name(ident, tag, cnt_run, type_folder, ex):
     if (tag == "T1" or tag == "T2"):
         return type_folder["anat"] + "{}_{}_{}w{}".format(subject, timepoint, tag, ext)
     elif (tag in tag_map["fmri"]):
+        name = "{}_{}_task-{}_{}_bold{}"
         if (tag == "RST" or tag == "VN-SPRL"):
             run_num = to_run(cnt_run["RST"] + cnt_run["VN-SPRL"], tag)
-            return type_folder["func"] + "{}_{}_task-{}_{}_bold{}".format(subject, timepoint, "rest", run_num, ext)
-        elif (tag == "FACES"):
-            return type_folder["func"] + "{}_{}_task-{}_bold{}".format(subject, timepoint, "faces", ext)
-        elif (tag == "TMS-FMRI"):
-            return type_folder["func"] + "{}_{}_task-{}_bold{}".format(subject, timepoint, "tmsfmri", ext)
+            task = "rest"
         else:
-            return type_folder["func"] + "{}_{}_task-{}_bold{}".format(subject, timepoint, tag.lower(), ext)
+            if run_num[-2:] > "01":
+                logger.warning("More than one session of {} in {}".format(tag, str(ident)))
+            if (tag == "FACES"):
+                task = "faces"
+            elif (tag == "TMS-FMRI"):
+                task = "tmsfmri"
+            else:
+                task = tag.lower()
+        return type_folder["func"] + name.format(subject, timepoint, task, run_num, ext)
     elif (tag in tag_map["dmap_fmri"]):
         if ("-DAP" in tag):
             return type_folder["fmap"] + "{}_{}_dir-{}_{}_epi{}".format(subject, timepoint, "AP", run_num, ext)
@@ -104,8 +126,6 @@ def validify_file(path, file_list):
                     scanid.make_filename(ident, tag, series, description)))
                 blacklist_files.add(series)
         elif ((tag in tag_map["fmri"]) and ext == ".gz"):
-            if (tag == "FACES"):
-                num_faces+= 1
             dap_queue.put(series)
             dpa_queue.put(series)
             needed_json.add(tag)
@@ -127,8 +147,6 @@ def validify_file(path, file_list):
         #         scanid.make_filename(ident, tag, series, description, ext=ext)))
         #     blacklist_files.add(series)
 
-    if num_faces > 1:
-        logger.error("More than one session of FACES in {}".format(path))
 
     for key in blacklist_files:
         valid_files.pop(key, None)
@@ -186,7 +204,7 @@ def create_dir(dir_path):
             logger.critical('Failed creating: {}'.format(dir_path), exc_info=True)
             sys.exit(1)
 
-def setup_logger(filepath, debug, config):
+def setup_logger(filepath, to_server, debug, config):
 
     logger.setLevel(logging.DEBUG)
 
@@ -201,33 +219,35 @@ def setup_logger(filepath, debug, config):
     else:
         shandler.setLevel(logging.WARN)
 
-    server_ip = config.get_key('LOGSERVER')
-    server_handler = logging.handlers.SocketHandler(server_ip,
-            logging.handlers.DEFAULT_TCP_LOGGING_PORT)
-    server_handler.setLevel(logging.CRITICAL)
-
-
     formatter = logging.Formatter("[%(name)s] %(levelname)s: %(message)s")
 
     fhandler.setFormatter(formatter)
     shandler.setFormatter(formatter)
     logger.addHandler(fhandler)
     logger.addHandler(shandler)
-    logger.addHandler(server_handler)
 
-def init_setup(study, debug):
+    if to_server:
+        server_ip = config.get_key('LOGSERVER')
+        server_handler = logging.handlers.SocketHandler(server_ip,
+                logging.handlers.DEFAULT_TCP_LOGGING_PORT)
+        server_handler.setLevel(logging.CRITICAL)
+        logger.addHandler(server_handler)
+
+
+def init_setup(study, to_server, debug, bids_folder, nii_folder):
     cfg = config.config(study=study)
     logger.info("Study to convert to BIDS Format: {}".format(study))
 
-    bids_folder =  cfg.get_path('data') + "bids/"
-    create_dir(bids_folder)
+    if not bids_folder:
+        bids_folder =  cfg.get_path('data') + "bids/"
+        create_dir(bids_folder)
 
     bidsignore_path = bids_folder + ".bidsignore"
     bidsignore = 'echo "*-opt_to_bids.log" > {}'.format(bidsignore_path)
     os.system(bidsignore)
 
 
-    setup_logger(bids_folder, debug, cfg)
+    setup_logger(bids_folder, to_server, debug, cfg)
     logger.info("BIDS folder will be {}".format(bids_folder))
 
     data = dict()
@@ -242,71 +262,78 @@ def init_setup(study, debug):
     tag_map = {all_tags.get(x, "qc_type") : [] for x in all_tags.keys()}
     for tag in all_tags.keys():
         tag_map[all_tags.get(tag, "qc_type")].append(tag)
-    for tag in tag_map:
-        print "{:<20} {:<100}".format(tag, tag_map[tag])
 
-    nii_path = cfg.get_path('nii')
-    logger.info("Nii files to be converted to BIDS format will be from: {}".format(nii_path))
+    if not nii_folder:
+        nii_folder = cfg.get_path('nii')
+        logger.info("Nii files to be converted to BIDS format will be from: {}".format(nii_folder))
     to_delete = set()
-    return cfg, bids_folder,all_tags.keys(), nii_path, to_delete
+    return cfg, bids_folder,all_tags.keys(), nii_folder, to_delete
 
 
 def main():
-    cfg, bids_folder,all_tags, nii_path, to_delete = init_setup("NEUR", "--debug" in sys.argv)
+    arguments = docopt(__doc__)
 
-    logger.info("Beginning to iteratre through folders/files in {}".format(nii_path))
+    study  = arguments['<study>']
+    nii_folder = arguments['--nii_dir']
+    bids_folder = arguments['--bids_dir']
+    to_server = arguments['--log-to-server']
+    debug  = arguments['--debug']
+
+    cfg, bids_folder,all_tags, nii_folder, to_delete = init_setup(study, to_server, debug, bids_folder, nii_folder)
+
+    logger.info("Beginning to iterate through folders/files in {}".format(nii_folder))
     study_tags = set()
-    for item in os.listdir(nii_path):
+    for item in os.listdir(nii_folder):
         if scanid.is_phantom(item):
             logger.info("File is phantom and will be ignored: {}".format(item))
-        if not scanid.is_phantom(item):
-            parsed = scanid.parse(item)
+            continue
+        parsed = scanid.parse(item)
 
-            type_folders = create_bids_dirs(bids_folder, parsed)
-            item_list_path = nii_path + item + "/"
-            item_list = os.listdir(item_list_path)
-            logger.info("Will now begin creating files in BIDS format for: {}".format(item_list_path))
-            valid_files, fmap_dict = validify_file(item_list_path, item_list)
-            cnt = {k : 0 for k in all_tags}
-            for initem in sorted(valid_files, key=lambda x: scanid.parse_filename(x)[2]):
-                ident, tag, series, description =scanid.parse_filename(initem)
-                ext = os.path.splitext(item_list_path + initem)[1]
-                if tag in tag_map["fmri"]:
-                    study_tags.add(tag)
+        type_folders = create_bids_dirs(bids_folder, parsed)
+        item_list_path = nii_folder + item + "/"
+        item_list = os.listdir(item_list_path)
+        logger.info("Will now begin creating files in BIDS format for: {}".format(item_list_path))
+        valid_files, fmap_dict = validify_file(item_list_path, item_list)
+        cnt = {k : 0 for k in all_tags}
+        for initem in sorted(valid_files, key=lambda x: scanid.parse_filename(x)[2]):
+            ident, tag, series, description =scanid.parse_filename(initem)
+            ext = os.path.splitext(item_list_path + initem)[1]
+            if tag in tag_map["fmri"]:
+                study_tags.add(tag)
+            try:
+                bids_name = to_bids_name(ident, tag, cnt, type_folders, ext)
+            except ValueError, err:
+                logger.error(err)
+                continue
+            copyfile(item_list_path + initem,bids_name)
+            logger.info("{:<80} {:<80}".format(initem, to_bids_name(ident, tag, cnt, type_folders, ext)))
+            cnt[tag] +=1
+            if ext == ".json":
                 try:
-                    bids_name = to_bids_name(ident, tag, cnt, type_folders, ext)
-                except ValueError, err:
-                    logger.error(err)
-                    continue
-                copyfile(item_list_path + initem,bids_name)
-                logger.info("{:<80} {:<80}".format(initem, to_bids_name(ident, tag, cnt, type_folders, ext)))
-                cnt[tag] +=1
-                if ext == ".json":
-                    try:
-                        with open(bids_name, "r+") as jsonFile:
-                            data = json.load(jsonFile)
+                    with open(bids_name, "r+") as jsonFile:
+                        data = json.load(jsonFile)
 
-                            if initem in fmap_dict.keys():
-                                data["Intended For"] = fmap_dict[initem]
+                        if initem in fmap_dict.keys():
+                            data["Intended For"] = fmap_dict[initem]
 
-                            if "TotalReadoutTime" not in data.keys():
-                                try:
-                                    nii_file = str.replace(item_list_path + initem, 'json', 'nii.gz')
-                                    data["TotalReadoutTime"] = calculate_trt(data, nii_file)
-                                except KeyError, key:
-                                    logger.error(
-                                    "Total readout time cannot be calculated due to missing information {} in JSON for: {}".format(key, initem))
-                                    continue
-                            jsonFile.seek(0)  # rewind
-                            json.dump(data, jsonFile, sort_keys=True, indent=4, separators=(',', ': '))
-                            jsonFile.truncate()
+                        if "TotalReadoutTime" not in data.keys():
+                            try:
+                                nii_file = str.replace(item_list_path + initem, 'json', 'nii.gz')
+                                data["TotalReadoutTime"] = calculate_trt(data, nii_file)
+                            except KeyError, key:
+                                logger.warning(
+                                "Total readout time cannot be calculated due to missing information {} in JSON for: {}".format(key, initem))
+                                continue
+                        jsonFile.seek(0)  # rewind
+                        json.dump(data, jsonFile, sort_keys=True, indent=4, separators=(',', ': '))
+                        jsonFile.truncate()
 
-                    except IOError:
-                        logger.error('Failed to open: {}'.format(bids_name), exc_info=True)
+                except IOError:
+                    logger.error('Failed to open: {}'.format(bids_name), exc_info=True)
 
-            for key in type_folders.keys():
-                if os.listdir(type_folders[key]) == []:
-                    to_delete.add(type_folders[key])
+        for key in type_folders.keys():
+            if os.listdir(type_folders[key]) == []:
+                to_delete.add(type_folders[key])
 
     create_task_json(bids_folder, study_tags)
 
