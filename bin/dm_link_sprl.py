@@ -87,6 +87,7 @@ def main():
     logger.info('Processing {} sessions'.format(len(sessions)))
     for session in sessions:
         try:
+            logger.info('Processing session {}'.format(session))
             process_session(cfg, db, dir_nii, dir_res, session)
         except:
             logger.error('Failed processing session:{}'.format(session))
@@ -101,10 +102,13 @@ def process_session(cfg, db, dir_nii, dir_res, session):
         return
 
     subject_res = os.path.join(dir_res, str(ident))
+    logger.info('Subject {} resource folder will : {}'.format(str(ident), subject_res))
     dir_nii = os.path.join(dir_nii,
                            ident.get_full_subjectid_with_timepoint())
+    logger.info('Subject {} nii folder will be: {}'.format(str(ident), dir_nii))
 
     if not os.path.isdir(subject_res):
+        logger.info("{} does not exist. Will be adding session number to try and find it.".format(subject_res))
         # Resources folders now require timepoint and session number. If user only
         # gives the first, check with a default session number before giving up.
         if not ident.session:
@@ -113,7 +117,7 @@ def process_session(cfg, db, dir_nii, dir_res, session):
         if os.path.isdir(session_res):
             subject_res = session_res
         else:
-            logger.warning('Could not find session {} resources at expected '
+            logger.error('Could not find session {} resources at expected '
                     'location {}'.format(session, subject_res))
             return
 
@@ -138,8 +142,8 @@ def process_session(cfg, db, dir_nii, dir_res, session):
     # find matching files in the resources folder
     sprl_files = []
     for sprl in sprls:
-        p = re.compile(sprl[0])
-
+        p = re.compile(sprl[0], re.IGNORECASE)
+        logger.info("Search for sprl nii file")
         for root, dirs, files in os.walk(subject_res):
             # exclude the backup resources directory
             if 'BACKUPS' in root:
@@ -150,6 +154,7 @@ def process_session(cfg, db, dir_nii, dir_res, session):
                 if not f.endswith('nii'):
                     continue
                 src_file = os.path.join(root, f)
+                logger.info("sprl file path: {}".format(src_file))
                 if p.search(src_file):
                     # get a mangled name for the link target
                     target_name = _get_link_name(src_file,
@@ -159,12 +164,14 @@ def process_session(cfg, db, dir_nii, dir_res, session):
                     sprl_files.append((src_file, target_name))
 
     for sprl_file in sprl_files:
+        logger.info("Currently working on {}".format(sprl_file))
         _create_symlink(sprl_file[0], sprl_file[1], dir_nii)
         _add_sprl_to_dashboard(db, sprl_file[1])
 
 
 def _add_sprl_to_dashboard(db, filename):
     try:
+        logger.info("Adding {} to dashboard".format(filename))
         db.get_add_scan(filename, create=True)
     except DashboardException as e:
         logger.error('Failed adding scan:{} to dashboard.'

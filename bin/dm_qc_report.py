@@ -428,7 +428,9 @@ def write_report_body(report, expected_files, subject, header_diffs, tag_setting
         "anat"      : anat_qc,
         "fmri"      : fmri_qc,
         "dti"       : dti_qc,
-        "ignore"    : ignore
+        "ignore"    : ignore,
+        "dmap_fmri" : anat_qc,
+        "dmap_dmri" : anat_qc
     }
     for idx in range(0,len(expected_files)):
         series = expected_files.loc[idx,'File']
@@ -679,7 +681,8 @@ def initialize_counts(export_info):
             ordering = export_info.get(tag, 'Order')
         except KeyError:
             ordering = [0]
-        expected_position[tag] = min(ordering)
+
+        expected_position[tag] = ordering
 
     return tag_counts, expected_position
 

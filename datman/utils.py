@@ -752,4 +752,42 @@ def validate_subject_id(subject_id, config):
 
     return scanid
 
+def submit_job(cmd, job_name, log_dir, system = 'other',
+        cpu_cores=1, walltime="2:00:00", dryrun = False):
+    '''
+    submits a job or joblist the queue depending on the system
+
+    Args:
+        cmd (str): the command or a list of commands to submits
+        job_name (str): the name for the job
+        log_dir (path): paths where the job logs should go
+        system : the system that we are running on (i.e. 'kimel' or 'scc')
+        cpu_cores (int): the number of CPU cores (default: 1) for the job (on scc)
+        walltime  (time) : the walltime for the job (default 2:00:00, two hrs)
+        dryrun (bool): do not submit the job
+    '''
+    if dryrun:
+        return
+
+    # Bit of an ugly hack to allow job submission on the scc. Should be replaced
+    # with drmaa or some other queue interface later
+    if system is 'kimel':
+        job_file = '/tmp/{}'.format(job_name)
+
+        with open(job_file, 'wb') as fid:
+            fid.write('#!/bin/bash\n')
+            fid.write(cmd)
+        job = "qsub -V -q main.q -N {} {}".format(job_name, job_file)
+        rtn, out = run(job)
+    else:
+        job = "echo {} | qbatch -N {} --logdir {} --ppj {} -i -c 1 -j 1 --walltime {} -".format(
+                cmd, job_name, log_dir, cpu_cores, walltime)
+        rtn, out = run(job, specialquote=False)
+
+    if rtn:
+        logger.error("Job submission failed.")
+        if out:
+            logger.error("stdout: {}".format(out))
+        sys.exit(1)
+
 # vim: ts=4 sw=4 sts=4:
