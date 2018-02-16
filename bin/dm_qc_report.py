@@ -798,15 +798,20 @@ def qc_subject(subject, config):
     Returns the path to the qc_<subject_id>.html file
     """
     report_name = os.path.join(subject.qc_path, 'qc_{}.html'.format(subject.full_id))
+    # header diff
+    header_diffs = os.path.join(subject.qc_path, 'header-diff.log')
 
     if os.path.isfile(report_name):
         if not REWRITE:
             logger.debug("{} exists, skipping.".format(report_name))
             return
         os.remove(report_name)
+        # This probably exists if you're rewriting, and needs to be removed to regenerate
+        try:
+            os.remove(header_diffs)
+        except:
+            pass
 
-    # header diff
-    header_diffs = os.path.join(subject.qc_path, 'header-diff.log')
     if not os.path.isfile(header_diffs):
         run_header_qc(subject, config.get_path('std'), header_diffs)
 
