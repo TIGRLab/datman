@@ -368,7 +368,7 @@ def process_resources(xnat_project, session_label, experiment_label, data):
         try:
             data_type = item['data_fields']['label']
         except KeyError:
-            data_type = 'misc'
+            data_type = 'MISC'
 
         target_path = os.path.join(base_path, data_type)
 
