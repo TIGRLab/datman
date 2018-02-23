@@ -3,8 +3,8 @@
 Extracts data from xnat archive folders into a few well-known formats.
 
 Usage:
-    dm2-xnat-extract.py [options] <study>
-    dm2-xnat-extract.py [options] <study> <session>
+    dm_xnat_extract.py [options] <study>
+    dm_xnat_extract.py [options] <study> <session>
 
 Arguments:
     <study>            Nickname of the study to process
@@ -616,7 +616,7 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
 
         logger.debug('Getting scan from xnat')
         # scan hasn't been completely processed, get it from xnat
-        with datman.utils.make_temp_directory(prefix='dm2_xnat_extract_') as temp_dir:
+        with datman.utils.make_temp_directory(prefix='dm_xnat_extract_') as temp_dir:
             src_dir = get_dicom_archive_from_xnat(xnat_project, session_label,
                     experiment_label, series_id, temp_dir)
 
@@ -805,7 +805,7 @@ def export_nii_command(seriesdir, outputdir, stem):
     logger.debug("Exporting series {} to {}".format(seriesdir, outputfile))
 
     # convert into tempdir
-    with datman.utils.make_temp_directory(prefix="dm2_xnat_extract_") as tmpdir:
+    with datman.utils.make_temp_directory(prefix="dm_xnat_extract_") as tmpdir:
         datman.utils.run('dcm2niix -z y -b y -o {} {}'
                          .format(tmpdir, seriesdir), DRYRUN)
 

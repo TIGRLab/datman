@@ -6,8 +6,8 @@ This program looks up the proper name in a table that lists the original exam
 archive name, and the target name.
 
 Usage:
-    dm2-link.py [options] <study>
-    dm2-link.py [options] <study> <zipfile>
+    dm_link.py [options] <study>
+    dm_link.py [options] <study> <zipfile>
 
 Arguments:
     <study>              Name of the study to process

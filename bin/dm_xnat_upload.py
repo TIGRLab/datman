@@ -3,8 +3,8 @@
 Uploads a scan archive to XNAT
 
 Usage:
-    xnat-upload.py [options] <study>
-    xnat-upload.py [options] <study> <archive>
+    dm_xnat_upload.py [options] <study>
+    dm_xnat_upload.py [options] <study> <archive>
 
 Arguments:
     <study>             Study/Project name
