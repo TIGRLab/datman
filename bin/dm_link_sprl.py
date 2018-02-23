@@ -3,8 +3,8 @@
 Symlink SPRL scans from Resources folder to nii folder
 
 Usage:
-    dm2-link-sprl.py [options] <study>
-    dm2-link-sprl.py [options] <study> <session>
+    dm_link_sprl.py [options] <study>
+    dm_link_sprl.py [options] <study> <session>
 
 Arguments:
     <study>              Name of the study to process
