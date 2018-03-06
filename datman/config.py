@@ -348,6 +348,17 @@ class config(object):
 
         return(xnat_projects)
 
+    def get_sites(self):
+        if not self.study_config:
+            raise KeyError('Study not set')
+
+        try:
+            sites = self.study_config['Sites'].keys()
+        except KeyError:
+            raise KeyError('No sites defined for study {}'.format(self.study_name))
+
+        return sites
+
     def get_qced_subjects(self):
         """
         Returns a dictionary of all the subjects that have been signed off on
