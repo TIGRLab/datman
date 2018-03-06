@@ -58,14 +58,8 @@ def main():
     # setup the config object
     cfg = datman.config.config(study=study)
 
-    # get folder information from the config object
-    mrusers = cfg.get_key(['MRUSER'])
-    mrfolders = cfg.get_key(['MRFOLDER'])
-    mrserver = cfg.get_key(['FTPSERVER'])
-
     zips_path = cfg.get_path('zips')
     meta_path = cfg.get_path('meta')
-
     # Check the local project zips dir exists, create if not
     if not os.path.isdir(zips_path):
         logger.warning('Zips directory: {} not found; creating.'
@@ -73,16 +67,78 @@ def main():
         if not dryrun:
             os.mkdir(zips_path)
 
-    # MRfolders entry in config file should be a list, but could be a string
-    if isinstance(mrfolders, basestring):
-        mrfolders = [mrfolders]
+    server_config = get_server_config(cfg)
 
-    # MRUSER entry in config file should be a list, but could be a string
-    if isinstance(mrusers, basestring):
-        mrusers = [mrusers]
+    for mrserver in server_config:
+        mruser, mrfolder, pass_file_name = server_config[mrserver]
 
-    # load the password
-    pass_file = os.path.join(meta_path, 'mrftppass.txt')
+        # MRfolders entry in config file should be a list, but could be a string
+        if isinstance(mrfolders, basestring):
+            mrfolders = [mrfolders]
+
+        # MRUSER entry in config file should be a list, but could be a string
+        if isinstance(mrusers, basestring):
+            mrusers = [mrusers]
+
+        pass_file = os.path.join(meta_path, pass_file_name)
+        passwords = read_password(pass_file)
+
+        # actually do the copying
+        assert len(passwords) == len(mrusers), \
+            'Each mruser in config should have and entry in the password file'
+
+        for iloc in range(len(mrusers)):
+            mruser = mrusers[iloc]
+            password = passwords[iloc]
+            with pysftp.Connection(mrserver,
+                                   username=mruser,
+                                   password=password) as sftp:
+
+                valid_dirs = get_valid_remote_dirs(sftp, mrfolders)
+                if len(valid_dirs) < 1:
+                    logger.error('Source folders:{} not found'.format(mrfolders))
+
+                for valid_dir in valid_dirs:
+                    #  process each folder in turn
+                    logger.debug('Copying from:{}  to:{}'
+                                 .format(valid_dir, zips_path))
+                    process_dir(sftp, valid_dir, zips_path)
+
+
+def get_server_config(cfg):
+    default_users = cfg.get_key(['MRUSER'])
+    default_mrfolders = cfg.get_key(['MRFOLDER'])
+    default_mrserver = cfg.get_key(['FTPSERVER'])
+    try:
+        default_pass_file = cfg.get_key('MRFTPPASS')
+    except KeyError:
+        default_pass_file = 'mrftppass.txt'
+
+    server_config = {}
+    server_config[default_mrserver] = (default_users, default_mrfolders,
+            default_pass_file)
+
+    # Sites may override the study defaults. If they dont, the defaults will
+    # be returned and should NOT be re-added to the config
+    for site in cfg.get_sites():
+        site_server = cfg.get_key(['FTPSERVER'], site=site)
+
+        if site_server in server_config:
+            continue
+
+        mrusers = cfg.get_key(['MRUSER'], site=site)
+        mrfolders = cfg.get_key(['MRFOLDER'], site=site)
+        try:
+            pass_file_name = cfg.get_key('MRFTPPASS', site=site)
+        except KeyError:
+            pass_file_name = 'mrftppass.txt'
+
+        server_config[site_server] = (mrusers, mrfolders, pass_file_name)
+
+    return server_config
+
+
+def read_password(pass_file):
     if not os.path.isfile(pass_file):
         logger.error('Password file: {} not found'. format(pass_file))
         raise IOError
@@ -94,26 +150,7 @@ def main():
             if password:
                 passwords.append(password)
 
-    # actually do the copying
-    assert len(passwords) == len(mrusers), \
-        'Each mruser in config should have and entry in the password file'
-
-    for iloc in range(len(mrusers)):
-        mruser = mrusers[iloc]
-        password = passwords[iloc]
-        with pysftp.Connection(mrserver,
-                               username=mruser,
-                               password=password) as sftp:
-
-            valid_dirs = get_valid_remote_dirs(sftp, mrfolders)
-            if len(valid_dirs) < 1:
-                logger.error('Source folders:{} not found'.format(mrfolders))
-
-            for valid_dir in valid_dirs:
-                #  process each folder in turn
-                logger.debug('Copying from:{}  to:{}'
-                             .format(valid_dir, zips_path))
-                process_dir(sftp, valid_dir, zips_path)
+    return passwords
 
 
 def get_valid_remote_dirs(connection, mrfolders):
