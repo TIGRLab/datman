@@ -70,7 +70,7 @@ def main():
     server_config = get_server_config(cfg)
 
     for mrserver in server_config:
-        mruser, mrfolder, pass_file_name = server_config[mrserver]
+        mrusers, mrfolders, pass_file_name, port = server_config[mrserver]
 
         # MRfolders entry in config file should be a list, but could be a string
         if isinstance(mrfolders, basestring):
@@ -92,7 +92,8 @@ def main():
             password = passwords[iloc]
             with pysftp.Connection(mrserver,
                                    username=mruser,
-                                   password=password) as sftp:
+                                   password=password,
+                                   port=port) as sftp:
 
                 valid_dirs = get_valid_remote_dirs(sftp, mrfolders)
                 if len(valid_dirs) < 1:
@@ -106,17 +107,10 @@ def main():
 
 
 def get_server_config(cfg):
-    default_users = cfg.get_key(['MRUSER'])
-    default_mrfolders = cfg.get_key(['MRFOLDER'])
-    default_mrserver = cfg.get_key(['FTPSERVER'])
-    try:
-        default_pass_file = cfg.get_key('MRFTPPASS')
-    except KeyError:
-        default_pass_file = 'mrftppass.txt'
-
     server_config = {}
-    server_config[default_mrserver] = (default_users, default_mrfolders,
-            default_pass_file)
+
+    default_mrserver = cfg.get_key(['FTPSERVER'])
+    server_config[default_mrserver] = read_config(cfg)
 
     # Sites may override the study defaults. If they dont, the defaults will
     # be returned and should NOT be re-added to the config
@@ -126,16 +120,24 @@ def get_server_config(cfg):
         if site_server in server_config:
             continue
 
-        mrusers = cfg.get_key(['MRUSER'], site=site)
-        mrfolders = cfg.get_key(['MRFOLDER'], site=site)
-        try:
-            pass_file_name = cfg.get_key('MRFTPPASS', site=site)
-        except KeyError:
-            pass_file_name = 'mrftppass.txt'
-
-        server_config[site_server] = (mrusers, mrfolders, pass_file_name)
+        server_config[site_server] = read_config(cfg, site=site)
 
     return server_config
+
+
+def read_config(cfg, site=None):
+    mrusers = cfg.get_key(['MRUSER'], site=site)
+    mrfolders = cfg.get_key(['MRFOLDER'], site=site)
+    try:
+        pass_file = cfg.get_key('MRFTPPASS', site=site)
+    except KeyError:
+        pass_file = 'mrftppass.txt'
+    try:
+        server_port = cfg.get_key('FTPPORT', site=site)
+    except KeyError:
+        server_port = 22
+
+    return (mrusers, mrfolders, pass_file, server_port)
 
 
 def read_password(pass_file):
@@ -161,9 +163,16 @@ def get_valid_remote_dirs(connection, mrfolders):
     """
     remote_dirs = connection.listdir()
     valid_dirs = []
-    for mr_folder in mrfolders:
-        [valid_dirs.append(d) for d in remote_dirs
-         if fnmatch.fnmatch(d, mr_folder)]
+    # ToNI stores the data two folders deep, so the path doesnt work the old
+    # algo (code in else statement). But some studies have Regexs in their
+    # mrfolders which doesnt work with the new algo (code in if statement)
+    # So this is an ugly compromise :( (If only pysftp had a sensible 'walk' function...)
+    for mrfolder in mrfolders:
+        if connection.exists(mrfolder):
+            valid_dirs.append(mrfolder)
+        else:
+            [valid_dirs.append(d) for d in remote_dirs
+                if fnmatch.fnmatch(d, mrfolder)]
     return valid_dirs
 
 
