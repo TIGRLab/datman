@@ -74,13 +74,13 @@ def run_hcp_convert(path, config, study):
 
     # run fs2hcp
     #command = 'fs2hcp --FSpath={} --HCPpath={} --subject={}'.format(freesurfer_dir, hcp_dir, subject)
-    command = 'ciftify_recon_all --fs-subjects-dir {} --hcp-data-dir {} {}'.format(freesurfer_dir, hcp_dir, subject)
+    command = 'ciftify_recon_all --fs-subjects-dir {} --ciftify-work-dir {} {}'.format(freesurfer_dir, hcp_dir, subject)
     rtn, out = utils.run(command)
     if rtn:
         error_message = "ciftify_recon_all failed: {}\n{}".format(command, out)
         logger.debug(error_message)
 
-    command2 = 'cifti_vis_recon_all snaps --hcp-data-dir {} {}'.format(hcp_dir, subject)
+    command2 = 'cifti_vis_recon_all snaps --ciftify-work-dir {} {}'.format(hcp_dir, subject)
     rtn, out = utils.run(command2)
     if rtn:
         error_message = "cifti_vis_recon_all snaps failed: {}\n{}".format(command2, out)
@@ -89,7 +89,7 @@ def run_hcp_convert(path, config, study):
 def create_indices_bm(config, study):
     hcp_dir = config.get_path('hcp')
     if os.path.exists(os.path.join(hcp_dir, 'qc_recon_all')):
-        command = 'cifti_vis_recon_all index --hcp-data-dir {}'.format(hcp_dir)
+        command = 'cifti_vis_recon_all index --ciftify-work-dir {}'.format(hcp_dir)
         rtn, out = utils.run(command)
         if rtn:
             error_message = "qc index creation failed: {}\n{}".format(command, out)
