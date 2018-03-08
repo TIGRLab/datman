@@ -15,14 +15,18 @@ Options:
     --dry-run
 
 """
-from datman.docopt import docopt
-import datman.config
-import pysftp
 import logging
 import sys
 import os
+import shutil
+
+import pysftp
 import fnmatch
 import paramiko
+
+from datman.docopt import docopt
+import datman.config
+from datman.utils import make_temp_directory
 
 logger = logging.getLogger(os.path.basename(__file__))
 
@@ -189,16 +193,34 @@ def process_dir(connection, directory, zips_path):
                          .format(directory))
             return
         for file_name in files:
-            target = os.path.join(zips_path, file_name)
-            if check_exists_isnewer(connection, file_name, target):
-                logger.info('Copying new remote file:{}'
-                            .format(file_name))
-                connection.get(file_name, target, preserve_mtime=True)
+            if connection.isfile(file_name):
+                get_file(connection, file_name, zips_path)
             else:
-                logger.debug("File:{} already exists, skipping"
-                             .format(file_name))
+                get_folder(connection, file_name, zips_path)
 
-def check_exists_isnewer(sftp, filename, target):
+def get_folder(connection, folder_name, dst_path):
+    expected_file = os.path.join(dst_path, folder_name + ".zip")
+    if not download_needed(connection, folder_name, expected_file):
+        logger.debug("File: {} already exists, skipping".format(folder_name))
+        return
+
+    with make_temp_directory() as temp_dir:
+        # Note 'get_r' is needed instead of 'get'
+        connection.get_r(folder_name, temp_dir, preserve_mtime=True)
+        source = os.path.join(temp_dir, folder_name)
+        dest = os.path.join(dst_path, folder_name)
+        new_zip = shutil.make_archive(dest, 'zip', source)
+        logger.info("Copied remote file {} to: {}".format(folder_name, new_zip))
+
+def get_file(connection, file_name, zips_path):
+    target = os.path.join(zips_path, file_name)
+    if download_needed(connection, file_name, target):
+        logger.info('Copying new remote file: {}'.format(file_name))
+        connection.get(file_name, target, preserve_mtime=True)
+    else:
+        logger.debug("File: {} already exists, skipping".format(file_name))
+
+def download_needed(sftp, filename, target):
     """Check if a local copy of the file exists,
     If no local copy exists return True
     If local copy exists and is older than remote return True
