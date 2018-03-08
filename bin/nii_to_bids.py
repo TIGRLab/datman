@@ -3,7 +3,7 @@
 This copies and converts files in nii folder to a bids folder in BIDS format
 
 Usage:
-  to_bids.py [options] <study>
+  nii_to_bids.py [options] <study>
 
 Arguments:
     <study>             study name defined in master configuration .yml file
@@ -20,7 +20,7 @@ import datman.config as config
 import datman.scanid as scanid
 import logging, logging.handlers
 import os, sys
-import json
+import json, csv
 import re
 import datetime
 import traceback
@@ -73,8 +73,13 @@ def to_bids_name(ident, tag, cnt_run, type_folder, ex):
     else:
         ext = ex
 
-    if (tag == "T1" or tag == "T2"):
-        return type_folder["anat"] + "{}_{}_{}w{}".format(subject, timepoint, tag, ext)
+    if (tag in tag_map['anat']):
+        name = "{}_{}_{}_{}{}"
+        if (tag == "T1" or tag == "T2"):
+            mod = tag + 'w'
+        else:
+            mod = tag
+        return type_folder["anat"] + name.format(subject, timepoint,run_num, mod, ext)
     elif (tag in tag_map["fmri"]):
         name = "{}_{}_task-{}_{}_bold{}"
         if (tag == "RST" or tag == "VN-SPRL"):
@@ -243,7 +248,7 @@ def init_setup(study, to_server, debug, bids_folder, nii_folder):
         create_dir(bids_folder)
 
     bidsignore_path = bids_folder + ".bidsignore"
-    bidsignore = 'echo "*-opt_to_bids.log" > {}'.format(bidsignore_path)
+    bidsignore = 'echo "*-opt_to_bids.log\nmatch.csv" > {}'.format(bidsignore_path)
     os.system(bidsignore)
 
 
@@ -283,6 +288,11 @@ def main():
 
     logger.info("Beginning to iterate through folders/files in {}".format(nii_folder))
     study_tags = set()
+
+    csvfile = open(bids_folder + 'match.csv', 'wb')
+    csvwriter = csv.writer(csvfile)
+    csvwriter.writerow(['CAMH','BIDS'])
+
     for item in os.listdir(nii_folder):
         if scanid.is_phantom(item):
             logger.info("File is phantom and will be ignored: {}".format(item))
@@ -303,10 +313,11 @@ def main():
             try:
                 bids_name = to_bids_name(ident, tag, cnt, type_folders, ext)
             except ValueError, err:
-                logger.error(err)
+                logger.warning(err)
                 continue
             copyfile(item_list_path + initem,bids_name)
-            logger.info("{:<80} {:<80}".format(initem, to_bids_name(ident, tag, cnt, type_folders, ext)))
+            logger.info("{:<80} {:<80}".format(initem, bids_name))
+            csvwriter.writerow([initem, os.path.relpath(bids_name, start=bids_folder)])
             cnt[tag] +=1
             if ext == ".json":
                 try:
@@ -336,7 +347,7 @@ def main():
                 to_delete.add(type_folders[key])
 
     create_task_json(bids_folder, study_tags)
-
+    csvfile.close()
 
     logger.info("Deleting unecessary BIDS folders")
     for folder in to_delete:
