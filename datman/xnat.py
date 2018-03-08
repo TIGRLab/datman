@@ -28,6 +28,14 @@ class xnat(object):
             logger.warn('Failed getting xnat session')
             raise XnatException("Failed getting xnat session")
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        # Ends the session on the server side
+        url = '{}/data/JSESSION'.format(self.server)
+        self.session.delete(url)
+
     def get_xnat_session(self):
         """Setup a session with xnat"""
         url = '{}/data/JSESSION'.format(self.server)
