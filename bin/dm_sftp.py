@@ -28,8 +28,9 @@ from datman.docopt import docopt
 import datman.config
 from datman.utils import make_temp_directory
 
+logging.basicConfig(level=logging.WARN,
+        format="[%(asctime)s %(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
-
 
 def main():
     arguments = docopt(__doc__)
@@ -40,7 +41,6 @@ def main():
     study = arguments['<study>']
 
     # setup logging
-    ch = logging.StreamHandler(sys.stdout)
     log_level = logging.WARN
 
     if quiet:
@@ -49,15 +49,8 @@ def main():
         log_level = logging.INFO
     if debug:
         log_level = logging.DEBUG
-    logger.setLevel(log_level)
-    ch.setLevel(log_level)
-    logging.getLogger("paramiko").setLevel(log_level)
 
-    formatter = logging.Formatter('%(asctime)s - %(name)s - {study} - '\
-            ' %(levelname)s - %(message)s'.format(study=study))
-    ch.setFormatter(formatter)
-
-    logger.addHandler(ch)
+    logging.getLogger().setLevel(log_level)
 
     # setup the config object
     cfg = datman.config.config(study=study)
