@@ -63,6 +63,7 @@ def main():
     # Set log format
     log_handler.setFormatter(logging.Formatter('[%(name)s] %(levelname)s - '
             '{study}: %(message)s'.format(study=project)))
+    log_level = logging.WARN
 
     if verbose:
         log_level = logging.INFO
