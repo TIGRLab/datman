@@ -65,11 +65,15 @@ def main():
             '{study}: %(message)s'.format(study=project)))
 
     if verbose:
-        logger.setLevel(logging.INFO)
+        log_level = logging.INFO
     if debug:
-        logger.setLevel(logging.DEBUG)
+        log_level = logging.DEBUG
     if quiet:
-        logger.setLevel(logging.ERROR)
+        log_level = logging.ERROR
+
+    logger.setLevel(log_level)
+    # Needed to see log messages from dm_link_project_scans
+    link_scans.logger.setLevel(log_level)
 
     config = datman.config.config(filename=site_config, study=project)
 
