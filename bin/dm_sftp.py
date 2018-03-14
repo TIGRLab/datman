@@ -107,7 +107,11 @@ def get_server_config(cfg):
     server_config = {}
 
     default_mrserver = cfg.get_key(['FTPSERVER'])
-    server_config[default_mrserver] = read_config(cfg)
+    try:
+    	server_config[default_mrserver] = read_config(cfg)
+    except KeyError as e:
+        # No default config :(
+        logger.debug(e.message)
 
     # Sites may override the study defaults. If they dont, the defaults will
     # be returned and should NOT be re-added to the config
@@ -117,14 +121,22 @@ def get_server_config(cfg):
         if site_server in server_config:
             continue
 
-        server_config[site_server] = read_config(cfg, site=site)
-
+        try:
+            server_config[site_server] = read_config(cfg, site=site)
+        except KeyError as e:	
+            logger.debug(e.message)
     return server_config
 
 
 def read_config(cfg, site=None):
-    mrusers = cfg.get_key(['MRUSER'], site=site)
-    mrfolders = cfg.get_key(['MRFOLDER'], site=site)
+    logger.debug("Getting MR sftp server config for site: {}".format(
+            site if site else "default"))
+    try:
+        mrusers = cfg.get_key(['MRUSER'], site=site)
+        mrfolders = cfg.get_key(['MRFOLDER'], site=site)
+    except KeyError:
+        raise KeyError("MRUSER or MRFOLDER is not defined. Skipping.")
+
     try:
         pass_file = cfg.get_key('MRFTPPASS', site=site)
     except KeyError:
