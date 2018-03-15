@@ -19,7 +19,7 @@ Whether the credentials file is found from the command line or the configuration
 file the format is expected to be username then password each separated by a newline.
 
 Usage:
-    xnat_fetch_remote.py [options] <project> <server> <credentials> <destination>
+    xnat_fetch_remote.py [options] <project> <server> <credentials_path> <destination>
     xnat_fetch_remote.py [options] <study>
 
 
@@ -27,7 +27,7 @@ Arguments:
     <study>                 Name of the datman study to process.
     <project>               The XNAT project to pull from.
     <server>                Full URL to the remote XNAT server to pull from.
-    <credentials>           The full path to a file containing the xnat username
+    <credentials_path>      The full path to a file containing the xnat username
                             a newline, and then the xnat password.
     <destination>           The full path to the intended destination for all
                             downloaded data. The script will attempt to avoid
@@ -55,6 +55,7 @@ from docopt import docopt
 
 import datman.config
 import datman.xnat
+import datman.utils
 
 logging.basicConfig(level=logging.WARN,
         format="[%(name)s] %(levelname)s: %(message)s")
@@ -64,7 +65,7 @@ def main():
     arguments = docopt(__doc__)
     xnat_project = arguments['<project>']
     xnat_server = arguments['<server>']
-    xnat_credentials = arguments['<credentials>']
+    xnat_credentials = arguments['<credentials_path>']
     destination = arguments['<destination>']
     study = arguments['<study>']
     given_site = arguments['--site']
@@ -105,9 +106,80 @@ def get_credentials(credentials_path):
     return username, password
 
 def get_data(xnat_project, xnat_server, username, password, destination):
+    current_zips = os.listdir(destination)
     with datman.xnat.xnat(xnat_server, username, password) as xnat:
-        project = xnat.get_project(xnat_project)
-        print(project)
+        sessions_list = xnat.get_sessions(xnat_project)
+        for session_metadata in sessions_list:
+            session_name = session_metadata['label']
+            try:
+                session = xnat.get_session(xnat_project, session_name)
+            except Exception as e:
+                logger.error("Failed to get session {} from xnat. "
+                        "Reason: {}".format(session_name, e.message))
+                continue
+            zip_name = session_name + ".zip"
+            zip_path = os.path.join(destination, zip_name)
+            if zip_name in current_zips and not update_needed(zip_path, session):
+                print("Found the data. Passing.")
+                continue
+            print("Download Needed!")
+            #download_data()
+            # scan_url = "data/archive/projects/{project}/subjects/{subid}/experiments/{subid}/scans/ALL/files?format=zip"
+            # resources_url = "/data/archive/projects/{project}/subjects/{subid}/experiments/{subid}/files?format=zip"
+
+# def download_resources():
+# def download_scans():
+# def merge_zipfiles():
+
+def update_needed(zip_file, session):
+    zip_headers = datman.utils.get_archive_headers(zip_file)
+
+    try:
+        experiment = get_experiment(session)
+    except ValueError as e:
+        logger.error("{}. Skipping.".format(e.message))
+        return False
+
+    # Check experiment matches
+    zip_experiment_ids = [scan.StudyInstanceUID for scan in zip_headers.values()]
+    if len(set(zip_experiment_ids)) > 1:
+        logger.error("Zip file contains more than one experiment: "
+                "{}. Passing.".format(zip_file))
+        return False
+    xnat_experiment_id = experiment['data_fields']['UID']
+    if xnat_experiment_id not in zip_experiment_ids:
+        logger.critical("Zip file experiment ID does not match xnat session of "
+                "the same name: {}".format(zip_file))
+        return False
+
+    # Check set of scan UIDs in archive are >= those on XNAT
+    zip_scan_uids = [scan.SeriesInstanceUID for scan in zip_headers.values()]
+
+    xnat_scans = [child['items'] for child in experiment['children']
+            if child['field'] == 'scans/scan']
+    xnat_scan_uids = [scan['data_fields']['UID'] for scan in xnat_scans[0]]
+
+    if not set(xnat_scan_uids).issubset(set(zip_scan_uids)):
+        logger.error("Some of XNAT contents for {} is missing from file system. "
+                "Zip file will be deleted and redownloaded".format(session))
+        return True
+
+    # Check resource data matches
+
+
+
+def get_experiment(session):
+    experiments = [exp for exp in session['children']
+            if exp['field'] == 'experiments/experiment']
+
+    session_id = session['data_fields']['label']
+    if not experiments:
+        raise ValueError("No experiments found for {}".format(session_id))
+    elif len(experiments) > 1:
+        logger.error("More than one session uploaded to ID {}. Processing "
+                "only the first.".format(session_id))
+
+    return experiments[0]['items'][0]
 
 def add_server_handler(config):
     try:
