@@ -233,6 +233,8 @@ def process_session(session):
     try:
         xnat.get_session(xnat_project, session_label)
     except Exception as e:
+        logger.error("Error while getting session {} from XNAT. "
+                "Message: {}".format(session_label, e.message))
         return
 
     try:
