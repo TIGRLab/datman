@@ -777,7 +777,7 @@ class Session(object):
         return scan_uids
 
     def _get_resource_IDs(self):
-        resources = [resource['items'] for resource in self.experiment
+        resources = [resource['items'] for resource in self.experiment['children']
                 if resource['field'] == 'resources/resource']
 
         if not resources:
