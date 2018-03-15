@@ -137,11 +137,13 @@ class xnat(object):
                 result = self.get_session(study, session)
                 return result
         try:
-            return(result['items'][0])
-        except (KeyError, ValueError):
-            msg = "Session:{} doesnt exist on xnat for study:{}".format(session, study)
-            logger.info(msg)
-            return XnatException(msg)
+            session_json = result['items'][0]
+        except:
+            msg = "Session:{} doesnt exist on xnat for study:{}".format(session,
+                    study)
+            raise XnatException(msg)
+
+        return Session(session_json)
 
     def make_session(self, study, session):
         url = "{server}/REST/projects/{project}/subjects/{subject}"
@@ -312,8 +314,6 @@ class xnat(object):
                                         label)
         self._make_xnat_put(url)
         return self.get_resource_ids(study, session, experiment, label)
-
-
 
     def get_resource_list(self, study, session, experiment, resource_id):
         """The list of non-dicom resources associated with an experiment
@@ -732,3 +732,75 @@ class xnat(object):
             logger.warn("http client error deleting resource: {}"
                         .format(response.status_code))
             response.raise_for_status()
+
+
+class Session(object):
+
+    raw_json = None
+
+    def __init__(self, session_json):
+        # Session attributes
+        self.raw_json = session_json
+        self.name = session_json['data_fields']['label']
+        self.project = session_json['data_fields']['project']
+        # Experiment attributes
+        self.experiment = self._get_experiment()
+        self.experiment_UID = self.experiment['data_fields']['UID']
+        # Scan attributes
+        self.scans = self._get_scans()
+        self.scan_UIDs = self._get_scan_UIDs()
+        # Resource attributes
+        self.resource_IDs = self._get_resource_IDs()
+
+    def _get_experiment(self):
+        experiments = [exp for exp in self.raw_json['children']
+                if exp['field'] == 'experiments/experiment']
+
+        if not experiments:
+            raise ValueError("No experiments found for {}".format(self.name))
+        elif len(experiments) > 1:
+            logger.error("More than one session uploaded to ID {}. Processing "
+                    "only the first.".format(self.name))
+
+        return experiments[0]['items'][0]
+
+    def _get_scans(self):
+        scans = [child['items'] for child in self.experiment['children']
+                if child['field'] == 'scans/scan']
+        if not scans:
+            logger.info("No scans found for session {}".format(self.name))
+            return scans
+        return scans[0]
+
+    def _get_scan_UIDs(self):
+        scan_uids = [scan['data_fields']['UID'] for scan in self.scans]
+        return scan_uids
+
+    def _get_resource_IDs(self):
+        resources = [resource['items'] for resource in self.experiment
+                if resource['field'] == 'resources/resource']
+
+        if not resources:
+            return []
+
+        # The dict seems to only be need for xnat_upload to check duplicate
+        # resources. May be able to simplify and switch to a list of IDs...
+        resource_ids = {}
+        for resource in resources[0]:
+            try:
+                label = resource['data_fields']['label']
+                resource_ids[label] = resource['data_fields']['xnat_abstractresource_id']
+            except KeyError:
+                resource_ids['No Label'] = resource['data_fields']['xnat_abstractresource_id']
+        return resource_ids
+
+    def  get_resources(self, xnat_connection):
+        """
+        Returns a list of all resource URIs from this session.
+        """
+        resources = []
+        for r_id in self.resource_IDs:
+            resource_list = xnat_connection.get_resource_list(self.project,
+                    self.name, self.name, r_id)
+            resources.extend([item['URI'] for item in resource_list])
+        return resources
