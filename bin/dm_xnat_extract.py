@@ -61,15 +61,8 @@ DEPENDENCIES
     dcm2nii
 
 """
-from datman.docopt import docopt
 import logging
 import sys
-import datman.config
-import datman.xnat
-import datman.utils
-import datman.scanid
-import datman.dashboard
-import datman.exceptions
 import getpass
 import os
 import glob
@@ -78,8 +71,17 @@ import zipfile
 import fnmatch
 import platform
 import shutil
-import dicom
 import hashlib
+
+import dicom
+
+from datman.docopt import docopt
+import datman.config
+import datman.xnat
+import datman.utils
+import datman.scanid
+import datman.dashboard
+import datman.exceptions
 
 logger = logging.getLogger(os.path.basename(__file__))
 
