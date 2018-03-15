@@ -768,7 +768,7 @@ class Session(object):
         scans = [child['items'] for child in self.experiment['children']
                 if child['field'] == 'scans/scan']
         if not scans:
-            logger.info("No scans found for session {}".format(self.name))
+            logger.debug("No scans found for session {}".format(self.name))
             return scans
         return scans[0]
 
