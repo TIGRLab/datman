@@ -794,7 +794,7 @@ class Session(object):
                 resource_ids['No Label'] = resource['data_fields']['xnat_abstractresource_id']
         return resource_ids
 
-    def  get_resources(self, xnat_connection):
+    def get_resources(self, xnat_connection):
         """
         Returns a list of all resource URIs from this session.
         """
