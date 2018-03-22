@@ -436,8 +436,8 @@ def check_duplicates(resource, base_path, target_path):
     try:
         del dups[dups.index(target_file)]
     except:
-        logger.error('Resource file:{} not found on file system.'
-                     ' Did the download fail due to timeout?')
+        logger.error('Resource file: {} not found on file system.'
+                     ' Did the download fail due to timeout?'.format(target_file))
 
     for dup in dups:
         try:
