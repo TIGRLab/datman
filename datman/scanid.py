@@ -59,7 +59,8 @@ class Identifier:
         self.site = site
         self.subject = subject
         self.timepoint = timepoint
-        self._session = session
+        # Bug fix: spaces were being left after the session number leading to broken file names
+        self._session = session.strip()
 
     @property
     def session(self):
