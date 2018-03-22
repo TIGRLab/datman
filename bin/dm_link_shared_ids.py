@@ -225,7 +225,7 @@ class Record(object):
 
         shared_ids = []
         for key in shared_id_fields:
-            value = record_dict[key]
+            value = record_dict[key].strip()
             if not value:
                 # No shared id for this field.
                 continue
