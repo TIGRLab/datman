@@ -134,6 +134,7 @@ def main():
     ch.setFormatter(formatter)
 
     logger.addHandler(ch)
+    logging.getLogger('datman.utils').addHandler(ch)
 
     # setup the config object
     logger.info('Loading config')
@@ -609,9 +610,7 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
             logger.error('Export settings for tag:{} not found for study:{}'
                          .format(tag, cfg.study_name))
             continue
-        if check_if_dicom_is_processed(ident,
-                                       file_stem,
-                                       export_formats):
+        if series_is_processed(ident, file_stem, export_formats):
             logger.info('Scan:{} has been processed, skipping'
                         .format(file_stem))
             continue
@@ -648,6 +647,8 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
                 try:
                     exporter(src_dir, target_dir, file_stem)
                 except:
+                    # The conversion functions dont really ever raise exceptions
+                    # even when they fail so this is a bit useless
                     logger.error("An error happened exporting {} from scan: {} "
                             "in session: {}".format(export_format, series_id,
                             session_label), exc_info=True)
@@ -738,7 +739,7 @@ def get_resource_archive_from_xnat(xnat_project, session, resourceid):
     return(resource_archive)
 
 
-def check_if_dicom_is_processed(ident, file_stem, export_formats):
+def series_is_processed(ident, file_stem, export_formats):
     """returns true if exported files exist for all specified formats"""
     global cfg
 
@@ -750,9 +751,9 @@ def check_if_dicom_is_processed(ident, file_stem, export_formats):
         # file extensions will be
         exists = [os.path.isfile(p) for p in glob.glob(outfile + '.*')]
         if not exists:
-            return
+            return False
         if not all(exists):
-            return
+            return False
     return True
 
 
