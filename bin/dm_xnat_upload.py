@@ -12,7 +12,6 @@ Arguments:
 
 Options:
     --server URL          XNAT server to connect to, overrides the server defined in the site config file.
-    -c --credfile FILE    File containing XNAT username and password. The username should be on the first line, and password on the next. Overrides the credfile in the project metadata
     -u --username USER    XNAT username. If specified then the credentials file is ignored and you are prompted for password.
     -v --verbose          Be chatty
     -d --debug            Be very chatty
@@ -34,7 +33,6 @@ import io
 import dicom
 import urllib
 
-logging.basicConfig()
 logger = logging.getLogger(os.path.basename(__file__))
 
 username = None
@@ -56,7 +54,6 @@ def main():
     quiet = arguments['--quiet']
     study = arguments['<study>']
     server = arguments['--server']
-    credfile = arguments['--credfile']
     username = arguments['--username']
     archive = arguments['<archive>']
 
@@ -86,7 +83,7 @@ def main():
 
     CFG = datman.config.config(study=study)
 
-    XNAT = get_xnat(server=server, credfile=credfile, username=username)
+    XNAT = get_xnat(server=server, username=username)
 
     dicom_dir = CFG.get_path('dicom', study)
     # deal with a single archive specified on the command line,
@@ -130,7 +127,7 @@ def process_archive(archivefile):
         return
 
     if not data_exists:
-        logger.info('Uploading dicoms from:{}'.format(archivefile))
+        logger.info('Uploading dicoms from: {}'.format(archivefile))
         try:
             upload_dicom_data(archivefile, xnat_session.project, str(scanid))
         except Exception as e:
@@ -141,11 +138,11 @@ def process_archive(archivefile):
             return
 
     if not resource_exists:
-        logger.debug('Uploading resource from:{}'.format(archivefile))
+        logger.debug('Uploading resource from: {}'.format(archivefile))
         try:
             upload_non_dicom_data(archivefile, xnat_session.project, str(scanid))
         except Exception as e:
-            logger.debug('An exception occurred:{}'.format(e))
+            logger.debug('An exception occurred: {}'.format(e))
             pass
 
     check_duplicate_resources(archivefile, scanid)
@@ -156,7 +153,7 @@ def get_xnat_session(ident):
     Get an xnat session from the archive. Returns a session instance holding
     the XNAT json info for this session.
 
-    May raise KeyError or XnatException
+    May raise XnatException if session cant be retrieved
     """
     # get the expected xnat project name from the config filename
     try:
@@ -218,7 +215,7 @@ def scan_data_exists(xnat_session, local_headers):
     local_scan_uids = [scan.SeriesInstanceUID for scan in local_headers.values()]
     local_experiment_ids = [v.StudyInstanceUID for v in local_headers.values()]
 
-    if len(local_experiment_ids) > 1:
+    if len(set(local_experiment_ids)) > 1:
         raise ValueError('More than one experiment UID found - '
                 '{}'.format(','.join(local_experiment_ids)))
 
@@ -377,7 +374,7 @@ def is_dicom(fileobj):
         return False
 
 
-def get_xnat(server=None, credfile=None, username=None):
+def get_xnat(server=None, username=None):
     """Create an xnat object,
     this represents a connection to the xnat server as well as functions
     for listing / adding data"""
