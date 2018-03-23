@@ -17,7 +17,6 @@ Options:
     -q --quiet               Show minimal output
     -n --dry-run             Do nothing
     --server URL             XNAT server to connect to, overrides the server defined in the site config file.
-    -c --credfile FILE       File containing XNAT username and password. The username should be on the first line, and password on the next. Overrides the credfile in the project metadata
     -u --username USER       XNAT username. If specified then the credentials file is ignored and you are prompted for password.
     --dont-update-dashboard  Dont update the dashboard database
 
@@ -105,7 +104,6 @@ def main():
     quiet = arguments['--quiet']
     study = arguments['<study>']
     server = arguments['--server']
-    credfile = arguments['--credfile']
     username = arguments['--username']
     session = arguments['<session>']
     db_ignore = arguments['--dont-update-dashboard']
@@ -141,33 +139,7 @@ def main():
 
     cfg = datman.config.config(study=study)
 
-    # setup the xnat object
-    if not server:
-        try:
-            server = 'https://{}:{}'.format(cfg.get_key(['XNATSERVER']),
-                                            cfg.get_key(['XNATPORT']))
-        except KeyError:
-            logger.error('Failed to get xnat server info for study:{}'
-                         .format(study))
-            return
-
-    if username:
-        password = getpass.getpass()
-    else:
-        #Moving away from storing credentials in text files
-        """
-        if not credfile:
-            credfile = os.path.join(cfg.get_path('meta', study),
-                                    'xnat-credentials')
-        with open(credfile) as cf:
-            lines = cf.readlines()
-            username = lines[0].strip()
-            password = lines[1].strip()
-        """
-        username = os.environ["XNAT_USER"]
-        password = os.environ["XNAT_PASS"]
-
-    xnat = datman.xnat.xnat(server, username, password)
+    xnat = get_xnat_connection(cfg, server=server, username=username)
 
     # setup the dashboard object
     if not db_ignore:
@@ -202,6 +174,23 @@ def main():
 
     for session in sessions:
         process_session(session)
+
+def get_xnat_connection(cfg, server=None, username=None):
+    """Create an xnat object, this represents a connection to the xnat server
+    as well as functions for listing / adding data"""
+
+    if not server:
+        server = 'https://{}:{}'.format(cfg.get_key(['XNATSERVER']),
+                                        cfg.get_key(['XNATPORT']))
+    if username:
+        password = getpass.getpass()
+    else:
+        #Moving away from storing credentials in text files
+        username = os.environ["XNAT_USER"]
+        password = os.environ["XNAT_PASS"]
+
+    xnat = datman.xnat.xnat(server, username, password)
+    return xnat
 
 def collect_sessions(xnat_projects, config):
     sessions = []
