@@ -745,7 +745,7 @@ class Session(object):
         self.project = session_json['data_fields']['project']
         # Experiment attributes
         self.experiment = self._get_experiment()
-        self.experiment_UID = self.experiment['data_fields']['UID']
+        self.experiment_UID = self._get_experiment_UID()
         # Scan attributes
         self.scans = self._get_scans()
         self.scan_UIDs = self._get_scan_UIDs()
@@ -757,16 +757,36 @@ class Session(object):
                 if exp['field'] == 'experiments/experiment']
 
         if not experiments:
-            raise ValueError("No experiments found for {}".format(self.name))
+            logger.debug("No experiments found for {}".format(self.name))
+            return {}
         elif len(experiments) > 1:
             logger.error("More than one session uploaded to ID {}. Processing "
                     "only the first.".format(self.name))
 
         return experiments[0]['items'][0]
 
+    def _get_experiment_UID(self):
+        if not self.experiment:
+            return ''
+        return self.experiment['data_fields']['UID']
+
+    def _get_experiment_contents(self, field):
+        """
+        Retrieves part of the contents of an experiment based on 'field'.
+        e.g. 'scans/scan' or 'resources/resource'
+        """
+        try:
+            children = self.experiment['children']
+        except KeyError:
+            # Nothing uploaded for this experiment
+            children = []
+
+        contents = [child['items'] for child in children
+                if child['field'] == field]
+        return contents
+
     def _get_scans(self):
-        scans = [child['items'] for child in self.experiment['children']
-                if child['field'] == 'scans/scan']
+        scans = self._get_experiment_contents('scans/scan')
         if not scans:
             logger.debug("No scans found for session {}".format(self.name))
             return scans
@@ -777,8 +797,7 @@ class Session(object):
         return scan_uids
 
     def _get_resource_IDs(self):
-        resources = [resource['items'] for resource in self.experiment['children']
-                if resource['field'] == 'resources/resource']
+        resources = self._get_experiment_contents('resources/resource')
 
         if not resources:
             return []
