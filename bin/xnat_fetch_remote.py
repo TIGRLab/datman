@@ -48,6 +48,7 @@ Options:
 """
 import os
 import sys
+import zipfile
 import logging
 import logging.handlers
 
@@ -119,25 +120,19 @@ def get_data(xnat_project, xnat_server, username, password, destination):
                 continue
             zip_name = session_name + ".zip"
             zip_path = os.path.join(destination, zip_name)
-            if zip_name in current_zips and not update_needed(zip_path, session):
-                print("Found the data. Passing.")
+            if zip_name in current_zips and not update_needed(zip_path, session, xnat):
+                print("Found all data for {}. Passing.".format(session_name))
                 continue
-            print("Download Needed!")
+            print("Download Needed for {}!".format(session_name))
             #download_data()
             # scan_url = "data/archive/projects/{project}/subjects/{subid}/experiments/{subid}/scans/ALL/files?format=zip"
             # resources_url = "/data/archive/projects/{project}/subjects/{subid}/experiments/{subid}/files?format=zip"
 
-# def download_resources():
-# def download_scans():
-# def merge_zipfiles():
-
-def update_needed(zip_file, session):
+def update_needed(zip_file, session, xnat):
     zip_headers = datman.utils.get_archive_headers(zip_file)
 
-    try:
-        experiment = get_experiment(session)
-    except ValueError as e:
-        logger.error("{}. Skipping.".format(e.message))
+    if not session.experiment:
+        logger.error("{} does not have any experiments.".format(session.name))
         return False
 
     # Check experiment matches
@@ -146,27 +141,30 @@ def update_needed(zip_file, session):
         logger.error("Zip file contains more than one experiment: "
                 "{}. Passing.".format(zip_file))
         return False
-    xnat_experiment_id = experiment['data_fields']['UID']
-    if xnat_experiment_id not in zip_experiment_ids:
-        logger.critical("Zip file experiment ID does not match xnat session of "
+
+    if session.experiment_UID not in zip_experiment_ids:
+        logger.error("Zip file experiment ID does not match xnat session of "
                 "the same name: {}".format(zip_file))
         return False
 
-    # Check set of scan UIDs in archive are >= those on XNAT
     zip_scan_uids = [scan.SeriesInstanceUID for scan in zip_headers.values()]
 
-    xnat_scans = [child['items'] for child in experiment['children']
-            if child['field'] == 'scans/scan']
-    xnat_scan_uids = [scan['data_fields']['UID'] for scan in xnat_scans[0]]
+    # Check resource data matches
+    xnat_resources = session.get_resources(xnat)
+    with zipfile.ZipFile(zip_file) as zf:
+        zip_resources = datman.utils.get_resources(zf)
+    zip_resources = [urllib.pathname2url(p) for p in zip_resources]
 
-    if not set(xnat_scan_uids).issubset(set(zip_scan_uids)):
+    if not files_downloaded(zip_resources, xnat_resources) or not files_downloaded(
+            zip_scan_uids, session.scan_UIDs):
         logger.error("Some of XNAT contents for {} is missing from file system. "
-                "Zip file will be deleted and redownloaded".format(session))
+                "Zip file will be deleted and recreated".format(session.name))
         return True
 
-    # Check resource data matches
+    return False
 
-
+def files_downloaded(local_list, remote_list):
+    return set(remote_list).issubset(set(local_list))
 
 def get_experiment(session):
     experiments = [exp for exp in session['children']
