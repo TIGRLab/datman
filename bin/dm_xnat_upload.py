@@ -202,7 +202,7 @@ def get_scanid(archivefile):
 def resource_data_exists(xnat_session, archive):
     xnat_resources = xnat_session.get_resources(XNAT)
     with zipfile.ZipFile(archive) as zf:
-        local_resources = get_resources(zf)
+        local_resources = datman.utils.get_resources(zf)
 
     # paths in xnat are url encoded. Need to fix local paths to match
     local_resources = [urllib.pathname2url(p) for p in local_resources]
@@ -267,7 +267,7 @@ def check_duplicate_resources(archive, ident):
     # process the archive to find out what files have been uploaded
     uploaded_files = []
     with zipfile.ZipFile(archive) as zf:
-        uploaded_files = get_resources(zf)
+        uploaded_files = datman.utils.get_resources(zf)
 
     # Get an updated copy of the xnat_session (otherwise it crashes the first
     # time a subject is uploaded)
@@ -304,28 +304,9 @@ def check_duplicate_resources(archive, ident):
                                  d[1]['ID'])
 
 
-def get_resources(open_zipfile):
-    # filter dirs
-    files = open_zipfile.namelist()
-    files = filter(lambda f: not f.endswith('/'), files)
-
-    # filter files named like dicoms
-    files = filter(lambda f: not is_named_like_a_dicom(f), files)
-
-    # filter actual dicoms :D.
-    resource_files = []
-    for f in files:
-        try:
-            if not is_dicom(io.BytesIO(open_zipfile.read(f))):
-                resource_files.append(f)
-        except zipfile.BadZipfile:
-            logger.error('Error in zipfile:{}'.format(f))
-    return resource_files
-
-
 def upload_non_dicom_data(archive, xnat_project, scanid):
     with zipfile.ZipFile(archive) as zf:
-        resource_files = get_resources(zf)
+        resource_files = datman.utils.get_resources(zf)
         logger.info("Uploading {} files of non-dicom data..."
                     .format(len(resource_files)))
         uploaded_files = []
@@ -359,20 +340,6 @@ def upload_dicom_data(archive, xnat_project, scanid):
         XNAT.put_dicoms(xnat_project, scanid, scanid, archive)
     except Exception as e:
         raise e
-
-
-def is_named_like_a_dicom(path):
-    dcm_exts = ('dcm', 'img')
-    return any(map(lambda x: path.lower().endswith(x), dcm_exts))
-
-
-def is_dicom(fileobj):
-    try:
-        dicom.read_file(fileobj)
-        return True
-    except dicom.filereader.InvalidDicomError:
-        return False
-
 
 def get_xnat(server=None, username=None):
     """Create an xnat object,
