@@ -768,7 +768,11 @@ class Session(object):
     def _get_experiment_UID(self):
         if not self.experiment:
             return ''
-        return self.experiment['data_fields']['UID']
+        try:
+            uid = self.experiment['data_fields']['UID']
+        except KeyError:
+            return ''
+        return uid
 
     def _get_experiment_contents(self, field):
         """
@@ -793,7 +797,7 @@ class Session(object):
         return scans[0]
 
     def _get_scan_UIDs(self):
-        scan_uids = [scan['data_fields']['UID'] for scan in self.scans]
+        scan_uids = [str(scan['data_fields']['UID']) for scan in self.scans]
         return scan_uids
 
     def _get_resource_IDs(self):
@@ -808,9 +812,9 @@ class Session(object):
         for resource in resources[0]:
             try:
                 label = resource['data_fields']['label']
-                resource_ids[label] = resource['data_fields']['xnat_abstractresource_id']
             except KeyError:
-                resource_ids['No Label'] = resource['data_fields']['xnat_abstractresource_id']
+                label = 'No Label'
+            resource_ids[label] = str(resource['data_fields']['xnat_abstractresource_id'])
         return resource_ids
 
     def get_resources(self, xnat_connection):
