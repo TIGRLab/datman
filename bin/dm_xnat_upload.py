@@ -155,8 +155,6 @@ def process_archive(archivefile):
             logger.debug('An exception occurred:{}'.format(e))
             pass
 
-    check_duplicate_resources(archivefile, scanid)
-
 
 def get_xnat_session(ident):
     """Get an xnat session from the archive.
@@ -330,67 +328,6 @@ def check_files_exist(archive, xnat_session, ident):
                                            archive)
 
     return scans_exist, resources_exist
-
-
-def check_duplicate_resources(archive, ident):
-    """
-    Checks the xnat archive for duplicate resources
-    Only  checks if non-dicom files in the archive exist and have duplicates
-    Deletes any duplicate copies from xnat
-    """
-    # process the archive to find out what files have been uploaded
-    uploaded_files = []
-    with zipfile.ZipFile(archive) as zf:
-        uploaded_files = get_resources(zf)
-
-    # Get an updated copy of the xnat_session (otherwise it crashes the first
-    # time a subject is uploaded)
-    _, xnat_session = get_xnat_session(ident)
-    # get the list of resources on XNAT
-    xnat_experiment_entry = get_experiment_entry(xnat_session)
-    resource_ids = get_resource_ids(xnat_experiment_entry)
-
-    if resource_ids is None:
-        return
-    xnat_project = CFG.get_key('XNAT_Archive', site=ident.site)
-    xnat_resources = []
-    for key, val in resource_ids.iteritems():
-        resource_list = XNAT.get_resource_list(xnat_project,
-                ident.get_full_subjectid_with_timepoint_session(),
-                ident.get_full_subjectid_with_timepoint_session(),
-                val)
-        if resource_list:
-            for item in resource_list:
-                xnat_resources.append(((key, val), item))
-    # iterate throught the uploded files, finding any duplicates
-    # the one to keep should have the same folder structure
-    # and be in the MISC folder
-    # N.B. default folder is defined in
-    for f in uploaded_files:
-        fname = os.path.basename(f)
-        dups = [resource for resource
-                in xnat_resources if resource[1]['name'] == fname]
-        orig = [i for i, v in enumerate(dups) if v[1]['URI'] == f]
-
-        #orig = [o for o in orig if dups[o][0][0] == 'MISC']
-        if len(orig) > 1:
-            logger.warning('Failed to identify unique original resource file:{} '
-                           'in session:{}'.format(fname, ident))
-            return
-        # Delete the original entry from the list
-        if not orig:
-            logger.warning('Failed to identify original resource file:{} '
-                           'in session:{}'.format(fname, ident))
-            return
-        dups.pop(orig[0])
-
-        # Finally iterate through the duplicates, deleting from xnat
-        for d in dups:
-            XNAT.delete_resource(xnat_project,
-                                 ident.get_full_subjectid_with_timepoint_session(),
-                                 ident.get_full_subjectid_with_timepoint_session(),
-                                 d[0][1],
-                                 d[1]['ID'])
 
 
 def get_resources(open_zipfile):
