@@ -635,7 +635,6 @@ def process_scans(xnat_project, session_label, experiment_label, scans):
                     logger.error('Failed creating target folder:{}'
                                  .format(target_dir))
                     continue
-                
                 try:
                     exporter = xporters[export_format]
                 except KeyError:
