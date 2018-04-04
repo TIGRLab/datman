@@ -22,31 +22,70 @@ Options:
 """
 import datman.config as config
 import datman.scanid as scanid
+import datman.utils
 import logging, logging.handlers
-import os, sys
+import os, sys, path
 import json, csv
 import re
 import datetime
 import traceback
-import nibabel
+import nibabel, numpy
+import glob
 from docopt import docopt
 from shutil import copyfile, copytree
 from distutils import dir_util
 from queue import *
 from collections import Counter
 
-logger = logging.getLogger(os.path.basename(__file__))
+logger = logging.getLogger(__name__)
+dmlogger = logging.getLogger('datman.utils')
 
 tag_map = dict()
 
-def calculate_trt(data, nii_file):
-    axis = {'i':0, 'j':1, 'k':2}[data['PhaseEncodingDirection'][0]]
-    npe = nibabel.load(nii_file).shape[axis]
-    acc = 1.0
-    if 'ParallelReductionFactorInPlane' in data.keys():
-        acc = dat['ParallelReductionFactorInPlane']
-    trt = str(float(data["EffectiveEchoSpacing"])*(npe/acc-1))
-    return trt
+def validify_fmap(fmap):
+    img = nibabel.load(fmap)
+    hdr = img.header
+    if (hdr['srow_z'][2] == 0):
+        value = hdr['pixdim'][3]
+        hdr['srow_z'][2] = value
+        img.affine[2][2] = value
+        nibabel.save(img, fmap)
+
+def get_missing_data(data, nii_file, site):
+    try:
+        img = nibabel.load(nii_file)
+    except:
+        logger.error("Could not open {}".format(nii_file))
+        return
+    if ('EffectiveEchoSpacing' not in data.keys()) and site == 'CMH':
+        data['EffectiveEchoSpacing'] = 0.000342
+    if "RepetitionTime" not in data.keys():
+        data['RepetitionTime'] = int(img.header['pixdim'][4])
+    if ("task" in nii_file):
+        slices = float(img.shape[2])
+        tr = float(data['RepetitionTime'])
+        spacing = tr/slices
+        timing_list = [round(x,4) for x in numpy.arange(0, tr, spacing)]
+        half = len(timing_list)//2
+        first = timing_list[:half]
+        second = timing_list[half:]
+        to_return = list()
+        while (len(first) > 0 and len(second) > 0):
+            to_return.append(first.pop(0))
+            to_return.append(second.pop(0))
+        to_return += first + second
+        data['SliceTiming'] = to_return
+    if "TotalReadoutTime" not in data.keys():
+        try:
+            axis = {'i':0, 'j':1, 'k':2}[data['PhaseEncodingDirection'][0]]
+            npe = img.shape[axis]
+            acc = 1.0
+            if 'ParallelReductionFactorInPlane' in data.keys():
+                acc = dat['ParallelReductionFactorInPlane']
+            data["TotalReadoutTime"] = str(float(data["EffectiveEchoSpacing"])*(npe/acc-1))
+        except KeyError, key:
+            logger.info(
+            "Total readout time cannot be calculated due to missing information {} in JSON for: {}".format(key, nii_file))
 
 def to_sub(ident):
     try:
@@ -58,18 +97,15 @@ def to_sub(ident):
 def to_ses(timepoint):
     return "ses-{:02}".format(int(timepoint))
 
-def to_run(run, tag):
-    if ("DTI" in tag):
-        run_num = "run-{:02}".format(int(run//4)+1)
-    else:
-        run_num = "run-{:02}".format(int(run//2)+1)
+def to_run(run):
+    run_num = "run-{:02}".format(run + 1)
     return run_num
 
 def to_bids_name(ident, tag, cnt_run, type_folder, ex):
     subject = to_sub(ident)
     session = to_ses(ident.timepoint)
     acq = "acq-{}".format(ident.site)
-    run_num = to_run(cnt_run[tag], tag)
+    run_num = to_run(cnt_run[tag])
 
     if ex == ".gz":
         ext = ".nii.gz"
@@ -82,11 +118,11 @@ def to_bids_name(ident, tag, cnt_run, type_folder, ex):
             mod = tag + 'w'
         else:
             mod = tag
-        return type_folder["anat"] + name.format(subject, session, acq,run_num, mod, ext)
+        return type_folder["anat"], name.format(subject, session, acq,run_num, mod, ext)
     elif (tag in tag_map["fmri"]):
         name = "{}_{}_task-{}_{}_{}_bold{}"
         if (tag == "RST" or tag == "VN-SPRL"):
-            run_num = to_run(cnt_run["RST"] + cnt_run["VN-SPRL"], tag)
+            run_num = to_run(cnt_run["RST"] + cnt_run["VN-SPRL"])
             task = "rest"
         else:
             if (tag == "FACES"):
@@ -97,30 +133,33 @@ def to_bids_name(ident, tag, cnt_run, type_folder, ex):
                 task = "tmsfmri"
             else:
                 task = tag.lower()
-        return type_folder["func"] + name.format(subject, session, task, acq, run_num, ext)
+        return type_folder["func"] , name.format(subject, session, task, acq, run_num, ext)
     elif (tag in tag_map["dmap_fmri"]):
         if ("-DAP" in tag):
-            return type_folder["fmap"] + "{}_{}_{}_dir-{}_{}_epi{}".format(subject, session, acq, "AP", run_num, ext)
+            return type_folder["fmap"] , "{}_{}_{}_dir-{}_{}_epi{}".format(subject, session, acq, "AP", run_num, ext)
         elif ("-DPA" in tag):
-            return type_folder["fmap"] + "{}_{}_{}_dir-{}_{}_epi{}".format(subject, session, acq, "PA", run_num, ext)
+            return type_folder["fmap"] , "{}_{}_{}_dir-{}_{}_epi{}".format(subject, session, acq, "PA", run_num, ext)
     elif (tag in tag_map["dti"]):
-        return type_folder["dwi"] + "{}_{}_{}_{}_dwi{}".format(subject, session, acq, run_num, ext)
+        dtiacq = "{}{}".format(acq, tag.translate(None, "DTI-"))
+        return type_folder["dwi"] , "{}_{}_{}_{}_dwi{}".format(subject, session, dtiacq, run_num, ext)
+    elif ("FMAP" in tag and not (ext == ".json")):
+        return type_folder["fmap"] , "{}_{}_{}_{}_{}{}".format(subject, session, acq, run_num, tag, ext)
     else:
         raise ValueError("File could not be changed to bids format:{} {}".format(str(ident), tag))
 
-
-
-def validify_file(subject_nii_path, sites):
+def validify_file(subject_nii_path):
     file_list = os.listdir(subject_nii_path)
     series_list = [scanid.parse_filename(x)[2] for x in file_list]
     valid_files = { k : list() for k in series_list }
     blacklist_files = set()
     num_faces = 0
 
-    dap_queue = {site: Queue() for site in sites}
-    dpa_queue = {site: Queue() for site in sites}
-    # dap_queue = Queue()
-    # dpa_queue = Queue()
+    dap_queue = Queue()
+    dpa_queue = Queue()
+    six_queue = Queue()
+    eight_queue = Queue()
+
+    dmap_dict = dict()
     fmap_dict = dict()
     for filename in sorted(file_list, key=lambda x: scanid.parse_filename(x)[2], reverse=True):
         ident, tag, series, description = scanid.parse_filename(filename)
@@ -136,20 +175,33 @@ def validify_file(subject_nii_path, sites):
                     scanid.make_filename(ident, tag, series, description)))
                 blacklist_files.add(series)
         elif ((tag in tag_map["fmri"]) and ext == ".gz"):
-            dap_queue[site].put(series)
-            dpa_queue[site].put(series)
+            dap_queue.put(series)
+            dpa_queue.put(series)
+            six_queue.put(series)
+            eight_queue.put(series)
         elif (tag in tag_map["dmap_fmri"] and ext == ".json"):
-            fmap_dict[filename] = list()
+            dmap_dict[filename] = list()
             if ("-DAP" in tag):
-                while not dap_queue[site].empty():
-                    func_file = sorted(valid_files[dap_queue[site].get()])[1]
+                while not dap_queue.empty():
+                    func_file = sorted(valid_files[dap_queue.get()], reverse=True)[0]
                     logger.info("{} has been mapped to {}".format(filename, func_file))
-                    fmap_dict[filename].append(func_file)
+                    dmap_dict[filename].append(func_file)
             elif ("-DPA" in tag):
-                while not dpa_queue[site].empty():
-                    func_file = sorted(valid_files[dpa_queue[site].get()])[1]
+                while not dpa_queue.empty():
+                    func_file = sorted(valid_files[dpa_queue.get()], reverse=True)[0]
                     logger.info("{} has been mapped to {}".format(filename, func_file))
-                    fmap_dict[filename].append(func_file)
+                    dmap_dict[filename].append(func_file)
+            six_queue.queue.clear()
+            eight_queue.queue.clear()
+        elif ('FMAP' in tag and ext == '.gz'):
+            if ('-6.5' in tag):
+                fmap_dict[filename] = list()
+                while not six_queue.empty():
+                    func_file = sorted(valid_files[six_queue.get()], reverse=True)[0]
+                    logger.info("{} has been mapped to {}".format(filename, func_file))
+                    fmap_dict[filename].insert(0, func_file)
+            dap_queue.queue.clear()
+            dpa_queue.queue.clear()
 
     for key in blacklist_files:
         valid_files.pop(key, None)
@@ -158,29 +210,54 @@ def validify_file(subject_nii_path, sites):
     for f in valid_files.values():
         file_list += f
 
-    return file_list, fmap_dict
+    return file_list, dmap_dict, fmap_dict
 
-def modify_json(subject_nii_path, orig_json, bids_json, fmap_dict):
+def modify_map_json(orig, bids, dmap_dict, fmap_dict, csv_dict, site):
+
+    is_map = False
+    if orig in fmap_dict.keys():
+        pattern = re.compile(r'FMAP-\d\.5\.nii\.gz')
+        bids = pattern.sub("fieldmap.json", bids )
+        nii_file = str.replace(bids, 'json', 'nii.gz')
+        intended_fors = fmap_dict
+        is_map = True
+
+    elif orig in dmap_dict.keys():
+        nii_file = str.replace(nii_file, 'json', 'nii.gz')
+        intended_fors = dmap_dict
+        is_map = True
+    elif ('.nii.gz' in orig and "FMAP" not in orig):
+        nii_file = bids
+        bids = str.replace(nii_file, 'nii.gz', 'json')
+    else:
+        return
     try:
-        with open(bids_json, "r+") as jsonFile:
-            data = json.load(jsonFile)
+        jsonFile = open(bids, "r+")
+        data = json.load(jsonFile)
+    except:
+        try:
+            jsonFile = open(bids, "w")
+            data = dict()
+        except IOError:
+            logger.error('Failed to open: {}'.format(bids), exc_info=True)
+            return
 
-            data["Intended For"] = fmap_dict[orig_json]
+    if is_map and len(intended_fors) > 0:
+        data['IntendedFor'] = list()
+        for nii in intended_fors[orig]:
+            bids_path = csv_dict[nii][1]
+            split = bids_path.split('/')
+            s = len(split)
+            bids_name = os.path.join(split[s-3], split[s-2], split[s-1])
+            data["IntendedFor"].append(bids_name)
 
-            if "TotalReadoutTime" not in data.keys():
-                try:
-                    nii_file = str.replace(subject_nii_path + orig_json, 'json', 'nii.gz')
-                    data["TotalReadoutTime"] = calculate_trt(data, nii_file)
-                except KeyError, key:
-                    logger.warning(
-                    "Total readout time cannot be calculated due to missing information {} in JSON for: {}".format(key, item))
-                    return
-            jsonFile.seek(0)  # rewind
-            json.dump(data, jsonFile, sort_keys=True, indent=4, separators=(',', ': '))
-            jsonFile.truncate()
+    if orig in fmap_dict.keys():
+        data['Units'] = 'rad/s'
 
-    except IOError:
-        logger.error('Failed to open: {}'.format(bids_name), exc_info=True)
+    get_missing_data(data, nii_file, site)
+    jsonFile.seek(0)  # rewind
+    json.dump(data, jsonFile, sort_keys=True, indent=4, separators=(',', ': '))
+    jsonFile.truncate()
 
 
 def create_task_json(file_path, tags_list):
@@ -233,7 +310,7 @@ def create_dir(dir_path):
 def setup_logger(filepath, to_server, debug, config):
 
     logger.setLevel(logging.DEBUG)
-
+    dmlogger.setLevel(logging.DEBUG)
     date = str(datetime.date.today())
 
     fhandler = logging.FileHandler(filepath +  date + "-opt_to_bids.log", "w")
@@ -251,6 +328,7 @@ def setup_logger(filepath, to_server, debug, config):
     shandler.setFormatter(formatter)
     logger.addHandler(fhandler)
     logger.addHandler(shandler)
+    dmlogger.addHandler(shandler)
 
     if to_server:
         server_ip = config.get_key('LOGSERVER')
@@ -275,6 +353,8 @@ def init_setup(study, to_server, debug, bids_dir, nii_dir, fmriprep_dir, fs_dir)
     if fmriprep_dir:
         fmriprep_fs_dir = os.path.join(fmriprep_dir, 'freesurfer')
         create_dir(fmriprep_fs_dir)
+    else:
+        fmriprep_fs_dir = None
 
     if not fs_dir:
         fs_dir = cfg.get_path('freesurfer')
@@ -319,15 +399,18 @@ def main():
     cfg, bids_dir,all_tags, nii_dir,fmriprep_fs_dir, fs_dir, to_delete = init_setup(study, to_server, debug, bids_dir, nii_dir, fmriprep_dir, fs_dir)
     sites = cfg.study_config['Sites'].keys()
 
+    logger.info("Creating match.csv to hold original name, bids location and freesurfer location.")
+    csvfile = open(bids_dir + 'match.csv', 'w+')
+    csvwriter = csv.writer(csvfile)
+    csvwriter.writerow(['CAMH','BIDS', 'FREESURFER'])
+    csv_dict = dict()
+
     logger.info("Beginning to iterate through folders/files in {}".format(nii_dir))
     study_tags = set()
+    fmap_dict = dict()
+    dmap_dict = dict()
 
-    csvfile = open(bids_dir + 'match.csv', 'wb')
-    csvwriter = csv.writer(csvfile)
-    csvwriter.writerow(['CAMH','BIDS'])
-
-
-    for subject_dir in os.listdir(nii_dir):
+    for subject_dir in sorted(os.listdir(nii_dir)):
         if scanid.is_phantom(subject_dir):
             logger.info("File is phantom and will be ignored: {}".format(subject_dir))
             continue
@@ -336,38 +419,78 @@ def main():
         type_folders = create_bids_dirs(bids_dir, parsed)
         subject_nii_path = nii_dir + subject_dir + "/"
         logger.info("Will now begin creating files in BIDS format for: {}".format(subject_nii_path))
-        valid_files, fmap_dict = validify_file(subject_nii_path, sites)
+        valid_files, dmap_d, fmap_d = validify_file(subject_nii_path)
+        series_set = set(scanid.parse_filename(x)[2] for x in valid_files)
+
+        fmap_dict.update(fmap_d)
+        dmap_dict.update(dmap_d)
 
         if fmriprep_dir:
             fs_src = os.path.join(fs_dir, subject_dir)
             fs_dst = os.path.join(fmriprep_fs_dir, to_sub(parsed))
             if os.path.isdir(fs_src):
                 dir_util.copy_tree(fs_src, fs_dst)
+                logger.info("Copied {} to {}".format(fs_src, fs_dst))
 
         cnt = {k : 0 for k in all_tags}
-        for item in sorted(valid_files, key=lambda x: scanid.parse_filename(x)[2]):
-            ident, tag, series, description =scanid.parse_filename(item)
-            ext = os.path.splitext(subject_nii_path + item)[1]
-            if tag in tag_map["fmri"]:
-                study_tags.add(tag)
-            try:
-                bids_name = to_bids_name(ident, tag, cnt, type_folders, ext)
-            except ValueError, err:
-                logger.warning(err)
-                continue
-            copyfile(subject_nii_path + item, bids_name)
-            logger.info("{:<80} {:<80}".format(item, bids_name))
-            csvwriter.writerow([item, os.path.relpath(bids_name, start=bids_dir)])
+        for series in sorted(series_set):
+            timepoint = 1
+            filename_base = "{}0{}_*_{}_*".format(str(parsed), timepoint, series)
+            series_files = glob.glob(os.path.join(subject_nii_path,filename_base))
+            series_tag = None
+            for item in series_files:
+                ident, tag, series, description =scanid.parse_filename(item)
+                ext = os.path.splitext(subject_nii_path + item)[1]
+                try:
+                    type_dir, bids_name = to_bids_name(ident, tag, cnt, type_folders, ext)
+                except ValueError, err:
+                    logger.info(err)
+                    continue
+                if tag in tag_map["fmri"]:
+                    study_tags.add(tag)
+                copyfile(item, type_dir + bids_name, )
+                if "nii.gz" in bids_name and ("dwi" in bids_name or "task" in bids_name):
+                    os.system('fslroi {} {} 4 -1'.format(type_dir + bids_name, type_dir + bids_name))
+                    logger.warning("Finished fslroi on {}".format(bids_name))
+                logger.warning("{:<70} {:<80}".format(os.path.basename(item), bids_name))
+                csv_dict[os.path.basename(item)] = [type_dir + bids_name]
+                if fmriprep_dir and os.path.isdir(fs_src):
+                    csv_dict[os.path.basename(item)].append(fs_dst)
+                series_tag = tag
+            if series_tag:
+                cnt[series_tag] += 1
 
-            cnt[tag] +=1
-            if (ext == ".json" and item in fmap_dict.keys()):
-                modify_json(subject_nii_path, item, bids_name, fmap_dict)
+        run_num = 1
+        fmaps = sorted(glob.glob("{}*run-0{}*_FMAP-*".format(type_folders['fmap'],run_num)))
+        while len(fmaps) > 1:
+            for fmap in fmaps:
+                validify_fmap(fmap)
+            pattern = re.compile(r'_FMAP-\d\.5\.nii\.gz')
+            without_tag = pattern.sub("", fmaps[0])
+            base = os.path.basename(without_tag)
+
+            cmd = ['bash', '/projects/mmanogaran/scripts/to_fmap.sh', fmaps[0], fmaps[1], without_tag, base]
+            datman.utils.run(cmd)
+            logger.warning("Running: {}".format(cmd))
+            run_num+=1
+            fmaps = sorted(glob.glob("{}*run-0{}*_FMAP-*".format(type_folders['fmap'],run_num)))
 
         for key in type_folders.keys():
             if os.listdir(type_folders[key]) == []:
                 to_delete.add(type_folders[key])
 
+
+    [ v.insert(0,k) for k,v in csv_dict.items()]
+    for k, v in sorted(csv_dict.items()):
+        ident, tag, series, description = scanid.parse_filename(k)
+        site = ident.site
+        sub = ident.get_full_subjectid_with_timepoint()
+        logger.warning("Modifying JSON for: {}".format(k))
+        modify_map_json(k, v[1], dmap_dict, fmap_dict, csv_dict, site)
+        csvwriter.writerow(v)
+
     create_task_json(bids_dir, study_tags)
+
     csvfile.close()
 
     logger.info("Deleting unecessary BIDS folders")
