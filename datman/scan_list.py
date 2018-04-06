@@ -78,7 +78,7 @@ def get_scan_list_contents(scans_csv):
             scan_name = line.strip().split('\t')[0]
         except IndexError:
             raise IndexError("Malformed scan entry: {}".format(line))
-        # black lines in scans.csv get left as empty strings, dont add them to processed
+        # blank lines in scans.csv get left as empty strings, dont add them to processed
         if not scan_name:
             continue
         processed_files[scan_name].append(line)
