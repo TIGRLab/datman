@@ -145,8 +145,6 @@ def process_archive(archivefile):
             logger.debug('An exception occurred: {}'.format(e))
             pass
 
-    check_duplicate_resources(archivefile, scanid)
-
 
 def get_xnat_session(ident):
     """
