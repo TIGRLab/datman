@@ -6,7 +6,23 @@ this script can be used when the dicom headers and/or file name contains enough
 information to derive a correct datman ID, but the PatientName field is not
 already formatted that way.
 
-To make use of this script, a ScanEntry class must be created.
+To make use of this library, the calling script should create a subclass of
+ScanEntryABC and define the function get_target_name() to return the intended
+datman ID. generate_scan_list() can then be called by passing in this class,
+a list of zip files and the destination directory for the scans.csv file.
+
+Example:
+
+class ExampleScanEntry(datman.scan_list.ScanEntryABC):
+
+    def __init__(self, scan_path):
+        super(ExampleScanEntry, self).__init__(scan_path)
+
+    def get_target_name(self):
+        ... (code to generate correct datman ID goes here) ...
+        return datman_id
+
+datman.scan_list.generate_scan_list(ExampleScanEntry, my_zip_list, metadata_path)
 """
 import os
 import logging
@@ -17,15 +33,14 @@ from datman.utils import get_archive_headers
 
 logger = logging.getLogger(os.path.basename(__file__))
 
-def generate_scan_list(scan_entry_class, zip_dir, dest_dir):
+def generate_scan_list(scan_entry_class, zip_files, dest_dir):
     """
     Use this function to generate a scans.csv file of the expected format.
 
     scan_entry_class:       A subclass of ScanEntryABC that will be used to
                             generate each entry in scans.csv
 
-    zip_dir:                The full path to the folder of zip files that need
-                            datman names generated.
+    zip_files:              A list of zip files to manage
 
     dest_dir:               The directory where scans.csv will be saved
     """
@@ -41,7 +56,7 @@ def generate_scan_list(scan_entry_class, zip_dir, dest_dir):
         raise RuntimeError("Can't read scan entries from existing scans.csv "
                 "file. Reason: {}".format(e.message))
 
-    new_entries = make_new_entries(processed_scans, zip_dir, scan_entry_class)
+    new_entries = make_new_entries(processed_scans, zip_files, scan_entry_class)
 
     logger.debug("Writing {} new entries to scans file".format(len(new_entries)))
     if new_entries:
@@ -70,17 +85,16 @@ def get_scan_list_contents(scans_csv):
 
     return processed_files
 
-def make_new_entries(processed_scans, zip_dir, EntryClass):
+def make_new_entries(processed_scans, zip_files, EntryClass):
     new_entries = []
-    for fname in os.listdir(zip_dir):
-        if not fname.endswith('.zip'):
+    for zip_file in zip_files:
+        if not zip_file.endswith('.zip'):
             continue
 
-        zip_name = fname.replace(".zip", "")
+        zip_name = os.path.basename(zip_file).replace(".zip", "")
         if zip_name in processed_scans:
             continue
 
-        zip_file = os.path.join(zip_dir, fname)
         try:
             entry = EntryClass(zip_file)
         except Exception as e:
