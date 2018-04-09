@@ -13,7 +13,7 @@ import re
 import datetime
 import logging
 
-from datman.docopt import docopt
+from docopt import docopt
 import datman.config
 
 logger = logging.getLogger(os.path.basename(__file__))

@@ -32,7 +32,7 @@ default_headers=[
     'SeriesDescription']
 
 def main():
-    from datman.docopt import docopt
+    from docopt import docopt
     import sys
     arguments = docopt(__doc__)
 

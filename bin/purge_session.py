@@ -23,7 +23,7 @@ Details:
 """
 
 import logging
-from datman.docopt import docopt
+from docopt import docopt
 import datman.config
 import datman.dashboard
 import subprocess

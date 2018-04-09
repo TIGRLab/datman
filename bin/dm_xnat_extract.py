@@ -75,7 +75,7 @@ import hashlib
 
 import dicom
 
-from datman.docopt import docopt
+from docopt import docopt
 import datman.config
 import datman.xnat
 import datman.utils
