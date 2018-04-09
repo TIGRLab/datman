@@ -33,7 +33,7 @@ import scipy.interpolate as interpolate
 
 import datman.utils as utils
 import datman.config as cfg
-from datman.docopt import docopt
+from docopt import docopt
 
 logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))

@@ -30,7 +30,7 @@ import sys
 import logging
 import importlib
 
-from datman.docopt import docopt
+from docopt import docopt
 import requests
 import pyxnat as xnat
 

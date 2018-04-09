@@ -26,7 +26,7 @@ import time
 import logging
 import logging.handlers
 
-from datman.docopt import docopt
+from docopt import docopt
 import datman.scanid as sid
 import datman.utils as utils
 import datman.config as cfg
