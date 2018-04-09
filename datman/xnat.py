@@ -745,6 +745,7 @@ class Session(object):
         self.project = session_json['data_fields']['project']
         # Experiment attributes
         self.experiment = self._get_experiment()
+        self.experiment_label = self._get_experiment_label()
         self.experiment_UID = self._get_experiment_UID()
         # Scan attributes
         self.scans = self._get_scans()
@@ -765,13 +766,24 @@ class Session(object):
 
         return experiments[0]['items'][0]
 
+    def _get_experiment_label(self):
+        if not self.experiment:
+            return ''
+        try:
+            label = self.experiment['data_fields']['label']
+        except KeyError:
+            logger.error("Could not retrieve experiment label for {}".format(
+                    self.name))
+            label = ''
+        return label
+
     def _get_experiment_UID(self):
         if not self.experiment:
             return ''
         try:
             uid = self.experiment['data_fields']['UID']
         except KeyError:
-            return ''
+            uid = ''
         return uid
 
     def _get_experiment_contents(self, field):
@@ -806,8 +818,6 @@ class Session(object):
         if not resources:
             return []
 
-        # The dict seems to only be need for xnat_upload to check duplicate
-        # resources. May be able to simplify and switch to a list of IDs...
         resource_ids = {}
         for resource in resources[0]:
             try:
@@ -824,6 +834,6 @@ class Session(object):
         resources = []
         for r_id in self.resource_IDs:
             resource_list = xnat_connection.get_resource_list(self.project,
-                    self.name, self.name, r_id)
+                    self.name, self.experiment_label, r_id)
             resources.extend([item['URI'] for item in resource_list])
         return resources
