@@ -427,10 +427,12 @@ def main():
 
         if fmriprep_dir:
             fs_src = os.path.join(fs_dir, subject_dir)
-            fs_dst = os.path.join(fmriprep_fs_dir, to_sub(parsed))
+            sub_ses = "{}_{}".format(to_sub(parsed), to_ses(parsed.timepoint))
+            fs_dst = os.path.join(fmriprep_fs_dir, sub_ses)
             if os.path.isdir(fs_src):
                 dir_util.copy_tree(fs_src, fs_dst)
-                logger.info("Copied {} to {}".format(fs_src, fs_dst))
+                logger.warning("Copied {} to {}".format(fs_src, fs_dst))
+
 
         cnt = {k : 0 for k in all_tags}
         for series in sorted(series_set):
