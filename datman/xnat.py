@@ -831,7 +831,7 @@ class Session(object):
         resources = self._get_experiment_contents('resources/resource')
 
         if not resources:
-            return []
+            return {}
 
         # This is a dict because it was in Tom's code. May not need to be though...
         # need to look at the code more closely to see if it's necessary or was
