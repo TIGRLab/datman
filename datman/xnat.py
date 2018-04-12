@@ -417,7 +417,7 @@ class xnat(object):
             # dealing with the filename in future so close the file object
             os.close(filename[0])
         try:
-            self._get_xnat_stream(url, filename, retries)
+            self._get_xnat_stream(url, filename[1], retries)
             return(filename)
         except:
             try:
@@ -495,7 +495,7 @@ class xnat(object):
             #  we will deal with the filename in future so close the file object
             os.close(filename[0])
         try:
-            self._get_xnat_stream(url, filename, retries)
+            self._get_xnat_stream(url, filename[1], retries)
             return(filename)
         except:
             try:
@@ -524,7 +524,7 @@ class xnat(object):
             #  we will deal with the filename in future so close the file object
             os.close(filename[0])
         try:
-            self._get_xnat_stream(url, filename, retries)
+            self._get_xnat_stream(url, filename[1], retries)
             return(filename)
         except:
             try:
@@ -589,7 +589,7 @@ class xnat(object):
                          .format(response.status_code))
             response.raise_for_status()
 
-        with open(filename[1], 'wb') as f:
+        with open(filename, 'wb') as f:
             try:
                 for chunk in response.iter_content(1024):
                     f.write(chunk)
