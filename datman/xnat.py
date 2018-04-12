@@ -555,7 +555,7 @@ class xnat(object):
                                 .format(url))
 
     def _get_xnat_stream(self, url, filename, retries=3, timeout=120):
-        logger.info('Getting data from xnat')
+        logger.debug('Getting {} from XNAT'.format(url))
         try:
             response = self.session.get(url, stream=True, timeout=timeout)
         except requests.exceptions.Timeout as e:
@@ -743,13 +743,17 @@ class Session(object):
         self.raw_json = session_json
         self.name = session_json['data_fields']['label']
         self.project = session_json['data_fields']['project']
+
         # Experiment attributes
         self.experiment = self._get_experiment()
         self.experiment_label = self._get_experiment_label()
         self.experiment_UID = self._get_experiment_UID()
+
         # Scan attributes
         self.scans = self._get_scans()
         self.scan_UIDs = self._get_scan_UIDs()
+        self.scan_resource_IDs = self._get_scan_rIDs()
+
         # Resource attributes
         self.resource_IDs = self._get_resource_IDs()
 
@@ -812,12 +816,26 @@ class Session(object):
         scan_uids = [str(scan['data_fields']['UID']) for scan in self.scans]
         return scan_uids
 
+    def _get_scan_rIDs(self):
+        # These can be used to download a series from xnat
+        resource_ids = []
+        for scan in self.scans:
+            for child in scan['children']:
+                if child['field'] != 'file':
+                    continue
+                r_id = child['items'][0]['data_fields']['xnat_abstractresource_id']
+                resource_ids.append(str(r_id))
+        return resource_ids
+
     def _get_resource_IDs(self):
         resources = self._get_experiment_contents('resources/resource')
 
         if not resources:
             return []
 
+        # This is a dict because it was in Tom's code. May not need to be though...
+        # need to look at the code more closely to see if it's necessary or was
+        # a silly thing he did - Dawn 2018-04-11
         resource_ids = {}
         for resource in resources[0]:
             try:
@@ -837,3 +855,46 @@ class Session(object):
                     self.name, self.experiment_label, r_id)
             resources.extend([item['URI'] for item in resource_list])
         return resources
+
+    def download(self, xnat, dest_folder, zip_name=None):
+        """
+        Download a zip file containing all data for this session. Returns the
+        path to the new file if download is successful, an empty string if not.
+
+        xnat                An instance of datman.xnat.xnat()
+        dest_folder         The absolute path to the folder where the zip should
+                            be deposited
+        zip_name            An optional name for the output zip file. If not set
+                            the zip name will be session.name
+        """
+        if not self.experiment:
+            logger.error("No data found for {}".format(self.name))
+            return ""
+
+        try:
+            experiment_ID = self.experiment['data_fields']['ID']
+        except KeyError:
+            raise KeyError("Can't retrieve experiment ID for experiment {}. "
+                    "Please check contents.".format(self.experiment_label))
+
+        resources_list = self.scan_resource_IDs
+        resources_list.extend(self.resource_IDs.values())
+
+        if not resources_list:
+            logger.error("No scans or resources found for {}".format(self.name))
+            return ""
+
+        url = ("{}/REST/experiments/{}/resources/{}/files"
+                "?structure=improved&all=true&format=zip".format(xnat.server,
+                experiment_ID, ",".join(resources_list)))
+
+        if not zip_name:
+            zip_name = self.name.upper() + ".zip"
+
+        output_path = os.path.join(dest_folder, zip_name)
+        if os.path.exists(output_path):
+            logger.error("Cannot download {}, file already exists.".format(
+                    output_path))
+            return output_path
+
+        return xnat._get_xnat_stream(url, output_path)
