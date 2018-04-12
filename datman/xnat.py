@@ -416,12 +416,13 @@ class xnat(object):
             # mkstemp returns a filename and a file object
             # dealing with the filename in future so close the file object
             os.close(filename[0])
+            filename = filename[1]
         try:
-            self._get_xnat_stream(url, filename[1], retries)
+            self._get_xnat_stream(url, filename, retries)
             return(filename)
         except:
             try:
-                os.remove(filename[1])
+                os.remove(filename)
             except OSError as e:
                 logger.warning('Failed to delete tempfile:{} with excuse:{}'
                                .format(filename, str(e)))
@@ -494,12 +495,13 @@ class xnat(object):
             #  mkstemp returns a file object and a filename
             #  we will deal with the filename in future so close the file object
             os.close(filename[0])
+            filename = filename[1]
         try:
-            self._get_xnat_stream(url, filename[1], retries)
+            self._get_xnat_stream(url, filename, retries)
             return(filename)
         except:
             try:
-                os.remove(filename[1])
+                os.remove(filename)
             except OSError as e:
                 logger.warning('Failed to delete tempfile:{} with excude:{}'
                                .format(filename, str(e)))
@@ -523,12 +525,13 @@ class xnat(object):
             #  mkstemp returns a file object and a filename
             #  we will deal with the filename in future so close the file object
             os.close(filename[0])
+            filename = filename[1]
         try:
-            self._get_xnat_stream(url, filename[1], retries)
+            self._get_xnat_stream(url, filename, retries)
             return(filename)
         except:
             try:
-                os.remove(filename[1])
+                os.remove(filename)
             except OSError as e:
                 logger.warning('Failed to delete tempfile:{} with excude:{}'
                                .format(filename, str(e)))
