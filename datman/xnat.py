@@ -6,10 +6,76 @@ import time
 import tempfile
 import os
 import urllib
+import getpass
 from exceptions import XnatException
 from xml.etree import ElementTree
 
 logger = logging.getLogger(__name__)
+
+def get_server(config, url=None, port=None):
+    if url and not port:
+        # Dont accidentally mangle user's url by appending a port from the config
+        use_port = False
+    else:
+        use_port = True
+
+    if not url:
+        try:
+            url = config.get_key('XNATSERVER')
+        except KeyError:
+            raise KeyError("'XNATSERVER' not defined in config file")
+
+    # Check for 'http' and NOT https, because checking for https could mangle a
+    # url into https://http<restof>
+    if not url.startswith("http"):
+        url = "https://" + url
+
+    if not use_port:
+        return url
+
+    try:
+        port_str = get_port_str(config, port)
+    except KeyError:
+        logger.debug("'XNATPORT' undefined in config. Omitting port number "
+                "for {}".format(url))
+        port_str = ''
+
+    # Will create a bad url if a port is appended after '/'
+    if url.endswith('/'):
+        url = url[:-1]
+
+    server = '{}{}'.format(url, port_str)
+
+    return server
+
+def get_port_str(config, port):
+    """
+    Returns a port string of the format :portnum
+
+    Will raise KeyError if port is None and config file doesnt define XNATPORT
+    """
+    if port is None:
+        port = config.get_key('XNATPORT')
+
+    if not str(port).startswith(':'):
+        port = ':{}'.format(port)
+
+    return port
+
+def get_auth(username=None):
+    if username:
+        return (username, getpass.getpass())
+
+    try:
+        username = os.environ["XNAT_USER"]
+    except KeyError:
+        raise KeyError("'XNAT_USER' not defined in environment")
+    try:
+        password = os.environ["XNAT_PASS"]
+    except KeyError:
+        raise KeyError("'XNAT_PASS' not defined in environment")
+
+    return (username, password)
 
 class xnat(object):
     server = None
@@ -25,8 +91,8 @@ class xnat(object):
         try:
             self.get_xnat_session()
         except Exception as e:
-            logger.warn('Failed getting xnat session')
-            raise XnatException("Failed getting xnat session")
+            raise XnatException("Failed getting xnat session for {}".format(
+                    server))
 
     def __enter__(self):
         return self
