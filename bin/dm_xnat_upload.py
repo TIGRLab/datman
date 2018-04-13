@@ -83,7 +83,9 @@ def main():
 
     CFG = datman.config.config(study=study)
 
-    XNAT = get_xnat(server=server, username=username)
+    server = datman.xnat.get_server(CFG, url=server)
+    username, password = datman.xnat.get_auth(username)
+    XNAT = datman.xnat.xnat(server, username, password)
 
     dicom_dir = CFG.get_path('dicom', study)
     # deal with a single archive specified on the command line,
@@ -144,8 +146,6 @@ def process_archive(archivefile):
         except Exception as e:
             logger.debug('An exception occurred: {}'.format(e))
             pass
-
-    check_duplicate_resources(archivefile, scanid)
 
 
 def get_xnat_session(ident):
@@ -258,52 +258,6 @@ def check_files_exist(archive, xnat_session):
     return scans_exist, resources_exist
 
 
-def check_duplicate_resources(archive, ident):
-    """
-    Checks the xnat archive for duplicate resources
-    Only  checks if non-dicom files in the archive exist and have duplicates
-    Deletes any duplicate copies from xnat
-    """
-    # process the archive to find out what files have been uploaded
-    uploaded_files = []
-    with zipfile.ZipFile(archive) as zf:
-        uploaded_files = datman.utils.get_resources(zf)
-
-    # Get an updated copy of the xnat_session (otherwise it crashes the first
-    # time a subject is uploaded)
-    xnat_session = get_xnat_session(ident)
-    xnat_resources = xnat_session.get_resources(XNAT)
-    # iterate throught the uploded files, finding any duplicates
-    # the one to keep should have the same folder structure
-    # and be in the MISC folder
-    # N.B. default folder is defined in
-    for f in uploaded_files:
-        fname = os.path.basename(f)
-        dups = [resource for resource
-                in xnat_resources if resource[1]['name'] == fname]
-        orig = [i for i, v in enumerate(dups) if v[1]['URI'] == f]
-
-        #orig = [o for o in orig if dups[o][0][0] == 'MISC']
-        if len(orig) > 1:
-            logger.warning('Failed to identify unique original resource file:{} '
-                           'in session:{}'.format(fname, ident))
-            return
-        # Delete the original entry from the list
-        if not orig:
-            logger.warning('Failed to identify original resource file:{} '
-                           'in session:{}'.format(fname, ident))
-            return
-        dups.pop(orig[0])
-
-        # Finally iterate through the duplicates, deleting from xnat
-        for d in dups:
-            XNAT.delete_resource(xnat_project,
-                                 ident.get_full_subjectid_with_timepoint_session(),
-                                 ident.get_full_subjectid_with_timepoint_session(),
-                                 d[0][1],
-                                 d[1]['ID'])
-
-
 def upload_non_dicom_data(archive, xnat_project, scanid):
     with zipfile.ZipFile(archive) as zf:
         resource_files = datman.utils.get_resources(zf)
@@ -340,24 +294,6 @@ def upload_dicom_data(archive, xnat_project, scanid):
         XNAT.put_dicoms(xnat_project, scanid, scanid, archive)
     except Exception as e:
         raise e
-
-def get_xnat(server=None, username=None):
-    """Create an xnat object,
-    this represents a connection to the xnat server as well as functions
-    for listing / adding data"""
-
-    if not server:
-        server = 'https://{}:{}'.format(CFG.get_key(['XNATSERVER']),
-                                        CFG.get_key(['XNATPORT']))
-    if username:
-        password = getpass.getpass()
-    else:
-        #Moving away from storing credentials in text files
-        username = os.environ["XNAT_USER"]
-        password = os.environ["XNAT_PASS"]
-
-    xnat = datman.xnat.xnat(server, username, password)
-    return xnat
 
 if __name__ == '__main__':
     main()

@@ -139,7 +139,9 @@ def main():
 
     cfg = datman.config.config(study=study)
 
-    xnat = get_xnat_connection(cfg, server=server, username=username)
+    server = datman.xnat.get_server(cfg, url=server)
+    username, password = datman.xnat.get_auth(username)
+    xnat = datman.xnat.xnat(server, username, password)
 
     # setup the dashboard object
     if not db_ignore:
@@ -174,23 +176,6 @@ def main():
 
     for session in sessions:
         process_session(session)
-
-def get_xnat_connection(cfg, server=None, username=None):
-    """Create an xnat object, this represents a connection to the xnat server
-    as well as functions for listing / adding data"""
-
-    if not server:
-        server = 'https://{}:{}'.format(cfg.get_key(['XNATSERVER']),
-                                        cfg.get_key(['XNATPORT']))
-    if username:
-        password = getpass.getpass()
-    else:
-        #Moving away from storing credentials in text files
-        username = os.environ["XNAT_USER"]
-        password = os.environ["XNAT_PASS"]
-
-    xnat = datman.xnat.xnat(server, username, password)
-    return xnat
 
 def collect_sessions(xnat_projects, config):
     sessions = []
