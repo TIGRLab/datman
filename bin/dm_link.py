@@ -132,21 +132,21 @@ def main():
     zips_path = cfg.get_path('zips')
 
     if not os.path.isdir(dicom_path):
-        logger.warning('Dicom path:{} doesnt exist'.format(dicom_path))
+        logger.warning('Dicom path {} doesnt exist'.format(dicom_path))
         try:
             os.makedirs(dicom_path)
         except IOError:
-            logger.error('Failed to create dicom path:{}'.format(dicom_path))
+            logger.error('Failed to create dicom path {}'.format(dicom_path))
             return
 
     if not os.path.isdir(zips_path):
-        logger.error('Zips path:{} doesnt exist'.format(zips_path))
+        logger.error('Zips path {} doesnt exist'.format(zips_path))
         return
 
     try:
         lookup = pd.read_table(lookup_path, sep='\s+', dtype=str)
     except IOError:
-        logger.error('Lookup file:{} not found'.format(lookup_path))
+        logger.error('Lookup file {} not found'.format(lookup_path))
         return
 
     # identify which zip files have already been linked
@@ -172,7 +172,7 @@ def main():
 
 def link_archive(archive_path, dicom_path, scanid_field, config):
     if not os.path.isfile(archive_path):
-        logger.error('Archive:{} not found'.format(archive_path))
+        logger.error('Archive {} not found'.format(archive_path))
         return
 
     try:
@@ -206,7 +206,7 @@ def link_archive(archive_path, dicom_path, scanid_field, config):
         scanid = get_scanid_from_header(archive_path, scanid_field)
 
     if not scanid:
-        logger.error('Scanid not found for archive:{}'.format(archive_path))
+        logger.error('Scanid not found for archive: {}'.format(archive_path))
         return
 
     try:
@@ -219,7 +219,7 @@ def link_archive(archive_path, dicom_path, scanid_field, config):
     target = os.path.join(dicom_path, scanid)
     target = target + datman.utils.get_extension(archive_path)
     if os.path.exists(target):
-        logger.warn('Target: {} already exists for archive: {}'
+        logger.error('Target: {} already exists for archive: {}'
                     .format(target, archive_path))
         return
 
@@ -259,7 +259,7 @@ def get_archive_headers(archive_path):
                                                   stop_after_first=True)
         header = header.values()[0]
     except:
-        logger.warn("Archive:{} contains no DICOMs".format(archive_path))
+        logger.warn("Archive: {} contains no DICOMs".format(archive_path))
     return header
 
 
