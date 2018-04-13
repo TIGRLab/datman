@@ -4,22 +4,20 @@ This script fetches all data from an xnat server and stores each found session
 as a zip file. It was originally created to grab data from OPT CU's xnat server
 and store it in the data/zips folder for later upload to our own server.
 
-There are two ways to use this script:
+If this script is provided with only the study the datman configuration files
+will be searched for the following configuration:
 
-    1. Specify all the needed details at the command line: XNAT project name,
-       server URL, path to a file containing login credentials and an output path
-    2. Specify a datman study. The configuration files will then be searched for
-       an 'XNAT_source_archive' (gives XNAT project name), 'XNAT_source' (server
-       URL), and 'XNAT_source_credentials' (gives name of a credentials file
-       stored in metadata or the full path to a file elsewhere). These can be
-       added to the study configuration at either the site or study level. The
-       output location will be set to the study's 'zips' folder.
+    - XNAT_source : the url of the server to pull from
+    - XNAT_source_archive: The name of the XNAT project on XNAT_source to pull from
+    - XNAT_source_credentials: the name of the file in metadata (or the full
+      path to a file stored elsewhere) that contains the username and password
+      (separated by a newline) to use to log in to XNAT_source
 
-Whether the credentials file is found from the command line or the configuration
-file the format is expected to be username then password each separated by a newline.
+These variables can be added at the project level or the site level (or both if
+a site overrides some project default).
 
 Usage:
-    xnat_fetch_remote.py [options] <project> <server> <credentials_path> <destination>
+    xnat_fetch_remote.py [options] <project> <server> <username> <password> <destination>
     xnat_fetch_remote.py [options] <study>
 
 
@@ -27,8 +25,8 @@ Arguments:
     <study>                 Name of the datman study to process.
     <project>               The XNAT project to pull from.
     <server>                Full URL to the remote XNAT server to pull from.
-    <credentials_path>      The full path to a file containing the xnat username
-                            a newline, and then the xnat password.
+    <username>              Username to use for <server>
+    <password>              Password to use for <server>
     <destination>           The full path to the intended destination for all
                             downloaded data. The script will attempt to avoid
                             redownloading data if data already exists at
@@ -48,9 +46,11 @@ Options:
 """
 import os
 import sys
-import zipfile
+import urllib
+import shutil
 import logging
 import logging.handlers
+from zipfile import ZipFile
 
 from docopt import docopt
 
@@ -66,14 +66,14 @@ def main():
     arguments = docopt(__doc__)
     xnat_project = arguments['<project>']
     xnat_server = arguments['<server>']
-    xnat_credentials = arguments['<credentials_path>']
+    username = arguments['<username>']
+    password = arguments['<password>']
     destination = arguments['<destination>']
     study = arguments['<study>']
     given_site = arguments['--site']
     use_server = arguments['--log-to-server']
 
     if not study:
-        username, password = get_credentials(xnat_credentials)
         get_data(xnat_project, xnat_server, username, password, destination)
         return
 
@@ -85,9 +85,86 @@ def main():
     sites = [given_site] if given_site else config.get_sites()
 
     for site in sites:
-        credentials, server, project, destination = get_xnat_config(config, site)
-        username, password = get_credentials(credentials)
+        try:
+            credentials_file, server, project, destination = get_xnat_config(
+                    config, site)
+        except KeyError as e:
+            logger.error("{}".format(e.message))
+            continue
+        username, password = get_credentials(credentials_file)
         get_data(project, server, username, password, destination)
+
+def get_data(xnat_project, xnat_server, username, password, destination):
+    current_zips = os.listdir(destination)
+    with datman.xnat.xnat(xnat_server, username, password) as xnat:
+        sessions_list = xnat.get_sessions(xnat_project)
+        for session_metadata in sessions_list:
+            session_name = session_metadata['label']
+            try:
+                session = xnat.get_session(xnat_project, session_name)
+            except Exception as e:
+                logger.error("Failed to get session {} from xnat. "
+                        "Reason: {}".format(session_name, e.message))
+                continue
+            zip_name = session_name.upper() + ".zip"
+            zip_path = os.path.join(destination, zip_name)
+            if zip_name in current_zips and not update_needed(zip_path, session,
+                    xnat):
+                logger.debug("All data downloaded for {}. Passing.".format(
+                        session_name))
+                continue
+            try:
+                zip_file = session.download(xnat, destination,
+                        zip_name=zip_name)
+            except Exception as e:
+                logger.error("Cant download session {}. Reason: {}".format(
+                        session_name, e.message))
+                continue
+            remove_redundant_subfolders(zip_file)
+
+def update_needed(zip_file, session, xnat):
+    zip_headers = datman.utils.get_archive_headers(zip_file)
+
+    if not session.experiment:
+        logger.error("{} does not have any experiments.".format(session.name))
+        return False
+
+    zip_experiment_ids = get_experiment_ids(zip_headers)
+    if len(set(zip_experiment_ids)) > 1:
+        logger.error("Zip file contains more than one experiment: "
+                "{}. Passing.".format(zip_file))
+        return False
+
+    if session.experiment_UID not in zip_experiment_ids:
+        logger.error("Zip file experiment ID does not match xnat session of "
+                "the same name: {}".format(zip_file))
+        return False
+
+    zip_scan_uids = get_scan_uids(zip_headers)
+    zip_resources = get_resources(zip_file)
+    xnat_resources = session.get_resources(xnat)
+
+    if not files_downloaded(zip_resources, xnat_resources) or not files_downloaded(
+            zip_scan_uids, session.scan_UIDs):
+        logger.error("Some of XNAT contents for {} is missing from file system. "
+                "Zip file will be deleted and recreated".format(session.name))
+        return True
+
+    return False
+
+def get_experiment_ids(zip_file_headers):
+    return [scan.StudyInstanceUID for scan in zip_file_headers.values()]
+
+def get_scan_uids(zip_file_headers):
+    return [scan.SeriesInstanceUID for scan in zip_file_headers.values()]
+
+def get_resources(zip_file):
+    with zipfile.ZipFile(zip_file) as zf:
+        zip_resources = datman.utils.get_resources(zf)
+    return [urllib.pathname2url(p) for p in zip_resources]
+
+def files_downloaded(local_list, remote_list):
+    return set(remote_list).issubset(set(local_list))
 
 def get_credentials(credentials_path):
     try:
@@ -106,79 +183,6 @@ def get_credentials(credentials_path):
         sys.exit(1)
     return username, password
 
-def get_data(xnat_project, xnat_server, username, password, destination):
-    current_zips = os.listdir(destination)
-    with datman.xnat.xnat(xnat_server, username, password) as xnat:
-        sessions_list = xnat.get_sessions(xnat_project)
-        for session_metadata in sessions_list:
-            session_name = session_metadata['label']
-            try:
-                session = xnat.get_session(xnat_project, session_name)
-            except Exception as e:
-                logger.error("Failed to get session {} from xnat. "
-                        "Reason: {}".format(session_name, e.message))
-                continue
-            zip_name = session_name + ".zip"
-            zip_path = os.path.join(destination, zip_name)
-            if zip_name in current_zips and not update_needed(zip_path, session, xnat):
-                print("Found all data for {}. Passing.".format(session_name))
-                continue
-            print("Download Needed for {}!".format(session_name))
-            #download_data()
-            # scan_url = "data/archive/projects/{project}/subjects/{subid}/experiments/{subid}/scans/ALL/files?format=zip"
-            # resources_url = "/data/archive/projects/{project}/subjects/{subid}/experiments/{subid}/files?format=zip"
-
-def update_needed(zip_file, session, xnat):
-    zip_headers = datman.utils.get_archive_headers(zip_file)
-
-    if not session.experiment:
-        logger.error("{} does not have any experiments.".format(session.name))
-        return False
-
-    # Check experiment matches
-    zip_experiment_ids = [scan.StudyInstanceUID for scan in zip_headers.values()]
-    if len(set(zip_experiment_ids)) > 1:
-        logger.error("Zip file contains more than one experiment: "
-                "{}. Passing.".format(zip_file))
-        return False
-
-    if session.experiment_UID not in zip_experiment_ids:
-        logger.error("Zip file experiment ID does not match xnat session of "
-                "the same name: {}".format(zip_file))
-        return False
-
-    zip_scan_uids = [scan.SeriesInstanceUID for scan in zip_headers.values()]
-
-    # Check resource data matches
-    xnat_resources = session.get_resources(xnat)
-    with zipfile.ZipFile(zip_file) as zf:
-        zip_resources = datman.utils.get_resources(zf)
-    zip_resources = [urllib.pathname2url(p) for p in zip_resources]
-
-    if not files_downloaded(zip_resources, xnat_resources) or not files_downloaded(
-            zip_scan_uids, session.scan_UIDs):
-        logger.error("Some of XNAT contents for {} is missing from file system. "
-                "Zip file will be deleted and recreated".format(session.name))
-        return True
-
-    return False
-
-def files_downloaded(local_list, remote_list):
-    return set(remote_list).issubset(set(local_list))
-
-def get_experiment(session):
-    experiments = [exp for exp in session['children']
-            if exp['field'] == 'experiments/experiment']
-
-    session_id = session['data_fields']['label']
-    if not experiments:
-        raise ValueError("No experiments found for {}".format(session_id))
-    elif len(experiments) > 1:
-        logger.error("More than one session uploaded to ID {}. Processing "
-                "only the first.".format(session_id))
-
-    return experiments[0]['items'][0]
-
 def add_server_handler(config):
     try:
         server_ip = config.get_key('LOGSERVER')
@@ -194,11 +198,10 @@ def get_xnat_config(config, site):
         server = config.get_key('XNAT_source', site=site)
         archive = config.get_key('XNAT_source_archive', site=site)
     except KeyError:
-        logger.critical("Missing configuration. Please ensure study or site "
+        raise KeyError("Missing configuration. Please ensure study or site "
                 "configuration defines all needed values: XNAT_source, "
                 "XNAT_source_credentials, XNAT_source_archive. See help string "
                 "for more details.")
-        sys.exit(1)
 
     destination = config.get_path('zips')
 
@@ -209,11 +212,55 @@ def get_xnat_config(config, site):
         credentials_path = os.path.join(config.get_path('meta'), cred_file)
         if not os.path.exists(credentials_path):
             logger.critical("Can't find credentials file at {} or {}. Please "
-                    "check that \'XNAT_source_credentials\' is set correctly.".format(
-                    cred_file, credentials_path))
+                    "check that \'XNAT_source_credentials\' is set "
+                    "correctly.".format(cred_file, credentials_path))
             sys.exit(1)
 
     return credentials_path, server, archive, destination
+
+def remove_redundant_subfolders(zip_file):
+    """
+    Folder structure is apparently meaningful for the resources of some studies,
+    but download from another XNAT server can leave the resources nested inside
+    unneeded folders. It seems that the
+    """
+    bad_prefix = 'resources/MISC/'
+
+
+    # Open zip as read only
+    # For each file in list with bad prefix
+        # Extract to temp folder
+
+    # Open file for modification
+    # For each extracted file
+        # Delete from zip
+        # Copy over without bad prefix
+
+
+    ################################### ADD IN WHEN DONE
+    # with datman.utils.make_temp_directory()
+    temp = "/tmp/testing_dir/"
+
+
+
+    #
+    # file_list = []
+    # with ZipFile(zip_file, 'r') as zip_handle:
+    #     files = zip_handle.namelist()
+    #     for item in files:
+    #         if item.startswith(bad_prefix):
+    #             try:
+    #                 zip_handle.extract(item, temp)
+    #             except Exception as e:
+    #                 logger.error("Could not extract {} from zip file {}. "
+    #                         "Any redundant subfolders will be left alone for "
+    #                         "this zip.".format(
+    #                         item, zip_file))
+    #                 return
+    #             file_list.append(item)
+    #
+    # with ZipFile(zip_file, 'a') as zip_handle:
+    #
 
 if __name__ == "__main__":
     main()
