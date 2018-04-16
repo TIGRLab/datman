@@ -223,7 +223,7 @@ def modify_map_json(orig, bids, dmap_dict, fmap_dict, csv_dict, site):
         is_map = True
 
     elif orig in dmap_dict.keys():
-        nii_file = str.replace(nii_file, 'json', 'nii.gz')
+        nii_file = str.replace(bids, 'json', 'nii.gz')
         intended_fors = dmap_dict
         is_map = True
     elif ('.nii.gz' in orig and "FMAP" not in orig):
@@ -451,9 +451,9 @@ def main():
                 if tag in tag_map["fmri"]:
                     study_tags.add(tag)
                 copyfile(item, type_dir + bids_name, )
-                if "nii.gz" in bids_name and ("dwi" in bids_name or "task" in bids_name):
-                    os.system('fslroi {} {} 4 -1'.format(type_dir + bids_name, type_dir + bids_name))
-                    logger.warning("Finished fslroi on {}".format(bids_name))
+                #if "nii.gz" in bids_name and ("dwi" in bids_name or "task" in bids_name):
+                    # os.system('fslroi {} {} 4 -1'.format(type_dir + bids_name, type_dir + bids_name))
+                    #logger.warning("Finished fslroi on {}".format(bids_name))
                 logger.warning("{:<70} {:<80}".format(os.path.basename(item), bids_name))
                 csv_dict[os.path.basename(item)] = [type_dir + bids_name]
                 if fmriprep_dir and os.path.isdir(fs_src):
