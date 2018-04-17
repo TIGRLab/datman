@@ -928,7 +928,7 @@ class Session(object):
     def download(self, xnat, dest_folder, zip_name=None):
         """
         Download a zip file containing all data for this session. Returns the
-        path to the new file if download is successful, an empty string if not.
+        path to the new file if download is successful, raises an exception if not
 
         xnat                An instance of datman.xnat.xnat()
         dest_folder         The absolute path to the folder where the zip should
@@ -937,8 +937,7 @@ class Session(object):
                             the zip name will be session.name
         """
         if not self.experiment:
-            logger.error("No data found for {}".format(self.name))
-            return ""
+            raise ValueError("No data found for {}".format(self.name))
 
         try:
             experiment_ID = self.experiment['data_fields']['ID']
@@ -950,8 +949,7 @@ class Session(object):
         resources_list.extend(self.resource_IDs.values())
 
         if not resources_list:
-            logger.error("No scans or resources found for {}".format(self.name))
-            return ""
+            raise ValueError("No scans or resources found for {}".format(self.name))
 
         url = ("{}/REST/experiments/{}/resources/{}/files"
                 "?structure=improved&all=true&format=zip".format(xnat.server,
@@ -966,4 +964,6 @@ class Session(object):
                     output_path))
             return output_path
 
-        return xnat._get_xnat_stream(url, output_path)
+        xnat._get_xnat_stream(url, output_path)
+
+        return output_path
