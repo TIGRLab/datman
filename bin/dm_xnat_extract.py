@@ -394,7 +394,7 @@ def get_resource(xnat_project, xnat_session, xnat_experiment,
     full path to store the file, including filename"""
 
     try:
-        archive = xnat.get_resource(xnat_project,
+        source = xnat.get_resource(xnat_project,
                                     xnat_session,
                                     xnat_experiment,
                                     xnat_resource_id,
@@ -416,7 +416,6 @@ def get_resource(xnat_project, xnat_session, xnat_experiment,
 
     # copy the downloaded file to the target location
     try:
-        source = archive[1]
         if not DRYRUN:
             shutil.copyfile(source, target_path)
     except:
@@ -425,10 +424,10 @@ def get_resource(xnat_project, xnat_session, xnat_experiment,
 
     # finally delete the temporary archive
     try:
-        os.remove(archive[1])
+        os.remove(source)
     except OSError:
         logger.error('Failed to remove temporary archive:{} on system:{}'
-                     .format(archive, platform.node()))
+                     .format(source, platform.node()))
     return(target_path)
 
 
@@ -586,16 +585,16 @@ def get_dicom_archive_from_xnat(xnat_project, session_label, experiment_label,
     logger.debug('Unpacking archive')
 
     try:
-        with zipfile.ZipFile(dicom_archive[1], 'r') as myzip:
+        with zipfile.ZipFile(dicom_archive, 'r') as myzip:
             myzip.extractall(tempdir)
     except:
         logger.error('An error occurred unpacking dicom archive for:{}'
                      ' skipping'.format(session_label))
-        os.remove(dicom_archive[1])
+        os.remove(dicom_archive)
         return None
 
     logger.debug('Deleting archive file')
-    os.remove(dicom_archive[1])
+    os.remove(dicom_archive)
     # get the root dir for the extracted files
     archive_files = []
     for root, dirname, filenames in os.walk(tempdir):
