@@ -64,11 +64,11 @@ def generate_scan_list(scan_entry_class, zip_files, dest_dir):
 
 def start_new_scan_list(output):
     logger.info("Starting new scans.csv file at {}".format(output))
-    with open(output, 'w') as out:
+    with open(output, 'wb') as out:
         out.write('source_name\ttarget_name\tPatientName\tStudyID\n')
 
 def get_scan_list_contents(scans_csv):
-    with open(scans_csv, "r") as scan_entries:
+    with open(scans_csv, "rb") as scan_entries:
         contents = scan_entries.readlines()
 
     processed_files = defaultdict(list)
@@ -107,7 +107,7 @@ def make_new_entries(processed_scans, zip_files, EntryClass):
     return new_entries
 
 def update_scans_csv(output, new_entries):
-    with open(output, 'a') as scan_csv:
+    with open(output, 'ab') as scan_csv:
         scan_csv.writelines(new_entries)
 
 class ScanEntryABC(object):
