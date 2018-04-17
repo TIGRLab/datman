@@ -122,8 +122,11 @@ class ScanEntryABC(object):
         except IndexError:
             logger.debug("{} does not contain dicoms. "
                     "Creating 'ignore' entry.".format(scan_path))
-            self.patient_name, self.study_id = "<ignore>"
+            self.patient_name = "<ignore>"
+            self.study_id = "<ignore>"
+            self.header = None
         else:
+            self.header = header
             self.patient_name = header.get('PatientName')
             self.study_id = header.get('StudyID')
 
