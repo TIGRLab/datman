@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-This script fetches all data from an xnat server and stores each found session
+This script fetches all sessions from an xnat server and stores each found session
 as a zip file. It was originally created to grab data from OPT CU's xnat server
 and store it in the data/zips folder for later upload to our own server.
 
@@ -17,8 +17,8 @@ These variables can be added at the project level or the site level (or both if
 a site overrides some project default).
 
 Usage:
-    xnat_fetch_remote.py [options] <project> <server> <username> <password> <destination>
-    xnat_fetch_remote.py [options] <study>
+    xnat_fetch_sessions.py [options] <project> <server> <username> <password> <destination>
+    xnat_fetch_sessions.py [options] <study>
 
 
 Arguments:
@@ -33,9 +33,8 @@ Arguments:
                             this location.
 
 Options:
-    -s, --site SITE         The name of a site defined in the project configuration.
-                            Restricts the script to checking only the given
-                            site. Only relevant if <study> is given.
+    -s, --site SITE         Restricts to checking only the configuration for the
+                            given site. Only relevant if <study> is given.
     -l, --log-to-server     Set whether to log to the logging server.
                             Only used if <study> is given.
     -n, --dry-run           Do nothing
@@ -46,11 +45,12 @@ Options:
 """
 import os
 import sys
+import glob
 import urllib
 import shutil
 import logging
 import logging.handlers
-from zipfile import ZipFile
+from zipfile import ZipFile, ZIP_DEFLATED
 
 from docopt import docopt
 
@@ -58,11 +58,14 @@ import datman.config
 import datman.xnat
 import datman.utils
 
+DRYRUN = False
+
 logging.basicConfig(level=logging.WARN,
         format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
 def main():
+    global DRYRUN
     arguments = docopt(__doc__)
     xnat_project = arguments['<project>']
     xnat_server = arguments['<server>']
@@ -72,9 +75,18 @@ def main():
     study = arguments['<study>']
     given_site = arguments['--site']
     use_server = arguments['--log-to-server']
+    DRYRUN = arguments['--dry-run']
+
+    if arguments['--debug']:
+        logger.setLevel(logging.DEBUG)
+    elif arguments['--verbose']:
+        logger.setLevel(logging.INFO)
+    elif arguments['--quiet']:
+        logger.setLevel(logging.ERROR)
 
     if not study:
-        get_data(xnat_project, xnat_server, username, password, destination)
+        with datman.xnat.xnat(xnat_server, username, password) as xnat:
+            get_sessions(xnat, xnat_project, destination)
         return
 
     config = datman.config.config(study=study)
@@ -92,37 +104,51 @@ def main():
             logger.error("{}".format(e.message))
             continue
         username, password = get_credentials(credentials_file)
-        get_data(project, server, username, password, destination)
+        with datman.xnat.xnat(server, username, password) as xnat:
+            get_sessions(xnat, project, destination)
 
-def get_data(xnat_project, xnat_server, username, password, destination):
+def get_sessions(xnat, xnat_project, destination):
     current_zips = os.listdir(destination)
-    with datman.xnat.xnat(xnat_server, username, password) as xnat:
-        sessions_list = xnat.get_sessions(xnat_project)
-        for session_metadata in sessions_list:
-            session_name = session_metadata['label']
+
+    sessions_list = xnat.get_sessions(xnat_project)
+    for session_metadata in sessions_list:
+        session_name = session_metadata['label']
+        try:
+            session = xnat.get_session(xnat_project, session_name)
+        except Exception as e:
+            logger.error("Failed to get session {} from xnat. "
+                    "Reason: {}".format(session_name, e.message))
+            continue
+
+        zip_name = session_name.upper() + ".zip"
+        zip_path = os.path.join(destination, zip_name)
+        if zip_name in current_zips and not update_needed(zip_path, session,
+                xnat):
+            logger.debug("All data downloaded for {}. Passing.".format(
+                    session_name))
+            continue
+
+        if DRYRUN:
+            logger.info("Would have downloaded session {} from project {} to {}"
+                    "".format(session_name, xnat_project, zip_path))
+            return
+
+        with datman.utils.make_temp_directory() as temp:
             try:
-                session = xnat.get_session(xnat_project, session_name)
-            except Exception as e:
-                logger.error("Failed to get session {} from xnat. "
-                        "Reason: {}".format(session_name, e.message))
-                continue
-            zip_name = session_name.upper() + ".zip"
-            zip_path = os.path.join(destination, zip_name)
-            if zip_name in current_zips and not update_needed(zip_path, session,
-                    xnat):
-                logger.debug("All data downloaded for {}. Passing.".format(
-                        session_name))
-                continue
-            try:
-                zip_file = session.download(xnat, destination,
-                        zip_name=zip_name)
+                temp_zip = session.download(xnat, temp, zip_name=zip_name)
             except Exception as e:
                 logger.error("Cant download session {}. Reason: {}".format(
                         session_name, e.message))
                 continue
-            remove_redundant_subfolders(zip_file)
+            restructure_zip(temp_zip, zip_path)
 
 def update_needed(zip_file, session, xnat):
+    """
+    This checks if an update is needed the same way dm_xnat_upload does. The
+    logic is not great. A single file being deleted / truncated / corrupted
+    does not get noticed. Both of them need an update at some later date,
+    preferably to use XNAT's metadata on num of files and file size or something.
+    """
     zip_headers = datman.utils.get_archive_headers(zip_file)
 
     if not session.experiment:
@@ -218,49 +244,63 @@ def get_xnat_config(config, site):
 
     return credentials_path, server, archive, destination
 
-def remove_redundant_subfolders(zip_file):
+def restructure_zip(temp_zip, output_zip):
     """
     Folder structure is apparently meaningful for the resources of some studies,
     but download from another XNAT server can leave the resources nested inside
-    unneeded folders. It seems that the
+    unneeded folders.
     """
+    # Only one found so far
     bad_prefix = 'resources/MISC/'
 
+    temp_path, _ = os.path.split(temp_zip)
+    extract_dir = datman.utils.define_folder(os.path.join(temp_path, "extracted"))
 
-    # Open zip as read only
-    # For each file in list with bad prefix
-        # Extract to temp folder
+    with ZipFile(temp_zip, 'r') as zip_handle:
+        if not bad_folders_exist(zip_handle, bad_prefix):
+            # No work to do, move downloaded zip and return
+            move(temp_zip, output_zip)
+            return
+        zip_handle.extractall(extract_dir)
 
-    # Open file for modification
-    # For each extracted file
-        # Delete from zip
-        # Copy over without bad prefix
+    for item in glob.glob(os.path.join(extract_dir, bad_prefix, "*")):
+        move(item, extract_dir)
 
+    remove_empty_dirs(extract_dir)
+    make_zip(extract_dir, output_zip)
 
-    ################################### ADD IN WHEN DONE
-    # with datman.utils.make_temp_directory()
-    temp = "/tmp/testing_dir/"
+def bad_folders_exist(zip_handle, prefix):
+    for item in zip_handle.namelist():
+        if item.startswith(prefix):
+            return True
+    return False
 
+def remove_empty_dirs(base_dir):
+    empty_dir = os.path.join(base_dir, 'resources')
+    try:
+        shutil.rmtree(empty_dir)
+    except OSError as e:
+        logger.info("Cant delete {}. Reason: {}".format(empty_dir, e.message))
 
+def move(source, dest):
+    try:
+        shutil.move(source, dest)
+    except Exception as e:
+        logger.error("Couldnt move {} to destination {}".format(source, dest))
 
-    #
-    # file_list = []
-    # with ZipFile(zip_file, 'r') as zip_handle:
-    #     files = zip_handle.namelist()
-    #     for item in files:
-    #         if item.startswith(bad_prefix):
-    #             try:
-    #                 zip_handle.extract(item, temp)
-    #             except Exception as e:
-    #                 logger.error("Could not extract {} from zip file {}. "
-    #                         "Any redundant subfolders will be left alone for "
-    #                         "this zip.".format(
-    #                         item, zip_file))
-    #                 return
-    #             file_list.append(item)
-    #
-    # with ZipFile(zip_file, 'a') as zip_handle:
-    #
+def make_zip(source_dir, dest_zip):
+    # Can't use shutil.make_archive here because for python 2.7 it fails on
+    # large zip files (seemingly > 2GB) and zips with more than about 65000 files
+    # Soooo, doing it the hard way. Can change this if we ever move to 3
+    with ZipFile(dest_zip, "w", compression=ZIP_DEFLATED,
+            allowZip64=True) as zip_handle:
+        # We want this to use 'w' flag, since it should overwrite any existing zip
+        # of the same name. If the script made it this far, that zip is incomplete
+        for current_dir, folders, files in os.walk(source_dir):
+            for item in files:
+                item_path = os.path.join(current_dir, item)
+                archive_path = item_path.replace(source_dir + "/", "")
+                zip_handle.write(item_path, archive_path)
 
 if __name__ == "__main__":
     main()
