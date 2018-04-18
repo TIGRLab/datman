@@ -81,7 +81,7 @@ def get_missing_data(data, nii_file, site):
             npe = img.shape[axis]
             acc = 1.0
             if 'ParallelReductionFactorInPlane' in data.keys():
-                acc = dat['ParallelReductionFactorInPlane']
+                acc = data['ParallelReductionFactorInPlane']
             data["TotalReadoutTime"] = str(float(data["EffectiveEchoSpacing"])*(npe/acc-1))
         except KeyError, key:
             logger.info(
