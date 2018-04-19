@@ -46,7 +46,6 @@ Options:
 import os
 import sys
 import glob
-import urllib
 import shutil
 import logging
 import logging.handlers
@@ -185,9 +184,9 @@ def get_scan_uids(zip_file_headers):
     return [scan.SeriesInstanceUID for scan in zip_file_headers.values()]
 
 def get_resources(zip_file):
-    with zipfile.ZipFile(zip_file) as zf:
+    with ZipFile(zip_file) as zf:
         zip_resources = datman.utils.get_resources(zf)
-    return [urllib.pathname2url(p) for p in zip_resources]
+    return zip_resources
 
 def files_downloaded(local_list, remote_list):
     return set(remote_list).issubset(set(local_list))
