@@ -6,10 +6,76 @@ import time
 import tempfile
 import os
 import urllib
+import getpass
 from exceptions import XnatException
 from xml.etree import ElementTree
 
 logger = logging.getLogger(__name__)
+
+def get_server(config, url=None, port=None):
+    if url and not port:
+        # Dont accidentally mangle user's url by appending a port from the config
+        use_port = False
+    else:
+        use_port = True
+
+    if not url:
+        try:
+            url = config.get_key('XNATSERVER')
+        except KeyError:
+            raise KeyError("'XNATSERVER' not defined in config file")
+
+    # Check for 'http' and NOT https, because checking for https could mangle a
+    # url into https://http<restof>
+    if not url.startswith("http"):
+        url = "https://" + url
+
+    if not use_port:
+        return url
+
+    try:
+        port_str = get_port_str(config, port)
+    except KeyError:
+        logger.debug("'XNATPORT' undefined in config. Omitting port number "
+                "for {}".format(url))
+        port_str = ''
+
+    # Will create a bad url if a port is appended after '/'
+    if url.endswith('/'):
+        url = url[:-1]
+
+    server = '{}{}'.format(url, port_str)
+
+    return server
+
+def get_port_str(config, port):
+    """
+    Returns a port string of the format :portnum
+
+    Will raise KeyError if port is None and config file doesnt define XNATPORT
+    """
+    if port is None:
+        port = config.get_key('XNATPORT')
+
+    if not str(port).startswith(':'):
+        port = ':{}'.format(port)
+
+    return port
+
+def get_auth(username=None):
+    if username:
+        return (username, getpass.getpass())
+
+    try:
+        username = os.environ["XNAT_USER"]
+    except KeyError:
+        raise KeyError("'XNAT_USER' not defined in environment")
+    try:
+        password = os.environ["XNAT_PASS"]
+    except KeyError:
+        raise KeyError("'XNAT_PASS' not defined in environment")
+
+    return (username, password)
 
 class xnat(object):
     server = None
@@ -25,8 +91,16 @@ class xnat(object):
         try:
             self.get_xnat_session()
         except Exception as e:
-            logger.warn('Failed getting xnat session')
-            raise XnatException("Failed getting xnat session")
+            raise XnatException("Failed getting xnat session for {}".format(
+                    server))
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        # Ends the session on the server side
+        url = '{}/data/JSESSION'.format(self.server)
+        self.session.delete(url)
 
     def get_xnat_session(self):
         """Setup a session with xnat"""
@@ -129,11 +203,13 @@ class xnat(object):
                 result = self.get_session(study, session)
                 return result
         try:
-            return(result['items'][0])
-        except (KeyError, ValueError):
-            msg = "Session:{} doesnt exist on xnat for study:{}".format(session, study)
-            logger.info(msg)
-            return XnatException(msg)
+            session_json = result['items'][0]
+        except:
+            msg = "Session:{} doesnt exist on xnat for study:{}".format(session,
+                    study)
+            raise XnatException(msg)
+
+        return Session(session_json)
 
     def make_session(self, study, session):
         url = "{server}/REST/projects/{project}/subjects/{subject}"
@@ -305,8 +381,6 @@ class xnat(object):
         self._make_xnat_put(url)
         return self.get_resource_ids(study, session, experiment, label)
 
-
-
     def get_resource_list(self, study, session, experiment, resource_id):
         """The list of non-dicom resources associated with an experiment
         returns a list of dicts, mostly interested in ID and name"""
@@ -408,12 +482,13 @@ class xnat(object):
             # mkstemp returns a filename and a file object
             # dealing with the filename in future so close the file object
             os.close(filename[0])
+            filename = filename[1]
         try:
             self._get_xnat_stream(url, filename, retries)
             return(filename)
         except:
             try:
-                os.remove(filename[1])
+                os.remove(filename)
             except OSError as e:
                 logger.warning('Failed to delete tempfile:{} with excuse:{}'
                                .format(filename, str(e)))
@@ -486,12 +561,13 @@ class xnat(object):
             #  mkstemp returns a file object and a filename
             #  we will deal with the filename in future so close the file object
             os.close(filename[0])
+            filename = filename[1]
         try:
             self._get_xnat_stream(url, filename, retries)
             return(filename)
         except:
             try:
-                os.remove(filename[1])
+                os.remove(filename)
             except OSError as e:
                 logger.warning('Failed to delete tempfile:{} with excude:{}'
                                .format(filename, str(e)))
@@ -515,12 +591,13 @@ class xnat(object):
             #  mkstemp returns a file object and a filename
             #  we will deal with the filename in future so close the file object
             os.close(filename[0])
+            filename = filename[1]
         try:
             self._get_xnat_stream(url, filename, retries)
             return(filename)
         except:
             try:
-                os.remove(filename[1])
+                os.remove(filename)
             except OSError as e:
                 logger.warning('Failed to delete tempfile:{} with excude:{}'
                                .format(filename, str(e)))
@@ -547,7 +624,7 @@ class xnat(object):
                                 .format(url))
 
     def _get_xnat_stream(self, url, filename, retries=3, timeout=120):
-        logger.info('Getting data from xnat')
+        logger.debug('Getting {} from XNAT'.format(url))
         try:
             response = self.session.get(url, stream=True, timeout=timeout)
         except requests.exceptions.Timeout as e:
@@ -581,7 +658,7 @@ class xnat(object):
                          .format(response.status_code))
             response.raise_for_status()
 
-        with open(filename[1], 'wb') as f:
+        with open(filename, 'wb') as f:
             try:
                 for chunk in response.iter_content(1024):
                     f.write(chunk)
@@ -724,3 +801,169 @@ class xnat(object):
             logger.warn("http client error deleting resource: {}"
                         .format(response.status_code))
             response.raise_for_status()
+
+
+class Session(object):
+
+    raw_json = None
+
+    def __init__(self, session_json):
+        # Session attributes
+        self.raw_json = session_json
+        self.name = session_json['data_fields']['label']
+        self.project = session_json['data_fields']['project']
+
+        # Experiment attributes
+        self.experiment = self._get_experiment()
+        self.experiment_label = self._get_experiment_label()
+        self.experiment_UID = self._get_experiment_UID()
+
+        # Scan attributes
+        self.scans = self._get_scans()
+        self.scan_UIDs = self._get_scan_UIDs()
+        self.scan_resource_IDs = self._get_scan_rIDs()
+
+        # Resource attributes
+        self.resource_IDs = self._get_resource_IDs()
+
+    def _get_experiment(self):
+        experiments = [exp for exp in self.raw_json['children']
+                if exp['field'] == 'experiments/experiment']
+
+        if not experiments:
+            logger.debug("No experiments found for {}".format(self.name))
+            return {}
+        elif len(experiments) > 1:
+            logger.error("More than one session uploaded to ID {}. Processing "
+                    "only the first.".format(self.name))
+
+        return experiments[0]['items'][0]
+
+    def _get_experiment_label(self):
+        if not self.experiment:
+            return ''
+        try:
+            label = self.experiment['data_fields']['label']
+        except KeyError:
+            logger.error("Could not retrieve experiment label for {}".format(
+                    self.name))
+            label = ''
+        return label
+
+    def _get_experiment_UID(self):
+        if not self.experiment:
+            return ''
+        try:
+            uid = self.experiment['data_fields']['UID']
+        except KeyError:
+            uid = ''
+        return uid
+
+    def _get_experiment_contents(self, field):
+        """
+        Retrieves part of the contents of an experiment based on 'field'.
+        e.g. 'scans/scan' or 'resources/resource'
+        """
+        try:
+            children = self.experiment['children']
+        except KeyError:
+            # Nothing uploaded for this experiment
+            children = []
+
+        contents = [child['items'] for child in children
+                if child['field'] == field]
+        return contents
+
+    def _get_scans(self):
+        scans = self._get_experiment_contents('scans/scan')
+        if not scans:
+            logger.debug("No scans found for session {}".format(self.name))
+            return scans
+        return scans[0]
+
+    def _get_scan_UIDs(self):
+        scan_uids = [str(scan['data_fields']['UID']) for scan in self.scans]
+        return scan_uids
+
+    def _get_scan_rIDs(self):
+        # These can be used to download a series from xnat
+        resource_ids = []
+        for scan in self.scans:
+            for child in scan['children']:
+                if child['field'] != 'file':
+                    continue
+                r_id = child['items'][0]['data_fields']['xnat_abstractresource_id']
+                resource_ids.append(str(r_id))
+        return resource_ids
+
+    def _get_resource_IDs(self):
+        resources = self._get_experiment_contents('resources/resource')
+
+        if not resources:
+            return {}
+
+        # This is a dict because it was in Tom's code. May not need to be though...
+        # need to look at the code more closely to see if it's necessary or was
+        # a silly thing he did - Dawn 2018-04-11
+        resource_ids = {}
+        for resource in resources[0]:
+            try:
+                label = resource['data_fields']['label']
+            except KeyError:
+                label = 'No Label'
+            resource_ids[label] = str(resource['data_fields']['xnat_abstractresource_id'])
+        return resource_ids
+
+    def get_resources(self, xnat_connection):
+        """
+        Returns a list of all resource URIs from this session.
+        """
+        resources = []
+        for r_id in self.resource_IDs:
+            resource_list = xnat_connection.get_resource_list(self.project,
+                    self.name, self.experiment_label, r_id)
+            resources.extend([item['URI'] for item in resource_list])
+        return resources
+
+    def download(self, xnat, dest_folder, zip_name=None):
+        """
+        Download a zip file containing all data for this session. Returns the
+        path to the new file if download is successful, raises an exception if not
+
+        xnat                An instance of datman.xnat.xnat()
+        dest_folder         The absolute path to the folder where the zip should
+                            be deposited
+        zip_name            An optional name for the output zip file. If not set
+                            the zip name will be session.name
+        """
+        if not self.experiment:
+            raise ValueError("No data found for {}".format(self.name))
+
+        try:
+            experiment_ID = self.experiment['data_fields']['ID']
+        except KeyError:
+            raise KeyError("Can't retrieve experiment ID for experiment {}. "
+                    "Please check contents.".format(self.experiment_label))
+
+        resources_list = self.scan_resource_IDs
+        resources_list.extend(self.resource_IDs.values())
+
+        if not resources_list:
+            raise ValueError("No scans or resources found for {}".format(self.name))
+
+        url = ("{}/REST/experiments/{}/resources/{}/files"
+                "?structure=improved&all=true&format=zip".format(xnat.server,
+                experiment_ID, ",".join(resources_list)))
+
+        if not zip_name:
+            zip_name = self.name.upper() + ".zip"
+
+        output_path = os.path.join(dest_folder, zip_name)
+        if os.path.exists(output_path):
+            logger.error("Cannot download {}, file already exists.".format(
+                    output_path))
+            return output_path
+
+        xnat._get_xnat_stream(url, output_path)
+
+        return output_path

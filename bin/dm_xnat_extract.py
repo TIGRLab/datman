@@ -17,7 +17,6 @@ Options:
     -q --quiet               Show minimal output
     -n --dry-run             Do nothing
     --server URL             XNAT server to connect to, overrides the server defined in the site config file.
-    -c --credfile FILE       File containing XNAT username and password. The username should be on the first line, and password on the next. Overrides the credfile in the project metadata
     -u --username USER       XNAT username. If specified then the credentials file is ignored and you are prompted for password.
     --dont-update-dashboard  Dont update the dashboard database
 
@@ -105,7 +104,6 @@ def main():
     quiet = arguments['--quiet']
     study = arguments['<study>']
     server = arguments['--server']
-    credfile = arguments['--credfile']
     username = arguments['--username']
     session = arguments['<session>']
     db_ignore = arguments['--dont-update-dashboard']
@@ -141,32 +139,8 @@ def main():
 
     cfg = datman.config.config(study=study)
 
-    # setup the xnat object
-    if not server:
-        try:
-            server = 'https://{}:{}'.format(cfg.get_key(['XNATSERVER']),
-                                            cfg.get_key(['XNATPORT']))
-        except KeyError:
-            logger.error('Failed to get xnat server info for study:{}'
-                         .format(study))
-            return
-
-    if username:
-        password = getpass.getpass()
-    else:
-        #Moving away from storing credentials in text files
-        """
-        if not credfile:
-            credfile = os.path.join(cfg.get_path('meta', study),
-                                    'xnat-credentials')
-        with open(credfile) as cf:
-            lines = cf.readlines()
-            username = lines[0].strip()
-            password = lines[1].strip()
-        """
-        username = os.environ["XNAT_USER"]
-        password = os.environ["XNAT_PASS"]
-
+    server = datman.xnat.get_server(cfg, url=server)
+    username, password = datman.xnat.get_auth(username)
     xnat = datman.xnat.xnat(server, username, password)
 
     # setup the dashboard object
@@ -236,6 +210,8 @@ def process_session(session):
     try:
         xnat.get_session(xnat_project, session_label)
     except Exception as e:
+        logger.error("Error while getting session {} from XNAT. "
+                "Message: {}".format(session_label, e.message))
         return
 
     try:
@@ -412,93 +388,17 @@ def process_resources(xnat_project, session_label, experiment_label, data):
                                  resource['URI'],
                                  resource_path)
 
-            check_duplicates(resource, base_path, target_path)
-
-
-
-def check_duplicates(resource, base_path, target_path):
-    """Checks to see if a resource file has duplicate copies on the file system
-    backs up any duplicates found"""
-    fname = os.path.basename(resource['URI'])
-    target_file = os.path.join(target_path, resource['URI'])
-
-    dups = []
-    for root, dirs, files in os.walk(base_path):
-        if 'BACKUPS' in root:
-            continue
-        if fname in files:
-            dups.append(os.path.join(root, fname))
-    # remove the target
-    logger.debug('Original resource:{}'.format(target_file))
-    # potentially throws a value error.
-    # target file should always exist
-    try:
-        del dups[dups.index(target_file)]
-    except:
-        logger.error('Resource file:{} not found on file system.'
-                     ' Did the download fail due to timeout?')
-
-    for dup in dups:
-        try:
-            backup_resource(base_path, dup)
-        except (IOError, OSError) as e:
-            logger.error('Failed backing up resource file:{} with excuse:{}'
-                         .format(dup, str(e)))
-
-
-def backup_resource(base_path, resource_file):
-    backup_path = os.path.join(base_path, 'BACKUPS')
-    rel_path = os.path.dirname(os.path.relpath(resource_file, base_path))
-    target_dir = os.path.join(backup_path, rel_path)
-    if not os.path.isdir(target_dir):
-        try:
-            os.makedirs(target_dir)
-        except Exception as e:
-            logger.debug('Failed creating backup target:{}'
-                         .format(target_dir))
-            raise e
-    try:
-        logger.debug('Moving {} to {}'.format(resource_file, target_dir))
-        dst_file = os.path.join(target_dir, os.path.basename(resource_file))
-        if os.path.isfile(dst_file):
-            is_identical = check_files_are_identical([resource_file, dst_file])
-            if is_identical:
-                os.remove(resource_file)
-            else:
-                # This shouldn't happen, but one file may be corrupt.
-                # rename the target file.
-                fname, ext = os.path.splitext(dst_file)
-                dst_file = '{}_copy{}'.format(fname, ext)
-        else:
-            os.rename(resource_file, dst_file)
-
-    except Exception as e:
-        logger.debug('Failed moving resource file:{} to {}'
-                     .format(resource_file, target_dir))
-        raise e
-
-def check_files_are_identical(files):
-    """Checks if files are identical
-    Expects an iterable list of filenames"""
-    hash1 = hashlib.sha256(open(files.pop(), 'rb').read()).digest()
-    for f in files:
-        hash2 = hashlib.sha256(open(f, 'rb').read()).digest()
-        if hash2 != hash1:
-            return False
-    return True
-
-
 def get_resource(xnat_project, xnat_session, xnat_experiment,
-                 xnat_resource_group, xnat_resource_id, target_path):
+                 xnat_resource_id, xnat_resource_uri, target_path):
     """Download a single resource file from xnat. Target path should be
     full path to store the file, including filename"""
 
     try:
-        archive = xnat.get_resource(xnat_project,
+        source = xnat.get_resource(xnat_project,
                                     xnat_session,
                                     xnat_experiment,
-                                    xnat_resource_group,
                                     xnat_resource_id,
+                                    xnat_resource_uri,
                                     zipped=False)
     except Exception as e:
         logger.error('Failed downloading resource archive from:{} with reason:{}'
@@ -516,7 +416,6 @@ def get_resource(xnat_project, xnat_session, xnat_experiment,
 
     # copy the downloaded file to the target location
     try:
-        source = archive[1]
         if not DRYRUN:
             shutil.copyfile(source, target_path)
     except:
@@ -525,10 +424,10 @@ def get_resource(xnat_project, xnat_session, xnat_experiment,
 
     # finally delete the temporary archive
     try:
-        os.remove(archive[1])
+        os.remove(source)
     except OSError:
         logger.error('Failed to remove temporary archive:{} on system:{}'
-                     .format(archive, platform.node()))
+                     .format(source, platform.node()))
     return(target_path)
 
 
@@ -686,16 +585,16 @@ def get_dicom_archive_from_xnat(xnat_project, session_label, experiment_label,
     logger.debug('Unpacking archive')
 
     try:
-        with zipfile.ZipFile(dicom_archive[1], 'r') as myzip:
+        with zipfile.ZipFile(dicom_archive, 'r') as myzip:
             myzip.extractall(tempdir)
     except:
         logger.error('An error occurred unpacking dicom archive for:{}'
                      ' skipping'.format(session_label))
-        os.remove(dicom_archive[1])
+        os.remove(dicom_archive)
         return None
 
     logger.debug('Deleting archive file')
-    os.remove(dicom_archive[1])
+    os.remove(dicom_archive)
     # get the root dir for the extracted files
     archive_files = []
     for root, dirname, filenames in os.walk(tempdir):
@@ -720,24 +619,6 @@ def is_valid_dicom(filename):
     except dicom.errors.InvalidDicomError:
         return
     return True
-
-
-def get_resource_archive_from_xnat(xnat_project, session, resourceid):
-    """Downloads and extracts a resource archive from xnat
-    to a local temp file
-    Returns the path to the tempfile (for later cleanup)"""
-
-    logger.debug('Downloadind resources for:{}, series:{}.'
-                 .format(session, resourceid))
-    try:
-        resource_archive = xnat.get_resource(xnat_project,
-                                             session,
-                                             session,
-                                             resourceid)
-    except Exception as e:
-        return None
-    return(resource_archive)
-
 
 def series_is_processed(ident, file_stem, export_formats):
     """returns true if exported files exist for all specified formats"""
