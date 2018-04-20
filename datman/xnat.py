@@ -914,6 +914,38 @@ class Session(object):
             resource_ids[label] = str(resource['data_fields']['xnat_abstractresource_id'])
         return resource_ids
 
+    def _get_other_resource_IDs(self):
+        """
+        OPT's CU site uploads niftis to their server. These niftis are neither
+        classified as resources nor as scans so our code misses them entirely.
+        This functions grabs the abstractresource_id for these and
+        any other unique files aside from snapshots
+        """
+        r_ids = []
+        for scan in self.scans:
+            for child in scan:
+                try:
+                    abstract_resources = child['items']
+                except KeyError:
+                    logger.error("Scan JSON's child has no 'items' key")
+                    continue
+                for resource in abstract_resource:
+                    try:
+                        data_fields = resource['data_fields']
+                    except KeyError:
+                        logger.error("No data_fields found.")
+                        continue
+                    try:
+                        label = resource['data_fields']['label']
+                    except KeyError:
+                        logger.error("Couldnt retrieve label.")
+                        continue
+                    # Dicom resource IDs are retrieved elsewhere, and we dont
+                    # care about snapshots
+                    if label != 'DICOM' and label != 'SNAPSHOTS':
+                        try:
+                            abstract_resource_id = resource['data_fields'][]
+
     def get_resources(self, xnat_connection):
         """
         Returns a list of all resource URIs from this session.
