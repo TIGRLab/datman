@@ -919,32 +919,18 @@ class Session(object):
         OPT's CU site uploads niftis to their server. These niftis are neither
         classified as resources nor as scans so our code misses them entirely.
         This functions grabs the abstractresource_id for these and
-        any other unique files aside from snapshots
+        any other unique files aside from snapshots so they can be downloaded
         """
         r_ids = []
         for scan in self.scans:
-            for child in scan:
-                try:
-                    abstract_resources = child['items']
-                except KeyError:
-                    logger.error("Scan JSON's child has no 'items' key")
-                    continue
-                for resource in abstract_resource:
-                    try:
-                        data_fields = resource['data_fields']
-                    except KeyError:
-                        logger.error("No data_fields found.")
-                        continue
-                    try:
-                        label = resource['data_fields']['label']
-                    except KeyError:
-                        logger.error("Couldnt retrieve label.")
-                        continue
-                    # Dicom resource IDs are retrieved elsewhere, and we dont
-                    # care about snapshots
+            for child in scan['children']:
+                for file_upload in child['items']:
+                    data_fields = file_upload['data_fields']
+                    label = data_fields['label']
+                    # ignore DICOM, it's grabbed elsewhere. Ignore snapshots entirely
                     if label != 'DICOM' and label != 'SNAPSHOTS':
-                        try:
-                            abstract_resource_id = resource['data_fields'][]
+                        r_ids.append(str(data_fields['xnat_abstractresource_id']))
+        return r_ids
 
     def get_resources(self, xnat_connection):
         """
@@ -977,8 +963,12 @@ class Session(object):
             raise KeyError("Can't retrieve experiment ID for experiment {}. "
                     "Please check contents.".format(self.experiment_label))
 
+        # Grab dicoms
         resources_list = self.scan_resource_IDs
+        # Grab what we define as resources (i.e. tech notes, non-dicom extra files)
         resources_list.extend(self.resource_IDs.values())
+        # Grab anything else other than snapshots (i.e. 'MUX' niftis for OPT CU1)
+        resources_list.extend(self._get_other_resource_IDs())
 
         if not resources_list:
             raise ValueError("No scans or resources found for {}".format(self.name))
