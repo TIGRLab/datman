@@ -34,7 +34,7 @@ import os
 import datetime
 import logging
 
-from datman.docopt import docopt
+from docopt import docopt
 import requests
 import pyxnat
 

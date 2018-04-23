@@ -25,7 +25,7 @@ Multiple SPRL tags can be defined with different regexs so long as the
 key contains SPRL
 """
 
-from datman.docopt import docopt
+from docopt import docopt
 import sys
 import os
 import re

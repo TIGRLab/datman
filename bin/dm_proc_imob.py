@@ -26,7 +26,7 @@ DEPENDENCIES
 """
 import datman.utils as utils
 import datman.config as cfg
-from datman.docopt import docopt
+from docopt import docopt
 import glob
 import logging
 import os, sys

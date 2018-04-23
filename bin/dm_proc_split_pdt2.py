@@ -36,7 +36,7 @@ import platform
 import numpy as np
 import nibabel as nib
 
-from datman.docopt import docopt
+from docopt import docopt
 import datman.config
 import datman.scanid
 import datman.utils
