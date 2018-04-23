@@ -40,7 +40,7 @@ import time
 import logging
 import logging.handlers
 
-from datman.docopt import docopt
+from docopt import docopt
 import datman.utils as utils
 import datman.config
 import datman.scan

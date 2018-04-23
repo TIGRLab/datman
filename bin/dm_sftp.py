@@ -24,7 +24,7 @@ import pysftp
 import fnmatch
 import paramiko
 
-from datman.docopt import docopt
+from docopt import docopt
 import datman.config
 from datman.utils import make_temp_directory
 

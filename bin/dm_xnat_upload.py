@@ -20,7 +20,7 @@ Options:
 
 import logging
 import sys
-from datman.docopt import docopt
+from docopt import docopt
 import datman.config
 import datman.utils
 import datman.scanid

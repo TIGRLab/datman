@@ -42,7 +42,7 @@ import csv
 import re
 import datman as dm
 import datman.scanid, datman.utils
-from datman.docopt import docopt
+from docopt import docopt
 import datman.dashboard
 
 DRYRUN = False

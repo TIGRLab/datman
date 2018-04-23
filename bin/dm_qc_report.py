@@ -100,7 +100,7 @@ import datman.utils
 import datman.scanid
 import datman.scan
 
-from datman.docopt import docopt
+from docopt import docopt
 
 logging.basicConfig(level=logging.WARN,
         format="[%(name)s] %(levelname)s: %(message)s")
