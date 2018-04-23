@@ -12,7 +12,6 @@ Arguments:
 
 Options:
     --server URL          XNAT server to connect to, overrides the server defined in the site config file.
-    -c --credfile FILE    File containing XNAT username and password. The username should be on the first line, and password on the next. Overrides the credfile in the project metadata
     -u --username USER    XNAT username. If specified then the credentials file is ignored and you are prompted for password.
     -v --verbose          Be chatty
     -d --debug            Be very chatty
@@ -34,7 +33,6 @@ import io
 import dicom
 import urllib
 
-logging.basicConfig()
 logger = logging.getLogger(os.path.basename(__file__))
 
 username = None
@@ -56,7 +54,6 @@ def main():
     quiet = arguments['--quiet']
     study = arguments['<study>']
     server = arguments['--server']
-    credfile = arguments['--credfile']
     username = arguments['--username']
     archive = arguments['<archive>']
 
@@ -86,7 +83,9 @@ def main():
 
     CFG = datman.config.config(study=study)
 
-    XNAT = get_xnat(server=server, credfile=credfile, username=username)
+    server = datman.xnat.get_server(CFG, url=server)
+    username, password = datman.xnat.get_auth(username)
+    XNAT = datman.xnat.xnat(server, username, password)
 
     dicom_dir = CFG.get_path('dicom', study)
     # deal with a single archive specified on the command line,
@@ -118,48 +117,44 @@ def process_archive(archivefile):
     if not scanid:
         return
 
-    xnat_project, xnat_session = get_xnat_session(scanid)
-    if not (xnat_project and xnat_session):
+    xnat_session = get_xnat_session(scanid)
+    if not xnat_session:
         # failed to get xnat info
         return
 
     try:
-        data_exists, resource_exists = check_files_exist(archivefile,
-                                                xnat_session, scanid)
+        data_exists, resource_exists = check_files_exist(archivefile, xnat_session)
     except Exception as e:
-        logger.error('Failed checking xnat for session:{}'
-                     .format(scanid))
+        logger.error('Failed checking xnat for session: {}'.format(scanid))
         return
 
-    #if data_exists and resource_exists:
-    #    return
-
     if not data_exists:
-        logger.info('Uploading dicoms from:{}'.format(archivefile))
+        logger.info('Uploading dicoms from: {}'.format(archivefile))
         try:
-            upload_dicom_data(archivefile, xnat_project, str(scanid))
+            upload_dicom_data(archivefile, xnat_session.project, str(scanid))
         except Exception as e:
-            logger.error('Failed uploading archive to xnat project:{}'
-                         ' for subject:{}. Check Prearchive.'
-                         .format(xnat_project, str(scanid)))
-            logger.info('Upload failed with reason:{}'.format(str(e)))
+            logger.error('Failed uploading archive to xnat project: {}'
+                         ' for subject: {}. Check Prearchive.'
+                         .format(xnat_session.project, str(scanid)))
+            logger.info('Upload failed with reason: {}'.format(str(e)))
             return
 
     if not resource_exists:
-        logger.debug('Uploading resource from:{}'.format(archivefile))
+        logger.debug('Uploading resource from: {}'.format(archivefile))
         try:
-            upload_non_dicom_data(archivefile,
-                                  xnat_project,
-                                  str(scanid))
+            upload_non_dicom_data(archivefile, xnat_session.project, str(scanid))
         except Exception as e:
-            logger.debug('An exception occurred:{}'.format(e))
+            logger.debug('An exception occurred: {}'.format(e))
             pass
 
 
 def get_xnat_session(ident):
-    """Get an xnat session from the archive.
-    Returns a tuple (project_name, session_name)
-    of (False, False)"""
+    """
+    Get an xnat session from the archive. Returns a session instance holding
+    the XNAT json info for this session.
+
+    May raise XnatException if session cant be retrieved
+    """
     # get the expected xnat project name from the config filename
     try:
         xnat_project = CFG.get_key(['XNAT_Archive'],
@@ -167,14 +162,14 @@ def get_xnat_session(ident):
     except:
         logger.warning('Study:{}, Site:{}, xnat archive not defined in config'
                        .format(ident.study, ident.site))
-        return(False, False)
+        return None
     # check we can get the archive from xnat
     try:
         XNAT.get_project(xnat_project)
     except datman.exceptions.XnatException as e:
         logger.error('Study:{}, Site:{}, xnat archive:{} not found with reason:{}'
                      .format(ident.study, ident.site, xnat_project, e))
-        return(False, False)
+        return None
     # check we can get or create the session in xnat
     try:
         xnat_session = XNAT.get_session(xnat_project, str(ident), create=True)
@@ -183,9 +178,9 @@ def get_xnat_session(ident):
                      ' from xnat with reason:{}'
                      .format(ident.study, ident.site,
                              xnat_project, str(ident), e))
-        return(False, False)
+        return None
 
-    return(xnat_project, xnat_session)
+    return xnat_session
 
 
 def get_scanid(archivefile):
@@ -204,154 +199,68 @@ def get_scanid(archivefile):
     return(ident)
 
 
-def get_resource_ids(xnat_experiment_entry):
-
-    xnat_experiment_entry = xnat_experiment_entry['children']
-    xnat_resources = [r['items'] for r in xnat_experiment_entry
-                      if r['field'] == 'resources/resource']
-
-    if not xnat_resources:
-        return None
-
-    resource_ids = {}
-    for resource in xnat_resources[0]:
-        try:
-            label = resource['data_fields']['label']
-            resource_ids[label] = resource['data_fields']['xnat_abstractresource_id']
-        except KeyError:
-            resource_ids['No Label'] = resource['data_fields']['xnat_abstractresource_id']
-
-    return resource_ids
-
-
-def get_xnat_resources(xnat_experiment_entry, ident):
-    resource_ids = get_resource_ids(xnat_experiment_entry)
-
-    if resource_ids is None:
-        return []
-    xnat_project = CFG.get_key('XNAT_Archive', site=ident.site)
-    xnat_resources = []
-    for key, val in resource_ids.iteritems():
-        resource_list = XNAT.get_resource_list(xnat_project,
-                ident.get_full_subjectid_with_timepoint_session(),
-                ident.get_full_subjectid_with_timepoint_session(),
-                val)
-        if resource_list:
-            for item in resource_list:
-                xnat_resources.append(item['URI'])
-    return xnat_resources
-
-
-def resource_data_exists(xnat_experiment_entry, ident, archive):
-    xnat_resources = get_xnat_resources(xnat_experiment_entry, ident)
+def resource_data_exists(xnat_session, archive):
+    xnat_resources = xnat_session.get_resources(XNAT)
     with zipfile.ZipFile(archive) as zf:
-        local_resources = get_resources(zf)
+        local_resources = datman.utils.get_resources(zf)
 
     # paths in xnat are url encoded. Need to fix local paths to match
-
     local_resources = [urllib.pathname2url(p) for p in local_resources]
     if not set(local_resources).issubset(set(xnat_resources)):
         return False
     return True
 
 
-def get_xnat_scan_uids(xnat_experiment_entry):
-    xnat_experiment_entry = xnat_experiment_entry['children']
-    xnat_scans = [r['items'] for r in xnat_experiment_entry
-                  if r['field'] == 'scans/scan']
-
-    xnat_scan_uids = [scan['data_fields']['UID']
-                      for scan in xnat_scans[0]]
-    return xnat_scan_uids
-
-
-def get_experiment_id(xnat_experiment_entry):
-    experiment_id = xnat_experiment_entry['data_fields']['UID']
-    return experiment_id
-
-
-def scan_data_exists(xnat_experiment_entry, local_headers, archive):
+def scan_data_exists(xnat_session, local_headers):
     local_scan_uids = [scan.SeriesInstanceUID for scan in local_headers.values()]
     local_experiment_ids = [v.StudyInstanceUID for v in local_headers.values()]
-    xnat_experiment_id = get_experiment_id(xnat_experiment_entry)
 
-    if not xnat_experiment_id in local_experiment_ids:
-        msg = 'Study UID for archive:{} doesnt match XNAT'.format(archive)
-        logger.error(msg)
-        raise UserWarning(msg)
+    if len(set(local_experiment_ids)) > 1:
+        raise ValueError('More than one experiment UID found - '
+                '{}'.format(','.join(local_experiment_ids)))
 
-    xnat_scan_uids = get_xnat_scan_uids(xnat_experiment_entry)
-    if not set(local_scan_uids).issubset(set(xnat_scan_uids)):
-        logger.info('UIDs in archive:{} not in xnat'.format(archive))
+    if not xnat_session.experiment_UID in local_experiment_ids:
+        raise ValueError('Experiment UID doesnt match XNAT')
+
+    if not set(local_scan_uids).issubset(set(xnat_session.scan_UIDs)):
+        logger.info('Found UIDs for {} not yet added to xnat'.format(
+                xnat_session.name))
         return False
+
     # XNAT data matches local archive data
     return True
 
 
-def get_experiment_entry(xnat_session):
-    xnat_entries = [child for child in xnat_session['children']
-                    if child['field'] == 'experiments/experiment']
-    try:
-        xnat_entries = xnat_entries[0]
-        experiment_entry = xnat_entries['items'][0]
-    except KeyError:
-        logger.error('No xnat experiments found for:{}'
-                     .format(xnat_session['data_fields']['label']))
-        return None
-    return experiment_entry
-
-
-def check_files_exist(archive, xnat_session, ident):
+def check_files_exist(archive, xnat_session):
     """Check to see if the dicom files in the local archive have
     been uploaded to xnat
     Returns True if all files exist, otherwise False
     If the session UIDs don't match raises a warning"""
-    scanid = str(ident)
-    logger.info('Checking for archive:{} contents on xnat'.format(scanid))
+    logger.info('Checking {} contents on xnat'.format(xnat_session.name))
     try:
         local_headers = datman.utils.get_archive_headers(archive)
     except:
-        logger.error('Failed getting archive headers for:'.format(archive))
+        logger.error('Failed getting zip file headers for: {}'.format(archive))
+        return False, False
+
+    if not xnat_session.scans:
         return False, False
 
     try:
-        xnat_session['children'][0]
-    except (KeyError, IndexError):
-        # session has no scan data uploaded yet
-        return False, False
+        scans_exist = scan_data_exists(xnat_session, local_headers)
+    except ValueError as e:
+        logger.error("Please check {}: {}".format(archive, e.message))
+        # Return true for both to prevent XNAT being modified
+        return True, True
 
-    xnat_experiment_entry = get_experiment_entry(xnat_session)
-
-    scans_exist = scan_data_exists(xnat_experiment_entry, local_headers, archive)
-
-    resources_exist = resource_data_exists(xnat_experiment_entry, ident,
-                                           archive)
+    resources_exist = resource_data_exists(xnat_session, archive)
 
     return scans_exist, resources_exist
 
 
-def get_resources(open_zipfile):
-    # filter dirs
-    files = open_zipfile.namelist()
-    files = filter(lambda f: not f.endswith('/'), files)
-
-    # filter files named like dicoms
-    files = filter(lambda f: not is_named_like_a_dicom(f), files)
-
-    # filter actual dicoms :D.
-    resource_files = []
-    for f in files:
-        try:
-            if not is_dicom(io.BytesIO(open_zipfile.read(f))):
-                resource_files.append(f)
-        except zipfile.BadZipfile:
-            logger.error('Error in zipfile:{}'.format(f))
-    return resource_files
-
-
 def upload_non_dicom_data(archive, xnat_project, scanid):
     with zipfile.ZipFile(archive) as zf:
-        resource_files = get_resources(zf)
+        resource_files = datman.utils.get_resources(zf)
         logger.info("Uploading {} files of non-dicom data..."
                     .format(len(resource_files)))
         uploaded_files = []
@@ -385,38 +294,6 @@ def upload_dicom_data(archive, xnat_project, scanid):
         XNAT.put_dicoms(xnat_project, scanid, scanid, archive)
     except Exception as e:
         raise e
-
-
-def is_named_like_a_dicom(path):
-    dcm_exts = ('dcm', 'img')
-    return any(map(lambda x: path.lower().endswith(x), dcm_exts))
-
-
-def is_dicom(fileobj):
-    try:
-        dicom.read_file(fileobj)
-        return True
-    except dicom.filereader.InvalidDicomError:
-        return False
-
-
-def get_xnat(server=None, credfile=None, username=None):
-    """Create an xnat object,
-    this represents a connection to the xnat server as well as functions
-    for listing / adding data"""
-
-    if not server:
-        server = 'https://{}:{}'.format(CFG.get_key(['XNATSERVER']),
-                                        CFG.get_key(['XNATPORT']))
-    if username:
-        password = getpass.getpass()
-    else:
-        #Moving away from storing credentials in text files
-        username = os.environ["XNAT_USER"]
-        password = os.environ["XNAT_PASS"]
-
-    xnat = datman.xnat.xnat(server, username, password)
-    return xnat
 
 if __name__ == '__main__':
     main()
