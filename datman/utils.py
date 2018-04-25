@@ -790,4 +790,33 @@ def submit_job(cmd, job_name, log_dir, system = 'other',
             logger.error("stdout: {}".format(out))
         sys.exit(1)
 
+def get_resources(open_zipfile):
+    # filter dirs
+    files = open_zipfile.namelist()
+    files = filter(lambda f: not f.endswith('/'), files)
+
+    # filter files named like dicoms
+    files = filter(lambda f: not is_named_like_a_dicom(f), files)
+
+    # filter actual dicoms :D.
+    resource_files = []
+    for f in files:
+        try:
+            if not is_dicom(io.BytesIO(open_zipfile.read(f))):
+                resource_files.append(f)
+        except zipfile.BadZipfile:
+            logger.error('Error in zipfile:{}'.format(f))
+    return resource_files
+
+def is_named_like_a_dicom(path):
+    dcm_exts = ('dcm', 'img')
+    return any(map(lambda x: path.lower().endswith(x), dcm_exts))
+
+def is_dicom(fileobj):
+    try:
+        dcm.read_file(fileobj)
+        return True
+    except dcm.filereader.InvalidDicomError:
+        return False
+
 # vim: ts=4 sw=4 sts=4:
