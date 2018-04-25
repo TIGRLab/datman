@@ -144,7 +144,7 @@ def add_image(qc_html, image, title=None):
 def ignore(filename, qc_dir, report):
     pass
 
-def phantom_fmri_qc(filename, outputDir):
+def phantom_fmri_qc(filename, outputDir,proj_qc='qc-fbirn-fmri'):
     """
     Runs the fbirn fMRI pipeline on input phantom data if the outputs don't
     already exist.
@@ -155,11 +155,19 @@ def phantom_fmri_qc(filename, outputDir):
     if not os.path.isfile(output_file):
         datman.utils.run('qc-fbirn-fmri {} {}'.format(filename, output_prefix))
 
-def phantom_dti_qc(filename, outputDir):
+def phantom_dti_qc(filename, outputDir, proj_qc='qc-fbirn-dti'):
     """
     Runs the fbirn DTI pipeline on input phantom data if the outputs don't
     already exist.
+    If a custom qc pipeline is specified by project settings, use default 
     """
+
+    '''
+    Here it only selects qc-fbirn-dti regardless of what the study looks for 
+    Instead, first look at project specific settings, then global setting
+    If not any, we utilize the default 'qc-fbirn-dti' pipeline
+    '''
+
     dirname = os.path.dirname(filename)
     basename = datman.utils.nifti_basename(filename)
 
@@ -169,10 +177,11 @@ def phantom_dti_qc(filename, outputDir):
     if not os.path.isfile(output_file):
         bvec = os.path.join(dirname, basename + '.bvec')
         bval = os.path.join(dirname, basename + '.bval')
-        datman.utils.run('qc-fbirn-dti {} {} {} {} n'.format(filename, bvec, bval,
+       
+        datman.utils.run('{} {} {} {} {}'.format(proj_qc, filename, bvec, bval,
                 output_prefix))
 
-def phantom_anat_qc(filename, outputDir):
+def phantom_anat_qc(filename, outputDir, proj_qc='qc-adni'):
     """
     Runs the ADNI pipeline on input phantom data if the outputs don't already
     exist.
@@ -182,7 +191,7 @@ def phantom_anat_qc(filename, outputDir):
     if not os.path.isfile(output_file):
         datman.utils.run('qc-adni {} {}'.format(filename, output_file))
 
-def fmri_qc(file_name, qc_dir, report):
+def fmri_qc(file_name, qc_dir, report, proj_qc='qc-fmri'):
     base_name = datman.utils.nifti_basename(file_name)
     output_name = os.path.join(qc_dir, base_name)
 
@@ -842,19 +851,32 @@ def qc_phantom(subject, config):
     subject:            The Scan object for the subject_id of this run
     config :            The settings obtained from project_settings.yml
     """
+
+    #Check configuration file for local tag specifying which qc pipeline should be run! 
     handlers = {
         "T1"            : phantom_anat_qc,
         "RST"           : phantom_fmri_qc,
-        "DTI60-1000"    : phantom_dti_qc,
+        "DTI60-1000"    : phantom_dti_qc, #At this point we standardize which pipeline we should run.... bad
     }
 
+    #Extract site specific QC info 
     logger.debug('qc {}'.format(subject))
     for nifti in subject.niftis:
         if nifti.tag not in handlers:
+
             logger.info("No QC tag {} for scan {}. Skipping.".format(nifti.tag, nifti.path))
             continue
+
+        #Project setting override default QC pipelines, if None found use default
+        #It is required that the pipelines share common input 
+        try:
+            proj_qc = config.study_config['QCSettings'][nifti.tag]
+        except KeyError: 
+            logger.info('No QCSettings for tag {} using default'.format(nifti.tag)) 
+            proj_qc = None 
+
         logger.debug('qc {}'.format(nifti.path))
-        handlers[nifti.tag](nifti.path, subject.qc_path)
+        handlers[nifti.tag](nifti.path, subject.qc_path,proj_qc)
 
 def qc_single_scan(subject, config):
     """
@@ -982,6 +1004,7 @@ def main():
     study = arguments['<study>']
     session = arguments['<session>']
     REWRITE = arguments['--rewrite']
+    
 
     config = get_config(study)
 
