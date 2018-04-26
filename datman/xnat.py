@@ -929,7 +929,12 @@ class Session(object):
             for child in scan['children']:
                 for file_upload in child['items']:
                     data_fields = file_upload['data_fields']
-                    label = data_fields['label']
+                    try:
+                        label = data_fields['label']
+                    except KeyError:
+                        # Some entries dont actually have any files so no label
+                        # or resource ID exists. Ignore these.
+                        continue
                     # ignore DICOM, it's grabbed elsewhere. Ignore snapshots entirely
                     if label != 'DICOM' and label != 'SNAPSHOTS':
                         r_ids.append(str(data_fields['xnat_abstractresource_id']))
@@ -940,7 +945,9 @@ class Session(object):
         Returns a list of all resource URIs from this session.
         """
         resources = []
-        for r_id in self.resource_IDs.values():
+        resource_ids = self.resource_IDs.values()
+        resource_ids.extend(self.misc_resource_IDs)
+        for r_id in resource_ids:
             resource_list = xnat_connection.get_resource_list(self.project,
                     self.name, self.experiment_label, r_id)
             resources.extend([item['URI'] for item in resource_list])
