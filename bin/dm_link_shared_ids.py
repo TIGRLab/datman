@@ -134,7 +134,11 @@ def get_redcap_token(config, redcap_cred):
     return token
 
 def link_shared_ids(config, connection, record):
-    xnat_archive = config.get_key('XNAT_Archive', site=record.id.site)
+    try:
+        xnat_archive = config.get_key('XNAT_Archive', site=record.id.site)
+    except KeyError:
+        logger.error("Can't find XNAT_Archive for subject {}".format(record.id))
+        return
     project = connection.select.project(xnat_archive)
     subject = project.subject(str(record.id))
     experiment = get_experiment(subject)

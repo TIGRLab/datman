@@ -408,7 +408,7 @@ class xnat(object):
         entries = result.find('cat:entries', ns)
         if entries is None:
             # no files found, just a label
-            return None
+            return []
 
         items = [entry.attrib for entry
                  in entries.findall('cat:entry', ns)]
@@ -940,7 +940,7 @@ class Session(object):
         Returns a list of all resource URIs from this session.
         """
         resources = []
-        for r_id in self.resource_IDs:
+        for r_id in self.resource_IDs.values():
             resource_list = xnat_connection.get_resource_list(self.project,
                     self.name, self.experiment_label, r_id)
             resources.extend([item['URI'] for item in resource_list])
