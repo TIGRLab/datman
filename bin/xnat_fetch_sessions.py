@@ -265,6 +265,7 @@ def restructure_zip(temp_zip, output_zip):
     for item in glob.glob(os.path.join(extract_dir, bad_prefix, "*")):
         move(item, extract_dir)
 
+    remove_snapshots(extract_dir)
     remove_empty_dirs(extract_dir)
     make_zip(extract_dir, output_zip)
 
@@ -273,6 +274,15 @@ def bad_folders_exist(zip_handle, prefix):
         if item.startswith(prefix):
             return True
     return False
+
+def remove_snapshots(base_dir):
+    """
+    Snapshots arent needed for anything but get pulled down for every series
+    when they exist.
+    """
+    for cur_path, folders, files in os.walk(base_dir):
+        if folders and 'SNAPSHOTS' in folders:
+            shutil.rmtree(os.path.join(cur_path, 'SNAPSHOTS'))
 
 def remove_empty_dirs(base_dir):
     empty_dir = os.path.join(base_dir, 'resources')
