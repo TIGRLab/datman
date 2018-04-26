@@ -826,6 +826,9 @@ class Session(object):
         # Resource attributes
         self.resource_IDs = self._get_resource_IDs()
 
+        # Misc - basically just OPT CU1 needs this
+        self.misc_resource_IDs = self._get_other_resource_IDs()
+
     def _get_experiment(self):
         experiments = [exp for exp in self.raw_json['children']
                 if exp['field'] == 'experiments/experiment']
@@ -968,7 +971,7 @@ class Session(object):
         # Grab what we define as resources (i.e. tech notes, non-dicom extra files)
         resources_list.extend(self.resource_IDs.values())
         # Grab anything else other than snapshots (i.e. 'MUX' niftis for OPT CU1)
-        resources_list.extend(self._get_other_resource_IDs())
+        resources_list.extend(self.misc_resource_IDs)
 
         if not resources_list:
             raise ValueError("No scans or resources found for {}".format(self.name))
