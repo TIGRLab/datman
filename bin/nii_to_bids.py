@@ -30,7 +30,7 @@ import re
 import datetime
 import traceback
 import nibabel, numpy
-import glob
+import glob, fnmatch
 from docopt import docopt
 from shutil import copyfile, copytree
 from distutils import dir_util
@@ -145,11 +145,19 @@ def to_bids_name(ident, tag, cnt_run, type_folder, ex):
     elif ("FMAP" in tag and not (ext == ".json")):
         return type_folder["fmap"] , "{}_{}_{}_{}_{}{}".format(subject, session, acq, run_num, tag, ext)
     else:
-        raise ValueError("File could not be changed to bids format:{} {}".format(str(ident), tag))
+        raise ValueError("File could not be changed to bids format:{} {} {}".format(str(ident), tag, ext))
 
 def validify_file(subject_nii_path):
     file_list = os.listdir(subject_nii_path)
-    series_list = [scanid.parse_filename(x)[2] for x in file_list]
+    series_list = set()
+    invalid_filenames = list()
+    for x in file_list:
+        try:
+            series_list.add(scanid.parse_filename(x)[2])
+        except:
+            invalid_filenames.append(x)
+            logger.error("Filename cannot be parsed for series number: {}".format(x))
+    [file_list.remove(x) for x in invalid_filenames]
     valid_files = { k : list() for k in series_list }
     blacklist_files = set()
     num_faces = 0
@@ -158,6 +166,8 @@ def validify_file(subject_nii_path):
     dpa_queue = Queue()
     six_queue = Queue()
     eight_queue = Queue()
+    match_six = LifoQueue()
+    match_eight = LifoQueue()
 
     dmap_dict = dict()
     fmap_dict = dict()
@@ -195,13 +205,28 @@ def validify_file(subject_nii_path):
             eight_queue.queue.clear()
         elif ('FMAP' in tag and ext == '.gz'):
             if ('-6.5' in tag):
+                match_six.put(series)
                 fmap_dict[filename] = list()
                 while not six_queue.empty():
                     func_file = sorted(valid_files[six_queue.get()], reverse=True)[0]
                     logger.info("{} has been mapped to {}".format(filename, func_file))
                     fmap_dict[filename].insert(0, func_file)
+            else:
+                match_eight.put(series)
             dap_queue.queue.clear()
             dpa_queue.queue.clear()
+
+    while not (match_six.empty() or match_eight.empty()):
+        logger.info("Matched FMAP series: {} {}".format(match_six.get(), match_eight.get()))
+
+    while not match_six.empty():
+        not_matched = match_six.get()
+        blacklist_files.add(not_matched)
+        logger.error("FMAP series not matched: {}".format(not_matched))
+    while not match_eight.empty():
+        not_matched = match_eight.get()
+        blacklist_files.add(not_matched)
+        logger.error("FMAP series not matched: {}".format(not_matched))
 
     for key in blacklist_files:
         valid_files.pop(key, None)
@@ -433,34 +458,45 @@ def main():
                 dir_util.copy_tree(fs_src, fs_dst)
                 logger.warning("Copied {} to {}".format(fs_src, fs_dst))
 
-
         cnt = {k : 0 for k in all_tags}
         for series in sorted(series_set):
-            timepoint = 1
-            filename_base = "{}0{}_*_{}_*".format(str(parsed), timepoint, series)
-            series_files = glob.glob(os.path.join(subject_nii_path,filename_base))
-            series_tag = None
-            for item in series_files:
-                ident, tag, series, description =scanid.parse_filename(item)
-                ext = os.path.splitext(subject_nii_path + item)[1]
-                try:
-                    type_dir, bids_name = to_bids_name(ident, tag, cnt, type_folders, ext)
-                except ValueError, err:
-                    logger.info(err)
-                    continue
-                if tag in tag_map["fmri"]:
-                    study_tags.add(tag)
-                copyfile(item, type_dir + bids_name, )
-                #if "nii.gz" in bids_name and ("dwi" in bids_name or "task" in bids_name):
-                    # os.system('fslroi {} {} 4 -1'.format(type_dir + bids_name, type_dir + bids_name))
-                    #logger.warning("Finished fslroi on {}".format(bids_name))
-                logger.warning("{:<70} {:<80}".format(os.path.basename(item), bids_name))
-                csv_dict[os.path.basename(item)] = [type_dir + bids_name]
-                if fmriprep_dir and os.path.isdir(fs_src):
-                    csv_dict[os.path.basename(item)].append(fs_dst)
-                series_tag = tag
-            if series_tag:
-                cnt[series_tag] += 1
+            filename_pattern = "{}0{}_*_{}_*"
+            all_timepoints = filename_pattern.format(str(parsed), '[0-9]', series)
+            series_files = sorted(glob.glob(os.path.join(subject_nii_path,all_timepoints)))
+            timepoints = list()
+            curr_timepoint = 1
+            num_filtered = 0
+            while not (num_filtered == len(series_files)):
+                curr_pattern = "*" + filename_pattern.format(str(parsed), curr_timepoint, series)
+                curr_timepoint_list = fnmatch.filter(series_files, curr_pattern)
+                if len(curr_timepoint_list) > 0:
+                    timepoints.append(curr_timepoint_list)
+                num_filtered += len(curr_timepoint_list)
+                curr_timepoint += 1
+
+            for i in range(0, len(timepoints)):
+                series_tag = None
+                for item in timepoints[i]:
+                    ident, tag, series, description =scanid.parse_filename(item)
+                    ext = os.path.splitext(subject_nii_path + item)[1]
+                    try:
+                        type_dir, bids_name = to_bids_name(ident, tag, cnt, type_folders, ext)
+                    except ValueError, err:
+                        logger.info(err)
+                        continue
+                    if tag in tag_map["fmri"]:
+                        study_tags.add(tag)
+                    copyfile(item, type_dir + bids_name, )
+                    if "nii.gz" in bids_name and "task" in bids_name:
+                        os.system('fslroi {} {} 4 -1'.format(type_dir + bids_name, type_dir + bids_name))
+                        logger.warning("Finished fslroi on {}".format(bids_name))
+                    logger.info("{:<70} {:<80}".format(os.path.basename(item), bids_name))
+                    csv_dict[os.path.basename(item)] = [type_dir + bids_name]
+                    if fmriprep_dir and os.path.isdir(fs_src):
+                        csv_dict[os.path.basename(item)].append(fs_dst)
+                    series_tag = tag
+                if series_tag:
+                    cnt[series_tag] += 1
 
         run_num = 1
         fmaps = sorted(glob.glob("{}*run-0{}*_FMAP-*".format(type_folders['fmap'],run_num)))
@@ -476,6 +512,7 @@ def main():
             logger.warning("Running: {}".format(cmd))
             run_num+=1
             fmaps = sorted(glob.glob("{}*run-0{}*_FMAP-*".format(type_folders['fmap'],run_num)))
+
 
         for key in type_folders.keys():
             if os.listdir(type_folders[key]) == []:
