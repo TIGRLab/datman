@@ -20,18 +20,20 @@ Options:
 
 import logging
 import sys
+import os
+import getpass
+import zipfile
+import io
+import urllib
+
+import dicom
 from docopt import docopt
+
 import datman.config
 import datman.utils
 import datman.scanid
 import datman.xnat
 import datman.exceptions
-import os
-import getpass
-import zipfile
-import io
-import dicom
-import urllib
 
 logger = logging.getLogger(os.path.basename(__file__))
 
