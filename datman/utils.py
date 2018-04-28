@@ -822,11 +822,11 @@ def is_dicom(fileobj):
 def make_zip(source_dir, dest_zip):
     # Can't use shutil.make_archive here because for python 2.7 it fails on
     # large zip files (seemingly > 2GB) and zips with more than about 65000 files
-    # Soooo, doing it the hard way. Can change this if we ever move to 3
-    with ZipFile(dest_zip, "w", compression=ZIP_DEFLATED,
+    # Soooo, doing it the hard way. Can change this if we ever move to py3
+    with zipfile.ZipFile(dest_zip, "w", compression=zipfile.ZIP_DEFLATED,
             allowZip64=True) as zip_handle:
         # We want this to use 'w' flag, since it should overwrite any existing zip
-        # of the same name. If the script made it this far, that zip is incomplete
+        # of the same name
         for current_dir, folders, files in os.walk(source_dir):
             for item in files:
                 item_path = os.path.join(current_dir, item)
