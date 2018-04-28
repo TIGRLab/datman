@@ -307,8 +307,7 @@ def upload_dicom_data(archive, xnat_project, scanid):
 def contains_niftis(archive):
     with zipfile.ZipFile(archive) as zf:
         archive_files = zf.namelist()
-    niftis = filter(lambda x: x.endswith(".nii") or x.endswith(".nii.gz"),
-            archive_files)
+    niftis = find_niftis(archive_files)
     return niftis != []
 
 def strip_niftis(archive, temp):
@@ -319,14 +318,23 @@ def strip_niftis(archive, temp):
     unzip_dest = datman.utils.define_folder(os.path.join(temp, 'extracted'))
     with zipfile.Zipfile(archive) as zf:
         archive_files = zf.namelist()
-        non_niftis = filter(lambda x: not (x.endswith("nii") or
-                x.endswith(".nii.gz")), archive_files)
+        niftis = find_niftis(archive_files)
+        # Find and purge associated files too (e.g. .bvec and .bval), so they
+        # only appear in resources alongside their niftis
+        nifti_names = [datman.utils.splitext(os.path.basename(nii))[0] for nii in
+                niftis]
+        deletable_files = filter(lambda x: datman.utils.splitext(
+                os.path.basename(x))[0] in nifti_names, archive_files)
+        non_niftis = filter(lambda x: x not in deletable_files, archive_files)
         for item in non_niftis:
             zf.extract(item, unzip_dest)
 
     temp_zip = os.path.join(temp, os.path.basename(archive))
     datman.utils.make_zip(unzip_dest, temp_zip)
     return temp_zip
+
+def find_niftis(files):
+    return filter(lambda x: x.endswith(".nii") or x.endswith(".nii.gz"), files)
 
 if __name__ == '__main__':
     main()
