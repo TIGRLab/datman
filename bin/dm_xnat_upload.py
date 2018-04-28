@@ -291,11 +291,42 @@ def upload_non_dicom_data(archive, xnat_project, scanid):
 
 
 def upload_dicom_data(archive, xnat_project, scanid):
-    try:
-        ##update for XNAT
+    ## XNAT API for upload fails if the zip contains a mix of dicom and nifti.
+    ## OPT CU definitely contains a mix and others may later on. Soooo
+    ## here's an ugly but effective fix! The niftis will get uploaded with
+    ## upload_non_dicom_data and added to resources - Dawn
+
+    if not contains_niftis(archive):
         XNAT.put_dicoms(xnat_project, scanid, scanid, archive)
-    except Exception as e:
-        raise e
+        return
+
+    with datman.utils.make_temp_directory as temp:
+        archive = strip_niftis(archive, temp)
+        XNAT.put_dicoms(xnat_project, scanid, scanid, archive)
+
+def contains_niftis(archive):
+    with zipfile.ZipFile(archive) as zf:
+        archive_files = zf.namelist()
+    niftis = filter(lambda x: x.endswith(".nii") or x.endswith(".nii.gz"),
+            archive_files)
+    return niftis != []
+
+def strip_niftis(archive, temp):
+    """
+    Extract the everything except niftis to temp folder, rezip, and then return the
+    path to this temporary zip for upload
+    """
+    unzip_dest = datman.utils.define_folder(os.path.join(temp, 'extracted'))
+    with zipfile.Zipfile(archive) as zf:
+        archive_files = zf.namelist()
+        non_niftis = filter(lambda x: not (x.endswith("nii") or
+                x.endswith(".nii.gz")), archive_files)
+        for item in non_niftis:
+            zf.extract(item, unzip_dest)
+
+    temp_zip = os.path.join(temp, os.path.basename(archive))
+    datman.utils.make_zip(unzip_dest, temp_zip)
+    return temp_zip
 
 if __name__ == '__main__':
     main()
