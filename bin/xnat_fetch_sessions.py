@@ -49,7 +49,7 @@ import glob
 import shutil
 import logging
 import logging.handlers
-from zipfile import ZipFile, ZIP_DEFLATED
+from zipfile import ZipFile
 
 from docopt import docopt
 
