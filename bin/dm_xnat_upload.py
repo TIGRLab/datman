@@ -317,7 +317,7 @@ def strip_niftis(archive, temp):
     path to this temporary zip for upload
     """
     unzip_dest = datman.utils.define_folder(os.path.join(temp, 'extracted'))
-    with zipfile.Zipfile(archive) as zf:
+    with zipfile.ZipFile(archive) as zf:
         archive_files = zf.namelist()
         non_niftis = filter(lambda x: not (x.endswith("nii") or
                 x.endswith(".nii.gz")), archive_files)
