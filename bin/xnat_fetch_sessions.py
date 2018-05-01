@@ -189,7 +189,14 @@ def get_resources(zip_file):
     return zip_resources
 
 def files_downloaded(local_list, remote_list):
-    return set(remote_list).issubset(set(local_list))
+    # If given paths, need to strip them
+    local_list = [os.path.basename(item) for item in local_list]
+    remote_list = [os.path.basename(item) for item in remote_list]
+    # Length must also be checked, because if paths were given duplicates are
+    # meaningful and will be lost by checking for subset only
+    downloaded = (len(local_list) >= len(remote_list) and
+            set(remote_list).issubset(set(local_list)))
+    return downloaded
 
 def get_credentials(credentials_path):
     try:
