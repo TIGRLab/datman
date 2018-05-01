@@ -300,7 +300,7 @@ def upload_dicom_data(archive, xnat_project, scanid):
         XNAT.put_dicoms(xnat_project, scanid, scanid, archive)
         return
 
-    with datman.utils.make_temp_directory as temp:
+    with datman.utils.make_temp_directory() as temp:
         archive = strip_niftis(archive, temp)
         XNAT.put_dicoms(xnat_project, scanid, scanid, archive)
 
