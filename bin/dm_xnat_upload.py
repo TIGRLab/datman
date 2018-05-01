@@ -269,7 +269,7 @@ def upload_non_dicom_data(archive, xnat_project, scanid):
             try:
                 contents = zf.read(item)
                 if not contents:
-                    logger.error("Cannot upload empty resource file {}, "
+                    logger.warn("Cannot upload empty resource file {}, "
                             "skipping.".format(item))
                     continue
                 # By default files are placed in a MISC subfolder
