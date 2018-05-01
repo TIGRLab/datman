@@ -856,7 +856,7 @@ def qc_phantom(subject, config):
     handlers = {
         "T1"            : phantom_anat_qc,
         "RST"           : phantom_fmri_qc,
-        "DTI60-1000"    : phantom_dti_qc, #At this point we standardize which pipeline we should run.... bad
+        "DTI60-1000"    : phantom_dti_qc, 
     }
 
     #Extract site specific QC info 
