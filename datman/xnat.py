@@ -931,13 +931,20 @@ class Session(object):
                     data_fields = file_upload['data_fields']
                     try:
                         label = data_fields['label']
+                        data_format = data_fields['format']
+                        r_id = str(data_fields['xnat_abstractresource_id'])
                     except KeyError:
-                        # Some entries dont actually have any files so no label
-                        # or resource ID exists. Ignore these.
+                        # Some entries dont actually have any files. These entries
+                        # should be ignored, but they may or may not have a label,
+                        # a format, or an xnat_abstractresource_id (it varies,
+                        # yes really)
                         continue
+
                     # ignore DICOM, it's grabbed elsewhere. Ignore snapshots entirely
-                    if label != 'DICOM' and label != 'SNAPSHOTS':
-                        r_ids.append(str(data_fields['xnat_abstractresource_id']))
+                    # Some things may not be labelled DICOM but may be format
+                    # 'DICOM' so that needs to be checked for too.
+                    if label != 'DICOM' and data_format != 'DICOM' and label != 'SNAPSHOTS':
+                        r_ids.append(r_id)
         return r_ids
 
     def get_resources(self, xnat_connection):
