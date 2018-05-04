@@ -819,4 +819,18 @@ def is_dicom(fileobj):
     except dcm.filereader.InvalidDicomError:
         return False
 
+def make_zip(source_dir, dest_zip):
+    # Can't use shutil.make_archive here because for python 2.7 it fails on
+    # large zip files (seemingly > 2GB) and zips with more than about 65000 files
+    # Soooo, doing it the hard way. Can change this if we ever move to py3
+    with zipfile.ZipFile(dest_zip, "w", compression=zipfile.ZIP_DEFLATED,
+            allowZip64=True) as zip_handle:
+        # We want this to use 'w' flag, since it should overwrite any existing zip
+        # of the same name
+        for current_dir, folders, files in os.walk(source_dir):
+            for item in files:
+                item_path = os.path.join(current_dir, item)
+                archive_path = item_path.replace(source_dir + "/", "")
+                zip_handle.write(item_path, archive_path)
+
 # vim: ts=4 sw=4 sts=4:

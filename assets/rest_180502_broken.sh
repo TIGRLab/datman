@@ -454,9 +454,11 @@ for SESS in ${DIR_SESS}; do
 
         if [ ! -f ${SESS}/PARAMS/censor.${ID}.${NUM}.1D ]; then
             epi-censor \
-                ${SESS}/PARAMS/motion.${ID}.${NUM}.1D \
+                ${SESS}/${input}.${ID}.${NUM}.nii.gz \
                 ${SESS}/PARAMS/censor.${ID}.${NUM}.1D \
+                ${SESS}/PARAMS/motion.${ID}.${NUM}.1D \
                 --DVARS ${SESS}/PARAMS/DVARS.${ID}.${NUM}.1D \
+                --report ${SESS}/PARAMS/retained_TRs.${ID}.${NUM}.1D \
                 --head ${headrad} \
                 --FD ${fd} \
                 --DV ${dv}
