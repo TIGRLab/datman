@@ -75,7 +75,7 @@ def get_scan_list_contents(scans_csv):
     # Skip first line because it's a header
     for line in contents[1:]:
         try:
-            scan_name = line.strip().split('\t')[0]
+            scan_name = line.strip().split()[0]
         except IndexError:
             raise IndexError("Malformed scan entry: {}".format(line))
         # blank lines in scans.csv get left as empty strings, dont add them to processed
