@@ -68,6 +68,7 @@ def main():
     debug = arguments['--debug']
     quiet = arguments['--quiet']
 
+
     if quiet:
         logger.setLevel(logging.ERROR)
 
