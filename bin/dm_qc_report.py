@@ -861,13 +861,18 @@ def qc_phantom(subject, config):
     export_tags = config.get_tags() 
 
     logger.debug('qc {}'.format(subject))
-    for nifti in subject.niftis:
 
-        #Use qc_type if default option specified 
-        tag = export_tags.get(nifti.tag,'qc_pha') 
-        if export_tags.get(nifti.tag,'qc_pha') == 'default': 
-            tag = export_tags.get(nifti.tag,'qc_type')  
-            
+    for nifti in subject.niftis:
+        
+        #Use qc_type if default option or if key is not set 
+        try: 
+            tag = export_tags.get(nifti.tag,'qc_pha') 
+            if export_tags.get(nifti.tag,'qc_pha') == 'default': 
+                tag = export_tags.get(nifti.tag,'qc_type')  
+
+        except KeyError: 
+            logger.error('qc_pha not set for {} tag {}, using qc_type default instead'.format(datman.utils.nifti_basename(nifti.path),nifti.tag))
+                
         #Gather pipeline input requirements and run if pipeline exists for tag
         input_req = gather_input_req(nifti,tag) 
         if input_req:
