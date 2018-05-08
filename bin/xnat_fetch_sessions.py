@@ -49,7 +49,7 @@ import glob
 import shutil
 import logging
 import logging.handlers
-from zipfile import ZipFile, ZIP_DEFLATED
+from zipfile import ZipFile
 
 from docopt import docopt
 
@@ -189,7 +189,14 @@ def get_resources(zip_file):
     return zip_resources
 
 def files_downloaded(local_list, remote_list):
-    return set(remote_list).issubset(set(local_list))
+    # If given paths, need to strip them
+    local_list = [os.path.basename(item) for item in local_list]
+    remote_list = [os.path.basename(item) for item in remote_list]
+    # Length must also be checked, because if paths were given duplicates are
+    # meaningful and will be lost by checking for subset only
+    downloaded = (len(local_list) >= len(remote_list) and
+            set(remote_list).issubset(set(local_list)))
+    return downloaded
 
 def get_credentials(credentials_path):
     try:
@@ -265,14 +272,24 @@ def restructure_zip(temp_zip, output_zip):
     for item in glob.glob(os.path.join(extract_dir, bad_prefix, "*")):
         move(item, extract_dir)
 
+    remove_snapshots(extract_dir)
     remove_empty_dirs(extract_dir)
-    make_zip(extract_dir, output_zip)
+    datman.utils.make_zip(extract_dir, output_zip)
 
 def bad_folders_exist(zip_handle, prefix):
     for item in zip_handle.namelist():
         if item.startswith(prefix):
             return True
     return False
+
+def remove_snapshots(base_dir):
+    """
+    Snapshots arent needed for anything but get pulled down for every series
+    when they exist.
+    """
+    for cur_path, folders, files in os.walk(base_dir):
+        if folders and 'SNAPSHOTS' in folders:
+            shutil.rmtree(os.path.join(cur_path, 'SNAPSHOTS'))
 
 def remove_empty_dirs(base_dir):
     empty_dir = os.path.join(base_dir, 'resources')
@@ -286,20 +303,6 @@ def move(source, dest):
         shutil.move(source, dest)
     except Exception as e:
         logger.error("Couldnt move {} to destination {}".format(source, dest))
-
-def make_zip(source_dir, dest_zip):
-    # Can't use shutil.make_archive here because for python 2.7 it fails on
-    # large zip files (seemingly > 2GB) and zips with more than about 65000 files
-    # Soooo, doing it the hard way. Can change this if we ever move to 3
-    with ZipFile(dest_zip, "w", compression=ZIP_DEFLATED,
-            allowZip64=True) as zip_handle:
-        # We want this to use 'w' flag, since it should overwrite any existing zip
-        # of the same name. If the script made it this far, that zip is incomplete
-        for current_dir, folders, files in os.walk(source_dir):
-            for item in files:
-                item_path = os.path.join(current_dir, item)
-                archive_path = item_path.replace(source_dir + "/", "")
-                zip_handle.write(item_path, archive_path)
 
 if __name__ == "__main__":
     main()

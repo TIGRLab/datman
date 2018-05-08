@@ -826,6 +826,9 @@ class Session(object):
         # Resource attributes
         self.resource_IDs = self._get_resource_IDs()
 
+        # Misc - basically just OPT CU1 needs this
+        self.misc_resource_IDs = self._get_other_resource_IDs()
+
     def _get_experiment(self):
         experiments = [exp for exp in self.raw_json['children']
                 if exp['field'] == 'experiments/experiment']
@@ -926,10 +929,36 @@ class Session(object):
             for child in scan['children']:
                 for file_upload in child['items']:
                     data_fields = file_upload['data_fields']
-                    label = data_fields['label']
-                    # ignore DICOM, it's grabbed elsewhere. Ignore snapshots entirely
-                    if label != 'DICOM' and label != 'SNAPSHOTS':
-                        r_ids.append(str(data_fields['xnat_abstractresource_id']))
+                    try:
+                        label = data_fields['label']
+                    except KeyError:
+                        # Some entries dont have labels. Only hold some header
+                        # values. These are safe to ignore
+                        continue
+
+                    try:
+                        data_format = data_fields['format']
+                    except KeyError:
+                        # Some entries have labels but no format... or neither
+                        if not label:
+                            # If neither, ignore. Should just be an entry
+                            # containing scan parameters, etc.
+                            continue
+                        data_format = label
+
+                    try:
+                        r_id = str(data_fields['xnat_abstractresource_id'])
+                    except KeyError:
+                        # Some entries have labels and/or a format but no actual
+                        # files and so no resource id. These can also be safely
+                        # ignored.
+                        continue
+
+                    # ignore DICOM, it's grabbed elsewhere. Ignore snapshots
+                    # entirely. Some things may not be labelled DICOM but may
+                    # be format 'DICOM' so that needs to be checked for too.
+                    if label != 'DICOM' and data_format != 'DICOM' and label != 'SNAPSHOTS':
+                        r_ids.append(r_id)
         return r_ids
 
     def get_resources(self, xnat_connection):
@@ -937,7 +966,9 @@ class Session(object):
         Returns a list of all resource URIs from this session.
         """
         resources = []
-        for r_id in self.resource_IDs.values():
+        resource_ids = self.resource_IDs.values()
+        resource_ids.extend(self.misc_resource_IDs)
+        for r_id in resource_ids:
             resource_list = xnat_connection.get_resource_list(self.project,
                     self.name, self.experiment_label, r_id)
             resources.extend([item['URI'] for item in resource_list])
@@ -968,7 +999,7 @@ class Session(object):
         # Grab what we define as resources (i.e. tech notes, non-dicom extra files)
         resources_list.extend(self.resource_IDs.values())
         # Grab anything else other than snapshots (i.e. 'MUX' niftis for OPT CU1)
-        resources_list.extend(self._get_other_resource_IDs())
+        resources_list.extend(self.misc_resource_IDs)
 
         if not resources_list:
             raise ValueError("No scans or resources found for {}".format(self.name))
