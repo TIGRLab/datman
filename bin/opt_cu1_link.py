@@ -104,11 +104,11 @@ def main():
     dir_dcm = cfg.get_path('dcm')
 
     # filter subjects from CU1
-    cu_subjects = [subject for subject in os.listdir(dir_res)
+    subjects = [subject for subject in os.listdir(dir_res)
                    if datman.scanid.parse(subject).site == site]
-    logger.info('{} subjectcd /s in the RESOURCES folder are: {}'.format(site, str(cu_subjects)))
+    logger.info('{} subjects in the RESOURCES folder are: {}'.format(site, str(cu_subjects)))
 
-    for subject in cu_subjects:
+    for subject in subjects:
         ident = datman.scanid.parse(subject)
         session_name = ident.get_full_subjectid_with_timepoint()
         sub_res_dirs = list(set([os.path.dirname(i) for i in glob(
