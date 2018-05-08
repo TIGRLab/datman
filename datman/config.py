@@ -474,6 +474,7 @@ class config(object):
 
         return tags
 
+    
 class TagInfo(object):
 
     def __init__(self, export_settings, site_settings=None):
