@@ -79,6 +79,7 @@ Details:
 Requires:
     FSL
     QCMON
+    MATLAB/R2014a - qa-dti phantom pipeline
 """
 
 import os, sys
@@ -184,8 +185,10 @@ def run_phantom_pipeline(nifti,qc_path,reqs):
     qc_output = os.path.join(qc_path,basename) 
     qc_file   = qc_output + '_stats.csv'
 
-    if not os.path.isfile(qc_file):
+    if not os.path.isdir(qc_path):
           datman.utils.run(cmd)
+    else: 
+        logger.info('QC on phantom {} with tag {}  already performed, skipping'.format(datman.utils.nifti_basename(nifti.path), nifti.tag))
 
    
 
@@ -872,6 +875,7 @@ def qc_phantom(subject, config):
 
         except KeyError: 
             logger.error('qc_pha not set for {} tag {}, using qc_type default instead'.format(datman.utils.nifti_basename(nifti.path),nifti.tag))
+            tag = export_tags.get(nifti.tag,'qc_type') 
                 
         #Gather pipeline input requirements and run if pipeline exists for tag
         input_req = gather_input_req(nifti,tag) 
