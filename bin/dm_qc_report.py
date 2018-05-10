@@ -183,9 +183,9 @@ def run_phantom_pipeline(nifti,qc_path,reqs):
     cmd = ' '.join([i for i in reqs]) + ' ' + os.path.join(qc_path,basename) 
     
     qc_output = os.path.join(qc_path,basename) 
-    qc_file   = qc_output + '_stats.csv'
 
-    if not os.path.isdir(qc_path):
+    #If any csv exists in qc path then skip
+    if not glob.glob(qc_output + '*.csv'):
           datman.utils.run(cmd)
     else: 
         logger.info('QC on phantom {} with tag {}  already performed, skipping'.format(datman.utils.nifti_basename(nifti.path), nifti.tag))
