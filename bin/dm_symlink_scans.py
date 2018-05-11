@@ -2,7 +2,7 @@
 """
 Searches a session data/RESOURCES folder for *.nii or *.nii.gz files matching
 the series numbers for scans in data/dcm. Creates a softlink in the data/nii
-folder.
+folder. Also, optionally creates json sidecars with -j flag.
 
 Usage:
     dm_symlink_scans.py [options] <study> [(--site=<site_code> | --session=<id>...)]
@@ -14,6 +14,7 @@ Arguments:
                         timepoint and session number)
 
 Options:
+    -j --json           Create json files
     -v --verbose        Verbose logging
     -d --debug          Debug logging
     -q --quiet          Less debuggering
@@ -39,7 +40,7 @@ def create_symlink(src, target_name, dest):
     datman.utils.define_folder(dest)
     target_path = os.path.join(dest, target_name)
     if os.path.islink(target_path):
-        logger.warn('{} already exists. Not linking'.format(target_path))
+        logger.warn('{} already exists. Not linking.'.format(target_path))
     else:
         with datman.utils.cd(dest):
             rel_path = os.path.relpath(src, dest)
@@ -51,14 +52,34 @@ def create_symlink(src, target_name, dest):
                 pass
 
 
+def create_json_sidecar(scan_filename, session_nii_dir, session_dcm_dir):
+    json_filename = os.path.splitext(scan_filename)[0] + '.json'
+    if os.path.isfile(
+        os.path.join(session_nii_dir, json_filename)
+    ):
+        logger.warn('JSON sidecar {} already exists.'
+                    ' Skipping.'.format(json_filename))
+    else:
+        logger.info('Creating JSON sidecar {}'.format(json_filename))
+        # dcm2niix creates json without nifti using single dicom in dcm directory
+        datman.utils.run('/scratch/mjoseph/src/dcm2niix/build/bin/dcm2niix -b o -s y -f {} -o {} {}'
+                         .format(scan_filename,
+                                 session_nii_dir,
+                                 os.path.join(session_dcm_dir,
+                                              scan_filename)
+                                 )
+                         )
+
+
 def main():
     arguments = docopt(__doc__)
-    verbose = arguments['--verbose']
-    debug = arguments['--debug']
-    quiet = arguments['--quiet']
     study = arguments['<study>']
     site = arguments['--site']
     session = arguments['--session']
+    create_json = arguments['--json']
+    verbose = arguments['--verbose']
+    debug = arguments['--debug']
+    quiet = arguments['--quiet']
 
     # setup logging
     logging.basicConfig()
@@ -141,6 +162,10 @@ def main():
                 ext = os.path.splitext(f)[1]
                 nii_name = scan_filename + ext
                 create_symlink(f, nii_name, session_nii_dir)
+                if create_json and f.endswith('.nii.gz'):
+                    create_json_sidecar(dcm_dict[series_num],
+                                        session_nii_dir,
+                                        session_dcm_dir)
 
 
 if __name__ == '__main__':
