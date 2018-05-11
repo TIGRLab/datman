@@ -63,7 +63,7 @@ def create_json_sidecar(scan_filename, session_nii_dir, session_dcm_dir):
         logger.info('Creating JSON sidecar {}'.format(json_filename))
         # dcm2niix creates json without nifti using single dicom in dcm directory
         datman.utils.run('/scratch/mjoseph/src/dcm2niix/build/bin/dcm2niix -b o -s y -f {} -o {} {}'
-                         .format(scan_filename,
+                         .format(os.path.splitext(scan_filename)[0],
                                  session_nii_dir,
                                  os.path.join(session_dcm_dir,
                                               scan_filename)
