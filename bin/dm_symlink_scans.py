@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
-Searches a session data/RESOURCES folder for *.nii or *.nii.gz files matching
-the series numbers for scans in data/dcm. Creates a softlink in the data/nii
+Searches a session data/RESOURCES folder for *.nii.gz files matching the
+series numbers for scans in data/dcm. Creates a softlink in the data/nii
 folder. Also, optionally creates json sidecars with -j flag.
 
 Usage:
