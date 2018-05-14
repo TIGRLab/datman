@@ -160,7 +160,7 @@ def main():
                     logger.error('Corresponding dcm file not found for {}'
                                  .format(f))
                     continue
-                ext = os.path.splitext(f)[1]
+                ext = datman.utils.get_extension(f)
                 nii_name = scan_filename + ext
                 create_symlink(f, nii_name, session_nii_dir)
                 if create_json and f.endswith('.nii.gz'):
