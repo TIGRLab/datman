@@ -49,7 +49,7 @@ def create_symlink(src, target_name, dest):
             except OSError as e:
                 if e.errno != errno.EEXIST:
                     raise
-                pass
+                continue
 
 
 def create_json_sidecar(scan_filename, session_nii_dir, session_dcm_dir):
@@ -62,7 +62,7 @@ def create_json_sidecar(scan_filename, session_nii_dir, session_dcm_dir):
     else:
         logger.info('Creating JSON sidecar {}'.format(json_filename))
         # dcm2niix creates json without nifti using single dicom in dcm directory
-        datman.utils.run('/scratch/mjoseph/src/dcm2niix/build/bin/dcm2niix -b o -s y -f {} -o {} {}'
+        datman.utils.run('dcm2niix -b o -s y -f {} -o {} {}'
                          .format(os.path.splitext(scan_filename)[0],
                                  session_nii_dir,
                                  os.path.join(session_dcm_dir,
@@ -159,6 +159,7 @@ def main():
                 except:
                     logger.error('Corresponding dcm file not found for {}'
                                  .format(f))
+                    continue
                 ext = os.path.splitext(f)[1]
                 nii_name = scan_filename + ext
                 create_symlink(f, nii_name, session_nii_dir)
