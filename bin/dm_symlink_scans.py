@@ -24,7 +24,6 @@ Options:
 import os
 import sys
 from glob import glob
-import errno
 import logging
 
 from docopt import docopt
@@ -33,42 +32,49 @@ import datman.config
 import datman.utils
 import datman.scanid
 
+# set up logging
 logger = logging.getLogger(__name__)
+logger.setlevel(logging.WARN)
+
+formatter = logging.Formatter('%(asctime)s - %(name)s - '
+                              '%(levelname)s - %(message)s')
+
+log_handler = logging.StreamHandler(sys.stdout)
+log_handler.setFormatter(formatter)
+
+logger.addHandler(log_handler)
 
 
 def create_symlink(src, target_name, dest):
     datman.utils.define_folder(dest)
     target_path = os.path.join(dest, target_name)
-    if os.path.islink(target_path):
+    if os.path.isfile(target_path):
         logger.warn('{} already exists. Not linking.'.format(target_path))
-    else:
-        with datman.utils.cd(dest):
-            rel_path = os.path.relpath(src, dest)
-            try:
-                os.symlink(rel_path, target_path)
-            except OSError as e:
-                if e.errno != errno.EEXIST:
-                    raise
-                continue
+        return
+    with datman.utils.cd(dest):
+        rel_path = os.path.relpath(src, dest)
+        logger.info('Linking {} -> {}'.format(rel_path, target_path))
+        try:
+            os.symlink(rel_path, target_path)
+        except:
+            logger.error('Unable to link to {}'.format(rel_path))
 
 
 def create_json_sidecar(scan_filename, session_nii_dir, session_dcm_dir):
     json_filename = os.path.splitext(scan_filename)[0] + '.json'
-    if os.path.isfile(
-        os.path.join(session_nii_dir, json_filename)
-    ):
-        logger.warn('JSON sidecar {} already exists.'
-                    ' Skipping.'.format(json_filename))
-    else:
-        logger.info('Creating JSON sidecar {}'.format(json_filename))
+    if os.path.isfile(os.path.join(session_nii_dir, json_filename)):
+        logger.warn('JSON sidecar {} already exists. '
+                    'Not creating.'.format(json_filename))
+        return
+    logger.info('Creating JSON sidecar {}'.format(json_filename))
+    try:
         # dcm2niix creates json without nifti using single dicom in dcm directory
         datman.utils.run('dcm2niix -b o -s y -f {} -o {} {}'
                          .format(os.path.splitext(scan_filename)[0],
                                  session_nii_dir,
-                                 os.path.join(session_dcm_dir,
-                                              scan_filename)
-                                 )
-                         )
+                                 os.path.join(session_dcm_dir, scan_filename)))
+    except:
+        logger.error('Unable to create JSON sidecar {}'.format(json_filename))
 
 
 def main():
@@ -81,26 +87,18 @@ def main():
     debug = arguments['--debug']
     quiet = arguments['--quiet']
 
-    # setup logging
-    logging.basicConfig()
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.WARN)
-    logger.setLevel(logging.WARN)
+    # setup log levels
+    log_level = logging.WARN
+
     if quiet:
-        logger.setLevel(logging.ERROR)
-        ch.setLevel(logging.ERROR)
+        log_level = logging.ERROR
     if verbose:
-        logger.setLevel(logging.INFO)
-        ch.setLevel(logging.INFO)
+        log_level = logging.INFO
     if debug:
-        logger.setLevel(logging.DEBUG)
-        ch.setLevel(logging.DEBUG)
-
-    formatter = logging.Formatter('%(asctime)s - %(name)s - '
-                                  '%(levelname)s - %(message)s')
-    ch.setFormatter(formatter)
-
-    logger.addHandler(ch)
+        log_level = logging.DEBUG)
+    
+    logger.setLevel(log_level)
+    log_handler.setLevel(log_level)
 
     # setup the config object
     cfg = datman.config.config(study=study)
@@ -147,7 +145,7 @@ def main():
             # create dictionary with DICOM series numbers as keys and
             # filenames as values
             session_dcm_files = os.listdir(session_dcm_dir)
-            dcm_dict = {int(datman.scanid.parse_filename(dcm)[2]):
+            dcm_dict = {int(datman.scanid.parse_filename(dcm).series):
                         dcm for dcm in session_dcm_files}
             for f in session_res_files:
                 # need better way to get series number from nifti
@@ -163,7 +161,7 @@ def main():
                 ext = datman.utils.get_extension(f)
                 nii_name = scan_filename + ext
                 create_symlink(f, nii_name, session_nii_dir)
-                if create_json and f.endswith('.nii.gz'):
+                if create_json and nii_name.endswith('.nii.gz'):
                     create_json_sidecar(dcm_dict[series_num],
                                         session_nii_dir,
                                         session_dcm_dir)
