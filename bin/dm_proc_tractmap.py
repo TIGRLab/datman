@@ -42,7 +42,7 @@ import os
 import subprocess
 import sys
 import tempfile
-from datman.docopt import docopt
+from docopt import docopt
 
 from datman import scanid
 from datman import config

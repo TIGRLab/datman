@@ -22,7 +22,7 @@ import yaml
 import csv
 from datetime import datetime
 
-from datman.docopt import docopt
+from docopt import docopt
 import datman.config
 import datman.utils
 import datman.scanid
@@ -67,6 +67,7 @@ def main():
     verbose = arguments['--verbose']
     debug = arguments['--debug']
     quiet = arguments['--quiet']
+
 
     if quiet:
         logger.setLevel(logging.ERROR)

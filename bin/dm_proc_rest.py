@@ -20,7 +20,7 @@ DETAILS
     2) Produces a correlation matrix of these same time series.
 """
 
-from datman.docopt import docopt
+from docopt import docopt
 import datman.utils as utils
 import datman.config as cfg
 import logging

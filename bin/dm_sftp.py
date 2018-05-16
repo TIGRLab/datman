@@ -15,17 +15,22 @@ Options:
     --dry-run
 
 """
-from datman.docopt import docopt
-import datman.config
-import pysftp
 import logging
 import sys
 import os
+import shutil
+
+import pysftp
 import fnmatch
 import paramiko
 
-logger = logging.getLogger(os.path.basename(__file__))
+from docopt import docopt
+import datman.config
+from datman.utils import make_temp_directory
 
+logging.basicConfig(level=logging.WARN,
+        format="[%(asctime)s %(name)s] %(levelname)s: %(message)s")
+logger = logging.getLogger(os.path.basename(__file__))
 
 def main():
     arguments = docopt(__doc__)
@@ -36,7 +41,6 @@ def main():
     study = arguments['<study>']
 
     # setup logging
-    ch = logging.StreamHandler(sys.stdout)
     log_level = logging.WARN
 
     if quiet:
@@ -45,27 +49,14 @@ def main():
         log_level = logging.INFO
     if debug:
         log_level = logging.DEBUG
-    logger.setLevel(log_level)
-    ch.setLevel(log_level)
-    logging.getLogger("paramiko").setLevel(log_level)
 
-    formatter = logging.Formatter('%(asctime)s - %(name)s - {study} - '\
-            ' %(levelname)s - %(message)s'.format(study=study))
-    ch.setFormatter(formatter)
-
-    logger.addHandler(ch)
+    logging.getLogger().setLevel(log_level)
 
     # setup the config object
     cfg = datman.config.config(study=study)
 
-    # get folder information from the config object
-    mrusers = cfg.get_key(['MRUSER'])
-    mrfolders = cfg.get_key(['MRFOLDER'])
-    mrserver = cfg.get_key(['FTPSERVER'])
-
     zips_path = cfg.get_path('zips')
     meta_path = cfg.get_path('meta')
-
     # Check the local project zips dir exists, create if not
     if not os.path.isdir(zips_path):
         logger.warning('Zips directory: {} not found; creating.'
@@ -73,16 +64,92 @@ def main():
         if not dryrun:
             os.mkdir(zips_path)
 
-    # MRfolders entry in config file should be a list, but could be a string
-    if isinstance(mrfolders, basestring):
-        mrfolders = [mrfolders]
+    server_config = get_server_config(cfg)
 
-    # MRUSER entry in config file should be a list, but could be a string
-    if isinstance(mrusers, basestring):
-        mrusers = [mrusers]
+    for mrserver in server_config:
+        mrusers, mrfolders, pass_file_name, port = server_config[mrserver]
 
-    # load the password
-    pass_file = os.path.join(meta_path, 'mrftppass.txt')
+        # MRfolders entry in config file should be a list, but could be a string
+        if isinstance(mrfolders, basestring):
+            mrfolders = [mrfolders]
+
+        # MRUSER entry in config file should be a list, but could be a string
+        if isinstance(mrusers, basestring):
+            mrusers = [mrusers]
+
+        pass_file = os.path.join(meta_path, pass_file_name)
+        passwords = read_password(pass_file)
+
+        # actually do the copying
+        assert len(passwords) == len(mrusers), \
+            'Each mruser in config should have and entry in the password file'
+
+        for iloc in range(len(mrusers)):
+            mruser = mrusers[iloc]
+            password = passwords[iloc]
+            with pysftp.Connection(mrserver,
+                                   username=mruser,
+                                   password=password,
+                                   port=port) as sftp:
+
+                valid_dirs = get_valid_remote_dirs(sftp, mrfolders)
+                if len(valid_dirs) < 1:
+                    logger.error('Source folders:{} not found'.format(mrfolders))
+
+                for valid_dir in valid_dirs:
+                    #  process each folder in turn
+                    logger.debug('Copying from:{}  to:{}'
+                                 .format(valid_dir, zips_path))
+                    process_dir(sftp, valid_dir, zips_path)
+
+
+def get_server_config(cfg):
+    server_config = {}
+
+    default_mrserver = cfg.get_key(['FTPSERVER'])
+    try:
+    	server_config[default_mrserver] = read_config(cfg)
+    except KeyError as e:
+        # No default config :(
+        logger.debug(e.message)
+
+    # Sites may override the study defaults. If they dont, the defaults will
+    # be returned and should NOT be re-added to the config
+    for site in cfg.get_sites():
+        site_server = cfg.get_key(['FTPSERVER'], site=site)
+
+        if site_server in server_config:
+            continue
+
+        try:
+            server_config[site_server] = read_config(cfg, site=site)
+        except KeyError as e:	
+            logger.debug(e.message)
+    return server_config
+
+
+def read_config(cfg, site=None):
+    logger.debug("Getting MR sftp server config for site: {}".format(
+            site if site else "default"))
+    try:
+        mrusers = cfg.get_key(['MRUSER'], site=site)
+        mrfolders = cfg.get_key(['MRFOLDER'], site=site)
+    except KeyError:
+        raise KeyError("MRUSER or MRFOLDER is not defined. Skipping.")
+
+    try:
+        pass_file = cfg.get_key('MRFTPPASS', site=site)
+    except KeyError:
+        pass_file = 'mrftppass.txt'
+    try:
+        server_port = cfg.get_key('FTPPORT', site=site)
+    except KeyError:
+        server_port = 22
+
+    return (mrusers, mrfolders, pass_file, server_port)
+
+
+def read_password(pass_file):
     if not os.path.isfile(pass_file):
         logger.error('Password file: {} not found'. format(pass_file))
         raise IOError
@@ -94,26 +161,7 @@ def main():
             if password:
                 passwords.append(password)
 
-    # actually do the copying
-    assert len(passwords) == len(mrusers), \
-        'Each mruser in config should have and entry in the password file'
-
-    for iloc in range(len(mrusers)):
-        mruser = mrusers[iloc]
-        password = passwords[iloc]
-        with pysftp.Connection(mrserver,
-                               username=mruser,
-                               password=password) as sftp:
-
-            valid_dirs = get_valid_remote_dirs(sftp, mrfolders)
-            if len(valid_dirs) < 1:
-                logger.error('Source folders:{} not found'.format(mrfolders))
-
-            for valid_dir in valid_dirs:
-                #  process each folder in turn
-                logger.debug('Copying from:{}  to:{}'
-                             .format(valid_dir, zips_path))
-                process_dir(sftp, valid_dir, zips_path)
+    return passwords
 
 
 def get_valid_remote_dirs(connection, mrfolders):
@@ -124,9 +172,16 @@ def get_valid_remote_dirs(connection, mrfolders):
     """
     remote_dirs = connection.listdir()
     valid_dirs = []
-    for mr_folder in mrfolders:
-        [valid_dirs.append(d) for d in remote_dirs
-         if fnmatch.fnmatch(d, mr_folder)]
+    # ToNI stores the data two folders deep, so the path doesnt work the old
+    # algo (code in else statement). But some studies have Regexs in their
+    # mrfolders which doesnt work with the new algo (code in if statement)
+    # So this is an ugly compromise :( (If only pysftp had a sensible 'walk' function...)
+    for mrfolder in mrfolders:
+        if connection.exists(mrfolder):
+            valid_dirs.append(mrfolder)
+        else:
+            [valid_dirs.append(d) for d in remote_dirs
+                if fnmatch.fnmatch(d, mrfolder)]
     return valid_dirs
 
 
@@ -143,16 +198,34 @@ def process_dir(connection, directory, zips_path):
                          .format(directory))
             return
         for file_name in files:
-            target = os.path.join(zips_path, file_name)
-            if check_exists_isnewer(connection, file_name, target):
-                logger.info('Copying new remote file:{}'
-                            .format(file_name))
-                connection.get(file_name, target, preserve_mtime=True)
+            if connection.isfile(file_name):
+                get_file(connection, file_name, zips_path)
             else:
-                logger.debug("File:{} already exists, skipping"
-                             .format(file_name))
+                get_folder(connection, file_name, zips_path)
 
-def check_exists_isnewer(sftp, filename, target):
+def get_folder(connection, folder_name, dst_path):
+    expected_file = os.path.join(dst_path, folder_name + ".zip")
+    if not download_needed(connection, folder_name, expected_file):
+        logger.debug("File: {} already exists, skipping".format(folder_name))
+        return
+
+    with make_temp_directory() as temp_dir:
+        # Note 'get_r' is needed instead of 'get'
+        connection.get_r(folder_name, temp_dir, preserve_mtime=True)
+        source = os.path.join(temp_dir, folder_name)
+        dest = os.path.join(dst_path, folder_name)
+        new_zip = shutil.make_archive(dest, 'zip', source)
+        logger.info("Copied remote file {} to: {}".format(folder_name, new_zip))
+
+def get_file(connection, file_name, zips_path):
+    target = os.path.join(zips_path, file_name)
+    if download_needed(connection, file_name, target):
+        logger.info('Copying new remote file: {}'.format(file_name))
+        connection.get(file_name, target, preserve_mtime=True)
+    else:
+        logger.debug("File: {} already exists, skipping".format(file_name))
+
+def download_needed(sftp, filename, target):
     """Check if a local copy of the file exists,
     If no local copy exists return True
     If local copy exists and is older than remote return True

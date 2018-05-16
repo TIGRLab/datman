@@ -79,6 +79,7 @@ Details:
 Requires:
     FSL
     QCMON
+    MATLAB/R2014a - qa-dti phantom pipeline
 """
 
 import os, sys
@@ -100,7 +101,7 @@ import datman.utils
 import datman.scanid
 import datman.scan
 
-from datman.docopt import docopt
+from docopt import docopt
 
 logging.basicConfig(level=logging.WARN,
         format="[%(name)s] %(levelname)s: %(message)s")
@@ -144,43 +145,52 @@ def add_image(qc_html, image, title=None):
 def ignore(filename, qc_dir, report):
     pass
 
-def phantom_fmri_qc(filename, outputDir):
-    """
-    Runs the fbirn fMRI pipeline on input phantom data if the outputs don't
-    already exist.
-    """
-    basename = datman.utils.nifti_basename(filename)
-    output_file = os.path.join(outputDir, '{}_stats.csv'.format(basename))
-    output_prefix = os.path.join(outputDir, basename)
-    if not os.path.isfile(output_file):
-        datman.utils.run('qc-fbirn-fmri {} {}'.format(filename, output_prefix))
+def gather_input_req(nifti,pipeline): 
+    '''
+    Contains input specification local variable and gathers requirements for each call 
+    nifti - contains nifti series instance 
+    subject - contains subject Scan instance 
+    pipeline - pipeline name (specified in tigrlab_config.yml) 
+    '''
 
-def phantom_dti_qc(filename, outputDir):
-    """
-    Runs the fbirn DTI pipeline on input phantom data if the outputs don't
-    already exist.
-    """
-    dirname = os.path.dirname(filename)
-    basename = datman.utils.nifti_basename(filename)
+    #Common requirements 
+    basename = os.path.join(os.path.dirname(nifti.path),datman.utils.nifti_basename(nifti.path)) 
 
-    output_file = os.path.join(outputDir, '{}_stats.csv'.format(basename))
-    output_prefix = os.path.join(outputDir, basename)
+    #Input specifications and pipeline input mapping 
+    input_spec = {
+            'anat'      :   ['qc-adni',             basename + '.nii.gz'],
+            'fmri'      :   ['qc-fbirn-fmri',       basename + '.nii.gz'],
+            'dti'       :   ['qc-fbirn-dti',        basename + '.nii.gz',basename + '.bvec', basename + '.bval'],
+            'qa_dti'    :   ['qa-dti',              basename + '.nii.gz', basename + '.bvec', basename + '.bval']
+            } 
 
-    if not os.path.isfile(output_file):
-        bvec = os.path.join(dirname, basename + '.bvec')
-        bval = os.path.join(dirname, basename + '.bval')
-        datman.utils.run('qc-fbirn-dti {} {} {} {} n'.format(filename, bvec, bval,
-                output_prefix))
+    reqs = None
+    try: 
+        reqs = input_spec[pipeline] 
+    except KeyError: 
+        print('No QC pipeline available for {}. Skipping.'.format(nifti.tag,nifti.path))
 
-def phantom_anat_qc(filename, outputDir):
-    """
-    Runs the ADNI pipeline on input phantom data if the outputs don't already
-    exist.
-    """
-    basename = datman.utils.nifti_basename(filename)
-    output_file = os.path.join(outputDir, '{}_adni-contrasts.csv'.format(basename))
-    if not os.path.isfile(output_file):
-        datman.utils.run('qc-adni {} {}'.format(filename, output_file))
+    return reqs
+
+def run_phantom_pipeline(nifti,qc_path,reqs): 
+    '''
+    Used to formulate the BASH call to phantom qc pipeline.
+    Performs input requirements gathering 
+    '''
+    basename = datman.utils.nifti_basename(nifti.path) 
+
+    #Formulate pipeline command, there is an assumption that output is last argument here
+    cmd = ' '.join([i for i in reqs]) + ' ' + os.path.join(qc_path,basename) 
+    
+    qc_output = os.path.join(qc_path,basename) 
+
+    #If any csv exists in qc path then skip
+    if not glob.glob(qc_output + '*.csv'):
+          datman.utils.run(cmd)
+    else: 
+        logger.info('QC on phantom {} with tag {}  already performed, skipping'.format(datman.utils.nifti_basename(nifti.path), nifti.tag))
+
+   
 
 def fmri_qc(file_name, qc_dir, report):
     base_name = datman.utils.nifti_basename(file_name)
@@ -188,11 +198,13 @@ def fmri_qc(file_name, qc_dir, report):
 
     # check scan length
     script_output = output_name + '_scanlengths.csv'
+    logger.info('Running qc-scanlength')
     if not os.path.isfile(script_output):
         datman.utils.run('qc-scanlength {} {}'.format(file_name, script_output))
 
     # check fmri signal
     script_output = output_name + '_stats.csv'
+    logger.info('Running qc-fmri')
     if not os.path.isfile(script_output):
         datman.utils.run('qc-fmri {} {}'.format(file_name, output_name))
 
@@ -536,18 +548,13 @@ def find_tech_notes(path):
     are found, unless one contains the string 'TechNotes', the first pdf is
     guessed to be the tech notes.
     """
-    resource_folders = glob.glob(path + "*")
-
-    if resource_folders:
-        resources = resource_folders[0]
-    else:
-        resources = ""
 
     pdf_list = []
-    for root, dirs, files in os.walk(resources):
+    for root, dirs, files in os.walk(path):
         for fname in files:
             if ".pdf" in fname:
                 pdf_list.append(os.path.join(root, fname))
+
 
     if not pdf_list:
         return ""
@@ -686,7 +693,8 @@ def initialize_counts(export_info):
             ordering = export_info.get(tag, 'Order')
         except KeyError:
             ordering = [0]
-        expected_position[tag] = min(ordering)
+
+        expected_position[tag] = ordering
 
     return tag_counts, expected_position
 
@@ -804,15 +812,20 @@ def qc_subject(subject, config):
     Returns the path to the qc_<subject_id>.html file
     """
     report_name = os.path.join(subject.qc_path, 'qc_{}.html'.format(subject.full_id))
+    # header diff
+    header_diffs = os.path.join(subject.qc_path, 'header-diff.log')
 
     if os.path.isfile(report_name):
         if not REWRITE:
             logger.debug("{} exists, skipping.".format(report_name))
             return
         os.remove(report_name)
+        # This probably exists if you're rewriting, and needs to be removed to regenerate
+        try:
+            os.remove(header_diffs)
+        except:
+            pass
 
-    # header diff
-    header_diffs = os.path.join(subject.qc_path, 'header-diff.log')
     if not os.path.isfile(header_diffs):
         run_header_qc(subject, config.get_path('std'), header_diffs)
 
@@ -840,27 +853,42 @@ def qc_phantom(subject, config):
     """
     subject:            The Scan object for the subject_id of this run
     config :            The settings obtained from project_settings.yml
+
+    Phantom pipeline setup: 
+    Each pipeline has it's own dictionary entry in gather_input_reqs within input_spec
+    Config 'qc_pha' keys in ExportSettings indicate which pipeline to use
+    'qc_pha' set to 'default' will refer to the qc_type. 
+    So qc_pha is really used to indicate custom pipelines that are non-standard. 
     """
-    handlers = {
-        "T1"            : phantom_anat_qc,
-        "RST"           : phantom_fmri_qc,
-        "DTI60-1000"    : phantom_dti_qc,
-    }
+
+    export_tags = config.get_tags() 
 
     logger.debug('qc {}'.format(subject))
+
     for nifti in subject.niftis:
-        if nifti.tag not in handlers:
-            logger.info("No QC tag {} for scan {}. Skipping.".format(nifti.tag, nifti.path))
-            continue
-        logger.debug('qc {}'.format(nifti.path))
-        handlers[nifti.tag](nifti.path, subject.qc_path)
+        
+        #Use qc_type if default option or if key is not set 
+        try: 
+            tag = export_tags.get(nifti.tag,'qc_pha') 
+            if export_tags.get(nifti.tag,'qc_pha') == 'default': 
+                tag = export_tags.get(nifti.tag,'qc_type')  
+
+        except KeyError: 
+            logger.error('qc_pha not set for {} tag {}, using qc_type default instead'.format(datman.utils.nifti_basename(nifti.path),nifti.tag))
+            tag = export_tags.get(nifti.tag,'qc_type') 
+                
+        #Gather pipeline input requirements and run if pipeline exists for tag
+        input_req = gather_input_req(nifti,tag) 
+        if input_req:
+            run_phantom_pipeline(nifti,subject.qc_path,input_req) 
+
+
 
 def qc_single_scan(subject, config):
     """
     Perform QC for a single subject or phantom. Return the report name if one
     was created.
     """
-
     if subject.is_phantom:
         logger.info("QC phantom {}".format(subject.nii_path))
         qc_phantom(subject, config)
@@ -981,6 +1009,7 @@ def main():
     study = arguments['<study>']
     session = arguments['<session>']
     REWRITE = arguments['--rewrite']
+    
 
     config = get_config(study)
 
