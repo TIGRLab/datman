@@ -5,7 +5,8 @@ series numbers for scans in data/dcm. Creates a softlink in the data/nii
 folder. Also, optionally creates json sidecars with -j flag.
 
 Usage:
-    dm_symlink_scans.py [options] <study> [(--site=<site_code> | --session=<id>...)]
+    dm_symlink_scans.py [options] <study> 
+    dm_symlink_scans.py [options] <study> (--site=<site_code> | --session=<id>...)
 
 Arguments:
     <study>             Name of the study to process
