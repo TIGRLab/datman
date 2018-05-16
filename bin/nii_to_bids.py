@@ -142,7 +142,7 @@ def to_bids_name(ident, tag, cnt_run, type_folder, ex):
     elif (tag in tag_map["dti"]):
         dtiacq = "{}{}".format(acq, tag.translate(None, "DTI-"))
         return type_folder["dwi"] , "{}_{}_{}_{}_dwi{}".format(subject, session, dtiacq, run_num, ext)
-    elif ("FMAP" in tag and not (ext == ".json")):
+    elif ("FMAP" in tag and not (ext == ".json") and ident.site == 'CMH'):
         return type_folder["fmap"] , "{}_{}_{}_{}_{}{}".format(subject, session, acq, run_num, tag, ext)
     else:
         raise ValueError("File could not be changed to bids format:{} {} {}".format(str(ident), tag, ext))
@@ -507,7 +507,7 @@ def main():
             without_tag = pattern.sub("", fmaps[0])
             base = os.path.basename(without_tag)
 
-            cmd = ['bash', '/projects/mmanogaran/scripts/to_fmap.sh', fmaps[0], fmaps[1], without_tag, base]
+            cmd = ['bash', 'CMH_generate_fmap.sh', fmaps[0], fmaps[1], without_tag, base]
             datman.utils.run(cmd)
             logger.warning("Running: {}".format(cmd))
             run_num+=1
