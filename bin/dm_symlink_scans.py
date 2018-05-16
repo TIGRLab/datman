@@ -17,7 +17,7 @@ Options:
     -j --json           Create json files
     -v --verbose        Verbose logging
     -d --debug          Debug logging
-    -q --quiet          Less debuggering
+    -q --quiet          Less logging
 
 """
 
