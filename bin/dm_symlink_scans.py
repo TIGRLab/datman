@@ -113,7 +113,7 @@ def main():
     if site:
         sessions = [subject for subject in os.listdir(dir_res)
                     if datman.scanid.parse(subject).site == site]
-    if session:
+    elif session:
         sessions = session
     else:
         sessions = os.listdir(dir_res)
