@@ -752,4 +752,85 @@ def validate_subject_id(subject_id, config):
 
     return scanid
 
+def submit_job(cmd, job_name, log_dir, system = 'other',
+        cpu_cores=1, walltime="2:00:00", dryrun = False):
+    '''
+    submits a job or joblist the queue depending on the system
+
+    Args:
+        cmd (str): the command or a list of commands to submits
+        job_name (str): the name for the job
+        log_dir (path): paths where the job logs should go
+        system : the system that we are running on (i.e. 'kimel' or 'scc')
+        cpu_cores (int): the number of CPU cores (default: 1) for the job (on scc)
+        walltime  (time) : the walltime for the job (default 2:00:00, two hrs)
+        dryrun (bool): do not submit the job
+    '''
+    if dryrun:
+        return
+
+    # Bit of an ugly hack to allow job submission on the scc. Should be replaced
+    # with drmaa or some other queue interface later
+    if system is 'kimel':
+        job_file = '/tmp/{}'.format(job_name)
+
+        with open(job_file, 'wb') as fid:
+            fid.write('#!/bin/bash\n')
+            fid.write(cmd)
+        job = "qsub -V -q main.q -N {} {}".format(job_name, job_file)
+        rtn, out = run(job)
+    else:
+        job = "echo {} | qbatch -N {} --logdir {} --ppj {} -i -c 1 -j 1 --walltime {} -".format(
+                cmd, job_name, log_dir, cpu_cores, walltime)
+        rtn, out = run(job, specialquote=False)
+
+    if rtn:
+        logger.error("Job submission failed.")
+        if out:
+            logger.error("stdout: {}".format(out))
+        sys.exit(1)
+
+def get_resources(open_zipfile):
+    # filter dirs
+    files = open_zipfile.namelist()
+    files = filter(lambda f: not f.endswith('/'), files)
+
+    # filter files named like dicoms
+    files = filter(lambda f: not is_named_like_a_dicom(f), files)
+
+    # filter actual dicoms :D.
+    resource_files = []
+    for f in files:
+        try:
+            if not is_dicom(io.BytesIO(open_zipfile.read(f))):
+                resource_files.append(f)
+        except zipfile.BadZipfile:
+            logger.error('Error in zipfile:{}'.format(f))
+    return resource_files
+
+def is_named_like_a_dicom(path):
+    dcm_exts = ('dcm', 'img')
+    return any(map(lambda x: path.lower().endswith(x), dcm_exts))
+
+def is_dicom(fileobj):
+    try:
+        dcm.read_file(fileobj)
+        return True
+    except dcm.filereader.InvalidDicomError:
+        return False
+
+def make_zip(source_dir, dest_zip):
+    # Can't use shutil.make_archive here because for python 2.7 it fails on
+    # large zip files (seemingly > 2GB) and zips with more than about 65000 files
+    # Soooo, doing it the hard way. Can change this if we ever move to py3
+    with zipfile.ZipFile(dest_zip, "w", compression=zipfile.ZIP_DEFLATED,
+            allowZip64=True) as zip_handle:
+        # We want this to use 'w' flag, since it should overwrite any existing zip
+        # of the same name
+        for current_dir, folders, files in os.walk(source_dir):
+            for item in files:
+                item_path = os.path.join(current_dir, item)
+                archive_path = item_path.replace(source_dir + "/", "")
+                zip_handle.write(item_path, archive_path)
+
 # vim: ts=4 sw=4 sts=4:

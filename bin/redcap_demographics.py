@@ -16,7 +16,7 @@ Options:
 '''
 
 from requests import post
-from datman.docopt import docopt
+from docopt import docopt
 import os
 import sys
 import datman.config

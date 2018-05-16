@@ -25,8 +25,7 @@ import glob
 import time
 import logging
 import logging.handlers
-
-from datman.docopt import docopt
+from docopt import docopt
 import datman.scanid as sid
 import datman.utils as utils
 import datman.config as cfg
@@ -40,7 +39,6 @@ DRYRUN = False
 PARALLEL = False
 NODE = os.uname()[1]
 LOG_DIR = None
-SYSTEM = None
 
 def write_lines(output_file, lines):
     if DRYRUN:
@@ -50,32 +48,6 @@ def write_lines(output_file, lines):
     with open(output_file, 'w') as output_stream:
         output_stream.writelines(lines)
 
-def submit_job(cmd, i, walltime="23:00:00"):
-    if DRYRUN:
-        return
-
-    job_name = 'dm_freesurfer_{}_{}'.format(i, time.strftime("%Y%m%d-%H%M%S"))
-
-    # Bit of an ugly hack to allow job submission on the scc. Should be replaced
-    # with drmaa or some other queue interface later
-    if SYSTEM is 'kimel':
-        job_file = '/tmp/{}'.format(job_name)
-
-        with open(job_file, 'wb') as fid:
-            fid.write('#!/bin/bash\n')
-            fid.write(cmd)
-        job = "qsub -V -q main.q -N {} {}".format(job_name, job_file)
-        rtn, out = utils.run(job)
-    else:
-        job = "echo {} | qbatch -N {} --logdir {} --walltime {} -".format(
-                cmd, job_name, LOG_DIR, walltime)
-        rtn, out = utils.run(job, specialquote=False)
-
-    if rtn:
-        logger.error("Job submission failed.")
-        if out:
-            logger.error("stdout: {}".format(out))
-        sys.exit(1)
 
 def create_command(subject, arguments):
     study = arguments['<study>']
@@ -91,14 +63,18 @@ def create_command(subject, arguments):
     cmd = "{} {} --subject {}{}".format(__file__, study, subject, options)
     return cmd
 
-def submit_proc_freesurfer(fs_path, fs_subjects, arguments):
+def submit_proc_freesurfer(fs_path, fs_subjects, arguments, config):
     # Change to freesurfer directory, because qbatch leaves .qbatch
     # folders in the current working directory
     with utils.cd(fs_path):
         for i, subject in enumerate(fs_subjects):
             cmd = create_command(subject, arguments)
             logger.debug("Queueing command: {}".format(cmd))
-            submit_job(cmd, i)
+            job_name = 'dm_freesurfer_{}_{}'.format(i, time.strftime("%Y%m%d-%H%M%S"))
+            utils.submit_job(cmd, job_name, log_dir = LOG_DIR,
+                    system = config.system, cpu_cores=1,
+                    walltime="23:00:00", dryrun = False)
+
 
 def get_halted_subjects(fs_path, subjects):
     timed_out_msg = fs_scraper.FSLog._TIMEDOUT.format("")
@@ -132,6 +108,20 @@ def get_new_subjects(config, qc_subjects):
 
 def get_freesurfer_arguments(config, site):
     args = ['-all', '-qcache', '-notal-check']
+
+    fs_path = config.get_path('freesurfer')
+    args.append('-sd ' + fs_path)
+
+    try:
+        nu_iter = config.study_config['freesurfer']['nu_iter'][site]
+    except KeyError:
+        nu_iter = None
+
+    if nu_iter:
+        ex_path = config.get_path('freesurfer') + "expert.opts"
+        expertcmd = 'echo "mri_nu_correct.mni --n {}" > {}'.format(nu_iter, ex_path)
+        os.system(expertcmd)
+        args.append('-expert ' + ex_path)
 
     if PARALLEL:
         args.append('-parallel')
@@ -170,17 +160,19 @@ def make_arg_string(key, value):
     return "-{} {}".format(key, value)
 
 def get_anatomical_images(key, cmd_line_arg, subject, blacklist, config, error_log):
+    #Obtain type of anatomical image being used
     input_tags = get_freesurfer_setting(config, key)
 
     if type(input_tags) == str:
         input_tags = [input_tags]
 
-    site_info = get_site_exportinfo(config, subject.site)
 
+    site_info = get_site_exportinfo(config, subject.site)
     inputs = []
     for tag in input_tags:
         n_expected = site_info.get(tag, 'Count')
-        candidates = filter(lambda nii: utils.splitext(nii.path)[0] not in blacklist,
+        #Updated from utils.splitext(nii.path)[0] since it was including whole path - would always return false
+        candidates = filter(lambda nii: utils.splitext(nii.path)[0].split('/')[-1] not in blacklist,
                 subject.get_tagged_nii(tag))
 
         # fail if the wrong number of inputs for any tag is found (implies
@@ -190,7 +182,7 @@ def get_anatomical_images(key, cmd_line_arg, subject, blacklist, config, error_l
                     subject.full_id, len(candidates), tag, n_expected,
                     subject.site)
             logger.debug(error_message)
-            write_lines(error_log, ['{}\n{}'.format(error_message, NODE)])
+            #write_lines(error_log, ['{}\n{}'.format(error_message, NODE)])
         inputs.extend(candidates)
 
     return [make_arg_string(cmd_line_arg, series.path) for series in inputs]
@@ -235,6 +227,7 @@ def run_freesurfer(subject, blacklist, config, resubmit=False):
     args = get_freesurfer_arguments(config, subject.site)
 
     scripts_dir = os.path.join(output_dir, 'scripts')
+
     if outputs_exist(output_dir):
         # If outputs exist and the script didnt return above, it means
         # 'resubmit' == True and the subject must be restarted
@@ -249,7 +242,7 @@ def run_freesurfer(subject, blacklist, config, resubmit=False):
 
     command = "recon-all {args} -subjid {subid} {inputs}".format(args=args,
             subid=subject.full_id, inputs=" ".join(input_files))
-
+    logger.info('Running recon-all') 
     rtn, out = utils.run(command, dryrun=DRYRUN)
     if rtn:
         error_message = 'freesurfer failed: {}\n{}'.format(command, out)
@@ -385,7 +378,8 @@ def load_config(study):
     return config
 
 def main():
-    global DRYRUN, PARALLEL, LOG_DIR, SYSTEM
+    global DRYRUN, PARALLEL, LOG_DIR
+
     arguments = docopt(__doc__)
     study     = arguments['<study>']
     use_server = arguments['--log-to-server']
@@ -400,7 +394,6 @@ def main():
     # get_freesurfer_arguments()
 
     config = load_config(study)
-
     if use_server:
         add_server_handler(config)
     if debug:
@@ -408,11 +401,13 @@ def main():
 
     logger.info('Starting')
     check_input_paths(config)
+
+    #Get subject QC status, whether they've been inducted into blacklist or not if empty value to subject key
     qc_subjects = config.get_subject_metadata()
 
     fs_path = config.get_path('freesurfer')
     LOG_DIR = make_error_log_dir(fs_path)
-    SYSTEM = config.system
+
 
     if scanid:
         # single subject mode
@@ -440,7 +435,7 @@ def main():
         logger.info("Resubmitting {} subjects".format(len(halted_subjects)))
         fs_subjects.extend(halted_subjects)
 
-    submit_proc_freesurfer(fs_path, fs_subjects, arguments)
+    submit_proc_freesurfer(fs_path, fs_subjects, arguments, config)
 
 if __name__ == '__main__':
     main()

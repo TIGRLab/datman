@@ -348,6 +348,17 @@ class config(object):
 
         return(xnat_projects)
 
+    def get_sites(self):
+        if not self.study_config:
+            raise KeyError('Study not set')
+
+        try:
+            sites = self.study_config['Sites'].keys()
+        except KeyError:
+            raise KeyError('No sites defined for study {}'.format(self.study_name))
+
+        return sites
+
     def get_qced_subjects(self):
         """
         Returns a dictionary of all the subjects that have been signed off on
@@ -373,6 +384,7 @@ class config(object):
                     continue
                 subid, _ = os.path.splitext(fields[0].strip('qc_'))
                 qced_subjects[subid] = []
+
         return qced_subjects
 
     def get_blacklist(self):
@@ -412,16 +424,17 @@ class config(object):
         series mapped to the subject id.
         """
         qced_subjects = self.get_qced_subjects()
+
+
         blacklist = self.get_blacklist()
 
         # Update is not used because it will add keys
         # That is, if a subject has NOT been signed off but has a blacklist
         # entry update would add them to qc'd subjects, which is not desirable.
         for subject in blacklist:
-            try:
+            if subject in qced_subjects:
                 qced_subjects[subject] = blacklist[subject]
-            except KeyError:
-                continue
+
         return qced_subjects
 
     def get_study_tags(self):
@@ -461,6 +474,7 @@ class config(object):
 
         return tags
 
+    
 class TagInfo(object):
 
     def __init__(self, export_settings, site_settings=None):

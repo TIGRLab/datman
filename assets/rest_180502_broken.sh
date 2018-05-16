@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# rendered script-it from task_master_170223.sh
-# generated: 2017/02/28 -- 13:03:37 by jviviano.
+# rendered script-it from rest_master_170223.sh
+# generated: 2017/02/27 -- 16:46:58 by jviviano.
 
 set -e
 
@@ -145,7 +145,7 @@ else
 fi
 
 # loop through sessions
-DIR_SESS=$(ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/)
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
 for SESS in ${DIR_SESS}; do
 
     # loop through runs
@@ -170,7 +170,6 @@ for SESS in ${DIR_SESS}; do
         fi
     done
 done
-
 
 echo '*** MODULE: deoblique. Alters image to have no obliquity. **************'
 export input=func_tshift
@@ -210,7 +209,6 @@ for SESS in ${DIR_SESS}; do
         fi
     done
 done
-
 
 echo '*** MODULE: motion_deskull. Motion correction and brain masking. ***'
 export input=func_ob
@@ -456,9 +454,11 @@ for SESS in ${DIR_SESS}; do
 
         if [ ! -f ${SESS}/PARAMS/censor.${ID}.${NUM}.1D ]; then
             epi-censor \
-                ${SESS}/PARAMS/motion.${ID}.${NUM}.1D \
+                ${SESS}/${input}.${ID}.${NUM}.nii.gz \
                 ${SESS}/PARAMS/censor.${ID}.${NUM}.1D \
+                ${SESS}/PARAMS/motion.${ID}.${NUM}.1D \
                 --DVARS ${SESS}/PARAMS/DVARS.${ID}.${NUM}.1D \
+                --report ${SESS}/PARAMS/retained_TRs.${ID}.${NUM}.1D \
                 --head ${headrad} \
                 --FD ${fd} \
                 --DV ${dv}
@@ -689,8 +689,36 @@ for SESS in ${DIR_SESS}; do
     fi
 done
 
+echo '*** MODULE: trscrub. Removes TRs corrupted by motion. ******************'
+export input=func_scaled
+export headrad=50
+export fd=0.3
+export dv=3
+export mode=interp
+
+DIR_SESS=`ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/`
+for SESS in ${DIR_SESS}; do
+    DIR_RUNS=`ls -d -- ${SESS}/RUN*`
+    for RUN in ${DIR_RUNS}; do
+        NUM=`basename ${RUN} | sed 's/[^0-9]//g'`
+
+        if [ ! -f ${SESS}/func_scrubbed.${ID}.${NUM}.nii.gz ]; then
+            epi-trscrub \
+                ${SESS}/${input}.${ID}.${NUM}.nii.gz \
+                ${SESS}/func_scrubbed.${ID}.${NUM}.nii.gz \
+                ${SESS}/PARAMS/motion.${ID}.${NUM}.1D \
+                --DVARS ${SESS}/PARAMS/DVARS.${ID}.${NUM}.1D \
+                --report ${SESS}/PARAMS/retained_TRs.${ID}.${NUM}.1D \
+                --head ${headrad} \
+                --FD ${fd} \
+                --DV ${dv} \
+                --mode ${mode}
+        fi
+    done
+done
+
 echo '*** MODULE: filter. Applies regression models of noise sources. ********'
-export INPUT=func_scaled
+export INPUT=func_scrubbed
 export POLORT=2
 export DIFF=diff
 export LAG=off
@@ -1117,8 +1145,31 @@ for SESS in ${DIR_SESS}; do
     done
 done
 
+echo '*** MODULE: lowpass_freq. Low pass using frequency domain filter. ******'
+export input=func_filtered
+export filter=butterworth
+export cutoff=0.1
+
+DIR_SESS=$(ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/)
+for SESS in ${DIR_SESS}; do
+
+    DIR_RUNS=$(ls -d -- ${SESS}/RUN*)
+    for RUN in ${DIR_RUNS}; do
+        NUM=$(basename ${RUN} | sed 's/[^0-9]//g')
+
+        if [ ! -f ${SESS}/func_lowpass.${ID}.${NUM}.nii.gz ]; then
+            epi-lowpass \
+                ${SESS}/${input}.${ID}.${NUM}.nii.gz \
+                ${SESS}/${mask} \
+                ${SESS}/func_lowpass.${ID}.${NUM}.nii.gz \
+                --type ${filter} \
+                --cutoff ${cutoff}
+        fi
+    done
+done
+
 echo '*** MODULE: linreg_epi2t1_fsl. T1-transforms functional data. **********'
-export input=func_scaled
+export input=func_lowpass
 
 DIR_SESS=$(ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/)
 for SESS in ${DIR_SESS}; do
@@ -1175,7 +1226,7 @@ space='T1'
 mask=anat_EPI_mask_T1.nii.gz
 
 echo '*** MODULE: nonlinreg_epi2mni_fsl. Warps EPI data to MNI space. ********'
-export input=func_scaled
+export input=func_lowpass
 
 FSLDIR=$(dirname $(dirname $(which fsl)))
 DIR_SESS=$(ls -d -- ${DIR_DATA}/${DIR_EXPT}/${SUB}/${DATA_TYPE}/*/)
