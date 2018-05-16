@@ -15,9 +15,9 @@ Arguments:
 
 Options:
     -j --json           Create json files
+    -q --quiet          Less logging
     -v --verbose        Verbose logging
     -d --debug          Debug logging
-    -q --quiet          Less logging
 
 """
 
@@ -83,9 +83,9 @@ def main():
     site = arguments['--site']
     session = arguments['--session']
     create_json = arguments['--json']
+    quiet = arguments['--quiet']
     verbose = arguments['--verbose']
     debug = arguments['--debug']
-    quiet = arguments['--quiet']
 
     # setup log levels
     log_level = logging.WARN
@@ -95,7 +95,7 @@ def main():
     if verbose:
         log_level = logging.INFO
     if debug:
-        log_level = logging.DEBUG)
+        log_level = logging.DEBUG
     
     logger.setLevel(log_level)
     log_handler.setLevel(log_level)
@@ -122,7 +122,7 @@ def main():
         try:
             ident = datman.scanid.parse(session)
         except datman.scanid.ParseException:
-            logger.error('Invalid session:{}'.format(session))
+            logger.error('Invalid session: {}'.format(session))
 
         # get all files of interest stored in the session directory within
         # RESOURCES
