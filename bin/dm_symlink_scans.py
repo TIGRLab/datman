@@ -35,7 +35,6 @@ import datman.scanid
 
 # set up logging
 logger = logging.getLogger(__name__)
-logger.setlevel(logging.WARN)
 
 formatter = logging.Formatter('%(asctime)s - %(name)s - '
                               '%(levelname)s - %(message)s')
@@ -124,6 +123,7 @@ def main():
             ident = datman.scanid.parse(session)
         except datman.scanid.ParseException:
             logger.error('Invalid session: {}'.format(session))
+            continue
 
         # get all files of interest stored in the session directory within
         # RESOURCES
@@ -146,7 +146,7 @@ def main():
             # create dictionary with DICOM series numbers as keys and
             # filenames as values
             session_dcm_files = os.listdir(session_dcm_dir)
-            dcm_dict = {int(datman.scanid.parse_filename(dcm).series):
+            dcm_dict = {int(datman.scanid.parse_filename(dcm)[2]):
                         dcm for dcm in session_dcm_files}
             for f in session_res_files:
                 # need better way to get series number from nifti
