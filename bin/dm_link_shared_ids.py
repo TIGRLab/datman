@@ -30,7 +30,7 @@ import sys
 import logging
 import importlib
 
-from datman.docopt import docopt
+from docopt import docopt
 import requests
 import pyxnat as xnat
 
@@ -63,13 +63,18 @@ def main():
     # Set log format
     log_handler.setFormatter(logging.Formatter('[%(name)s] %(levelname)s - '
             '{study}: %(message)s'.format(study=project)))
+    log_level = logging.WARN
 
     if verbose:
-        logger.setLevel(logging.INFO)
+        log_level = logging.INFO
     if debug:
-        logger.setLevel(logging.DEBUG)
+        log_level = logging.DEBUG
     if quiet:
-        logger.setLevel(logging.ERROR)
+        log_level = logging.ERROR
+
+    logger.setLevel(log_level)
+    # Needed to see log messages from dm_link_project_scans
+    link_scans.logger.setLevel(log_level)
 
     config = datman.config.config(filename=site_config, study=project)
 
@@ -129,7 +134,11 @@ def get_redcap_token(config, redcap_cred):
     return token
 
 def link_shared_ids(config, connection, record):
-    xnat_archive = config.get_key('XNAT_Archive', site=record.id.site)
+    try:
+        xnat_archive = config.get_key('XNAT_Archive', site=record.id.site)
+    except KeyError:
+        logger.error("Can't find XNAT_Archive for subject {}".format(record.id))
+        return
     project = connection.select.project(xnat_archive)
     subject = project.subject(str(record.id))
     experiment = get_experiment(subject)
@@ -220,7 +229,7 @@ class Record(object):
 
         shared_ids = []
         for key in shared_id_fields:
-            value = record_dict[key]
+            value = record_dict[key].strip()
             if not value:
                 # No shared id for this field.
                 continue

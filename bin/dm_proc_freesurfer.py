@@ -25,8 +25,7 @@ import glob
 import time
 import logging
 import logging.handlers
-
-from datman.docopt import docopt
+from docopt import docopt
 import datman.scanid as sid
 import datman.utils as utils
 import datman.config as cfg
@@ -161,17 +160,19 @@ def make_arg_string(key, value):
     return "-{} {}".format(key, value)
 
 def get_anatomical_images(key, cmd_line_arg, subject, blacklist, config, error_log):
+    #Obtain type of anatomical image being used
     input_tags = get_freesurfer_setting(config, key)
 
     if type(input_tags) == str:
         input_tags = [input_tags]
 
-    site_info = get_site_exportinfo(config, subject.site)
 
+    site_info = get_site_exportinfo(config, subject.site)
     inputs = []
     for tag in input_tags:
         n_expected = site_info.get(tag, 'Count')
-        candidates = filter(lambda nii: utils.splitext(nii.path)[0] not in blacklist,
+        #Updated from utils.splitext(nii.path)[0] since it was including whole path - would always return false
+        candidates = filter(lambda nii: utils.splitext(nii.path)[0].split('/')[-1] not in blacklist,
                 subject.get_tagged_nii(tag))
 
         # fail if the wrong number of inputs for any tag is found (implies
@@ -181,7 +182,7 @@ def get_anatomical_images(key, cmd_line_arg, subject, blacklist, config, error_l
                     subject.full_id, len(candidates), tag, n_expected,
                     subject.site)
             logger.debug(error_message)
-            write_lines(error_log, ['{}\n{}'.format(error_message, NODE)])
+            #write_lines(error_log, ['{}\n{}'.format(error_message, NODE)])
         inputs.extend(candidates)
 
     return [make_arg_string(cmd_line_arg, series.path) for series in inputs]
@@ -241,7 +242,7 @@ def run_freesurfer(subject, blacklist, config, resubmit=False):
 
     command = "recon-all {args} -subjid {subid} {inputs}".format(args=args,
             subid=subject.full_id, inputs=" ".join(input_files))
-
+    logger.info('Running recon-all') 
     rtn, out = utils.run(command, dryrun=DRYRUN)
     if rtn:
         error_message = 'freesurfer failed: {}\n{}'.format(command, out)
@@ -378,6 +379,7 @@ def load_config(study):
 
 def main():
     global DRYRUN, PARALLEL, LOG_DIR
+
     arguments = docopt(__doc__)
     study     = arguments['<study>']
     use_server = arguments['--log-to-server']
@@ -392,7 +394,6 @@ def main():
     # get_freesurfer_arguments()
 
     config = load_config(study)
-
     if use_server:
         add_server_handler(config)
     if debug:
@@ -400,10 +401,13 @@ def main():
 
     logger.info('Starting')
     check_input_paths(config)
+
+    #Get subject QC status, whether they've been inducted into blacklist or not if empty value to subject key
     qc_subjects = config.get_subject_metadata()
 
     fs_path = config.get_path('freesurfer')
     LOG_DIR = make_error_log_dir(fs_path)
+
 
     if scanid:
         # single subject mode

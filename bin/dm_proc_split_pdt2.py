@@ -3,8 +3,8 @@
 Splits up a PDT2 image into two images, a PD and a T2 image.
 
 Usage:
-    dm2-proc-split-pdt2.py [options] <study>
-    dm2-proc-split-pdt2.py [options] <study> <session>
+    dm_proc_split_pdt2.py [options] <study>
+    dm_proc_split_pdt2.py [options] <study> <session>
 
 Arguments:
     <study>            Nickname of the study to process
@@ -36,7 +36,7 @@ import platform
 import numpy as np
 import nibabel as nib
 
-from datman.docopt import docopt
+from docopt import docopt
 import datman.config
 import datman.scanid
 import datman.utils

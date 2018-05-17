@@ -13,7 +13,7 @@ Options:
   --debug              debug logging
   --dry-run            don't do anything
 """
-from datman.docopt import docopt
+from docopt import docopt
 import datman.scanid as sid
 import datman.utils as utils
 import datman.config as cfg

@@ -790,4 +790,47 @@ def submit_job(cmd, job_name, log_dir, system = 'other',
             logger.error("stdout: {}".format(out))
         sys.exit(1)
 
+def get_resources(open_zipfile):
+    # filter dirs
+    files = open_zipfile.namelist()
+    files = filter(lambda f: not f.endswith('/'), files)
+
+    # filter files named like dicoms
+    files = filter(lambda f: not is_named_like_a_dicom(f), files)
+
+    # filter actual dicoms :D.
+    resource_files = []
+    for f in files:
+        try:
+            if not is_dicom(io.BytesIO(open_zipfile.read(f))):
+                resource_files.append(f)
+        except zipfile.BadZipfile:
+            logger.error('Error in zipfile:{}'.format(f))
+    return resource_files
+
+def is_named_like_a_dicom(path):
+    dcm_exts = ('dcm', 'img')
+    return any(map(lambda x: path.lower().endswith(x), dcm_exts))
+
+def is_dicom(fileobj):
+    try:
+        dcm.read_file(fileobj)
+        return True
+    except dcm.filereader.InvalidDicomError:
+        return False
+
+def make_zip(source_dir, dest_zip):
+    # Can't use shutil.make_archive here because for python 2.7 it fails on
+    # large zip files (seemingly > 2GB) and zips with more than about 65000 files
+    # Soooo, doing it the hard way. Can change this if we ever move to py3
+    with zipfile.ZipFile(dest_zip, "w", compression=zipfile.ZIP_DEFLATED,
+            allowZip64=True) as zip_handle:
+        # We want this to use 'w' flag, since it should overwrite any existing zip
+        # of the same name
+        for current_dir, folders, files in os.walk(source_dir):
+            for item in files:
+                item_path = os.path.join(current_dir, item)
+                archive_path = item_path.replace(source_dir + "/", "")
+                zip_handle.write(item_path, archive_path)
+
 # vim: ts=4 sw=4 sts=4:

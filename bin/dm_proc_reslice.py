@@ -28,7 +28,7 @@ from copy import copy
 import os, sys
 import datman as dm
 import nibabel as nib
-from datman.docopt import docopt
+from docopt import docopt
 
 def get_extension(f):
     if f[-7:] == '.nii.gz':
