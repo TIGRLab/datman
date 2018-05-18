@@ -346,7 +346,7 @@ class config(object):
         xnat_projects = [site['XNAT_Archive']
                          for site in self.get_key(['Sites']).values()]
 
-        return(xnat_projects)
+        return(list(set(xnat_projects)))
 
     def get_sites(self):
         if not self.study_config:
