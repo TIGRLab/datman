@@ -175,11 +175,13 @@ def main():
                     continue
                 ext = datman.utils.get_extension(f)
                 nii_name = scan_filename + ext
-                create_symlink(f, nii_name, session_nii_dir)
+
                 if create_json and nii_name.endswith('.nii.gz'):
                     create_json_sidecar(dcm_dict[series_num],
                                         session_nii_dir,
                                         session_dcm_dir)
+                    
+                create_symlink(f, nii_name, session_nii_dir)
 
 
 if __name__ == '__main__':
