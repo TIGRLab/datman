@@ -141,7 +141,7 @@ def main():
 
         if session_res_files:
             # check whether nifti directory exists, otherwise create it
-            datman.utils.define_folder(dir_nii)
+            datman.utils.define_folder(session_nii_dir)
 
             # create dictionary with DICOM series numbers as keys and
             # filenames as values
