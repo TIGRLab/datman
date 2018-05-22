@@ -25,6 +25,7 @@ Options:
 import os
 import sys
 from glob import glob
+import fnmatch
 import logging
 
 from docopt import docopt
@@ -45,6 +46,15 @@ log_handler.setFormatter(formatter)
 logger.addHandler(log_handler)
 
 
+def find_files(directory):
+    for root, dirs, files in os.walk(directory):
+        for extension in ['*.nii.gz', '*.bvec', '*.bval']:
+            for basename in files:
+                if fnmatch.fnmatch(basename, extension):
+                    filename = os.path.join(root, basename)
+                    yield filename
+
+                    
 def create_symlink(src, target_name, dest):
     datman.utils.define_folder(dest)
     target_path = os.path.join(dest, target_name)
@@ -128,12 +138,16 @@ def main():
         # get all files of interest stored in the session directory within
         # RESOURCES
         session_res_dir = os.path.join(dir_res, session)
-        extensions = ('**/*.nii.gz', '**/*.bvec', '**/*.bval')
+        # extensions = ('**/*.nii.gz', '**/*.bvec', '**/*.bval')
         session_res_files = []
-        for extension in extensions:
-            session_res_files.extend(
-                glob(os.path.join(session_res_dir, extension), recursive=True)
-            )
+        # temporarily commment out since glob in python 2 can't recurse
+        # for extension in extensions:
+        #     session_res_files.extend(
+        #         glob(os.path.join(session_res_dir, extension), recursive=True)
+        #     )
+        
+        for filename in find_files(session_res_dir):
+            session_res_files.append(filename)
 
         session_name = ident.get_full_subjectid_with_timepoint()
         session_nii_dir = os.path.join(dir_nii, session_name)
@@ -141,7 +155,7 @@ def main():
 
         if session_res_files:
             # check whether nifti directory exists, otherwise create it
-            datman.utils.define_folder(dir_nii)
+            datman.utils.define_folder(session_nii_dir)
 
             # create dictionary with DICOM series numbers as keys and
             # filenames as values
@@ -161,11 +175,13 @@ def main():
                     continue
                 ext = datman.utils.get_extension(f)
                 nii_name = scan_filename + ext
-                create_symlink(f, nii_name, session_nii_dir)
+
                 if create_json and nii_name.endswith('.nii.gz'):
                     create_json_sidecar(dcm_dict[series_num],
                                         session_nii_dir,
                                         session_dcm_dir)
+                    
+                create_symlink(f, nii_name, session_nii_dir)
 
 
 if __name__ == '__main__':
