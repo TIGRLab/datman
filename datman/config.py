@@ -298,12 +298,12 @@ class config(object):
 
         try:
             return(os.path.join(self.get_study_base(),
-                                self.study_config['paths'][path_type]))
+                                self.study_config['Paths'][path_type]))
         except (KeyError, TypeError):
             logger.info('Path {} not defined in study {} config file'
                         .format(path_type, self.study_name))
             return(os.path.join(self.get_study_base(),
-                                self.site_config['paths'][path_type]))
+                                self.site_config['Paths'][path_type]))
 
     def get_tags(self, site=None):
         """
