@@ -128,9 +128,9 @@ def run_epitome(path, config, study):
     """
     study_base = config.get_study_base(study)
     subject = os.path.basename(path)
-    nii_dir = os.path.join(study_base, config.site_config['paths']['nii'])
-    t1_dir = os.path.join(study_base, config.site_config['paths']['hcp'])
-    fmri_dir = utils.define_folder(os.path.join(study_base, config.site_config['paths']['fmri']))
+    nii_dir = os.path.join(study_base, config.get_path('nii'))
+    t1_dir = os.path.join(study_base, config.get_path('hcp'))
+    fmri_dir = utils.define_folder(os.path.join(study_base, config.get_path('fmri')))
     experiments = config.study_config['fmri'].keys()
 
     # run file collection --> epitome --> export for each study
@@ -297,7 +297,7 @@ def main():
     study_base = config.get_study_base(study)
 
     for k in ['nii', 'fmri', 'hcp']:
-        if k not in config.site_config['paths']:
+        if k not in config.get_key('Paths'):
             logger.error("paths:{} not defined in site config".format(k))
             sys.exit(1)
 
@@ -307,7 +307,7 @@ def main():
                 logger.error("fmri:{}:{} not defined in configuration file".format(x[0], k))
                 sys.exit(1)
 
-    nii_dir = os.path.join(study_base, config.site_config['paths']['nii'])
+    nii_dir = os.path.join(study_base, config.get_path('nii'))
 
     if scanid:
         path = os.path.join(nii_dir, scanid)
@@ -332,7 +332,7 @@ def main():
                 logger.debug("Subject {} is a phantom. Skipping.".format(subject))
                 continue
 
-            fmri_dir = utils.define_folder(os.path.join(study_base, config.site_config['paths']['fmri']))
+            fmri_dir = utils.define_folder(os.path.join(study_base, config.get_path('fmri')))
             for exp in config.study_config['fmri'].keys():
                 expected_names = config.study_config['fmri'][exp]['export']
                 subj_dir = os.path.join(fmri_dir, exp, subject)
