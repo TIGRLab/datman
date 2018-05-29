@@ -52,11 +52,31 @@ import os, sys, pdb
 import datetime
 import tempfile, shutil
 import glob
+import json
+import nibabel as nib
 import logging, logging.handlers
 from docopt import docopt
 
 logging.basicConfig(level=logging.WARN,
                     format="[%(name)s] %(levelname)s: %(message)s")
+def create_index_file(dti):
+    dti_dim = nib.load(dti).header['dim'][5]
+    indx = ''
+    for i in range(0, dti_dim):
+        indx = indx + " 1"
+
+    with open('index.txt', 'w') as indx_file:
+        indx_file.write(indx)
+
+def match_rep_time(time, nii_list):
+    matched = None
+    for nii in nii_list:
+        with open(nii.replace('nii.gz', 'json'), 'r+') as nii_json:
+            nii_data = json.load(nii_json)
+            if time == nii_data['RepetitionTime']:
+                matched = nii
+                break
+    return matched
 
 def create_command(subject, arguments):
     flags = ['dtifit_enigma.py']
@@ -256,6 +276,13 @@ def main():
 
                 for dti in dti_files:
                     ident, tag, series, description = datman.scanid.parse_filename(dti)
+
+                    dti_tmp_dir = os.path.join(sub_tmp_dir, series)
+                    create_dir(dti_tmp_dir)
+
+                    bvec = dti.replace('nii.gz', 'bvec')
+                    bval = dti.replace('nii.gz', 'bval')
+
                     print dti + '\n'
 
                     series = int(series)
@@ -267,21 +294,71 @@ def main():
                     # except ValueError:
                     #     pass
 
-                    if dpa_tag and dap_tag:
-                        pas = glob.glob(os.path.join(sub_dir, '*{}*.nii.gz'.format(dpa_tag)))
+                    get_series = lambda x: int(datman.scanid.parse_filename(x)[2])
+
+                    pas = glob.glob(os.path.join(sub_dir, '*{}*.nii.gz'.format(dpa_tag)))
+                    pas = sorted(filter(lambda x: get_series(x) < series, pas), reverse=True)
+
+                    os.chdir(dti_tmp_dir)
+
+                    create_index_file(dti)
+
+                    if dpa_tag and not(dap_tag):
+                        with open(dti.replace('nii.gz', 'json'), 'r+') as dti_json:
+                            dti_data = json.load(dti_json)
+                            dti_rep_time = dti_data['RepetitionTime']
+                        dpa = match_rep_time(dti_rep_time, pas)
+
+                        if not dpa:
+                            logging.error("DPA repetition times does not match with {}. Exiting.".format(os.path.basename(dti)))
+                            sys.exit(1)
+
+                        with open(bval, 'r+') as bval_file:
+                            bvals = bval_file.readline()
+                        bvals = [ float(i) for i in bvals.split()]
+                        b0s = [ i for i in range(0, len(bvals)) if bvals[i] == '0']
+                        for val in b0s:
+                            datman.utils.run('fslroi {0} tmp_{1}.nii.gz {1} 1'.format(dti, val))
+                        datman.utils.run('fslmerge -t merged_dti_b0 tmp_*')
+                        datman.utils.run('fslmerge -t merged_b0 merged_dti_b0 {}'.format(dpa))
+                        acqparams = '0 1 0 0 0.05\n'
+                        for i in range(1, int(nib.load('merged_dti_b0.nii.gz').header['dim'][5])):
+                            acqparams += '0 1 0 0.05\n'
+                        for i in range(0, int(nib.load(dpa).header['dim'][5])):
+                            acqparams += '0 -1 0 0.05\n'
+                        with open('acqparams.txt', 'w') as acq_file:
+                            acq_file.write(acqparams)
+                        merged_b0_header = nib.load('merged_b0.nii.gz').header
+                        get_mb0_dim = lambda x: int(merged_b0_header['dim'][x])
+                        rounded_dims = [get_mb0_dim(i) if (get_mb0_dim(i) % 2 == 0) else (get_mb0_dim(i) - 1) for i in range(1, 5)]
+                        datman.utils.run('fslroi merged_b0.nii.gz merged_b0.nii.gz 0 {d[0]} 0 {d[1]} 1 {d[2]} 0 {d[3]}'.format(d=rounded_dims))
+                        datman.utils.run('topup --imain=merged_b0.nii.gz --datain=acqparams.txt --config={} --out=topup_b0 --iout=unwarped_topup_b0 -v')
+                        datman.utils.run('fslmaths unwarped_topup_b0 -Tmean unwarped_topup_b0')
+                        datman.utils.run('bet unwarped_topup_b0 unwarped_topup_b0_brain -m -f {}'.format(arguments['fa_thresh']))
+
+                    elif dpa_tag and dap_tag:
                         aps = glob.glob(os.path.join(sub_dir, '*{}*.nii.gz'.format(dap_tag)))
+                        dap = min(aps, key=lambda x: abs(get_series(x) - series) if get_series(x) < series else sys.maxsize)
+                        with open(dap.replace('nii.gz', 'json'), 'r+') as dap_json:
+                            dap_data = json.load(dap_json)
+                            dap_rep_time = dap_data['RepetitionTime']
+                        dpa = match_rep_time(dap_rep_time, pas)
 
-                        get_series = lambda x: int(datman.scanid.parse_filename(x)[2])
-                        print '\n' + min(pas, key=lambda x: abs(get_series(x) - series) if get_series(x) < series else sys.maxsize)
-                        print min(aps, key=lambda x: abs(get_series(x) - series) if get_series(x) < series else sys.maxsize) + '\n'
-                        for pa in pas:
-                            print get_series(pa)
-                        print ''
-                        for ap in aps:
-                            print get_series(ap)
-                        print ''
+                        if not dpa:
+                            logging.error("DPA repetition times does not match with {}. Exiting.".format(os.path.basename(dap))
+                            sys.exit(1)
 
-    shutil.rmtree(tmp_dir)
+                        datman.utils.run('fslroi {} DAP_b0 0 1'.format(dap)
+                        datman.utils.run('fslroi {} DPA_b0 0 1'.format(dpa)
+                        datman.utils.run('fslmerge -t merged_b0 DAP_b0 DPA_b0'
+                        datman.utils.run('printf "0 -1 0 0.05\n0 1 0 0.05" > acqparams.txt')
+                        datman.utils.run('topup --imain=merged_b0 --datain=acqparams.txt --out=topup_b0 --iout=unwarped_topup_b0 -v')
+                        datman.utils.run('fslmaths unwarped_topup_b0 -Tmean unwarped_topup_b0')
+                        datman.utils.run('bet unwarped_topup_b0 unwarped_topup_b0_brain -m -f {}'.format(arguments['fa_thresh']))
+
+
+                        datman.utils.run('eddy_openmp --imain={0} --mask=unwarped_topup_b0_brain_mask --acqp=acqparams.txt --index=index.txt --bvecs={1} --bvals={2} --topup=topup_b0 --out=eddy_openmp --data_is_shelled --verbose'.format(dti, bvec, bval))
+    # shutil.rmtree(tmp_dir)
 
 
 
