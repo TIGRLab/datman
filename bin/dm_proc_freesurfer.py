@@ -118,7 +118,7 @@ def get_freesurfer_arguments(config, site):
         nu_iter = None
 
     if nu_iter:
-        ex_path = config.get_path('freesurfer') + "expert.opts"
+        ex_path = os.path.join(config.get_path('freesurfer'), site +  "_expert.opts")
         expertcmd = 'echo "mri_nu_correct.mni --n {}" > {}'.format(nu_iter, ex_path)
         os.system(expertcmd)
         args.append('-expert ' + ex_path)
