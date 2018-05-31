@@ -24,7 +24,7 @@ import datman.config as config
 import datman.scanid as scanid
 import datman.utils
 import logging, logging.handlers
-import os, sys, path
+import os, sys
 import json, csv
 import re
 import datetime
@@ -125,14 +125,7 @@ def to_bids_name(ident, tag, cnt_run, type_folder, ex):
             run_num = to_run(cnt_run["RST"] + cnt_run["VN-SPRL"])
             task = "rest"
         else:
-            if (tag == "FACES"):
-                task = "faces"
-                if run_num[-2:] > "01":
-                    logger.warning("More than one session of {} in {}".format(tag, str(ident)))
-            elif (tag == "TMS-FMRI"):
-                task = "tmsfmri"
-            else:
-                task = tag.lower()
+            task = tag.lower().replace('-','')
         return type_folder["func"] , name.format(subject, session, task, acq, run_num, ext)
     elif (tag in tag_map["dmap_fmri"]):
         if ("-DAP" in tag):
@@ -283,6 +276,7 @@ def modify_map_json(orig, bids, dmap_dict, fmap_dict, csv_dict, site):
     jsonFile.seek(0)  # rewind
     json.dump(data, jsonFile, sort_keys=True, indent=4, separators=(',', ': '))
     jsonFile.truncate()
+    jsonFile.close()
 
 
 def create_task_json(file_path, tags_list):
@@ -363,36 +357,17 @@ def setup_logger(filepath, to_server, debug, config):
         logger.addHandler(server_handler)
 
 
-def init_setup(study, to_server, debug, bids_dir, nii_dir, fmriprep_dir, fs_dir):
-    cfg = config.config(study=study)
-    logger.info("Study to convert to BIDS Format: {}".format(study))
-
-    if not bids_dir:
-        bids_dir =  cfg.get_path('data') + "bids/"
-        create_dir(bids_dir)
-
-    if not nii_dir:
-        nii_dir = cfg.get_path('nii')
-        logger.info("Nii files to be converted to BIDS format will be from: {}".format(nii_dir))
-
-    if fmriprep_dir:
-        fmriprep_fs_dir = os.path.join(fmriprep_dir, 'freesurfer')
-        create_dir(fmriprep_fs_dir)
-    else:
-        fmriprep_fs_dir = None
-
-    if not fs_dir:
-        fs_dir = cfg.get_path('freesurfer')
+def init_setup(study, cfg, bids_dir):
 
     bidsignore_path = bids_dir + ".bidsignore"
-    bidsignore = 'echo "*-opt_to_bids.log\nmatch.csv" > {}'.format(bidsignore_path)
+    bidsignore = 'echo "*-nii_to_bids.log\nmatch.csv" > {}'.format(bidsignore_path)
     os.system(bidsignore)
 
-    setup_logger(bids_dir, to_server, debug, cfg)
-    logger.info("BIDS folder will be {}".format(bids_dir))
-
     data = dict()
-    data["Name"] = "Optimum Neuro"
+    try:
+        data["Name"] = cfg.get_key('FullName')
+    except KeyError:
+        data["Name"] = study
     data["BIDSVersion"] = "1.0.2"
 
     create_json(bids_dir + "dataset_description.json", data )
@@ -404,10 +379,7 @@ def init_setup(study, to_server, debug, bids_dir, nii_dir, fmriprep_dir, fs_dir)
     for tag in all_tags.keys():
         tag_map[all_tags.get(tag, "qc_type")].append(tag)
 
-
-    to_delete = set()
-
-    return cfg, bids_dir,all_tags.keys(), nii_dir, fmriprep_fs_dir, fs_dir, to_delete
+    return all_tags.keys()
 
 
 def main():
@@ -421,13 +393,46 @@ def main():
     to_server = arguments['--log-to-server']
     debug  = arguments['--debug']
 
-    cfg, bids_dir,all_tags, nii_dir,fmriprep_fs_dir, fs_dir, to_delete = init_setup(study, to_server, debug, bids_dir, nii_dir, fmriprep_dir, fs_dir)
-    sites = cfg.study_config['Sites'].keys()
+    cfg = config.config(study=study)
+    logger.info("Study to convert to BIDS Format: {}".format(study))
+
+    if not bids_dir:
+        bids_dir =  cfg.get_path('data') + "bids/"
+        create_dir(bids_dir)
+
+    setup_logger(bids_dir, to_server, debug, cfg)
+    logger.info("BIDS folder will be {}".format(bids_dir))
+
+    if not nii_dir:
+        nii_dir = cfg.get_path('nii')
+        logger.info("Nii files to be converted to BIDS format will be from: {}".format(nii_dir))
+
+    if fmriprep_dir:
+        fmriprep_fs_dir = os.path.join(fmriprep_dir, 'freesurfer')
+        create_dir(fmriprep_fs_dir)
+        logger.info('Fmriprep freesurfer dir will be:{}'.format(fmriprep_fs_dir))
+    else:
+        fmriprep_fs_dir = None
+
+    if not fs_dir:
+        fs_dir = cfg.get_path('freesurfer')
+        logger.info('Freesurfer dir is: {}'.format(fs_dir))
+
+    all_tags = init_setup(study,cfg, bids_dir)
+
+    to_delete = set()
+
+    try:
+        sites = cfg.get_sites()
+    except KeyError,err:
+        logger.error(err)
+        sys.exit(1)
 
     logger.info("Creating match.csv to hold original name, bids location and freesurfer location.")
-    csvfile = open(bids_dir + 'match.csv', 'w+')
-    csvwriter = csv.writer(csvfile)
-    csvwriter.writerow(['CAMH','BIDS', 'FREESURFER'])
+    csv_filename = os.path.join(bids_dir, 'match.csv')
+    with open(csv_filename, 'w+') as csvfile:
+        csvwriter = csv.writer(csvfile)
+        csvwriter.writerow(['CAMH','BIDS', 'FREESURFER'])
     csv_dict = dict()
 
     logger.info("Beginning to iterate through folders/files in {}".format(nii_dir))
@@ -526,11 +531,11 @@ def main():
         sub = ident.get_full_subjectid_with_timepoint()
         logger.warning("Modifying JSON for: {}".format(k))
         modify_map_json(k, v[1], dmap_dict, fmap_dict, csv_dict, site)
-        csvwriter.writerow(v)
+        with open(csv_filename, 'w+') as csvfile:
+            csvwriter = csv.writer(csvfile)
+            csvwriter.writerow(v)
 
     create_task_json(bids_dir, study_tags)
-
-    csvfile.close()
 
     logger.info("Deleting unecessary BIDS folders")
     for folder in to_delete:
