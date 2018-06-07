@@ -184,7 +184,7 @@ def run_phantom_pipeline(nifti,qc_path,reqs):
 
     qc_output = os.path.join(qc_path,basename)
 
-    #If any csv exists in qc path then skip update to incorporate REWRITE
+    #If any csv exists in qc path 
     if not glob.glob(qc_output + '*.csv') or REWRITE: 
           datman.utils.run(cmd)
     else:
