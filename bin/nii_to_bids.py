@@ -3,11 +3,13 @@
 This copies and converts files in nii folder to a bids folder in BIDS format
 
 Usage:
-  nii_to_bids.py [options] <study>
+  nii_to_bids.py [options] <study> [<sub-id>...]
 
 Arguments:
     <study>                     Study name defined in master configuration .yml file
                                 to convert to BIDS format
+    <sub-id>                    One or more names of subject directories in nii
+                                directory to convert to bids
 
 Options:
     --nii-dir PATH              Path to directory to copy nifti data from
@@ -172,7 +174,7 @@ def validify_file(subject_nii_path):
 
         # anat validation
         if (tag == "T1" or tag == "T2") and (ext == ".json"):
-            json_data = json.load(open(subject_nii_path + filename))
+            json_data = json.load(open(os.path.join(subject_nii_path + filename)))
             if "NORM" in json_data["ImageType"]:
                 logger.info("File has ImageType NORM and will be excluded from conversion: {}".format(
                     scanid.make_filename(ident, tag, series, description)))
@@ -294,7 +296,7 @@ def create_task_json(file_path, tags_list):
     for task in task_names.keys():
         data = dict()
         data["TaskName"] = task_names[task][0]
-        create_json(file_path + task_names[task][1], data)
+        create_json(os.path.join(file_path, task_names[task][1]), data)
         logger.info("Location of TaskName json for {} will be: {}".format(task_names[task][0], task_names[task][1]))
 
 def create_json(file_path, data_dict):
@@ -308,12 +310,12 @@ def create_json(file_path, data_dict):
 
 def create_bids_dirs(bids_dir, ident):
     type_dir = dict()
-    sub_dir = bids_dir + to_sub(ident) + "/"
+    sub_dir = os.path.join(bids_dir,to_sub(ident)) + "/"
     create_dir(sub_dir)
-    ses_dir = sub_dir + to_ses(ident.timepoint) + "/"
+    ses_dir = os.path.join(sub_dir,to_ses(ident.timepoint)) + "/"
     create_dir(ses_dir)
     for bid_type in ["anat", "func", "fmap", "dwi"]:
-        type_dir[bid_type] = ses_dir + bid_type + "/"
+        type_dir[bid_type] = os.path.join(ses_dir,bid_type) + "/"
         create_dir(type_dir[bid_type])
     return type_dir
 
@@ -332,7 +334,7 @@ def setup_logger(filepath, to_server, debug, config):
     dmlogger.setLevel(logging.DEBUG)
     date = str(datetime.date.today())
 
-    fhandler = logging.FileHandler(filepath +  date + "-opt_to_bids.log", "w")
+    fhandler = logging.FileHandler(os.path.join(filepath, date + "-nii_to_bids.log"), "w")
     fhandler.setLevel(logging.DEBUG)
 
     shandler = logging.StreamHandler()
@@ -359,7 +361,7 @@ def setup_logger(filepath, to_server, debug, config):
 
 def init_setup(study, cfg, bids_dir):
 
-    bidsignore_path = bids_dir + ".bidsignore"
+    bidsignore_path = os.path.join(bids_dir,".bidsignore")
     bidsignore = 'echo "*-nii_to_bids.log\nmatch.csv" > {}'.format(bidsignore_path)
     os.system(bidsignore)
 
@@ -370,8 +372,8 @@ def init_setup(study, cfg, bids_dir):
         data["Name"] = study
     data["BIDSVersion"] = "1.0.2"
 
-    create_json(bids_dir + "dataset_description.json", data )
-    logger.info("Location of Dataset Description: {}".format(bids_dir + "dataset_description.json"))
+    create_json(os.path.join(bids_dir, "dataset_description.json"), data )
+    logger.info("Location of Dataset Description: {}".format(os.path.join(bids_dir + "dataset_description.json")))
 
     all_tags = cfg.get_tags()
     global tag_map
@@ -386,6 +388,7 @@ def main():
     arguments = docopt(__doc__)
 
     study  = arguments['<study>']
+    sub_ids = arguments['<sub-id>']
     nii_dir = arguments['--nii-dir']
     bids_dir = arguments['--bids-dir']
     fmriprep_dir = arguments['--fmriprep-out-dir']
@@ -397,8 +400,8 @@ def main():
     logger.info("Study to convert to BIDS Format: {}".format(study))
 
     if not bids_dir:
-        bids_dir =  cfg.get_path('data') + "bids/"
-        create_dir(bids_dir)
+        bids_dir =  os.path.join(cfg.get_path('data'),"bids/")
+    create_dir(bids_dir)
 
     setup_logger(bids_dir, to_server, debug, cfg)
     logger.info("BIDS folder will be {}".format(bids_dir))
@@ -440,14 +443,18 @@ def main():
     fmap_dict = dict()
     dmap_dict = dict()
 
-    for subject_dir in sorted(os.listdir(nii_dir)):
+    if not sub_ids:
+        sub_ids = os.listdir(nii_dir)
+    sub_ids = sorted(sub_ids)
+
+    for subject_dir in sub_ids:
         if scanid.is_phantom(subject_dir):
             logger.info("File is phantom and will be ignored: {}".format(subject_dir))
             continue
         parsed = scanid.parse(subject_dir)
 
         type_folders = create_bids_dirs(bids_dir, parsed)
-        subject_nii_path = nii_dir + subject_dir + "/"
+        subject_nii_path = os.path.join(nii_dir,subject_dir) + '/'
         logger.info("Will now begin creating files in BIDS format for: {}".format(subject_nii_path))
         valid_files, dmap_d, fmap_d = validify_file(subject_nii_path)
         series_set = set(scanid.parse_filename(x)[2] for x in valid_files)
@@ -531,7 +538,7 @@ def main():
         sub = ident.get_full_subjectid_with_timepoint()
         logger.warning("Modifying JSON for: {}".format(k))
         modify_map_json(k, v[1], dmap_dict, fmap_dict, csv_dict, site)
-        with open(csv_filename, 'w+') as csvfile:
+        with open(csv_filename, 'a+') as csvfile:
             csvwriter = csv.writer(csvfile)
             csvwriter.writerow(v)
 
