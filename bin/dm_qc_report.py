@@ -184,8 +184,8 @@ def run_phantom_pipeline(nifti,qc_path,reqs):
 
     qc_output = os.path.join(qc_path,basename)
 
-    #If any csv exists in qc path 
-    if not glob.glob(qc_output + '*.csv') or REWRITE: 
+    #If any csv exists in qc path
+    if not glob.glob(qc_output + '*.csv') or REWRITE:
           datman.utils.run(cmd)
     else:
         logger.info('QC on phantom {} with tag {}  already performed, skipping'.format(datman.utils.nifti_basename(nifti.path), nifti.tag))
@@ -346,6 +346,12 @@ def get_new_subjects(config):
     qc_dir = config.get_path('qc')
     nii_dir = config.get_path('nii')
 
+    subject_nii_dirs = glob.glob(os.path.join(nii_dir, '*'))
+    all_subs = [os.path.basename(path) for path in subject_nii_dirs]
+
+    if REWRITE:
+        return all_subs
+
     # Finished subjects are those that have an html file in their qc output dir
     html_pages = glob.glob(os.path.join(qc_dir, '*/*.html'))
     subject_qc_dirs = [os.path.dirname(qc_path) for qc_path in html_pages]
@@ -356,9 +362,6 @@ def get_new_subjects(config):
     qced_phantoms_paths = [subj for subj in glob.glob(os.path.join(qc_dir, '*_PHA_*'))
             if len(os.listdir(subj)) > 0]
     finished_phantoms = [os.path.basename(path) for path in qced_phantoms_paths]
-
-    subject_nii_dirs = glob.glob(os.path.join(nii_dir, '*'))
-    all_subs = [os.path.basename(path) for path in subject_nii_dirs]
 
     new_subs = filter(lambda sub: sub not in finished_subs, all_subs)
     # also filter out the finished phantoms
