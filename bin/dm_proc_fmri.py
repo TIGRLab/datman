@@ -60,9 +60,8 @@ def check_inputs(config, tag, path, expected_tags):
     except:
         raise Exception('tag {} not defined in Sites:site:ExportInfo or Sites:site:links'.format(tag))
 
-
     if n_found != n_expected:
-        raise Exception('number of files found with tag {} was {}, expected {}'.format(tag, n_found, n_expected))
+        logger.warning('Found {} files with tag {}, expected {}, check outputs to ensure quality'.format(n_found,tag,n_expected)) 
 
 def export_directory(source, destination):
     """
