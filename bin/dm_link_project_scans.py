@@ -211,7 +211,7 @@ def get_dirs_to_search(source_config, tag_list):
         else:
             logger.error("Tag {} has no file types defined in ExportSettings." \
                     "Searching all paths for matching data.".format(tag))
-            dirs_to_search = source_config.get_key('paths').keys()
+            dirs_to_search = source_config.get_key('Paths').keys()
             break
     dirs_to_search = set(dirs_to_search)
     return dirs_to_search
