@@ -1,2 +1,6 @@
 *.pyc
 .idea/
+.*.swp
+build/
+datman.egg-info/
+dist/
