@@ -1,5 +1,8 @@
 datman
 ------
+
+[![Waffle.io - Columns and their card count](https://badge.waffle.io/TIGRLab/datman.svg?columns=all)](https://waffle.io/TIGRLab/datman) 
+
 A set of python scripts we use for three major functions:
 
 + Managing data in our XNAT database: https://xnat.imaging-genetics.camh.ca
@@ -125,10 +128,6 @@ A pipeline designed by Sofia Chavez to assess the performance of DTI protocols.
 > [1] Spurious but systematic correlations in functional connectivity MRI networks arise from subject motion. Jonathan D. Power et al. 2011. Neuroimage 59:3.
 > [2] Report on a multicenter fMRI quality assurance protocol. Friedman L et al. 2006. J Magn Reson Imaging 23(6).
 
-Project Management
----------------
-
-[![Waffle.io - Issues in progress](https://badge.waffle.io/TIGRLab/datman.png?label=in%20progress&title=In%20Progress)](http://waffle.io/TIGRLab/datman)
 ---
 
 [Who dat](https://www.youtube.com/watch?v=OIjsSu_I4So)
