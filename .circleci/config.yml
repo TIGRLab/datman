@@ -8,7 +8,5 @@ jobs:
       - run:
           name: Install nose
           command: |
-            python -m venv venv
-            . venv/bin/activate
             pip install -r nose=1.3.4
             nosetests
