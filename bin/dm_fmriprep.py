@@ -26,7 +26,6 @@ Requirements:
 
 import os 
 import sys
-from shutil import copyfile
 
 import datman.utils 
 import datman.config
@@ -51,6 +50,7 @@ DEFAULT_SIMG = '/archive/code/containers/FMRIPREP/poldracklab_fmriprep_1.1.1-201
 def configure_logger(quiet,verbose,debug): 
     '''
     Configure logger settings for script session 
+    TODO: Configure log to server
     '''
 
     if quiet: 
@@ -59,7 +59,7 @@ def configure_logger(quiet,verbose,debug):
         logger.setLevel(logging.INFO) 
     elif debug: 
         logger.setLevel(logging.DEBUG) 
-
+    
     return
 
 def get_datman_config(study):
@@ -113,7 +113,7 @@ def initialize_environment(config,subject,out_dir=None):
     #Initialize pipeline output directory
     if not out_dir: 
         logger.info('No out_dir argument. Creating fmriprep outputs at {}'.format(pipeline_dir))
-        out_dir = os.path.join(config.get_study_base(),'pipelines','fmriprep') 
+        out_dir = pipeline_dir 
     try: 
         os.makedirs(out_dir) 
     except OSError: 
@@ -124,7 +124,6 @@ def initialize_environment(config,subject,out_dir=None):
     return {'out' : out_dir, 'bids' : bids_dir}
     
 
-#Need to take into account whether subjects have already been run prior!
 def get_proj_subjects(config,rewrite): 
     '''
     Fetch non-phantom subjects from project data directory 
@@ -183,12 +182,15 @@ def gen_jobscript(simg,env,subject,fs_license):
     #Temp initialization
     init_cmd = '''
 
-    #Make temporary directories
     HOME=$(mktemp -d /tmp/home.XXXXX)
     WORK=$(mktemp -d $HOME/work.XXXXX)
     LICENSE=$(mktemp -d $HOME/li.XXXXX)
+    BIDS={bids}
+    SIMG={simg}
+    SUB={sub}
+    OUT={out}
 
-    '''
+    '''.format(bids=env['bids'],simg=simg,sub=bids_sub,out=env['out'])
 
     #Fetch freesurfer license 
     fs_cmd =  '''
@@ -201,25 +203,33 @@ def gen_jobscript(simg,env,subject,fs_license):
     
     cmd = '''
     trap cleanup EXIT 
-    singularity run -H $HOME -B {bids}:/bids -B $WORK:/work -B {out}:/out -B $LICENSE:/li 
-    {simg} 
+    singularity run -H $HOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out -B $LICENSE:/li 
+    $SIMG 
     /bids /out 
-    participant --participant-label {sub} 
+    participant --participant-label $SUB 
     --fs-license-file /li/license.txt
 
-    '''.format(
-            bids=env['bids'],
-            out=env['out'],
-            simg=simg,
-            sub=bids_sub
-            )
+    '''
+
+    #Testing function 
+    echo_func = '''
+
+    echo $HOME >> /scratch/jjeyachandra/tmp/testing.txt
+    echo $WORK >> /scratch/jjeyachandra/tmp/testing.txt
+    echo $LICENSE >> /scratch/jjeyachandra/tmp/testing.txt
+    echo $BIDS >> /scratch/jjeyachandra/tmp/testing.txt
+    echo $SIMG >> /scratch/jjeyachandra/tmp/testing.txt
+    echo $SUB >> /scratch/jjeyachandra/tmp/testing.txt
+    echo $OUT >> /scratch/jjeyachandra/tmp/testing.txt
+
+    '''
 
     #Run post-cleanup if successful
     cleanup = '\n cleanup \n'
 
 
     #Write job-file
-    write_executable(job_file,[header,trap_func,init_cmd,fs_cmd,cleanup]) 
+    write_executable(job_file,[header,trap_func,init_cmd,fs_cmd,echo_func,cleanup]) 
 
     logger.debug('Successfully wrote to {}'.format(job_file))
 
@@ -263,6 +273,10 @@ def submit_jobfile(job_file):
     if p.returncode: 
         logger.error('Failed to submit job, STDERR: {}'.format(err)) 
         sys.exit(1) 
+
+    #Delete jobfile
+    logger.info('Removing jobfile...')
+    os.remove(job_file)
     
 def main(): 
     
@@ -280,11 +294,11 @@ def main():
     verbose                     = arguments['--verbose'] 
     rewrite                     = arguments['--rewrite']
     
+    singularity_img = singularity_img if singularity_img else DEFAULT_SIMG
+
     #Global initialization routines
     configure_logger(quiet,verbose,debug) 
     config = get_datman_config(study)
-
-    singularity_img = singularity_img if singularity_img else DEFAULT_SIMG
 
     #run_bids_conversion(study, subjects, config) 
     bids_dir = os.path.join(config.get_path('data'),'bids') 
