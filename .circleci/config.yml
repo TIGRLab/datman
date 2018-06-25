@@ -8,5 +8,5 @@ jobs:
       - run:
           name: Install nose
           command: |
-            pip install -r nose==1.3.4
+            pip install nose==1.3.4
             nosetests
