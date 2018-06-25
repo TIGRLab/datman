@@ -5,4 +5,10 @@ jobs:
       - image: circleci/python:2.7-jessie-node-browsers
     steps:
       - checkout
-      - run: echo "Testing"
+      - run:
+          name: Install nose
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            pip install -r nose=1.3.4
+            nosetests
