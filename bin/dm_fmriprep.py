@@ -12,8 +12,7 @@ Arguments:
 
 Options: 
     -i, --singularity-image     Specify a custom fmriprep singularity image to use [default='/archive/code/containers/FMRIPREP/poldrack*fmriprep*.img']
-    -l, --log-to-server         Logging is saved into /archive/logs/server-logs
-    -q, --quiet                 Only show ERRORs 
+    -q, --quiet                 Only show WARNING/ERROR messages
     -v, --verbose               Display lots of logging information
     -d, --debug                 Display all logging information 
     -o, --out-dir               Location of where to output fmriprep outputs [default = /config_path/<study>/pipelines/fmriprep]
@@ -26,13 +25,9 @@ Requirements:
 
 import os 
 import sys
-
-import datman.utils 
 import datman.config
-
 import logging
 import tempfile
-
 import subprocess as proc
 import pdb
 
@@ -59,7 +54,6 @@ def configure_logger(quiet,verbose,debug):
         logger.setLevel(logging.INFO) 
     elif debug: 
         logger.setLevel(logging.DEBUG) 
-    
     return
 
 def get_datman_config(study):
@@ -288,7 +282,6 @@ def main():
     out_dir                     = arguments['--out-dir']
     fs_license                  = arguments['--fs-license-dir']
 
-    logserver                   = arguments['--log-to-server'] 
     debug                       = arguments['--debug'] 
     quiet                       = arguments['--quiet'] 
     verbose                     = arguments['--verbose'] 
