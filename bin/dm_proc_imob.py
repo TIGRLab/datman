@@ -65,7 +65,7 @@ def generate_analysis_script(subject, inputs, input_type, config, study):
     """
     assets =  os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir, 'assets')
     study_base = config.get_study_base(study)
-    subject_dir = os.path.join(study_base, config.site_config['paths']['fmri'], 'imob', subject)
+    subject_dir = os.path.join(study_base, config.get_path('fmri'), 'imob', subject)
     script = '{subject_dir}/{subject}_glm_1stlevel_{input_type}.sh'.format(
         subject_dir=subject_dir, subject=subject, input_type=input_type)
 
@@ -180,7 +180,7 @@ def main():
         sys.exit(1)
 
     study_base = config.get_study_base(study)
-    imob_dir = os.path.join(study_base, config.site_config['paths']['fmri'], 'imob')
+    imob_dir = os.path.join(study_base, config.get_path('fmri'), 'imob')
 
     # process a single subject
     if subject:
@@ -248,4 +248,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

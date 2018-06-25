@@ -65,7 +65,7 @@ def run_all(nrrd_dir, config, study):
     study_base = config.get_study_base(study)
     subjects = os.listdir(nrrd_dir)
     subjects = filter(lambda x: '_PHA_' not in x, subjects)
-    unring_dir = utils.define_folder(os.path.join(study_base, config.site_config['paths']['unring']))
+    unring_dir = utils.define_folder(os.path.join(study_base, config.get_path('unring')))
     tags = config.study_config['unring']['tags']
 
     for subject in subjects:
@@ -125,11 +125,11 @@ def main():
     study_base = config.get_study_base(study)
 
     for k in ['nrrd']:
-        if k not in config.site_config['paths']:
+        if k not in config.get_path('Paths'):
             logger.error("paths:{} not defined in site config".format(k))
             sys.exit(1)
 
-    nrrd_dir = os.path.join(study_base, config.site_config['paths']['nrrd'])
+    nrrd_dir = os.path.join(study_base, config.get_path('nrrd'))
 
     # runs in serial (due to MATLAB dependencies)
     if batch:
@@ -167,4 +167,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

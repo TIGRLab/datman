@@ -406,7 +406,7 @@ def generate_analysis_script(subject, inputs, input_type, config, study):
     See '-stim_times_AM2' in AFNI's 3dDeconvolve 'help' for more.
     """
     study_base = config.get_study_base(study)
-    subject_dir = os.path.join(study_base, config.site_config['paths']['fmri'], 'ea', subject)
+    subject_dir = os.path.join(study_base, config.get_path('fmri'), 'ea', subject)
     script = '{subject_dir}/{subject}_glm_1stlevel_{input_type}.sh'.format(
         subject_dir=subject_dir, subject=subject, input_type=input_type)
 
@@ -511,9 +511,9 @@ def analyze_subject(subject, config, study):
     4) runs the standard GLM analysis on these data
     """
     study_base = config.get_study_base(study)
-    resources_dir = os.path.join(study_base, config.site_config['paths']['resources'])
-    ea_dir = os.path.join(study_base, config.site_config['paths']['fmri'], 'ea')
-    output_dir = utils.define_folder(os.path.join(study_base, config.site_config['paths']['fmri'], 'ea', subject))
+    resources_dir = os.path.join(study_base, config.get_path('resources'))
+    ea_dir = os.path.join(study_base, config.get_path('fmri'), 'ea')
+    output_dir = utils.define_folder(os.path.join(study_base, config.get_path('fmri'), 'ea', subject))
 
     # check if subject has already been processed
     if check_complete(ea_dir, subject):
@@ -641,12 +641,12 @@ def main():
         sys.exit(1)
 
     for k in ['nii', 'fmri', 'hcp']:
-        if k not in config.site_config['paths']:
+        if k not in config.get_key('Paths'):
             logger.error("paths:{} not defined in {}".format(k, config_file))
             sys.exit(1)
 
-    ea_dir = os.path.join(study_base, config.site_config['paths']['fmri'], 'ea')
-    nii_dir = os.path.join(study_base, config.site_config['paths']['nii'])
+    ea_dir = os.path.join(study_base, config.get_path('fmri'), 'ea')
+    nii_dir = os.path.join(study_base, config.get_path('nii'))
 
     if subject:
         if '_PHA_' in subject:

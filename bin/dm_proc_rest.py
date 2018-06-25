@@ -62,7 +62,7 @@ def run_analysis(scanid, config, study):
     Extracts: time series, correlation matricies using defined atlas.
     """
     study_base = config.get_study_base(study)
-    fmri_dir = os.path.join(study_base, config.site_config['paths']['fmri'])
+    fmri_dir = os.path.join(study_base, config.get_path('fmri'))
     experiments = config.study_config['fmri'].keys()
     atlas = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir, 'assets/shen_2mm_268_parcellation.nii.gz')
 
@@ -135,11 +135,11 @@ def main():
 
     study_base = config.get_study_base(study)
 
-    if 'fmri' not in config.site_config['paths']:
+    if 'fmri' not in config.get_key('Paths'):
         logger.error("paths:fmri not defined in site configuration file\n{}".format(NODE))
         sys.exit(1)
 
-    fmri_dir = os.path.join(study_base, config.site_config['paths']['fmri'])
+    fmri_dir = os.path.join(study_base, config.get_path('fmri'))
 
     if scanid:
         path = os.path.join(fmri_dir, scanid)
