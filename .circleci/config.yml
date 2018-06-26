@@ -6,7 +6,7 @@ jobs:
         environment:
           DATMAN: /home/circleci/project/datman
     steps:
-      - ssh -Tv git@github.com
+      - run: ssh -Tv git@github.com
       - checkout
       - run:
           name: Clone config
