@@ -21,7 +21,8 @@ jobs:
       - run:
           name: Try to run nose
           command: |
-            cd datman
+            cd datman/tests
+            ls
             echo 'export PATH=${DATMAN}/bin/:${DATMAN}/assets/:$PATH:${DATMAN}/:${DATMAN}/datman/'
             echo 'export MATLABPATH=${DATMAN}/assets/:$MATLABPATH'
             echo 'export PYTHONPATH=${DATMAN}/assets/:${DATMAN}/:$PYTHONPATH'
