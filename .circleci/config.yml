@@ -7,6 +7,9 @@ jobs:
           DATMAN: /home/circleci/project/datman
     steps:
       - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - "57:f7:a2:fc:1c:c7:dd:2b:fe:33:4e:5a:b4:b9:9f:6e"
       - run:
           name: Clone config
           command: |
