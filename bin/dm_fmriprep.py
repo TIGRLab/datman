@@ -17,15 +17,17 @@ Options:
     -d, --debug                 Display all logging information 
     -o, --out-dir               Location of where to output fmriprep outputs [default = /config_path/<study>/pipelines/fmriprep]
     -r, --rewrite               Overwrite if fmriprep pipeline outputs already exist in output directory
-    --fs-license-dir            Freesurfer license path [default = /opt/quaratine/freesurfer/6.0.0/build/license.txt]
-
+    -f, --fs-license-dir FSLISDIR          Freesurfer license path [default = /opt/quaratine/freesurfer/6.0.0/build/license.txt]
+    --ignore-recon              Use this option to perform reconstruction even if already available in pipelines directory
+    
 Requirements: 
-    FSL (fslroi)
+    FSL (fslroi) - for nii_to_bids.py
 '''
 
 import os 
 import sys
 import datman.config
+from shutil import copytree, rmtree
 import logging
 import tempfile
 import subprocess as proc
@@ -92,7 +94,7 @@ def run_bids_conversion(study,subject,config):
         logger.error('Failed command: {}'.format(nii2bds_cmd))
     return
 
-def initialize_environment(config,subject,out_dir=None): 
+def initialize_environment(config,subject,out_dir): 
 
     '''
     Initializes environment for fmriprep mounting
@@ -102,28 +104,73 @@ def initialize_environment(config,subject,out_dir=None):
         out_dir             Base directory for fmriprep outputs
     '''
 
-    pipeline_dir = os.path.join(config.get_study_base(),'pipelines','fmriprep',subject) 
-
-    #Initialize pipeline output directory
-    if not out_dir: 
-        logger.info('No out_dir argument. Creating fmriprep outputs at {}'.format(pipeline_dir))
-        out_dir = pipeline_dir 
     try: 
-        os.makedirs(out_dir) 
+        os.makedirs(os.path.join(out_dir,subject)) 
     except OSError: 
         logger.info('Path already exists, fmriprep output directories will be created within: {}'.format(out_dir))  
 
     bids_dir = os.path.join(config.get_path('data'),'bids') 
 
-    return {'out' : out_dir, 'bids' : bids_dir}
+    return {'out' : os.path.join(out_dir,subject), 'bids' : bids_dir}
     
-
-def get_proj_subjects(config,rewrite): 
+def fetch_fs_recons(config,subject,sub_out_dir): 
     '''
-    Fetch non-phantom subjects from project data directory 
+    Copies over freesurfer reconstruction to fmriprep pipeline output for auto-detection
 
     Arguments: 
-        config                  datman.config object with study already set
+        config                      datman.config.config object with study initialized
+        subject                     datman style subject ID
+        sub_out_dir                 fmriprep output directory for subject
+
+    Output: 
+        Return status
+    '''
+    
+    #Check whether freesurfer directory exists for subject
+    fs_recon_dir = os.path.join(config.get_study_base(),'pipelines','freesurfer',subject) 
+    fmriprep_fs = os.path.join(sub_out_dir,'freesurfer') 
+
+    if os.path.isdir(fs_recon_dir): 
+        logger.info('Located FreeSurfer reconstruction files for {}, copying (rsync) to {}'.format(subject,fmriprep_fs))
+
+        #Create a freesurfer directory in the output directory
+        try: 
+            os.makedirs(fmriprep_fs) 
+        except OSError: 
+            logger.error('Failed to create directory {}'.format(fmriprep_fs)) 
+
+        #rsync source fs to fmriprep output
+        cmd = 'rsync -a {} {}'.format(fs_recon_dir,fmriprep_fs)
+        p = proc.Popen('rsync -a {} {}', stdout=proc.PIPE, stdin=proc.PIPE, shell=True)  
+        std,err = p.communicate() 
+
+        #Error outcome
+        if p.returncode: 
+            logger.error('Freesurfer copying failed with error: {}'.format(err)) 
+            logger.warning('fmriprep will run recon-all!')
+
+            #Clean failed directories 
+            logger.info('Cleaning created directories...')
+            try: 
+                os.rmtree(fmriprep_fs)
+            except OSError: 
+                logger.error('Failed to remove {}, please delete manually and re-run {} with --ignore-recon flag!'.format(fmriprep_fs,subject))
+                logger.error('Exiting.....')
+                sys.exit(1) 
+
+            return False
+        
+        logger.info('Successfully copied freesurfer reconstruction to {}'.format(fmriprep_fs))
+        return True
+
+def filter_processed(subjects, out_dir): 
+
+    '''
+    Filter out subjects that have already been previously run through fmriprep
+
+    Arguments: 
+        subjects                List of candidate subjects to be processed through pipeline
+        out_dir                 Base directory for where fmriprep outputs will be placed
 
     Outputs: 
         List of subjects meeting criteria: 
@@ -131,14 +178,8 @@ def get_proj_subjects(config,rewrite):
             2) Not a phantom
     '''
 
-    pipeline_dir = os.listdir(os.path.join(config.get_study_base(),'pipelines','fmriprep'))
-    
-    if not rewrite: 
-        criteria = lambda x: (x not in pipeline_dir) and ('PHA' not in x)
-    else: 
-        critera = lambda x: ('PHA' not in x) 
-
-    return [s for s in os.listdir(config.get_path('nii')) if criteria(s)]
+    criteria = lambda x: not os.path.isdir(os.path.join(out_dir,x,'fmriprep')) 
+    return [s for s in subjects if criteria(s)]  
     
     
 def gen_jobscript(simg,env,subject,fs_license): 
@@ -158,7 +199,7 @@ def gen_jobscript(simg,env,subject,fs_license):
     _,job_file = tempfile.mkstemp(suffix='fmriprep_job') 
 
     #Bids subject identifier
-    bids_sub = subject.split('_')[1] + '-' + subject.split('_')[-2]
+    bids_sub = 'sub-' + subject.split('_')[1] + subject.split('_')[-2]
 
     #Interpreter
     header = '#!/bin/bash'
@@ -195,12 +236,13 @@ def gen_jobscript(simg,env,subject,fs_license):
     '''.format(fs_license if fs_license else DEFAULT_FS_LICENSE)
 
     
-    cmd = '''
+    fmri_cmd = '''
+
     trap cleanup EXIT 
-    singularity run -H $HOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out -B $LICENSE:/li 
-    $SIMG 
-    /bids /out 
-    participant --participant-label $SUB 
+    singularity run -H $HOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out -B $LICENSE:/li \\
+    $SIMG -vvv \\
+    /bids /out \\
+    participant --participant-label $SUB \\
     --fs-license-file /li/license.txt
 
     '''
@@ -223,7 +265,7 @@ def gen_jobscript(simg,env,subject,fs_license):
 
 
     #Write job-file
-    write_executable(job_file,[header,trap_func,init_cmd,fs_cmd,echo_func,cleanup]) 
+    write_executable(job_file,[header,trap_func,init_cmd,fs_cmd,echo_func,fmri_cmd,cleanup]) 
 
     logger.debug('Successfully wrote to {}'.format(job_file))
 
@@ -257,10 +299,10 @@ def submit_jobfile(job_file):
         job_file                    Path to fmriprep job script to be submitted
     '''
 
-    cmd = 'qsub -V {}'.format(job_file)
+    cmd = 'qsub -V {}'.format(job_file,err_path,log_path)
 
+    #Submit jobfile and delete after successful submission
     logger.info('Submitting job with command: {}'.format(cmd)) 
-
     p = proc.Popen(cmd, stdin=proc.PIPE, stdout=proc.PIPE, shell=True) 
     std,err = p.communicate() 
     
@@ -268,7 +310,6 @@ def submit_jobfile(job_file):
         logger.error('Failed to submit job, STDERR: {}'.format(err)) 
         sys.exit(1) 
 
-    #Delete jobfile
     logger.info('Removing jobfile...')
     os.remove(job_file)
     
@@ -278,7 +319,9 @@ def main():
 
     study                       = arguments['<study>']
     subjects                     = arguments['<subjects>']
+
     singularity_img             = arguments['--singularity-image']
+
     out_dir                     = arguments['--out-dir']
     fs_license                  = arguments['--fs-license-dir']
 
@@ -286,22 +329,34 @@ def main():
     quiet                       = arguments['--quiet'] 
     verbose                     = arguments['--verbose'] 
     rewrite                     = arguments['--rewrite']
+    ignore_recon                = arguments['--ignore-recon']
     
-    singularity_img = singularity_img if singularity_img else DEFAULT_SIMG
-
-    #Global initialization routines
     configure_logger(quiet,verbose,debug) 
     config = get_datman_config(study)
+
+    singularity_img = singularity_img if singularity_img else DEFAULT_SIMG
+
+    DEFAULT_OUT = os.path.join(config.get_study_base(),'pipelines','fmriprep') 
+    out_dir = out_dir if out_dir else DEFAULT_OUT
 
     #run_bids_conversion(study, subjects, config) 
     bids_dir = os.path.join(config.get_path('data'),'bids') 
 
+    #If no subjects supplied, fetch from project directory
     if not subjects: 
-        subjects = get_proj_subjects(config)
+        proj_subjects = [s for s in os.listdir(config.get_path('nii')) if 'PHA' not in s] 
+
+    #If not using rewrite remove already processed subjects
+    if not rewrite: 
+        proj_subjects = filter_processed(proj_subjects,out_dir) 
 
     for subject in subjects: 
 
         env = initialize_environment(config, subject, out_dir)
+
+        if not ignore_recon:
+            fetch_fs_recon(config,subject,env['out']) 
+
         job_file = gen_jobscript(singularity_img,env,subject,fs_license) 
         submit_jobfile(job_file) 
 
