@@ -34,5 +34,6 @@ jobs:
             echo 'export MATLABPATH=${DATMAN}/assets/:$MATLABPATH'
             echo 'export PYTHONPATH=${DATMAN}/assets/:${DATMAN}/:$PYTHONPATH'
             echo 'export DATMAN_ASSETS=${DATMAN}/assets/'
+            cd /home/circleci/datman
             nosetests
             printenv
