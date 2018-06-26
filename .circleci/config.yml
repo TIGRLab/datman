@@ -15,8 +15,6 @@ jobs:
             pwd
             mkdir outputs
             sudo pip list > outputs/pip_list.txt
-      - persist_to_workspace:
-          root: /home/circleci/project/outputs
       - store_artifacts:
           path: outputs/
           destinations: tr1
@@ -28,5 +26,5 @@ jobs:
             echo 'export MATLABPATH=${DATMAN}/assets/:$MATLABPATH'
             echo 'export PYTHONPATH=${DATMAN}/assets/:${DATMAN}/:$PYTHONPATH'
             echo 'export DATMAN_ASSETS=${DATMAN}/assets/'
-            printenv > outputs/printenv.txt
             nosetests
+            printenv
