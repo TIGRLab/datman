@@ -6,6 +6,10 @@ jobs:
         environment:
           DATMAN: /archive/code/datman
     steps:
+      - run:
+          command: |
+            sudo mkdir /archive
+            sudo mkdir /archive/code
       - checkout:
           path: /archive/code/datman
       - run:
