@@ -18,6 +18,7 @@ jobs:
             pip install --user -r requirements.txt
             echo 'export PATH=/home/circleci/.local/bin/:$PATH' >> $BASH_ENV
             pwd
+            ls -R
             mkdir outputs
             sudo pip list > outputs/pip_list.txt
       - store_artifacts:
