@@ -12,7 +12,6 @@ jobs:
             echo 'export PATH=/home/circleci/.local/bin/:$PATH' >> $BASH_ENV
             pwd
             mkdir outputs
-            sudo ls -R / > outputs/ls_R.txt
             sudo pip list > outputs/pip_list.txt
       - store_artifacts:
           path: outputs/
