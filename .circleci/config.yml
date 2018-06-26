@@ -10,6 +10,7 @@ jobs:
           command: |
             sudo mkdir /archive
             sudo mkdir /archive/code
+            sudo mkdir /archive/code/datman
       - checkout:
           path: /archive/code/datman
       - run:
