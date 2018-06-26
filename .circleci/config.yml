@@ -8,7 +8,12 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Install nose
+          name: Clone config
+          command: |
+            git clone https://github.com/Mathu-M/datman-config.git
+            echo 'export DM_CONFIG=/home/circleci/datman-config/tigrlab_congif.yaml'
+      - run:
+          name: Install requirements
           command: |
             pip install --user -r requirements.txt
             echo 'export PATH=/home/circleci/.local/bin/:$PATH' >> $BASH_ENV
