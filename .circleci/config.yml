@@ -9,7 +9,6 @@ jobs:
           name: Install nose
           command: |
             pip install --user nose==1.3.4
-            nosetests
             pwd
             mkdir outputs
             ls -r / > outputs/out.txt
