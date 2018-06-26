@@ -10,7 +10,7 @@ jobs:
       - run:
           name: Clone config
           command: |
-            git clone git@github.com:Mathu-M/datman-config.git
+            git clone git@github.com:Mathu-M/datman-config.git /home/circleci/datman-config
             echo 'export DM_CONFIG=/home/circleci/datman-config/tigrlab_config.yaml'
       - run:
           name: Install requirements
@@ -18,7 +18,7 @@ jobs:
             pip install --user -r requirements.txt
             echo 'export PATH=/home/circleci/.local/bin/:$PATH' >> $BASH_ENV
             pwd
-            ls -R
+            ls -R /home/circleci/
             mkdir outputs
             sudo pip list > outputs/pip_list.txt
       - store_artifacts:
