@@ -6,15 +6,13 @@ jobs:
         environment:
           DATMAN: /home/circleci/project/datman
     steps:
+      - ssh -Tv git@github.com
       - checkout
-      - add_ssh_keys:
-          fingerprints:
-            - "57:f7:a2:fc:1c:c7:dd:2b:fe:33:4e:5a:b4:b9:9f:6e"
       - run:
           name: Clone config
           command: |
             git clone git@github.com:Mathu-M/datman-config.git
-            echo 'export DM_CONFIG=/home/circleci/datman-config/tigrlab_congif.yaml'
+            echo 'export DM_CONFIG=/home/circleci/datman-config/tigrlab_config.yaml'
       - run:
           name: Install requirements
           command: |
