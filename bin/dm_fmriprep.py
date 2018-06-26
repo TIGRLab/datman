@@ -44,6 +44,15 @@ logger = logging.getLogger(os.path.basename(__file__))
 DEFAULT_FS_LICENSE = '/opt/quarantine/freesurfer/6.0.0/build/license.txt'
 DEFAULT_SIMG = '/archive/code/containers/FMRIPREP/poldracklab_fmriprep_1.1.1-2018-06-07-2f08547a0732.img'
 
+def get_bids_name(subject): 
+    '''
+    Helper function to convert datman to BIDS name
+    Arguments: 
+        subject                     Datman style subject ID
+    '''
+
+    return 'sub-' + subject.split('_')[1] + subject.split('_')[-2]
+
 def configure_logger(quiet,verbose,debug): 
     '''
     Configure logger settings for script session 
@@ -113,7 +122,7 @@ def initialize_environment(config,subject,out_dir):
 
     return {'out' : os.path.join(out_dir,subject), 'bids' : bids_dir}
     
-def fetch_fs_recons(config,subject,sub_out_dir): 
+def fetch_fs_recon(config,subject,sub_out_dir): 
     '''
     Copies over freesurfer reconstruction to fmriprep pipeline output for auto-detection
 
@@ -128,7 +137,7 @@ def fetch_fs_recons(config,subject,sub_out_dir):
     
     #Check whether freesurfer directory exists for subject
     fs_recon_dir = os.path.join(config.get_study_base(),'pipelines','freesurfer',subject) 
-    fmriprep_fs = os.path.join(sub_out_dir,'freesurfer') 
+    fmriprep_fs = os.path.join(sub_out_dir,'freesurfer',get_bids_name(subject)) 
 
     if os.path.isdir(fs_recon_dir): 
         logger.info('Located FreeSurfer reconstruction files for {}, copying (rsync) to {}'.format(subject,fmriprep_fs))
@@ -139,9 +148,9 @@ def fetch_fs_recons(config,subject,sub_out_dir):
         except OSError: 
             logger.error('Failed to create directory {}'.format(fmriprep_fs)) 
 
-        #rsync source fs to fmriprep output
-        cmd = 'rsync -a {} {}'.format(fs_recon_dir,fmriprep_fs)
-        p = proc.Popen('rsync -a {} {}', stdout=proc.PIPE, stdin=proc.PIPE, shell=True)  
+        #rsync source fs to fmriprep output, using os.path.join(x,'') to enforce trailing slash for rsync
+        cmd = 'rsync -a {} {}'.format(os.path.join(fs_recon_dir,''),fmriprep_fs)
+        p = proc.Popen(cmd, stdout=proc.PIPE, stdin=proc.PIPE, shell=True)  
         std,err = p.communicate() 
 
         #Error outcome
@@ -163,7 +172,7 @@ def fetch_fs_recons(config,subject,sub_out_dir):
         logger.info('Successfully copied freesurfer reconstruction to {}'.format(fmriprep_fs))
         return True
 
-def filter_processed(subjects, out_dir): 
+def get_proj_subjects(subjects, out_dir): 
 
     '''
     Filter out subjects that have already been previously run through fmriprep
@@ -198,9 +207,6 @@ def gen_jobscript(simg,env,subject,fs_license):
     #Make job file
     _,job_file = tempfile.mkstemp(suffix='fmriprep_job') 
 
-    #Bids subject identifier
-    bids_sub = 'sub-' + subject.split('_')[1] + subject.split('_')[-2]
-
     #Interpreter
     header = '#!/bin/bash'
 
@@ -225,7 +231,7 @@ def gen_jobscript(simg,env,subject,fs_license):
     SUB={sub}
     OUT={out}
 
-    '''.format(bids=env['bids'],simg=simg,sub=bids_sub,out=env['out'])
+    '''.format(bids=env['bids'],simg=simg,sub=get_bids_name(subject),out=env['out'])
 
     #Fetch freesurfer license 
     fs_cmd =  '''
@@ -342,14 +348,13 @@ def main():
     #run_bids_conversion(study, subjects, config) 
     bids_dir = os.path.join(config.get_path('data'),'bids') 
 
-    #If no subjects supplied, fetch from project directory
     if not subjects: 
-        proj_subjects = [s for s in os.listdir(config.get_path('nii')) if 'PHA' not in s] 
+        subjects = [s for s in os.listdir(config.get_path('nii')) if 'PHA' not in s] 
 
-    #If not using rewrite remove already processed subjects
     if not rewrite: 
-        proj_subjects = filter_processed(proj_subjects,out_dir) 
+        subjects = filter_processed(subjects,out_dir) 
 
+    pdb.set_trace() 
     for subject in subjects: 
 
         env = initialize_environment(config, subject, out_dir)
