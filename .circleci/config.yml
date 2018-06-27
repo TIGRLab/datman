@@ -38,7 +38,7 @@ jobs:
             printenv > outputs/printenv.txt
             source venv/bin/activate
             cd /home/circleci/datman
-            nosetests > /home/circleci/project/outputs/nosetests.txt
+            echo 'nosetests > /home/circleci/project/outputs/nosetests.txt'
       - store_artifacts:
           path: /home/circleci/project/outputs
           destination: out
