@@ -8,32 +8,39 @@ jobs:
     steps:
       - checkout:
           path: /home/circleci/datman
+      - restore_cache:
+          key: deps1-{{ .Branch }}-{{ checksum "/home/circleci/datman/requirements.txt" }}
       - run:
-          name: Clone config
+          name: Install requirements in venv
           command: |
-            git clone git@github.com:Mathu-M/datman-config.git /home/circleci/config
-            echo 'export DM_CONFIG=/home/circleci/config/tigrlab_config.yaml'
-            echo 'export DM_SYSTEM=test'
-      - run:
-          name: Install requirements
-          command: |
+            python -m virtualenv venv
+            source venv/bin/activate
             pip install --user -r /home/circleci/datman/requirements.txt
-            echo 'export PATH=/home/circleci/.local/bin/:$PATH' >> $BASH_ENV
+      - save_cache:
+          key: deps1-{{ .Branch }}-{{ checksum "/home/circleci/datman/requirements.txt" }}
+          paths:
+            - "venv"
+      - run:
+          name: Test outputs
+          command: |
             pwd
             ls -hlR /home/circleci/
             mkdir outputs
             sudo pip list > outputs/pip_list.txt
-      - store_artifacts:
-          path: outputs/
-          destinations: tr1
       - run:
           name: Try to run nose
           command: |
             ls
-            echo 'export PATH=${DATMAN}/bin/:${DATMAN}/assets/:$PATH:${DATMAN}/:${DATMAN}/datman/'
-            echo 'export MATLABPATH=${DATMAN}/assets/:$MATLABPATH'
-            echo 'export PYTHONPATH=${DATMAN}/assets/:${DATMAN}/:$PYTHONPATH'
+            echo 'export PATH=${DATMAN}/bin/:${DATMAN}/assets/:$PATH:${DATMAN}/:${DATMAN}/datman/' >> $BASH_ENV
+            echo 'export MATLABPATH=${DATMAN}/assets/:$MATLABPATH' >> $BASH_ENV
+            echo 'export PYTHONPATH=${DATMAN}/assets/:${DATMAN}/:$PYTHONPATH' >> $BASH_ENV
             echo 'export DATMAN_ASSETS=${DATMAN}/assets/'
+            printenv > outputs/printenv.txt
+            source venv/bin/activate
             cd /home/circleci/datman
-            nosetests
-            printenv
+            nosetests > /home/circleci/project/outputs/nosetests.txt
+      - store_artifacts:
+          path: /home/circleci/project/outputs
+          destination: out
+      - store_test_results:
+          path: /home/circleci/project/outputs
