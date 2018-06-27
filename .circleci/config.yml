@@ -15,7 +15,7 @@ jobs:
           command: |
             python -m virtualenv venv
             source venv/bin/activate
-            pip install --user -r /home/circleci/datman/requirements.txt
+            pip install -r /home/circleci/datman/requirements.txt
       - save_cache:
           key: deps1-{{ .Branch }}-{{ checksum "/home/circleci/datman/requirements.txt" }}
           paths:
