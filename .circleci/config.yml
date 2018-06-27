@@ -21,13 +21,6 @@ jobs:
           paths:
             - "venv"
       - run:
-          name: Test outputs
-          command: |
-            pwd
-            ls -hlR /home/circleci/
-            mkdir outputs
-            sudo pip list > outputs/pip_list.txt
-      - run:
           name: Try to run nose
           command: |
             ls
@@ -35,10 +28,12 @@ jobs:
             echo 'export MATLABPATH=${DATMAN}/assets/:$MATLABPATH' >> $BASH_ENV
             echo 'export PYTHONPATH=${DATMAN}/assets/:${DATMAN}/:$PYTHONPATH' >> $BASH_ENV
             echo 'export DATMAN_ASSETS=${DATMAN}/assets/'
+            mkdir outputs
             printenv > outputs/printenv.txt
             source venv/bin/activate
+            sudo pip list > outputs/pip_list.txt
             cd /home/circleci/datman
-            echo 'nosetests > /home/circleci/project/outputs/nosetests.txt'
+            nosetests --cover-xml-file /home/circleci/project/outputs/nosetests.xml
       - store_artifacts:
           path: /home/circleci/project/outputs
           destination: out
