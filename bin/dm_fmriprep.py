@@ -345,16 +345,19 @@ def write_executable(f,cmds):
         logger.error('ERR CODE: {}'.format(err)) 
         sys.exit(1) 
 
-def submit_jobfile(job_file): 
+def submit_jobfile(job_file,num_threads): 
 
     '''
     Submit fmriprep jobfile
 
     Arguments: 
         job_file                    Path to fmriprep job script to be submitted
+        num_threads                 Number of cores to utilize on each node 
     '''
 
-    cmd = 'qsub -V {}'.format(job_file,err_path,log_path)
+    #Formulate command
+    augment_cmd = ' -l ppn={}'.format(num_threads) if num_threads else ''
+    cmd = 'qsub -V {}'.format(job_file,err_path,log_path) + augment_cmd
 
     #Submit jobfile and delete after successful submission
     logger.info('Submitting job with command: {}'.format(cmd)) 
@@ -407,14 +410,12 @@ def main():
     if not rewrite: 
         subjects = filter_processed(subjects,out_dir) 
 
-
     for subject in subjects: 
 
         #Initialize subject directories and generate the fmriprep jobscript
         env = initialize_environment(config, subject, out_dir)
         job_file = gen_jobscript(singularity_img,env,subject,fs_license,num_threads) 
 
-        #If cross-sectional, then copy over freesurfer output, then decorate the jobfile symlink + deletion
         if not ignore_recon or not keeprecon:
 
             fetch_flag = fetch_fs_recon(config,subject,env['out']) 
