@@ -129,6 +129,7 @@ def run_epitome(path, config, study):
     subject = os.path.basename(path)
     nii_dir = os.path.join(study_base, config.get_path('nii'))
     t1_dir = os.path.join(study_base, config.get_path('hcp'))
+
     fmri_dir = utils.define_folder(os.path.join(study_base, config.get_path('fmri')))
     experiments = config.study_config['fmri'].keys()
 
@@ -307,6 +308,7 @@ def main():
                 sys.exit(1)
 
     nii_dir = os.path.join(study_base, config.get_path('nii'))
+
 
     if scanid:
         path = os.path.join(nii_dir, scanid)
