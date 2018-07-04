@@ -18,10 +18,19 @@ Options:
     -o, --out-dir               Location of where to output fmriprep outputs [default = /config_path/<study>/pipelines/fmriprep]
     -r, --rewrite               Overwrite if fmriprep pipeline outputs already exist in output directory
     -f, --fs-license-dir FSLISDIR          Freesurfer license path [default = /opt/quaratine/freesurfer/6.0.0/build/license.txt]
+    -t, --threads NUM_THREADS              Number of threads to utilize [default : greedy, HIGHLY RECOMMEND LIMITING ON COMPUTE CLUSTERS!]
     --ignore-recon              Use this option to perform reconstruction even if already available in pipelines directory
     
 Requirements: 
     FSL (fslroi) - for nii_to_bids.py
+
+Note:
+    FMRIPREP freesurfer module combines longitudinal data in order to enhance surface reconstruction, however sometimes we want to maintain both reconstructions 
+    for temporally varying measures that are extracted from pial surfaces. 
+
+    Thus the behaviour of the script is as follows: 
+        a) If particular session is coded XX_XX_XXXX_0N where N > 1. Then the original reconstructions will be left behind and a new one will be formed 
+        b) For the first run, the original freesurfer implementation will always be symbolically linked to fmriprep's reconstruction (unless a new one becomes available)  
 '''
 
 import os 
@@ -146,7 +155,7 @@ def fetch_fs_recon(config,subject,sub_out_dir):
         try: 
             os.makedirs(fmriprep_fs) 
         except OSError: 
-            logger.error('Failed to create directory {}'.format(fmriprep_fs)) 
+            logger.error('Failed to create directory {} already exists!'.format(fmriprep_fs)) 
 
         #rsync source fs to fmriprep output, using os.path.join(x,'') to enforce trailing slash for rsync
         cmd = 'rsync -a {} {}'.format(os.path.join(fs_recon_dir,''),fmriprep_fs)
@@ -171,8 +180,13 @@ def fetch_fs_recon(config,subject,sub_out_dir):
         
         logger.info('Successfully copied freesurfer reconstruction to {}'.format(fmriprep_fs))
         return True
+    else: 
+        #No freesurfer directory found, continue on but return False status indicator
 
-def get_proj_subjects(subjects, out_dir): 
+        logger.info('No freesurfer directory found in {}'.format(fs_recon_dir))
+        return False 
+
+def filter_processed(subjects, out_dir): 
 
     '''
     Filter out subjects that have already been previously run through fmriprep
@@ -191,14 +205,17 @@ def get_proj_subjects(subjects, out_dir):
     return [s for s in subjects if criteria(s)]  
     
     
-def gen_jobscript(simg,env,subject,fs_license): 
+def gen_jobscript(simg,env,subject,fs_license,num_threads=None): 
 
     '''
     Write a singularity job script to submit; complete with cleanup management
     
     Arguments: 
-        env                 A dictionary containing fmriprep mounting directories: {base: <base directory>, work: <base/{}_work>, home: <base/{}_home>, out: <output_dir>,license: <base/{}_li}
         simg                fmriprep singularity image
+        env                 A dictionary containing fmriprep mounting directories: {base: <base directory>, work: <base/{}_work>, home: <base/{}_home>, out: <output_dir>,license: <base/{}_li}
+        subject             Datman-style subject ID
+        fs_license          Directory to freesurfer license.txt 
+        num_threads         Number of threads
 
     Output: 
         job_file            Full path to jobfile
@@ -208,7 +225,12 @@ def gen_jobscript(simg,env,subject,fs_license):
     _,job_file = tempfile.mkstemp(suffix='fmriprep_job') 
 
     #Interpreter
-    header = '#!/bin/bash'
+    header = '#!/bin/bash \n' 
+
+    #Set up environment: 
+    if num_threads:
+        thread_env = 'OMP_NUM_THREADS={}'.format(num_threads)
+    else: thread_env = ''
 
     #Cleanup function 
     trap_func = '''
@@ -271,11 +293,38 @@ def gen_jobscript(simg,env,subject,fs_license):
 
 
     #Write job-file
-    write_executable(job_file,[header,trap_func,init_cmd,fs_cmd,echo_func,fmri_cmd,cleanup]) 
+    write_executable(job_file,[header,thread_env,trap_func,init_cmd,fs_cmd,echo_func,fmri_cmd,cleanup]) 
 
     logger.debug('Successfully wrote to {}'.format(job_file))
 
     return job_file
+
+def append_jobfile_symlink(jobfile,config,subject,sub_out_dir): 
+    '''
+    Decorator function for appending a call to clear out old freesurfer directory and symlink to fmriprep freesurfer version 
+
+    Arguments: 
+        jobfile                 Path to jobfile to be modified 
+        config                  datman.config.config object with study initialized
+        subject                 Datman-style subject ID
+        sub_out_dir             fmriprep subject output path
+    '''
+
+    #Path to fmriprep output and freesurfer recon directories
+    fmriprep_fs_path = os.path.join(sub_out_dir,'freesurfer')
+    fs_recon_dir = os.path.join(config.get_study_base(),'pipelines','freesurfer',subject) 
+
+    #Remove entire subject directory, then symlink in the fmriprep version
+    remove_cmd = '\nrm -rf {} \n'.format(fs_recon_dir) 
+    symlink_cmd = 'ln -s {} {} \n'.format(fmriprep_fs_path,fs_recon_dir)
+    
+    #Append
+    with open(jobfile,'a') as f_job: 
+        f_job.write(remove_cmd) 
+        f_job.write(symlink_cmd)
+
+    return
+
 
 def write_executable(f,cmds): 
     '''
@@ -336,9 +385,13 @@ def main():
     verbose                     = arguments['--verbose'] 
     rewrite                     = arguments['--rewrite']
     ignore_recon                = arguments['--ignore-recon']
+    num_threads                 = arguments['--threads']
     
     configure_logger(quiet,verbose,debug) 
     config = get_datman_config(study)
+
+    #Maintain original reconstruction (equivalent to ignore) 
+    keeprecon = config.get_key('KeepRecon') 
 
     singularity_img = singularity_img if singularity_img else DEFAULT_SIMG
 
@@ -354,18 +407,23 @@ def main():
     if not rewrite: 
         subjects = filter_processed(subjects,out_dir) 
 
-    pdb.set_trace() 
+
     for subject in subjects: 
 
+        #Initialize subject directories and generate the fmriprep jobscript
         env = initialize_environment(config, subject, out_dir)
+        job_file = gen_jobscript(singularity_img,env,subject,fs_license,num_threads) 
 
-        if not ignore_recon:
-            fetch_fs_recon(config,subject,env['out']) 
+        #If cross-sectional, then copy over freesurfer output, then decorate the jobfile symlink + deletion
+        if not ignore_recon or not keeprecon:
 
-        job_file = gen_jobscript(singularity_img,env,subject,fs_license) 
-        submit_jobfile(job_file) 
+            fetch_flag = fetch_fs_recon(config,subject,env['out']) 
+            
+            if fetch_flag: 
+                append_jobfile_symlink(job_file,config,subject,env['out'])       
 
-
+        pdb.set_trace() 
+        submit_jobfile(job_file,num_threads) 
 
 if __name__ == '__main__': 
     main() 
