@@ -7,13 +7,14 @@ Usage:
     dm_proc_fmri.py [options] <study>
 
 Arguments:
-    <study>          study name defined in master configuration .yml file
+    <study>                     study name defined in master configuration .yml file
 
 Options:
-    --subject SUBJID subject name to run on
-    --debug          debug logging
-    --dry-run        don't do anything
-    --output OUTPUT_DIR        Set base output directory 
+    --subject SUBJID            subject name to run on
+    --debug                     debug logging
+    --dry-run                   don't do anything
+    --output OUTPUT_DIR         Set base output directory 
+    --exports <export,...>       Request additional export options, list of comma-separated strings
 
 DEPENDENCIES
     + python
@@ -121,7 +122,7 @@ def outputs_exist(output_dir, expected_names):
 
     return False
 
-def run_epitome(path, config, study, output):
+def run_epitome(path, config, study, output, exports):
     """
     Finds the appropriate inputs for input subject, builds a temporary epitome
     folder, runs epitome, and finally copies the outputs to the fmri_dir.
@@ -138,7 +139,7 @@ def run_epitome(path, config, study, output):
     for exp in experiments:
         logger.debug('running experiment {}'.format(exp))
         # collect the files needed for each experiment
-        expected_names = config.study_config['fmri'][exp]['export']
+        expected_names = set(config.study_config['fmri'][exp]['export'] + exports)
         expected_tags = config.study_config['fmri'][exp]['tags']
         output_dir = utils.define_folder(os.path.join(fmri_dir, exp, subject))
 
@@ -282,6 +283,7 @@ def main():
     debug  = arguments['--debug']
     dryrun = arguments['--dry-run']
     output = arguments['--output']
+    exports = arguments['--exports']
 
     # configure logging
     logging.info('Starting')
@@ -297,6 +299,10 @@ def main():
 
     study_base = config.get_study_base(study)
 
+    #Parse optional arguments
+    output_dir = output if output else os.path.join(study_base,config.get_path('fmri')) 
+    opt_exports = [e for e in exports.split(',')] if exports else []
+
     for k in ['nii', 'fmri', 'hcp']:
         if k not in config.get_key('Paths'):
             logger.error("paths:{} not defined in site config".format(k))
@@ -310,15 +316,15 @@ def main():
 
     nii_dir = os.path.join(study_base, config.get_path('nii'))
 
-    #Specify output directory
-    output_dir = output if output else os.path.join(study_base,config.get_path('fmri')) 
-
+    import pdb
+    pdb.set_trace() 
+    
     if scanid:
         path = os.path.join(nii_dir, scanid)
         if '_PHA_' in scanid:
             sys.exit('Subject {} if a phantom, cannot be analyzed'.format(scanid))
         try:
-            run_epitome(path, config, study,output_dir)
+            run_epitome(path, config, study, output_dir, opt_exports)
         except Exception as e:
             logging.error(e)
             sys.exit(1)
@@ -338,7 +344,7 @@ def main():
 
             fmri_dir = utils.define_folder(output_dir)
             for exp in config.study_config['fmri'].keys():
-                expected_names = config.study_config['fmri'][exp]['export']
+                expected_names = set(config.study_config['fmri'][exp]['export'] + opt_exports) 
                 subj_dir = os.path.join(fmri_dir, exp, subject)
                 if not outputs_exist(subj_dir, expected_names):
                     subjects.append(subject)
@@ -354,8 +360,8 @@ def main():
             debugopt = ''
 
         for subject in subjects:
-            commands.append(" ".join(['python ', __file__, study, '--subject {} --output {} ' \
-                .format(subject,output_dir), debugopt]))
+            commands.append(" ".join(['python ', __file__, study, '--subject {} --output {} --exports {} ' \
+                .format(subject,output_dir,exports), debugopt]))
 
         if commands:
             logger.debug('queueing up the following commands:\n'+'\n'.join(commands))
