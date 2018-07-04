@@ -3,8 +3,7 @@
 '''
 Runs fmriprep minimal processing pipeline on datman studies or individual sessions 
 
-Usage: 
-    dm_fmriprep [options] <study> [<subjects>...] 
+Usage: dm_fmriprep [options] <study> [<subjects>...] 
 
 Arguments:
     <study>                 datman study nickname to be processed by fmriprep 
@@ -357,7 +356,7 @@ def submit_jobfile(job_file,num_threads):
 
     #Formulate command
     augment_cmd = ' -l ppn={}'.format(num_threads) if num_threads else ''
-    cmd = 'qsub -V {}'.format(job_file,err_path,log_path) + augment_cmd
+    cmd = 'qsub -V {}'.format(job_file) + augment_cmd
 
     #Submit jobfile and delete after successful submission
     logger.info('Submitting job with command: {}'.format(cmd)) 
@@ -401,7 +400,7 @@ def main():
     DEFAULT_OUT = os.path.join(config.get_study_base(),'pipelines','fmriprep') 
     out_dir = out_dir if out_dir else DEFAULT_OUT
 
-    #run_bids_conversion(study, subjects, config) 
+    run_bids_conversion(study, subjects, config) 
     bids_dir = os.path.join(config.get_path('data'),'bids') 
 
     if not subjects: 
@@ -423,7 +422,6 @@ def main():
             if fetch_flag: 
                 append_jobfile_symlink(job_file,config,subject,env['out'])       
 
-        pdb.set_trace() 
         submit_jobfile(job_file,num_threads) 
 
 if __name__ == '__main__': 
