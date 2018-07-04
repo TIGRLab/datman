@@ -13,6 +13,7 @@ Options:
     --subject SUBJID subject name to run on
     --debug          debug logging
     --dry-run        don't do anything
+    --output OUTPUT_DIR        Set base output directory 
 
 DEPENDENCIES
     + python
@@ -120,7 +121,7 @@ def outputs_exist(output_dir, expected_names):
 
     return False
 
-def run_epitome(path, config, study):
+def run_epitome(path, config, study, output):
     """
     Finds the appropriate inputs for input subject, builds a temporary epitome
     folder, runs epitome, and finally copies the outputs to the fmri_dir.
@@ -129,7 +130,7 @@ def run_epitome(path, config, study):
     subject = os.path.basename(path)
     nii_dir = os.path.join(study_base, config.get_path('nii'))
     t1_dir = os.path.join(study_base, config.get_path('hcp'))
-    fmri_dir = utils.define_folder(os.path.join(study_base, config.get_path('fmri')))
+    fmri_dir = utils.define_folder(output)
     experiments = config.study_config['fmri'].keys()
 
     # run file collection --> epitome --> export for each study
@@ -280,6 +281,7 @@ def main():
     scanid = arguments['--subject']
     debug  = arguments['--debug']
     dryrun = arguments['--dry-run']
+    output = arguments['--output']
 
     # configure logging
     logging.info('Starting')
@@ -308,12 +310,15 @@ def main():
 
     nii_dir = os.path.join(study_base, config.get_path('nii'))
 
+    #Specify output directory
+    output_dir = output if output else os.path.join(study_base,config.get_path('fmri')) 
+
     if scanid:
         path = os.path.join(nii_dir, scanid)
         if '_PHA_' in scanid:
             sys.exit('Subject {} if a phantom, cannot be analyzed'.format(scanid))
         try:
-            run_epitome(path, config, study)
+            run_epitome(path, config, study,output_dir)
         except Exception as e:
             logging.error(e)
             sys.exit(1)
@@ -331,7 +336,7 @@ def main():
                 logger.debug("Subject {} is a phantom. Skipping.".format(subject))
                 continue
 
-            fmri_dir = utils.define_folder(os.path.join(study_base, config.get_path('fmri')))
+            fmri_dir = utils.define_folder(output_dir)
             for exp in config.study_config['fmri'].keys():
                 expected_names = config.study_config['fmri'][exp]['export']
                 subj_dir = os.path.join(fmri_dir, exp, subject)
@@ -349,7 +354,8 @@ def main():
             debugopt = ''
 
         for subject in subjects:
-            commands.append(" ".join(['python ', __file__, study, '--subject {} '.format(subject), debugopt]))
+            commands.append(" ".join(['python ', __file__, study, '--subject {} --output {} ' \
+                .format(subject,output_dir), debugopt]))
 
         if commands:
             logger.debug('queueing up the following commands:\n'+'\n'.join(commands))
