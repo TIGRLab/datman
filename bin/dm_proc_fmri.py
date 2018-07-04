@@ -376,7 +376,7 @@ def main():
             g_opts += ' --debug'
 
         for subject in subjects:
-            commands.append(" ".join(['python ', __file__, study, g_opts, debugopt]))
+            commands.append(" ".join(['python ', __file__, study, g_opts]))
 
         if commands:
             logger.debug('queueing up the following commands:\n'+'\n'.join(commands))
