@@ -378,8 +378,6 @@ def main():
             sub_tag = ' --subject {}'.format(subject) 
             commands.append(" ".join(['python ', __file__, study,g_opts,sub_tag]))
 
-        import pdb
-        pdb.set_trace() 
         if commands:
             logger.debug('queueing up the following commands:\n'+'\n'.join(commands))
             for i, cmd in enumerate(commands):
