@@ -3,14 +3,16 @@
 '''
 Runs fmriprep minimal processing pipeline on datman studies or individual sessions 
 
-Usage: dm_fmriprep [options] <study> [<subjects>...] 
+Usage: 
+    dm_fmriprep [options] <study> 
+    dm_fmriprep [options] <study> [<subjects>...] 
 
 Arguments:
     <study>                 datman study nickname to be processed by fmriprep 
     <subjects>              List of space-separated datman-style subject IDs
 
 Options: 
-    -i, --singularity-image     Specify a custom fmriprep singularity image to use [default='/archive/code/containers/FMRIPREP/poldrack*fmriprep*.img']
+    -i, --singularity-image IMAGE     Specify a custom fmriprep singularity image to use [default='/archive/code/containers/FMRIPREP/poldrack*fmriprep*.img']
     -q, --quiet                 Only show WARNING/ERROR messages
     -v, --verbose               Display lots of logging information
     -d, --debug                 Display all logging information 
@@ -39,7 +41,6 @@ from shutil import copytree, rmtree
 import logging
 import tempfile
 import subprocess as proc
-import pdb
 
 from docopt import docopt
 
@@ -48,7 +49,7 @@ logging.basicConfig(level = logging.WARN,
 logger = logging.getLogger(os.path.basename(__file__))
 
 
-#Defaults
+#Defaults (will only work correctly in tigrlab environment -- fix) 
 DEFAULT_FS_LICENSE = '/opt/quarantine/freesurfer/6.0.0/build/license.txt'
 DEFAULT_SIMG = '/archive/code/containers/FMRIPREP/poldracklab_fmriprep_1.1.1-2018-06-07-2f08547a0732.img'
 
@@ -399,7 +400,7 @@ def main():
 
     DEFAULT_OUT = os.path.join(config.get_study_base(),'pipelines','fmriprep') 
     out_dir = out_dir if out_dir else DEFAULT_OUT
-
+    
     run_bids_conversion(study, subjects, config) 
     bids_dir = os.path.join(config.get_path('data'),'bids') 
 
@@ -421,6 +422,9 @@ def main():
             
             if fetch_flag: 
                 append_jobfile_symlink(job_file,config,subject,env['out'])       
+
+        import pdb
+        pdb.set_trace() 
 
         submit_jobfile(job_file,num_threads) 
 
