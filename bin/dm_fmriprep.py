@@ -21,6 +21,7 @@ Options:
     -f, --fs-license-dir FSLISDIR          Freesurfer license path [default = /opt/quaratine/freesurfer/6.0.0/build/license.txt]
     -t, --threads NUM_THREADS              Number of threads to utilize [default : greedy, HIGHLY RECOMMEND LIMITING ON COMPUTE CLUSTERS!]
     --ignore-recon              Use this option to perform reconstruction even if already available in pipelines directory
+    -d, --tmp-dir TMPDIR         Specify custom temporary directory (when using remote servers with restrictions on /tmp/ writing) 
     
 Requirements: 
     FSL (fslroi) - for nii_to_bids.py
@@ -205,7 +206,7 @@ def filter_processed(subjects, out_dir):
     return [s for s in subjects if criteria(s)]  
     
     
-def gen_jobscript(simg,env,subject,fs_license,num_threads=None): 
+def gen_jobscript(simg,env,subject,fs_license,num_threads,tmp_dir): 
 
     '''
     Write a singularity job script to submit; complete with cleanup management
@@ -222,7 +223,7 @@ def gen_jobscript(simg,env,subject,fs_license,num_threads=None):
     '''
     
     #Make job file
-    _,job_file = tempfile.mkstemp(suffix='fmriprep_job') 
+    _,job_file = tempfile.mkstemp(suffix='fmriprep_job',dir=tmp_dir) 
 
     #Interpreter
     header = '#!/bin/bash \n' 
@@ -381,6 +382,7 @@ def main():
     singularity_img             = arguments['--singularity-image']
 
     out_dir                     = arguments['--out-dir']
+    tmp_dir                     = arguments['--tmp-dir']
     fs_license                  = arguments['--fs-license-dir']
 
     debug                       = arguments['--debug'] 
@@ -414,7 +416,7 @@ def main():
 
         #Initialize subject directories and generate the fmriprep jobscript
         env = initialize_environment(config, subject, out_dir)
-        job_file = gen_jobscript(singularity_img,env,subject,fs_license,num_threads) 
+        job_file = gen_jobscript(singularity_img,env,subject,fs_license,num_threads,tmp_dir) 
 
         if not ignore_recon or not keeprecon:
 
