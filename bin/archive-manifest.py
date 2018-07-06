@@ -16,7 +16,7 @@ Options:
 
 import datman
 import datman.utils
-import dicom
+import pydicom
 import tarfile
 import zipfile
 import io
