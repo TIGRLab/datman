@@ -369,6 +369,7 @@ def main():
 
         g_opts = ' --output {} --exports {}'.format(output_dir,exports)
 
+        
         if task: 
             g_opts += ' --task {}'.format(task) 
         if debug: 
