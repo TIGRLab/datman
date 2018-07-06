@@ -132,7 +132,8 @@ def main():
     zips_path = cfg.get_path('zips')
 
     if not os.path.isdir(dicom_path):
-        logger.warning('Dicom path {} doesnt exist'.format(dicom_path))
+        logger.warning('Dicom folder {} doesnt exist, creating it.'.format(
+                dicom_path))
         try:
             os.makedirs(dicom_path)
         except IOError:
