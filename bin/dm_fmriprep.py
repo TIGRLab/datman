@@ -326,8 +326,11 @@ def write_executable(f,cmds):
         f                       Full file path
         cmds                    List of commands to write, will separate with \n
     '''
+    
+    header = '#!/bin/bash \n'
 
     with open(f,'w') as cmdfile: 
+        cmdfile.write(header) 
         cmdfile.writelines(cmds)
 
     p = proc.Popen('chmod +x {}'.format(f), stdin=proc.PIPE, stdout=proc.PIPE, shell=True) 
@@ -339,17 +342,18 @@ def write_executable(f,cmds):
 
     logger.info('Successfully wrote commands to {}'.format(f))
 
-def submit_jobfile(job_file): 
+def submit_jobfile(job_file, augment_cmd=''): 
 
     '''
     Submit fmriprep jobfile
 
     Arguments: 
         job_file                    Path to fmriprep job script to be submitted
+        augment_cmd                 Optional command that appends additional options to qsub
     '''
 
     #Formulate command
-    cmd = 'qsub {job}'.format(job=job_file)
+    cmd = 'qsub {job}'.format(job=job_file) + augment_cmd
 
     #Submit jobfile and delete after successful submission
     logger.info('Submitting job with command: {}'.format(cmd)) 
@@ -385,6 +389,7 @@ def main():
     
     configure_logger(quiet,verbose,debug) 
     config = get_datman_config(study)
+    system = config.system_config['SystemSettings'][config.system]['QUEUE']
 
     #Maintain original reconstruction (equivalent to ignore) 
     keeprecon = config.get_key('KeepRecon') 
@@ -412,7 +417,14 @@ def main():
         _,job_file = tempfile.mkstemp(suffix='fmriprep_job',dir=tmp_dir) 
 
         #Command formulation block
-        pbs_directives = gen_pbs_directives(num_threads, subject) 
+        pbs_directives = ''
+        if system == pbs: 
+            pbs_directives = gen_pbs_directives(num_threads, subject) 
+            augment_cmd = ''
+        elif system == sge: 
+            augment_cmd = ' -l ppn={}:walltime=24:00:00'.format(num_threads) if numthreads else '-l walltime=24:00:00'
+            augment_cmd += ' -N fmriprep_{}'.format(subject) 
+
         fmriprep_cmd = gen_jobcmd(singularity_img,env,subject,fs_license,num_threads,tmp_dir)
         symlink_cmd = [''] 
         if not ignore_recon or not keeprecon:
@@ -422,10 +434,13 @@ def main():
             if fetch_flag: 
                 symlink_cmd = get_symlink_cmd(job_file,config,subject,env['out'])       
 
+        import pdb
+        pdb.set_trace() 
+
         #Write into jobfile
         write_executable(job_file, pbs_directives + fmriprep_cmd + symlink_cmd)
 
-        submit_jobfile(job_file) 
+        submit_jobfile(job_file, augment_cmd) 
 
 if __name__ == '__main__': 
     main() 
