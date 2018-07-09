@@ -206,11 +206,27 @@ def filter_processed(subjects, out_dir):
     criteria = lambda x: not os.path.isdir(os.path.join(out_dir,x,'fmriprep')) 
     return [s for s in subjects if criteria(s)]  
     
+def gen_pbs_directives(num_threads, subject):
+    '''
+    Writes PBS directives into job_file
+    '''
+
+    pbs_directives = '''
     
-def gen_jobscript(simg,env,subject,fs_license,num_threads,tmp_dir): 
+    # PBS -l ppn={threads},walltime=24:00:00
+    # PBS -V
+    # PBS -N fmriprep_{name}
+
+    cd $PBS_O_WORKDIR
+    '''.format(threads=num_threads, name=subject)
+
+    return [pbs_directives]
+
+    
+def gen_jobcmd(simg,env,subject,fs_license,num_threads,tmp_dir): 
 
     '''
-    Write a singularity job script to submit; complete with cleanup management
+    Generates list of job submission commands to be written into a job file
     
     Arguments: 
         simg                fmriprep singularity image
@@ -220,15 +236,9 @@ def gen_jobscript(simg,env,subject,fs_license,num_threads,tmp_dir):
         num_threads         Number of threads
 
     Output: 
-        job_file            Full path to jobfile
+        [list of commands to be written into job file]
     '''
     
-    #Make job file
-    _,job_file = tempfile.mkstemp(suffix='fmriprep_job',dir=tmp_dir) 
-
-    #Interpreter
-    header = '#!/bin/bash \n' 
-
     #Set up environment: 
     if num_threads:
         thread_env = 'OMP_NUM_THREADS={}'.format(num_threads)
@@ -243,7 +253,6 @@ def gen_jobscript(simg,env,subject,fs_license,num_threads,tmp_dir):
     }
 
     '''
-
 
     #Temp initialization
     init_cmd = '''
@@ -274,43 +283,28 @@ def gen_jobscript(simg,env,subject,fs_license,num_threads,tmp_dir):
     $SIMG -vvv \\
     /bids /out \\
     participant --participant-label $SUB \\
-    --fs-license-file /li/license.txt
-
-    '''
-
-    #Testing function 
-    echo_func = '''
-
-    echo $HOME >> /scratch/jjeyachandra/tmp/testing.txt
-    echo $WORK >> /scratch/jjeyachandra/tmp/testing.txt
-    echo $LICENSE >> /scratch/jjeyachandra/tmp/testing.txt
-    echo $BIDS >> /scratch/jjeyachandra/tmp/testing.txt
-    echo $SIMG >> /scratch/jjeyachandra/tmp/testing.txt
-    echo $SUB >> /scratch/jjeyachandra/tmp/testing.txt
-    echo $OUT >> /scratch/jjeyachandra/tmp/testing.txt
+    --fs-license-file /li/license.txt \\ 
+    --use-syn-sdc
 
     '''
 
     #Run post-cleanup if successful
     cleanup = '\n cleanup \n'
 
-
-    #Write job-file
-    write_executable(job_file,[header,thread_env,trap_func,init_cmd,fs_cmd,fmri_cmd,cleanup]) 
-
-    logger.debug('Successfully wrote to {}'.format(job_file))
-
-    return job_file
+    return [thread_env,trap_func,init_cmd,fs_cmd,fmri_cmd,cleanup] 
 
 def append_jobfile_symlink(jobfile,config,subject,sub_out_dir): 
     '''
-    Decorator function for appending a call to clear out old freesurfer directory and symlink to fmriprep freesurfer version 
+    Returns list of commands that remove original freesurfer directory and link to fmriprep freesurfer directory
 
     Arguments: 
         jobfile                 Path to jobfile to be modified 
         config                  datman.config.config object with study initialized
         subject                 Datman-style subject ID
         sub_out_dir             fmriprep subject output path
+
+    Outputs: 
+        [remove_cmd,symlink_cmd]    Removal of old freesurfer directory and symlinking to fmriprep version of freesurfer reconstruction
     '''
 
     #Path to fmriprep output and freesurfer recon directories
@@ -321,12 +315,7 @@ def append_jobfile_symlink(jobfile,config,subject,sub_out_dir):
     remove_cmd = '\nrm -rf {} \n'.format(fs_recon_dir) 
     symlink_cmd = 'ln -s {} {} \n'.format(fmriprep_fs_path,fs_recon_dir)
     
-    #Append
-    with open(jobfile,'a') as f_job: 
-        f_job.write(remove_cmd) 
-        f_job.write(symlink_cmd)
-
-    return
+    return [remove_cmd, symlink_cmd]
 
 
 def write_executable(f,cmds): 
@@ -348,19 +337,17 @@ def write_executable(f,cmds):
         logger.error('ERR CODE: {}'.format(err)) 
         sys.exit(1) 
 
-def submit_jobfile(job_file,num_threads,subject): 
+def submit_jobfile(job_file): 
 
     '''
     Submit fmriprep jobfile
 
     Arguments: 
         job_file                    Path to fmriprep job script to be submitted
-        num_threads                 Number of cores to utilize on each node 
     '''
 
     #Formulate command
-    augment_cmd = ' -l ppn={}:walltime=24:00:00'.format(num_threads) if num_threads else '-l walltime=24:00:00'
-    cmd = 'qsub -N fmriprep_{subject} -V {job}'.format(subject=subject, job=job_file) + augment_cmd
+    cmd = 'qsub {job}'.format(job=job_file)
 
     #Submit jobfile and delete after successful submission
     logger.info('Submitting job with command: {}'.format(cmd)) 
@@ -401,12 +388,10 @@ def main():
     keeprecon = config.get_key('KeepRecon') 
 
     singularity_img = singularity_img if singularity_img else DEFAULT_SIMG
-
     DEFAULT_OUT = os.path.join(config.get_study_base(),'pipelines','fmriprep') 
     out_dir = out_dir if out_dir else DEFAULT_OUT
     tmp_dir = tmp_dir if tmp_dir else '/tmp/'
 
-    
     #run_bids_conversion(study, subjects, config) 
     bids_dir = os.path.join(config.get_path('data'),'bids') 
 
@@ -420,14 +405,23 @@ def main():
 
         #Initialize subject directories and generate the fmriprep jobscript
         env = initialize_environment(config, subject, out_dir)
-        job_file = gen_jobscript(singularity_img,env,subject,fs_license,num_threads,tmp_dir) 
 
+        #Generate a job file in temporary directory
+        _,job_file = tempfile.mkstemp(suffix='fmriprep_job',dir=tmp_dir) 
+
+        #Command formulation block
+        pbs_directives = gen_pbs_directives(num_threads, subject) 
+        fmriprep_cmd = gen_jobcmd(singularity_img,env,subject,fs_license,num_threads,tmp_dir)
+        symlink_cmd = [''] 
         if not ignore_recon or not keeprecon:
 
             fetch_flag = fetch_fs_recon(config,subject,env['out']) 
             
             if fetch_flag: 
-                append_jobfile_symlink(job_file,config,subject,env['out'])       
+                symlink_cmd = get_symlink_cmd(job_file,config,subject,env['out'])       
+
+        #Write into jobfile
+        write_executable(job_file, pbs_directives + fmriprep_cmd + symlink_cmd)
 
         submit_jobfile(job_file,num_threads,subject) 
 
