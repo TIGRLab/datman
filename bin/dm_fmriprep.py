@@ -241,7 +241,7 @@ def gen_jobcmd(simg,env,subject,fs_license,num_threads,tmp_dir):
     
     #Set up environment: 
     if num_threads:
-        thread_env = 'OMP_NUM_THREADS={}'.format(num_threads)
+        thread_env = 'export OMP_NUM_THREADS={}'.format(num_threads)
     else: thread_env = ''
 
     #Cleanup function 
@@ -268,10 +268,7 @@ def gen_jobcmd(simg,env,subject,fs_license,num_threads,tmp_dir):
 
     #Fetch freesurfer license 
     fs_cmd =  '''
-
     cp {} $LICENSE/license.txt
-    cat $LICENSE/license.txt >> /scratch/jjeyachandra/tmp/testing.txt
-
     '''.format(fs_license if fs_license else DEFAULT_FS_LICENSE)
 
     
@@ -281,11 +278,10 @@ def gen_jobcmd(simg,env,subject,fs_license,num_threads,tmp_dir):
     singularity run -H $HOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out -B $LICENSE:/li \\
     $SIMG -vvv \\
     /bids /out \\
-    participant --participant-label $SUB \\
-    --fs-license-file /li/license.txt \\ 
-    --use-syn-sdc
+    participant --participant-label $SUB --use-syn-sdc \\
+    --fs-license-file /li/license.txt --nthreads {} 
 
-    '''
+    '''.format(num_threads)
 
     #Run post-cleanup if successful
     cleanup = '\n cleanup \n'
@@ -416,12 +412,13 @@ def main():
         _,job_file = tempfile.mkstemp(suffix='fmriprep_job',dir=tmp_dir) 
 
         #Command formulation block
+        logger.info('Generating commands...')
         pbs_directives = ['']
         if system == 'pbs': 
             pbs_directives = gen_pbs_directives(num_threads, subject) 
             augment_cmd = ''
         elif system == 'sge': 
-            augment_cmd = ' -l ppn={}:walltime=24:00:00'.format(num_threads) if num_threads else '-l walltime=24:00:00'
+            augment_cmd = ' -l ppn={}'.format(num_threads) if num_threads else ''
             augment_cmd += ' -N fmriprep_{}'.format(subject) 
 
         fmriprep_cmd = gen_jobcmd(singularity_img,env,subject,fs_license,num_threads,tmp_dir)
@@ -433,11 +430,11 @@ def main():
             if fetch_flag: 
                 symlink_cmd = get_symlink_cmd(job_file,config,subject,env['out'])       
 
-        import pdb
-        pdb.set_trace() 
-
         #Write into jobfile
         write_executable(job_file, pbs_directives + fmriprep_cmd + symlink_cmd)
+
+        import pdb
+        pdb.set_trace() 
 
         submit_jobfile(job_file, augment_cmd) 
 
