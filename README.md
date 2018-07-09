@@ -1,5 +1,8 @@
 datman
 ------
+
+[![Waffle.io - Columns and their card count](https://badge.waffle.io/TIGRLab/datman.svg?columns=all)](https://waffle.io/TIGRLab/datman) 
+
 A set of python scripts we use for three major functions:
 
 + Managing data in our XNAT database: https://xnat.imaging-genetics.camh.ca

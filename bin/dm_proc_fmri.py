@@ -7,12 +7,15 @@ Usage:
     dm_proc_fmri.py [options] <study>
 
 Arguments:
-    <study>          study name defined in master configuration .yml file
+    <study>                     study name defined in master configuration .yml file
 
 Options:
-    --subject SUBJID subject name to run on
-    --debug          debug logging
-    --dry-run        don't do anything
+    --subject SUBJID            subject name to run on
+    --debug                     debug logging
+    --dry-run                   don't do anything
+    --output OUTPUT_DIR         Set base output directory 
+    --exports <export,...>      Request additional export options, list of comma-separated strings
+    --task TYPE                 Specify which type of scan to run (must be available in config)
 
 DEPENDENCIES
     + python
@@ -60,9 +63,8 @@ def check_inputs(config, tag, path, expected_tags):
     except:
         raise Exception('tag {} not defined in Sites:site:ExportInfo or Sites:site:links'.format(tag))
 
-
     if n_found != n_expected:
-        raise Exception('number of files found with tag {} was {}, expected {}'.format(tag, n_found, n_expected))
+        logger.warning('Found {} files with tag {}, expected {}, check outputs to ensure quality'.format(n_found,tag,n_expected)) 
 
 def export_directory(source, destination):
     """
@@ -121,24 +123,24 @@ def outputs_exist(output_dir, expected_names):
 
     return False
 
-def run_epitome(path, config, study):
+def run_epitome(path, config, study, output, exports, tasks):
     """
     Finds the appropriate inputs for input subject, builds a temporary epitome
     folder, runs epitome, and finally copies the outputs to the fmri_dir.
     """
     study_base = config.get_study_base(study)
     subject = os.path.basename(path)
-    nii_dir = os.path.join(study_base, config.site_config['paths']['nii'])
-    t1_dir = os.path.join(study_base, config.site_config['paths']['hcp'])
-    fmri_dir = utils.define_folder(os.path.join(study_base, config.site_config['paths']['fmri']))
-    experiments = config.study_config['fmri'].keys()
+    nii_dir = os.path.join(study_base, config.get_path('nii'))
+    t1_dir = os.path.join(study_base, config.get_path('hcp'))
+    fmri_dir = utils.define_folder(output)
+    experiments = tasks.keys()
 
     # run file collection --> epitome --> export for each study
     logger.debug('experiments found {}'.format(experiments))
     for exp in experiments:
         logger.debug('running experiment {}'.format(exp))
         # collect the files needed for each experiment
-        expected_names = config.study_config['fmri'][exp]['export']
+        expected_names = set(config.study_config['fmri'][exp]['export'] + exports)
         expected_tags = config.study_config['fmri'][exp]['tags']
         output_dir = utils.define_folder(os.path.join(fmri_dir, exp, subject))
 
@@ -281,7 +283,10 @@ def main():
     scanid = arguments['--subject']
     debug  = arguments['--debug']
     dryrun = arguments['--dry-run']
-
+    output = arguments['--output']
+    exports = arguments['--exports']
+    task = arguments['--task']
+    
     # configure logging
     logging.info('Starting')
     if debug:
@@ -296,25 +301,42 @@ def main():
 
     study_base = config.get_study_base(study)
 
+    #Parse optional arguments
+    output_dir = output if output else os.path.join(study_base,config.get_path('fmri')) 
+    opt_exports = [e for e in exports.split(',')] if exports else []
+
+    #Check if task is available 
+    try: 
+        config.study_config['fmri'][task]
+    except KeyError: 
+        logger.error('Task {} not found in study config!'.format(task))
+        sys.exit(1) 
+
+    #Get subset of relevant tasks 
+    if task: 
+        tasks = {k:v for k,v in config.study_config['fmri'].iteritems() if k == task} 
+    else: 
+        tasks = config.study_config['fmri']
+
     for k in ['nii', 'fmri', 'hcp']:
-        if k not in config.site_config['paths']:
+        if k not in config.get_key('Paths'):
             logger.error("paths:{} not defined in site config".format(k))
             sys.exit(1)
 
-    for x in config.study_config['fmri'].iteritems():
+    for x in tasks.iteritems():
         for k in ['dims', 'del', 'pipeline', 'tags', 'export', 'tr']:
             if k not in x[1].keys():
                 logger.error("fmri:{}:{} not defined in configuration file".format(x[0], k))
                 sys.exit(1)
 
-    nii_dir = os.path.join(study_base, config.site_config['paths']['nii'])
+    nii_dir = os.path.join(study_base, config.get_path('nii'))
 
     if scanid:
         path = os.path.join(nii_dir, scanid)
         if '_PHA_' in scanid:
             sys.exit('Subject {} if a phantom, cannot be analyzed'.format(scanid))
         try:
-            run_epitome(path, config, study)
+            run_epitome(path, config, study, output_dir, opt_exports,tasks)
         except Exception as e:
             logging.error(e)
             sys.exit(1)
@@ -332,9 +354,9 @@ def main():
                 logger.debug("Subject {} is a phantom. Skipping.".format(subject))
                 continue
 
-            fmri_dir = utils.define_folder(os.path.join(study_base, config.site_config['paths']['fmri']))
+            fmri_dir = utils.define_folder(output_dir)
             for exp in config.study_config['fmri'].keys():
-                expected_names = config.study_config['fmri'][exp]['export']
+                expected_names = set(config.study_config['fmri'][exp]['export'] + opt_exports) 
                 subj_dir = os.path.join(fmri_dir, exp, subject)
                 if not outputs_exist(subj_dir, expected_names):
                     subjects.append(subject)
@@ -344,13 +366,17 @@ def main():
 
         # submit a list of calls to ourself, one per subject
         commands = []
-        if debug:
-            debugopt = '--debug'
-        else:
-            debugopt = ''
+
+        g_opts = ' --output {} --exports {}'.format(output_dir,exports)
+
+        if task: 
+            g_opts += ' --task {}'.format(task) 
+        if debug: 
+            g_opts += ' --debug'
 
         for subject in subjects:
-            commands.append(" ".join(['python ', __file__, study, '--subject {} '.format(subject), debugopt]))
+            sub_tag = ' --subject {}'.format(subject) 
+            commands.append(" ".join(['python ', __file__, study,g_opts,sub_tag]))
 
         if commands:
             logger.debug('queueing up the following commands:\n'+'\n'.join(commands))
