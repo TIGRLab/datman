@@ -33,6 +33,8 @@ Note:
     Thus the behaviour of the script is as follows: 
         a) If particular session is coded XX_XX_XXXX_0N where N > 1. Then the original reconstructions will be left behind and a new one will be formed 
         b) For the first run, the original freesurfer implementation will always be symbolically linked to fmriprep's reconstruction (unless a new one becomes available)  
+
+        VERSION: TESTING
 '''
 
 import os 
@@ -42,7 +44,6 @@ from shutil import copytree, rmtree
 import logging
 import tempfile
 import subprocess as proc
-
 from docopt import docopt
 
 logging.basicConfig(level = logging.WARN, 
@@ -243,10 +244,11 @@ def gen_jobscript(simg,env,subject,fs_license,num_threads,tmp_dir):
 
     '''
 
+
     #Temp initialization
     init_cmd = '''
 
-    HOME=$(mktemp -d /tmp/home.XXXXX)
+    HOME=$(mktemp -d {home})
     WORK=$(mktemp -d $HOME/work.XXXXX)
     LICENSE=$(mktemp -d $HOME/li.XXXXX)
     BIDS={bids}
@@ -254,7 +256,7 @@ def gen_jobscript(simg,env,subject,fs_license,num_threads,tmp_dir):
     SUB={sub}
     OUT={out}
 
-    '''.format(bids=env['bids'],simg=simg,sub=get_bids_name(subject),out=env['out'])
+    '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),bids=env['bids'],simg=simg,sub=get_bids_name(subject),out=env['out'])
 
     #Fetch freesurfer license 
     fs_cmd =  '''
@@ -294,7 +296,7 @@ def gen_jobscript(simg,env,subject,fs_license,num_threads,tmp_dir):
 
 
     #Write job-file
-    write_executable(job_file,[header,thread_env,trap_func,init_cmd,fs_cmd,echo_func,fmri_cmd,cleanup]) 
+    write_executable(job_file,[header,thread_env,trap_func,init_cmd,fs_cmd,fmri_cmd,cleanup]) 
 
     logger.debug('Successfully wrote to {}'.format(job_file))
 
@@ -346,7 +348,7 @@ def write_executable(f,cmds):
         logger.error('ERR CODE: {}'.format(err)) 
         sys.exit(1) 
 
-def submit_jobfile(job_file,num_threads): 
+def submit_jobfile(job_file,num_threads,subject): 
 
     '''
     Submit fmriprep jobfile
@@ -357,8 +359,8 @@ def submit_jobfile(job_file,num_threads):
     '''
 
     #Formulate command
-    augment_cmd = ' -l ppn={}'.format(num_threads) if num_threads else ''
-    cmd = 'qsub -V {}'.format(job_file) + augment_cmd
+    augment_cmd = ' -l ppn={}:walltime=24:00:00'.format(num_threads) if num_threads else '-l walltime=24:00:00'
+    cmd = 'qsub -N fmriprep_{subject} -V {job}'.format(subject=subject, job=job_file) + augment_cmd
 
     #Submit jobfile and delete after successful submission
     logger.info('Submitting job with command: {}'.format(cmd)) 
@@ -402,8 +404,10 @@ def main():
 
     DEFAULT_OUT = os.path.join(config.get_study_base(),'pipelines','fmriprep') 
     out_dir = out_dir if out_dir else DEFAULT_OUT
+    tmp_dir = tmp_dir if tmp_dir else '/tmp/'
+
     
-    run_bids_conversion(study, subjects, config) 
+    #run_bids_conversion(study, subjects, config) 
     bids_dir = os.path.join(config.get_path('data'),'bids') 
 
     if not subjects: 
@@ -425,10 +429,7 @@ def main():
             if fetch_flag: 
                 append_jobfile_symlink(job_file,config,subject,env['out'])       
 
-        import pdb
-        pdb.set_trace() 
-
-        submit_jobfile(job_file,num_threads) 
+        submit_jobfile(job_file,num_threads,subject) 
 
 if __name__ == '__main__': 
     main() 
