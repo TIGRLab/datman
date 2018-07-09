@@ -248,7 +248,6 @@ def gen_jobcmd(simg,env,subject,fs_license,num_threads,tmp_dir):
     trap_func = '''
 
     function cleanup(){
-        echo "Cleaning $HOME" >> /scratch/jjeyachandra/tmp/testing.txt
         rm -rf $HOME
     }
 
@@ -389,7 +388,7 @@ def main():
     
     configure_logger(quiet,verbose,debug) 
     config = get_datman_config(study)
-    system = config.system_config['SystemSettings'][config.system]['QUEUE']
+    system = config.site_config['SystemSettings'][config.system]['QUEUE']
 
     #Maintain original reconstruction (equivalent to ignore) 
     keeprecon = config.get_key('KeepRecon') 
@@ -417,12 +416,12 @@ def main():
         _,job_file = tempfile.mkstemp(suffix='fmriprep_job',dir=tmp_dir) 
 
         #Command formulation block
-        pbs_directives = ''
-        if system == pbs: 
+        pbs_directives = ['']
+        if system == 'pbs': 
             pbs_directives = gen_pbs_directives(num_threads, subject) 
             augment_cmd = ''
-        elif system == sge: 
-            augment_cmd = ' -l ppn={}:walltime=24:00:00'.format(num_threads) if numthreads else '-l walltime=24:00:00'
+        elif system == 'sge': 
+            augment_cmd = ' -l ppn={}:walltime=24:00:00'.format(num_threads) if num_threads else '-l walltime=24:00:00'
             augment_cmd += ' -N fmriprep_{}'.format(subject) 
 
         fmriprep_cmd = gen_jobcmd(singularity_img,env,subject,fs_license,num_threads,tmp_dir)
