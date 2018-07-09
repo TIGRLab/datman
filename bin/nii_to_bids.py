@@ -18,6 +18,7 @@ Options:
                                 freesurfer data in fmriprep format. Will let fmriprep
                                 skip this part of its process
     --freesurfer-dir PATH       Path to freesurfer data to copy into fmriprep-out-dir
+    --rewrite                   Overwrite existing BIDS directories
     --log-to-server             If set, all log messages are sent to the configured
                                 logging server.
     --debug                     Debug logging
@@ -29,7 +30,7 @@ import logging, logging.handlers
 import os, sys
 import json, csv
 import re
-import datetime
+import datetime, time
 import traceback
 import nibabel, numpy
 import glob, fnmatch
@@ -43,6 +44,9 @@ logger = logging.getLogger(__name__)
 dmlogger = logging.getLogger('datman.utils')
 
 tag_map = dict()
+get_session_series = lambda x: (scanid.parse_filename(x)[0].session, scanid.parse_filename(x)[2])
+get_series = lambda x: scanid.parse_filename(x)[2]
+get_tag = lambda x: scanid.parse_filename(x)[1]
 
 def validify_fmap(fmap):
     img = nibabel.load(fmap)
@@ -53,13 +57,14 @@ def validify_fmap(fmap):
         img.affine[2][2] = value
         nibabel.save(img, fmap)
 
-def get_missing_data(data, nii_file, site):
+def get_missing_data(data, nii_file):
+    ident, _, _, _ = scanid.parse_filename(nii_file)
     try:
         img = nibabel.load(nii_file)
     except:
         logger.error("Could not open {}".format(nii_file))
         return
-    if ('EffectiveEchoSpacing' not in data.keys()) and site == 'CMH':
+    if ('EffectiveEchoSpacing' not in data.keys()) and ident.site == 'CMH':
         data['EffectiveEchoSpacing'] = 0.000342
     if "RepetitionTime" not in data.keys():
         data['RepetitionTime'] = int(img.header['pixdim'][4])
@@ -120,7 +125,7 @@ def to_bids_name(ident, tag, cnt_run, type_folder, ex):
             mod = tag + 'w'
         else:
             mod = tag
-        return type_folder["anat"], name.format(subject, session, acq,run_num, mod, ext)
+        return os.path.join(type_folder["anat"], name.format(subject, session, acq,run_num, mod, ext))
     elif (tag in tag_map["fmri"]):
         name = "{}_{}_task-{}_{}_{}_bold{}"
         if (tag == "RST" or tag == "VN-SPRL"):
@@ -128,158 +133,149 @@ def to_bids_name(ident, tag, cnt_run, type_folder, ex):
             task = "rest"
         else:
             task = tag.lower().replace('-','')
-        return type_folder["func"] , name.format(subject, session, task, acq, run_num, ext)
-    elif (tag in tag_map["dmap_fmri"]):
-        if ("-DAP" in tag):
-            return type_folder["fmap"] , "{}_{}_{}_dir-{}_{}_epi{}".format(subject, session, acq, "AP", run_num, ext)
-        elif ("-DPA" in tag):
-            return type_folder["fmap"] , "{}_{}_{}_dir-{}_{}_epi{}".format(subject, session, acq, "PA", run_num, ext)
+        return os.path.join(type_folder["func"] , name.format(subject, session, task, acq, run_num, ext))
     elif (tag in tag_map["dti"]):
         dtiacq = "{}{}".format(acq, tag.translate(None, "DTI-"))
-        return type_folder["dwi"] , "{}_{}_{}_{}_dwi{}".format(subject, session, dtiacq, run_num, ext)
-    elif ("FMAP" in tag and not (ext == ".json") and ident.site == 'CMH'):
-        return type_folder["fmap"] , "{}_{}_{}_{}_{}{}".format(subject, session, acq, run_num, tag, ext)
+        return os.path.join(type_folder["dwi"] , "{}_{}_{}_{}_dwi{}".format(subject, session, dtiacq, run_num, ext))
+    elif "FMAP" in tag and ext != ".json" and ident.site == 'CMH':
+        return os.path.join(type_folder["fmap"] , "{}_{}_{}_{}_{}{}".format(subject, session, acq, run_num, tag, ext))
     else:
         raise ValueError("File could not be changed to bids format:{} {} {}".format(str(ident), tag, ext))
 
-def validify_file(subject_nii_path):
-    file_list = os.listdir(subject_nii_path)
-    series_list = set()
+def get_intended_fors(ses_ser_file_map, matched_fmaps):
+    intended_fors = dict()
+    for ses in sorted(ses_ser_file_map.keys()):
+        ses_fmaps = sorted(matched_fmaps[ses])
+        for ser in sorted(ses_ser_file_map[ses].keys()):
+            series = int(ser)
+            for i in range(0, len(ses_fmaps)):
+                (six, eight) = ses_fmaps[i]
+                matched = False
+                if ser == six or ser == eight:
+                    break
+                if i == 0 and series < float(six):
+                    matched = True
+                elif i == len(ses_fmaps) - 1 and series > float(eight):
+                    matched = True
+                elif series != float(six) and series != float(eight):
+                    nex = int(ses_fmaps[i+1][0]) if i != len(ses_fmaps) -1 else (sys.maxsize * -1) -1
+                    prev = int(ses_fmaps[i-1][1]) if i != 0 else sys.maxsize
+                    if (( series > float(six) - (float(six) - prev)/2) or (series <= float(eight) + (nex - float(eight))/2)):
+                        matched = True
+                if matched:
+
+                    six_fmap = filter(lambda x: x.endswith('nii.gz'), ses_ser_file_map[ses][six])[0]
+                    eight_fmap = filter(lambda x: x.endswith('nii.gz'), ses_ser_file_map[ses][eight])[0]
+                    if six_fmap not in intended_fors and eight_fmap not in intended_fors:
+                        intended_fors[six_fmap] = list()
+                        intended_fors[eight_fmap] = list()
+                    for nii in ses_ser_file_map[ses][ser]:
+                        tag = scanid.parse_filename(nii)[1]
+                        if (tag in tag_map['fmri'] or tag in tag_map['dti']) and nii.endswith('.nii.gz'):
+                            intended_fors[six_fmap].append(nii)
+                            intended_fors[eight_fmap].append(nii)
+                    break
+    return intended_fors
+
+def validify_file(sub_nii_dir):
+    nii_list = os.listdir(sub_nii_dir)
+    # nii_list = [x for x in nii_list if x.endswith('nii.gz')]
     invalid_filenames = list()
-    for x in file_list:
+    ses_ser_file_map = dict()
+    for nii in nii_list:
         try:
-            series_list.add(scanid.parse_filename(x)[2])
+            nii_ident, _, nii_ser, _ = scanid.parse_filename(nii)
         except:
-            invalid_filenames.append(x)
-            logger.error("Filename cannot be parsed for series number: {}".format(x))
-    [file_list.remove(x) for x in invalid_filenames]
-    valid_files = { k : list() for k in series_list }
+            invalid_filenames.append(nii)
+            continue
+        nii_ses = nii_ident.session
+        if nii_ses not in ses_ser_file_map.keys():
+            ses_ser_file_map[nii_ses] = dict()
+        ses_ser_file_map[nii_ses][nii_ser] = list()
+    [nii_list.remove(x) for x in invalid_filenames]
     blacklist_files = set()
-    num_faces = 0
-
-    dap_queue = Queue()
-    dpa_queue = Queue()
-    six_queue = Queue()
-    eight_queue = Queue()
-    match_six = LifoQueue()
-    match_eight = LifoQueue()
-
-    dmap_dict = dict()
-    fmap_dict = dict()
-    for filename in sorted(file_list, key=lambda x: scanid.parse_filename(x)[2], reverse=True):
+    match_six = {ses : LifoQueue() for ses in ses_ser_file_map.keys()}
+    match_eight = {ses : LifoQueue() for ses in ses_ser_file_map.keys()}
+    for filename in sorted(nii_list, key=lambda x: (scanid.parse_filename(x)[0].session, scanid.parse_filename(x)[2])):
         ident, tag, series, description = scanid.parse_filename(filename)
-        site = ident.site
-        valid_files[series].append(filename)
-        ext = os.path.splitext(subject_nii_path + filename)[1]
-
-        # anat validation
-        if (tag == "T1" or tag == "T2") and (ext == ".json"):
-            json_data = json.load(open(os.path.join(subject_nii_path + filename)))
-            if "NORM" in json_data["ImageType"]:
-                logger.info("File has ImageType NORM and will be excluded from conversion: {}".format(
-                    scanid.make_filename(ident, tag, series, description)))
-                blacklist_files.add(series)
-        elif ((tag in tag_map["fmri"]) and ext == ".gz"):
-            dap_queue.put(series)
-            dpa_queue.put(series)
-            six_queue.put(series)
-            eight_queue.put(series)
-        elif (tag in tag_map["dmap_fmri"] and ext == ".json"):
-            dmap_dict[filename] = list()
-            if ("-DAP" in tag):
-                while not dap_queue.empty():
-                    func_file = sorted(valid_files[dap_queue.get()], reverse=True)[0]
-                    logger.info("{} has been mapped to {}".format(filename, func_file))
-                    dmap_dict[filename].append(func_file)
-            elif ("-DPA" in tag):
-                while not dpa_queue.empty():
-                    func_file = sorted(valid_files[dpa_queue.get()], reverse=True)[0]
-                    logger.info("{} has been mapped to {}".format(filename, func_file))
-                    dmap_dict[filename].append(func_file)
-            six_queue.queue.clear()
-            eight_queue.queue.clear()
-        elif ('FMAP' in tag and ext == '.gz'):
-            if ('-6.5' in tag):
-                match_six.put(series)
-                fmap_dict[filename] = list()
-                while not six_queue.empty():
-                    func_file = sorted(valid_files[six_queue.get()], reverse=True)[0]
-                    logger.info("{} has been mapped to {}".format(filename, func_file))
-                    fmap_dict[filename].insert(0, func_file)
+        ext = os.path.splitext(filename)[1]
+        session = ident.session
+        ses_ser_file_map[session][series].append(filename)
+        ses_ser = (session, series)
+        # fmap validation
+        if tag == 'FMAP-6.5' and ext == '.gz':
+            if 'flipangle' in filename:
+                blacklist_files.add(ses_ser)
             else:
-                match_eight.put(series)
-            dap_queue.queue.clear()
-            dpa_queue.queue.clear()
+                match_six[session].put(series)
+        elif tag == 'FMAP-8.5' and ext == '.gz':
+            if 'flipangle' in filename:
+                blacklist_files.add(ses_ser)
+            else:
+                match_eight[session].put(series)
+        # anat validation
+        if tag in tag_map['anat'] and ext == '.json_file':
+            json_file = os.path.join(sub_nii_dir, filename)
+            try:
+                json_data = json.load(open(json_file))
+            except IOError:
+                continue
+            if "NORM" in json_data["ImageType"]:
+                logger.info("File has ImageType NORM. Skipping: {}".format(filename))
+                blacklist_files.add(ses_ser)
+    matched_fmaps = { ses : list() for ses in ses_ser_file_map.keys()}
+    for ses in ses_ser_file_map.keys():
+        while not (match_six[ses].empty() or match_eight[ses].empty()):
+            six = match_six[ses].get()
+            eight = match_eight[ses].get()
+            matched_fmaps[ses].append((six, eight))
+            logger.info("Matched FMAP series for session {0}: {1} {2}".format(ses, six, eight))
+    for ses in ses_ser_file_map.keys():
+        for match in [match_six, match_six]:
+            while not match[ses].empty():
+                not_matched = match[ses].get()
+                blacklist_files.add((ses, not_matched))
+                logger.info("FMAP series not matched: Session {}. Series {} ".format(ses, not_matched))
+    for (ses, ser) in blacklist_files:
+        ses_ser_file_map[ses].pop(ser)
+    return ses_ser_file_map, matched_fmaps
 
-    while not (match_six.empty() or match_eight.empty()):
-        logger.info("Matched FMAP series: {} {}".format(match_six.get(), match_eight.get()))
+def modify_json(nii_to_bids_match, intended_fors, sub_nii_dir):
+    fmap_pattern = re.compile(r'FMAP-\d\.5')
+    for nii, bids in nii_to_bids_match.items():
+        intendeds = list()
+        nii_file = os.path.join(sub_nii_dir, nii)
+        if nii in intended_fors:
+            bids = fmap_pattern.sub("fieldmap", bids)
+            intendeds = intended_fors[nii]
+        bids_json = bids.replace('nii.gz', 'json')
 
-    while not match_six.empty():
-        not_matched = match_six.get()
-        blacklist_files.add(not_matched)
-        logger.error("FMAP series not matched: {}".format(not_matched))
-    while not match_eight.empty():
-        not_matched = match_eight.get()
-        blacklist_files.add(not_matched)
-        logger.error("FMAP series not matched: {}".format(not_matched))
-
-    for key in blacklist_files:
-        valid_files.pop(key, None)
-
-    file_list = list()
-    for f in valid_files.values():
-        file_list += f
-
-    return file_list, dmap_dict, fmap_dict
-
-def modify_map_json(orig, bids, dmap_dict, fmap_dict, csv_dict, site):
-
-    is_map = False
-    if orig in fmap_dict.keys():
-        pattern = re.compile(r'FMAP-\d\.5\.nii\.gz')
-        bids = pattern.sub("fieldmap.json", bids )
-        nii_file = str.replace(bids, 'json', 'nii.gz')
-        intended_fors = fmap_dict
-        is_map = True
-
-    elif orig in dmap_dict.keys():
-        nii_file = str.replace(bids, 'json', 'nii.gz')
-        intended_fors = dmap_dict
-        is_map = True
-    elif ('.nii.gz' in orig and "FMAP" not in orig):
-        nii_file = bids
-        bids = str.replace(nii_file, 'nii.gz', 'json')
-    else:
-        return
-    try:
-        jsonFile = open(bids, "r+")
-        data = json.load(jsonFile)
-    except:
         try:
-            jsonFile = open(bids, "w")
-            data = dict()
-        except IOError:
-            logger.error('Failed to open: {}'.format(bids), exc_info=True)
-            return
+            json_file = open(bids_json, 'r+')
+            data = json.load(json_file)
+        except:
+            try:
+                json_file = open(bids_json, 'w')
+                data = dict()
+            except IOError:
+                logger.error('Failed to open: {}'.format(bids_json), exc_info=True)
+                continue
 
-    if is_map and len(intended_fors) > 0:
-        data['IntendedFor'] = list()
-        for nii in intended_fors[orig]:
-            bids_path = csv_dict[nii][1]
-            split = bids_path.split('/')
-            s = len(split)
-            bids_name = os.path.join(split[s-3], split[s-2], split[s-1])
-            data["IntendedFor"].append(bids_name)
+        if len(intendeds) > 0:
+            data['Units'] = 'rad/s'
+            data['IntendedFor'] = list()
+            for nii in intendeds:
+                bids_path = nii_to_bids_match[nii]
+                split = bids_path.split('/')
+                s = len(split)
+                bids_name = os.path.join(split[s-3], split[s-2], split[s-1])
+                data['IntendedFor'].append(bids_name)
 
-    if orig in fmap_dict.keys():
-        data['Units'] = 'rad/s'
-
-    get_missing_data(data, nii_file, site)
-    jsonFile.seek(0)  # rewind
-    json.dump(data, jsonFile, sort_keys=True, indent=4, separators=(',', ': '))
-    jsonFile.truncate()
-    jsonFile.close()
-
+        get_missing_data(data, nii_file)
+        json_file.seek(0)
+        json.dump(data, json_file, sort_keys=True, indent=4, separators=(',', ': '))
+        json_file.truncate()
+        json_file.close()
 
 def create_task_json(file_path, tags_list):
     task_names = dict()
@@ -328,13 +324,32 @@ def create_dir(dir_path):
             logger.critical('Failed creating: {}'.format(dir_path), exc_info=True)
             sys.exit(1)
 
-def setup_logger(filepath, to_server, debug, config):
+def create_command(subject, arguments):
+    flags = ['python', '/scratch/mmanogaran/circleci_testing/datman/bin/nii_to_bids.py']
+    for arg_flag in ['--nii-dir', '--bids-dir', '--fmriprep-out-dir', '--freesurfer-dir']:
+        flags += [arg_flag, arguments[arg_flag]] if arguments[arg_flag] else []
+    for flag in ['--rewrite', '--log-to-server', '--debug']:
+        flags += [flag] if arguments[flag] else []
+    flags += [arguments['<study>']]
+    flags += [subject]
+    return " ".join(flags)
+
+def submit_nii_to_bids(log_dir, subject, arguments, cfg):
+    with datman.utils.cd(log_dir):
+        cmd = create_command(subject, arguments)
+        logging.debug('Queueing command: {}'.format(cmd))
+        job_name = 'nii_to_bids_{}_{}'.format(subject, time.strftime("%Y%m%d-%H%M%S"))
+        datman.utils.submit_job(cmd, job_name, log_dir=log_dir, cpu_cores=1, dryrun=False)
+
+def setup_logger(filepath, to_server, debug, config, sub_ids):
 
     logger.setLevel(logging.DEBUG)
     dmlogger.setLevel(logging.DEBUG)
     date = str(datetime.date.today())
 
-    fhandler = logging.FileHandler(os.path.join(filepath, date + "-nii_to_bids.log"), "w")
+    sub = '_{}'.format(sub_ids[0]) if len(sub_ids) == 1 else ''
+    log_name = os.path.join(filepath, date + "-nii_to_bids{}.log".format(sub))
+    fhandler = logging.FileHandler(log_name, "w")
     fhandler.setLevel(logging.DEBUG)
 
     shandler = logging.StreamHandler()
@@ -358,11 +373,10 @@ def setup_logger(filepath, to_server, debug, config):
         server_handler.setLevel(logging.CRITICAL)
         logger.addHandler(server_handler)
 
-
 def init_setup(study, cfg, bids_dir):
 
     bidsignore_path = os.path.join(bids_dir,".bidsignore")
-    bidsignore = 'echo "*-nii_to_bids.log\nmatch.csv" > {}'.format(bidsignore_path)
+    bidsignore = 'echo "*-nii_to_bids.log\nmatch.csv\nlogs/*" > {}'.format(bidsignore_path)
     os.system(bidsignore)
 
     data = dict()
@@ -383,7 +397,6 @@ def init_setup(study, cfg, bids_dir):
 
     return all_tags.keys()
 
-
 def main():
     arguments = docopt(__doc__)
 
@@ -393,6 +406,7 @@ def main():
     bids_dir = arguments['--bids-dir']
     fmriprep_dir = arguments['--fmriprep-out-dir']
     fs_dir = arguments['--freesurfer-dir']
+    rewrite = arguments['--rewrite']
     to_server = arguments['--log-to-server']
     debug  = arguments['--debug']
 
@@ -403,7 +417,10 @@ def main():
         bids_dir =  os.path.join(cfg.get_path('data'),"bids/")
     create_dir(bids_dir)
 
-    setup_logger(bids_dir, to_server, debug, cfg)
+    log_dir = os.path.join(bids_dir, 'logs')
+    create_dir(log_dir)
+
+    setup_logger(log_dir, to_server, debug, cfg, sub_ids)
     logger.info("BIDS folder will be {}".format(bids_dir))
 
     if not nii_dir:
@@ -422,6 +439,8 @@ def main():
         logger.info('Freesurfer dir is: {}'.format(fs_dir))
 
     all_tags = init_setup(study,cfg, bids_dir)
+    create_task_json(bids_dir, tag_map['fmri'])
+
 
     to_delete = set()
 
@@ -431,36 +450,33 @@ def main():
         logger.error(err)
         sys.exit(1)
 
-    logger.info("Creating match.csv to hold original name, bids location and freesurfer location.")
-    csv_filename = os.path.join(bids_dir, 'match.csv')
-    with open(csv_filename, 'w+') as csvfile:
-        csvwriter = csv.writer(csvfile)
-        csvwriter.writerow(['CAMH','BIDS', 'FREESURFER'])
-    csv_dict = dict()
-
     logger.info("Beginning to iterate through folders/files in {}".format(nii_dir))
-    study_tags = set()
     fmap_dict = dict()
-    dmap_dict = dict()
 
     if not sub_ids:
         sub_ids = os.listdir(nii_dir)
     sub_ids = sorted(sub_ids)
 
-    for subject_dir in sub_ids:
+    if len(sub_ids) > 1:
+        for sub_id in sub_ids:
+            logger.info('Submitting subject to queue: {}'.format(sub_id))
+            submit_nii_to_bids(log_dir, sub_id, arguments, cfg)
+    else:
+        subject_dir = sub_ids[0]
         if scanid.is_phantom(subject_dir):
             logger.info("File is phantom and will be ignored: {}".format(subject_dir))
-            continue
+            sys.exit(1)
+
         parsed = scanid.parse(subject_dir)
-
+        if os.path.isdir(os.path.join(bids_dir, to_sub(parsed))) and not rewrite:
+            logger.warning('BIDS subject directory already exists. Exiting: {}'.format(subject_dir))
+            sys.exit(1)
         type_folders = create_bids_dirs(bids_dir, parsed)
-        subject_nii_path = os.path.join(nii_dir,subject_dir) + '/'
-        logger.info("Will now begin creating files in BIDS format for: {}".format(subject_nii_path))
-        valid_files, dmap_d, fmap_d = validify_file(subject_nii_path)
-        series_set = set(scanid.parse_filename(x)[2] for x in valid_files)
-
-        fmap_dict.update(fmap_d)
-        dmap_dict.update(dmap_d)
+        sub_nii_dir = os.path.join(nii_dir,subject_dir) + '/'
+        logger.info("Will now begin creating files in BIDS format for: {}".format(sub_nii_dir))
+        ses_ser_file_map, matched_fmaps = validify_file(sub_nii_dir)
+        intended_fors = get_intended_fors(ses_ser_file_map, matched_fmaps)
+        nii_to_bids_match = dict()
 
         if fmriprep_dir:
             fs_src = os.path.join(fs_dir, subject_dir)
@@ -471,47 +487,37 @@ def main():
                 logger.warning("Copied {} to {}".format(fs_src, fs_dst))
 
         cnt = {k : 0 for k in all_tags}
-        for series in sorted(series_set):
-            filename_pattern = "{}0{}_*_{}_*"
-            all_timepoints = filename_pattern.format(str(parsed), '[0-9]', series)
-            series_files = sorted(glob.glob(os.path.join(subject_nii_path,all_timepoints)))
-            timepoints = list()
-            curr_timepoint = 1
-            num_filtered = 0
-            while not (num_filtered == len(series_files)):
-                curr_pattern = "*" + filename_pattern.format(str(parsed), curr_timepoint, series)
-                curr_timepoint_list = fnmatch.filter(series_files, curr_pattern)
-                if len(curr_timepoint_list) > 0:
-                    timepoints.append(curr_timepoint_list)
-                num_filtered += len(curr_timepoint_list)
-                curr_timepoint += 1
-
-            for i in range(0, len(timepoints)):
-                series_tag = None
-                for item in timepoints[i]:
+        for ses in sorted(ses_ser_file_map.keys()):
+            logger.info('Session: {}'.format(ses))
+            for ser in sorted(ses_ser_file_map[ses].keys()):
+                logger.info('Series: {}'.format(ser))
+                series_tags = set()
+                for item in sorted(ses_ser_file_map[ses][ser]):
+                    logger.info('File: {}'.format(item))
+                    item_path = os.path.join(sub_nii_dir, item)
                     ident, tag, series, description =scanid.parse_filename(item)
-                    ext = os.path.splitext(subject_nii_path + item)[1]
+                    ext = os.path.splitext(item)[1]
+                    logger.info('to_bids_name')
                     try:
-                        type_dir, bids_name = to_bids_name(ident, tag, cnt, type_folders, ext)
+                        bids_path = to_bids_name(ident, tag, cnt, type_folders, ext)
                     except ValueError, err:
                         logger.info(err)
                         continue
-                    if tag in tag_map["fmri"]:
-                        study_tags.add(tag)
-                    copyfile(item, type_dir + bids_name, )
-                    if "nii.gz" in bids_name and "task" in bids_name:
-                        os.system('fslroi {} {} 4 -1'.format(type_dir + bids_name, type_dir + bids_name))
-                        logger.warning("Finished fslroi on {}".format(bids_name))
-                    logger.info("{:<70} {:<80}".format(os.path.basename(item), bids_name))
-                    csv_dict[os.path.basename(item)] = [type_dir + bids_name]
-                    if fmriprep_dir and os.path.isdir(fs_src):
-                        csv_dict[os.path.basename(item)].append(fs_dst)
-                    series_tag = tag
-                if series_tag:
-                    cnt[series_tag] += 1
+                    logger.info('Copying file')
+                    copyfile(item_path, bids_path)
+                    logger.info('fslroi')
+                    if bids_path.endswith('nii.gz') and "task" in os.path.basename(bids_path):
+                        os.system('fslroi {0} {0} 4 -1'.format(bids_path))
+                        logger.warning("Finished fslroi on {}".format(os.path.basename(bids_path)))
+                    logger.info("{:<80} {:<80}".format(os.path.basename(item), os.path.basename(bids_path)))
+                    if item_path.endswith('nii.gz'):
+                        nii_to_bids_match[item] = bids_path
+                    series_tags.add(tag)
+                while len(series_tags) > 0:
+                    cnt[series_tags.pop()] += 1
 
         run_num = 1
-        fmaps = sorted(glob.glob("{}*run-0{}*_FMAP-*".format(type_folders['fmap'],run_num)))
+        fmaps = sorted(glob.glob("{}*run-0{}_FMAP-*".format(type_folders['fmap'],run_num)))
         while len(fmaps) > 1:
             for fmap in fmaps:
                 validify_fmap(fmap)
@@ -519,39 +525,23 @@ def main():
             without_tag = pattern.sub("", fmaps[0])
             base = os.path.basename(without_tag)
 
-            cmd = ['bash', 'CMH_generate_fmap.sh', fmaps[0], fmaps[1], without_tag, base]
+            cmd = ['bash', '/archive/code/datman/bin/CMH_generate_fmap.sh', fmaps[0], fmaps[1], without_tag, base]
             datman.utils.run(cmd)
             logger.warning("Running: {}".format(cmd))
             run_num+=1
             fmaps = sorted(glob.glob("{}*run-0{}*_FMAP-*".format(type_folders['fmap'],run_num)))
 
+        modify_json(nii_to_bids_match, intended_fors, sub_nii_dir)
 
+        logger.info("Deleting unecessary BIDS folders")
         for key in type_folders.keys():
-            if os.listdir(type_folders[key]) == []:
-                to_delete.add(type_folders[key])
-
-
-    [ v.insert(0,k) for k,v in csv_dict.items()]
-    for k, v in sorted(csv_dict.items()):
-        ident, tag, series, description = scanid.parse_filename(k)
-        site = ident.site
-        sub = ident.get_full_subjectid_with_timepoint()
-        logger.warning("Modifying JSON for: {}".format(k))
-        modify_map_json(k, v[1], dmap_dict, fmap_dict, csv_dict, site)
-        with open(csv_filename, 'a+') as csvfile:
-            csvwriter = csv.writer(csvfile)
-            csvwriter.writerow(v)
-
-    create_task_json(bids_dir, study_tags)
-
-    logger.info("Deleting unecessary BIDS folders")
-    for folder in to_delete:
-        try:
-            logger.info("Deleting: {}".format(folder))
-            os.rmdir(folder)
-        except Exception, e:
-            logger.info("Folder {} contains multiple acquistions. Should not be deleted.")
-
+            folder = type_folders[key]
+            if os.listdir(folder) == []:
+                try:
+                    logger.info("Deleting: {}".format(folder))
+                    os.rmdir(folder)
+                except Exception, e:
+                    logger.info("Folder {} contains multiple acquistions. Should not be deleted.")
 
 if __name__ == '__main__':
     main()
