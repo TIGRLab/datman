@@ -157,7 +157,7 @@ def fetch_fs_recon(config,subject,sub_out_dir):
         try: 
             os.makedirs(fmriprep_fs) 
         except OSError: 
-            logger.error('Failed to create directory {} already exists!'.format(fmriprep_fs)) 
+            logger.warning('Failed to create directory {} already exists!'.format(fmriprep_fs)) 
 
         #rsync source fs to fmriprep output, using os.path.join(x,'') to enforce trailing slash for rsync
         cmd = 'rsync -a {} {}'.format(os.path.join(fs_recon_dir,''),fmriprep_fs)
@@ -293,7 +293,7 @@ def gen_jobcmd(simg,env,subject,fs_license,num_threads,tmp_dir):
 
     return [thread_env,trap_func,init_cmd,fs_cmd,fmri_cmd,cleanup] 
 
-def append_jobfile_symlink(jobfile,config,subject,sub_out_dir): 
+def get_symlink_cmd(jobfile,config,subject,sub_out_dir): 
     '''
     Returns list of commands that remove original freesurfer directory and link to fmriprep freesurfer directory
 
@@ -336,6 +336,8 @@ def write_executable(f,cmds):
         logger.error('Failed to change permissions on {}'.format(f)) 
         logger.error('ERR CODE: {}'.format(err)) 
         sys.exit(1) 
+
+    logger.info('Successfully wrote commands to {}'.format(f))
 
 def submit_jobfile(job_file): 
 
@@ -392,7 +394,7 @@ def main():
     out_dir = out_dir if out_dir else DEFAULT_OUT
     tmp_dir = tmp_dir if tmp_dir else '/tmp/'
 
-    #run_bids_conversion(study, subjects, config) 
+    run_bids_conversion(study, subjects, config) 
     bids_dir = os.path.join(config.get_path('data'),'bids') 
 
     if not subjects: 
@@ -423,7 +425,7 @@ def main():
         #Write into jobfile
         write_executable(job_file, pbs_directives + fmriprep_cmd + symlink_cmd)
 
-        submit_jobfile(job_file,num_threads,subject) 
+        submit_jobfile(job_file) 
 
 if __name__ == '__main__': 
     main() 
