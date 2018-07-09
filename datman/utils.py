@@ -16,7 +16,7 @@ import pipes
 import contextlib
 import subprocess as proc
 
-import dicom as dcm
+import pydicom as dcm
 import numpy as np
 import nibabel as nib
 import pyxnat

@@ -120,7 +120,7 @@ def main():
     study_base = config.get_study_base(study)
 
     for k in ['freesurfer', 'hcp']:
-        if k not in config.site_config['paths']:
+        if k not in config.get_key('Paths'):
             logger.error("paths:{} not defined in site config".format(k))
             sys.exit(1)
 

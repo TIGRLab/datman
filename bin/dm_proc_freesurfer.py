@@ -118,7 +118,7 @@ def get_freesurfer_arguments(config, site):
         nu_iter = None
 
     if nu_iter:
-        ex_path = config.get_path('freesurfer') + "expert.opts"
+        ex_path = os.path.join(config.get_path('freesurfer'), site +  "_expert.opts")
         expertcmd = 'echo "mri_nu_correct.mni --n {}" > {}'.format(nu_iter, ex_path)
         os.system(expertcmd)
         args.append('-expert ' + ex_path)
@@ -242,7 +242,7 @@ def run_freesurfer(subject, blacklist, config, resubmit=False):
 
     command = "recon-all {args} -subjid {subid} {inputs}".format(args=args,
             subid=subject.full_id, inputs=" ".join(input_files))
-    logger.info('Running recon-all') 
+    logger.info('Running recon-all')
     rtn, out = utils.run(command, dryrun=DRYRUN)
     if rtn:
         error_message = 'freesurfer failed: {}\n{}'.format(command, out)
@@ -346,7 +346,7 @@ def get_blacklist(qc_subjects, scanid):
 
 def check_input_paths(config):
     for k in ['nii', 'freesurfer']:
-        if k not in config.site_config['paths']:
+        if k not in config.get_key('Paths'):
             logger.error("paths:{} not defined in site config".format(k))
             sys.exit(1)
 

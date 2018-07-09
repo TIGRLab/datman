@@ -145,52 +145,52 @@ def add_image(qc_html, image, title=None):
 def ignore(filename, qc_dir, report):
     pass
 
-def gather_input_req(nifti,pipeline): 
+def gather_input_req(nifti, pipeline):
     '''
-    Contains input specification local variable and gathers requirements for each call 
-    nifti - contains nifti series instance 
-    subject - contains subject Scan instance 
-    pipeline - pipeline name (specified in tigrlab_config.yml) 
+    Contains input specification local variable and gathers requirements for each call
+    nifti - contains nifti series instance
+    subject - contains subject Scan instance
+    pipeline - pipeline name (specified in tigrlab_config.yml)
     '''
 
-    #Common requirements 
-    basename = os.path.join(os.path.dirname(nifti.path),datman.utils.nifti_basename(nifti.path)) 
+    #Common requirements
+    basename = os.path.join(os.path.dirname(nifti.path),datman.utils.nifti_basename(nifti.path))
 
-    #Input specifications and pipeline input mapping 
+    #Input specifications and pipeline input mapping
     input_spec = {
             'anat'      :   ['qc-adni',             basename + '.nii.gz'],
             'fmri'      :   ['qc-fbirn-fmri',       basename + '.nii.gz'],
             'dti'       :   ['qc-fbirn-dti',        basename + '.nii.gz',basename + '.bvec', basename + '.bval'],
             'qa_dti'    :   ['qa-dti',              basename + '.nii.gz', basename + '.bvec', basename + '.bval']
-            } 
+            }
 
     reqs = None
-    try: 
-        reqs = input_spec[pipeline] 
-    except KeyError: 
+    try:
+        reqs = input_spec[pipeline]
+    except KeyError:
         print('No QC pipeline available for {}. Skipping.'.format(nifti.tag,nifti.path))
 
     return reqs
 
-def run_phantom_pipeline(nifti,qc_path,reqs): 
+def run_phantom_pipeline(nifti,qc_path,reqs):
     '''
     Used to formulate the BASH call to phantom qc pipeline.
-    Performs input requirements gathering 
+    Performs input requirements gathering
     '''
-    basename = datman.utils.nifti_basename(nifti.path) 
+    basename = datman.utils.nifti_basename(nifti.path)
 
     #Formulate pipeline command, there is an assumption that output is last argument here
-    cmd = ' '.join([i for i in reqs]) + ' ' + os.path.join(qc_path,basename) 
-    
-    qc_output = os.path.join(qc_path,basename) 
+    cmd = ' '.join([i for i in reqs]) + ' ' + os.path.join(qc_path,basename)
 
-    #If any csv exists in qc path then skip
-    if not glob.glob(qc_output + '*.csv'):
+    qc_output = os.path.join(qc_path,basename)
+
+    #If any csv exists in qc path
+    if not glob.glob(qc_output + '*.csv') or REWRITE:
           datman.utils.run(cmd)
-    else: 
+    else:
         logger.info('QC on phantom {} with tag {}  already performed, skipping'.format(datman.utils.nifti_basename(nifti.path), nifti.tag))
 
-   
+
 
 def fmri_qc(file_name, qc_dir, report):
     base_name = datman.utils.nifti_basename(file_name)
@@ -346,6 +346,12 @@ def get_new_subjects(config):
     qc_dir = config.get_path('qc')
     nii_dir = config.get_path('nii')
 
+    subject_nii_dirs = glob.glob(os.path.join(nii_dir, '*'))
+    all_subs = [os.path.basename(path) for path in subject_nii_dirs]
+
+    if REWRITE:
+        return all_subs
+
     # Finished subjects are those that have an html file in their qc output dir
     html_pages = glob.glob(os.path.join(qc_dir, '*/*.html'))
     subject_qc_dirs = [os.path.dirname(qc_path) for qc_path in html_pages]
@@ -356,9 +362,6 @@ def get_new_subjects(config):
     qced_phantoms_paths = [subj for subj in glob.glob(os.path.join(qc_dir, '*_PHA_*'))
             if len(os.listdir(subj)) > 0]
     finished_phantoms = [os.path.basename(path) for path in qced_phantoms_paths]
-
-    subject_nii_dirs = glob.glob(os.path.join(nii_dir, '*'))
-    all_subs = [os.path.basename(path) for path in subject_nii_dirs]
 
     new_subs = filter(lambda sub: sub not in finished_subs, all_subs)
     # also filter out the finished phantoms
@@ -656,7 +659,7 @@ def write_report_header(report, subject_id):
     report.write('<h1> QC report for {} <h1/>'.format(subject_id))
 
 def generate_qc_report(report_name, subject, expected_files, header_diffs, config):
-    tag_settings = config.get_tags()
+    tag_settings = config.get_tags(site=subject.site)
     try:
         with open(report_name, 'wb') as report:
             write_report_header(report, subject.full_id)
@@ -854,35 +857,35 @@ def qc_phantom(subject, config):
     subject:            The Scan object for the subject_id of this run
     config :            The settings obtained from project_settings.yml
 
-    Phantom pipeline setup: 
+    Phantom pipeline setup:
     Each pipeline has it's own dictionary entry in gather_input_reqs within input_spec
     Config 'qc_pha' keys in ExportSettings indicate which pipeline to use
-    'qc_pha' set to 'default' will refer to the qc_type. 
-    So qc_pha is really used to indicate custom pipelines that are non-standard. 
+    'qc_pha' set to 'default' will refer to the qc_type.
+    So qc_pha is really used to indicate custom pipelines that are non-standard.
     """
 
-    export_tags = config.get_tags() 
+    export_tags = config.get_tags(site=subject.site)
 
     logger.debug('qc {}'.format(subject))
 
     for nifti in subject.niftis:
-        
-        #Use qc_type if default option or if key is not set 
-        try: 
-            tag = export_tags.get(nifti.tag,'qc_pha') 
-            if export_tags.get(nifti.tag,'qc_pha') == 'default': 
-                tag = export_tags.get(nifti.tag,'qc_type')  
-
-        except KeyError: 
-            logger.error('qc_pha not set for {} tag {}, using qc_type default instead'.format(datman.utils.nifti_basename(nifti.path),nifti.tag))
-            tag = export_tags.get(nifti.tag,'qc_type') 
-                
+        tag = get_pha_qc_type(export_tags, nifti.tag)
         #Gather pipeline input requirements and run if pipeline exists for tag
-        input_req = gather_input_req(nifti,tag) 
+        input_req = gather_input_req(nifti, tag)
         if input_req:
-            run_phantom_pipeline(nifti,subject.qc_path,input_req) 
+            run_phantom_pipeline(nifti, subject.qc_path, input_req)
 
-
+def get_pha_qc_type(export_tags, nii_tag):
+    #Use qc_type if default option is set or 'qc_pha' is missing
+    try:
+        tag = export_tags.get(nii_tag, 'qc_pha')
+    except KeyError:
+        logger.info('qc_pha not set for tag {}, using qc_type default '
+                'instead'.format(nii_tag))
+        tag = 'default'
+    if tag == 'default':
+        tag = export_tags.get(nii_tag,'qc_type')
+    return tag
 
 def qc_single_scan(subject, config):
     """
@@ -1009,7 +1012,7 @@ def main():
     study = arguments['<study>']
     session = arguments['<session>']
     REWRITE = arguments['--rewrite']
-    
+
 
     config = get_config(study)
 
