@@ -19,7 +19,7 @@ Options:
     -o, --out-dir               Location of where to output fmriprep outputs [default = /config_path/<study>/pipelines/fmriprep]
     -r, --rewrite               Overwrite if fmriprep pipeline outputs already exist in output directory
     -f, --fs-license-dir FSLISDIR          Freesurfer license path [default = /opt/quaratine/freesurfer/6.0.0/build/license.txt]
-    -t, --threads NUM_THREADS              Number of threads to utilize [default : greedy, HIGHLY RECOMMEND LIMITING ON COMPUTE CLUSTERS!]
+    -t, --threads NUM_THREADS,OMP_THREADS              Formatted as threads,omp_threads, which indicates total number of threads and # of threads per process
     --ignore-recon              Use this option to perform reconstruction even if already available in pipelines directory
     -d, --tmp-dir TMPDIR         Specify custom temporary directory (when using remote servers with restrictions on /tmp/ writing) 
     
@@ -91,48 +91,6 @@ def get_datman_config(study):
 
     return config
 
-def run_bids_conversion(study,subject,config): 
-    '''
-    Wrapper function for running /datman/bin/nii_to_bids.py. 
-    Assume it does all the validation checking so we don't have to :) 
-    TODO: Add a check so we don't re-run nii-to-bids!
-    '''
-
-    nii2bds_cmd = 'nii_to_bids.py {study} {subject}'.format(study=study,subject = ' '.join(subject))
-
-    p = proc.Popen(nii2bds_cmd, stdout=proc.PIPE, stdin=proc.PIPE, shell=True)  
-    std, err = p.communicate() 
-
-    if p.returncode: 
-        logger.error('datman to BIDS conversion failed! STDERR: {}'.format(err)) 
-        sys.exit(1) 
-
-    try:
-        os.listdir(os.path.join(config.get_path('data'),'bids'))
-    except OSError:
-        logger.error('BIDS directory failed to initialize! Please run nii_to_bids.py manually to debug!')
-        logger.error('Failed command: {}'.format(nii2bds_cmd))
-    return
-
-def initialize_environment(config,subject,out_dir): 
-
-    '''
-    Initializes environment for fmriprep mounting
-    Arguments: 
-        config              Datman configuration object (datman.config.config)
-        subject             Subject to create environment for
-        out_dir             Base directory for fmriprep outputs
-    '''
-
-    try: 
-        os.makedirs(os.path.join(out_dir,subject)) 
-    except OSError: 
-        logger.info('Path already exists, fmriprep output directories will be created within: {}'.format(out_dir))  
-
-    bids_dir = os.path.join(config.get_path('data'),'bids') 
-
-    return {'out' : os.path.join(out_dir,subject), 'bids' : bids_dir}
-    
 def fetch_fs_recon(config,subject,sub_out_dir): 
     '''
     Copies over freesurfer reconstruction to fmriprep pipeline output for auto-detection
@@ -222,66 +180,79 @@ def gen_pbs_directives(num_threads, subject):
 
     return [pbs_directives]
 
-    
-def gen_jobcmd(simg,env,subject,fs_license,num_threads,tmp_dir): 
+def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads): 
 
     '''
     Generates list of job submission commands to be written into a job file
     
     Arguments: 
-        simg                fmriprep singularity image
-        env                 A dictionary containing fmriprep mounting directories: {base: <base directory>, work: <base/{}_work>, home: <base/{}_home>, out: <output_dir>,license: <base/{}_li}
-        subject             Datman-style subject ID
-        fs_license          Directory to freesurfer license.txt 
-        num_threads         Number of threads
+        study               DATMAN study shortname
+        subject             DATMAN-style subject name
+        simg                Full path to singularity container image
+        sub_dir             Full path to fmriprep output directory for subject
+        tmp_dir             Path to store temporary job script and fmriprep working environment in 
+        fs_license          Full path to freesurfer license
+        num_threads         Number of threads to utilize [format threads,omp_threads]
 
     Output: 
         [list of commands to be written into job file]
     '''
-    
-    #Set up environment: 
-    if num_threads:
-        thread_env = 'export OMP_NUM_THREADS={}'.format(num_threads)
-    else: thread_env = ''
 
+    #Extract thread information 
+    thread_list = num_threads.split(',') 
+    threads,omp_threads = thread_list[0], thread_list[1]
+    
     #Cleanup function 
     trap_func = '''
 
     function cleanup(){
-        rm -rf $HOME
+        rm -rf $FMHOME
     }
 
     '''
 
-    #Temp initialization
+    #Variable and directory initialization
     init_cmd = '''
 
-    HOME=$(mktemp -d {home})
-    WORK=$(mktemp -d $HOME/work.XXXXX)
-    LICENSE=$(mktemp -d $HOME/li.XXXXX)
-    BIDS={bids}
+    FMHOME=$(mktemp -d {home})
+    WORK=$FMHOME/work
+    LICENSE=$FMHOME/li
+    BIDS=$FMHOME/bids
     SIMG={simg}
     SUB={sub}
     OUT={out}
 
-    '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),bids=env['bids'],simg=simg,sub=get_bids_name(subject),out=env['out'])
+    mkdir -p $WORK
+    mkdir -p $LICENSE
+    mkdir -p $BIDS
+
+    '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),simg=simg,sub=get_bids_name(subject),sub_dir)
+
+    #Datman to BIDS conversion command
+    nii_cmd = '''
+
+    nii_to_bids.py {study} {subject} --bids-dir $BIDS
+
+    '''
 
     #Fetch freesurfer license 
     fs_cmd =  '''
+
     cp {} $LICENSE/license.txt
+
     '''.format(fs_license if fs_license else DEFAULT_FS_LICENSE)
 
     
     fmri_cmd = '''
 
     trap cleanup EXIT 
-    singularity run -H $HOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out -B $LICENSE:/li \\
+    singularity run -H $FMHOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out -B $LICENSE:/li \\
     $SIMG -vvv \\
     /bids /out \\
     participant --participant-label $SUB --use-syn-sdc \\
-    --fs-license-file /li/license.txt --nthreads {} 
+    --fs-license-file /li/license.txt --nthreads {threads} --omp-nthreads {omp_threads} 
 
-    '''.format(num_threads)
+    '''.format(threads=threads,omp_threads=omp_threads)
 
     #Run post-cleanup if successful
     cleanup = '\n cleanup \n'
@@ -361,7 +332,7 @@ def submit_jobfile(job_file, augment_cmd=''):
 
     logger.info('Removing jobfile...')
     os.remove(job_file)
-    
+
 def main(): 
     
     arguments = docopt(__doc__) 
@@ -394,9 +365,6 @@ def main():
     out_dir = out_dir if out_dir else DEFAULT_OUT
     tmp_dir = tmp_dir if tmp_dir else '/tmp/'
 
-    run_bids_conversion(study, subjects, config) 
-    bids_dir = os.path.join(config.get_path('data'),'bids') 
-
     if not subjects: 
         subjects = [s for s in os.listdir(config.get_path('nii')) if 'PHA' not in s] 
 
@@ -405,14 +373,17 @@ def main():
 
     for subject in subjects: 
 
-        #Initialize subject directories and generate the fmriprep jobscript
-        env = initialize_environment(config, subject, out_dir)
+        #Create subject directory
+        sub_dir = os.path.join(out_dir,subject) 
+        try: 
+            os.makedirs(sub_dir) 
+        except OSError: 
+            logger.warning('Subject directory already exists, outputting fmriprep to {}'.format(sub_dir))
 
         #Generate a job file in temporary directory
         _,job_file = tempfile.mkstemp(suffix='fmriprep_job',dir=tmp_dir) 
 
-        #Command formulation block
-        logger.info('Generating commands...')
+        #Generate scheduler specific calls
         pbs_directives = ['']
         if system == 'pbs': 
             pbs_directives = gen_pbs_directives(num_threads, subject) 
@@ -421,7 +392,10 @@ def main():
             augment_cmd = ' -l ppn={}'.format(num_threads) if num_threads else ''
             augment_cmd += ' -N fmriprep_{}'.format(subject) 
 
-        fmriprep_cmd = gen_jobcmd(singularity_img,env,subject,fs_license,num_threads,tmp_dir)
+        #Main command
+        fmriprep_cmd = gen_jobcmd(study,subject,singularity_img,sub_dir,tmp_dir,fs_license,num_threads) 
+
+        #symlink depending on study type (longitudinal/cross-sectional) 
         symlink_cmd = [''] 
         if not ignore_recon or not keeprecon:
 
@@ -431,7 +405,7 @@ def main():
                 symlink_cmd = get_symlink_cmd(job_file,config,subject,env['out'])       
 
         #Write into jobfile
-        write_executable(job_file, pbs_directives + fmriprep_cmd + symlink_cmd)
+        write_executable(job_file, pbs_directives + niibids_cmd + fmriprep_cmd + symlink_cmd)
 
         import pdb
         pdb.set_trace() 
