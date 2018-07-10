@@ -223,14 +223,14 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads):
     mkdir -p $LICENSE
     mkdir -p $BIDS
 
-    '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),simg=simg,sub=get_bids_name(subject),sub_dir)
+    '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),simg=simg,sub=get_bids_name(subject),out=sub_dir)
 
     #Datman to BIDS conversion command
-    nii_cmd = '''
+    niibids_cmd = '''
 
     nii_to_bids.py {study} {subject} --bids-dir $BIDS
 
-    '''
+    '''.format(study=study,subject=subject)
 
     #Fetch freesurfer license 
     fs_cmd =  '''
@@ -244,7 +244,7 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads):
     if num_threads:
         thread_list = num_threads.split(',') 
         threads,omp_threads = thread_list[0], thread_list[1]
-        thread_arg = ' --nthreads {} --omp_nthreads {}'.format(threads,omp_threads)
+        thread_arg = ' --nthreads {} --omp-nthreads {}'.format(threads,omp_threads)
 
     fmri_cmd = '''
 
@@ -260,7 +260,7 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads):
     #Run post-cleanup if successful
     cleanup = '\n cleanup \n'
 
-    return [thread_env,trap_func,init_cmd,fs_cmd,fmri_cmd,cleanup] 
+    return [trap_func,init_cmd,niibids_cmd,fs_cmd,fmri_cmd,cleanup] 
 
 def get_symlink_cmd(jobfile,config,subject,sub_out_dir): 
     '''
@@ -359,6 +359,7 @@ def main():
     configure_logger(quiet,verbose,debug) 
     config = get_datman_config(study)
     system = config.site_config['SystemSettings'][config.system]['QUEUE']
+    ppn = num_threads.split(',')[0]
 
     #Maintain original reconstruction (equivalent to ignore) 
     keeprecon = config.get_key('KeepRecon') 
@@ -392,7 +393,7 @@ def main():
             pbs_directives = gen_pbs_directives(num_threads, subject) 
             augment_cmd = ''
         elif system == 'sge': 
-            augment_cmd = ' -l ppn={}'.format(num_threads) if num_threads else ''
+            augment_cmd = ' -l ppn={}'.format(ppn) if num_threads else ''
             augment_cmd += ' -N fmriprep_{}'.format(subject) 
 
         #Main command
@@ -402,17 +403,13 @@ def main():
         symlink_cmd = [''] 
         if not ignore_recon or not keeprecon:
 
-            fetch_flag = fetch_fs_recon(config,subject,env['out']) 
+            fetch_flag = fetch_fs_recon(config,subject,sub_dir) 
             
             if fetch_flag: 
-                symlink_cmd = get_symlink_cmd(job_file,config,subject,env['out'])       
+                symlink_cmd = get_symlink_cmd(job_file,config,subject,sub_dir)       
 
         #Write into jobfile
-        write_executable(job_file, pbs_directives + niibids_cmd + fmriprep_cmd + symlink_cmd)
-
-        import pdb
-        pdb.set_trace() 
-
+        write_executable(job_file, pbs_directives + fmriprep_cmd + symlink_cmd)
         submit_jobfile(job_file, augment_cmd) 
 
 if __name__ == '__main__': 
