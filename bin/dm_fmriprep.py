@@ -101,7 +101,7 @@ def fetch_fs_recon(config,subject,sub_out_dir):
         sub_out_dir                 fmriprep output directory for subject
 
     Output: 
-        Return status
+        Return r-sync command
     '''
     
     #Check whether freesurfer directory exists for subject
@@ -117,34 +117,16 @@ def fetch_fs_recon(config,subject,sub_out_dir):
         except OSError: 
             logger.warning('Failed to create directory {} already exists!'.format(fmriprep_fs)) 
 
-        #rsync source fs to fmriprep output, using os.path.join(x,'') to enforce trailing slash for rsync
-        cmd = 'rsync -a {} {}'.format(os.path.join(fs_recon_dir,''),fmriprep_fs)
-        p = proc.Popen(cmd, stdout=proc.PIPE, stdin=proc.PIPE, shell=True)  
-        std,err = p.communicate() 
-
-        #Error outcome
-        if p.returncode: 
-            logger.error('Freesurfer copying failed with error: {}'.format(err)) 
-            logger.warning('fmriprep will run recon-all!')
-
-            #Clean failed directories 
-            logger.info('Cleaning created directories...')
-            try: 
-                os.rmtree(fmriprep_fs)
-            except OSError: 
-                logger.error('Failed to remove {}, please delete manually and re-run {} with --ignore-recon flag!'.format(fmriprep_fs,subject))
-                logger.error('Exiting.....')
-                sys.exit(1) 
-
-            return False
+        cmd = '''
         
-        logger.info('Successfully copied freesurfer reconstruction to {}'.format(fmriprep_fs))
-        return True
-    else: 
-        #No freesurfer directory found, continue on but return False status indicator
+        rsync -a {recon_dir} {out_dir}
+        
+        '''.format(recon_dir=os.path.join(fs_recon_dir,''),out_dir=fmriprep_fs)
+        
+        return [cmd]
+    else:
+        return []
 
-        logger.info('No freesurfer directory found in {}'.format(fs_recon_dir))
-        return False 
 
 def filter_processed(subjects, out_dir): 
 
@@ -322,7 +304,7 @@ def submit_jobfile(job_file, augment_cmd=''):
     '''
 
     #Formulate command
-    cmd = 'qsub {job}'.format(job=job_file) + augment_cmd
+    cmd = '{job} '.format(job=job_file) + augment_cmd
 
     #Submit jobfile and delete after successful submission
     logger.info('Submitting job with command: {}'.format(cmd)) 
@@ -357,6 +339,7 @@ def main():
     num_threads                 = arguments['--threads']
     
     configure_logger(quiet,verbose,debug) 
+
     config = get_datman_config(study)
     system = config.site_config['SystemSettings'][config.system]['QUEUE']
     ppn = num_threads.split(',')[0]
@@ -401,15 +384,18 @@ def main():
 
         #symlink depending on study type (longitudinal/cross-sectional) 
         symlink_cmd = [''] 
+        fetch_cmd = ['']
         if not ignore_recon or not keeprecon:
 
-            fetch_flag = fetch_fs_recon(config,subject,sub_dir) 
+            fetch_cmd = fetch_fs_recon(config,subject,sub_dir) 
             
-            if fetch_flag: 
+            if fetch_cmd: 
                 symlink_cmd = get_symlink_cmd(job_file,config,subject,sub_dir)       
 
-        #Write into jobfile
-        write_executable(job_file, pbs_directives + fmriprep_cmd + symlink_cmd)
+        #Formulate final command list
+        master_cmd = pbs_directives + fetch_cmd + fmriprep_cmd + symlink_cmd 
+        write_executable(job_file, master_cmd)
+
         submit_jobfile(job_file, augment_cmd) 
 
 if __name__ == '__main__': 
