@@ -33,7 +33,7 @@ jobs:
             source venv/bin/activate
             sudo pip list > outputs/pip_list.txt
             cd /home/circleci/datman
-            nosetests --cover-xml-file /home/circleci/project/outputs/nosetests.xml
+            nosetests --cover-xml-file /home/circleci/project/outputs/nosetests.xml --tests=tests/test_checklist.py
       - store_artifacts:
           path: /home/circleci/project/outputs
           destination: out
