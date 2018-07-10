@@ -194,16 +194,16 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads):
     init_cmd = '''
 
     FMHOME=$(mktemp -d {home})
-    WORK=$FMHOME/work
     LICENSE=$FMHOME/li
     BIDS=$FMHOME/bids
+    WORK=$FMHOME/tmpwork/
     SIMG={simg}
     SUB={sub}
     OUT={out}
 
-    mkdir -p $WORK
     mkdir -p $LICENSE
     mkdir -p $BIDS
+    mkdir -p $WORK
 
     '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),simg=simg,sub=get_bids_name(subject),out=sub_dir)
 
@@ -231,18 +231,15 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads):
     fmri_cmd = '''
 
     trap cleanup EXIT 
-    singularity run -H $FMHOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out -B $LICENSE:/li \\
+    singularity run -B $BIDS:/bids -B $WORK:/work -B $OUT:/out -B $LICENSE:/li \\
     $SIMG -vvv \\
-    /bids /out \\
+    /bids /out -w /work \\
     participant --participant-label $SUB --use-syn-sdc \\
     --fs-license-file /li/license.txt {}
 
     '''.format(thread_arg)
 
-    #Run post-cleanup if successful
-    cleanup = '\n cleanup \n'
-
-    return [trap_func,init_cmd,niibids_cmd,fs_cmd,fmri_cmd,cleanup] 
+    return [trap_func,init_cmd,niibids_cmd,fs_cmd,fmri_cmd] 
 
 def get_symlink_cmd(jobfile,config,subject,sub_out_dir): 
     '''
@@ -284,13 +281,7 @@ def write_executable(f,cmds):
         cmdfile.write(header) 
         cmdfile.writelines(cmds)
 
-    p = proc.Popen('chmod +x {}'.format(f), stdin=proc.PIPE, stdout=proc.PIPE, shell=True) 
-    std, err = p.communicate() 
-    if p.returncode: 
-        logger.error('Failed to change permissions on {}'.format(f)) 
-        logger.error('ERR CODE: {}'.format(err)) 
-        sys.exit(1) 
-
+    os.chmod(f,0o775)
     logger.info('Successfully wrote commands to {}'.format(f))
 
 def submit_jobfile(job_file, augment_cmd=''): 
@@ -304,7 +295,7 @@ def submit_jobfile(job_file, augment_cmd=''):
     '''
 
     #Formulate command
-    cmd = '{job} '.format(job=job_file) + augment_cmd
+    cmd = 'qsub {job} '.format(job=job_file) + augment_cmd
 
     #Submit jobfile and delete after successful submission
     logger.info('Submitting job with command: {}'.format(cmd)) 
@@ -368,7 +359,8 @@ def main():
             logger.warning('Subject directory already exists, outputting fmriprep to {}'.format(sub_dir))
 
         #Generate a job file in temporary directory
-        _,job_file = tempfile.mkstemp(suffix='fmriprep_job',dir=tmp_dir) 
+        fd,job_file = tempfile.mkstemp(suffix='fmriprep_job',dir=tmp_dir) 
+        os.close(fd) 
 
         #Generate scheduler specific calls
         pbs_directives = ['']
@@ -376,7 +368,7 @@ def main():
             pbs_directives = gen_pbs_directives(ppn, subject) 
             augment_cmd = ''
         elif system == 'sge': 
-            augment_cmd = ' -l ppn={}'.format(ppn) if num_threads else ''
+            augment_cmd = ' -V -l ppn={}'.format(ppn) if num_threads else ''
             augment_cmd += ' -N fmriprep_{}'.format(subject) 
 
         #Main command
@@ -391,11 +383,10 @@ def main():
             
             if fetch_cmd: 
                 symlink_cmd = get_symlink_cmd(job_file,config,subject,sub_dir)       
-
-        #Formulate final command list
-        master_cmd = pbs_directives + fetch_cmd + fmriprep_cmd + symlink_cmd 
+        
+        #Formulate final command list and append final cleanup line
+        master_cmd = pbs_directives + fetch_cmd + fmriprep_cmd + symlink_cmd + ['\n cleanup \n']
         write_executable(job_file, master_cmd)
-
         submit_jobfile(job_file, augment_cmd) 
 
 if __name__ == '__main__': 
