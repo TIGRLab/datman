@@ -19,7 +19,7 @@ Options:
     -o, --out-dir               Location of where to output fmriprep outputs [default = /config_path/<study>/pipelines/fmriprep]
     -r, --rewrite               Overwrite if fmriprep pipeline outputs already exist in output directory
     -f, --fs-license-dir FSLISDIR          Freesurfer license path [default = /opt/quaratine/freesurfer/6.0.0/build/license.txt]
-    -t, --threads NUM_THREADS,OMP_THREADS              Formatted as threads,omp_threads, which indicates total number of threads and # of threads per process
+    -t, --threads NUM_THREADS,OMP_THREADS              Formatted as threads,omp_threads, which indicates total number of threads and # of threads per process [Default: use all available threads]
     --ignore-recon              Use this option to perform reconstruction even if already available in pipelines directory
     -d, --tmp-dir TMPDIR         Specify custom temporary directory (when using remote servers with restrictions on /tmp/ writing) 
     
@@ -198,10 +198,7 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads):
         [list of commands to be written into job file]
     '''
 
-    #Extract thread information 
-    thread_list = num_threads.split(',') 
-    threads,omp_threads = thread_list[0], thread_list[1]
-    
+        
     #Cleanup function 
     trap_func = '''
 
@@ -242,7 +239,13 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads):
 
     '''.format(fs_license if fs_license else DEFAULT_FS_LICENSE)
 
-    
+    #Extract thread information 
+    thread_arg = ''
+    if num_threads:
+        thread_list = num_threads.split(',') 
+        threads,omp_threads = thread_list[0], thread_list[1]
+        thread_arg = ' --nthreads {} --omp_nthreads {}'.format(threads,omp_threads)
+
     fmri_cmd = '''
 
     trap cleanup EXIT 
@@ -250,9 +253,9 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads):
     $SIMG -vvv \\
     /bids /out \\
     participant --participant-label $SUB --use-syn-sdc \\
-    --fs-license-file /li/license.txt --nthreads {threads} --omp-nthreads {omp_threads} 
+    --fs-license-file /li/license.txt {}
 
-    '''.format(threads=threads,omp_threads=omp_threads)
+    '''.format(thread_arg)
 
     #Run post-cleanup if successful
     cleanup = '\n cleanup \n'
