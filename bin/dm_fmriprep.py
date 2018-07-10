@@ -390,7 +390,7 @@ def main():
         #Generate scheduler specific calls
         pbs_directives = ['']
         if system == 'pbs': 
-            pbs_directives = gen_pbs_directives(num_threads, subject) 
+            pbs_directives = gen_pbs_directives(ppn, subject) 
             augment_cmd = ''
         elif system == 'sge': 
             augment_cmd = ' -l ppn={}'.format(ppn) if num_threads else ''
