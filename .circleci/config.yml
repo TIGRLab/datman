@@ -5,6 +5,7 @@ jobs:
       - image: circleci/python:2.7-jessie-node-browsers
         environment:
           DATMAN: /home/circleci/datman
+          NOSE_XUNIT_FILE: /home/circleci/project/outputs/nose/result.xml
     steps:
       - checkout:
           path: /home/circleci/datman
@@ -29,12 +30,10 @@ jobs:
             echo 'export PYTHONPATH=${DATMAN}/assets/:${DATMAN}/:$PYTHONPATH' >> $BASH_ENV
             echo 'export DATMAN_ASSETS=${DATMAN}/assets/'
             mkdir outputs
-            printenv > outputs/printenv.txt
             source venv/bin/activate
-            sudo pip list > outputs/pip_list.txt
             cd /home/circleci/datman
             mkdir /home/circleci/project/outputs/nose
-            nosetests --cover-xml-file /home/circleci/project/outputs/nose/results.xml --tests=tests/test_checklist.py
+            nosetests --with-xunit
       - store_artifacts:
           path: /home/circleci/project/outputs
           destination: out
