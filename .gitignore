@@ -4,3 +4,5 @@
 build/
 datman.egg-info/
 dist/
+.nfs*
+_executable
