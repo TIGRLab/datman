@@ -22,7 +22,7 @@ Options:
     -t, --threads NUM_THREADS,OMP_THREADS              Formatted as threads,omp_threads, which indicates total number of threads and # of threads per process [Default: use all available threads]
     --ignore-recon              Use this option to perform reconstruction even if already available in pipelines directory
     -d, --tmp-dir TMPDIR        Specify custom temporary directory (when using remote servers with restrictions on /tmp/ writing) 
-    -l, --log LOGDIR,verbosity  Specify fmriprep log output directory and level of verbosity (according to fmriprep). Example [/logs/,vvv] will output to /logs/<SUBJECT>_log.txt with extremely verbose output     
+    -l, --log LOGDIR,verbosity  Specify fmriprep log output directory and level of verbosity (according to fmriprep). Example [/logs/,vvv] will output to /logs/<SUBJECT>_fmriprep_log.txt with extremely verbose output     
     
 Requirements: 
     FSL (fslroi) - for nii_to_bids.py
@@ -35,13 +35,12 @@ Note:
         a) If particular session is coded XX_XX_XXXX_0N where N > 1. Then the original reconstructions will be left behind and a new one will be formed 
         b) For the first run, the original freesurfer implementation will always be symbolically linked to fmriprep's reconstruction (unless a new one becomes available)  
 
-VERSION: WORKING ON SGE QUEUE
+VERSION: LOGGING FMRIPREP 
 '''
 
 import os 
 import sys
 import datman.config
-from shutil import copytree, rmtree
 import logging
 import tempfile
 import subprocess as proc
@@ -163,7 +162,7 @@ def gen_pbs_directives(num_threads, subject):
 
     return [pbs_directives]
 
-def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads): 
+def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads,log_opt): 
 
     '''
     Generates list of job submission commands to be written into a job file
@@ -180,6 +179,15 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads):
     Output: 
         [list of commands to be written into job file]
     '''
+    
+    #Configure logging option
+    log_dir_cmd = ''
+    verbosity_cmd = ''
+    if log_opt: 
+        log_list = log_opt.split(',') 
+        log_dir, log_level = log_list[0], log_list[1]
+        verbosity_cmd = ' -{}'.format(log_level)
+        log_dir_cmd = ' &>> {}'.format(os.path.join(log_dir,subject + '_fmriprep_log.txt'))
 
         
     #Cleanup function 
@@ -206,14 +214,15 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads):
     mkdir -p $BIDS
     mkdir -p $WORK
 
-    '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),simg=simg,sub=get_bids_name(subject),out=sub_dir)
+    echo $FMHOME {log_cmd} 
+    '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),simg=simg,sub=get_bids_name(subject),out=sub_dir,log_cmd = log_dir_cmd)
 
     #Datman to BIDS conversion command
     niibids_cmd = '''
 
-    nii_to_bids.py {study} {subject} --bids-dir $BIDS
+    nii_to_bids.py {study} {subject} --bids-dir $BIDS {log_cmd}
 
-    '''.format(study=study,subject=subject)
+    '''.format(study=study,subject=subject,log_cmd = log_dir_cmd)
 
     #Fetch freesurfer license 
     fs_cmd =  '''
@@ -229,16 +238,17 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads):
         threads,omp_threads = thread_list[0], thread_list[1]
         thread_arg = ' --nthreads {} --omp-nthreads {}'.format(threads,omp_threads)
 
+    
     fmri_cmd = '''
 
     trap cleanup EXIT 
     singularity run -B $BIDS:/bids -B $WORK:/work -B $OUT:/out -B $LICENSE:/li \\
-    $SIMG -v \\
+    $SIMG {log} \\
     /bids /out -w /work \\
     participant --participant-label $SUB --use-syn-sdc \\
-    --fs-license-file /li/license.txt {}
+    --fs-license-file /li/license.txt {thread} {log_cmd}
 
-    '''.format(thread_arg)
+    '''.format(log=verbosity_cmd, thread=thread_arg, log_cmd = log_dir_cmd)
 
     return [trap_func,init_cmd,niibids_cmd,fs_cmd,fmri_cmd] 
 
@@ -329,30 +339,36 @@ def main():
     rewrite                     = arguments['--rewrite']
     ignore_recon                = arguments['--ignore-recon']
     num_threads                 = arguments['--threads']
+    log_opt                     = arguments['--log']
     
+    #Configure dm_fmriprep logger
     configure_logger(quiet,verbose,debug) 
 
+    #Configuration
     config = get_datman_config(study)
     system = config.site_config['SystemSettings'][config.system]['QUEUE']
-    ppn = num_threads.split(',')[0]
 
-    #Maintain original reconstruction (equivalent to ignore) 
+    if num_threads:
+        ppn = num_threads.split(',')[0]
+
     keeprecon = config.get_key('KeepRecon') 
 
+    #Configure settings with defaults
     singularity_img = singularity_img if singularity_img else DEFAULT_SIMG
     DEFAULT_OUT = os.path.join(config.get_study_base(),'pipelines','fmriprep') 
     out_dir = out_dir if out_dir else DEFAULT_OUT
     tmp_dir = tmp_dir if tmp_dir else '/tmp/'
 
+    #Filter subjects
     if not subjects: 
         subjects = [s for s in os.listdir(config.get_path('nii')) if 'PHA' not in s] 
 
     if not rewrite: 
         subjects = filter_processed(subjects,out_dir) 
 
+    #Process subjects
     for subject in subjects: 
 
-        #Create subject directory
         sub_dir = os.path.join(out_dir,subject) 
         try: 
             os.makedirs(sub_dir) 
@@ -373,7 +389,7 @@ def main():
             augment_cmd += ' -N fmriprep_{}'.format(subject) 
 
         #Main command
-        fmriprep_cmd = gen_jobcmd(study,subject,singularity_img,sub_dir,tmp_dir,fs_license,num_threads) 
+        fmriprep_cmd = gen_jobcmd(study,subject,singularity_img,sub_dir,tmp_dir,fs_license,num_threads,log_opt) 
 
         #symlink depending on study type (longitudinal/cross-sectional) 
         symlink_cmd = [''] 
