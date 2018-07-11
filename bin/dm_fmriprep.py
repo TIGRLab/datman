@@ -21,7 +21,8 @@ Options:
     -f, --fs-license-dir FSLISDIR          Freesurfer license path [default = /opt/quaratine/freesurfer/6.0.0/build/license.txt]
     -t, --threads NUM_THREADS,OMP_THREADS              Formatted as threads,omp_threads, which indicates total number of threads and # of threads per process [Default: use all available threads]
     --ignore-recon              Use this option to perform reconstruction even if already available in pipelines directory
-    -d, --tmp-dir TMPDIR         Specify custom temporary directory (when using remote servers with restrictions on /tmp/ writing) 
+    -d, --tmp-dir TMPDIR        Specify custom temporary directory (when using remote servers with restrictions on /tmp/ writing) 
+    -l, --log LOGDIR,verbosity  Specify fmriprep log output directory and level of verbosity (according to fmriprep). Example [/logs/,vvv] will output to /logs/<SUBJECT>_log.txt with extremely verbose output     
     
 Requirements: 
     FSL (fslroi) - for nii_to_bids.py
@@ -34,7 +35,7 @@ Note:
         a) If particular session is coded XX_XX_XXXX_0N where N > 1. Then the original reconstructions will be left behind and a new one will be formed 
         b) For the first run, the original freesurfer implementation will always be symbolically linked to fmriprep's reconstruction (unless a new one becomes available)  
 
-        VERSION: TESTING
+VERSION: WORKING ON SGE QUEUE
 '''
 
 import os 
@@ -45,7 +46,6 @@ import logging
 import tempfile
 import subprocess as proc
 from docopt import docopt
-from distutils.spawn import find_executable
 
 logging.basicConfig(level = logging.WARN, 
         format='[%(name)s] %(levelname)s : %(message)s')
@@ -206,17 +206,12 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads):
     mkdir -p $BIDS
     mkdir -p $WORK
 
-    echo $LICENSE >> /scratch/jjeyachandra/tmp/fmriprep/log.txt
-    echo $BIDS >> /scratch/jjeyachandra/tmp/fmriprep/log.txt
-    echo $WORK >> /scratch/jjeyachandra/tmp/fmriprep/log.txt
-    env >> /scratch/jjeyachandra/tmp/fmriprep/log.txt
-
     '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),simg=simg,sub=get_bids_name(subject),out=sub_dir)
 
     #Datman to BIDS conversion command
     niibids_cmd = '''
 
-    nii_to_bids.py {study} {subject} --bids-dir $BIDS &>> /scratch/jjeyachandra/tmp/fmriprep/log.txt
+    nii_to_bids.py {study} {subject} --bids-dir $BIDS
 
     '''.format(study=study,subject=subject)
 
@@ -241,7 +236,7 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads):
     $SIMG -v \\
     /bids /out -w /work \\
     participant --participant-label $SUB --use-syn-sdc \\
-    --fs-license-file /li/license.txt {} &>> /scratch/jjeyachandra/tmp/fmriprep/log.txt
+    --fs-license-file /li/license.txt {}
 
     '''.format(thread_arg)
 
