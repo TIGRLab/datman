@@ -99,7 +99,10 @@ def to_sub(ident):
         int(ident.subject[0])
         return "sub-" + ident.site + ident.subject
     except ValueError:
-        return "sub-" + ident.subject
+        if (ident.subject[0] == 'P'):
+           return "sub-" + ident.site + ident.subject
+        else:
+          return "sub-" + ident.subject
 
 def to_ses(timepoint):
     return "ses-{:02}".format(int(timepoint))
