@@ -45,6 +45,7 @@ import logging
 import tempfile
 import subprocess as proc
 from docopt import docopt
+from distutils.spawn import find_executable
 
 logging.basicConfig(level = logging.WARN, 
         format='[%(name)s] %(levelname)s : %(message)s')
@@ -205,12 +206,17 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads):
     mkdir -p $BIDS
     mkdir -p $WORK
 
+    echo $LICENSE >> /scratch/jjeyachandra/tmp/fmriprep/log.txt
+    echo $BIDS >> /scratch/jjeyachandra/tmp/fmriprep/log.txt
+    echo $WORK >> /scratch/jjeyachandra/tmp/fmriprep/log.txt
+    env >> /scratch/jjeyachandra/tmp/fmriprep/log.txt
+
     '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),simg=simg,sub=get_bids_name(subject),out=sub_dir)
 
     #Datman to BIDS conversion command
     niibids_cmd = '''
 
-    nii_to_bids.py {study} {subject} --bids-dir $BIDS
+    nii_to_bids.py {study} {subject} --bids-dir $BIDS &>> /scratch/jjeyachandra/tmp/fmriprep/log.txt
 
     '''.format(study=study,subject=subject)
 
@@ -232,10 +238,10 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads):
 
     trap cleanup EXIT 
     singularity run -B $BIDS:/bids -B $WORK:/work -B $OUT:/out -B $LICENSE:/li \\
-    $SIMG -vvv \\
+    $SIMG -v \\
     /bids /out -w /work \\
     participant --participant-label $SUB --use-syn-sdc \\
-    --fs-license-file /li/license.txt {}
+    --fs-license-file /li/license.txt {} &>> /scratch/jjeyachandra/tmp/fmriprep/log.txt
 
     '''.format(thread_arg)
 
@@ -295,7 +301,7 @@ def submit_jobfile(job_file, augment_cmd=''):
     '''
 
     #Formulate command
-    cmd = 'qsub {job} '.format(job=job_file) + augment_cmd
+    cmd = 'qsub {augment} {job}'.format(augment=augment_cmd,job=job_file)
 
     #Submit jobfile and delete after successful submission
     logger.info('Submitting job with command: {}'.format(cmd)) 
@@ -368,7 +374,7 @@ def main():
             pbs_directives = gen_pbs_directives(ppn, subject) 
             augment_cmd = ''
         elif system == 'sge': 
-            augment_cmd = ' -V -l ppn={}'.format(ppn) if num_threads else ''
+            augment_cmd = ' -V '.format(ppn) if num_threads else ''
             augment_cmd += ' -N fmriprep_{}'.format(subject) 
 
         #Main command
