@@ -295,18 +295,19 @@ def write_executable(f,cmds):
     os.chmod(f,0o775)
     logger.info('Successfully wrote commands to {}'.format(f))
 
-def submit_jobfile(job_file, augment_cmd=''): 
+def submit_jobfile(job_file, subject): 
 
     '''
     Submit fmriprep jobfile
 
     Arguments: 
         job_file                    Path to fmriprep job script to be submitted
-        augment_cmd                 Optional command that appends additional options to qsub
+        subject                     DATMAN-style subject ID
     '''
 
     #Formulate command
-    cmd = 'qsub {augment} {job}'.format(augment=augment_cmd,job=job_file)
+    cmd = 'qsub -V -N {subject} {job}'\
+    .format(subject=subject, job=job_file)
 
     #Submit jobfile and delete after successful submission
     logger.info('Submitting job with command: {}'.format(cmd)) 
@@ -383,11 +384,7 @@ def main():
         pbs_directives = ['']
         if system == 'pbs': 
             pbs_directives = gen_pbs_directives(ppn, subject) 
-            augment_cmd = ''
-        elif system == 'sge': 
-            augment_cmd = ' -V '.format(ppn) if num_threads else ''
-            augment_cmd += ' -N fmriprep_{}'.format(subject) 
-
+                
         #Main command
         fmriprep_cmd = gen_jobcmd(study,subject,singularity_img,sub_dir,tmp_dir,fs_license,num_threads,log_opt) 
 
@@ -404,7 +401,7 @@ def main():
         #Formulate final command list and append final cleanup line
         master_cmd = pbs_directives + fetch_cmd + fmriprep_cmd + symlink_cmd + ['\n cleanup \n']
         write_executable(job_file, master_cmd)
-        submit_jobfile(job_file, augment_cmd) 
+        submit_jobfile(job_file,subject) 
 
 if __name__ == '__main__': 
     main() 
