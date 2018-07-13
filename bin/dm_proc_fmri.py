@@ -331,6 +331,7 @@ def main():
 
     nii_dir = os.path.join(study_base, config.get_path('nii'))
 
+
     if scanid:
         path = os.path.join(nii_dir, scanid)
         if '_PHA_' in scanid:
