@@ -242,7 +242,7 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads,log_opt
     
     fmri_cmd = '''
 
-    trap cleanup EXIT 
+    #trap cleanup EXIT 
     singularity run -H $FMHOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out -B $LICENSE:/li \\
     $SIMG {log} \\
     /bids /out -w /work \\
@@ -298,7 +298,7 @@ def write_executable(f,cmds):
 
     logger.info('Successfully wrote commands to {}'.format(f))
 
-def submit_jobfile(job_file, subject): 
+def submit_jobfile(job_file, subject,ppn): 
 
     '''
     Submit fmriprep jobfile
@@ -309,8 +309,8 @@ def submit_jobfile(job_file, subject):
     '''
 
     #Formulate command
-    cmd = 'qsub -V -N {subject} {job}'\
-    .format(subject=subject, job=job_file)
+    cmd = 'qsub -l nodes=1:ppn={ppn},walltime=24:00:00 -V -N {subject} {job}'\
+    .format(ppn=ppn, subject=subject, job=job_file)
 
     #Submit jobfile and delete after successful submission
     logger.info('Submitting job with command: {}'.format(cmd)) 
@@ -350,12 +350,8 @@ def main():
 
     #Configuration
     config = get_datman_config(study)
-    system = config.site_config['SystemSettings'][config.system]['QUEUE']
-
-    if num_threads:
-        ppn = num_threads.split(',')[0]
-
     keeprecon = config.get_key('KeepRecon') 
+    ppn = num_threads.split(',')[0]
 
     #Configure settings with defaults
     singularity_img = singularity_img if singularity_img else DEFAULT_SIMG
@@ -383,11 +379,6 @@ def main():
         fd,job_file = tempfile.mkstemp(suffix='fmriprep_job',dir=tmp_dir) 
         os.close(fd) 
 
-        #Generate scheduler specific calls
-        pbs_directives = ['']
-        if system == 'pbs': 
-            pbs_directives = gen_pbs_directives(ppn, subject) 
-                
         #Main command
         fmriprep_cmd = gen_jobcmd(study,subject,singularity_img,sub_dir,tmp_dir,fs_license,num_threads,log_opt) 
 
@@ -402,7 +393,7 @@ def main():
                 symlink_cmd = get_symlink_cmd(job_file,config,subject,sub_dir)       
         
         #Formulate final command list and append final cleanup line
-        master_cmd = pbs_directives + fetch_cmd + fmriprep_cmd + symlink_cmd + ['\n cleanup \n']
+        master_cmd = fetch_cmd + fmriprep_cmd + symlink_cmd + ['\n cleanup \n']
         write_executable(job_file, master_cmd)
         submit_jobfile(job_file,subject) 
 
