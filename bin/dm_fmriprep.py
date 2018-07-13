@@ -23,6 +23,7 @@ Options:
     --ignore-recon              Use this option to perform reconstruction even if already available in pipelines directory
     -d, --tmp-dir TMPDIR        Specify custom temporary directory (when using remote servers with restrictions on /tmp/ writing) 
     -l, --log LOGDIR,verbosity  Specify fmriprep log output directory and level of verbosity (according to fmriprep). Example [/logs/,vvv] will output to /logs/<SUBJECT>_fmriprep_log.txt with extremely verbose output     
+    -e, --exclude [<TAG>,...,<TAG>]              Exclude certain file tags from BIDS output, this is to prevent certain BIDS apps from automatically using images we don't want them to use, a regex will be applied around the tag as *<TAG>*. Format: <TAG1>,<TAG2>,...,<TAGN>
     
 Requirements: 
     FSL (fslroi) - for nii_to_bids.py
@@ -163,7 +164,19 @@ def gen_pbs_directives(num_threads, subject):
 
     return [pbs_directives]
 
-def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads,log_opt): 
+def get_exclusion_cmd(exclude): 
+    '''
+    Returns a deletion command for each tag in exclude
+    
+    Arguments: 
+        exclude                 List of string tags to be excluded from subject bids folder
+    '''
+
+    exclusion_cmd = '\n'.join(['find $BIDS -name *{tag}* -delete'.format(tag=tag) for tag in exclude]) 
+    return exclusion_cmd
+
+
+def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads,log_opt,exclude): 
 
     '''
     Generates list of job submission commands to be written into a job file
@@ -225,6 +238,12 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads,log_opt
 
     '''.format(study=study,subject=subject,log_cmd = log_dir_cmd)
 
+    #Exclusions following nii_2_bids
+    exclude_cmd = '' 
+    if exclude: 
+        exclude_cmd = get_exclusion_cmd(exclude) 
+        
+
     #Fetch freesurfer license 
     fs_cmd =  '''
 
@@ -242,7 +261,7 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads,log_opt
     
     fmri_cmd = '''
 
-    #trap cleanup EXIT 
+    trap cleanup EXIT 
     singularity run -H $FMHOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out -B $LICENSE:/li \\
     $SIMG {log} \\
     /bids /out -w /work \\
@@ -251,7 +270,7 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads,log_opt
 
     '''.format(log=verbosity_cmd, thread=thread_arg, log_cmd = log_dir_cmd)
 
-    return [trap_func,init_cmd,niibids_cmd,fs_cmd,fmri_cmd] 
+    return [trap_func,init_cmd,niibids_cmd,exclude_cmd,fs_cmd,fmri_cmd] 
 
 def get_symlink_cmd(jobfile,config,subject,sub_out_dir): 
     '''
@@ -344,6 +363,7 @@ def main():
     ignore_recon                = arguments['--ignore-recon']
     num_threads                 = arguments['--threads']
     log_opt                     = arguments['--log']
+    exclude                     = arguments['--exclude'] 
     
     #Configure dm_fmriprep logger
     configure_logger(quiet,verbose,debug) 
@@ -358,6 +378,9 @@ def main():
     DEFAULT_OUT = os.path.join(config.get_study_base(),'pipelines','fmriprep') 
     out_dir = out_dir if out_dir else DEFAULT_OUT
     tmp_dir = tmp_dir if tmp_dir else '/tmp/'
+
+    #Get exclusion command
+    exclude = exclude.split(',') 
 
     #Filter subjects
     if not subjects: 
@@ -379,8 +402,8 @@ def main():
         fd,job_file = tempfile.mkstemp(suffix='fmriprep_job',dir=tmp_dir) 
         os.close(fd) 
 
-        #Main command
-        fmriprep_cmd = gen_jobcmd(study,subject,singularity_img,sub_dir,tmp_dir,fs_license,num_threads,log_opt) 
+        #Main command, TODO: Make consistent commands into a dictionary with implicit defaults
+        fmriprep_cmd = gen_jobcmd(study,subject,singularity_img,sub_dir,tmp_dir,fs_license,num_threads,log_opt,exclude) 
 
         #symlink depending on study type (longitudinal/cross-sectional) 
         symlink_cmd = [''] 
@@ -395,7 +418,7 @@ def main():
         #Formulate final command list and append final cleanup line
         master_cmd = fetch_cmd + fmriprep_cmd + symlink_cmd + ['\n cleanup \n']
         write_executable(job_file, master_cmd)
-        submit_jobfile(job_file,subject) 
+        submit_jobfile(job_file,subject,ppn) 
 
 if __name__ == '__main__': 
     main() 
