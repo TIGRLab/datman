@@ -117,9 +117,10 @@ def fetch_fs_recon(config,subject,sub_out_dir):
         except OSError: 
             logger.warning('Failed to create directory {} already exists!'.format(fmriprep_fs)) 
 
+        #Rsync, dereference as fmriprep is directory constrained
         cmd = '''
         
-        rsync -a {recon_dir} {out_dir}
+        rsync -L -a {recon_dir} {out_dir}
         
         '''.format(recon_dir=os.path.join(fs_recon_dir,''),out_dir=fmriprep_fs)
         
@@ -242,7 +243,7 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads,log_opt
     fmri_cmd = '''
 
     trap cleanup EXIT 
-    singularity run -B $BIDS:/bids -B $WORK:/work -B $OUT:/out -B $LICENSE:/li \\
+    singularity run -H $FMHOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out -B $LICENSE:/li \\
     $SIMG {log} \\
     /bids /out -w /work \\
     participant --participant-label $SUB --use-syn-sdc \\
@@ -286,13 +287,15 @@ def write_executable(f,cmds):
         cmds                    List of commands to write, will separate with \n
     '''
     
-    header = '#!/bin/bash \n'
+    #BASH interpreter + exit upon error
+    header = '#!/bin/bash \n set -e \n'
 
     with open(f,'w') as cmdfile: 
         cmdfile.write(header) 
         cmdfile.writelines(cmds)
 
     os.chmod(f,0o775)
+
     logger.info('Successfully wrote commands to {}'.format(f))
 
 def submit_jobfile(job_file, subject): 
