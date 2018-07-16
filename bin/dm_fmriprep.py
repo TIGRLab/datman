@@ -90,6 +90,11 @@ def get_datman_config(study):
         logger.error('{} not a valid study ID!'.format(study))
         sys.exit(1) 
 
+    #Check if study argument was incorrectly inputted as subject
+    if study != config.study_name: 
+        logger.error('Study incorrectly entered as subject {}! Exiting..'.format(study)) 
+        sys.exit(1) 
+
     return config
 
 def fetch_fs_recon(config,subject,sub_out_dir): 
