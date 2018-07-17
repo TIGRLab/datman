@@ -179,12 +179,11 @@ def link_files(tags, src_session, trg_session, src_data_dir, trg_data_dir):
                     dm.scanid.parse_filename(filename)
             except dm.scanid.ParseException:
                 continue
-            if file_tag in tags:
-                # need to create the link
-                # first need to capture the file extension as it gets lost
-                # when using dm.scanid to make the new name
-                ext = dm.utils.get_extension(filename)
+            if ident.session == src_session.session and file_tag in tags:
+                # If the file is from the same session we're supposed to link
+                # and the tag is in the list, make a link.
 
+                ext = dm.utils.get_extension(filename)
                 trg_name = dm.scanid.make_filename(trg_session, file_tag,
                                                    series, description)
                 src_file = os.path.join(root, filename)
@@ -211,7 +210,7 @@ def get_dirs_to_search(source_config, tag_list):
         else:
             logger.error("Tag {} has no file types defined in ExportSettings." \
                     "Searching all paths for matching data.".format(tag))
-            dirs_to_search = source_config.get_key('paths').keys()
+            dirs_to_search = source_config.get_key('Paths').keys()
             break
     dirs_to_search = set(dirs_to_search)
     return dirs_to_search
