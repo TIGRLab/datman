@@ -147,7 +147,7 @@ def remove_item(item):
         os.remove(item)
     except OSError as e:
         if e.errno == 13:
-            logger.error("Cannot remove file, reason: {}".format(e.strerror))
+            logger.error("Cannot remove file {}, reason: {}".format(item, e.strerror))
         else:
             logger.debug("Cannot remove file {}".format(item))
 
