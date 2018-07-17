@@ -26,7 +26,7 @@ import zipfile
 import io
 import urllib
 
-import dicom
+import pydicom
 from docopt import docopt
 
 import datman.config
@@ -97,7 +97,7 @@ def main():
         if os.path.isfile(archive):
             dicom_dir = os.path.dirname(os.path.normpath(archive))
             archives = [os.path.basename(os.path.normpath(archive))]
-        elif datman.scanid.is_scanid_with_session(archive):
+        elif is_datman_id(archive):
             # a sessionid could have been provided, lets be nice and handle that
             archives = [datman.utils.splitext(archive)[0] + '.zip']
         else:
@@ -112,6 +112,11 @@ def main():
     for archivefile in archives:
         process_archive(os.path.join(dicom_dir, archivefile))
 
+def is_datman_id(archive):
+    # scanid.is_scanid() isnt used because a complete id is needed (either
+    # a whole phantom ID or a subid with timepoint and session)
+    return (datman.scanid.is_scanid_with_session(archive) or
+            datman.scanid.is_phantom(archive))
 
 def process_archive(archivefile):
     """Upload data from a zip archive to the xnat server"""
