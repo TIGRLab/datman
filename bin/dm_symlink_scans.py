@@ -5,7 +5,6 @@ series numbers for scans in data/dcm. Creates a softlink in the data/nii
 folder. Also, optionally creates json sidecars with -j flag.
 
 Usage:
-    dm_symlink_scans.py [options] <study> 
     dm_symlink_scans.py [options] <study> (--site=<site_code> | --session=<id>...)
 
 Arguments:
@@ -106,7 +105,7 @@ def main():
         log_level = logging.INFO
     if debug:
         log_level = logging.DEBUG
-    
+
     logger.setLevel(log_level)
     log_handler.setLevel(log_level)
 
