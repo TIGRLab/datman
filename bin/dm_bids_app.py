@@ -4,8 +4,8 @@
 Run BIDS-apps on DATMAN environment using JSON dictionaries to specify arguments
 
 Usage: 
-    dm_bids_app.py [options] [--exclude=TAG]... <study> <out> <json>  
-    dm_bids_app.py [options] [--exclude=TAG]... <study> [<subjects> ...] <out> <json>   
+    dm_bids_app.py [options]  <study> <out> <json>  
+    dm_bids_app.py [options]  <study> [<subjects> ...] <out> <json>   
 
 Arguments: 
     <study>                         Datman study nickname
@@ -21,8 +21,7 @@ Options:
     -t, --threads THREADS           Total number of threads to use 
     -d, --tmp-dir TMPDIR            Specify temporary directory, [default = $TMPDIR, if not set, /tmp/]
     -l, --log LOGDIR                Specify bids-app log output directory. Will output to /logs/<SUBJECT>_<BIDS_APP>_log.txt, [default = None]
-    -e, --exclude                   TAG to remove from BIDS-app prior to running.  
-    -j, --json JSON                 JSON file specifying list of arguments to pass to BIDS-app
+    -e, --exclude                   List of comma separated TAGS to remove from BIDS-app prior to running. [Example: 'TAG1','TAG2',...,'TAGN'] 
 
 Notes on arguments: 
     --exclude finds files in the temporary BIDS directory created using a *<TAG>* regex. 
@@ -30,6 +29,7 @@ Notes on arguments:
 
     Additionally, the following arguments will NOT be parsed correctly: 
         --participant_label --> wrapper script handles this for you
+        {participant,group} --> positional argument, we use participant by default
         -w WORKDIR          --> tmp-dir/work becomes the workdir
 
 Requirements: 
@@ -150,6 +150,7 @@ def get_exclusion_cmd(exclude):
         exclude                 List of string tags to be excluded from subject bids folder
     '''
 
+    exclude = exclude.split(',')
     exclusion_cmd = '\n'.join(['find $BIDS -name *{tag}* -delete'.format(tag=tag) for tag in exclude]) 
     return exclusion_cmd 
 
@@ -212,8 +213,62 @@ def get_init_cmd(study,subject,tmp_dir,sub_dir,simg,log_tag):
 
     return [trap_cmd,init_cmd,n2b_cmd]
 
+def fetch_fs_recon(fs_dir,sub_dir,subject): 
+    '''
+    Copies over freesurfer reconstruction to fmriprep pipeline output
 
-def fmriprep_fork(bids_args,log_tag): 
+    Arguments: 
+        fs_dir                              Directory to freesurfer $SUBJECTS_DIR
+        subject                             Name of subject 
+        sub_dir                             fmriprep output directory for subject 
+    '''
+
+    fs_sub_dir = os.path.join(fs_dir,subject) 
+    sub_fmriprep_fs = os.path.join(sub_dir,'freesurfer',get_bids_name(subject)) 
+
+    if os.path.isdir(fs_sub_dir): 
+        logger.info('Located Freesurfer reconstruction files for {}, rsyncing to {}'.format(
+            subject,sub_fmriprep_fs))
+
+        try:
+            os.makedirs(sub_fmriprep_fs)
+        except OSError: 
+            logger.warning('Failed to create directory, {} already exists!'.format(sub_fmriprep_fs))
+
+        #Rsyc, dereference
+
+        rsync_cmd = '''
+
+        rsync -L -a {recon_dir} {out_dir} 
+
+        '''.format(recon_dir=fs_sub_dir,out_dir=sub_fmriprep_fs)
+
+        return rsync_cmd
+    else:
+        logger.info('No freesurfer reconstruction files located for {}'.format(subject)) 
+        return ''
+
+def get_symlink_cmd(fs_dir,sub_dir,subject): 
+    '''
+    Returns commands to remove original freesurfer directory and link to fmriprep freesurfer directory 
+
+    Arguments: 
+        fs_dir                          Directory to freesurfer $SUBJECTS_DIR 
+        subject                         Name of subject
+        sub_dir                         fmriprep output directory for subject 
+    '''
+
+    sub_fmriprep_fs = os.path.join(sub_dir,'freesurfer') 
+    fs_sub_dir = os.path.join(fs_dir,subject) 
+
+    remove_cmd = '\n rm -rf {} \n'.format(fs_sub_dir) 
+    symlink_cmd = 'ln -s {} {} \n'.format(sub_fmriprep_fs,fs_sub_dir) 
+
+    return [remove_cmd, symlink_cmd]
+
+
+
+def fmriprep_fork(bids_args,log_tag,sub_dir,subject): 
     '''
     FMRIPREP MODULE 
 
@@ -222,6 +277,8 @@ def fmriprep_fork(bids_args,log_tag):
     Arguments: 
         bids_args                       Dictionary for inputting arguments into BIDS call
         log_tag                         String tag for BASH stdout/err redirection to log
+        sub_dir                         Subject directory in output
+        subject                         DATMAN-style subject name 
 
     Output: 
         [list of commands]
@@ -234,6 +291,13 @@ def fmriprep_fork(bids_args,log_tag):
         logger.error('Cannot find fs-license key! Required for fmriprep freesurfer module.') 
         logger.error('Exiting...') 
         sys.exit(1) 
+
+    #If freesurfer-dir provided, fetch then if keeprecon add symlinking
+    if 'freesurfer-dir' in bids_args: 
+        fetch_cmd = fetch_fs_recon(bids_args['freesurfer-dir'],sub_dir,subject)
+
+        if not bids_args['keeprecon']:
+            symlink_cmd_list = get_symlink_cmd(bids_args['freesurfer-dir'],sub_dir,subject) 
 
     
     #Freesurfer LICENSE handling 
@@ -248,10 +312,11 @@ def fmriprep_fork(bids_args,log_tag):
     #Get BIDS singularity call
     bids_cmd = fmriprep_cmd(bids_args,log_tag) 
     
-    return [license_cmd, bids_cmd]
+    #Copy license, fetch freesurfer, run BIDSapp then symlink if KeepRecon false
+    return [license_cmd, fetch_cmd, bids_cmd] + symlink_cmd_list
 
 
-def fmriprep_cmd(bids_args,log_tag): 
+def fmriprep_cmd(bids_args,log_tag,sub_dir=None,subject=None): 
 
     '''
     Formulates fmriprep bash script content to be written into job file
@@ -277,7 +342,7 @@ def fmriprep_cmd(bids_args,log_tag):
     --participant-label $SUB \\
     --fs-license-file /li/license.txt {args} {log_tag}  
 
-    '''.format(args = ' '.join[k + v for k,v in bidsargs.items()], log_tag=log_tag)
+    '''.format(args = ' '.join([k + v for k,v in bidsargs.items()]), log_tag=log_tag)
 
     return bids_cmd 
 
@@ -305,7 +370,7 @@ def mriqc_fork(bids_args,log_tag):
     --participant-label $SUB \\
     {args} {log_tag}
 
-    '''.format(args = ' '.join([k + v for k,v in bids_args.items()]), log_tag=log_tag)
+    '''.format(args = ' '.join([k + v for k,v in bids_args['bidsargs'].items()]), log_tag=log_tag)
 
     return [mrqc_cmd] 
 
@@ -329,7 +394,7 @@ def write_executable(f, cmds):
     logger.info('Successfully wrote commands to {}'.format(f)) 
     return
 
-def submit_jobfile(job_file,subject,ppn):
+def submit_jobfile(job_file,subject,threads):
 
     '''
     Submit BIDS-app jobfile to queue 
@@ -337,11 +402,14 @@ def submit_jobfile(job_file,subject,ppn):
     Arguments: 
         job_file                    Path to BIDSapp job script to be submitted
         subject                     DATMAN style subject ID 
+        threads                     Number of threads assigned to each job 
     '''
 
+    #Thread argument if provided
+    thread_arg = ' -l nodes=1:ppn={threads},'.format(threads) if threads else ''
+
     #Formulate command 
-    cmd = 'qsub -l nodes=1:ppn={ppn},walltime=24:00:00 -V -N {subject} {job}'\
-            .format(ppn=ppn,subject=subject,job=job_file)
+    cmd = 'qsub -l {targ}walltime=24:00:00 -V -N {subject} {job}'.format(targ=thread_arg,subject=subject,job=job_file)
 
     logger.info('Submitting job with command: {}'.format(cmd)) 
     p = proc.Popen(cmd, stdin=proc.PIPE, stdout=proc.PIPE, shell=True) 
@@ -370,7 +438,7 @@ def main():
     study               =   arguments['<study>']
     subjects            =   arguments['<subjects>'] 
     out                 =   arguments['<out>']
-    json                =   arguments['--json']
+    json                =   arguments['<json>']
 
     quiet               =   arguments['--quiet']
     verbose             =   arguments['--verbose'] 
@@ -390,6 +458,8 @@ def main():
 
     #Configuration
     config = get_datman_config(study) 
+    
+    pdb.set_trace() 
 
     #Set temporary directory for BIDS app
     try: 
@@ -407,6 +477,12 @@ def main():
     #JSON parsing and argument formatting
     jargs = get_json_args(json)
 
+    #Inject keeprecon into jargs to avoid globals
+    try: 
+        jargs.update({'keeprecon' : config.get_key('KeepRecon')})
+    except KeyError: 
+        jargs.update({'keeprecon':True})
+
     #Handle logging commands 
     log_cmd = lambda x,y: ''
     if logdir: 
@@ -416,8 +492,6 @@ def main():
     exclude_cmd_list = ['']
     if exlude: 
         exclude_cmd_list = get_exclusion_cmd(exclude) 
-
-    pdb.set_trace() 
 
     #Process subjects 
     for subject in subjects: 
@@ -430,17 +504,16 @@ def main():
         except OSError: 
             logger.warning('Subject directory already exists at {}'.format(os.path.join(out,subjects)))
 
-
         #Get commands 
         init_cmd_list = get_init_cmd(study,subject,tmp_dir,sub_dir,jargs['img'],log_tag)
-        bids_cmd_list = strat_dict[jargs['app']](json)
+        bids_cmd_list = strat_dict[jargs['app']](jargs,log_tag)
 
         #Write commands to executable and submit
         master_cmd = init_cmd_list + exclude_cmd_list + bids_cmd_list +  ['\n cleanup \n']
         fd, job_file = tempfile.mkstemp(suffix='datman_BIDS_job',dir=tmp_dir) 
         os.close(fd) 
         write_executable(job_file,master_cmd) 
-        submit_jobfile(job_file,subject)
+        submit_jobfile(job_file,subject,threads)
         
 if __name__ == '__main__':
     main()

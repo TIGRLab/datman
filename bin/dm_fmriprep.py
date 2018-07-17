@@ -277,12 +277,11 @@ def gen_jobcmd(study,subject,simg,sub_dir,tmp_dir,fs_license,num_threads,log_opt
 
     return [trap_func,init_cmd,niibids_cmd,exclude_cmd,fs_cmd,fmri_cmd] 
 
-def get_symlink_cmd(jobfile,config,subject,sub_out_dir): 
+def get_symlink_cmd(config,subject,sub_out_dir): 
     '''
     Returns list of commands that remove original freesurfer directory and link to fmriprep freesurfer directory
 
     Arguments: 
-        jobfile                 Path to jobfile to be modified 
         config                  datman.config.config object with study initialized
         subject                 Datman-style subject ID
         sub_out_dir             fmriprep subject output path
@@ -418,7 +417,7 @@ def main():
             fetch_cmd = fetch_fs_recon(config,subject,sub_dir) 
             
             if fetch_cmd: 
-                symlink_cmd = get_symlink_cmd(job_file,config,subject,sub_dir)       
+                symlink_cmd = get_symlink_cmd(config,subject,sub_dir)       
         
         #Formulate final command list and append final cleanup line
         master_cmd = fetch_cmd + fmriprep_cmd + symlink_cmd + ['\n cleanup \n']
