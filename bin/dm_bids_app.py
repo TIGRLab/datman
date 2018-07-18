@@ -4,16 +4,15 @@
 Run BIDS-apps on DATMAN environment using JSON dictionaries to specify arguments
 
 Usage: 
-    dm_bids_app.py [options]  <study> <out> <json>  
-    dm_bids_app.py [options]  <study> [<subjects> ...] <out> <json>   
+    dm_bids_app.py [options] [-e <EXCLUDE>]... [-s <SUBJECT>]...  <study> <out> <json>  
 
 Arguments: 
     <study>                         Datman study nickname
-    <subjects>                      List of space separated datman-style subject IDs
     <out>                           Base directory for BIDS output
     <json>                          JSON key-value dictionary for BIDS-app argument information
 
 Options: 
+    -s, --subject SUBJECT,...       Datman subject ID to process through BID-app [repeatable option]
     -q, --quiet                     Only display ERROR Messages 
     -v, --verbose                   Display INFO/WARNING/ERROR Messages 
     -d, --debug                     Display DEBUG/INFO/WARNING/ERROR Messages
@@ -21,12 +20,12 @@ Options:
     -t, --threads THREADS           Total number of threads to use 
     -d, --tmp-dir TMPDIR            Specify temporary directory, [default = $TMPDIR, if not set, /tmp/]
     -l, --log LOGDIR                Specify bids-app log output directory. Will output to /logs/<SUBJECT>_<BIDS_APP>_log.txt, [default = None]
-    -e, --exclude                   List of comma separated TAGS to remove from BIDS-app prior to running. [Example: 'TAG1','TAG2',...,'TAGN'] 
+    -e, --exclude EXCLUDE,...       Tag to exclude from BIDS-app processing [repeatable option]       
 
 Notes on arguments: 
-    --exclude finds files in the temporary BIDS directory created using a *<TAG>* regex. 
-    --json arguments must match usage of BIDS-app being used, for arguments with no key-value structure simply using ''--key': True will suffice 
+    [option] exclude finds files in the temporary BIDS directory created using a *<TAG>* regex. 
 
+    JSON:
     Additionally, the following arguments will NOT be parsed correctly: 
         --participant_label --> wrapper script handles this for you
         {participant,group} --> positional argument, we use participant by default
@@ -61,6 +60,17 @@ logging.basicConfig(level=logging.WARN,
         format='[%(name)s %(levelname)s : %(message)s]')
 logger = logging.getLogger(os.path.basename(__file__)) 
 
+
+def get_bids_name(subject): 
+    '''
+    Helper function to convert datman to BIDS name
+    Arguments: 
+        subject                             Datman style subject ID 
+
+    '''
+
+    return 'sub-' + subject.split('_')[1] + subject.split('_')[-2]
+
 def configure_logger(quiet,verbose,debug): 
     '''
     Configure logger settings for script session
@@ -71,7 +81,7 @@ def configure_logger(quiet,verbose,debug):
     elif verbose: 
         logger.setLevel(logging.INFO) 
     elif debug: 
-        logger.setLevel(logger.DEBUG) 
+        logger.setLevel(logging.DEBUG) 
 
 def get_datman_config(study): 
     '''
@@ -93,6 +103,9 @@ def get_datman_config(study):
         logger.error('Study incorrectly entered as subject {}, please fix arguments!'.format(study)) 
         logger.error('Exiting...') 
         sys.exit(1) 
+    else:
+        return config
+
 
 def filter_subjects(subjects,out_dir): 
 
@@ -107,7 +120,7 @@ def filter_subjects(subjects,out_dir):
     criteria = lambda x: not os.path.isdir(os.path.join(out_dir,x)) 
     return [s for s in subjects if criteria(s)] 
 
-def get_json_args(json): 
+def get_json_args(json_file): 
     '''
     Read json file and return dictionary. Will fail if required arguments not found in JSON file. 
 
@@ -118,8 +131,8 @@ def get_json_args(json):
         j_dict              JSON-derived dictionary 
     '''
 
-    with open(json,'r') as jfile: 
-        j_dict = json.load(jfile) 
+    with open(json_file,'r') as jfile: 
+        j_dict = json.loads(jfile.read().decode('utf-8'))
 
     #Validate basic JSON structure 
     req_keys = ['app','bidsargs','img']
@@ -137,8 +150,8 @@ def get_json_args(json):
     args = get_dict_args(j_dict['bidsargs'])
 
     #Combine non-bids keys with formatted bids arugment keys 
-    out_dict = { k : v for k,v in j_dict if k != 'bidsargs'} 
-    out_dict.update(args) 
+    out_dict = { k : v for k,v in j_dict.items() if k != 'bidsargs'} 
+    out_dict.update({'bidsargs':args}) 
 
     return out_dict  
 
@@ -150,9 +163,8 @@ def get_exclusion_cmd(exclude):
         exclude                 List of string tags to be excluded from subject bids folder
     '''
 
-    exclude = exclude.split(',')
-    exclusion_cmd = '\n'.join(['find $BIDS -name *{tag}* -delete'.format(tag=tag) for tag in exclude]) 
-    return exclusion_cmd 
+    exclusion_cmd_list = ['find $BIDS -name *{tag}* -delete'.format(tag=tag) for tag in exclude] 
+    return exclusion_cmd_list 
 
 def get_dict_args(arg_dict): 
     '''
@@ -163,7 +175,7 @@ def get_dict_args(arg_dict):
     args = {'--{} '.format(k) : v for k,v in arg_dict.items() if str(v).lower() != 'false'}
 
     #Convert boolean to UNIX style argument 
-    args = {k : '' for k,v in arg_dict.items() if str(v).lower() == 'true'} 
+    args = {k : '' for k,v in args.items() if str(v).lower() == 'true'} 
 
     return args
 
@@ -200,14 +212,14 @@ def get_init_cmd(study,subject,tmp_dir,sub_dir,simg,log_tag):
     mkdir -p $BIDS
     mkdir -p $WORK
 
-    echo $APPHOME {log_cmd}
+    echo $APPHOME {log_tag}
 
     '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),simg=simg,
             sub=get_bids_name(subject),out=sub_dir,log_tag=log_tag)
 
     n2b_cmd = '''
 
-    nii_2_bids.py {study} {subject} --bids-dir $BIDS {log_tag} 
+    nii_to_bids.py {study} {subject} --bids-dir $BIDS {log_tag} 
 
     '''.format(study=study,subject=subject,log_tag=log_tag)
 
@@ -227,7 +239,7 @@ def fetch_fs_recon(fs_dir,sub_dir,subject):
     sub_fmriprep_fs = os.path.join(sub_dir,'freesurfer',get_bids_name(subject)) 
 
     if os.path.isdir(fs_sub_dir): 
-        logger.info('Located Freesurfer reconstruction files for {}, rsyncing to {}'.format(
+        logger.info('Located Freesurfer reconstruction files for {}, rsync to {} enabled'.format(
             subject,sub_fmriprep_fs))
 
         try:
@@ -268,14 +280,14 @@ def get_symlink_cmd(fs_dir,sub_dir,subject):
 
 
 
-def fmriprep_fork(bids_args,log_tag,sub_dir,subject): 
+def fmriprep_fork(jargs,log_tag,sub_dir,subject): 
     '''
     FMRIPREP MODULE 
 
     Generate a list of commands used to formulate the fmriprep job BASH script
 
     Arguments: 
-        bids_args                       Dictionary for inputting arguments into BIDS call
+        jargs                           Dictionary derived from JSON file
         log_tag                         String tag for BASH stdout/err redirection to log
         sub_dir                         Subject directory in output
         subject                         DATMAN-style subject name 
@@ -286,18 +298,18 @@ def fmriprep_fork(bids_args,log_tag,sub_dir,subject):
 
     #Validate fmriprep json arguments 
     try: 
-        bids_args['fs-license'] 
+        jargs['fs-license'] 
     except KeyError: 
         logger.error('Cannot find fs-license key! Required for fmriprep freesurfer module.') 
         logger.error('Exiting...') 
         sys.exit(1) 
 
     #If freesurfer-dir provided, fetch then if keeprecon add symlinking
-    if 'freesurfer-dir' in bids_args: 
-        fetch_cmd = fetch_fs_recon(bids_args['freesurfer-dir'],sub_dir,subject)
+    if 'freesurfer-dir' in jargs: 
+        fetch_cmd = fetch_fs_recon(jargs['freesurfer-dir'],sub_dir,subject)
 
-        if not bids_args['keeprecon']:
-            symlink_cmd_list = get_symlink_cmd(bids_args['freesurfer-dir'],sub_dir,subject) 
+        if not jargs['keeprecon']:
+            symlink_cmd_list = get_symlink_cmd(jargs['freesurfer-dir'],sub_dir,subject) 
 
     
     #Freesurfer LICENSE handling 
@@ -307,16 +319,16 @@ def fmriprep_fork(bids_args,log_tag,sub_dir,subject):
     mkdir -p $LICENSE 
     cp {fs_license} $LICENSE/license.txt
 
-    '''.format(fs_license=bids_args['fs-license'])
+    '''.format(fs_license=jargs['fs-license'])
 
     #Get BIDS singularity call
-    bids_cmd = fmriprep_cmd(bids_args,log_tag) 
+    bids_cmd = fmriprep_cmd(jargs['bidsargs'],log_tag) 
     
     #Copy license, fetch freesurfer, run BIDSapp then symlink if KeepRecon false
     return [license_cmd, fetch_cmd, bids_cmd] + symlink_cmd_list
 
 
-def fmriprep_cmd(bids_args,log_tag,sub_dir=None,subject=None): 
+def fmriprep_cmd(bids_args,log_tag): 
 
     '''
     Formulates fmriprep bash script content to be written into job file
@@ -342,11 +354,11 @@ def fmriprep_cmd(bids_args,log_tag,sub_dir=None,subject=None):
     --participant-label $SUB \\
     --fs-license-file /li/license.txt {args} {log_tag}  
 
-    '''.format(args = ' '.join([k + v for k,v in bidsargs.items()]), log_tag=log_tag)
+    '''.format(args = ' '.join([k + v for k,v in bids_args.items()]), log_tag=log_tag)
 
     return bids_cmd 
 
-def mriqc_fork(bids_args,log_tag): 
+def mriqc_fork(jargs,log_tag): 
     '''
     MRIQC MODULE
 
@@ -360,6 +372,8 @@ def mriqc_fork(bids_args,log_tag):
         [list of commands to be written into job file]
      
     '''
+
+    bids_args = jargs['bidsargs']
 
     mrqc_cmd = '''
 
@@ -428,7 +442,7 @@ def gen_log_redirect(log_dir,subject,app_name):
     '''
         
     log_tag = '_{}_log.txt'.format(app_name) 
-    return ' &>> {}'.format(os.path.join(log_dir,subject,log_tag))
+    return ' &>> {}'.format(os.path.join(log_dir,subject,'dm_bids_app' + log_tag))
 
 def main():
 
@@ -436,17 +450,19 @@ def main():
     arguments = docopt(__doc__)
 
     study               =   arguments['<study>']
-    subjects            =   arguments['<subjects>'] 
     out                 =   arguments['<out>']
-    json                =   arguments['<json>']
+    bids_json           =   arguments['<json>']
+
+    subjects            =   arguments['--subject'] 
+    exclude             =   arguments['--exclude']
 
     quiet               =   arguments['--quiet']
     verbose             =   arguments['--verbose'] 
     debug               =   arguments['--debug'] 
 
     rewrite             =   arguments['--rewrite']     
-    tmp_dir             =   arguments['--tmpdir']
-    log_dir             =   arguments['--logdir']
+    tmp_dir             =   arguments['--tmp-dir']
+    log_dir             =   arguments['--log']
 
     threads             =   arguments['--threads'] 
 
@@ -458,8 +474,7 @@ def main():
 
     #Configuration
     config = get_datman_config(study) 
-    
-    pdb.set_trace() 
+    configure_logger(quiet,verbose,debug)
 
     #Set temporary directory for BIDS app
     try: 
@@ -471,11 +486,15 @@ def main():
     #Filter subjects
     subjects = subjects if subjects else \
     [s for s in os.listdir(config.get_path('nii')) if 'PHA' not in s] 
-    if rewrite: 
+    if not rewrite: 
         subjects = filter_subjects(subjects,out) 
+        logger.info('Running {}'.format(subjects)) 
 
     #JSON parsing and argument formatting
-    jargs = get_json_args(json)
+
+    #Inject keeprecon into JSON as a key
+
+    jargs = get_json_args(bids_json)
 
     #Inject keeprecon into jargs to avoid globals
     try: 
@@ -485,12 +504,12 @@ def main():
 
     #Handle logging commands 
     log_cmd = lambda x,y: ''
-    if logdir: 
+    if log_dir: 
         log_cmd = partial(gen_log_redirect,log_dir=log_dir)
 
     #Handle tag exclusions
     exclude_cmd_list = ['']
-    if exlude: 
+    if exclude: 
         exclude_cmd_list = get_exclusion_cmd(exclude) 
 
     #Process subjects 
@@ -502,11 +521,11 @@ def main():
         try: 
             os.makedirs(sub_dir) 
         except OSError: 
-            logger.warning('Subject directory already exists at {}'.format(os.path.join(out,subjects)))
+            logger.warning('Subject directory already exists at {}'.format(os.path.join(out,subject)))
 
         #Get commands 
         init_cmd_list = get_init_cmd(study,subject,tmp_dir,sub_dir,jargs['img'],log_tag)
-        bids_cmd_list = strat_dict[jargs['app']](jargs,log_tag)
+        bids_cmd_list = strat_dict[jargs['app']](jargs,log_tag,sub_dir,subject)
 
         #Write commands to executable and submit
         master_cmd = init_cmd_list + exclude_cmd_list + bids_cmd_list +  ['\n cleanup \n']
