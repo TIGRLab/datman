@@ -251,7 +251,7 @@ def fetch_fs_recon(fs_dir,sub_dir,subject):
 
         rsync_cmd = '''
 
-        rsync -L -a {recon_dir} {out_dir} 
+        rsync -L -a {recon_dir}/ {out_dir} 
 
         '''.format(recon_dir=fs_sub_dir,out_dir=sub_fmriprep_fs)
 
@@ -557,7 +557,6 @@ def main():
         fd, job_file = tempfile.mkstemp(suffix='datman_BIDS_job',dir=tmp_dir) 
         os.close(fd) 
         write_executable(job_file,master_cmd) 
-        pdb.set_trace() 
         submit_jobfile(job_file,subject,queue,n_thread)
         
 if __name__ == '__main__':
