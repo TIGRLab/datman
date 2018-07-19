@@ -17,7 +17,6 @@ Options:
     -v, --verbose                   Display INFO/WARNING/ERROR Messages 
     -d, --debug                     Display DEBUG/INFO/WARNING/ERROR Messages
     -r, --rewrite                   Overwrite if outputs already exist in BIDS output directory 
-    -t, --threads THREADS           Total number of threads to use 
     -d, --tmp-dir TMPDIR            Specify temporary directory, [default = $TMPDIR, if not set, /tmp/]
     -l, --log LOGDIR                Specify bids-app log output directory. Will output to /logs/<SUBJECT>_<BIDS_APP>_log.txt, [default = None]
     -e, --exclude EXCLUDE,...       Tag to exclude from BIDS-app processing [repeatable option]       
@@ -30,6 +29,8 @@ Notes on arguments:
         --participant_label --> wrapper script handles this for you
         {participant,group} --> positional argument, we use participant by default
         -w WORKDIR          --> tmp-dir/work becomes the workdir
+
+    The number of threads requested by qsub (if using HPC) is determined by the number of threads indicated in the json file under bidsarg for the particular pipeline. This is done so the number of processors per node requested matches that of the expected amount of available cores for the bids-apps
 
 Requirements: 
     FSL - nii_to_bids.py requires it to run 
@@ -172,11 +173,10 @@ def get_dict_args(arg_dict):
     '''
 
     #Get key:value arguments and format keys
-    args = {'--{} '.format(k) : v for k,v in arg_dict.items() if str(v).lower() != 'false'}
+    args = {'--{}'.format(k) : v for k,v in arg_dict.items() if str(v).lower() != 'false'}
 
     #Convert boolean to UNIX style argument 
-    args = {k : '' for k,v in args.items() if str(v).lower() == 'true'} 
-
+    args = {k : ('' if str(v).lower() == 'true' else str(v)) for k,v in args.items()}
     return args
 
 def get_init_cmd(study,subject,tmp_dir,sub_dir,simg,log_tag):
@@ -354,11 +354,11 @@ def fmriprep_cmd(bids_args,log_tag):
     --participant-label $SUB \\
     --fs-license-file /li/license.txt {args} {log_tag}  
 
-    '''.format(args = ' '.join([k + v for k,v in bids_args.items()]), log_tag=log_tag)
+    '''.format(args = ' '.join([k + ' ' + v for k,v in bids_args.items()]), log_tag=log_tag)
 
     return bids_cmd 
 
-def mriqc_fork(jargs,log_tag): 
+def mriqc_fork(jargs,log_tag,sub_dir=None,subject=None): 
     '''
     MRIQC MODULE
 
@@ -378,13 +378,13 @@ def mriqc_fork(jargs,log_tag):
     mrqc_cmd = '''
 
     trap cleanup EXIT 
-    singularity run -H $APPHOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out -B $LICENSE:/li \\
+    singularity run -H $APPHOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out \\
     $SIMG \\
     /bids /out participant -w /work \\
     --participant-label $SUB \\
     {args} {log_tag}
 
-    '''.format(args = ' '.join([k + v for k,v in bids_args['bidsargs'].items()]), log_tag=log_tag)
+    '''.format(args = ' '.join([k + ' ' + v for k,v in bids_args.items()]), log_tag=log_tag)
 
     return [mrqc_cmd] 
 
@@ -420,7 +420,7 @@ def submit_jobfile(job_file,subject,threads):
     '''
 
     #Thread argument if provided
-    thread_arg = ' -l nodes=1:ppn={threads},'.format(threads) if threads else ''
+    thread_arg = 'nodes=1:ppn={threads},'.format(threads=threads) if threads else ''
 
     #Formulate command 
     cmd = 'qsub -l {targ}walltime=24:00:00 -V -N {subject} {job}'.format(targ=thread_arg,subject=subject,job=job_file)
@@ -444,6 +444,23 @@ def gen_log_redirect(log_dir,subject,app_name):
     log_tag = '_{}_log.txt'.format(app_name) 
     return ' &>> {}'.format(os.path.join(log_dir,subject,'dm_bids_app' + log_tag))
 
+def get_requested_threads(jargs, thread_dict): 
+    '''
+    Helper function to identify the requested number of threads in the bids app
+    and map it appropriately to the qsub request 
+    '''
+
+    expected_arg = thread_dict[jargs['app'].upper()]
+
+    if expected_arg in jargs['bidsargs']: 
+        logger.info('Requesting {} threads'.format(jargs['bidsargs'][expected_arg]))
+        return jargs['bidsargs'][expected_arg]
+    else: 
+        logger.warning('No thread arguments requested in json, BIDS-app will use ALL available cores!')
+        return None
+
+    #Get intersection between thread_dict mapping 
+
 def main():
 
     #Parse arguments 
@@ -464,12 +481,14 @@ def main():
     tmp_dir             =   arguments['--tmp-dir']
     log_dir             =   arguments['--log']
 
-    threads             =   arguments['--threads'] 
-
     #Strategy pattern dictionary 
     strat_dict = {
             'FMRIPREP' : fmriprep_fork, 
             'MRIQC'    : mriqc_fork
+            }
+    thread_dict = {
+            'FMRIPREP'  : '--nthreads',
+            'MRIQC'     : '--n_procs'
             }
 
     #Configuration
@@ -491,9 +510,6 @@ def main():
         logger.info('Running {}'.format(subjects)) 
 
     #JSON parsing and argument formatting
-
-    #Inject keeprecon into JSON as a key
-
     jargs = get_json_args(bids_json)
 
     #Inject keeprecon into jargs to avoid globals
@@ -501,6 +517,9 @@ def main():
         jargs.update({'keeprecon' : config.get_key('KeepRecon')})
     except KeyError: 
         jargs.update({'keeprecon':True})
+
+    #Map requested number of threads to HPC ppn request 
+    n_thread = get_requested_threads(jargs,thread_dict)
 
     #Handle logging commands 
     log_cmd = lambda x,y: ''
@@ -522,17 +541,17 @@ def main():
             os.makedirs(sub_dir) 
         except OSError: 
             logger.warning('Subject directory already exists at {}'.format(os.path.join(out,subject)))
-
+        
         #Get commands 
         init_cmd_list = get_init_cmd(study,subject,tmp_dir,sub_dir,jargs['img'],log_tag)
         bids_cmd_list = strat_dict[jargs['app']](jargs,log_tag,sub_dir,subject)
-
+        
         #Write commands to executable and submit
         master_cmd = init_cmd_list + exclude_cmd_list + bids_cmd_list +  ['\n cleanup \n']
         fd, job_file = tempfile.mkstemp(suffix='datman_BIDS_job',dir=tmp_dir) 
         os.close(fd) 
         write_executable(job_file,master_cmd) 
-        submit_jobfile(job_file,subject,threads)
+        submit_jobfile(job_file,subject,n_thread)
         
 if __name__ == '__main__':
     main()
