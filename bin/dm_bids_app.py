@@ -347,7 +347,7 @@ def fmriprep_cmd(bids_args,log_tag):
 
     bids_cmd = '''
 
-    trap cleanup EXIT
+    #trap cleanup EXIT
     singularity run -H $APPHOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out -B $LICENSE:/li \\
     $SIMG \\
     /bids /out participant -w /work \\
@@ -377,7 +377,7 @@ def mriqc_fork(jargs,log_tag,sub_dir=None,subject=None):
 
     mrqc_cmd = '''
 
-    trap cleanup EXIT 
+    #trap cleanup EXIT 
     singularity run -H $APPHOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out \\
     $SIMG \\
     /bids /out participant -w /work \\
@@ -408,7 +408,7 @@ def write_executable(f, cmds):
     logger.info('Successfully wrote commands to {}'.format(f)) 
     return
 
-def submit_jobfile(job_file,subject,threads):
+def submit_jobfile(job_file,subject,threads,queue):
 
     '''
     Submit BIDS-app jobfile to queue 
@@ -420,10 +420,11 @@ def submit_jobfile(job_file,subject,threads):
     '''
 
     #Thread argument if provided
-    thread_arg = 'nodes=1:ppn={threads},'.format(threads=threads) if threads else ''
+    thread_arg = '-l nodes=1:ppn={threads},walltime=24:00:00'.format(threads=threads) if \
+    (threads and queue.lower() == 'pbs') else ''
 
     #Formulate command 
-    cmd = 'qsub -l {targ}walltime=24:00:00 -V -N {subject} {job}'.format(targ=thread_arg,subject=subject,job=job_file)
+    cmd = 'qsub {pbs} -V -N {subject} {job}'.format(pbs=thread_arg,subject=subject,job=job_file)
 
     logger.info('Submitting job with command: {}'.format(cmd)) 
     p = proc.Popen(cmd, stdin=proc.PIPE, stdout=proc.PIPE, shell=True) 
@@ -495,6 +496,11 @@ def main():
     config = get_datman_config(study) 
     configure_logger(quiet,verbose,debug)
 
+    try: 
+        queue = config.site_config['SystemSettings'][os.environ['DM_SYSTEM']]['QUEUE']
+    except KeyError, e: 
+        logger.error('Config exception, key not found: {}'.format(e)) 
+
     #Set temporary directory for BIDS app
     try: 
         tmp_dir = tmp_dir if tmp_dir else os.environ['TMPDIR'] 
@@ -547,11 +553,12 @@ def main():
         bids_cmd_list = strat_dict[jargs['app']](jargs,log_tag,sub_dir,subject)
         
         #Write commands to executable and submit
-        master_cmd = init_cmd_list + exclude_cmd_list + bids_cmd_list +  ['\n cleanup \n']
+        master_cmd = init_cmd_list + exclude_cmd_list + bids_cmd_list #+  ['\n cleanup \n']
         fd, job_file = tempfile.mkstemp(suffix='datman_BIDS_job',dir=tmp_dir) 
         os.close(fd) 
         write_executable(job_file,master_cmd) 
-        submit_jobfile(job_file,subject,n_thread)
+        pdb.set_trace() 
+        submit_jobfile(job_file,subject,queue,n_thread)
         
 if __name__ == '__main__':
     main()
