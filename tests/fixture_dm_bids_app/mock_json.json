@@ -1,0 +1,14 @@
+{
+	"img":"potato",
+	"app":"FMRIPREP",
+	"bidsargs":{
+
+		"test_int":10,
+		"test_bool":"true",
+		"test_false_bool":"false"
+	}
+
+
+
+
+}
