@@ -557,7 +557,7 @@ def main():
         fd, job_file = tempfile.mkstemp(suffix='datman_BIDS_job',dir=tmp_dir) 
         os.close(fd) 
         write_executable(job_file,master_cmd) 
-        submit_jobfile(job_file,subject,queue,n_thread)
+        submit_jobfile(job_file,subject,n_thread,queue)
         
 if __name__ == '__main__':
     main()
