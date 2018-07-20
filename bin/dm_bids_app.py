@@ -17,8 +17,11 @@ Options:
     -v, --verbose                   Display INFO/WARNING/ERROR Messages 
     -d, --debug                     Display DEBUG/INFO/WARNING/ERROR Messages
     -r, --rewrite                   Overwrite if outputs already exist in BIDS output directory 
-    -d, --tmp-dir TMPDIR            Specify temporary directory, [default = $TMPDIR, if not set, /tmp/]
-    -l, --log LOGDIR                Specify bids-app log output directory. Will output to /logs/<SUBJECT>_<BIDS_APP>_log.txt, [default = None]
+    -d, --tmp-dir TMPDIR            Specify temporary directory 
+                                    [default : '/tmp/']
+    -l, --log LOGDIR                Specify bids-app log output directory. 
+                                    Will output to /logs/<SUBJECT>_<BIDS_APP>_log.txt 
+                                    [default : None]
     -e, --exclude EXCLUDE,...       Tag to exclude from BIDS-app processing [repeatable option]       
 
 Notes on arguments: 
@@ -479,7 +482,7 @@ def main():
     debug               =   arguments['--debug'] 
 
     rewrite             =   arguments['--rewrite']     
-    tmp_dir             =   arguments['--tmp-dir']
+    tmp_dir             =   arguments['--tmp-dir'] or '/tmp/'
     log_dir             =   arguments['--log']
 
     #Strategy pattern dictionary 
@@ -496,47 +499,32 @@ def main():
     config = get_datman_config(study) 
     configure_logger(quiet,verbose,debug)
 
+    #Get queue
     try: 
         queue = config.site_config['SystemSettings'][os.environ['DM_SYSTEM']]['QUEUE']
     except KeyError, e: 
         logger.error('Config exception, key not found: {}'.format(e)) 
-
-    #Set temporary directory for BIDS app
-    try: 
-        tmp_dir = tmp_dir if tmp_dir else os.environ['TMPDIR'] 
-    except KeyError: 
-        logger.info('No $TMPDIR variable set in shell, using /tmp/')
-        tmp_dir = '/tmp'
-
-    #Filter subjects
-    subjects = subjects if subjects else \
-    [s for s in os.listdir(config.get_path('nii')) if 'PHA' not in s] 
-    if not rewrite: 
-        subjects = filter_subjects(subjects,out) 
-        logger.info('Running {}'.format(subjects)) 
+        sys.exit(1) 
 
     #JSON parsing and argument formatting
     jargs = get_json_args(bids_json)
 
-    #Inject keeprecon into jargs to avoid globals
+    #Inject keeprecon into jargs to avoid globals, keep recon by default for safety
     try: 
         jargs.update({'keeprecon' : config.get_key('KeepRecon')})
     except KeyError: 
         jargs.update({'keeprecon':True})
 
-    #Map requested number of threads to HPC ppn request 
+    #Thread, logging and exclusion argument handling
     n_thread = get_requested_threads(jargs,thread_dict)
+    log_cmd = lambda x,y: '' if log_dir else partial(gen_log_redirect,log_dir=log_dir) 
+    exclude_cmd_list = [''] if exclude else get_exclusion_cmd(exclude) 
 
-    #Handle logging commands 
-    log_cmd = lambda x,y: ''
-    if log_dir: 
-        log_cmd = partial(gen_log_redirect,log_dir=log_dir)
-
-    #Handle tag exclusions
-    exclude_cmd_list = ['']
-    if exclude: 
-        exclude_cmd_list = get_exclusion_cmd(exclude) 
-
+    #Get subjects 
+    subjects = subjects or [s for s in os.listdir(config.get_path('nii')) if 'PHA' not in s] 
+    subjects = subjects if rewrite else filter_subjects(subjects,out)
+    logger.info('Running {}'.format(subjects)) 
+    
     #Process subjects 
     for subject in subjects: 
         
