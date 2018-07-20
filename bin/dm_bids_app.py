@@ -30,7 +30,6 @@ Notes on arguments:
     JSON:
     Additionally, the following arguments will NOT be parsed correctly: 
         --participant_label --> wrapper script handles this for you
-        {participant,group} --> positional argument, we use participant by default
         -w WORKDIR          --> tmp-dir/work becomes the workdir
 
     The number of threads requested by qsub (if using HPC) is determined by the number of threads indicated in the json file under bidsarg for the particular pipeline. This is done so the number of processors per node requested matches that of the expected amount of available cores for the bids-apps
@@ -177,9 +176,8 @@ def get_dict_args(arg_dict):
 
     #Get key:value arguments and format keys
     args = {'--{}'.format(k) : v for k,v in arg_dict.items() if str(v).lower() != 'false'}
-
-    #Convert boolean to UNIX style argument 
     args = {k : ('' if str(v).lower() == 'true' else str(v)) for k,v in args.items()}
+
     return args
 
 def get_init_cmd(study,subject,tmp_dir,sub_dir,simg,log_tag):
@@ -346,7 +344,7 @@ def fmriprep_cmd(bids_args,log_tag):
        
     '''
 
-    #Extract arguments to be passed to BIDS-app
+    append_args = [' '.join([k,v]) for k,v in bids_args.items()]
 
     bids_cmd = '''
 
@@ -357,7 +355,7 @@ def fmriprep_cmd(bids_args,log_tag):
     --participant-label $SUB \\
     --fs-license-file /li/license.txt {args} {log_tag}  
 
-    '''.format(args = ' '.join([k + ' ' + v for k,v in bids_args.items()]), log_tag=log_tag)
+    '''.format(args = ' '.join(append_args), log_tag=log_tag)
 
     return bids_cmd 
 
@@ -368,8 +366,9 @@ def mriqc_fork(jargs,log_tag,sub_dir=None,subject=None):
     Formulates fmriprep bash script content to be written into job file
 
     Arguments: 
-        bids_args                           bidsargs in JSON file
+        jargs                               bidsargs in JSON file
         log_tag                             String tag for BASH stout/err redirection to log
+        sub_dir,subject                     Strategy pattern consequence
 
     Output: 
         [list of commands to be written into job file]
@@ -377,6 +376,7 @@ def mriqc_fork(jargs,log_tag,sub_dir=None,subject=None):
     '''
 
     bids_args = jargs['bidsargs']
+    append_args = [' '.join([k,v]) for k,v in bids_args.items()]
 
     mrqc_cmd = '''
 
@@ -387,7 +387,7 @@ def mriqc_fork(jargs,log_tag,sub_dir=None,subject=None):
     --participant-label $SUB \\
     {args} {log_tag}
 
-    '''.format(args = ' '.join([k + ' ' + v for k,v in bids_args.items()]), log_tag=log_tag)
+    '''.format(args = ' '.join(append_args), log_tag=log_tag)
 
     return [mrqc_cmd] 
 
@@ -409,6 +409,7 @@ def write_executable(f, cmds):
 
     os.chmod(f,0o775) 
     logger.info('Successfully wrote commands to {}'.format(f)) 
+
     return
 
 def submit_jobfile(job_file,subject,threads,queue):
@@ -428,8 +429,8 @@ def submit_jobfile(job_file,subject,threads,queue):
 
     #Formulate command 
     cmd = 'qsub {pbs} -V -N {subject} {job}'.format(pbs=thread_arg,subject=subject,job=job_file)
-
     logger.info('Submitting job with command: {}'.format(cmd)) 
+
     p = proc.Popen(cmd, stdin=proc.PIPE, stdout=proc.PIPE, shell=True) 
     std, err = p.communicate() 
 
@@ -498,8 +499,6 @@ def main():
     #Configuration
     config = get_datman_config(study) 
     configure_logger(quiet,verbose,debug)
-
-    #Get queue
     try: 
         queue = config.site_config['SystemSettings'][os.environ['DM_SYSTEM']]['QUEUE']
     except KeyError, e: 
@@ -508,15 +507,12 @@ def main():
 
     #JSON parsing and argument formatting
     jargs = get_json_args(bids_json)
-
-    #Inject keeprecon into jargs to avoid globals, keep recon by default for safety
     try: 
         jargs.update({'keeprecon' : config.get_key('KeepRecon')})
     except KeyError: 
         jargs.update({'keeprecon':True})
-
-    #Thread, logging and exclusion argument handling
     n_thread = get_requested_threads(jargs,thread_dict)
+
     log_cmd = lambda x,y: '' if log_dir else partial(gen_log_redirect,log_dir=log_dir) 
     exclude_cmd_list = [''] if exclude else get_exclusion_cmd(exclude) 
 
