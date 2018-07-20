@@ -132,14 +132,9 @@ def run_epitome(path, config, study, output, exports, tasks):
     subject = os.path.basename(path)
     nii_dir = os.path.join(study_base, config.get_path('nii'))
     t1_dir = os.path.join(study_base, config.get_path('hcp'))
-<<<<<<< HEAD
 
-    fmri_dir = utils.define_folder(os.path.join(study_base, config.get_path('fmri')))
-    experiments = config.study_config['fmri'].keys()
-=======
     fmri_dir = utils.define_folder(output)
     experiments = tasks.keys()
->>>>>>> 5d88bae48b1fe04a6a2b785383e103b55be136b9
 
     # run file collection --> epitome --> export for each study
     logger.debug('experiments found {}'.format(experiments))
