@@ -307,15 +307,17 @@ def main():
     opt_exports = [e for e in exports.split(',')] if exports else []
 
     #Check if task is available 
-    try: 
-        config.study_config['fmri'][task]
-    except KeyError: 
-        logger.error('Task {} not found in study config!'.format(task))
-        sys.exit(1) 
-
-    #Get subset of relevant tasks 
+    #Broken lol..
+        #Get subset of relevant tasks 
     if task: 
+
+        try: 
+            config.study_config['fmri'][task]
+        except KeyError: 
+            logger.error('Task {} not found in study config!'.format(task))
+            sys.exit(1) 
         tasks = {k:v for k,v in config.study_config['fmri'].iteritems() if k == task} 
+
     else: 
         tasks = config.study_config['fmri']
 
