@@ -56,7 +56,6 @@ import tempfile
 import subprocess as proc
 from docopt import docopt
 import json
-import pdb
 from functools import partial
 
 logging.basicConfig(level=logging.WARN,
@@ -71,8 +70,15 @@ def get_bids_name(subject):
         subject                             Datman style subject ID 
 
     '''
+    
+    try: 
+        site_name, sub_num = subject.split('_')[1],subject.split('_')[2] 
+    except IndexError: 
+        logger.error('Subject {}, invalid subject name!'.format(subject))
+        logger.error('Subject should have STUDY_SITE_SUB#_... format, exiting...')
+        raise
 
-    return 'sub-' + subject.split('_')[1] + subject.split('_')[-2]
+    return 'sub-' + site_name + sub_num 
 
 def configure_logger(quiet,verbose,debug): 
     '''
@@ -85,6 +91,8 @@ def configure_logger(quiet,verbose,debug):
         logger.setLevel(logging.INFO) 
     elif debug: 
         logger.setLevel(logging.DEBUG) 
+
+    return
 
 def get_datman_config(study): 
     '''
@@ -137,18 +145,6 @@ def get_json_args(json_file):
     with open(json_file,'r') as jfile: 
         j_dict = json.loads(jfile.read().decode('utf-8'))
 
-    #Validate basic JSON structure 
-    req_keys = ['app','bidsargs','img']
-    last_key = None
-    try: 
-        for k in req_keys: 
-            last_key = k
-            j_dict[k]
-    except KeyError: 
-        logger.error('BIDS-app not specified using JSON keyword {}, please specify pipeline!'.format(k))
-        logger.error('Exiting process...') 
-        sys.exit(1)
-
     #Format argument keys 
     args = get_dict_args(j_dict['bidsargs'])
 
@@ -157,6 +153,30 @@ def get_json_args(json_file):
     out_dict.update({'bidsargs':args}) 
 
     return out_dict  
+
+def validate_json_args(jargs,test_dict):
+    '''
+    Validates json arguments, if missing raise informative exception
+    '''
+
+    req_keys = ['app','img','bidsargs'] 
+
+    #First check required keys
+    try: 
+        for k in req_keys: 
+            jargs[k]
+    except KeyError: 
+        logger.error('Required key, {} not found in provided json!'.format(k)) 
+        raise
+
+    #Second check if valid_app found 
+    try: 
+        test_dict[jargs['app']]
+    except KeyError: 
+        logger.error('BIDS-app {} not supported!'.format(jargs['app']))
+        raise
+
+    return True
 
 def get_exclusion_cmd(exclude): 
     '''
@@ -218,13 +238,17 @@ def get_init_cmd(study,subject,tmp_dir,sub_dir,simg,log_tag):
     '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),simg=simg,
             sub=get_bids_name(subject),out=sub_dir,log_tag=log_tag)
 
+    return [trap_cmd,init_cmd]
+
+def get_nii_to_bids_cmd(study,subject,log_tag): 
+
     n2b_cmd = '''
 
     nii_to_bids.py {study} {subject} --bids-dir $BIDS {log_tag} 
 
-    '''.format(study=study,subject=subject,log_tag=log_tag)
+    '''.format(study=study,subject=subject,log_tag=log_tag) 
 
-    return [trap_cmd,init_cmd,n2b_cmd]
+    return n2b_cmd
 
 def fetch_fs_recon(fs_dir,sub_dir,subject): 
     '''
@@ -271,7 +295,7 @@ def get_symlink_cmd(fs_dir,sub_dir,subject):
         sub_dir                         fmriprep output directory for subject 
     '''
 
-    sub_fmriprep_fs = os.path.join(sub_dir,'freesurfer') 
+    sub_fmriprep_fs = os.path.join(sub_dir,'freesurfer',get_bids_name(subject))  
     fs_sub_dir = os.path.join(fs_dir,subject) 
 
     remove_cmd = '\n rm -rf {} \n'.format(fs_sub_dir) 
@@ -303,7 +327,7 @@ def fmriprep_fork(jargs,log_tag,sub_dir,subject):
     except KeyError: 
         logger.error('Cannot find fs-license key! Required for fmriprep freesurfer module.') 
         logger.error('Exiting...') 
-        sys.exit(1) 
+        raise
 
     #If freesurfer-dir provided, fetch then if keeprecon add symlinking
     if 'freesurfer-dir' in jargs: 
@@ -457,14 +481,22 @@ def get_requested_threads(jargs, thread_dict):
 
     expected_arg = thread_dict[jargs['app'].upper()]
 
-    if expected_arg in jargs['bidsargs']: 
-        logger.info('Requesting {} threads'.format(jargs['bidsargs'][expected_arg]))
-        return jargs['bidsargs'][expected_arg]
-    else: 
-        logger.warning('No thread arguments requested in json, BIDS-app will use ALL available cores!')
+    #Rewrite as try/catch 
+    try: 
+        n_threads = jargs['bidsargs'][expected_arg] 
+    except KeyError: 
+
+        logger.warning('No thread arguments requested by json, BIDS-app will use ALL available cores')
         return None
 
-    #Get intersection between thread_dict mapping 
+    else: 
+        is_int = float(n_threads).is_integer()  
+        if not is_int: 
+            raise TypeError('Number of threads requested, {}, is not an integer!'.format(n_threads))
+        else: 
+            return n_threads 
+
+
 
 def main():
 
@@ -501,12 +533,14 @@ def main():
     configure_logger(quiet,verbose,debug)
     try: 
         queue = config.site_config['SystemSettings'][os.environ['DM_SYSTEM']]['QUEUE']
-    except KeyError, e: 
+    except KeyError as e: 
         logger.error('Config exception, key not found: {}'.format(e)) 
         sys.exit(1) 
 
-    #JSON parsing and argument formatting
+    #JSON parsing, formatting, and validating
     jargs = get_json_args(bids_json)
+    validate_json_args(jargs,strat_dict) 
+
     try: 
         jargs.update({'keeprecon' : config.get_key('KeepRecon')})
     except KeyError: 
@@ -534,10 +568,11 @@ def main():
         
         #Get commands 
         init_cmd_list = get_init_cmd(study,subject,tmp_dir,sub_dir,jargs['img'],log_tag)
+        n2b_cmd = get_nii_to_bids_cmd(study,subject,log_tag) 
         bids_cmd_list = strat_dict[jargs['app']](jargs,log_tag,sub_dir,subject)
         
         #Write commands to executable and submit
-        master_cmd = init_cmd_list + exclude_cmd_list + bids_cmd_list #+  ['\n cleanup \n']
+        master_cmd = init_cmd_list + [n2b_cmd] + exclude_cmd_list + bids_cmd_list #+  ['\n cleanup \n']
         fd, job_file = tempfile.mkstemp(suffix='datman_BIDS_job',dir=tmp_dir) 
         os.close(fd) 
         write_executable(job_file,master_cmd) 
