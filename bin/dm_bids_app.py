@@ -372,7 +372,7 @@ def fmriprep_cmd(bids_args,log_tag):
 
     bids_cmd = '''
 
-    #trap cleanup EXIT
+    trap cleanup EXIT
     singularity run -H $APPHOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out -B $LICENSE:/li \\
     $SIMG \\
     /bids /out participant -w /work \\
@@ -404,7 +404,7 @@ def mriqc_fork(jargs,log_tag,sub_dir=None,subject=None):
 
     mrqc_cmd = '''
 
-    #trap cleanup EXIT 
+    trap cleanup EXIT 
     singularity run -H $APPHOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out \\
     $SIMG \\
     /bids /out participant -w /work \\
@@ -571,7 +571,7 @@ def main():
         bids_cmd_list = strat_dict[jargs['app']](jargs,log_tag,sub_dir,subject)
         
         #Write commands to executable and submit
-        master_cmd = init_cmd_list + [n2b_cmd] + exclude_cmd_list + bids_cmd_list #+  ['\n cleanup \n']
+        master_cmd = init_cmd_list + [n2b_cmd] + exclude_cmd_list + bids_cmd_list +  ['\n cleanup \n']
         fd, job_file = tempfile.mkstemp(suffix='datman_BIDS_job',dir=tmp_dir) 
         os.close(fd) 
         write_executable(job_file,master_cmd) 
