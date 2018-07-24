@@ -481,7 +481,6 @@ def get_requested_threads(jargs, thread_dict):
 
     expected_arg = thread_dict[jargs['app'].upper()]
 
-    #Rewrite as try/catch 
     try: 
         n_threads = jargs['bidsargs'][expected_arg] 
     except KeyError: 
