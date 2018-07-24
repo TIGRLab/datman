@@ -1,1 +1,3 @@
-{}
+{
+  "tests/test_dm_bids_app.py::TestBASHCommands": true
+}
