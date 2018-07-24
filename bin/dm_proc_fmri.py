@@ -132,6 +132,7 @@ def run_epitome(path, config, study, output, exports, tasks):
     subject = os.path.basename(path)
     nii_dir = os.path.join(study_base, config.get_path('nii'))
     t1_dir = os.path.join(study_base, config.get_path('hcp'))
+
     fmri_dir = utils.define_folder(output)
     experiments = tasks.keys()
 
@@ -306,15 +307,17 @@ def main():
     opt_exports = [e for e in exports.split(',')] if exports else []
 
     #Check if task is available 
-    try: 
-        config.study_config['fmri'][task]
-    except KeyError: 
-        logger.error('Task {} not found in study config!'.format(task))
-        sys.exit(1) 
-
-    #Get subset of relevant tasks 
+    #Broken lol..
+        #Get subset of relevant tasks 
     if task: 
+
+        try: 
+            config.study_config['fmri'][task]
+        except KeyError: 
+            logger.error('Task {} not found in study config!'.format(task))
+            sys.exit(1) 
         tasks = {k:v for k,v in config.study_config['fmri'].iteritems() if k == task} 
+
     else: 
         tasks = config.study_config['fmri']
 
@@ -330,6 +333,7 @@ def main():
                 sys.exit(1)
 
     nii_dir = os.path.join(study_base, config.get_path('nii'))
+
 
     if scanid:
         path = os.path.join(nii_dir, scanid)
