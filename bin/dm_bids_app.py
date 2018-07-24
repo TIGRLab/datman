@@ -32,7 +32,9 @@ Notes on arguments:
         --participant_label --> wrapper script handles this for you
         -w WORKDIR          --> tmp-dir/work becomes the workdir
 
-    The number of threads requested by qsub (if using HPC) is determined by the number of threads indicated in the json file under bidsarg for the particular pipeline. This is done so the number of processors per node requested matches that of the expected amount of available cores for the bids-apps
+    The number of threads requested by qsub (if using HPC) is determined by the number of threads
+    indicated in the json file under bidsarg for the particular pipeline. This is done so the number
+    of processors per node requested matches that of the expected amount of available cores for the bids-apps
 
 Requirements: 
     FSL - nii_to_bids.py requires it to run 
@@ -40,8 +42,10 @@ Requirements:
 Notes on BIDS-apps: 
 
     FMRIPREP
-        FMRIPREP freesurfer module combines longitudinal data in order to enhance surface reconstruction. However sometimes we want to maintain both reconstructions for temporally varying measures extracted from pial surfaces. 
-        Refer to datman.config.config, study config key KeepRecon. Where the value is true, original reconstructions will not be deleted and linked to the fmriprep output version 
+        FMRIPREP freesurfer module combines longitudinal data in order to enhance surface reconstruction. 
+        However sometimes we want to maintain both reconstructions for temporally varying measures extracted from pial surfaces. 
+        Refer to datman.config.config, study config key KeepRecon. Where the value is true, original reconstructions will not be
+        deleted and linked to the fmriprep output version 
 
 Currently supported workflows: 
     1) FMRIPREP
