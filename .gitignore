@@ -7,5 +7,5 @@ datman.egg-info/
 dist/
 _executable
 .nfs*
-__pycache__*
-.pytest_cache*
+__pycache__/*
+.pytest_cache/*
