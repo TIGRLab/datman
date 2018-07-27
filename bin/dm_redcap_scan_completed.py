@@ -22,20 +22,17 @@ import logging
 from docopt import docopt
 
 import datman.config
+import datman.scanid
+import datman.dashboard
 
-from dashboard import db
-from dashboard.models import Session
+logger = logging.getLogger(os.path.basename(__file__))
 
-# set up logging
-logger = logging.getLogger(__name__)
-
-formatter = logging.Formatter('%(asctime)s - %(name)s - '
-                              '%(levelname)s - %(message)s')
-
-log_handler = logging.StreamHandler(sys.stdout)
-log_handler.setFormatter(formatter)
-
-logger.addHandler(log_handler)
+cfg = None
+dashboard = None
+redcap_url = None
+redcap_version = None
+redcap_project = None
+instrument = None
 
 
 def read_token(token_file):
@@ -70,41 +67,38 @@ def get_version(api_url, token):
 
 
 def add_session_redcap(record):
-    record_id = record['record_id'].upper()
+    record_id = record['record_id']
+    subject_id = record[cfg.get_key(['REDCAP_SUBJ'])].upper()
+    if not datman.scanid.is_scanid(subject_id):
+        try:
+            subject_id = subject_id + '_01'
+            datman.scanid.is_scanid(subject_id)
+        except:
+            logger.error('Invalid session: {}, skipping'.format(subject_id))
+            return
+
+    ident = datman.scanid.parse(subject_id)
+    session_name = ident.get_full_subjectid_with_timepoint()
     session_date = record[cfg.get_key(['REDCAP_DATE'])]
-    session_comments = record[cfg.get_key(['REDCAP_COMMENTS'])]
 
-    query = Session.query.filter(Session.name.like('%{}%'.format(record_id)))
-
-    if query.count() < 1:
-        logger.warn('Session {} not found, skipping'.format(record_id))
-        return
-
-    if query.count() > 1:
-        # if query brings multiple sessions, try filtering by scan date
-        query = query.filter(Session.date == session_date)
-
-    # only add redcap records if a single query is found
-    if not query.count() == 1:
-        logger.error('Session {} with scan date {} could not be matched, \
-                      skipping'.format(record_id, session_date))
-        return
-
-    session = query.first()
-    session.redcap_record = record_id
-    session.redcap_entry_date = session_date
-    session.redcap_comment = session_comments
-    session.redcap_url = redcap_url
-    session.redcap_version = redcap_version
-    session.redcap_projectid = redcap_project
-    session.redcap_instrument = instrument
-    db.session.add(session)
-    logger.info('Added record for session {}'.format(record_id))
-    db.session.commit()
+    try:
+        session = dashboard.get_add_session(session_name,
+                                            date=session_date,
+                                            create=True)
+        session.redcap_record = record_id
+        session.redcap_entry_date = session_date
+        session.redcap_comment = record[cfg.get_key(['REDCAP_COMMENTS'])]
+        session.redcap_url = redcap_url
+        session.redcap_version = redcap_version
+        session.redcap_projectid = redcap_project
+        session.redcap_instrument = instrument
+    except datman.dashboard.DashboardException as e:
+        logger.error('Failed adding session {} to dashboard'.format(session_name))
 
 
 def main():
     global cfg
+    global dashboard
     global redcap_url
     global redcap_version
     global redcap_project
@@ -116,9 +110,10 @@ def main():
     verbose = arguments['--verbose']
     debug = arguments['--debug']
 
-    # setup log levels
+    # setup logging
+    ch = logging.StreamHandler(sys.stdout)
     log_level = logging.WARN
-
+    
     if quiet:
         log_level = logging.ERROR
     if verbose:
@@ -127,13 +122,27 @@ def main():
         log_level = logging.DEBUG
 
     logger.setLevel(log_level)
-    log_handler.setLevel(log_level)
+    ch.setLevel(log_level)
+
+    formatter = logging.Formatter('%(asctime)s - %(name)s - {study} - '
+                                  '%(levelname)s - %(message)s'.format(
+                                       study=study))
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+    logging.getLogger('datman.utils').addHandler(ch)
 
     # setup the config object
     cfg = datman.config.config(study=study)
 
     # get paths
     dir_meta = cfg.get_path('meta')
+
+    # set up the dashboard object
+    try:
+        dashboard = datman.dashboard.dashboard(study)
+    except datman.dashboard.DashboardException as e:
+        raise e
+        logger.error('Failed to initialise dashboard')
 
     # configure redcap variables
     api_url = cfg.get_key(['REDCAP_URL'])
@@ -142,9 +151,8 @@ def main():
     token_path = os.path.join(dir_meta, cfg.get_key(['REDCAP_TOKEN']))
     token = read_token(token_path)
 
-    instrument = cfg.get_key(['REDCAP_INSTRUMENT'])
-
     redcap_project = cfg.get_key(['REDCAP_PROJECTID'])
+    instrument = cfg.get_key(['REDCAP_INSTRUMENT'])
 
     redcap_version = get_version(api_url, token)
 
@@ -154,7 +162,7 @@ def main():
     for item in response.json():
         # only grab records where instrument has been marked complete
         if not (item[cfg.get_key(['REDCAP_DATE'])] and
-                item['{}_complete'.format(instrument)] == '2'):
+                item[cfg.get_key(['REDCAP_STATUS'])] == '1'):
             continue
         project_records.append(item)
 
