@@ -76,13 +76,13 @@ def get_bids_name(subject):
     '''
     
     try: 
-        site_name, sub_num = subject.split('_')[1],subject.split('_')[2] 
+        sub_num = subject.split('_')[2] 
     except IndexError: 
         logger.error('Subject {}, invalid subject name!'.format(subject))
         logger.error('Subject should have STUDY_SITE_SUB#_... format, exiting...')
         raise
 
-    return 'sub-' + site_name + sub_num 
+    return 'sub-' + sub_num 
 
 def configure_logger(quiet,verbose,debug): 
     '''
@@ -580,6 +580,7 @@ def main():
         master_cmd = init_cmd_list + [n2b_cmd] + exclude_cmd_list + bids_cmd_list +  ['\n cleanup \n']
         fd, job_file = tempfile.mkstemp(suffix='datman_BIDS_job',dir=tmp_dir) 
         os.close(fd) 
+        import pdb; pdb.set_trace() 
         write_executable(job_file,master_cmd) 
         submit_jobfile(job_file,subject,n_thread,queue)
         
