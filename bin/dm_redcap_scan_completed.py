@@ -87,6 +87,7 @@ def add_session_redcap(record):
                                             create=True)
         session.redcap_record = record_id
         session.redcap_entry_date = session_date
+        session.redcap_eventid = cfg.get_key(['REDCAP_EVENTID'])[record['redcap_event_name']]
         session.redcap_comment = record[cfg.get_key(['REDCAP_COMMENTS'])]
         session.redcap_url = redcap_url
         session.redcap_version = redcap_version
@@ -113,7 +114,7 @@ def main():
     # setup logging
     ch = logging.StreamHandler(sys.stdout)
     log_level = logging.WARN
-    
+
     if quiet:
         log_level = logging.ERROR
     if verbose:
