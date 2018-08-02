@@ -334,6 +334,8 @@ def fmriprep_fork(jargs,log_tag,sub_dir,subject):
         raise
 
     #If freesurfer-dir provided, fetch then if keeprecon add symlinking
+    symlink_cmd_list = [] 
+    fetch_cmd = ''
     if 'freesurfer-dir' in jargs: 
         fetch_cmd = fetch_fs_recon(jargs['freesurfer-dir'],sub_dir,subject)
 
@@ -550,7 +552,7 @@ def main():
         jargs.update({'keeprecon':True})
     n_thread = get_requested_threads(jargs,thread_dict)
 
-    log_cmd = lambda x,y: '' if log_dir else partial(gen_log_redirect,log_dir=log_dir) 
+    log_cmd = lambda subject,app_name: '' if log_dir else partial(gen_log_redirect,log_dir=log_dir) 
     exclude_cmd_list = [''] if exclude else get_exclusion_cmd(exclude) 
 
     #Get subjects 
