@@ -580,7 +580,6 @@ def main():
         master_cmd = init_cmd_list + [n2b_cmd] + exclude_cmd_list + bids_cmd_list +  ['\n cleanup \n']
         fd, job_file = tempfile.mkstemp(suffix='datman_BIDS_job',dir=tmp_dir) 
         os.close(fd) 
-        import pdb; pdb.set_trace() 
         write_executable(job_file,master_cmd) 
         submit_jobfile(job_file,subject,n_thread,queue)
         
