@@ -9,3 +9,4 @@ _executable
 .nfs*
 /tests/__pycache__
 /.pytest_cache
+/assets/bids_jsons/
