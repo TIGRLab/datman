@@ -528,7 +528,7 @@ def main():
             without_tag = pattern.sub("", fmaps[0])
             base = os.path.basename(without_tag)
 
-            cmd = ['bash', '/archive/code/datman/bin/CMH_generate_fmap.sh', fmaps[0], fmaps[1], without_tag, base]
+            cmd = ['bash', 'CMH_generate_fmap.sh', fmaps[0], fmaps[1], without_tag, base]
             datman.utils.run(cmd)
             logger.warning("Running: {}".format(cmd))
             run_num+=1
