@@ -23,6 +23,7 @@ Options:
                                     Will output to /logs/<SUBJECT>_<BIDS_APP>_log.txt 
                                     [default : None]
     -e, --exclude EXCLUDE,...       Tag to exclude from BIDS-app processing [repeatable option]       
+    --DRYRUN                        Perform a dry-run, script will be generated at tmp-dir
 
 Notes on arguments: 
     [option] exclude finds files in the temporary BIDS directory created using a *<TAG>* regex. 
@@ -517,6 +518,8 @@ def main():
     tmp_dir             =   arguments['--tmp-dir'] or '/tmp/'
     log_dir             =   arguments['--log']
 
+    DRYRUN              =   arguments['--DRYRUN']
+
     #Strategy pattern dictionary 
     strat_dict = {
             'FMRIPREP' : fmriprep_fork, 
@@ -575,7 +578,9 @@ def main():
         fd, job_file = tempfile.mkstemp(suffix='datman_BIDS_job',dir=tmp_dir) 
         os.close(fd) 
         write_executable(job_file,master_cmd) 
-        submit_jobfile(job_file,subject,n_thread,queue)
+
+        if not DRYRUN: 
+            submit_jobfile(job_file,subject,n_thread,queue)
         
 if __name__ == '__main__':
     main()
