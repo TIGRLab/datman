@@ -33,7 +33,9 @@ Notes on arguments:
         --participant_label --> wrapper script handles this for you
         -w WORKDIR          --> tmp-dir/work becomes the workdir
 
-    The number of threads requested by qsub (if using HPC) is determined by the number of threads indicated in the json file under bidsarg for the particular pipeline. This is done so the number of processors per node requested matches that of the expected amount of available cores for the bids-apps
+    The number of threads requested by qsub (if using HPC) is determined by the number of threads
+    indicated in the json file under bidsarg for the particular pipeline. This is done so the number
+    of processors per node requested matches that of the expected amount of available cores for the bids-apps
 
 Requirements: 
     FSL - nii_to_bids.py requires it to run 
@@ -41,8 +43,10 @@ Requirements:
 Notes on BIDS-apps: 
 
     FMRIPREP
-        FMRIPREP freesurfer module combines longitudinal data in order to enhance surface reconstruction. However sometimes we want to maintain both reconstructions for temporally varying measures extracted from pial surfaces. 
-        Refer to datman.config.config, study config key KeepRecon. Where the value is true, original reconstructions will not be deleted and linked to the fmriprep output version 
+        FMRIPREP freesurfer module combines longitudinal data in order to enhance surface reconstruction. 
+        However sometimes we want to maintain both reconstructions for temporally varying measures extracted from pial surfaces. 
+        Refer to datman.config.config, study config key KeepRecon. Where the value is true, original reconstructions will not be
+        deleted and linked to the fmriprep output version 
 
 Currently supported workflows: 
     1) FMRIPREP
@@ -73,13 +77,13 @@ def get_bids_name(subject):
     '''
     
     try: 
-        site_name, sub_num = subject.split('_')[1],subject.split('_')[2] 
+        sub_num = subject.split('_')[2] 
     except IndexError: 
         logger.error('Subject {}, invalid subject name!'.format(subject))
         logger.error('Subject should have STUDY_SITE_SUB#_... format, exiting...')
         raise
 
-    return 'sub-' + site_name + sub_num 
+    return 'sub-' + sub_num 
 
 def configure_logger(quiet,verbose,debug): 
     '''
@@ -331,6 +335,8 @@ def fmriprep_fork(jargs,log_tag,sub_dir,subject):
         raise
 
     #If freesurfer-dir provided, fetch then if keeprecon add symlinking
+    symlink_cmd_list = [] 
+    fetch_cmd = ''
     if 'freesurfer-dir' in jargs: 
         fetch_cmd = fetch_fs_recon(jargs['freesurfer-dir'],sub_dir,subject)
 
@@ -373,7 +379,7 @@ def fmriprep_cmd(bids_args,log_tag):
 
     bids_cmd = '''
 
-    #trap cleanup EXIT
+    trap cleanup EXIT
     singularity run -H $APPHOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out -B $LICENSE:/li \\
     $SIMG \\
     /bids /out participant -w /work \\
@@ -405,7 +411,7 @@ def mriqc_fork(jargs,log_tag,sub_dir=None,subject=None):
 
     mrqc_cmd = '''
 
-    #trap cleanup EXIT 
+    trap cleanup EXIT 
     singularity run -H $APPHOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out \\
     $SIMG \\
     /bids /out participant -w /work \\
@@ -549,7 +555,7 @@ def main():
         jargs.update({'keeprecon':True})
     n_thread = get_requested_threads(jargs,thread_dict)
 
-    log_cmd = lambda x,y: '' if log_dir else partial(gen_log_redirect,log_dir=log_dir) 
+    log_cmd = lambda subject,app_name: '' if log_dir else partial(gen_log_redirect,log_dir=log_dir) 
     exclude_cmd_list = [''] if exclude else get_exclusion_cmd(exclude) 
 
     #Get subjects 
@@ -574,7 +580,7 @@ def main():
         bids_cmd_list = strat_dict[jargs['app']](jargs,log_tag,sub_dir,subject)
         
         #Write commands to executable and submit
-        master_cmd = init_cmd_list + [n2b_cmd] + exclude_cmd_list + bids_cmd_list #+  ['\n cleanup \n']
+        master_cmd = init_cmd_list + [n2b_cmd] + exclude_cmd_list + bids_cmd_list +  ['\n cleanup \n']
         fd, job_file = tempfile.mkstemp(suffix='datman_BIDS_job',dir=tmp_dir) 
         os.close(fd) 
         write_executable(job_file,master_cmd) 

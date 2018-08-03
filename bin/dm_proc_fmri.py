@@ -307,8 +307,6 @@ def main():
     opt_exports = [e for e in exports.split(',')] if exports else []
 
     #Check if task is available 
-    #Broken lol..
-        #Get subset of relevant tasks 
     if task: 
 
         try: 
