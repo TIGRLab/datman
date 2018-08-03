@@ -555,7 +555,7 @@ def main():
         jargs.update({'keeprecon':True})
     n_thread = get_requested_threads(jargs,thread_dict)
 
-    log_cmd = lambda subject,app_name: '' if log_dir else partial(gen_log_redirect,log_dir=log_dir) 
+    log_cmd = (lambda subject,app_name: '') if not log_dir else partial(gen_log_redirect,log_dir=log_dir)
     exclude_cmd_list = [''] if exclude else get_exclusion_cmd(exclude) 
 
     #Get subjects 
