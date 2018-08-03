@@ -49,7 +49,7 @@ class dashboard(object):
             raise DashboardException('Invalid session name:{}'
                                       .format(session_name))
 
-        dashboard_site = [site for study_site
+        dashboard_site = [study_site.site for study_site
                           in self.study.sites
                           if study_site.site.name == ident.site]
         if not dashboard_site:
