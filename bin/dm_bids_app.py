@@ -240,6 +240,8 @@ def get_init_cmd(study,subject,tmp_dir,sub_dir,simg,log_tag):
 
     echo $APPHOME {log_tag}
 
+    trap cleanup EXIT
+
     '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),simg=simg,
             sub=get_bids_name(subject),out=sub_dir,log_tag=log_tag)
 
@@ -379,7 +381,6 @@ def fmriprep_cmd(bids_args,log_tag):
 
     bids_cmd = '''
 
-    trap cleanup EXIT
     singularity run -H $APPHOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out -B $LICENSE:/li \\
     $SIMG \\
     /bids /out participant -w /work \\
@@ -411,7 +412,6 @@ def mriqc_fork(jargs,log_tag,sub_dir=None,subject=None):
 
     mrqc_cmd = '''
 
-    trap cleanup EXIT 
     singularity run -H $APPHOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out \\
     $SIMG \\
     /bids /out participant -w /work \\
