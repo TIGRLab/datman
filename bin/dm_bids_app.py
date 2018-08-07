@@ -478,7 +478,7 @@ def gen_log_redirect(log_dir,subject,app_name):
     '''
         
     log_tag = '_{}_log.txt'.format(app_name) 
-    return ' &>> {}'.format(os.path.join(log_dir,subject,'dm_bids_app' + log_tag))
+    return ' &>> {}'.format(os.path.join(log_dir,subject + '_dm_bids_app' + log_tag))
 
 def get_requested_threads(jargs, thread_dict): 
     '''
