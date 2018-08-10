@@ -9,7 +9,8 @@
 	"bidsargs": 
 	{
 		"nthreads":8,
-		"omp-nthreads":4
+		"omp-nthreads":4,
+		"use-syn-sdc":"True"
 	
 	}
 
