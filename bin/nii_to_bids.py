@@ -140,8 +140,14 @@ def to_bids_name(ident, tag, cnt_run, type_folder, ex):
     elif (tag in tag_map["dti"]):
         dtiacq = "{}{}".format(acq, tag.translate(None, "DTI-"))
         return os.path.join(type_folder["dwi"] , "{}_{}_{}_{}_dwi{}".format(subject, session, dtiacq, run_num, ext))
-    elif "FMAP" in tag and ext != ".json" and ident.site == 'CMH':
+    elif ("FMAP" in tag) and ext != ".json" and ident.site == 'CMH':
         return os.path.join(type_folder["fmap"] , "{}_{}_{}_{}_{}{}".format(subject, session, acq, run_num, tag, ext))
+    elif (tag in ['FMRI-DAP','FMRI-DPA','DMRI-DPA','DMRI-DAP']): 
+        pe=tag.split('-')[1].replace('D','')
+        name = '{}_{}_{}_dir-{}_{}_epi{}'
+        run_num = to_run(cnt_run[tag])
+        task = 'rest' 
+        return os.path.join(type_folder['fmap'], name.format(subject,session,acq,pe,run_num,ext))  
     else:
         raise ValueError("File could not be changed to bids format:{} {} {}".format(str(ident), tag, ext))
 
@@ -195,10 +201,12 @@ def validify_file(sub_nii_dir):
         if nii_ses not in ses_ser_file_map.keys():
             ses_ser_file_map[nii_ses] = dict()
         ses_ser_file_map[nii_ses][nii_ser] = list()
+
     [nii_list.remove(x) for x in invalid_filenames]
     blacklist_files = set()
     match_six = {ses : LifoQueue() for ses in ses_ser_file_map.keys()}
     match_eight = {ses : LifoQueue() for ses in ses_ser_file_map.keys()}
+
     for filename in sorted(nii_list, key=lambda x: (scanid.parse_filename(x)[0].session, scanid.parse_filename(x)[2])):
         ident, tag, series, description = scanid.parse_filename(filename)
         ext = os.path.splitext(filename)[1]
@@ -206,12 +214,12 @@ def validify_file(sub_nii_dir):
         ses_ser_file_map[session][series].append(filename)
         ses_ser = (session, series)
         # fmap validation
-        if tag == 'FMAP-6.5' and ext == '.gz':
+        if tag in ['FMAP-6.5','FMRI-DAP', 'DMRI-DAP'] and ext == '.gz':
             if 'flipangle' in filename:
                 blacklist_files.add(ses_ser)
             else:
                 match_six[session].put(series)
-        elif tag == 'FMAP-8.5' and ext == '.gz':
+        elif tag in ['FMAP-8.5','FMRI-DPA', 'DMRI-DPA'] and ext == '.gz':
             if 'flipangle' in filename:
                 blacklist_files.add(ses_ser)
             else:
@@ -477,10 +485,12 @@ def main():
         type_folders = create_bids_dirs(bids_dir, parsed)
         sub_nii_dir = os.path.join(nii_dir,subject_dir) + '/'
         logger.info("Will now begin creating files in BIDS format for: {}".format(sub_nii_dir))
+
+        #Pair together FMAPS if using PEPOLAR and map intended for json fields
         ses_ser_file_map, matched_fmaps = validify_file(sub_nii_dir)
         intended_fors = get_intended_fors(ses_ser_file_map, matched_fmaps)
-        nii_to_bids_match = dict()
 
+        nii_to_bids_match = dict()
         if fmriprep_dir:
             fs_src = os.path.join(fs_dir, subject_dir)
             sub_ses = "{}_{}".format(to_sub(parsed), to_ses(parsed.timepoint))
@@ -508,8 +518,8 @@ def main():
                         continue
                     logger.info('Copying file')
                     copyfile(item_path, bids_path)
-                    logger.info('fslroi')
                     if bids_path.endswith('nii.gz') and "task" in os.path.basename(bids_path):
+                        logger.info('fslroi')
                         os.system('fslroi {0} {0} 4 -1'.format(bids_path))
                         logger.warning("Finished fslroi on {}".format(os.path.basename(bids_path)))
                     logger.info("{:<80} {:<80}".format(os.path.basename(item), os.path.basename(bids_path)))
@@ -520,6 +530,8 @@ def main():
                     cnt[series_tags.pop()] += 1
 
         run_num = 1
+
+        #Generate field maps 
         fmaps = sorted(glob.glob("{}*run-0{}_FMAP-*".format(type_folders['fmap'],run_num)))
         while len(fmaps) > 1:
             for fmap in fmaps:

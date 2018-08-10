@@ -478,7 +478,7 @@ def gen_log_redirect(log_dir,subject,app_name):
     '''
         
     log_tag = '_{}_log.txt'.format(app_name) 
-    return ' &>> {}'.format(os.path.join(log_dir,subject,'dm_bids_app' + log_tag))
+    return ' &>> {}'.format(os.path.join(log_dir,subject + '_dm_bids_app' + log_tag))
 
 def get_requested_threads(jargs, thread_dict): 
     '''
@@ -555,7 +555,7 @@ def main():
         jargs.update({'keeprecon':True})
     n_thread = get_requested_threads(jargs,thread_dict)
 
-    log_cmd = lambda subject,app_name: '' if log_dir else partial(gen_log_redirect,log_dir=log_dir) 
+    log_cmd = (lambda subject,app_name: '') if not log_dir else partial(gen_log_redirect,log_dir=log_dir)
     exclude_cmd_list = [''] if exclude else get_exclusion_cmd(exclude) 
 
     #Get subjects 
