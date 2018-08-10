@@ -142,49 +142,75 @@ def to_bids_name(ident, tag, cnt_run, type_folder, ex):
         return os.path.join(type_folder["dwi"] , "{}_{}_{}_{}_dwi{}".format(subject, session, dtiacq, run_num, ext))
     elif ("FMAP" in tag) and ext != ".json" and ident.site == 'CMH':
         return os.path.join(type_folder["fmap"] , "{}_{}_{}_{}_{}{}".format(subject, session, acq, run_num, tag, ext))
-    elif (tag in ['FMRI-DAP','FMRI-DPA','DMRI-DPA','DMRI-DAP']): 
+    elif (tag in ['FMRI-DAP','FMRI-DPA']): 
         pe=tag.split('-')[1].replace('D','')
-        name = '{}_{}_{}_dir-{}_{}_epi{}'
+        name = '{}_{}_{}_dir-{}{}_{}_epi{}'
         run_num = to_run(cnt_run[tag])
+        type_indicator = tag[0]
         task = 'rest' 
-        return os.path.join(type_folder['fmap'], name.format(subject,session,acq,pe,run_num,ext))  
+        return os.path.join(type_folder['fmap'], name.format(subject,session,acq,type_indicator,pe,run_num,ext))  
     else:
         raise ValueError("File could not be changed to bids format:{} {} {}".format(str(ident), tag, ext))
 
 def get_intended_fors(ses_ser_file_map, matched_fmaps):
-    intended_fors = dict()
-    for ses in sorted(ses_ser_file_map.keys()):
-        ses_fmaps = sorted(matched_fmaps[ses])
-        for ser in sorted(ses_ser_file_map[ses].keys()):
-            series = int(ser)
-            for i in range(0, len(ses_fmaps)):
-                (six, eight) = ses_fmaps[i]
-                matched = False
-                if ser == six or ser == eight:
-                    break
-                if i == 0 and series < float(six):
-                    matched = True
-                elif i == len(ses_fmaps) - 1 and series > float(eight):
-                    matched = True
-                elif series != float(six) and series != float(eight):
-                    nex = int(ses_fmaps[i+1][0]) if i != len(ses_fmaps) -1 else (sys.maxsize * -1) -1
-                    prev = int(ses_fmaps[i-1][1]) if i != 0 else sys.maxsize
-                    if (( series > float(six) - (float(six) - prev)/2) or (series <= float(eight) + (nex - float(eight))/2)):
-                        matched = True
-                if matched:
 
-                    six_fmap = filter(lambda x: x.endswith('nii.gz'), ses_ser_file_map[ses][six])[0]
-                    eight_fmap = filter(lambda x: x.endswith('nii.gz'), ses_ser_file_map[ses][eight])[0]
-                    if six_fmap not in intended_fors and eight_fmap not in intended_fors:
-                        intended_fors[six_fmap] = list()
-                        intended_fors[eight_fmap] = list()
-                    for nii in ses_ser_file_map[ses][ser]:
-                        tag = scanid.parse_filename(nii)[1]
-                        if (tag in tag_map['fmri'] or tag in tag_map['dti']) and nii.endswith('.nii.gz'):
-                            intended_fors[six_fmap].append(nii)
-                            intended_fors[eight_fmap].append(nii)
-                    break
-    return intended_fors
+    #Mapping dictionary to correctly associates files w/subset
+    fmap_categories = ['FMRI','FMAP']
+
+    #Initialize dictionary with fmap as keys
+    intended_fors = {} 
+    for ses in sorted(ses_ser_file_map.keys()):
+
+        #Initialize grouping dictionary
+        fmap_category = {k : [] for k in fmap_categories} 
+
+        #For each session group up the fmap types 
+        ses_files = ses_ser_file_map[ses] 
+        ses_fmaps = matched_fmaps[ses] 
+        [fmap_category[k].append(p) for k in fmap_category.keys() for p in ses_fmaps if k in ses_files[p[0]][0]]
+
+        #Create hollow dictionary for each fmap 
+        ses_intended_fors = {} 
+        for pair in ses_fmaps: 
+            for run in pair: 
+                fmap_nii = [n for n in ses_files[run] if '.nii.gz' in n][0]
+                ses_intended_fors[fmap_nii] = [] 
+
+
+        #Loop through each category
+        for t in fmap_category.keys(): 
+
+            fmap_runs = tuple()  
+
+            #Get union of list of tuples 
+            for pair in fmap_category[t]: 
+                fmap_runs += pair
+            
+            #Get the subset applicable to fmap type if indicated by name
+            subset_nii = [k for k,r in ses_files.items() 
+                    if (t in r[0].upper()) and (k not in fmap_runs)]
+            
+            #Now for each of the valid subset. subtract out each, choose min, and pick                
+            for n in subset_nii: 
+                
+                #The pair with the minimum distance to the scan is the associated fmap
+                pair_diff = {}
+                for pair in fmap_category[t]:
+                    pair_diff[min(abs(int(n) - int(pair[0])), abs(int(n) - int(pair[1])))] = pair
+
+                #Get the best pair, then map to their nii file names  
+                best_pair = [ses_files[k] for k in pair_diff[min(pair_diff.keys())]]
+                best_nii = [x for k in best_pair for x in k if '.nii.gz' in x]
+
+                #Get nifti name and add to each item in pair of fmaps
+                nifti_name = [k for k in ses_files[n] if '.nii.gz' in k][0]
+                for r in best_nii: 
+                    ses_intended_fors[r].append(nifti_name) 
+
+        #Update output dictionary with session-specific mapping
+        intended_fors.update(ses_intended_fors) 
+
+    return intended_fors 
 
 def validify_file(sub_nii_dir):
     nii_list = os.listdir(sub_nii_dir)
@@ -214,12 +240,12 @@ def validify_file(sub_nii_dir):
         ses_ser_file_map[session][series].append(filename)
         ses_ser = (session, series)
         # fmap validation
-        if tag in ['FMAP-6.5','FMRI-DAP', 'DMRI-DAP'] and ext == '.gz':
+        if tag in ['FMAP-6.5','FMRI-DAP'] and ext == '.gz':
             if 'flipangle' in filename:
                 blacklist_files.add(ses_ser)
             else:
                 match_six[session].put(series)
-        elif tag in ['FMAP-8.5','FMRI-DPA', 'DMRI-DPA'] and ext == '.gz':
+        elif tag in ['FMAP-8.5','FMRI-DPA'] and ext == '.gz':
             if 'flipangle' in filename:
                 blacklist_files.add(ses_ser)
             else:
@@ -545,6 +571,7 @@ def main():
             logger.warning("Running: {}".format(cmd))
             run_num+=1
             fmaps = sorted(glob.glob("{}*run-0{}*_FMAP-*".format(type_folders['fmap'],run_num)))
+
 
         modify_json(nii_to_bids_match, intended_fors, sub_nii_dir)
 
