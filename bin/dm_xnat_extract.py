@@ -72,7 +72,7 @@ import platform
 import shutil
 import hashlib
 
-import pydicom
+import pydicom as dicom
 
 from docopt import docopt
 import datman.config
