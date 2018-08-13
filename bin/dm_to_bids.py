@@ -3,7 +3,7 @@
 This copies and converts files in nii folder to a bids folder in BIDS format
 
 Usage:
-  nii_to_bids.py [options] <study> [<sub-id>...]
+  dm_to_bids.py [options] <study> [<sub-id>...]
 
 Arguments:
     <study>                     Study name defined in master configuration .yml file
@@ -367,7 +367,7 @@ def create_dir(dir_path):
             sys.exit(1)
 
 def create_command(subject, arguments):
-    flags = ['python', '/scratch/mmanogaran/circleci_testing/datman/bin/nii_to_bids.py']
+    flags = ['python', 'dm_to_bids.py']
     for arg_flag in ['--nii-dir', '--bids-dir', '--fmriprep-out-dir', '--freesurfer-dir']:
         flags += [arg_flag, arguments[arg_flag]] if arguments[arg_flag] else []
     for flag in ['--rewrite', '--log-to-server', '--debug']:
@@ -376,11 +376,11 @@ def create_command(subject, arguments):
     flags += [subject]
     return " ".join(flags)
 
-def submit_nii_to_bids(log_dir, subject, arguments, cfg):
+def submit_dm_to_bids(log_dir, subject, arguments, cfg):
     with datman.utils.cd(log_dir):
         cmd = create_command(subject, arguments)
         logging.debug('Queueing command: {}'.format(cmd))
-        job_name = 'nii_to_bids_{}_{}'.format(subject, time.strftime("%Y%m%d-%H%M%S"))
+        job_name = 'dm_to_bids_{}_{}'.format(subject, time.strftime("%Y%m%d-%H%M%S"))
         datman.utils.submit_job(cmd, job_name, log_dir=log_dir, cpu_cores=1, dryrun=False)
 
 def setup_logger(filepath, to_server, debug, config, sub_ids):
@@ -390,7 +390,7 @@ def setup_logger(filepath, to_server, debug, config, sub_ids):
     date = str(datetime.date.today())
 
     sub = '_{}'.format(sub_ids[0]) if len(sub_ids) == 1 else ''
-    log_name = os.path.join(filepath, date + "-nii_to_bids{}.log".format(sub))
+    log_name = os.path.join(filepath, date + "-dm_to_bids{}.log".format(sub))
     fhandler = logging.FileHandler(log_name, "w")
     fhandler.setLevel(logging.DEBUG)
 
@@ -418,7 +418,7 @@ def setup_logger(filepath, to_server, debug, config, sub_ids):
 def init_setup(study, cfg, bids_dir):
 
     bidsignore_path = os.path.join(bids_dir,".bidsignore")
-    bidsignore = 'echo "*-nii_to_bids.log\nmatch.csv\nlogs/*" > {}'.format(bidsignore_path)
+    bidsignore = 'echo "*-dm_to_bids.log\nmatch.csv\nlogs/*" > {}'.format(bidsignore_path)
     os.system(bidsignore)
 
     data = dict()
@@ -503,7 +503,7 @@ def main():
     if len(sub_ids) > 1:
         for sub_id in sub_ids:
             logger.info('Submitting subject to queue: {}'.format(sub_id))
-            submit_nii_to_bids(log_dir, sub_id, arguments, cfg)
+            submit_dm_to_bids(log_dir, sub_id, arguments, cfg)
     else:
         subject_dir = sub_ids[0]
         if scanid.is_phantom(subject_dir):
@@ -511,7 +511,7 @@ def main():
             sys.exit(1)
 
         parsed = scanid.parse(subject_dir)
-        if os.path.isdir(os.path.join(bids_dir, to_sub(parsed))) and not rewrite:
+        if os.path.isdir(os.path.join(bids_dir, to_sub(parsed), to_ses(parsed.timepoint)) and not rewrite:
             logger.warning('BIDS subject directory already exists. Exiting: {}'.format(subject_dir))
             sys.exit(1)
         type_folders = create_bids_dirs(bids_dir, parsed)
