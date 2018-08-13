@@ -471,7 +471,7 @@ def main():
             sys.exit(1)
 
         parsed = scanid.parse(subject_dir)
-        if os.path.isdir(os.path.join(bids_dir, to_sub(parsed))) and not rewrite:
+        if os.path.isdir(os.path.join(bids_dir, to_sub(parsed), to_ses(parsed.timepoint)) and not rewrite:
             logger.warning('BIDS subject directory already exists. Exiting: {}'.format(subject_dir))
             sys.exit(1)
         type_folders = create_bids_dirs(bids_dir, parsed)
