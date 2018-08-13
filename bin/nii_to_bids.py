@@ -155,14 +155,18 @@ def to_bids_name(ident, tag, cnt_run, type_folder, ex):
 def get_intended_fors(ses_ser_file_map, matched_fmaps):
 
     #Mapping dictionary to correctly associates files w/subset
-    fmap_categories = ['FMRI','FMAP']
+    fmap_mapping = {'FMRI' : ['FMRI','RST','FACES'],
+                       'FMAP' : ['IMI','OBS','RST']}
+
+    #Convenience function for checking if intersection between two lists is not null 
+    intersect = lambda x,y: any([ True if (l in y) else False for l in x])
 
     #Initialize dictionary with fmap as keys
     intended_fors = {} 
     for ses in sorted(ses_ser_file_map.keys()):
 
         #Initialize grouping dictionary
-        fmap_category = {k : [] for k in fmap_categories} 
+        fmap_category = {k : [] for k in fmap_mapping.keys()} 
 
         #For each session group up the fmap types 
         ses_files = ses_ser_file_map[ses] 
@@ -175,10 +179,11 @@ def get_intended_fors(ses_ser_file_map, matched_fmaps):
             for run in pair: 
                 fmap_nii = [n for n in ses_files[run] if '.nii.gz' in n][0]
                 ses_intended_fors[fmap_nii] = [] 
-
-
+        
         #Loop through each category
         for t in fmap_category.keys(): 
+
+            if not fmap_category[t]: continue
 
             fmap_runs = tuple()  
 
@@ -188,8 +193,8 @@ def get_intended_fors(ses_ser_file_map, matched_fmaps):
             
             #Get the subset applicable to fmap type if indicated by name
             subset_nii = [k for k,r in ses_files.items() 
-                    if (t in r[0].upper()) and (k not in fmap_runs)]
-            
+                    if intersect(fmap_mapping[t],r[0].upper()) and (k not in fmap_runs)]
+
             #Now for each of the valid subset. subtract out each, choose min, and pick                
             for n in subset_nii: 
                 
@@ -434,22 +439,23 @@ def init_setup(study, cfg, bids_dir):
 
     return all_tags.keys()
 
+
 def main():
     arguments = docopt(__doc__)
 
-    study  = arguments['<study>']
-    sub_ids = arguments['<sub-id>']
-    nii_dir = arguments['--nii-dir']
-    bids_dir = arguments['--bids-dir']
-    fmriprep_dir = arguments['--fmriprep-out-dir']
-    fs_dir = arguments['--freesurfer-dir']
-    rewrite = arguments['--rewrite']
-    to_server = arguments['--log-to-server']
-    debug  = arguments['--debug']
+    study       = arguments['<study>']
+    sub_ids     = arguments['<sub-id>']
+    nii_dir     = arguments['--nii-dir']
+    bids_dir    = arguments['--bids-dir']
+    fmriprep_dir= arguments['--fmriprep-out-dir']
+    fs_dir      = arguments['--freesurfer-dir']
+    rewrite     = arguments['--rewrite']
+    to_server   = arguments['--log-to-server']
+    debug       = arguments['--debug']
 
     cfg = config.config(study=study)
     logger.info("Study to convert to BIDS Format: {}".format(study))
-
+    
     if not bids_dir:
         bids_dir =  os.path.join(cfg.get_path('data'),"bids/")
     create_dir(bids_dir)
@@ -534,7 +540,7 @@ def main():
                 for item in sorted(ses_ser_file_map[ses][ser]):
                     logger.info('File: {}'.format(item))
                     item_path = os.path.join(sub_nii_dir, item)
-                    ident, tag, series, description =scanid.parse_filename(item)
+                    ident, tag, series, description = scanid.parse_filename(item)
                     ext = os.path.splitext(item)[1]
                     logger.info('to_bids_name')
                     try:
@@ -571,7 +577,6 @@ def main():
             logger.warning("Running: {}".format(cmd))
             run_num+=1
             fmaps = sorted(glob.glob("{}*run-0{}*_FMAP-*".format(type_folders['fmap'],run_num)))
-
 
         modify_json(nii_to_bids_match, intended_fors, sub_nii_dir)
 
