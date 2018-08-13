@@ -251,9 +251,9 @@ def get_nii_to_bids_cmd(study,subject,log_tag):
 
     n2b_cmd = '''
 
-    nii_to_bids.py {study} {subject} --bids-dir $BIDS {log_tag} 
+    nii_to_bids.py {study} {subject} --bids-dir $BIDS {log_tag}
 
-    '''.format(study=study,subject=subject,log_tag=log_tag) 
+    '''.format(study=study,subject=subject,log_tag=log_tag)) 
 
     return n2b_cmd
 
@@ -501,8 +501,6 @@ def get_requested_threads(jargs, thread_dict):
             raise TypeError('Number of threads requested, {}, is not an integer!'.format(n_threads))
         else: 
             return n_threads 
-
-
 
 def main():
 
