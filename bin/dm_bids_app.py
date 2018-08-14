@@ -251,7 +251,7 @@ def get_nii_to_bids_cmd(study,subject,log_tag):
 
     n2b_cmd = '''
 
-    nii_to_bids.py {study} {subject} --bids-dir $BIDS {log_tag}
+    dm_to_bids.py {study} {subject} --bids-dir $BIDS {log_tag}
 
     '''.format(study=study,subject=subject,log_tag=log_tag) 
 
