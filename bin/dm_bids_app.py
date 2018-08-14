@@ -23,6 +23,7 @@ Options:
                                     Will output to /logs/<SUBJECT>_<BIDS_APP>_log.txt 
                                     [default : None]
     -e, --exclude EXCLUDE,...       Tag to exclude from BIDS-app processing [repeatable option]       
+    --DRYRUN                        Perform a dry-run, script will be generated at tmp-dir
 
 Notes on arguments: 
     [option] exclude finds files in the temporary BIDS directory created using a *<TAG>* regex. 
@@ -239,6 +240,8 @@ def get_init_cmd(study,subject,tmp_dir,sub_dir,simg,log_tag):
 
     echo $APPHOME {log_tag}
 
+    trap cleanup EXIT
+
     '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),simg=simg,
             sub=get_bids_name(subject),out=sub_dir,log_tag=log_tag)
 
@@ -248,7 +251,7 @@ def get_nii_to_bids_cmd(study,subject,log_tag):
 
     n2b_cmd = '''
 
-    nii_to_bids.py {study} {subject} --bids-dir $BIDS {log_tag} 
+    dm_to_bids.py {study} {subject} --bids-dir $BIDS {log_tag}
 
     '''.format(study=study,subject=subject,log_tag=log_tag) 
 
@@ -378,7 +381,6 @@ def fmriprep_cmd(bids_args,log_tag):
 
     bids_cmd = '''
 
-    trap cleanup EXIT
     singularity run -H $APPHOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out -B $LICENSE:/li \\
     $SIMG \\
     /bids /out participant -w /work \\
@@ -410,7 +412,6 @@ def mriqc_fork(jargs,log_tag,sub_dir=None,subject=None):
 
     mrqc_cmd = '''
 
-    trap cleanup EXIT 
     singularity run -H $APPHOME -B $BIDS:/bids -B $WORK:/work -B $OUT:/out \\
     $SIMG \\
     /bids /out participant -w /work \\
@@ -477,7 +478,7 @@ def gen_log_redirect(log_dir,subject,app_name):
     '''
         
     log_tag = '_{}_log.txt'.format(app_name) 
-    return ' &>> {}'.format(os.path.join(log_dir,subject,'dm_bids_app' + log_tag))
+    return ' &>> {}'.format(os.path.join(log_dir,subject + '_dm_bids_app' + log_tag))
 
 def get_requested_threads(jargs, thread_dict): 
     '''
@@ -501,8 +502,6 @@ def get_requested_threads(jargs, thread_dict):
         else: 
             return n_threads 
 
-
-
 def main():
 
     #Parse arguments 
@@ -522,6 +521,8 @@ def main():
     rewrite             =   arguments['--rewrite']     
     tmp_dir             =   arguments['--tmp-dir'] or '/tmp/'
     log_dir             =   arguments['--log']
+
+    DRYRUN              =   arguments['--DRYRUN']
 
     #Strategy pattern dictionary 
     strat_dict = {
@@ -552,7 +553,7 @@ def main():
         jargs.update({'keeprecon':True})
     n_thread = get_requested_threads(jargs,thread_dict)
 
-    log_cmd = lambda subject,app_name: '' if log_dir else partial(gen_log_redirect,log_dir=log_dir) 
+    log_cmd = (lambda subject,app_name: '') if not log_dir else partial(gen_log_redirect,log_dir=log_dir)
     exclude_cmd_list = [''] if exclude else get_exclusion_cmd(exclude) 
 
     #Get subjects 
@@ -581,7 +582,9 @@ def main():
         fd, job_file = tempfile.mkstemp(suffix='datman_BIDS_job',dir=tmp_dir) 
         os.close(fd) 
         write_executable(job_file,master_cmd) 
-        submit_jobfile(job_file,subject,n_thread,queue)
+
+        if not DRYRUN: 
+            submit_jobfile(job_file,subject,n_thread,queue)
         
 if __name__ == '__main__':
     main()
