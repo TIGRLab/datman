@@ -1,6 +1,25 @@
 #!/usr/bin/env python
-"""Launch the DTIPrep pipeline"""
+'''
+Launch DTIPrep preprocessing pipeline for tensor-based analysis 
 
+Usage: 
+    dm_proc_dtiprep.py [options] [-t <TAG>]... <study> 
+
+Arguments: 
+    <study>                                 DATMAN style study shortname 
+
+Options:
+    -s,--session SESSION                    DATMAN style session ID
+    -t,--tag TAG                            Repeatable option for using substring selection to pick files to 
+                                            process
+    -o,--outDir OUTDIR                      Directory to output pre-processing outputs to 
+    -l,--logDir LOGDIR                      Directory to output logging to 
+    -q,--quiet                              Only log errors (show ERROR level messages only) 
+    -v,--verbose                            Chatty logging (show INFO level messages) 
+
+Requirements: 
+    slicer
+'''
 import datman.config
 import datman.utils
 import logging
@@ -10,6 +29,7 @@ import tempfile
 import sys
 import subprocess
 import re
+from docopt import docopt
 
 CONTAINER = '/archive/code/containers/DTIPREP/dtiprep.img'
 
@@ -171,59 +191,58 @@ def process_session(src_dir, out_dir, protocol_dir, log_dir, session, **kwargs):
     convert_nii(out_dir, log_dir)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser("Run DTIPrep on a DTI File")
-    parser.add_argument("study", help="Study")
-    parser.add_argument("--session", dest="session", help="Session identifier")
-    parser.add_argument("--outDir", dest="outDir", help="output directory")
-    parser.add_argument("--logDir", dest="logDir", help="log directory")
-    parser.add_argument("--tag", dest="tags",
-        help="Tag to process, --tag can be specified more than once. Defaults to all tags containing 'DTI'",
-        action="append")
-    parser.add_argument("--quiet", help="Minimal logging", action="store_true")
-    parser.add_argument("--verbose", help="Maximal logging", action="store_true")
-    args = parser.parse_args()
 
-    if args.quiet:
+    arguments   =   docopt(__doc__) 
+
+    study       =   arguments['<study>']
+    session     =   arguments['--session']
+    logDir      =   arguments['--logDir']
+    outDir      =   arguments['--outDir']
+    tags        =   arguments['--tag']
+    quiet       =   arguments['--quiet']
+    verbose     =   arguments['--verbose']
+
+    if quiet:
         logger.setLevel(logging.ERROR)
-    if args.verbose:
+    if verbose:
         logger.setLevel(logging.DEBUG)
 
-    cfg = datman.config.config(study=args.study)
+    cfg = datman.config.config(study=study)
 
     nii_path = cfg.get_path('nii')
     nrrd_path = cfg.get_path('nrrd')
     meta_path = cfg.get_path('meta')
 
-    if not args.outDir:
-        args.outDir = cfg.get_path('dtiprep')
+    if not outDir:
+        outDir = cfg.get_path('dtiprep')
 
-    if not os.path.isdir(args.outDir):
-        logger.info("Creating output path:{}".format(args.outDir))
+    if not os.path.isdir(outDir):
+        logger.info("Creating output path:{}".format(outDir))
         try:
-            os.mkdir(args.outDir)
+            os.mkdir(outDir)
         except OSError:
-            logger.error('Failed creating output dir:{}'.format(args.outDir))
+            logger.error('Failed creating output dir:{}'.format(outDir))
             sys.exit(1)
 
-    if not args.logDir:
-        args.logDir = os.path.join(args.outDir, 'logs')
+    if not logDir:
+        logDir = os.path.join(outDir, 'logs')
 
-    if not os.path.isdir(args.logDir):
-        logger.info("Creating log dir:{}".format(args.logDir))
+    if not os.path.isdir(logDir):
+        logger.info("Creating log dir:{}".format(logDir))
         try:
-            os.mkdir(args.logDir)
+            os.mkdir(logDir)
         except OSError:
-            logger.error('Failed creating log directory"{}'.format(args.logDir))
+            logger.error('Failed creating log directory"{}'.format(logDir))
 
     if not os.path.isdir(nrrd_path):
         logger.error("Src directory:{} not found".format(nrrd_path))
         sys.exit(1)
 
-    if not args.session:
+    if not session:
         sessions = [d for d in os.listdir(nrrd_path) if os.path.isdir(os.path.join(nrrd_path, d))]
     else:
-        sessions = [args.session]
+        sessions = [session]
 
     for session in sessions:
-        process_session(nrrd_path, args.outDir, meta_path, args.logDir, session, tags=args.tags)
+        process_session(nrrd_path, outDir, meta_path, logDir, session, tags=tags)
 
