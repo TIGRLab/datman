@@ -14,33 +14,42 @@ Options:
                                             process
     -o,--outDir OUTDIR                      Directory to output pre-processing outputs to 
     -l,--logDir LOGDIR                      Directory to output logging to 
+    -h,--homeDir HOMEDIR                    Directory to bind Singularity Home into (see NOTE)
     -q,--quiet                              Only log errors (show ERROR level messages only) 
     -v,--verbose                            Chatty logging (show INFO level messages) 
+    -n,--nthreads NTHREADS                  Number of threads to utilize on the SCC 
+                                            [default: 3]
 
 Requirements: 
     slicer
+
+NOTE:
+We mount the user's scratch directory to singularity HOME since scc has some measures to prevent mounting resulting in permission errors. DTIPrep does not output anything into home so it should be okay - Jerry Jeyachandra
+
 '''
 import datman.config
 import datman.utils
 import logging
-import argparse
 import os
 import tempfile
 import sys
 import subprocess
 import re
 from docopt import docopt
+import getpass 
 
-CONTAINER = '/archive/code/containers/DTIPREP/dtiprep.img'
+
+CONTAINER = '/KIMEL/tigrlab/archive/code/containers/DTIPREP/dtiprep.img'
+DEFAULT_HOME = '/KIMEL/tigrlab/scratch/{user}/'
 
 JOB_TEMPLATE = """
 #####################################
-#$ -S /bin/bash
-#$ -wd /tmp/
-#$ -N {name}
-#$ -e {errfile}
-#$ -o {logfile}
+#PBS -S /bin/bash
+#PBS -N {name}
+#PBS -e {errfile}
+#PBS -o {logfile}
 #####################################
+
 echo "------------------------------------------------------------------------"
 echo "Job started on" `date` "on system" `hostname`
 echo "------------------------------------------------------------------------"
@@ -56,8 +65,9 @@ logger = logging.getLogger(__name__)
 
 
 class QJob(object):
-    def __init__(self, cleanup=True):
+    def __init__(self, nthreads=3, cleanup=True):
         self.cleanup = cleanup
+        self.nthreads = nthreads
 
     def __enter__(self):
         self.qs_f, self.qs_n = tempfile.mkstemp(suffix='.qsub')
@@ -78,13 +88,15 @@ class QJob(object):
                                                        errfile=errfile,
                                                        slots=slots))
         logger.info('Submitting job')
-        subprocess.call('qsub < ' + self.qs_n, shell=True)
+
+        subprocess.call('qsub -l nodes=1:ppn={nthreads} < '.format(nthreads=self.nthreads) + self.qs_n, shell=True)
 
 
-def make_job(src_dir, dst_dir, protocol_dir, log_dir, scan_name, protocol_file=None, cleanup=True):
+def make_job(src_dir, dst_dir, protocol_dir, log_dir, scan_name, nthreads, protocol_file=None, cleanup=True):
     # create a job file from template and use qsub to submit
-    code = ("singularity run -B {src_dir}:/input -B {dst_dir}:/output -B {protocol_dir}:/meta {container} {scan_name}"
-            .format(src_dir=src_dir,
+    code = ("singularity run -H {home}:/tmp -B {src_dir}:/input -B {dst_dir}:/output -B {protocol_dir}:/meta {container} {scan_name}"
+            .format(home=HOME_DIR,
+                    src_dir=src_dir,
                     dst_dir=dst_dir,
                     protocol_dir=protocol_dir,
                     container=CONTAINER,
@@ -93,7 +105,7 @@ def make_job(src_dir, dst_dir, protocol_dir, log_dir, scan_name, protocol_file=N
     if protocol_file:
         code = code + ' --protocolFile={protocol_file}'.format(protocol_file=protocol_file)
 
-    with QJob() as qjob:
+    with QJob(nthreads=nthreads) as qjob:
         #logfile = '{}:/tmp/output.$JOB_ID'.format(socket.gethostname())
         #errfile = '{}:/tmp/error.$JOB_ID'.format(socket.gethostname())
         logfile = os.path.join(log_dir, 'output.$JOB_ID')
@@ -102,7 +114,7 @@ def make_job(src_dir, dst_dir, protocol_dir, log_dir, scan_name, protocol_file=N
         qjob.run(code=code, logfile=logfile, errfile=errfile)
 
 
-def process_nrrd(src_dir, dst_dir, protocol_dir, log_dir, nrrd_file):
+def process_nrrd(src_dir, dst_dir, protocol_dir, log_dir, nrrd_file, nthreads):
     scan, ext = os.path.splitext(nrrd_file[0])
 
     # expected name for the output file
@@ -120,7 +132,7 @@ def process_nrrd(src_dir, dst_dir, protocol_dir, log_dir, nrrd_file):
     if not os.path.isfile(os.path.join(protocol_dir, protocol_file)):
         logger.error('Protocol file not found for tag:{}. A default protocol dtiprep_protocol.xml can be used.'.format(
             nrrd_file[1]))
-    make_job(src_dir, dst_dir, protocol_dir, log_dir, scan, protocol_file)
+    make_job(src_dir, dst_dir, protocol_dir, log_dir, scan, nthreads, protocol_file)
 
 
 def convert_nii(dst_dir, log_dir):
@@ -149,14 +161,12 @@ def convert_nii(dst_dir, log_dir):
                 logger.error('File:{} failed to convert to NII.GZ\n{}'.format(nrrd_file, msg))
 
 
-def process_session(src_dir, out_dir, protocol_dir, log_dir, session, **kwargs):
+def process_session(src_dir, out_dir, protocol_dir, log_dir, session, tags, nthreads):
     """Launch DTI prep on all nrrd files in a directory"""
     src_dir = os.path.join(src_dir, session)
     out_dir = os.path.join(out_dir, session)
     nrrds = [f for f in os.listdir(src_dir) if f.endswith('.nrrd')]
 
-    if 'tags' in kwargs:
-        tags = kwargs['tags']
     if not tags:
         tags = ['DTI']
 
@@ -185,7 +195,7 @@ def process_session(src_dir, out_dir, protocol_dir, log_dir, session, **kwargs):
 
     # dtiprep on nrrd files
     for nrrd in nrrd_dti:
-        process_nrrd(src_dir, out_dir, protocol_dir, log_dir, nrrd)
+        process_nrrd(src_dir, out_dir, protocol_dir, log_dir, nrrd, nthreads)
 
     # convert output nrrd files to nifti
     convert_nii(out_dir, log_dir)
@@ -198,9 +208,15 @@ if __name__ == '__main__':
     session     =   arguments['--session']
     logDir      =   arguments['--logDir']
     outDir      =   arguments['--outDir']
+    homeDir     =   arguments['--homeDir']
     tags        =   arguments['--tag']
     quiet       =   arguments['--quiet']
     verbose     =   arguments['--verbose']
+    nthreads    =   arguments['--nthreads']
+
+    #Set singularity home directory, see note in docstring
+    global HOME_DIR
+    HOME_DIR = homeDir if homeDir else DEFAULT_HOME.format(user=getpass.getuser())
 
     if quiet:
         logger.setLevel(logging.ERROR)
@@ -244,5 +260,5 @@ if __name__ == '__main__':
         sessions = [session]
 
     for session in sessions:
-        process_session(nrrd_path, outDir, meta_path, logDir, session, tags=tags)
+        process_session(nrrd_path, outDir, meta_path, logDir, session, tags, nthreads)
 
