@@ -51,6 +51,7 @@ Notes on BIDS-apps:
 Currently supported workflows: 
     1) FMRIPREP
     2) MRIQC
+    3) FMRIPREP CIFTIFY
 '''
 
 import os
