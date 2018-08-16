@@ -2,13 +2,14 @@
 
 '''
 Run BIDS-apps on DATMAN environment using JSON dictionaries to specify arguments
+Note that this application will run subjects independently (unless longitudinal) to maximize parallelization.
 
 Usage: 
     dm_bids_app.py [options] [-e <EXCLUDE>]... [-s <SUBJECT>]...  <study> <out> <json>  
 
 Arguments: 
     <study>                         Datman study nickname
-    <out>                           Base directory for BIDS output
+    <out>                           Base directory for BIDS-app output 
     <json>                          JSON key-value dictionary for BIDS-app argument information
 
 Options: 
@@ -26,7 +27,7 @@ Options:
     --DRYRUN                        Perform a dry-run, script will be generated at tmp-dir
 
 Notes on arguments: 
-    [option] exclude finds files in the temporary BIDS directory created using a *<TAG>* regex. 
+    option exclude finds files in the temporary BIDS directory created using a *<TAG>* regex. 
 
     JSON:
     Additionally, the following arguments will NOT be parsed correctly: 
@@ -48,9 +49,11 @@ Notes on BIDS-apps:
         Refer to datman.config.config, study config key KeepRecon. Where the value is true, original reconstructions will not be
         deleted and linked to the fmriprep output version 
 
+        Add ['longitudinal' : True] in top level of <json> in order to perform longitudinal analysis
+
 Currently supported workflows: 
-    1) FMRIPREP
-    2) MRIQC
+    1) FMRIPREP (longitudinal and cross-sectional)
+    2) MRIQC (participant level only)
 '''
 
 import os
@@ -200,18 +203,18 @@ def get_dict_args(arg_dict):
     '''
 
     #Get key:value arguments and format keys
-    args = {'--{}'.format(k) : v for k,v in arg_dict.items() if str(v).lower() != 'false'}
+    args = {'--{}'.format(k.lower()) : v for k,v in arg_dict.items() if str(v).lower() != 'false'}
     args = {k : ('' if str(v).lower() == 'true' else str(v)) for k,v in args.items()}
 
     return args
 
-def get_init_cmd(study,subject,tmp_dir,sub_dir,simg,log_tag):
+def get_init_cmd(study,sgroup,tmp_dir,sub_dir,simg,log_tag):
     '''
     Get initialization steps prior to running BIDS-apps
 
     Arguments: 
         study                       DATMAN-style study shortname
-        subject                     DATMAN-style subject name
+        sgroup                      Output group identifier
         tmp_dir                     Location BIDS-App temporary directory
         sub_dir                     Location of output directory 
         simg                        Singularity image location 
@@ -242,18 +245,21 @@ def get_init_cmd(study,subject,tmp_dir,sub_dir,simg,log_tag):
 
     trap cleanup EXIT
 
-    '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),simg=simg,
-            sub=get_bids_name(subject),out=sub_dir,log_tag=log_tag)
+    '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),
+            simg=simg,
+            sub=get_bids_name(sgroup),
+            out=sub_dir,
+            log_tag=log_tag)
 
     return [trap_cmd,init_cmd]
 
-def get_nii_to_bids_cmd(study,subject,log_tag): 
+def get_nii_to_bids_cmd(study,sublist,log_tag): 
 
     n2b_cmd = '''
 
-    dm_to_bids.py {study} {subject} --bids-dir $BIDS {log_tag}
+    dm_to_bids.py {study} --bids-dir $BIDS {subject}  {log_tag}
 
-    '''.format(study=study,subject=subject,log_tag=log_tag) 
+    '''.format(study=study,subject=' '.join(sublist),log_tag=log_tag) 
 
     return n2b_cmd
 
@@ -312,7 +318,7 @@ def get_symlink_cmd(fs_dir,sub_dir,subject):
 
 
 
-def fmriprep_fork(jargs,log_tag,sub_dir,subject): 
+def fmriprep_fork(jargs,log_tag,sub_dir,sublist): 
     '''
     FMRIPREP MODULE 
 
@@ -322,10 +328,14 @@ def fmriprep_fork(jargs,log_tag,sub_dir,subject):
         jargs                           Dictionary derived from JSON file
         log_tag                         String tag for BASH stdout/err redirection to log
         sub_dir                         Subject directory in output
-        subject                         DATMAN-style subject name 
+        sublist                         List of DATMAN-style subject IDs 
 
     Output: 
         [list of commands]
+
+    NOTE:
+    If running longitudinal analysis (len(sublist) > 1), then we will not copy over freesurfer reconstructions
+    since fmriprep cannot take advantage of previously existing reconstructions in that instance 
     '''
 
     #Validate fmriprep json arguments 
@@ -336,14 +346,13 @@ def fmriprep_fork(jargs,log_tag,sub_dir,subject):
         logger.error('Exiting...') 
         raise
 
-    #If freesurfer-dir provided, fetch then if keeprecon add symlinking
     symlink_cmd_list = [] 
     fetch_cmd = ''
-    if 'freesurfer-dir' in jargs: 
-        fetch_cmd = fetch_fs_recon(jargs['freesurfer-dir'],sub_dir,subject)
+    if ('freesurfer-dir' in jargs) and (len(sublist) == 1): 
+        fetch_cmd = fetch_fs_recon(jargs['freesurfer-dir'],sub_dir,sublist[0])
 
         if not jargs['keeprecon']:
-            symlink_cmd_list = get_symlink_cmd(jargs['freesurfer-dir'],sub_dir,subject) 
+            symlink_cmd_list = get_symlink_cmd(jargs['freesurfer-dir'],sub_dir,sublist[0]) 
 
     
     #Freesurfer LICENSE handling 
@@ -502,6 +511,27 @@ def get_requested_threads(jargs, thread_dict):
         else: 
             return n_threads 
 
+def group_subjects(subjects,longitudinal): 
+
+    '''
+    Arguments: 
+        subjects                    List of subject(s) to be grouped
+        longitudinal                If enabled will output using longitudinal keys (DATMAN session ID without sess #) 
+                                    Else use standard keys (full datman session ID)
+
+    Output: 
+    A dictionary which maps subject ID (full ID if cross-sectional, otherwise ID w/o session number) to lists of subjects  
+    '''
+    
+    #Choose a lambda function based on whether we want longitudinal grouping or not
+    get_key = (lambda x: '_'.join(x.split('_')[:-1])) if longitudinal else (lambda x: x)
+
+    #Create grouping dictionary
+    group_dict = {get_key(s) : [] for s in subjects} 
+    [group_dict[get_key(s)].append(s) for s in subjects] 
+
+    return group_dict
+
 def main():
 
     #Parse arguments 
@@ -546,36 +576,37 @@ def main():
     #JSON parsing, formatting, and validating
     jargs = get_json_args(bids_json)
     validate_json_args(jargs,strat_dict) 
-
     try: 
         jargs.update({'keeprecon' : config.get_key('KeepRecon')})
     except KeyError: 
         jargs.update({'keeprecon':True})
     n_thread = get_requested_threads(jargs,thread_dict)
 
+    #Get redirect command string and exclusion list
     log_cmd = (lambda subject,app_name: '') if not log_dir else partial(gen_log_redirect,log_dir=log_dir)
     exclude_cmd_list = [''] if exclude else get_exclusion_cmd(exclude) 
 
-    #Get subjects 
+    #Get subjects and filter if not rewrite and group if longitudinal
     subjects = subjects or [s for s in os.listdir(config.get_path('nii')) if 'PHA' not in s] 
     subjects = subjects if rewrite else filter_subjects(subjects,out)
     logger.info('Running {}'.format(subjects)) 
+    subjects = group_subjects(subjects, True if 'longitudinal' in jargs else False)
     
-    #Process subjects 
-    for subject in subjects: 
+    #Process subject groups 
+    for s in subjects.keys(): 
         
         #Get subject directory and log tag
-        sub_dir = os.path.join(out,subject) 
-        log_tag = log_cmd(subject=subject,app_name=jargs['app']) 
+        sub_dir = os.path.join(out,s) 
+        log_tag = log_cmd(subject=s,app_name=jargs['app']) 
         try: 
             os.makedirs(sub_dir) 
         except OSError: 
-            logger.warning('Subject directory already exists at {}'.format(os.path.join(out,subject)))
+            logger.warning('Subject directory already exists at {}'.format(os.path.join(out,s)))
         
         #Get commands 
-        init_cmd_list = get_init_cmd(study,subject,tmp_dir,sub_dir,jargs['img'],log_tag)
-        n2b_cmd = get_nii_to_bids_cmd(study,subject,log_tag) 
-        bids_cmd_list = strat_dict[jargs['app']](jargs,log_tag,sub_dir,subject)
+        init_cmd_list = get_init_cmd(study,s,tmp_dir,sub_dir,jargs['img'],log_tag)
+        n2b_cmd = get_nii_to_bids_cmd(study,subjects[s],log_tag) 
+        bids_cmd_list = strat_dict[jargs['app']](jargs,log_tag,sub_dir,s)
         
         #Write commands to executable and submit
         master_cmd = init_cmd_list + [n2b_cmd] + exclude_cmd_list + bids_cmd_list +  ['\n cleanup \n']
@@ -584,7 +615,7 @@ def main():
         write_executable(job_file,master_cmd) 
 
         if not DRYRUN: 
-            submit_jobfile(job_file,subject,n_thread,queue)
+            submit_jobfile(job_file,s,n_thread,queue)
         
 if __name__ == '__main__':
     main()
