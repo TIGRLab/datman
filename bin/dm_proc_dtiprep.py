@@ -39,7 +39,7 @@ from docopt import docopt
 import getpass 
 
 
-CONTAINER = '/KIMEL/tigrlab/archive/code/containers/DTIPREP/dtiprep.img'
+CONTAINER = 'DTIPREP/dtiprep.img'
 DEFAULT_HOME = '/KIMEL/tigrlab/scratch/{user}/'
 
 JOB_TEMPLATE = """
@@ -65,9 +65,10 @@ logger = logging.getLogger(__name__)
 
 
 class QJob(object):
-    def __init__(self, nthreads=3, cleanup=True):
+    def __init__(self, queue, nthreads=3, cleanup=True):
         self.cleanup = cleanup
         self.nthreads = nthreads
+        self.queue = queue.lower() 
 
     def __enter__(self):
         self.qs_f, self.qs_n = tempfile.mkstemp(suffix='.qsub')
@@ -81,6 +82,12 @@ class QJob(object):
         except OSError:
             pass
 
+    def get_qsub_cmd(self): 
+        if self.queue == 'sge': 
+            return '' 
+        elif self.queue == 'pbs': 
+            return '-l nodes=1:ppn{nthreads}'.format(nthreads=self.nthreads)
+
     def run(self, code, name="DTIPrep", logfile="output.$JOB_ID", errfile="error.$JOB_ID", cleanup=True, slots=1):
         open(self.qs_n, 'w').write(JOB_TEMPLATE.format(script=code,
                                                        name=name,
@@ -89,7 +96,8 @@ class QJob(object):
                                                        slots=slots))
         logger.info('Submitting job')
 
-        subprocess.call('qsub -l nodes=1:ppn={nthreads} < '.format(nthreads=self.nthreads) + self.qs_n, shell=True)
+        qsub_opt = self.get_qsub_cmd() 
+        subprocess.call('qsub {} < '.format(qsub_opt) + self.qs_n, shell=True)
 
 
 def make_job(src_dir, dst_dir, protocol_dir, log_dir, scan_name, nthreads, protocol_file=None, cleanup=True):
@@ -105,7 +113,8 @@ def make_job(src_dir, dst_dir, protocol_dir, log_dir, scan_name, nthreads, proto
     if protocol_file:
         code = code + ' --protocolFile={protocol_file}'.format(protocol_file=protocol_file)
 
-    with QJob(nthreads=nthreads) as qjob:
+    #Feed in global variable QUEUE into QJob
+    with QJob(queue=QUEUE, nthreads=nthreads) as qjob:
         #logfile = '{}:/tmp/output.$JOB_ID'.format(socket.gethostname())
         #errfile = '{}:/tmp/error.$JOB_ID'.format(socket.gethostname())
         logfile = os.path.join(log_dir, 'output.$JOB_ID')
@@ -215,16 +224,24 @@ if __name__ == '__main__':
     nthreads    =   arguments['--nthreads']
 
     #Set singularity home directory, see note in docstring
-    global HOME_DIR
-    HOME_DIR = homeDir if homeDir else DEFAULT_HOME.format(user=getpass.getuser())
 
     if quiet:
         logger.setLevel(logging.ERROR)
     if verbose:
         logger.setLevel(logging.DEBUG)
 
-    cfg = datman.config.config(study=study)
+    #Initialize global variables
+    global HOME_DIR
+    global QUEUE
 
+    cfg = datman.config.config(study=study)
+    system_settings = cfg.site_config['SystemSettings'][os.environ['DM_SYSTEM']]
+
+    HOME_DIR = homeDir if homeDir else DEFAULT_HOME.format(user=getpass.getuser())
+    CONTAINER = os.path.join(system_settings['CONTAINERS'],CONTAINER)
+    QUEUE = system_settings['QUEUE']
+
+    #Get source paths 
     nii_path = cfg.get_path('nii')
     nrrd_path = cfg.get_path('nrrd')
     meta_path = cfg.get_path('meta')
