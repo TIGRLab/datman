@@ -79,12 +79,13 @@ def get_bids_name(subject):
 
     '''
     
+    #Take into account that we may either start with a string (repeated site ID) or have number  
     try: 
-        sub_num = subject.split('_')[2] 
-    except IndexError: 
-        logger.error('Subject {}, invalid subject name!'.format(subject))
-        logger.error('Subject should have STUDY_SITE_SUB#_... format, exiting...')
-        raise
+        int(subject.split('_')[2][0]) 
+    except ValueError: 
+        sub_num = subject.split('_')[2]
+    else:
+        sub_num = subject.split('_')[1] + subject.split('_')[2]
 
     return 'sub-' + sub_num 
 
