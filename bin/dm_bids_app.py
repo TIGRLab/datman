@@ -331,7 +331,8 @@ def get_existing_freesurfer(jargs,sub_dir,subject,):
     try: 
         fetch_cmd = fetch_fs_recon(jargs['freesurfer-dir'],sub_dir,subject) 
     except KeyError: 
-        logger.warning('freesurfer-dir not specified in JSON, will run fmriprep from scratch')
+        logger.warning('freesurfer-dir not specified in JSON!')
+        logger.warning('Will run fmriprep from scratch if freesurfer BIDS output does not exist in output-dir')
     else: 
         if jargs['keeprecon'] and (fetch_cmd != ''): 
             symlink_cmd_list = get_symlink_cmd(fs_dir,sub_dir,subject) 
@@ -403,29 +404,31 @@ def ciftify_fork(jargs,log_tag,sub_dir,subject):
         [list of commands]
     '''
 
-
-    #TODO: (1) how does ciftify take advantage of previous fmriprep outputs
-
     #Find freesurfer license
     try: 
-        jargs['fs-license'] 
+        license_cmd = get_fs_license(jargs['fs-license']) 
     except KeyError: 
         logger.error('Cannot find fs-license key! Required for fmriprep freesurfer module.') 
         logger.error('Exiting...') 
         raise
 
-    #Check for an existing fmriprep folder, if exists add it as a binding command to the singularity container at out/fmriprep
-    binding_cmd = ''  
-    try:
-        binding_cmd = '-B {}:/out/fmriprep'.format(jargs['fmriprep-dir'])
-    except KeyError: 
-        logger.warning('Could not find fmriprep-dir argument in JSON, will perform ciftify-fmriprep from scratch')
-        logger.info('Attempting to look for previous freesurfer reconstructions')
-        fetch_cmd, symlink_cmd_list = get_existing_freesurfer(jargs,sub_dir,subject) 
+    #If freesurfer output specified in json then get existing freesurfer outputs 
+    fetch_cmd, symlink_cmd_list = get_existing_freesurfer(jargs,sub_dir,subject) 
 
-    #Generate ciftify singularity call 
+    bids_args = jargs['bidsargs']
+    append_args = [' '.join([k,v]) for k,v in bids_args.items()]
 
-    #Transfer over files 
+    bids_cmd = '''
+
+    singularity run -H $APPHOME -B $BIDS:/input -B $WORK:/fmriprep_work -B $OUT:/output -B $LICENSE:/li \\
+    $SIMG \\
+    /input /output participant --fmriprep-workdir /fmriprep_work \\
+    --participant_label ${SUB#sub-} \\
+    --fs-license /li/license.txt {args} {log_tag}  
+
+    '''.format(args = ' '.join(append_args), log_tag=log_tag)
+
+    return [license_cmd, fetch_cmd, bids_cmd] + symlink_cmd_list
 
 
 def fmriprep_cmd(bids_args,log_tag): 
