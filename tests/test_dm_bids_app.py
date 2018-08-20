@@ -39,22 +39,42 @@ def test_filter_subjects_filters_preexisting_directories():
     expected_out = ['POTATO1','POTATO5']
     assert set(ba.filter_subjects(subjects,output_path)) == set(expected_out)
 
+def test_group_subjects_correctly_groups_by_subject_ID_when_longitudinal(): 
+
+    subjects = ['POTATO_01','POTATO_0233','POTATO_1234'] 
+    expected_out = {'POTATO': ['POTATO_01','POTATO_0233','POTATO_1234']} 
+
+    actual_out = ba.group_subjects(subjects,True) 
+
+    assert expected_out.keys() == actual_out.keys() 
+    assert set(actual_out.values()[0]) == set(expected_out.values()[0]) 
+
+def test_group_subjects_correctly_maps_onto_self_when_cross_sectional(): 
+
+    subjects = ['POTATO_01','POTATO_0233','POTATO_1234'] 
+    expected_out = {'POTATO_01' : ['POTATO_01'], 'POTATO_0233' : ['POTATO_0233'], 'POTATO_1234' : ['POTATO_1234']}
+
+    actual_out = ba.group_subjects(subjects,False) 
+
+    assert actual_out == expected_out 
+
 def test_gen_log_redirect_provides_correct_tag(): 
 
     log_dir = 'log_dir'
     subject = 'subject'
     app_name = 'app'
 
-    expected_out = ' &>> log_dir/subject/dm_bids_app_app_log.txt' 
+    expected_out = ' &>> log_dir/subject_dm_bids_app_app_log.txt' 
 
     assert ba.gen_log_redirect(log_dir,subject,app_name) == expected_out
+
     
 @patch('os.makedirs') 
 def test_fs_fetch_recon_returns_rsync_when_recon_found(mock_makedir): 
 
     subject = 'SPN01_CMH_1234_01' 
-    exp_dir = os.path.join(output_path,subject,'freesurfer','sub-CMH1234') 
-    sub_dir = os.path.join(output_path,subject) 
+    exp_dir = os.path.join(output_path,'freesurfer','sub-CMH1234') 
+    sub_dir = os.path.join(output_path) 
     
     expected_cmd = '''
 
@@ -227,8 +247,11 @@ class TestBASHCommands(unittest.TestCase):
         cmd = ba.get_init_cmd(study,subject,test_dir,sub_dir,simg,log_tag)
         cmd = '\n'.join(cmd) 
 
+        #Remove EXIT trap to prevent removing file
+        cmd = cmd.replace('trap cleanup EXIT','') 
+
         #Run command
-        p = proc.Popen(cmd,stdout=proc.PIPE,stdin=proc.PIPE,shell=True,executable='/bin/bash') 
+        p = proc.Popen(cmd,stdout=proc.PIPE,stderr=proc.PIPE,shell=True,executable='/bin/bash') 
         std, err = p.communicate() 
 
         #Check home directory is only directory 
@@ -255,14 +278,15 @@ class TestBASHCommands(unittest.TestCase):
         subject = 'SPN01_CMH_1234_01' 
         study = 'SPINS' 
         test_dir = os.path.join(self.tmpdir,'get_init_correct_log') 
-        sub_dir = 'test' 
+        out_dir = 'test' 
         simg = 'some_image.img' 
         log_file = os.path.join(test_dir,'test_log.txt')
         log_tag = ' &> {}'.format(log_file)
 
         #Fetch command
-        cmd = ba.get_init_cmd(study,subject,test_dir,sub_dir,simg,log_tag) 
+        cmd = ba.get_init_cmd(study,subject,test_dir,out_dir,simg,log_tag) 
         cmd = '\n'.join(cmd) 
+        cmd = cmd.replace('trap cleanup EXIT','') 
 
         #Run command
         p = proc.Popen(cmd,stdout=proc.PIPE,stdin=proc.PIPE,shell=True,executable='/bin/bash') 
