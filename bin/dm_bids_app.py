@@ -39,7 +39,7 @@ Notes on arguments:
     of processors per node requested matches that of the expected amount of available cores for the bids-apps
 
 Requirements: 
-    FSL - nii_to_bids.py requires it to run 
+    FSL - dm_to_bids.py requires it to run 
 
 Notes on BIDS-apps: 
 
@@ -208,7 +208,7 @@ def get_dict_args(arg_dict):
 
     return args
 
-def get_init_cmd(study,sgroup,tmp_dir,sub_dir,simg,log_tag):
+def get_init_cmd(study,sgroup,tmp_dir,out_dir,simg,log_tag):
     '''
     Get initialization steps prior to running BIDS-apps
 
@@ -216,7 +216,7 @@ def get_init_cmd(study,sgroup,tmp_dir,sub_dir,simg,log_tag):
         study                       DATMAN-style study shortname
         sgroup                      Output group identifier
         tmp_dir                     Location BIDS-App temporary directory
-        sub_dir                     Location of output directory 
+        out_dir                     Location of output directory 
         simg                        Singularity image location 
         log_cmd                     A redirect toward logging
     '''
@@ -248,7 +248,7 @@ def get_init_cmd(study,sgroup,tmp_dir,sub_dir,simg,log_tag):
     '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),
             simg=simg,
             sub=get_bids_name(sgroup),
-            out=sub_dir,
+            out=out_dir,
             log_tag=log_tag)
 
     return [trap_cmd,init_cmd]
@@ -263,18 +263,18 @@ def get_nii_to_bids_cmd(study,sublist,log_tag):
 
     return n2b_cmd
 
-def fetch_fs_recon(fs_dir,sub_dir,subject): 
+def fetch_fs_recon(fs_dir,out_dir,subject): 
     '''
     Copies over freesurfer reconstruction to fmriprep pipeline output
 
     Arguments: 
         fs_dir                              Directory to freesurfer $SUBJECTS_DIR
         subject                             Name of subject 
-        sub_dir                             fmriprep output directory for subject 
+        out_dir                             fmriprep output directory for subject 
     '''
 
     fs_sub_dir = os.path.join(fs_dir,subject) 
-    sub_fmriprep_fs = os.path.join(sub_dir,'freesurfer',get_bids_name(subject)) 
+    sub_fmriprep_fs = os.path.join(out_dir,'freesurfer',get_bids_name(subject)) 
 
     if os.path.isdir(fs_sub_dir): 
         logger.info('Located Freesurfer reconstruction files for {}, rsync to {} enabled'.format(
@@ -298,17 +298,17 @@ def fetch_fs_recon(fs_dir,sub_dir,subject):
         logger.info('No freesurfer reconstruction files located for {}'.format(subject)) 
         return ''
 
-def get_symlink_cmd(fs_dir,sub_dir,subject): 
+def get_symlink_cmd(fs_dir,out_dir,subject): 
     '''
     Returns commands to remove original freesurfer directory and link to fmriprep freesurfer directory 
 
     Arguments: 
         fs_dir                          Directory to freesurfer $SUBJECTS_DIR 
         subject                         Name of subject
-        sub_dir                         fmriprep output directory for subject 
+        out_dir                         fmriprep output directory 
     '''
 
-    sub_fmriprep_fs = os.path.join(sub_dir,'freesurfer',get_bids_name(subject))  
+    sub_fmriprep_fs = os.path.join(out_dir,'freesurfer',get_bids_name(subject))  
     fs_sub_dir = os.path.join(fs_dir,subject) 
 
     remove_cmd = '\n rm -rf {} \n'.format(fs_sub_dir) 
@@ -318,7 +318,7 @@ def get_symlink_cmd(fs_dir,sub_dir,subject):
 
 
 
-def fmriprep_fork(jargs,log_tag,sub_dir,sublist): 
+def fmriprep_fork(jargs,log_tag,out_dir,sublist): 
     '''
     FMRIPREP MODULE 
 
@@ -327,7 +327,7 @@ def fmriprep_fork(jargs,log_tag,sub_dir,sublist):
     Arguments: 
         jargs                           Dictionary derived from JSON file
         log_tag                         String tag for BASH stdout/err redirection to log
-        sub_dir                         Subject directory in output
+        out_dir                         Subject directory in output
         sublist                         List of DATMAN-style subject IDs 
 
     Output: 
@@ -349,10 +349,10 @@ def fmriprep_fork(jargs,log_tag,sub_dir,sublist):
     symlink_cmd_list = [] 
     fetch_cmd = ''
     if ('freesurfer-dir' in jargs) and (len(sublist) == 1): 
-        fetch_cmd = fetch_fs_recon(jargs['freesurfer-dir'],sub_dir,sublist[0])
+        fetch_cmd = fetch_fs_recon(jargs['freesurfer-dir'],out_dir,sublist[0])
 
         if not jargs['keeprecon']:
-            symlink_cmd_list = get_symlink_cmd(jargs['freesurfer-dir'],sub_dir,sublist[0]) 
+            symlink_cmd_list = get_symlink_cmd(jargs['freesurfer-dir'],out_dir,sublist[0]) 
 
     
     #Freesurfer LICENSE handling 
@@ -400,7 +400,7 @@ def fmriprep_cmd(bids_args,log_tag):
 
     return bids_cmd 
 
-def mriqc_fork(jargs,log_tag,sub_dir=None,subject=None): 
+def mriqc_fork(jargs,log_tag,out_dir=None,subject=None): 
     '''
     MRIQC MODULE
 
@@ -409,7 +409,7 @@ def mriqc_fork(jargs,log_tag,sub_dir=None,subject=None):
     Arguments: 
         jargs                               bidsargs in JSON file
         log_tag                             String tag for BASH stout/err redirection to log
-        sub_dir,subject                     Strategy pattern consequence
+        out_dir,subject                     Strategy pattern consequence
 
     Output: 
         [list of commands to be written into job file]
@@ -572,6 +572,7 @@ def main():
     except KeyError as e: 
         logger.error('Config exception, key not found: {}'.format(e)) 
         sys.exit(1) 
+    
 
     #JSON parsing, formatting, and validating
     jargs = get_json_args(bids_json)
@@ -588,7 +589,7 @@ def main():
 
     #Get subjects and filter if not rewrite and group if longitudinal
     subjects = subjects or [s for s in os.listdir(config.get_path('nii')) if 'PHA' not in s] 
-    subjects = subjects if rewrite else filter_subjects(subjects,out)
+    subjects = subjects if rewrite else filter_subjects(subjects, out)
     logger.info('Running {}'.format(subjects)) 
     subjects = group_subjects(subjects, True if 'longitudinal' in jargs else False)
     
@@ -596,17 +597,12 @@ def main():
     for s in subjects.keys(): 
         
         #Get subject directory and log tag
-        sub_dir = os.path.join(out,s) 
         log_tag = log_cmd(subject=s,app_name=jargs['app']) 
-        try: 
-            os.makedirs(sub_dir) 
-        except OSError: 
-            logger.warning('Subject directory already exists at {}'.format(os.path.join(out,s)))
         
         #Get commands 
-        init_cmd_list = get_init_cmd(study,s,tmp_dir,sub_dir,jargs['img'],log_tag)
+        init_cmd_list = get_init_cmd(study,s,tmp_dir,out,jargs['img'],log_tag)
         n2b_cmd = get_nii_to_bids_cmd(study,subjects[s],log_tag) 
-        bids_cmd_list = strat_dict[jargs['app']](jargs,log_tag,sub_dir,s)
+        bids_cmd_list = strat_dict[jargs['app']](jargs,log_tag,out,s)
         
         #Write commands to executable and submit
         master_cmd = init_cmd_list + [n2b_cmd] + exclude_cmd_list + bids_cmd_list +  ['\n cleanup \n']
