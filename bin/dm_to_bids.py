@@ -12,8 +12,8 @@ Arguments:
                                 directory to convert to bids
 
 Options:
-    --nii-dir PATH              Path to directory to copy nifti data from
-    --bids-dir PATH             Path to directory to store data in BIDS format
+    -n PATH, --nii-dir PATH     Path to directory to copy nifti data from
+    -b PATH, --bids-dir PATH    Path to directory to store data in BIDS format
     --fmriprep-out-dir PATH     Path to fmriprep output. Will copy subject
                                 freesurfer data in fmriprep format. Will let fmriprep
                                 skip this part of its process
@@ -142,13 +142,13 @@ def to_bids_name(ident, tag, cnt_run, type_folder, ex):
         return os.path.join(type_folder["dwi"] , "{}_{}_{}_{}_dwi{}".format(subject, session, dtiacq, run_num, ext))
     elif ("FMAP" in tag) and ext != ".json" and ident.site == 'CMH':
         return os.path.join(type_folder["fmap"] , "{}_{}_{}_{}_{}{}".format(subject, session, acq, run_num, tag, ext))
-    elif (tag in ['FMRI-DAP','FMRI-DPA']): 
+    elif (tag in ['FMRI-DAP','FMRI-DPA']):
         pe=tag.split('-')[1].replace('D','')
         name = '{}_{}_{}_dir-{}{}_{}_epi{}'
         run_num = to_run(cnt_run[tag])
         type_indicator = tag[0]
-        task = 'rest' 
-        return os.path.join(type_folder['fmap'], name.format(subject,session,acq,type_indicator,pe,run_num,ext))  
+        task = 'rest'
+        return os.path.join(type_folder['fmap'], name.format(subject,session,acq,type_indicator,pe,run_num,ext))
     else:
         raise ValueError("File could not be changed to bids format:{} {} {}".format(str(ident), tag, ext))
 
@@ -158,64 +158,64 @@ def get_intended_fors(ses_ser_file_map, matched_fmaps):
     fmap_mapping = {'FMRI' : ['FMRI','RST','FACES'],
                        'FMAP' : ['IMI','OBS','RST']}
 
-    #Convenience function for checking if intersection between two lists is not null 
+    #Convenience function for checking if intersection between two lists is not null
     intersect = lambda x,y: any([ True if (l in y) else False for l in x])
 
     #Initialize dictionary with fmap as keys
-    intended_fors = {} 
+    intended_fors = {}
     for ses in sorted(ses_ser_file_map.keys()):
 
         #Initialize grouping dictionary
-        fmap_category = {k : [] for k in fmap_mapping.keys()} 
+        fmap_category = {k : [] for k in fmap_mapping.keys()}
 
-        #For each session group up the fmap types 
-        ses_files = ses_ser_file_map[ses] 
-        ses_fmaps = matched_fmaps[ses] 
+        #For each session group up the fmap types
+        ses_files = ses_ser_file_map[ses]
+        ses_fmaps = matched_fmaps[ses]
         [fmap_category[k].append(p) for k in fmap_category.keys() for p in ses_fmaps if k in ses_files[p[0]][0]]
 
-        #Create hollow dictionary for each fmap 
-        ses_intended_fors = {} 
-        for pair in ses_fmaps: 
-            for run in pair: 
+        #Create hollow dictionary for each fmap
+        ses_intended_fors = {}
+        for pair in ses_fmaps:
+            for run in pair:
                 fmap_nii = [n for n in ses_files[run] if '.nii.gz' in n][0]
-                ses_intended_fors[fmap_nii] = [] 
-        
+                ses_intended_fors[fmap_nii] = []
+
         #Loop through each category
-        for t in fmap_category.keys(): 
+        for t in fmap_category.keys():
 
             if not fmap_category[t]: continue
 
-            fmap_runs = tuple()  
+            fmap_runs = tuple()
 
-            #Get union of list of tuples 
-            for pair in fmap_category[t]: 
+            #Get union of list of tuples
+            for pair in fmap_category[t]:
                 fmap_runs += pair
-            
+
             #Get the subset applicable to fmap type if indicated by name
-            subset_nii = [k for k,r in ses_files.items() 
+            subset_nii = [k for k,r in ses_files.items()
                     if intersect(fmap_mapping[t],r[0].upper()) and (k not in fmap_runs)]
 
-            #Now for each of the valid subset. subtract out each, choose min, and pick                
-            for n in subset_nii: 
-                
+            #Now for each of the valid subset. subtract out each, choose min, and pick
+            for n in subset_nii:
+
                 #The pair with the minimum distance to the scan is the associated fmap
                 pair_diff = {}
                 for pair in fmap_category[t]:
                     pair_diff[min(abs(int(n) - int(pair[0])), abs(int(n) - int(pair[1])))] = pair
 
-                #Get the best pair, then map to their nii file names  
+                #Get the best pair, then map to their nii file names
                 best_pair = [ses_files[k] for k in pair_diff[min(pair_diff.keys())]]
                 best_nii = [x for k in best_pair for x in k if '.nii.gz' in x]
 
                 #Get nifti name and add to each item in pair of fmaps
                 nifti_name = [k for k in ses_files[n] if '.nii.gz' in k][0]
-                for r in best_nii: 
-                    ses_intended_fors[r].append(nifti_name) 
+                for r in best_nii:
+                    ses_intended_fors[r].append(nifti_name)
 
         #Update output dictionary with session-specific mapping
-        intended_fors.update(ses_intended_fors) 
+        intended_fors.update(ses_intended_fors)
 
-    return intended_fors 
+    return intended_fors
 
 def validify_file(sub_nii_dir):
     nii_list = os.listdir(sub_nii_dir)
@@ -303,15 +303,22 @@ def modify_json(nii_to_bids_match, intended_fors, sub_nii_dir):
                 logger.error('Failed to open: {}'.format(bids_json), exc_info=True)
                 continue
 
+
         if len(intendeds) > 0:
             data['Units'] = 'rad/s'
             data['IntendedFor'] = list()
-            for nii in intendeds:
-                bids_path = nii_to_bids_match[nii]
+
+            for intended_nii in intendeds:
+                bids_path = nii_to_bids_match[intended_nii]
                 split = bids_path.split('/')
                 s = len(split)
                 bids_name = os.path.join(split[s-3], split[s-2], split[s-1])
                 data['IntendedFor'].append(bids_name)
+
+        if 'OriginalName' in data:
+            data['OriginalName'] += [nii]
+        else:
+            data['OriginalName'] = [nii]
 
         get_missing_data(data, nii_file)
         json_file.seek(0)
@@ -455,7 +462,7 @@ def main():
 
     cfg = config.config(study=study)
     logger.info("Study to convert to BIDS Format: {}".format(study))
-    
+
     if not bids_dir:
         bids_dir =  os.path.join(cfg.get_path('data'),"bids/")
     create_dir(bids_dir)
@@ -563,7 +570,7 @@ def main():
 
         run_num = 1
 
-        #Generate field maps 
+        #Generate field maps
         fmaps = sorted(glob.glob("{}*run-0{}_FMAP-*".format(type_folders['fmap'],run_num)))
         while len(fmaps) > 1:
             for fmap in fmaps:
