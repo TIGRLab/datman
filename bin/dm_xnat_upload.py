@@ -210,15 +210,15 @@ def resource_data_exists(xnat_session, archive):
     xnat_resources = xnat_session.get_resources(XNAT)
     with zipfile.ZipFile(archive) as zf:
         local_resources = datman.utils.get_resources(zf)
-        local_resources_mod = [item for item in local_resources if zf.read(item)]
-        empty_files = list(set(local_resources) - set(local_resources_mod))
-        if empty_files:
-            logger.warn("Cannot upload empty resource files {}, omitting.".format(', '.join(empty_files)))
-        # paths in xnat are url encoded. Need to fix local paths to match
-        local_resources_mod = [urllib.pathname2url(p) for p in local_resources_mod]
-        if not set(local_resources_mod).issubset(set(xnat_resources)):
-            return False
-        return True
+    local_resources_mod = [item for item in local_resources if zf.read(item)]
+    empty_files = list(set(local_resources) - set(local_resources_mod))
+    if empty_files:
+        logger.warn("Cannot upload empty resource files {}, omitting.".format(', '.join(empty_files)))
+    # paths in xnat are url encoded. Need to fix local paths to match
+    local_resources_mod = [urllib.pathname2url(p) for p in local_resources_mod]
+    if not set(local_resources_mod).issubset(set(xnat_resources)):
+        return False
+    return True
 
 
 def scan_data_exists(xnat_session, local_headers):
