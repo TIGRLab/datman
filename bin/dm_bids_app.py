@@ -418,13 +418,16 @@ def ciftify_fork(jargs,log_tag,sub_dir,subject):
     bids_args = jargs['bidsargs']
     append_args = [' '.join([k,v]) for k,v in bids_args.items()]
 
+    #mkdir -p line a workaround for current ciftify_fmriprep container bug
     bids_cmd = '''
+    
+    mkdir -p $WORK/fmriprep_work
 
-    singularity run -H $APPHOME -B $BIDS:/input -B $WORK:/fmriprep_work -B $OUT:/output -B $LICENSE:/li \\
+    singularity run -H $APPHOME -B $BIDS:/input -B $WORK:/work -B $OUT:/output -B $LICENSE:/li \\
     $SIMG \\
-    /input /output participant --fmriprep-workdir /fmriprep_work \\
-    --participant_label ${SUB#sub-} \\
-    --fs-license /li/license.txt {args} {log_tag}  
+    /input /output participant --fmriprep-workdir /work/fmriprep_work \\
+    --participant_label ${{SUB#sub-}} \\
+    --verbose --fs-license /li/license.txt {args} {log_tag}  
 
     '''.format(args = ' '.join(append_args), log_tag=log_tag)
 
