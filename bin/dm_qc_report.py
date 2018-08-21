@@ -621,7 +621,7 @@ def write_table(report, exportinfo, subject):
         try:
             data = nib.load(scan_nii_path)
             try:
-                scanlength = data.shape[-1]
+                scanlength = data.shape[3]
             except:
                 #Note: this might be expected, e.g., for a T1
                 logging.debug("{} exists but scanlength cannot be read.".format(scan_nii_path))
