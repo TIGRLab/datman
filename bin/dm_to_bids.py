@@ -95,14 +95,8 @@ def get_missing_data(data, nii_file):
             "Total readout time cannot be calculated due to missing information {} in JSON for: {}".format(key, nii_file))
 
 def to_sub(ident):
-    try:
-        int(ident.subject[0])
-        return "sub-" + ident.site + ident.subject
-    except ValueError:
-        if (ident.subject[0] == 'P'):
-           return "sub-" + ident.site + ident.subject
-        else:
-          return "sub-" + ident.subject
+
+    return ident.get_bids_name() 
 
 def to_ses(timepoint):
     return "ses-{:02}".format(int(timepoint))
