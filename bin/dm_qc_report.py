@@ -163,7 +163,7 @@ def gather_input_req(nifti, pipeline):
             'anat'      :   ['qc-adni',             basename + '.nii.gz'],
             'fmri'      :   ['qc-fbirn-fmri',       basename + '.nii.gz'],
             'dti'       :   ['qc-fbirn-dti',        basename + '.nii.gz', basename + '.bvec', basename + '.bval'],
-            'qa_dti'    :   ['qa-dti',              basename + '.nii.gz', basename + '.bvec', basename + '.bval',
+            'qa_dti'    :   ['qa-dti',              basename + '.nii.gz', basename + '.bvec', basename + '.bval', 
                 '--accel' if 'NO' in basename else ''],
             'abcd_fmri' :   ['qc_abcd_fmri',        basename + '.nii.gz', dcm, basename + '.json']
             }
