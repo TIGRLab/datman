@@ -166,9 +166,3 @@ def is_phantom(identifier):
         return x.subject[0:3] == 'PHA'
     except ParseException:
         return False
-
-def get_numeric(s): 
-    return ''.join([c for c in s if c.isdigit()])
-
-
-# vim: ts=4 sw=4:
