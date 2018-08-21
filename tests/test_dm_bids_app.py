@@ -11,6 +11,7 @@ import shutil
 import unittest
 
 ba = importlib.import_module("bin.dm_bids_app") 
+scanid = importlib.import_module("datman.scanid")
 logging.disable(logging.CRITICAL) 
 
 file_path = os.path.abspath(os.path.join(os.path.realpath(__file__),os.path.pardir)) 
@@ -124,14 +125,13 @@ def test_get_symlink_cmd_returns_correct_command():
 def test_get_bids_name_returns_correct_bids_name(): 
 
     subject = 'SPN01_CMH_13395_01'
-
     assert ba.get_bids_name(subject) == 'sub-CMH13395'
 
 def test_get_bids_name_fails_when_given_incorrect_name(): 
 
     subject = 'SPN01_FAILME'
     
-    with pytest.raises(IndexError): 
+    with pytest.raises(scanid.ParseException): 
         ba.get_bids_name(subject) 
 
 @patch('os.chmod') 
