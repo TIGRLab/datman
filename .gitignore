@@ -10,4 +10,3 @@ _executable
 /tests/__pycache__
 /.pytest_cache
 /assets/bids_jsons/
-.github/
