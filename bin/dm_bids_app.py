@@ -65,6 +65,7 @@ import subprocess as proc
 from docopt import docopt
 import json
 from functools import partial
+import datman.scanid as scan_ident
 
 logging.basicConfig(level=logging.WARN,
         format='[%(name)s %(levelname)s : %(message)s]')
@@ -79,15 +80,14 @@ def get_bids_name(subject):
 
     '''
     
-    #Take into account that we may either start with a string (repeated site ID) or have number  
-    try: 
-        int(subject.split('_')[2][0]) 
-    except ValueError: 
-        sub_num = subject.split('_')[2]
-    else:
-        sub_num = subject.split('_')[1] + subject.split('_')[2]
+    try:
+        ident = scan_ident.parse(subject) 
+    except scan_ident.ParseException: 
+        logger.error('Cannot parse {} invalid DATMAN name!'.format(subject))
+        raise 
 
-    return 'sub-' + sub_num 
+    return ident.get_bids_name() 
+    
 
 def configure_logger(quiet,verbose,debug): 
     '''

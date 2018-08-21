@@ -76,6 +76,10 @@ class Identifier:
     def get_full_subjectid(self):
         return "_".join([self.study, self.site, self.subject])
 
+    def get_bids_name(self): 
+
+        return 'sub-' + self.site + self.subject
+
     def get_full_subjectid_with_timepoint(self):
         ident = self.get_full_subjectid()
         if self.timepoint:
@@ -97,6 +101,7 @@ class Identifier:
                              self.session])
         else:  # it's a phantom, so no timepoints
             return self.get_full_subjectid()
+
 
 def parse(identifier):
     if not isinstance(identifier, basestring):
@@ -162,6 +167,8 @@ def is_phantom(identifier):
     except ParseException:
         return False
 
+def get_numeric(s): 
+    return ''.join([c for c in s if c.isdigit()])
 
 
 # vim: ts=4 sw=4:
