@@ -242,7 +242,7 @@ def run_freesurfer(subject, blacklist, config, resubmit=False):
 
     command = "recon-all {args} -subjid {subid} {inputs}".format(args=args,
             subid=subject.full_id, inputs=" ".join(input_files))
-    logger.info('Running recon-all') 
+    logger.info('Running recon-all')
     rtn, out = utils.run(command, dryrun=DRYRUN)
     if rtn:
         error_message = 'freesurfer failed: {}\n{}'.format(command, out)
