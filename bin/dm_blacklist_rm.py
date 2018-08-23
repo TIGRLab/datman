@@ -121,7 +121,7 @@ def collect_blacklisted_items(blacklist, config, ignored_paths):
     return file_list
 
 def get_search_paths(config, ignored_paths):
-    paths = config.get_key('paths')
+    paths = config.get_key('Paths')
     try:
         path_keys = paths.keys()
     except AttributeError:
@@ -147,7 +147,7 @@ def remove_item(item):
         os.remove(item)
     except OSError as e:
         if e.errno == 13:
-            logger.error("Cannot remove file, reason: {}".format(e.strerror))
+            logger.error("Cannot remove file {}, reason: {}".format(item, e.strerror))
         else:
             logger.debug("Cannot remove file {}".format(item))
 

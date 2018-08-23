@@ -26,7 +26,7 @@ import zipfile
 import io
 import urllib
 
-import dicom
+import pydicom
 from docopt import docopt
 
 import datman.config
