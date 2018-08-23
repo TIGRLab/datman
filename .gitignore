@@ -1,6 +1,12 @@
 *.pyc
 .idea/
 .*.swp
+.*.sw*
 build/
 datman.egg-info/
 dist/
+_executable
+.nfs*
+/tests/__pycache__
+/.pytest_cache
+/assets/bids_jsons/

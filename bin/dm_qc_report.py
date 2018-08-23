@@ -80,6 +80,7 @@ Requires:
     FSL
     QCMON
     MATLAB/R2014a - qa-dti phantom pipeline
+    AFNI - abcd_fmri phantom pipeline
 """
 
 import os, sys
@@ -155,13 +156,16 @@ def gather_input_req(nifti, pipeline):
 
     #Common requirements
     basename = os.path.join(os.path.dirname(nifti.path),datman.utils.nifti_basename(nifti.path))
+    dcm = nifti.path.replace('/nii/','/dcm/').replace('.nii.gz','.dcm')
 
     #Input specifications and pipeline input mapping
     input_spec = {
             'anat'      :   ['qc-adni',             basename + '.nii.gz'],
             'fmri'      :   ['qc-fbirn-fmri',       basename + '.nii.gz'],
-            'dti'       :   ['qc-fbirn-dti',        basename + '.nii.gz',basename + '.bvec', basename + '.bval'],
-            'qa_dti'    :   ['qa-dti',              basename + '.nii.gz', basename + '.bvec', basename + '.bval']
+            'dti'       :   ['qc-fbirn-dti',        basename + '.nii.gz', basename + '.bvec', basename + '.bval'],
+            'qa_dti'    :   ['qa-dti',              basename + '.nii.gz', basename + '.bvec', basename + '.bval', 
+                '--accel' if 'NO' in basename else ''],
+            'abcd_fmri' :   ['qc_abcd_fmri',        basename + '.nii.gz', dcm, basename + '.json']
             }
 
     reqs = None
@@ -182,8 +186,9 @@ def run_phantom_pipeline(nifti,qc_path,reqs):
     #Formulate pipeline command, there is an assumption that output is last argument here
     cmd = ' '.join([i for i in reqs]) + ' ' + os.path.join(qc_path,basename)
 
-    qc_output = os.path.join(qc_path,basename)
+    logger.info('Running command: \n {}'.format(cmd))
 
+    qc_output = os.path.join(qc_path,basename)
     #If any csv exists in qc path
     if not glob.glob(qc_output + '*.csv') or REWRITE:
           datman.utils.run(cmd)
