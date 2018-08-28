@@ -143,6 +143,7 @@ def filter_subjects(subjects,out_dir):
         out_dir                 Base directory for where BIDS-app will output
     '''
 
+    #TODO: UPDATE TO REFLECT SHARED OUTPUT FOLDER 
     criteria = lambda x: not os.path.isdir(os.path.join(out_dir,x)) 
     return [s for s in subjects if criteria(s)] 
 
@@ -254,7 +255,7 @@ def get_init_cmd(study,sgroup,tmp_dir,out_dir,simg,log_tag):
 
     '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),
             simg=simg,
-            sub=get_bids_name(sgroup),
+            sub=get_bids_name(sgroup).replace('sub-',''),
             out=out_dir,
             log_tag=log_tag)
 
@@ -442,7 +443,7 @@ def ciftify_fork(jargs,log_tag,out_dir,sublist):
     singularity run -H $APPHOME -B $BIDS:/input -B $WORK:/work -B $OUT:/output -B $LICENSE:/li \\
     $SIMG \\
     /input /output participant --fmriprep-workdir /work/fmriprep_work \\
-    --participant_label ${{SUB#sub-}} \\
+    --participant_label $SUB \\
     --verbose --fs-license /li/license.txt {args} {log_tag}  
 
     '''.format(args = ' '.join(append_args), log_tag=log_tag)
@@ -544,7 +545,7 @@ def submit_jobfile(job_file,subject,threads,queue):
     '''
 
     #Thread argument if provided
-    thread_arg = '-l nodes=1:ppn={threads},walltime=24:00:00'.format(threads=threads) if \
+    thread_arg = '-l nodes=1:ppn={threads},walltime=7:00:00'.format(threads=threads) if \
     (threads and queue.lower() == 'pbs') else ''
 
     #Formulate command 
