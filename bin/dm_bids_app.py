@@ -255,7 +255,7 @@ def get_init_cmd(study,sgroup,tmp_dir,out_dir,simg,log_tag):
 
     '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),
             simg=simg,
-            sub=get_bids_name(sgroup.replace('sub-','')),
+            sub=get_bids_name(sgroup).replace('sub-',''),
             out=out_dir,
             log_tag=log_tag)
 
