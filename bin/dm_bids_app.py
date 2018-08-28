@@ -49,11 +49,17 @@ Notes on BIDS-apps:
         Refer to datman.config.config, study config key KeepRecon. Where the value is true, original reconstructions will not be
         deleted and linked to the fmriprep output version 
 
-        Add ['longitudinal' : True] in top level of <json> in order to perform longitudinal analysis
+    FMRIPREP_CIFTIFY 
+        FMRIPREP_CIFTIFY utilizes previously existing fmriprep outputs to speed up the pipeline. Therefore if previous outputs exist it is suggested that
+        <out> points to a directory containing fmriprep/freesurfer outputs in BIDS format
 
 Currently supported workflows: 
-    1) FMRIPREP (longitudinal and cross-sectional)
-    2) MRIQC (participant level only)
+    1) FMRIPREP
+    2) MRIQC
+    3) FMRIPREP CIFTIFY
+
+    Add ['longitudinal' : True] in top level of <json> in order to perform longitudinal analysis
+
 '''
 
 import os
@@ -137,6 +143,7 @@ def filter_subjects(subjects,out_dir):
         out_dir                 Base directory for where BIDS-app will output
     '''
 
+    #TODO: UPDATE TO REFLECT SHARED OUTPUT FOLDER 
     criteria = lambda x: not os.path.isdir(os.path.join(out_dir,x)) 
     return [s for s in subjects if criteria(s)] 
 
@@ -248,7 +255,7 @@ def get_init_cmd(study,sgroup,tmp_dir,out_dir,simg,log_tag):
 
     '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),
             simg=simg,
-            sub=get_bids_name(sgroup),
+            sub=get_bids_name(sgroup).replace('sub-',''),
             out=out_dir,
             log_tag=log_tag)
 
@@ -317,7 +324,49 @@ def get_symlink_cmd(fs_dir,out_dir,subject):
 
     return [remove_cmd, symlink_cmd]
 
+def get_existing_freesurfer(jargs,sub_dir,subject): 
 
+    '''
+    Provide commands to fetch subject's freesurfer and symlink over 
+    Arguments: 
+        jargs                           Dictionary of bids app json file
+        sub_dir                         Full path to subject's output directory 
+        subject                         Subject name (DATMAN-style ID) 
+    '''
+    
+    symlink_cmd_list = [] 
+    fetch_cmd = '' 
+
+    #Indicates multiple subjects 
+    if len(subject) > 1:
+        return (fetch_cmd,symlink_cmd_list) 
+
+    try: 
+        fetch_cmd = fetch_fs_recon(jargs['freesurfer-dir'],sub_dir,subject) 
+    except KeyError: 
+        logger.warning('freesurfer-dir not specified in JSON!')
+        logger.warning('Will run fmriprep from scratch if freesurfer BIDS output does not exist in output-dir')
+    else: 
+        if jargs['keeprecon'] and (fetch_cmd != ''): 
+            symlink_cmd_list = get_symlink_cmd(fs_dir,sub_dir,subject) 
+
+    return (fetch_cmd,symlink_cmd_list)
+    
+def get_fs_license(license_dir): 
+
+    '''
+    Return a command creating a license directory and copying over a freesurfer license 
+    '''
+
+    license_cmd = '''
+
+    LICENSE=$APPHOME/li
+    mkdir -p $LICENSE 
+    cp {fs_license} $LICENSE/license.txt
+
+    '''.format(fs_license=license_dir)
+
+    return license_cmd
 
 def fmriprep_fork(jargs,log_tag,out_dir,sublist): 
     '''
@@ -339,36 +388,66 @@ def fmriprep_fork(jargs,log_tag,out_dir,sublist):
     since fmriprep cannot take advantage of previously existing reconstructions in that instance 
     '''
 
-    #Validate fmriprep json arguments 
+    #Get freesurfer license 
     try: 
-        jargs['fs-license'] 
+        license_cmd = get_fs_license(jargs['fs-license'])
     except KeyError: 
         logger.error('Cannot find fs-license key! Required for fmriprep freesurfer module.') 
         logger.error('Exiting...') 
         raise
 
-    symlink_cmd_list = [] 
-    fetch_cmd = ''
-    if ('freesurfer-dir' in jargs) and (len(sublist) == 1): 
-        fetch_cmd = fetch_fs_recon(jargs['freesurfer-dir'],out_dir,sublist[0])
-
-        if not jargs['keeprecon']:
-            symlink_cmd_list = get_symlink_cmd(jargs['freesurfer-dir'],out_dir,sublist[0]) 
-
-    
-    #Freesurfer LICENSE handling 
-    license_cmd = '''
-
-    LICENSE=$APPHOME/li
-    mkdir -p $LICENSE 
-    cp {fs_license} $LICENSE/license.txt
-
-    '''.format(fs_license=jargs['fs-license'])
+    #Attempt to get freesurfer directories 
+    fetch_cmd, symlink_cmd_list = get_existing_freesurfer(jargs,out_dir,sublist)
 
     #Get BIDS singularity call
     bids_cmd = fmriprep_cmd(jargs['bidsargs'],log_tag) 
     
     #Copy license, fetch freesurfer, run BIDSapp then symlink if KeepRecon false
+    return [license_cmd, fetch_cmd, bids_cmd] + symlink_cmd_list
+
+def ciftify_fork(jargs,log_tag,out_dir,sublist): 
+    '''
+    CIFTIFY MODULE 
+
+    Generate a list of commands used to formulate the fmriprep-ciftify job BASH script
+
+    Arguments: 
+        jargs                           Dictionary derived from JSON file
+        log_tag                         String tag for BASH stdout/err redirection to log
+        out_dir                         Subject directory in output
+        subject                         DATMAN-style subject name 
+
+    Output: 
+        [list of commands]
+    '''
+
+    #Find freesurfer license
+    try: 
+        license_cmd = get_fs_license(jargs['fs-license']) 
+    except KeyError: 
+        logger.error('Cannot find fs-license key! Required for fmriprep freesurfer module.') 
+        logger.error('Exiting...') 
+        raise
+
+    #If freesurfer output specified in json then get existing freesurfer outputs 
+    fetch_cmd, symlink_cmd_list = get_existing_freesurfer(jargs,out_dir,sublist) 
+
+    bids_args = jargs['bidsargs']
+    append_args = [' '.join([k,v]) for k,v in bids_args.items()]
+
+    #mkdir -p line a workaround for current ciftify_fmriprep container bug
+    bids_cmd = '''
+    
+    mkdir -p $WORK/fmriprep_work
+
+    singularity run -H $APPHOME -B $BIDS:/input -B $WORK:/work -B $OUT:/output -B $LICENSE:/li \\
+    $SIMG \\
+    /input /output participant --fmriprep-workdir /work/fmriprep_work \\
+    --participant_label $SUB \\
+    --verbose --fs-license /li/license.txt {args} {log_tag}  
+
+    '''.format(args = ' '.join(append_args), log_tag=log_tag)
+
     return [license_cmd, fetch_cmd, bids_cmd] + symlink_cmd_list
 
 
@@ -401,11 +480,11 @@ def fmriprep_cmd(bids_args,log_tag):
 
     return bids_cmd 
 
-def mriqc_fork(jargs,log_tag,out_dir=None,subject=None): 
+def mriqc_fork(jargs,log_tag,out_dir=None,sublist=None): 
     '''
     MRIQC MODULE
 
-    Formulates fmriprep bash script content to be written into job file
+    Formulates mriqc bash script content to be written into job file
 
     Arguments: 
         jargs                               bidsargs in JSON file
@@ -432,6 +511,7 @@ def mriqc_fork(jargs,log_tag,out_dir=None,subject=None):
 
     return [mrqc_cmd] 
 
+    
 def write_executable(f, cmds): 
     '''
     Helper function to write to an executable file with a list of ocmmands
@@ -465,7 +545,7 @@ def submit_jobfile(job_file,subject,threads,queue):
     '''
 
     #Thread argument if provided
-    thread_arg = '-l nodes=1:ppn={threads},walltime=24:00:00'.format(threads=threads) if \
+    thread_arg = '-l nodes=1:ppn={threads},walltime=7:00:00'.format(threads=threads) if \
     (threads and queue.lower() == 'pbs') else ''
 
     #Formulate command 
@@ -558,11 +638,13 @@ def main():
     #Strategy pattern dictionary 
     strat_dict = {
             'FMRIPREP' : fmriprep_fork, 
-            'MRIQC'    : mriqc_fork
+            'MRIQC'    : mriqc_fork,
+            'FMRIPREP_CIFTIFY' : ciftify_fork
             }
     thread_dict = {
             'FMRIPREP'  : '--nthreads',
-            'MRIQC'     : '--n_procs'
+            'MRIQC'     : '--n_procs',
+            'FMRIPREP_CIFTIFY' : '--n_cpus'
             }
 
     #Configuration
@@ -592,6 +674,7 @@ def main():
     subjects = subjects or [s for s in os.listdir(config.get_path('nii')) if 'PHA' not in s] 
     subjects = subjects if rewrite else filter_subjects(subjects, out)
     logger.info('Running {}'.format(subjects)) 
+
     subjects = group_subjects(subjects, True if 'longitudinal' in jargs else False)
     
     #Process subject groups 
