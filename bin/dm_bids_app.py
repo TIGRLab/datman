@@ -143,6 +143,7 @@ def filter_subjects(subjects,out_dir):
         out_dir                 Base directory for where BIDS-app will output
     '''
 
+    #TODO: UPDATE TO REFLECT SHARED OUTPUT FOLDER 
     criteria = lambda x: not os.path.isdir(os.path.join(out_dir,x)) 
     return [s for s in subjects if criteria(s)] 
 
@@ -544,7 +545,7 @@ def submit_jobfile(job_file,subject,threads,queue):
     '''
 
     #Thread argument if provided
-    thread_arg = '-l nodes=1:ppn={threads},walltime=24:00:00'.format(threads=threads) if \
+    thread_arg = '-l nodes=1:ppn={threads},walltime=7:00:00'.format(threads=threads) if \
     (threads and queue.lower() == 'pbs') else ''
 
     #Formulate command 
