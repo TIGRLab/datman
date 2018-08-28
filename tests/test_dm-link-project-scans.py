@@ -10,14 +10,14 @@ import datman.scanid
 # Disable logging for tests
 logging.disable(logging.CRITICAL)
 
-link_scans = importlib.import_module('bin.dm-link-project-scans')
+link_scans = importlib.import_module('bin.dm_link_project_scans')
 
 class CopyChecklistEntry(unittest.TestCase):
     source = datman.scanid.parse("STUDY_CMH_ID1_01_01")
     target = datman.scanid.parse("STUDY2_CMH_ID2_01_01")
     path = "./target_checklist.csv"
 
-    @patch('bin.dm-link-project-scans.update_file')
+    @patch('bin.dm_link_project_scans.update_file')
     @patch('datman.utils.check_checklist')
     def test_does_nothing_when_target_checklist_has_entry(self, mock_check,
             mock_update):
@@ -27,7 +27,7 @@ class CopyChecklistEntry(unittest.TestCase):
 
         assert mock_update.call_count == 0
 
-    @patch('bin.dm-link-project-scans.update_file')
+    @patch('bin.dm_link_project_scans.update_file')
     @patch('datman.utils.check_checklist')
     def test_does_nothing_when_no_relevant_entries_in_source(self, mock_check,
             mock_update):
@@ -37,7 +37,7 @@ class CopyChecklistEntry(unittest.TestCase):
 
         assert mock_update.call_count == 0
 
-    @patch('bin.dm-link-project-scans.update_file')
+    @patch('bin.dm_link_project_scans.update_file')
     @patch('datman.utils.check_checklist')
     def test_updates_with_correct_entry(self, mock_check, mock_update):
         comment = "signed off"
@@ -54,8 +54,8 @@ class CopyChecklistEntry(unittest.TestCase):
         assert mock_update.call_count == 1
         mock_update.assert_called_once_with(self.path, expected_entry)
 
-    @patch('bin.dm-link-project-scans.delete_old_checklist_entry')
-    @patch('bin.dm-link-project-scans.update_file')
+    @patch('bin.dm_link_project_scans.delete_old_checklist_entry')
+    @patch('bin.dm_link_project_scans.update_file')
     @patch('datman.utils.check_checklist')
     def test_no_repeats_when_checklist_entry_exists_but_not_signed_off(self,
             mock_check, mock_update, mock_delete):
@@ -164,8 +164,8 @@ class CopyBlacklistData(unittest.TestCase):
     target_list = './fake_dir/blacklist2.csv'
     tags = ['T1', 'DTI60']
 
-    @patch('bin.dm-link-project-scans.update_file')
-    @patch('bin.dm-link-project-scans.get_blacklist_scans')
+    @patch('bin.dm_link_project_scans.update_file')
+    @patch('bin.dm_link_project_scans.get_blacklist_scans')
     def test_does_nothing_without_relevant_source_blacklist_entries(self,
                 mock_scans, mock_update):
         target_entries = self._make_blacklist_entries(self.target,
@@ -180,8 +180,8 @@ class CopyBlacklistData(unittest.TestCase):
 
         assert mock_update.call_count == 0
 
-    @patch('bin.dm-link-project-scans.update_file')
-    @patch('bin.dm-link-project-scans.get_blacklist_scans')
+    @patch('bin.dm_link_project_scans.update_file')
+    @patch('bin.dm_link_project_scans.get_blacklist_scans')
     def test_does_nothing_if_all_entries_present_in_target_blacklist(self,
                 mock_scans, mock_update):
         entry = "_DTI60_05_Ax-DTI-60plus5 --corrupted"
@@ -198,8 +198,8 @@ class CopyBlacklistData(unittest.TestCase):
 
         assert mock_update.call_count == 0
 
-    @patch('bin.dm-link-project-scans.update_file')
-    @patch('bin.dm-link-project-scans.get_blacklist_scans')
+    @patch('bin.dm_link_project_scans.update_file')
+    @patch('bin.dm_link_project_scans.get_blacklist_scans')
     def test_adds_missing_entries_with_matched_tags(self, mock_scans,
                 mock_update):
         entry1 = "_DTI60_05_Ax-DTI-60plus5 --corrupted"

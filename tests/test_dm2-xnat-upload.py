@@ -14,7 +14,7 @@ import datman.scanid
 # Disable all logging for the duration of testing
 logging.disable(logging.CRITICAL)
 
-upload = importlib.import_module('bin.dm2-xnat-upload')
+upload = importlib.import_module('bin.dm_xnat_upload')
 FIXTURE = "tests/fixture_xnat_upload/"
 
 
@@ -39,7 +39,7 @@ class CheckFilesExist(unittest.TestCase):
                              '254801968553430904107911738210738061468'
 
     @raises(Exception)
-    @patch('bin.dm2-xnat-upload.missing_resource_data')
+    @patch('bin.dm_xnat_upload.missing_resource_data')
     @patch('datman.utils.get_archive_headers')
     def test_raises_exception_if_scan_uids_mismatch(self, mock_headers,
                 mock_missing_resources):
@@ -87,7 +87,7 @@ class GetResources(unittest.TestCase):
                  'some_zipfile_name/Name_info.txt',
                  'some_zipfile_name/subjectid_EmpAcc.log']
 
-    @patch('bin.dm2-xnat-upload.is_dicom')
+    @patch('bin.dm_xnat_upload.is_dicom')
     @patch('io.BytesIO')
     def test_returns_all_resources(self, mock_IO, mock_isdicom):
         # Set up inputs
