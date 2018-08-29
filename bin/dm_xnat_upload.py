@@ -21,12 +21,9 @@ Options:
 import logging
 import sys
 import os
-import getpass
 import zipfile
-import io
 import urllib
 
-import pydicom
 from docopt import docopt
 
 import datman.config
@@ -42,6 +39,7 @@ password = None
 server = None
 XNAT = None
 CFG = None
+
 
 def main():
     global username
@@ -112,11 +110,13 @@ def main():
     for archivefile in archives:
         process_archive(os.path.join(dicom_dir, archivefile))
 
+
 def is_datman_id(archive):
     # scanid.is_scanid() isnt used because a complete id is needed (either
     # a whole phantom ID or a subid with timepoint and session)
     return (datman.scanid.is_scanid_with_session(archive) or
             datman.scanid.is_phantom(archive))
+
 
 def process_archive(archivefile):
     """Upload data from a zip archive to the xnat server"""
@@ -210,11 +210,7 @@ def resource_data_exists(xnat_session, archive):
     xnat_resources = xnat_session.get_resources(XNAT)
     with zipfile.ZipFile(archive) as zf:
         local_resources = datman.utils.get_resources(zf)
-<<<<<<< HEAD
-    local_resources_mod = [item for item in local_resources if zf.read(item)]
-=======
         local_resources_mod = [item for item in local_resources if zf.read(item)]
->>>>>>> upstream/master
     empty_files = list(set(local_resources) - set(local_resources_mod))
     if empty_files:
         logger.warn("Cannot upload empty resource files {}, omitting.".format(', '.join(empty_files)))
@@ -312,11 +308,13 @@ def upload_dicom_data(archive, xnat_project, scanid):
         archive = strip_niftis(archive, temp)
         XNAT.put_dicoms(xnat_project, scanid, scanid, archive)
 
+
 def contains_niftis(archive):
     with zipfile.ZipFile(archive) as zf:
         archive_files = zf.namelist()
     niftis = find_niftis(archive_files)
     return niftis != []
+
 
 def strip_niftis(archive, temp):
     """
@@ -341,8 +339,10 @@ def strip_niftis(archive, temp):
     datman.utils.make_zip(unzip_dest, temp_zip)
     return temp_zip
 
+
 def find_niftis(files):
     return filter(lambda x: x.endswith(".nii") or x.endswith(".nii.gz"), files)
+
 
 if __name__ == '__main__':
     main()
