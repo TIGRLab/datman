@@ -210,7 +210,11 @@ def resource_data_exists(xnat_session, archive):
     xnat_resources = xnat_session.get_resources(XNAT)
     with zipfile.ZipFile(archive) as zf:
         local_resources = datman.utils.get_resources(zf)
+<<<<<<< HEAD
     local_resources_mod = [item for item in local_resources if zf.read(item)]
+=======
+        local_resources_mod = [item for item in local_resources if zf.read(item)]
+>>>>>>> upstream/master
     empty_files = list(set(local_resources) - set(local_resources_mod))
     if empty_files:
         logger.warn("Cannot upload empty resource files {}, omitting.".format(', '.join(empty_files)))
