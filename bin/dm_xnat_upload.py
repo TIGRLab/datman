@@ -73,7 +73,7 @@ def main():
 
     formatter = logging.Formatter('%(asctime)s - %(name)s - {study} - '
                                   '%(levelname)s - %(message)s'.format(
-                                  study=study))
+                                   study=study))
     ch.setFormatter(formatter)
 
     logger.addHandler(ch)
@@ -199,7 +199,7 @@ def get_scanid(archivefile):
 
     if not datman.scanid.is_scanid_with_session(scanid) and not datman.scanid.is_phantom(scanid):
         logger.error('Invalid scanid:{} from archive:{}'
-                       .format(scanid, archivefile))
+                     .format(scanid, archivefile))
         return False
 
     ident = datman.scanid.parse(scanid)
@@ -227,9 +227,9 @@ def scan_data_exists(xnat_session, local_headers):
 
     if len(set(local_experiment_ids)) > 1:
         raise ValueError('More than one experiment UID found - '
-                '{}'.format(','.join(local_experiment_ids)))
+                         '{}'.format(','.join(local_experiment_ids)))
 
-    if not xnat_session.experiment_UID in local_experiment_ids:
+    if xnat_session.experiment_UID not in local_experiment_ids:
         raise ValueError('Experiment UID doesnt match XNAT')
 
     if not set(local_scan_uids).issubset(set(xnat_session.scan_UIDs)):
@@ -295,10 +295,10 @@ def upload_non_dicom_data(archive, xnat_project, scanid):
 
 
 def upload_dicom_data(archive, xnat_project, scanid):
-    ## XNAT API for upload fails if the zip contains a mix of dicom and nifti.
-    ## OPT CU definitely contains a mix and others may later on. Soooo
-    ## here's an ugly but effective fix! The niftis will get uploaded with
-    ## upload_non_dicom_data and added to resources - Dawn
+    # XNAT API for upload fails if the zip contains a mix of dicom and nifti.
+    # OPT CU definitely contains a mix and others may later on. Soooo
+    # here's an ugly but effective fix! The niftis will get uploaded with
+    # upload_non_dicom_data and added to resources - Dawn
 
     if not contains_niftis(archive):
         XNAT.put_dicoms(xnat_project, scanid, scanid, archive)
@@ -328,7 +328,7 @@ def strip_niftis(archive, temp):
         # Find and purge associated files too (e.g. .bvec and .bval), so they
         # only appear in resources alongside their niftis
         nifti_names = [datman.utils.splitext(os.path.basename(nii))[0] for nii in
-                niftis]
+                       niftis]
         deletable_files = filter(lambda x: datman.utils.splitext(
                 os.path.basename(x))[0] in nifti_names, archive_files)
         non_niftis = filter(lambda x: x not in deletable_files, archive_files)
