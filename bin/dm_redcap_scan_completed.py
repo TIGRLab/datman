@@ -85,16 +85,21 @@ def add_session_redcap(record):
         session = dashboard.get_add_session(session_name,
                                             date=session_date,
                                             create=True)
-        session.redcap_record = record_id
-        session.redcap_entry_date = session_date
-        session.redcap_eventid = cfg.get_key(['REDCAP_EVENTID'])[record['redcap_event_name']]
-        session.redcap_comment = record[cfg.get_key(['REDCAP_COMMENTS'])]
-        session.redcap_url = redcap_url
-        session.redcap_version = redcap_version
-        session.redcap_projectid = redcap_project
-        session.redcap_instrument = instrument
     except datman.dashboard.DashboardException as e:
         logger.error('Failed adding session {} to dashboard'.format(session_name))
+
+    try:
+        datman.dashboard.add_redcap(session,
+                                 record_id,
+                                 session_date,
+                                 cfg.get_key(['REDCAP_EVENTID'])[record['redcap_event_name']],
+                                 record[cfg.get_key(['REDCAP_COMMENTS'])],
+                                 redcap_url,
+                                 redcap_version,
+                                 redcap_project,
+                                 instrument)
+    except:
+        logger.error('Failed adding REDCap info for session {} to dashboard'.format(session_name))
 
 
 def main():
