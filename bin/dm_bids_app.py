@@ -20,6 +20,8 @@ Options:
     -r, --rewrite                   Overwrite if outputs already exist in BIDS output directory
     -d, --tmp-dir TMPDIR            Specify temporary directory
                                     [default : '/tmp/']
+    -w, --walltime                  Specify a walltime to use for the qsub submission
+                                    [default : '24:00:00']
     -l, --log LOGDIR                Specify additional bids-app log output directory
                                     Will output to LOGDIR/<SUBJECT>_<BIDS_APP>_log.txt
                                     Will always output to logs in the output with or without LOGDIR argument since it is needed
@@ -27,6 +29,7 @@ Options:
                                     [default : None]
     -e, --exclude EXCLUDE,...       Tag to exclude from BIDS-app processing [repeatable option]
     --DRYRUN                        Perform a dry-run, script will be generated at tmp-dir
+
 
 Notes on arguments:
     option exclude finds files in the temporary BIDS directory created using a *<TAG>* regex.
@@ -534,7 +537,7 @@ def write_executable(f, cmds):
 
     return
 
-def submit_jobfile(job_file,subject,threads,queue):
+def submit_jobfile(job_file,subject,threads,queue,walltime):
 
     '''
     Submit BIDS-app jobfile to queue
@@ -546,7 +549,7 @@ def submit_jobfile(job_file,subject,threads,queue):
     '''
 
     #Thread argument if provided
-    thread_arg = '-l nodes=1:ppn={threads},walltime=7:00:00'.format(threads=threads) if \
+    thread_arg = '-l nodes=1:ppn={threads},walltime={wtime}'.format(threads=threads,wtime=walltime) if \
     (threads and queue.lower() == 'pbs') else ''
 
     #Formulate command
@@ -669,6 +672,8 @@ def main():
 
     DRYRUN              =   arguments['--DRYRUN']
 
+    walltime            =   arguments['--walltime'] or '24:00:00'
+
     #Strategy pattern dictionary
     strat_dict = {
             'FMRIPREP' : fmriprep_fork,
@@ -728,7 +733,7 @@ def main():
         write_executable(job_file,master_cmd)
 
         if not DRYRUN:
-            submit_jobfile(job_file,s,n_thread,queue)
+            submit_jobfile(job_file,s,n_thread,queue,walltime)
 
 if __name__ == '__main__':
     main()
