@@ -18,7 +18,7 @@ Options:
     -v, --verbose                   Display INFO/WARNING/ERROR Messages 
     -d, --debug                     Display DEBUG/INFO/WARNING/ERROR Messages
     -r, --rewrite                   Overwrite if outputs already exist in BIDS output directory 
-    -d, --tmp-dir TMPDIR            Specify temporary directory 
+    -t, --tmp-dir TMPDIR            Specify temporary directory 
                                     [default : '/tmp/']
     -l, --log LOGDIR                Specify bids-app log output directory. 
                                     Will output to /logs/<SUBJECT>_<BIDS_APP>_log.txt 
