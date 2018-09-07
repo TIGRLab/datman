@@ -262,7 +262,7 @@ def get_init_cmd(study,sgroup,tmp_dir,out_dir,simg,log_tag):
             simg=simg,
             sub=get_bids_name(sgroup),
             out=out_dir,
-            log_tag=log_tag)
+            log_tag=log_tag.replace('&>>','&>')) #This bit is to ensure that logs are wiped prior to appending for easier error tracking on re-runs
 
     return [trap_cmd,init_cmd]
 
