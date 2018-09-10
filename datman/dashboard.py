@@ -2,7 +2,6 @@
 from __future__ import absolute_import
 import logging
 import dashboard
-#from dashboard.models import Study, Session, Scan, ScanType
 import datman.scanid
 import datman.utils
 import datman.config
@@ -21,6 +20,7 @@ Session_Scan = dashboard.models.Session_Scan
 
 class dashboard(object):
     study = None
+
     def __init__(self, study):
         self.set_study(study)
 
@@ -47,7 +47,7 @@ class dashboard(object):
         except datman.scanid.ParseException:
             logger.error('Invalid session:{}'.format(session_name))
             raise DashboardException('Invalid session name:{}'
-                                      .format(session_name))
+                                     .format(session_name))
 
         dashboard_site = [study_site.site for study_site
                           in self.study.sites
@@ -181,7 +181,7 @@ class dashboard(object):
             except DashboardException as e:
                 raise(e)
 
-            if not dashboard_scantype in self.study.scantypes:
+            if dashboard_scantype not in self.study.scantypes:
                 logger.error('Scantype:{} not valid for study:{}'
                              .format(dashboard_scantype.name,
                                      self.study.nickname))
@@ -310,6 +310,7 @@ class dashboard(object):
             return False
         return True
 
+
 def is_linked(scan):
     if not scan.is_primary:
         return True
@@ -320,6 +321,7 @@ def is_linked(scan):
     if scan_type.name == 'SPRL':
         return True
     return False
+
 
 def get_add_session_scan_link(target_session, scan, new_name=None, is_primary=False):
     """
@@ -342,3 +344,16 @@ def get_add_session_scan_link(target_session, scan, new_name=None, is_primary=Fa
     db.session.add(link)
     db.session.commit()
     return link
+
+
+def add_redcap(session, record_id, session_date, eventid, comment, url, version, projectid, instrument):
+    session.redcap_record = record_id
+    session.redcap_entry_date = session_date
+    session.redcap_eventid = eventid
+    session.redcap_comment = comment
+    session.redcap_url = url
+    session.redcap_version = version
+    session.redcap_projectid = projectid
+    session.redcap_instrument = instrument
+    db.session.add(session)
+    db.session.commit()
