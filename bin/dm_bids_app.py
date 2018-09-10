@@ -207,14 +207,18 @@ def validate_json_args(jargs,test_dict):
         logger.error('Required key, {} not found in provided json!'.format(k))
         raise
 
-    #Second check if valid_app found
+    #Second check if valid_app found, if so push to upper
     try:
         test_dict[jargs['app']]
     except KeyError:
         logger.error('BIDS-app {} not supported!'.format(jargs['app']))
         raise
+    else:
+        #Enforce application name will always be in upper case 
+        jargs['app'] = jargs['app'].upper() 
 
-    return True
+    
+    return jargs
 
 def get_exclusion_cmd(exclude):
     '''
@@ -714,7 +718,7 @@ def main():
 
     #JSON parsing, formatting, and validating
     jargs = get_json_args(bids_json)
-    validate_json_args(jargs,strat_dict)
+    jargs = validate_json_args(jargs,strat_dict)
     try:
         jargs.update({'keeprecon' : config.get_key('KeepRecon')})
     except KeyError:
