@@ -21,12 +21,9 @@ Options:
 import logging
 import sys
 import os
-import getpass
 import zipfile
-import io
 import urllib
 
-import pydicom
 from docopt import docopt
 
 import datman.config
@@ -42,6 +39,7 @@ password = None
 server = None
 XNAT = None
 CFG = None
+
 
 def main():
     global username
@@ -75,7 +73,7 @@ def main():
 
     formatter = logging.Formatter('%(asctime)s - %(name)s - {study} - '
                                   '%(levelname)s - %(message)s'.format(
-                                  study=study))
+                                   study=study))
     ch.setFormatter(formatter)
 
     logger.addHandler(ch)
@@ -112,11 +110,13 @@ def main():
     for archivefile in archives:
         process_archive(os.path.join(dicom_dir, archivefile))
 
+
 def is_datman_id(archive):
     # scanid.is_scanid() isnt used because a complete id is needed (either
     # a whole phantom ID or a subid with timepoint and session)
     return (datman.scanid.is_scanid_with_session(archive) or
             datman.scanid.is_phantom(archive))
+
 
 def process_archive(archivefile):
     """Upload data from a zip archive to the xnat server"""
@@ -199,7 +199,7 @@ def get_scanid(archivefile):
 
     if not datman.scanid.is_scanid_with_session(scanid) and not datman.scanid.is_phantom(scanid):
         logger.error('Invalid scanid:{} from archive:{}'
-                       .format(scanid, archivefile))
+                     .format(scanid, archivefile))
         return False
 
     ident = datman.scanid.parse(scanid)
@@ -210,10 +210,13 @@ def resource_data_exists(xnat_session, archive):
     xnat_resources = xnat_session.get_resources(XNAT)
     with zipfile.ZipFile(archive) as zf:
         local_resources = datman.utils.get_resources(zf)
-
+        local_resources_mod = [item for item in local_resources if zf.read(item)]
+    empty_files = list(set(local_resources) - set(local_resources_mod))
+    if empty_files:
+        logger.warn("Cannot upload empty resource files {}, omitting.".format(', '.join(empty_files)))
     # paths in xnat are url encoded. Need to fix local paths to match
-    local_resources = [urllib.pathname2url(p) for p in local_resources]
-    if not set(local_resources).issubset(set(xnat_resources)):
+    local_resources_mod = [urllib.pathname2url(p) for p in local_resources_mod]
+    if not set(local_resources_mod).issubset(set(xnat_resources)):
         return False
     return True
 
@@ -224,9 +227,9 @@ def scan_data_exists(xnat_session, local_headers):
 
     if len(set(local_experiment_ids)) > 1:
         raise ValueError('More than one experiment UID found - '
-                '{}'.format(','.join(local_experiment_ids)))
+                         '{}'.format(','.join(local_experiment_ids)))
 
-    if not xnat_session.experiment_UID in local_experiment_ids:
+    if xnat_session.experiment_UID not in local_experiment_ids:
         raise ValueError('Experiment UID doesnt match XNAT')
 
     if not set(local_scan_uids).issubset(set(xnat_session.scan_UIDs)):
@@ -275,10 +278,6 @@ def upload_non_dicom_data(archive, xnat_project, scanid):
             # convert to HTTP language
             try:
                 contents = zf.read(item)
-                if not contents:
-                    logger.warn("Cannot upload empty resource file {}, "
-                            "skipping.".format(item))
-                    continue
                 # By default files are placed in a MISC subfolder
                 # if this is changed it may require changes to
                 # check_duplicate_resources()
@@ -296,10 +295,10 @@ def upload_non_dicom_data(archive, xnat_project, scanid):
 
 
 def upload_dicom_data(archive, xnat_project, scanid):
-    ## XNAT API for upload fails if the zip contains a mix of dicom and nifti.
-    ## OPT CU definitely contains a mix and others may later on. Soooo
-    ## here's an ugly but effective fix! The niftis will get uploaded with
-    ## upload_non_dicom_data and added to resources - Dawn
+    # XNAT API for upload fails if the zip contains a mix of dicom and nifti.
+    # OPT CU definitely contains a mix and others may later on. Soooo
+    # here's an ugly but effective fix! The niftis will get uploaded with
+    # upload_non_dicom_data and added to resources - Dawn
 
     if not contains_niftis(archive):
         XNAT.put_dicoms(xnat_project, scanid, scanid, archive)
@@ -309,11 +308,13 @@ def upload_dicom_data(archive, xnat_project, scanid):
         archive = strip_niftis(archive, temp)
         XNAT.put_dicoms(xnat_project, scanid, scanid, archive)
 
+
 def contains_niftis(archive):
     with zipfile.ZipFile(archive) as zf:
         archive_files = zf.namelist()
     niftis = find_niftis(archive_files)
     return niftis != []
+
 
 def strip_niftis(archive, temp):
     """
@@ -327,7 +328,7 @@ def strip_niftis(archive, temp):
         # Find and purge associated files too (e.g. .bvec and .bval), so they
         # only appear in resources alongside their niftis
         nifti_names = [datman.utils.splitext(os.path.basename(nii))[0] for nii in
-                niftis]
+                       niftis]
         deletable_files = filter(lambda x: datman.utils.splitext(
                 os.path.basename(x))[0] in nifti_names, archive_files)
         non_niftis = filter(lambda x: x not in deletable_files, archive_files)
@@ -338,8 +339,10 @@ def strip_niftis(archive, temp):
     datman.utils.make_zip(unzip_dest, temp_zip)
     return temp_zip
 
+
 def find_niftis(files):
     return filter(lambda x: x.endswith(".nii") or x.endswith(".nii.gz"), files)
+
 
 if __name__ == '__main__':
     main()

@@ -17,8 +17,8 @@ Options:
     -q, --quiet                     Only display ERROR Messages
     -v, --verbose                   Display INFO/WARNING/ERROR Messages
     -d, --debug                     Display DEBUG/INFO/WARNING/ERROR Messages
-    -r, --rewrite                   Overwrite if outputs already exist in BIDS output directory
-    -d, --tmp-dir TMPDIR            Specify temporary directory
+    -r, --rewrite                   Overwrite if outputs already exist in BIDS output directory 
+    -t, --tmp-dir TMPDIR            Specify temporary directory 
                                     [default : '/tmp/']
     -w, --walltime                  Specify a walltime to use for the qsub submission
                                     [default : '24:00:00']
