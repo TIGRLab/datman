@@ -277,7 +277,7 @@ def get_init_cmd(study,sgroup,tmp_dir,out_dir,simg,log_tag):
 
     '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),
             simg=simg,
-            sub=get_bids_name(sgroup),
+            sub=get_bids_name(sgroup).replace('sub-',''),
             out=out_dir,
             log_tag=log_tag.replace('&>>','&>')) #This bit is to ensure that logs are wiped prior to appending for easier error tracking on re-runs
 
@@ -464,8 +464,8 @@ def ciftify_fork(jargs,log_tag,out_dir,sublist):
     singularity run -H $APPHOME -B $BIDS:/input -B $WORK:/work -B $OUT:/output -B $LICENSE:/li \\
     $SIMG \\
     /input /output participant --fmriprep-workdir /work/fmriprep_work \\
-    --participant_label ${{SUB#sub-}} \\
-    --verbose --fs-license /li/license.txt {args} {log_tag}
+    --participant_label $SUB \\
+    --verbose --fs-license /li/license.txt {args} {log_tag}  
 
     '''.format(args = ' '.join(append_args), log_tag=log_tag)
 
