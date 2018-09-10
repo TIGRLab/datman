@@ -162,7 +162,7 @@ def filter_subjects(subjects,out_dir,bids_app):
             if 'error' in open(log_file.format(s,bids_app)).read().lower(): 
                 run_list.append(s) 
                 logger.debug('Re-running {} through {}'.format(s,bids_app))
-        except OSError: 
+        except IOError: 
             continue
         
     return run_list
@@ -609,7 +609,7 @@ def gen_log_redirect(log_dir,out_dir,subject,app_name):
             pass
         else:
             logger.error('Cannot create directory in {}! Please adjust permissions at target directory'.format(default_log))
-            sys.exit(1)
+            raise
 
     #Generate base command for default log output
     log_name = '{}_{}.log'.format(subject,app_name)
