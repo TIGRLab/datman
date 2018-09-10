@@ -138,19 +138,36 @@ def get_datman_config(study):
         return config
 
 
-def filter_subjects(subjects,out_dir):
+def filter_subjects(subjects,out_dir,bids_app):
 
     '''
-    Filter out subjects that have alrady been previously run through the BIDS-app pipeline
+    Filters out subjects that have successfully completed the BIDS-pipeline
+    Utilizes default log output (always enabled)
 
     Arguments:
         subjects                List of candidate subjects to be processed through pipeline
         out_dir                 Base directory for where BIDS-app will output
+        bids_app                Name of BIDS-app (all upper-case convention)
     '''
 
-    #TODO: UPDATE TO REFLECT SHARED OUTPUT FOLDER
-    criteria = lambda x: not os.path.isdir(os.path.join(out_dir,x))
-    return [s for s in subjects if criteria(s)]
+    #Base log directory 
+    log_dir = os.path.join(out_dir,'bids_logs',bids_app.lower())
+    log_file = os.path.join(log_dir,'{}_{}.log')
+    run_list = [] 
+
+    #Use error keyword to identify subjects needing to be re-run
+    for s in subjects: 
+
+        try:
+            if 'error' in open(log_file.format(s,bids_app)).read().lower(): 
+                run_list.append(s) 
+                logger.debug('Re-running {} through {}'.format(s,bids_app))
+        except OSError: 
+            continue
+        
+    return run_list
+
+    
 
 def get_json_args(json_file):
     '''
@@ -710,7 +727,7 @@ def main():
 
     #Get subjects and filter if not rewrite and group if longitudinal
     subjects = subjects or [s for s in os.listdir(config.get_path('nii')) if 'PHA' not in s]
-    subjects = subjects if rewrite else filter_subjects(subjects, out)
+    subjects = subjects if rewrite else filter_subjects(subjects, out, jargs['app'])
     logger.info('Running {}'.format(subjects))
 
     subjects = group_subjects(subjects, True if 'longitudinal' in jargs else False)
