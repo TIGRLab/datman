@@ -148,9 +148,9 @@ def to_bids_name(ident, tag, cnt_run, type_folder, ex):
 
 def get_intended_fors(ses_ser_file_map, matched_fmaps):
 
-    #Mapping dictionary to correctly associates files w/subset
+    #Mapping dictionary to correctly associate files w/subset
     fmap_mapping = {'FMRI' : ['FMRI','RST','FACES'],
-                       'FMAP' : ['IMI','OBS','RST']}
+                       'FMAP' : ['IMI','OBS','RST','EMP']}
 
     #Convenience function for checking if intersection between two lists is not null
     intersect = lambda x,y: any([ True if (l in y) else False for l in x])
