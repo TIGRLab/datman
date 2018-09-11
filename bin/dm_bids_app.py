@@ -20,14 +20,14 @@ Options:
     -r, --rewrite                   Overwrite if outputs already exist in BIDS output directory 
     -t, --tmp-dir TMPDIR            Specify temporary directory 
                                     [default : '/tmp/']
-    -w, --walltime                  Specify a walltime to use for the qsub submission
+    -w, --walltime WALLTIME         Specify a walltime to use for the qsub submission
                                     [default : '24:00:00']
     -l, --log LOGDIR                Specify additional bids-app log output directory
                                     Will output to LOGDIR/<SUBJECT>_<BIDS_APP>_log.txt
                                     Will always output to logs in the output with or without LOGDIR argument since it is needed
                                     for detecting whether a participant has already been run
                                     [default : None]
-    -e, --exclude EXCLUDE,...       Tag to exclude from BIDS-app processing [repeatable option]
+    -e, --exclude EXCLUDE,...       Tag to exclude from BIDS-app processing [repeatable option] - you will have to specify BIDS naming convention here!
     --DRYRUN                        Perform a dry-run, script will be generated at tmp-dir
 
 
@@ -37,7 +37,7 @@ Notes on arguments:
     JSON:
     Additionally, the following arguments will NOT be parsed correctly:
         --participant_label --> wrapper script handles this for you
-        -w WORKDIR          --> tmp-dir/work becomes the workdir
+        w WORKDIR          --> tmp-dir/work becomes the workdir
 
     The number of threads requested by qsub (if using HPC) is determined by the number of threads
     indicated in the json file under bidsarg for the particular pipeline. This is done so the number
@@ -163,7 +163,8 @@ def filter_subjects(subjects,out_dir,bids_app):
                 run_list.append(s) 
                 logger.debug('Re-running {} through {}'.format(s,bids_app))
         except IOError: 
-            continue
+            logger.debug('Running new subject {} through {}'.format(s,bids_app))
+            run_list.append(s) 
         
     return run_list
 
