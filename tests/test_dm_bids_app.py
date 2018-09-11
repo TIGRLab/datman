@@ -36,9 +36,11 @@ def test_validate_json_on_good_json():
 
 def test_filter_subjects_filters_preexisting_directories(): 
 
+    app_name = 'app'
     subjects = ['POTATO1','POTATO2','POTATO3','POTATO4','POTATO5']
-    expected_out = ['POTATO1','POTATO5']
-    assert set(ba.filter_subjects(subjects,output_path)) == set(expected_out)
+    expected_out = ['POTATO2','POTATO3', 'POTATO4']
+
+    assert set(ba.filter_subjects(subjects,output_path,app_name)) == set(expected_out)
 
 def test_group_subjects_correctly_groups_by_subject_ID_when_longitudinal(): 
 
@@ -59,15 +61,34 @@ def test_group_subjects_correctly_maps_onto_self_when_cross_sectional():
 
     assert actual_out == expected_out 
 
-def test_gen_log_redirect_provides_correct_tag(): 
+@patch('os.makedirs')
+def test_gen_log_redirect_provides_correct_tag_when_dir_doesnt_exist(mock_makedir): 
 
+    mock_makedir.returnvalue = '' 
+
+    out_dir = 'out_dir'
     log_dir = 'log_dir'
     subject = 'subject'
     app_name = 'app'
 
-    expected_out = ' &>> log_dir/subject_dm_bids_app_app_log.txt' 
+    expected_out = ' &>> out_dir/bids_logs/app/subject_app.log' 
 
-    assert ba.gen_log_redirect(log_dir,subject,app_name) == expected_out
+    assert ba.gen_log_redirect(None,out_dir,subject,app_name) == expected_out
+
+@patch('os.path.exists')
+@patch('os.makedirs') 
+def test_gen_log_redirect_fails_if_cannot_create_directory_permissions(mock_makedir,mock_exist): 
+
+    out_dir = 'out_dir' 
+    log_dir = 'log_dir'
+    subject = 'subject' 
+    app_name = 'app' 
+
+    mock_makedir.side_effect = OSError() 
+    mock_exist.return_value = False
+
+    with pytest.raises(OSError):
+        ba.gen_log_redirect(log_dir,out_dir,subject,app_name)
 
     
 @patch('os.makedirs') 

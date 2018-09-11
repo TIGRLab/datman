@@ -7,7 +7,7 @@ import tempfile
 import os
 import urllib
 import getpass
-from exceptions import XnatException
+from datman.exceptions import XnatException
 from xml.etree import ElementTree
 
 logger = logging.getLogger(__name__)
