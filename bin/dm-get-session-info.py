@@ -31,19 +31,19 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARN)
 
 
-def process_scan(dirname, headers):
+def process_scan(session_name, headers):
 
     is_phantom = False
     is_repeat = False
     scan_date = None
     subject_id = None
 
-    is_phantom = datman.scanid.is_phantom(dirname)
+    is_phantom = datman.scanid.is_phantom(session_name)
 
     try:
-        ident = datman.scanid.parse(dirname)
+        ident = datman.scanid.parse(session_name)
     except datman.scanid.ParseException:
-        logger.warning('Failed to parse:{}, adding session'.format(dirname))
+        logger.warning('Failed to parse:{}, adding session'.format(session_name))
         return
 
     subject_id = ident.get_full_subjectid_with_timepoint()
@@ -87,8 +87,8 @@ def main():
 
     results = []
     for key, val in scans.iteritems():
-        dirname = os.path.basename(key)
-        res = process_scan(dirname, val)
+        session_name = os.path.basename(key)
+        res = process_scan(session_name, val)
         if res:
             result = [key, res[0], res[1], datetime.strftime(res[3], '%Y-%m-%d'), res[2]]
             if res[4]:
