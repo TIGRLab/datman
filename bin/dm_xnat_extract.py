@@ -249,6 +249,7 @@ def process_resources(xnat_project, session_label, experiment_label, data):
             if os.path.isfile(resource_path):
                 logger.debug("Resource: {} found for session: {}"
                              .format(resource['name'], session_label))
+                continue
             else:
                 logger.info("Resource: {} not found for session: {}"
                             .format(resource['name'], session_label))
@@ -331,14 +332,15 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
                                        session_label,
                                        experiment_label,
                                        series_id)
+
+        valid_dicoms = check_valid_dicoms(scan_info, series_id, session_label)
+        if not valid_dicoms:
+            continue
+
         file_stem, tag, multiecho = create_scan_name(exportinfo,
                                                      scan_info,
                                                      session_label)
         if not file_stem:
-            continue
-
-        valid_dicoms = check_valid_dicoms(scan_info, series_id, session_label)
-        if not valid_dicoms:
             continue
 
         if multiecho:
@@ -409,7 +411,7 @@ def create_scan_name(exportinfo, scan_info, session_label):
         logger.error("Failed to get description for series: {} "
                      "from session: {}"
                      .format(series_id, session_label))
-        return None, None
+        return None, None, None
 
     mangled_descr = datman.utils.mangle(description)
     padded_series = series_id.zfill(2)
@@ -422,12 +424,12 @@ def create_scan_name(exportinfo, scan_info, session_label):
         logger.warn("No matching export pattern for {}, "
                     "descr: {}. Skipping".format(session_label,
                                                  description))
-        return None, None
+        return None, None, None
     elif type(tag) is list and not multiecho:
         logger.error("Multiple export patterns match for {}, "
                      "descr: {}, tags: {}".format(session_label,
                                                   description, tag))
-        return None, None
+        return None, None, None
 
     if multiecho:
         file_stem = ['_'.join([session_label, t, padded_series, mangled_descr]) for t in tag]
@@ -438,8 +440,9 @@ def create_scan_name(exportinfo, scan_info, session_label):
 
 def is_multiecho(scan_info):
     multiecho = False
-    if len(scan_info['children'][0]['items']) > 1:
-        multiecho = True
+    if 'name' in scan_info['children'][0]['items'][0]['data_fields'].keys():
+        if 'MultiEcho' in scan_info['children'][0]['items'][0]['data_fields']['name']:
+            multiecho = True
     return multiecho
 
 
@@ -648,7 +651,6 @@ def export_nii_command(seriesdir, outputdir, stem, multiecho=False):
         check_create_dir(outputdir)
     except:
         return
-
     logger.info("Exporting series {}".format(seriesdir))
 
     if multiecho:
@@ -670,8 +672,19 @@ def export_nii_command(seriesdir, outputdir, stem, multiecho=False):
                 continue
 
             if multiecho:
-                echo = m.group(4)[-1]
-                stem = echo_dict[echo]
+                try:
+                    echo = int(m.group(4)[-1])
+                    stem = echo_dict[echo]
+                except:
+                    logger.error("Unable to parse valid echo number from file {}"
+                                 .format(bn))
+                    return
+
+            outputfile = os.path.join(outputdir, stem) + ext
+            if os.path.exists(outputfile):
+                logger.error("Output file {} already exists. Skipping"
+                             .format(outputfile))
+                continue
 
             return_code, _ = datman.utils.run("mv {} {}/{}{}"
                                               .format(f, outputdir, stem, ext), DRYRUN)
@@ -734,24 +747,29 @@ def export_dcm_command(seriesdir, outputdir, stem, multiecho=False):
                 pass
 
     if multiecho:
-        print("2")
         for echo_num, dcm_echo_num in zip(echo_dict.keys(), dcm_dict.keys()):
             outputfile = os.path.join(outputdir, echo_dict[echo_num]) + '.dcm'
+            if os.path.exists(outputfile):
+                logger.error("Output file {} already exists. Skipping"
+                             .format(outputfile))
+                continue
             logger.debug("Exporting a dcm file from {} to {}"
                          .format(seriesdir, outputfile))
             cmd = 'cp {} {}'.format(dcm_dict[dcm_echo_num], outputfile)
             datman.utils.run(cmd, DRYRUN)
 
     elif dcmfile:
-        print("1")
         outputfile = os.path.join(outputdir, stem) + '.dcm'
+        if os.path.exists(outputfile):
+            logger.error("Output file {} already exists. Skipping"
+                         .format(outputfile))
+            return
         logger.debug("Exporting a dcm file from {} to {}"
                      .format(seriesdir, outputfile))
         cmd = 'cp {} {}'.format(dcmfile, outputfile)
         datman.utils.run(cmd, DRYRUN)
 
     else:
-        print("3")
         logger.error("No dicom files found in {}".format(seriesdir))
         return
 
