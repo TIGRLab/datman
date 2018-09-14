@@ -83,6 +83,7 @@ def main():
 
     scan_complete_records = get_project_redcap_records(config, redcap_cred)
 
+    #Open up an XNATConnection context then link shared IDs
     with datman.utils.XNATConnection(xnat_url, user_name,
                                      password) as connection:
         for record in scan_complete_records:
@@ -95,6 +96,8 @@ def get_xnat_url(config):
     return url
 
 def get_project_redcap_records(config, redcap_cred):
+
+    #Read token file and key redcap address
     token = get_redcap_token(config, redcap_cred)
     redcap_url = config.get_key('REDCAPAPI')
 
@@ -105,6 +108,7 @@ def get_project_redcap_records(config, redcap_cred):
                'content': 'record',
                'type': 'flat'}
 
+    #Submit request to REDCAP
     response = requests.post(redcap_url, data=payload)
     if response.status_code != 200:
         logger.error("Cannot access redcap data at URL {}".format(redcap_url))
@@ -112,6 +116,7 @@ def get_project_redcap_records(config, redcap_cred):
 
     current_study = config.get_key('STUDY_TAG')
 
+    #Parse recap records to match selected study
     project_records = []
     for item in response.json():
         record = Record(item)
@@ -120,13 +125,16 @@ def get_project_redcap_records(config, redcap_cred):
         if record.matches_study(current_study):
             project_records.append(record)
 
+    #Return list of records for selected studies 
     return project_records
 
 def get_redcap_token(config, redcap_cred):
     if not redcap_cred:
+        #Read in credentials as string from config file
         redcap_cred = os.path.join(config.get_path('meta'), 'redcap-token')
 
     try:
+        #If supplied credential
         token = datman.utils.read_credentials(redcap_cred)[0]
     except IndexError:
         logger.error("REDCap credential file {} is empty.".format(redcap_cred))
@@ -154,6 +162,7 @@ def link_shared_ids(config, connection, record):
     if record.comment and not DRYRUN:
         update_xnat_comment(experiment, subject, record)
 
+    #If a shared ID is found in REDCAP update XNAT's shared IDs
     if record.shared_ids and not DRYRUN:
         update_xnat_shared_ids(subject, record)
         make_links(record)
