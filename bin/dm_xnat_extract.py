@@ -76,11 +76,6 @@ logger = logging.getLogger(os.path.basename(__file__))
 formatter = logging.Formatter('%(asctime)s - %(name)s - '
                               '%(levelname)s - %(message)s')
 
-log_handler = logging.StreamHandler(sys.stdout)
-log_handler.setFormatter(formatter)
-
-logger.addHandler(log_handler)
-
 xnat = None
 cfg = None
 dashboard = None
@@ -848,7 +843,6 @@ def main():
         log_level = logging.DEBUG
 
     logger.setLevel(log_level)
-    log_handler.setLevel(log_level)
 
     # setup the config object
     logger.info("Loading config")
