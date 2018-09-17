@@ -70,7 +70,16 @@ import datman.scanid
 import datman.dashboard
 import datman.exceptions
 
+# set up logging
 logger = logging.getLogger(os.path.basename(__file__))
+
+formatter = logging.Formatter('%(asctime)s - %(name)s - '
+                              '%(levelname)s - %(message)s')
+
+log_handler = logging.StreamHandler(sys.stdout)
+log_handler.setFormatter(formatter)
+
+logger.addHandler(log_handler)
 
 xnat = None
 cfg = None
@@ -828,27 +837,18 @@ def main():
         DRYRUN = True
         db_ignore = True
 
-    # setup logging
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.WARN)
-    logger.setLevel(logging.WARN)
+    # setup log levels
+    log_level = logging.WARNING
+
     if quiet:
-        logger.setLevel(logging.ERROR)
-        ch.setLevel(logging.ERROR)
+        log_level = logging.ERROR
     if verbose:
-        logger.setLevel(logging.INFO)
-        ch.setLevel(logging.INFO)
+        log_level = logging.INFO
     if debug:
-        logger.setLevel(logging.DEBUG)
-        ch.setLevel(logging.DEBUG)
+        log_level = logging.DEBUG
 
-    formatter = logging.Formatter('%(asctime)s - %(name)s - {study} - '
-                                  '%(levelname)s - %(message)s'.format(
-                                      study=study))
-    ch.setFormatter(formatter)
-
-    logger.addHandler(ch)
-    logging.getLogger('datman.utils').addHandler(ch)
+    logger.setLevel(log_level)
+    log_handler.setLevel(log_level)
 
     # setup the config object
     logger.info("Loading config")
