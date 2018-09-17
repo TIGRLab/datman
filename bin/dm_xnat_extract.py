@@ -324,7 +324,7 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
                      .format(cfg.study_name, ident.site))
         return
 
-    # scans_added = []
+    scans_added = []
 
     for scan in scans['items']:
         series_id = scan['data_fields']['ID']
@@ -343,56 +343,60 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
         if not file_stem:
             continue
 
-        if multiecho:
-            for stem, t in zip(file_stem, tag):
-                export_formats = process_scan(ident, stem, tags, t)
+        for stem, t in zip(file_stem, tag):
+            if dashboard:
+                logger.info("Adding scan: {} to dashboard".format(stem))
+                try:
+                    dashboard.get_add_scan(stem, create=True)
+                    scans_added.append(file_stem)
+                except datman.dashboard.DashboardException as e:
+                    logger.error("Failed adding scan: {} to dashboard with "
+                                 "error {}".format(stem, str(e)))
 
-        else:
-            export_formats = process_scan(ident, file_stem, tags, tag)
+            blacklist = datman.utils.check_blacklist(stem,
+                                                     study=cfg.study_name)
+            if blacklist:
+                logger.warn("Excluding scan: {} due to blacklist: {}"
+                            .format(stem, blacklist))
+                continue
 
-        if export_formats:
-            get_scans(ident, xnat_project, session_label, experiment_label,
-                      series_id, export_formats, file_stem, multiecho)
+            if multiecho:
+                try:
+                    export_formats = tags.get(t)['formats']
+                except KeyError:
+                    logger.error("Export settings for tag: {} not found for "
+                                 "study: {}".format(t, cfg.study_name))
+                    continue
 
-    # # delete any extra scans that exist in the dashboard
-    # if dashboard:
-    #     try:
-    #         dashboard.delete_extra_scans(session_label, scans_added)
-    #     except Exception as e:
-    #         logger.error("Failed deleting extra scans from session:{} with "
-    #                      "excuse:{}".format(session_label, e))
+                if series_is_processed(ident, stem, export_formats):
+                    logger.warn("Scan: {} has been processed. Skipping"
+                                .format(file_stem))
+                    continue
 
+        if not multiecho:
+            file_stem = file_stem[0]
+            tag = tag[0]
+            try:
+                export_formats = tags.get(tag)['formats']
+            except KeyError:
+                logger.error("Export settings for tag: {} not found for "
+                             "study: {}".format(tag, cfg.study_name))
+                continue
+            if series_is_processed(ident, file_stem, export_formats):
+                logger.warn("Scan: {} has been processed. Skipping"
+                            .format(file_stem))
+                continue
 
-def process_scan(ident, file_stem, tags, tag):
+        get_scans(ident, xnat_project, session_label, experiment_label,
+                  series_id, export_formats, file_stem, multiecho)
+
+    # delete any extra scans that exist in the dashboard
     if dashboard:
-        logger.info("Adding scan: {} to dashboard".format(file_stem))
         try:
-            dashboard.get_add_scan(file_stem, create=True)
-            # scans_added.append(file_stem)
-        except datman.dashboard.DashboardException as e:
-            logger.error("Failed adding scan: {} to dashboard with "
-                         "error {}".format(file_stem, str(e)))
-
-    blacklist = datman.utils.check_blacklist(file_stem,
-                                             study=cfg.study_name)
-    if blacklist:
-        logger.warn("Excluding scan: {} due to blacklist: {}"
-                    .format(file_stem, blacklist))
-        return
-
-    try:
-        export_formats = tags.get(tag)['formats']
-    except KeyError:
-        logger.error("Export settings for tag: {} not found for "
-                     "study: {}".format(tag, cfg.study_name))
-        return
-
-    if series_is_processed(ident, file_stem, export_formats):
-        logger.warn("Scan: {} has been processed. Skipping"
-                    .format(file_stem))
-        return
-
-    return export_formats
+            dashboard.delete_extra_scans(session_label, scans_added)
+        except Exception as e:
+            logger.error("Failed deleting extra scans from session:{} with "
+                         "excuse:{}".format(session_label, e))
 
 
 def create_scan_name(exportinfo, scan_info, session_label):
@@ -425,16 +429,14 @@ def create_scan_name(exportinfo, scan_info, session_label):
                     "descr: {}. Skipping".format(session_label,
                                                  description))
         return None, None, None
-    elif type(tag) is list and not multiecho:
+    elif len(tag) > 1 and not multiecho:
         logger.error("Multiple export patterns match for {}, "
                      "descr: {}, tags: {}".format(session_label,
                                                   description, tag))
         return None, None, None
 
-    if multiecho:
-        file_stem = ['_'.join([session_label, t, padded_series, mangled_descr]) for t in tag]
-    else:
-        file_stem = '_'.join([session_label, tag, padded_series, mangled_descr])
+    file_stem = ['_'.join([session_label, t, padded_series, mangled_descr]) for t in tag]
+
     return(file_stem, tag, multiecho)
 
 
@@ -452,28 +454,26 @@ def guess_tag(exportinfo, scan_info, description, multiecho):
         if re.search(p['SeriesDescription'], description):
             matches.append(tag)
     if len(matches) == 1:
-        return matches[0]
-    if len(matches) == 2 and multiecho:
+        return matches
+    elif len(matches) == 2 and multiecho:
         return matches
     else:
+        # field maps might require more information like image type
+        # to distinguish between magnitude, phase and phasediff scans
         try:
-            multiecho_matches = guess_multiecho_tag(exportinfo, scan_info, matches)
-            return multiecho_matches
+            image_type = scan_info['data_fields']['parameters/imageType']
+            for tag, p in exportinfo.iteritems():
+                if tag in matches:
+                    if not re.search(p['ImageType'], image_type):
+                        matches.remove(tag)
+            if len(matches) == 1:
+                return matches
+            elif len(matches) == 2 and multiecho:
+                return matches
+            else:
+                return None
         except:
             return None
-
-
-def guess_multiecho_tag(exportinfo, scan_info, matches):
-    multiecho_matches = []
-    image_type = scan_info['data_fields']['parameters/imageType']
-    for tag, p in exportinfo.iteritems():
-        if tag in matches:
-            if re.search(p['ImageType'], image_type):
-                multiecho_matches.append(tag)
-    if len(multiecho_matches) == 1:
-        return multiecho_matches[0]
-    else:
-        return multiecho_matches
 
 
 def check_valid_dicoms(scan_info, series_id, session_label):
