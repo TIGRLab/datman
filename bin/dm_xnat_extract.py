@@ -451,7 +451,10 @@ def is_multiecho(scan_info):
 def guess_tag(exportinfo, scan_info, description, multiecho):
     matches = []
     for tag, p in exportinfo.iteritems():
-        if re.search(p['SeriesDescription'], description):
+        description_regex = p['SeriesDescription']
+        if isinstance(description_regex, list):
+            description_regex = '|'.join(description_regex)
+        if re.search(description_regex, description):
             matches.append(tag)
     if len(matches) == 1:
         return matches
