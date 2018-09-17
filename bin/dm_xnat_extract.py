@@ -130,9 +130,9 @@ def process_session(session):
     try:
         experiments = xnat.get_experiments(xnat_project, session_label)
     except Exception as e:
-        logger.warn("Failed getting experiments for: {} in project: {} "
-                    "with reason: {}"
-                    .format(session_label, xnat_project, e))
+        logger.warning("Failed getting experiments for: {} in project: {} "
+                       "with reason: {}"
+                       .format(session_label, xnat_project, e))
         return
 
     # we expect exactly 1 experiment per session
@@ -151,8 +151,8 @@ def process_session(session):
 
     # experiment_label should be the same as the session_label
     if not experiment_label == session_label:
-        logger.warn("Experiment label: {} doesn't match session label: {}"
-                    .format(experiment_label, session_label))
+        logger.warning("Experiment label: {} doesn't match session label: {}"
+                       .format(experiment_label, session_label))
 
     # retrieve json table from project --> session --> experiment
     try:
@@ -165,8 +165,8 @@ def process_session(session):
         return
 
     if not experiment:
-        logger.warn("No experiments found for session: {}"
-                    .format(session_label))
+        logger.warning("No experiments found for session: {}"
+                       .format(session_label))
         return
 
     if dashboard:
@@ -192,12 +192,12 @@ def process_session(session):
         elif data['field'] == 'scans/scan':
             process_scans(ident, xnat_project, session_label, experiment_label, data)
         else:
-            logger.warn("Unrecognised field type: {} for experiment: {} "
-                        "in session: {} from study: {}"
-                        .format(data['field'],
-                                experiment_label,
-                                session_label,
-                                xnat_project))
+            logger.warning("Unrecognised field type: {} for experiment: {} "
+                           "in session: {} from study: {}"
+                           .format(data['field'],
+                                   experiment_label,
+                                   session_label,
+                                   xnat_project))
 
 
 def process_resources(xnat_project, session_label, experiment_label, data):
@@ -356,8 +356,8 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
             blacklist = datman.utils.check_blacklist(stem,
                                                      study=cfg.study_name)
             if blacklist:
-                logger.warn("Excluding scan: {} due to blacklist: {}"
-                            .format(stem, blacklist))
+                logger.warning("Excluding scan: {} due to blacklist: {}"
+                               .format(stem, blacklist))
                 continue
 
             if multiecho:
@@ -369,8 +369,8 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
                     continue
 
                 if series_is_processed(ident, stem, export_formats):
-                    logger.warn("Scan: {} has been processed. Skipping"
-                                .format(file_stem))
+                    logger.warning("Scan: {} has been processed. Skipping"
+                                   .format(file_stem))
                     continue
 
         if not multiecho:
@@ -383,8 +383,8 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
                              "study: {}".format(tag, cfg.study_name))
                 continue
             if series_is_processed(ident, file_stem, export_formats):
-                logger.warn("Scan: {} has been processed. Skipping"
-                            .format(file_stem))
+                logger.warning("Scan: {} has been processed. Skipping"
+                               .format(file_stem))
                 continue
 
         get_scans(ident, xnat_project, session_label, experiment_label,
@@ -425,9 +425,9 @@ def create_scan_name(exportinfo, scan_info, session_label):
     tag = guess_tag(exportinfo, scan_info, description, multiecho)
 
     if not tag:
-        logger.warn("No matching export pattern for {}, "
-                    "descr: {}. Skipping".format(session_label,
-                                                 description))
+        logger.warning("No matching export pattern for {}, "
+                       "descr: {}. Skipping".format(session_label,
+                                                    description))
         return None, None, None
     elif len(tag) > 1 and not multiecho:
         logger.error("Multiple export patterns match for {}, "
@@ -493,8 +493,8 @@ def check_valid_dicoms(scan_info, series_id, session_label):
                     content_types.append(file_type)
 
     if not content_types:
-        logger.warn("No RAW dicom data found in series: {} session: {}"
-                    .format(series_id, session_label))
+        logger.warning("No RAW dicom data found in series: {} session: {}"
+                       .format(series_id, session_label))
         return None
     return content_types
 
@@ -610,8 +610,8 @@ def get_dicom_archive_from_xnat(xnat_project, session_label, experiment_label,
     try:
         base_dir = os.path.dirname(archive_files[0])
     except IndexError:
-        logger.warn("There were no valid dicom files in XNAT session: {}, series: {}"
-                    .format(session_label, series))
+        logger.warning("There were no valid dicom files in XNAT session: {}, series: {}"
+                       .format(session_label, series))
         return None
     return base_dir
 
@@ -636,8 +636,8 @@ def export_mnc_command(seriesdir, outputdir, stem, multiecho=False):
         return
 
     if os.path.exists(outputfile):
-        logger.warn("{}: output {} exists. Skipping."
-                    .format(seriesdir, outputfile))
+        logger.warning("{}: output {} exists. Skipping."
+                       .format(seriesdir, outputfile))
         return
 
     logger.debug("Exporting series {} to {}"
@@ -705,8 +705,8 @@ def export_nrrd_command(seriesdir, outputdir, stem, multiecho=False):
     except:
         return
     if os.path.exists(outputfile):
-        logger.warn("{}: output {} exists. Skipping."
-                    .format(seriesdir, outputfile))
+        logger.warning("{}: output {} exists. Skipping."
+                       .format(seriesdir, outputfile))
         return
 
     logger.debug("Exporting series {} to {}".format(seriesdir, outputfile))
