@@ -52,7 +52,6 @@ DEPENDENCIES
     dcm2nii
 """
 import logging
-import sys
 import os
 import re
 from glob import glob
@@ -71,10 +70,11 @@ import datman.dashboard
 import datman.exceptions
 
 # set up logging
+logging.basicConfig(level=logging.WARNING,
+                    format='%(asctime)s - %(name)s - '
+                           '%(levelname)s - %(message)s')
 logger = logging.getLogger(os.path.basename(__file__))
 
-formatter = logging.Formatter('%(asctime)s - %(name)s - '
-                              '%(levelname)s - %(message)s')
 
 xnat = None
 cfg = None
@@ -320,6 +320,7 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
     logger.info("Processing scans in session: {}"
                 .format(session_label))
 
+    # load the export info from the site config files
     tags = cfg.get_tags(site=ident.site)
     exportinfo = tags.series_map
 
@@ -328,6 +329,8 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
                      .format(cfg.study_name, ident.site))
         return
 
+    # need to keep a list of scans added to dashboard
+    # so we can delete any scans that no longer exist
     scans_added = []
 
     for scan in scans['items']:
@@ -336,63 +339,28 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
                                        session_label,
                                        experiment_label,
                                        series_id)
-
-        valid_dicoms = check_valid_dicoms(scan_info, series_id, session_label)
-        if not valid_dicoms:
-            continue
-
         file_stem, tag, multiecho = create_scan_name(exportinfo,
                                                      scan_info,
                                                      session_label)
         if not file_stem:
             continue
 
-        for stem, t in zip(file_stem, tag):
-            if dashboard:
-                logger.info("Adding scan: {} to dashboard".format(stem))
-                try:
-                    dashboard.get_add_scan(stem, create=True)
-                    scans_added.append(file_stem)
-                except datman.dashboard.DashboardException as e:
-                    logger.error("Failed adding scan: {} to dashboard with "
-                                 "error {}".format(stem, str(e)))
+        valid_dicoms = check_valid_dicoms(scan_info, series_id, session_label)
+        if not valid_dicoms:
+            continue
 
-            blacklist = datman.utils.check_blacklist(stem,
-                                                     study=cfg.study_name)
-            if blacklist:
-                logger.warning("Excluding scan: {} due to blacklist: {}"
-                               .format(stem, blacklist))
-                continue
+        if multiecho:
+            for stem, t in zip(file_stem, tag):
+                scans_added, export_formats = process_scan(ident, stem, tags, t, scans_added)
 
-            if multiecho:
-                try:
-                    export_formats = tags.get(t)['formats']
-                except KeyError:
-                    logger.error("Export settings for tag: {} not found for "
-                                 "study: {}".format(t, cfg.study_name))
-                    continue
-
-                if series_is_processed(ident, stem, export_formats):
-                    logger.warning("Scan: {} has been processed. Skipping"
-                                   .format(file_stem))
-                    continue
-
-        if not multiecho:
+        else:
             file_stem = file_stem[0]
             tag = tag[0]
-            try:
-                export_formats = tags.get(tag)['formats']
-            except KeyError:
-                logger.error("Export settings for tag: {} not found for "
-                             "study: {}".format(tag, cfg.study_name))
-                continue
-            if series_is_processed(ident, file_stem, export_formats):
-                logger.warning("Scan: {} has been processed. Skipping"
-                               .format(file_stem))
-                continue
+            scans_added, export_formats = process_scan(ident, file_stem, tags, tag, scans_added)
 
-        get_scans(ident, xnat_project, session_label, experiment_label,
-                  series_id, export_formats, file_stem, multiecho)
+        if export_formats:
+            get_scans(ident, xnat_project, session_label, experiment_label,
+                      series_id, export_formats, file_stem, multiecho)
 
     # delete any extra scans that exist in the dashboard
     if dashboard:
@@ -401,6 +369,38 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
         except Exception as e:
             logger.error("Failed deleting extra scans from session:{} with "
                          "excuse:{}".format(session_label, e))
+
+
+def process_scan(ident, file_stem, tags, tag, scans_added):
+    if dashboard:
+        logger.info("Adding scan: {} to dashboard".format(file_stem))
+        try:
+            dashboard.get_add_scan(file_stem, create=True)
+            scans_added.append(file_stem)
+        except datman.dashboard.DashboardException as e:
+            logger.error("Failed adding scan: {} to dashboard with "
+                         "error {}".format(file_stem, str(e)))
+
+    blacklist = datman.utils.check_blacklist(file_stem,
+                                             study=cfg.study_name)
+    if blacklist:
+        logger.warn("Excluding scan: {} due to blacklist: {}"
+                    .format(file_stem, blacklist))
+        return scans_added, None
+
+    try:
+        export_formats = tags.get(tag)['formats']
+    except KeyError:
+        logger.error("Export settings for tag: {} not found for "
+                     "study: {}".format(tag, cfg.study_name))
+        return scans_added, None
+
+    if series_is_processed(ident, file_stem, export_formats):
+        logger.warn("Scan: {} has been processed. Skipping"
+                    .format(file_stem))
+        return scans_added, None
+
+    return scans_added, export_formats
 
 
 def create_scan_name(exportinfo, scan_info, session_label):
@@ -458,7 +458,7 @@ def guess_tag(exportinfo, scan_info, description, multiecho):
         description_regex = p['SeriesDescription']
         if isinstance(description_regex, list):
             description_regex = '|'.join(description_regex)
-        if re.search(description_regex, description):
+        if re.search(description_regex, description, re.IGNORECASE):
             matches.append(tag)
     if len(matches) == 1:
         return matches
@@ -505,6 +505,7 @@ def check_valid_dicoms(scan_info, series_id, session_label):
 
 def series_is_processed(ident, file_stem, export_formats):
     """Returns true if exported files exist for all specified formats"""
+    remaining_formats = []
     for f in export_formats:
         outdir = os.path.join(cfg.get_path(f),
                               ident.get_full_subjectid_with_timepoint())
@@ -516,7 +517,8 @@ def series_is_processed(ident, file_stem, export_formats):
             return False
         if not all(exists):
             return False
-    return True
+        remaining_formats.append(f)
+    return True, remaining_formats
 
 
 def get_scans(ident, xnat_project, session_label, experiment_label, series_id, export_formats, file_stem, multiecho):
