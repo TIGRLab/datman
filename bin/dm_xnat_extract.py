@@ -95,7 +95,6 @@ db_ignore = False  # if True dont update the dashboard db
 def main():
     global xnat
     global cfg
-    global excluded_studies
     global DRYRUN
     global dashboard
 
