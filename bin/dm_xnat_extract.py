@@ -427,14 +427,15 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
                                        session_label,
                                        experiment_label,
                                        series_id)
+
+        valid_dicoms = check_valid_dicoms(scan_info, series_id, session_label)
+        if not valid_dicoms:
+            continue
+        
         file_stem, tag, multiecho = create_scan_name(exportinfo,
                                                      scan_info,
                                                      session_label)
         if not file_stem:
-            continue
-
-        valid_dicoms = check_valid_dicoms(scan_info, series_id, session_label)
-        if not valid_dicoms:
             continue
 
         if multiecho:
