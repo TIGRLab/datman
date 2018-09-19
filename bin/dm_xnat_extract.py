@@ -83,6 +83,86 @@ DRYRUN = False
 db_ignore = False  # if True dont update the dashboard db
 
 
+def main():
+    global xnat
+    global cfg
+    global excluded_studies
+    global DRYRUN
+    global dashboard
+
+    arguments = docopt(__doc__)
+    verbose = arguments['--verbose']
+    debug = arguments['--debug']
+    quiet = arguments['--quiet']
+    study = arguments['<study>']
+    server = arguments['--server']
+    username = arguments['--username']
+    session = arguments['<session>']
+    db_ignore = arguments['--dont-update-dashboard']
+
+    if arguments['--dry-run']:
+        DRYRUN = True
+        db_ignore = True
+
+    # setup log levels
+    log_level = logging.WARNING
+
+    if quiet:
+        log_level = logging.ERROR
+    if verbose:
+        log_level = logging.INFO
+    if debug:
+        log_level = logging.DEBUG
+
+    logger.setLevel(log_level)
+
+    # setup the config object
+    logger.info("Loading config")
+
+    cfg = datman.config.config(study=study)
+
+    # get base URL link to XNAT server, authentication info
+    server = datman.xnat.get_server(cfg, url=server)
+    username, password = datman.xnat.get_auth(username)
+
+    # initialize requests module object for XNAT REST API
+    xnat = datman.xnat.xnat(server, username, password)
+
+    # setup the dashboard object
+    if not db_ignore:
+        try:
+            dashboard = datman.dashboard.dashboard(study)
+        except datman.dashboard.DashboardException as e:
+            logger.error("Failed to initialise dashboard")
+
+    # get the list of XNAT projects linked to the datman study
+    xnat_projects = cfg.get_xnat_projects(study)
+
+    if session:
+        # if session has been provided on the command line, identify which
+        # project it is in
+        try:
+            xnat_project = xnat.find_session(session, xnat_projects)
+        except datman.exceptions.XnatException as e:
+            raise e
+
+        if not xnat_project:
+            logger.error("Failed to find session: {} in XNAT. "
+                         "Ensure it is named correctly with timepoint and repeat."
+                         .format(session))
+            return
+
+        sessions = [(xnat_project, session)]
+    else:
+        sessions = collect_sessions(xnat_projects, cfg)
+
+    logger.info("Found {} sessions for study: {}"
+                .format(len(sessions), study))
+
+    for session in sessions:
+        process_session(session)
+
+
 def collect_sessions(xnat_projects, config):
     sessions = []
 
@@ -811,86 +891,6 @@ def get_echo_number(ident, tag):
         if t == tag:
             echo_number = p['EchoNumber']
     return echo_number
-
-
-def main():
-    global xnat
-    global cfg
-    global excluded_studies
-    global DRYRUN
-    global dashboard
-
-    arguments = docopt(__doc__)
-    verbose = arguments['--verbose']
-    debug = arguments['--debug']
-    quiet = arguments['--quiet']
-    study = arguments['<study>']
-    server = arguments['--server']
-    username = arguments['--username']
-    session = arguments['<session>']
-    db_ignore = arguments['--dont-update-dashboard']
-
-    if arguments['--dry-run']:
-        DRYRUN = True
-        db_ignore = True
-
-    # setup log levels
-    log_level = logging.WARNING
-
-    if quiet:
-        log_level = logging.ERROR
-    if verbose:
-        log_level = logging.INFO
-    if debug:
-        log_level = logging.DEBUG
-
-    logger.setLevel(log_level)
-
-    # setup the config object
-    logger.info("Loading config")
-
-    cfg = datman.config.config(study=study)
-
-    # get base URL link to XNAT server, authentication info
-    server = datman.xnat.get_server(cfg, url=server)
-    username, password = datman.xnat.get_auth(username)
-
-    # initialize requests module object for XNAT REST API
-    xnat = datman.xnat.xnat(server, username, password)
-
-    # setup the dashboard object
-    if not db_ignore:
-        try:
-            dashboard = datman.dashboard.dashboard(study)
-        except datman.dashboard.DashboardException as e:
-            logger.error("Failed to initialise dashboard")
-
-    # get the list of XNAT projects linked to the datman study
-    xnat_projects = cfg.get_xnat_projects(study)
-
-    if session:
-        # if session has been provided on the command line, identify which
-        # project it is in
-        try:
-            xnat_project = xnat.find_session(session, xnat_projects)
-        except datman.exceptions.XnatException as e:
-            raise e
-
-        if not xnat_project:
-            logger.error("Failed to find session: {} in XNAT. "
-                         "Ensure it is named correctly with timepoint and repeat."
-                         .format(session))
-            return
-
-        sessions = [(xnat_project, session)]
-    else:
-        sessions = collect_sessions(xnat_projects, cfg)
-
-    logger.info("Found {} sessions for study: {}"
-                .format(len(sessions), study))
-
-    for session in sessions:
-        process_session(session)
 
 
 if __name__ == '__main__':
