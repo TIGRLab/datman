@@ -23,6 +23,7 @@ Options:
 OUTPUT FOLDERS
     Each dicom series will be converted and placed into a subfolder of the
     datadir named according to the converted filetype and subject ID, e.g.
+
         data/
             nifti/
                 SPN01_CMH_0001_01/
@@ -30,26 +31,34 @@ OUTPUT FOLDERS
 
 OUTPUT FILE NAMING
     Each dicom series will be and named according to the following schema:
+
         <scanid>_<tag>_<series#>_<description>.<ext>
+
     Where,
         <scanid>  = the scan id from the file name, eg. DTI_CMH_H001_01_01
         <tag>     = a short code indicating the data type (e.g. T1, DTI, etc..)
         <series#> = the dicom series number in the exam
         <descr>   = the dicom series description
         <ext>     = appropriate filetype extension
+
     For example, a T1 in nifti format might be named:
+
         DTI_CMH_H001_01_01_T1_11_Sag-T1-BRAVO.nii.gz
+
     The <tag> is determined from project_settings.yml
 
 NON-DICOM DATA
     XNAT puts "other" (i.e. non-DICOM data) into the RESOURCES folder, defined
     in paths:resources.
+
     data will be copied to a subfolder of the data directory named
     paths:resources/<scanid>, for example:
+
         /path/to/resources/SPN01_CMH_0001_01_01/
 
 DEPENDENCIES
     dcm2nii
+
 """
 import logging
 import os
