@@ -137,12 +137,12 @@ def process_session(cfg, db, dir_nii, dir_res, session):
     export_info = tags.series_map
     # Doing it this way will enable matching multiple types of SPRL with
     # different regexs
-    sprls = [(i, v) for i, v in export_info.iteritems() if 'SPRL' in v]
+    sprls = [(i, v) for i, v in export_info.iteritems() if 'SPRL' in i]
 
     # find matching files in the resources folder
     sprl_files = []
     for sprl in sprls:
-        p = re.compile(sprl[0], re.IGNORECASE)
+        p = re.compile(sprl[1]['SeriesDescription'], re.IGNORECASE)
         logger.info("Search for sprl nii file")
         for root, dirs, files in os.walk(subject_res):
             # exclude the backup resources directory
