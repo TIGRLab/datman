@@ -62,6 +62,7 @@ DEPENDENCIES
 """
 import logging
 import os
+import sys
 import re
 from glob import glob
 import zipfile
@@ -78,10 +79,6 @@ import datman.scanid
 import datman.dashboard
 import datman.exceptions
 
-# set up logging
-logging.basicConfig(level=logging.WARNING,
-                    format='%(asctime)s - %(name)s - '
-                           '%(levelname)s - %(message)s')
 logger = logging.getLogger(os.path.basename(__file__))
 
 
@@ -112,6 +109,9 @@ def main():
         DRYRUN = True
         db_ignore = True
 
+    # setup logging
+    ch = logging.StreamHandler(sys.stdout)
+
     # setup log levels
     log_level = logging.WARNING
 
@@ -123,6 +123,17 @@ def main():
         log_level = logging.DEBUG
 
     logger.setLevel(log_level)
+    ch.setLevel(log_level)
+
+    formatter = logging.Formatter('%(asctime)s - %(name)s - {study} - '
+                                  '%(levelname)s - %(message)s'
+                                  .format(study=study))
+
+    ch.setFormatter(formatter)
+
+    logger.addHandler(ch)
+    logging.getLogger('datman.utils').addHandler(ch)
+    logging.getLogger('datman.dashboard').addHandler(ch)
 
     # setup the config object
     logger.info("Loading config")
