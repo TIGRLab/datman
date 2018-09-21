@@ -160,7 +160,7 @@ def process_session(cfg, db, dir_nii, dir_res, session):
                     target_name = _get_link_name(src_file,
                                                  subject_res,
                                                  ident,
-                                                 sprl[1])
+                                                 sprl[0])
                     sprl_files.append((src_file, target_name))
 
     for sprl_file in sprl_files:
