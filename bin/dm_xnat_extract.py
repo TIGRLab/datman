@@ -57,7 +57,9 @@ NON-DICOM DATA
         /path/to/resources/SPN01_CMH_0001_01_01/
 
 DEPENDENCIES
-    dcm2nii
+    dcm2niix: dicom -> nii
+    dcm2mnc: dicom -> mnc
+    DWIConvert: dicom -> nrrd
 
 """
 import logging
