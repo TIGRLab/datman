@@ -501,12 +501,12 @@ def main():
         sub_ids = os.listdir(nii_dir)
     sub_ids = sorted(sub_ids)
 
-    if len(sub_ids) > 1:
-        for sub_id in sub_ids:
-            logger.info('Submitting subject to queue: {}'.format(sub_id))
-            submit_dm_to_bids(log_dir, sub_id, arguments, cfg)
-    else:
-        subject_dir = sub_ids[0]
+   # if len(sub_ids) > 1:
+   #     for sub_id in sub_ids:
+   #         logger.info('Submitting subject to queue: {}'.format(sub_id))
+   #         submit_dm_to_bids(log_dir, sub_id, arguments, cfg)
+    for sub_id in sub_ids: 
+        subject_dir = sub_id
         if scanid.is_phantom(subject_dir):
             logger.info("File is phantom and will be ignored: {}".format(subject_dir))
             sys.exit(1)
