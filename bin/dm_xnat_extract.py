@@ -445,8 +445,8 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
         if not valid_dicoms:
             continue
         
-        derived = is_derived(scan_info, series_id, session_label)
-        if derived:
+        not_derived = is_not_derived(scan_info, series_id, session_label)
+        if not not_derived:
             continue
         
         file_stem, tag, multiecho = create_scan_name(exportinfo,
@@ -497,14 +497,20 @@ def check_valid_dicoms(scan_info, series_id, session_label):
     return content_types
 
 
-def is_derived(scan_info, series_id, session_label):
-    derived = False
-    image_type = scan_info['data_fields']['parameters/imageType']
+def is_not_derived(scan_info, series_id, session_label):
+    try:
+        image_type = scan_info['data_fields']['parameters/imageType']
+    except:
+        logger.error("Image type for series: {} in session: {} could not be found. Skipping"
+                     .format(series_id, session_label)
+        return
     if 'DERIVED' in image_type:
-        derived = True
+        not_derived = False
         logger.warning("Series: {} in session: {} is a derived scan. Skipping"
                        .format(series_id, session_label))
-    return derived
+    else:
+        not_derived = True
+    return not_derived
 
 
 def create_scan_name(exportinfo, scan_info, session_label):
