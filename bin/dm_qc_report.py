@@ -769,6 +769,11 @@ def get_standards(standard_dir, site):
     standards = {}
     misnamed_files = []
     for item in glob.glob(glob_path):
+
+        #Protect against using .bvec/.bvals as headers
+        if '.dcm' not in item: 
+            continue
+
         try:
             standard = datman.scan.Series(item)
         except datman.scanid.ParseException:
