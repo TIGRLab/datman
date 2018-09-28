@@ -368,7 +368,7 @@ def create_dir(dir_path):
             sys.exit(1)
 
 def create_command(subject, arguments):
-    flags = ['python', 'dm_to_bids.py']
+    flags = ['dm_to_bids.py']
     for arg_flag in ['--nii-dir', '--bids-dir', '--fmriprep-out-dir', '--freesurfer-dir']:
         flags += [arg_flag, arguments[arg_flag]] if arguments[arg_flag] else []
     for flag in ['--rewrite', '--log-to-server', '--debug']:
@@ -505,8 +505,7 @@ def main():
         for sub_id in sub_ids:
             logger.info('Submitting subject to queue: {}'.format(sub_id))
             submit_dm_to_bids(log_dir, sub_id, arguments, cfg)
-    else:
-        subject_dir = sub_ids[0]
+        subject_dir = sub_id
         if scanid.is_phantom(subject_dir):
             logger.info("File is phantom and will be ignored: {}".format(subject_dir))
             sys.exit(1)
