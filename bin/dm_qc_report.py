@@ -771,7 +771,7 @@ def get_standards(standard_dir, site):
     for item in glob.glob(glob_path):
 
         #Protect against using .bvec/.bvals as headers
-        if '.dcm' not in item: 
+        if '.dcm' not in item:
             continue
 
         try:
