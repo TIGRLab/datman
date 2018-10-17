@@ -163,7 +163,7 @@ def gather_input_req(nifti, pipeline):
             'anat'      :   ['qc-adni',             basename + '.nii.gz'],
             'fmri'      :   ['qc-fbirn-fmri',       basename + '.nii.gz'],
             'dti'       :   ['qc-fbirn-dti',        basename + '.nii.gz', basename + '.bvec', basename + '.bval'],
-            'qa_dti'    :   ['qa-dti',              basename + '.nii.gz', basename + '.bvec', basename + '.bval', 
+            'qa_dti'    :   ['qa-dti',              basename + '.nii.gz', basename + '.bvec', basename + '.bval',
                 '--accel' if 'NO' in basename else ''],
             'abcd_fmri' :   ['qc_abcd_fmri',        basename + '.nii.gz', dcm, basename + '.json']
             }
@@ -769,6 +769,11 @@ def get_standards(standard_dir, site):
     standards = {}
     misnamed_files = []
     for item in glob.glob(glob_path):
+
+        #Protect against using .bvec/.bvals as headers
+        if '.dcm' not in item:
+            continue
+
         try:
             standard = datman.scan.Series(item)
         except datman.scanid.ParseException:
@@ -783,7 +788,7 @@ def get_standards(standard_dir, site):
 
     return standards
 
-def run_header_qc(subject, standard_dir, log_file):
+def run_header_qc(subject, standard_dir, log_file, config):
     """
     For each .dcm file found in 'dicoms', find the matching site / tag file in
     'standards', and run qc-headers (from qcmon) on these files. Any
@@ -794,7 +799,11 @@ def run_header_qc(subject, standard_dir, log_file):
         logger.debug("No dicoms found in {}".format(subject.dcm_path))
         return
 
+
+
     standards_dict = get_standards(standard_dir, subject.site)
+    tag_settings=config.get_tags(site=subject.site)
+
 
     for dicom in subject.dicoms:
         try:
@@ -804,9 +813,17 @@ def run_header_qc(subject, standard_dir, log_file):
                     standard_dir))
             continue
         else:
-            # run header check for dicom
-            datman.utils.run('qc-headers {} {} {}'.format(dicom.path, standard.path,
-                    log_file))
+            #run header check for dicom
+            #if the scan is dti, call qc-headers with the dti tag
+            if tag_settings.get(dicom.tag, "qc_type") == 'dti':
+                datman.utils.run('qc-headers {} {} {} --dti'.format(dicom.path, standard.path,
+                        log_file))
+                logger.debug('doing dti {}'.format(dicom.tag))
+            else:
+                logger.debug('doing other scantype {}'.format(dicom.tag))
+                datman.utils.run('qc-headers {} {} {}'.format(dicom.path, standard.path,
+                        log_file))
+
 
     if not os.path.exists(log_file):
         logger.error("header-diff.log not generated for {}. Check that gold " \
@@ -835,7 +852,7 @@ def qc_subject(subject, config):
             pass
 
     if not os.path.isfile(header_diffs):
-        run_header_qc(subject, config.get_path('std'), header_diffs)
+        run_header_qc(subject, config.get_path('std'), header_diffs, config)
 
     expected_files = find_expected_files(subject, config)
 
