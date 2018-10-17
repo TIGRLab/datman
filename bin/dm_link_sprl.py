@@ -155,7 +155,8 @@ def process_session(cfg, db, dir_nii, dir_res, session):
                     continue
                 src_file = os.path.join(root, f)
                 logger.info("sprl file path: {}".format(src_file))
-                if p.search(src_file):
+                base_name = src_file.split('.nii')[0]
+                if p.search(base_name):
                     # get a mangled name for the link target
                     target_name = _get_link_name(src_file,
                                                  subject_res,
