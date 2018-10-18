@@ -94,8 +94,13 @@ def get_bids_name(subject):
     try:
         ident = scan_ident.parse(subject)
     except scan_ident.ParseException:
-        logger.error('Cannot parse {} invalid DATMAN name!'.format(subject))
-        raise
+        logger.error('Cannot parse {}, attempting to reconcile with _01!'.format(subject))
+
+        try:
+            ident = scan_indent.parse(subject + '_01')
+        except scan_ident.ParseException: 
+            logger.error('Failed to reconcile with _01, {} is invalid!'.format(subject)) 
+            raise
 
     return ident.get_bids_name()
 
