@@ -368,7 +368,7 @@ def create_dir(dir_path):
             sys.exit(1)
 
 def create_command(subject, arguments):
-    flags = ['python', 'dm_to_bids.py']
+    flags = ['dm_to_bids.py']
     for arg_flag in ['--nii-dir', '--bids-dir', '--fmriprep-out-dir', '--freesurfer-dir']:
         flags += [arg_flag, arguments[arg_flag]] if arguments[arg_flag] else []
     for flag in ['--rewrite', '--log-to-server', '--debug']:
