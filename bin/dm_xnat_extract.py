@@ -502,7 +502,7 @@ def is_not_derived(scan_info, series_id, session_label):
         image_type = scan_info['data_fields']['parameters/imageType']
     except:
         logger.error("Image type for series: {} in session: {} could not be found. Skipping"
-                     .format(series_id, session_label)
+                     .format(series_id, session_label))
         return
     if 'DERIVED' in image_type:
         not_derived = False
