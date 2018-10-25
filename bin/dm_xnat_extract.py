@@ -460,9 +460,9 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
 
         if multiecho:
             for stem, t in zip(file_stem, tag):
-                scans_added, export_formats = process_scan(ident, stem, tags, t, scans_added)
                 if (wanted_tags and t not in wanted_tags):
-                    continue
+                    continue                
+                scans_added, export_formats = process_scan(ident, stem, tags, t, scans_added)
                 if export_formats:
                     get_scans(ident, xnat_project, session_label, experiment_label,
                               series_id, export_formats, stem, multiecho)
@@ -470,9 +470,9 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
         else:
             file_stem = file_stem[0]
             tag = tag[0]
-            scans_added, export_formats = process_scan(ident, file_stem, tags, tag, scans_added)
             if (wanted_tags and tag not in wanted_tags):
-                continue
+                continue            
+            scans_added, export_formats = process_scan(ident, file_stem, tags, tag, scans_added)
             if export_formats:
                 get_scans(ident, xnat_project, session_label, experiment_label,
                           series_id, export_formats, file_stem, multiecho)
