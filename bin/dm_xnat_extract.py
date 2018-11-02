@@ -358,15 +358,15 @@ def process_resources(xnat_project, session_label, experiment_label, data):
                 logger.debug("Resource: {} found for session: {}"
                              .format(resource['name'], session_label))
                 continue
-            else:
-                logger.info("Resource: {} not found for session: {}"
-                            .format(resource['name'], session_label))
-                get_resource(xnat_project,
-                             session_label,
-                             experiment_label,
-                             xnat_resource_id,
-                             resource['URI'],
-                             resource_path)
+
+            logger.info("Resource: {} not found for session: {}"
+                        .format(resource['name'], session_label))
+            get_resource(xnat_project,
+                         session_label,
+                         experiment_label,
+                         xnat_resource_id,
+                         resource['URI'],
+                         resource_path)
 
 
 def get_resource(xnat_project, xnat_session, xnat_experiment,
