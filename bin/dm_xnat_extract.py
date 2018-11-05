@@ -3,13 +3,12 @@
 Extracts data from XNAT archive folders into a few well-known formats.
 
 Usage:
-    dm_xnat_extract.py [options] <study> [--tag=<t>]...
-    dm_xnat_extract.py [options] <study> <session> [--tag=<t>]...
+    dm_xnat_extract.py [options] <study> [-t <tag>]...
+    dm_xnat_extract.py [options] <study> <session> [-t <tag>]...
 
 Arguments:
     <study>            Nickname of the study to process
     <session>          Fullname of the session to process
-    --tag=<t>          List of scan tags to download
 
 Options:
     --blacklist FILE         Table listing series to ignore override the default metadata/blacklist.csv
@@ -20,6 +19,7 @@ Options:
     --server URL             XNAT server to connect to, overrides the server defined in the site config file.
     -u --username USER       XNAT username. If specified then the credentials file is ignored and you are prompted for password.
     --dont-update-dashboard  Dont update the dashboard database
+    -t --tag tag,...         List of scan tags to download
 
 OUTPUT FOLDERS
     Each dicom series will be converted and placed into a subfolder of the
