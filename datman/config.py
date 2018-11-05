@@ -474,7 +474,7 @@ class config(object):
 
         return tags
 
-    
+
 class TagInfo(object):
 
     def __init__(self, export_settings, site_settings=None):
@@ -515,7 +515,7 @@ class TagInfo(object):
                         "specify a site?")
             if type(pattern) is list:
                 pattern = "|".join(pattern)
-            series_map[pattern] = tag
+            series_map[tag] = pattern
         return series_map
 
     def keys(self):
