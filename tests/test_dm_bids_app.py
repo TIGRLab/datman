@@ -32,13 +32,13 @@ def test_validate_json_on_good_json():
 
     jargs = {'img': 'potato', 'app': 'FMRIPREP','bidsargs':''}
     test_dict = {'FMRIPREP' : ''}
-    assert ba.validate_json_args(jargs,test_dict) == True
+    assert ba.validate_json_args(jargs,test_dict) == jargs
 
 def test_filter_subjects_filters_preexisting_directories(): 
 
     app_name = 'app'
     subjects = ['POTATO1','POTATO2','POTATO3','POTATO4','POTATO5']
-    expected_out = ['POTATO2','POTATO3', 'POTATO4']
+    expected_out = ['POTATO1','POTATO2','POTATO3', 'POTATO4']
 
     assert set(ba.filter_subjects(subjects,output_path,app_name)) == set(expected_out)
 
@@ -47,7 +47,7 @@ def test_group_subjects_correctly_groups_by_subject_ID_when_longitudinal():
     subjects = ['POTATO_01','POTATO_0233','POTATO_1234'] 
     expected_out = {'POTATO': ['POTATO_01','POTATO_0233','POTATO_1234']} 
 
-    actual_out = ba.group_subjects(subjects,True) 
+    actual_out = ba.group_subjects(subjects) 
 
     assert expected_out.keys() == actual_out.keys() 
     assert set(actual_out.values()[0]) == set(expected_out.values()[0]) 
@@ -55,9 +55,8 @@ def test_group_subjects_correctly_groups_by_subject_ID_when_longitudinal():
 def test_group_subjects_correctly_maps_onto_self_when_cross_sectional(): 
 
     subjects = ['POTATO_01','POTATO_0233','POTATO_1234'] 
-    expected_out = {'POTATO_01' : ['POTATO_01'], 'POTATO_0233' : ['POTATO_0233'], 'POTATO_1234' : ['POTATO_1234']}
-
-    actual_out = ba.group_subjects(subjects,False) 
+    expected_out = {'POTATO': ['POTATO_01','POTATO_0233','POTATO_1234']} 
+    actual_out = ba.group_subjects(subjects) 
 
     assert actual_out == expected_out 
 
