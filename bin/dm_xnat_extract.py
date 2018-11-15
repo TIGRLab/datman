@@ -811,7 +811,7 @@ def export_nii_command(seriesdir, outputdir, stem, multiecho=False):
 
             if multiecho:
                 try:
-                    echo = int(m.group(4)[-1])
+                    echo = int(m.group(4).split('e')[-1][0])
                     stem = echo_dict[echo]
                 except:
                     logger.error("Unable to parse valid echo number from file {}"
