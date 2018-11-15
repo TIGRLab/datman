@@ -94,8 +94,12 @@ def get_bids_name(subject):
     try:
         ident = scan_ident.parse(subject)
     except scan_ident.ParseException:
-        logger.error('Cannot parse {} invalid DATMAN name!'.format(subject))
-        raise
+
+        try:
+            ident = scan_ident.parse(subject + '_01')
+        except scan_ident.ParseException: 
+            logger.error('{s} and {s}_01, is invalid!'.format(s=subject)) 
+            raise
 
     return ident.get_bids_name()
 
@@ -161,7 +165,7 @@ def filter_subjects(subjects,out_dir,bids_app):
         try:
             if 'error' in open(log_file.format(s,bids_app)).read().lower(): 
                 run_list.append(s) 
-                logger.debug('Re-running {} through {}'.format(s,bids_app))
+                logger.debug('Re-running {} through {}, error found!'.format(s,bids_app))
         except IOError: 
             logger.debug('Running new subject {} through {}'.format(s,bids_app))
             run_list.append(s) 
@@ -651,20 +655,18 @@ def get_requested_threads(jargs, thread_dict):
         else:
             return n_threads
 
-def group_subjects(subjects,longitudinal):
+def group_subjects(subjects):
 
     '''
     Arguments:
         subjects                    List of subject(s) to be grouped
-        longitudinal                If enabled will output using longitudinal keys (DATMAN session ID without sess #)
-                                    Else use standard keys (full datman session ID)
 
     Output:
-    A dictionary which maps subject ID (full ID if cross-sectional, otherwise ID w/o session number) to lists of subjects
+    A dictionary that maps base subject IDs (without session) to subject sessions.
     '''
 
     #Choose a lambda function based on whether we want longitudinal grouping or not
-    get_key = (lambda x: '_'.join(x.split('_')[:-1])) if longitudinal else (lambda x: x)
+    get_key = lambda x: '_'.join(x.split('_')[:-1])
 
     #Create grouping dictionary
     group_dict = {get_key(s) : [] for s in subjects}
@@ -735,7 +737,7 @@ def main():
     subjects = subjects if rewrite else filter_subjects(subjects, out, jargs['app'])
     logger.info('Running {}'.format(subjects))
 
-    subjects = group_subjects(subjects, True if 'longitudinal' in jargs else False)
+    subjects = group_subjects(subjects)
 
     #Process subject groups
     for s in subjects.keys():
