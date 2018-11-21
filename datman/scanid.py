@@ -76,7 +76,7 @@ class Identifier:
     def get_full_subjectid(self):
         return "_".join([self.study, self.site, self.subject])
 
-    def get_bids_name(self): 
+    def get_bids_name(self):
 
         return 'sub-' + self.site + self.subject
 
@@ -93,13 +93,9 @@ class Identifier:
         return ident
 
     def __str__(self):
-        if self.timepoint:
-            return "_".join([self.study,
-                             self.site,
-                             self.subject,
-                             self.timepoint,
-                             self.session])
-        else:  # it's a phantom, so no timepoints
+        if self.session:
+            return self.get_full_subjectid_with_timepoint_session()
+        else:
             return self.get_full_subjectid()
 
 
@@ -161,8 +157,9 @@ def is_scanid_with_session(identifier):
     return False
 
 def is_phantom(identifier):
-    try:
-        x = parse(identifier)
-        return x.subject[0:3] == 'PHA'
-    except ParseException:
-        return False
+    if not isinstance(identifier, Identifier):
+        try:
+            identifier = parse(identifier)
+        except ParseException:
+            return False
+    return identifier.subject[0:3] == 'PHA'
