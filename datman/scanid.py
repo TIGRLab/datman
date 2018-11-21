@@ -83,7 +83,7 @@ class Identifier:
     def get_full_subjectid_with_timepoint(self):
         ident = self.get_full_subjectid()
         if self.timepoint:
-            ident += "_"+self.timepoint
+            ident += "_" + self.timepoint
         return ident
 
     def get_full_subjectid_with_timepoint_session(self):
@@ -96,7 +96,7 @@ class Identifier:
         if self.session:
             return self.get_full_subjectid_with_timepoint_session()
         else:
-            return self.get_full_subjectid()
+            return self.get_full_subjectid_with_timepoint()
 
 
 def parse(identifier):
