@@ -1,4 +1,4 @@
-"""Defines the exceptions used by xnat sub-modules"""
+"""Defines the exceptions used by datman sub-modules"""
 
 
 class XnatException(Exception):
