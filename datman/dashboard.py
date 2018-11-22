@@ -17,6 +17,8 @@ except ImportError:
 else:
     dash_found = True
 
+
+
 def dashboard_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -27,6 +29,7 @@ def dashboard_required(f):
             return None
         return f(*args, **kwargs)
     return decorated_function
+
 
 def scanid_required(f):
     """
@@ -51,6 +54,52 @@ def scanid_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
+def filename_required(f):
+    """
+    This decorator checks that the wrapped function has received a datman
+    style file name as either a string or as a datman.scanid.Identifier instance
+    with kwargs tag, series, and description set.
+
+    A DashboardException will be raised if the expected information is not given
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        name = args[0]
+        if not isinstance(name, datman.scanid.Identifier):
+            try:
+                name, tag, series, descr = datman.scanid.parse_filename(name)
+            except:
+                try:
+                    name = datman.scanid.parse(name)
+                except:
+                    raise DashboardException("A datman file name was expected. "
+                            "Received {} instead.".format(name))
+                try:
+                    tag = kwargs['tag']
+                    series = kwargs['series']
+                    descr = kwargs['description']
+                except:
+                    raise DashboardException("An expected keyword argument "
+                            "wasnt found. Please ensure either 'tag', "
+                            "'series', and 'description' are set, or a "
+                            "datman filename is given as an argument.")
+            args = list(args)
+            args[0] = name
+            kwargs['tag'] = tag
+            kwargs['series'] = series
+            kwargs['description'] = descr
+        elif ('tag' not in kwargs or
+                'series' not in kwargs or
+                'description' not in kwargs):
+            raise DashboardException("An expected option was unset. This "
+                    "function requires either a datman ident + 'tag', 'series' "
+                    "and 'description' options be set or that a full filename "
+                    "is given as a string")
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 @dashboard_required
 @scanid_required
 def get_subject(name, create=False):
@@ -65,6 +114,7 @@ def get_subject(name, create=False):
         return add_subject(name)
 
     return None
+
 
 @dashboard_required
 @scanid_required
@@ -102,6 +152,7 @@ def get_session(name, create=False):
 
     return session
 
+
 @dashboard_required
 @scanid_required
 def add_session(name):
@@ -114,6 +165,7 @@ def add_session(name):
 
     return timepoint.add_session(sess_num)
 
+
 def _get_session_num(datman_id):
     try:
         sess_num = int(datman_id.session)
@@ -121,13 +173,55 @@ def _get_session_num(datman_id):
         if datman.scanid.is_phantom(datman_id):
             sess_num = 1
         else:
-            raise ValueError("ID {} contains invalid session number".format(
-                    str(datman_id)))
+            raise DashboardException("ID {} contains invalid session "
+                    "number".format(str(datman_id)))
     return sess_num
 
-# @dashboard_required
-# def get_scan(name, create=False):
+
+@dashboard_required
+@filename_required
+def get_scan(name, tag=None, series=None, description=None, create=False):
+    scan_name = _get_scan_name(name, tag, series)
+
+    scan = queries.get_scan(scan_name,
+            timepoint=name.get_full_subjectid_with_timepoint(),
+            session=name.session)
+
+    if len(scan) > 1:
+        raise DashboardException("Couldnt identify scan {}. {} matches "
+                "found".format(scan_name, len(scan)))
+    if len(scan) == 1:
+        return scan[0]
+
+    if create:
+        return add_scan(name, tag=tag, series=series, description=description)
+
+    return None
+
+
+@dashboard_required
+@filename_required
+def add_scan(name, tag=None, series=None, description=None):
+    session = get_session(name, create=True)
+    studies = queries.get_study(name.study, site=name.site)
+    scan_name = _get_scan_name(name, tag, series)
+
+    if len(studies) != 1:
+        raise DashboardException("Can't identify study to add scan {} to. {} "
+                "matches found.".format(scan_name, len(studies)))
+    study = studies[0].study
+    allowed_tags = [st.tag for st in study.scantypes]
+
+    if tag not in allowed_tags:
+        raise DashboardException("Scan name {} contains tag not configured "
+                "for study {}".format(scan_name, study))
+
+    return session.add_scan(scan_name, series, tag, description)
+
+    #### HANDLE LINKS!
+
     # 1. Validate name scheme
+
     # 2. Search for scan in DB
     # 3. Raise exception if more than one match found (must be unique name)
     # 4. If not found + create (otherwise return None)
@@ -137,9 +231,10 @@ def _get_session_num(datman_id):
         # 4d. Add to database
     # 5. Get blacklist comment from filesystem, update if differs
 
-# @dashboard_required
-# def add_scan(name):
-#     return None
+def _get_scan_name(ident, tag, series):
+    name = "_".join([str(ident), tag, str(series)])
+    return name
+
 
 @dashboard_required
 def delete_extra_scans(session, file_names):
