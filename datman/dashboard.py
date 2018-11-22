@@ -1,359 +1,180 @@
-"""Functions for interacting with the dashboard database"""
 from __future__ import absolute_import
+from functools import wraps
 import logging
-import dashboard
+
 import datman.scanid
-import datman.utils
 import datman.config
-from datetime import datetime
 from datman.exceptions import DashboardException
-from sqlalchemy import exc
 
 logger = logging.getLogger(__name__)
-db = dashboard.db
-Study = dashboard.models.Study
-Session = dashboard.models.Session
-Scan = dashboard.models.Scan
-ScanType = dashboard.models.ScanType
-Session_Scan = dashboard.models.Session_Scan
 
+try:
+    import dashboard
+    from dashboard import queries
+except ImportError:
+    dash_found = False
+    logger.error("Dashboard not found, proceeding without it.")
+else:
+    dash_found = True
 
-class dashboard(object):
-    study = None
-
-    def __init__(self, study):
-        self.set_study(study)
-
-    def set_study(self, study):
-        """Sets the object study"""
-        cfg = datman.config.config()
-        study_name = cfg.map_xnat_archive_to_project(study)
-        qry = Study.query.filter(Study.nickname == study_name)
-        if qry.count() < 1:
-            logger.error('Study:{} not found in dashboard')
-            raise DashboardException("Study not found")
-        self.study = qry.first()
-
-    def get_add_session(self, session_name, date=None, create=False):
-        """Returns a session object, creates one if doesnt exist and create
-        is True
-        N.B. a session name is ID without timepoint"""
-        if not self.study:
-            logger.error('Study not set')
-            return DashboardException('Study not set')
-
-        try:
-            ident = datman.scanid.parse(session_name)
-        except datman.scanid.ParseException:
-            logger.error('Invalid session:{}'.format(session_name))
-            raise DashboardException('Invalid session name:{}'
-                                     .format(session_name))
-
-        dashboard_site = [study_site.site for study_site
-                          in self.study.sites
-                          if study_site.site.name == ident.site]
-        if not dashboard_site:
-            logger.error('Invalid site:{} in session:{}'
-                         .format(ident.site, session_name))
-            raise DashboardException('Invalid site')
-
-        if date:
-            try:
-                date = datetime.strptime(date, '%Y-%m-%d')
-            except ValueError:
-                logger.error('Invalid date:{} for session:{}'
-                             .format(date, session_name))
-                raise DashboardException('Invalid date')
-
-        qry = Session.query.filter(Session.study == self.study).filter(Session.name == session_name)
-
-        if qry.count() == 1:
-            logger.info('Found session:{}'.format(session_name))
-            dashboard_session = qry.first()
-            if date:
-                db_session_date = ''
-                xnat_session_date = ''
-                try:
-                    db_session_date = datetime.strftime(dashboard_session.date,
-                                                        '%Y-%m-%d')
-                except TypeError:
-                    logger.debug('Failed parsing db_date for session:{}'
-                                 .format(session_name))
-                    pass
-                try:
-                    xnat_session_date = datetime.strftime(date, '%Y-%m-%d')
-                except TypeError:
-                    logger.debug('Failed parsing xnat date for session'
-                                 .format(session_name))
-                    pass
-                if not db_session_date == xnat_session_date:
-                    logger.debug('Updating date for session:{}'
-                                 .format(session_name))
-                    dashboard_session.date = date
-                    db.session.add(dashboard_session)
-
-        elif qry.count() < 1:
-            logger.info("Session:{} doesnt exist".format(session_name))
-            if create:
-                logger.debug('Creating session:{}'.format(session_name))
-                dashboard_session = Session()
-                dashboard_session.site = dashboard_site[0]
-                dashboard_session.name = session_name
-                dashboard_session.study = self.study
-                dashboard_session.date = date
-                dashboard_session.is_repeated = False
-                dashboard_session.repeat_count = 1
-                if datman.scanid.is_phantom(session_name):
-                    dashboard_session.is_phantom = True
-                db.session.add(dashboard_session)
-            else:
-                return None
-        # check for cheklist comments:
-        try:
-            cl_comment = datman.utils.check_checklist(session_name,
-                                                      study=self.study.nickname)
-        except ValueError as e:
-            logger.error('Failed to check checklist for session:'
-                         '{} with error:{}'.format(session_name, str(e)))
-        if cl_comment and not cl_comment == dashboard_session.cl_comment:
-            try:
-                dashboard_session.cl_comment = cl_comment
-            except Exception:
-                logger.error('Failed updating db comment for session:{}'
-                             .format(session_name))
-
-        try:
-            db.session.commit()
-        except Exception as e:
-            logger.error('An error occured adding session:{} to the database'
-                         ' Error:{}'
-                         .format(session_name, str(e)))
+def dashboard_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not dash_found:
+            if 'create' in kwargs.keys() or f.__name__.startswith('add'):
+                raise DashboardException("Can't add record. Dashboard not "
+                        "installed or configured")
             return None
-        return dashboard_session
+        return f(*args, **kwargs)
+    return decorated_function
 
-    def get_add_scan(self, scan_name, create=False):
-        """Returns a scan object, creates one if doesnt exist and create
-        is True"""
-        if not self.study:
-            logger.error('Study not set')
-            raise DashboardException('Study not set')
-
-        try:
-            ident, tag, series, desc = datman.scanid.parse_filename(scan_name)
-        except datman.scanid.ParseException as e:
-            logger.error('Invalid scan name:{}'.format(scan_name))
-            raise DashboardException('Invalid scan_name')
-        scan_id = '{}_{}_{}'.format(str(ident), tag, series)
-        session_name = ident.get_full_subjectid_with_timepoint()
-
-        qry = db.session.query(Scan) \
-                        .join(Session_Scan) \
-                        .join(Session) \
-                        .join(Study, Session.study) \
-                        .filter(Session.name == session_name) \
-                        .filter(Study.nickname == self.study.nickname) \
-                        .filter(Scan.name == scan_id)
-        if ident.session:
-            qry = qry.filter(Scan.repeat_number == int(ident.session))
-
-        if qry.count() == 1:
-            logger.debug('Found scan:{} in database'.format(scan_name))
-            dashboard_scan = qry.first()
-
-        elif qry.count() > 1:
-            logger.error('Scan:{} was not uniquely identified in the database'
-                         .format(scan_name))
-            raise DashboardException('Scan not unique')
-
-        else:
-            if not create:
-                logger.info('Scan:{} not found but create is false, skipping'
-                            .format(scan_name))
-                return
-            try:
-                dashboard_session = self.get_add_session(session_name,
-                                                         create=create)
-            except DashboardException as e:
-                raise(e)
-
-            try:
-                dashboard_scantype = self.get_scantype(tag)
-            except DashboardException as e:
-                raise(e)
-
-            if dashboard_scantype not in self.study.scantypes:
-                logger.error('Scantype:{} not valid for study:{}'
-                             .format(dashboard_scantype.name,
-                                     self.study.nickname))
-                raise DashboardException('Invalid scantype')
-
-            dashboard_scan = Scan()
-            dashboard_scan.name = scan_id
-            dashboard_scan.series_number = series
-            dashboard_scan.scantype = dashboard_scantype
-            dashboard_scan.description = desc
-
-            if ident.session:
-                dashboard_scan.repeat_number = int(ident.session)
-
-            db.session.add(dashboard_scan)
-            # need to flush changes to the db to get the primary key scan.id
-            # flushing isn't a commit, so entering the session_scan link fails
-            # the whole transaction, including adding the scan will rollback
-            # note - the session will still have been added as this is a
-            # seperate transaction
-            db.session.flush()
-
-            dashboard_session_scan_link = Session_Scan()
-            dashboard_session_scan_link.scan_id = dashboard_scan.id
-            dashboard_session_scan_link.session_id = dashboard_session.id
-            # Anything entered this way is a primary scan, linked scans should
-            # come from dm-link-project-scans.py
-            dashboard_session_scan_link.is_primary = True
-            dashboard_session_scan_link.scan_name = scan_id
-
-            db.session.add(dashboard_session_scan_link)
-        # finally check the blacklist
-        try:
-            bl_comment = datman.utils.check_blacklist(scan_name,
-                                                      study=self.study.nickname)
-        except ValueError as e:
-            logger.error('Failed to check blacklist for scan:{} with error:{}'
-                         .format(scan_name, str(e)))
-
-        try:
-            if not bl_comment and not bl_comment == dashboard_scan.bl_comment:
-                # this shouldn't happen but is possible
-                logger.error('Scan:{} has a blacklist comment in dashboard db'
-                             ' which is not present in metadata/blacklist.csv.'
-                             ' Comment:{}'.format(dashboard_scan.name,
-                                                  dashboard_scan.bl_comment))
-            elif bl_comment and not bl_comment == dashboard_scan.bl_comment:
-                dashboard_scan.bl_comment = bl_comment
-
-            db.session.commit()
-        except Exception as e:
-            logger.error('An error occured adding scan:{} to the db.Error:{}'
-                         .format(scan_name, str(e)))
-            raise DashboardException
-        return(dashboard_scan)
-
-    def delete_extra_scans(self, session_label, scanlist):
-        """Checks scans associated with session,
-        deletes scans not in scanlist.
-
-        Sorry about this, but watch for the difference between:
-        db.session - the database session
-            and
-        db_session - a session (visit) object in the database
-
-        """
-        try:
-            ident = datman.scanid.parse(session_label)
-        except datman.scanid.ParseException:
-            logger.error('Invalid session:{}'.format(session_label))
-            raise DashboardException('Invalid session name:{}'
-                                      .format(session_label))
-
-        # extract the repeat number
-        if datman.scanid.is_phantom(session_label):
-            repeat = None
-        else:
-            repeat = int(ident.session)
-
-        session_label = ident.get_full_subjectid_with_timepoint()
-        db_session = self.get_add_session(session_label)
-        scan_names = []
-        # need to convert full scan names to scanid's in the db
-        for scan_name in scanlist:
-            try:
-                db_scan = self.get_add_scan(scan_name)
-                scan_names.append(db_scan.name)
-            except:
-                continue
-
-        # Need to filter out linked scans and spirals (which are also links,
-        # but are considered 'primary' in the database).
-        source_scans = list(filter(lambda x: not is_linked(x), db_session.scans))
-        # need to get the scan objects from the session_scan links
-        session_scans = [link.scan for link in source_scans]
-        db_scans = [scan.name for scan in session_scans if scan.repeat_number == repeat]
-        extra_scans = set(db_scans) - set(scan_names)
-
-        for scan in extra_scans:
-            db_scan = Scan.query.filter(Scan.name == scan).first()
-            db_session_scan_link = Session_Scan.query.filter(Session_Scan.scan_id == db_scan.id,
-                                                             Session_Scan.session_id == db_session.id)
-            db.session.delete(db_session_scan_link.first())
-            db.session.delete(db_scan)
-        db.session.commit()
-
-    def get_scantype(self, scantype):
-        qry = ScanType.query.filter(ScanType.name == scantype)
-        if qry.count() < 1:
-            logger.error('Scantype:{} not found in database'.format(scantype))
-            raise DashboardException('Invalid scantype')
-        else:
-            return qry.first()
-
-    def delete_session(self, session_name):
-        session = self.get_add_session(session_name, create=False)
-        try:
-            session.delete()
-        except AttributeError:
-            logger.error("Cannot delete session {}, does not exist.".format(session_name))
-            return False
-        except Exception as e:
-            logger.error('An error occured deleting session:{} from the database'
-                         ' Error:{}'
-                         .format(session_name, str(e)))
-            return False
-        return True
-
-
-def is_linked(scan):
-    if not scan.is_primary:
-        return True
-    # Ugh, sorry about the naming. Result of the database query :(
-    scan_type = scan.scan.scantype
-    # Sort of hacky way of identifying spirals. Need a refactor to really fix
-    # this whole issue. Again, sorry.
-    if scan_type.name == 'SPRL':
-        return True
-    return False
-
-
-def get_add_session_scan_link(target_session, scan, new_name=None, is_primary=False):
+def scanid_required(f):
     """
-    Creates an entry in the Session_Scans table, linking a scan to session
+    This decorator checks that the wrapped function's first argument is an
+    instance of datman.scanid.Identifier and attempts to convert it if not.
+
+    A DashboardException will be raised if an Identifier isn't found or can't
+    be created
     """
-    qry = Session_Scan.query.filter(Session_Scan.session == target_session,
-                                    Session_Scan.scan == scan)
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        name = args[0]
+        if not isinstance(name, datman.scanid.Identifier):
+            try:
+                name = datman.scanid.parse(name)
+            except datman.scanid.ParseException:
+                raise DashboardException("Expected: a valid subject ID or "
+                        "an instance of datman.scanid.Identifier. Received: "
+                        "{}".format(name))
+            args = list(args)
+            args[0] = name
+        return f(*args, **kwargs)
+    return decorated_function
 
-    if qry.count() == 1:
-        return qry.first()
+@dashboard_required
+@scanid_required
+def get_subject(name, create=False):
+    found = queries.find_subjects(name.get_full_subjectid_with_timepoint())
+    if len(found) > 1:
+        raise DashboardException("Couldnt identify record for {}. {} matching "
+            "records found".format(name, len(found)))
+    if len(found) == 1:
+        return found[0]
 
-    link = Session_Scan()
-    link.scan = scan
-    link.session = target_session
-    if new_name:
-        link.scan_name = new_name
-    else:
-        link.scan_name = scan.name
-    link.is_primary = False
-    db.session.add(link)
-    db.session.commit()
-    return link
+    if create:
+        return add_subject(name)
 
+    return None
 
-def add_redcap(session, record_id, session_date, eventid, comment, url, version, projectid, instrument):
-    session.redcap_record = record_id
-    session.redcap_entry_date = session_date
-    session.redcap_eventid = eventid
-    session.redcap_comment = comment
-    session.redcap_url = url
-    session.redcap_version = version
-    session.redcap_projectid = projectid
-    session.redcap_instrument = instrument
-    db.session.add(session)
-    db.session.commit()
+@dashboard_required
+@scanid_required
+def add_subject(name):
+    studies = queries.get_study(name.study, site=name.site)
+    if not studies:
+        raise DashboardException("ID {} contains invalid study / site "
+                "combination".format(name))
+    if len(studies) > 1:
+        raise DashboardException("Can't identify study for {}. {} matching "
+                "records found for that study / site combination".format(name,
+                len(studies)))
+    study = studies[0].study
+
+    return study.add_timepoint(name)
+
+    # 3. If date convert to datetime object
+    # 4. Search DB for sessions where study = current.study and name = current.name
+    # 5. If match, take first. If date:
+        # 5a. convert db_session's date to datetime
+        # 5b. convert date again??? (strftime this time instead of strptime)
+        # 5c. If the two arent equal: update the date to the new one
+    # 6. If no match + create set add new record, else return None
+    # 7. Get checklist comment (if any), if differs from existing - update it
+    # Commit and return the session
+
+@dashboard_required
+@scanid_required
+def get_session(name, create=False):
+    session = queries.get_session(name.get_full_subjectid_with_timepoint(),
+            _get_session_num(name))
+
+    if not session and create:
+        session = add_session(name)
+
+    return session
+
+@dashboard_required
+@scanid_required
+def add_session(name):
+    timepoint = get_subject(name, create=True)
+    sess_num = _get_session_num(name)
+
+    if timepoint.is_phantom and sess_num > 1:
+        raise DashboardException("ERROR: attempt to add repeat scan session to "
+                "phantom {}".format(str(name)))
+
+    return timepoint.add_session(sess_num)
+
+def _get_session_num(datman_id):
+    try:
+        sess_num = int(datman_id.session)
+    except ValueError:
+        if datman.scanid.is_phantom(datman_id):
+            sess_num = 1
+        else:
+            raise ValueError("ID {} contains invalid session number".format(
+                    str(datman_id)))
+    return sess_num
+
+# @dashboard_required
+# def get_scan(name, create=False):
+    # 1. Validate name scheme
+    # 2. Search for scan in DB
+    # 3. Raise exception if more than one match found (must be unique name)
+    # 4. If not found + create (otherwise return None)
+        # 4a. get_session(sess_name, create=create) (reraise if exception)
+        # 4b. Try to get scantype from tag
+        # 4c. validate that tag belongs in this study
+        # 4d. Add to database
+    # 5. Get blacklist comment from filesystem, update if differs
+
+# @dashboard_required
+# def add_scan(name):
+#     return None
+
+@dashboard_required
+def delete_extra_scans(session, file_names):
+    if not dash_found:
+        logger.info("No dashboard installed.")
+        return None
+    # 1. Read into datman ident
+    # 2. Get session from database (if there is one)
+    # 3. For each scan in file_names, get the database record and add name to db_names
+    # 4. Filter out links + spirals (???)
+    # 5. 'extra scans' = set in database - set on file system
+    # 6. For each item in extra scans, delete it from the database
+
+@dashboard_required
+def get_scantype(scantype):
+    if not dash_found:
+        return None
+    # 1. Just query the database for the tag and return?
+
+# @dashboard_required
+# def delete_subject(name):
+    # 1. Retrieve from database
+    # 2. Delete, report if attempting to delete non-existent?
+    # 3. Return True if delete, false otherwise
+
+# @dashboard_required
+# def is_linked(scan):
+    # 1. Return the database att, unless SPRL in which case hard-coded true????
+
+# Not needed anymore? Or need new function to handle links...)
+# def get_session_scan_link()
+    # 1. Searched DB for match on session and scan name
+    # 2. Returned existing, or made new
+    # 3. Set is_primary to False (so... this is only called for actual links?)
+
+# @dashboard_required
+# def add_redcap():
+    # 1. Makes a redcap record
