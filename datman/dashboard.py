@@ -166,18 +166,6 @@ def add_session(name):
     return timepoint.add_session(sess_num)
 
 
-def _get_session_num(datman_id):
-    try:
-        sess_num = int(datman_id.session)
-    except ValueError:
-        if datman.scanid.is_phantom(datman_id):
-            sess_num = 1
-        else:
-            raise DashboardException("ID {} contains invalid session "
-                    "number".format(str(datman_id)))
-    return sess_num
-
-
 @dashboard_required
 @filename_required
 def get_scan(name, tag=None, series=None, description=None, create=False):
@@ -201,7 +189,7 @@ def get_scan(name, tag=None, series=None, description=None, create=False):
 
 @dashboard_required
 @filename_required
-def add_scan(name, tag=None, series=None, description=None):
+def add_scan(name, tag=None, series=None, description=None, source=None):
     session = get_session(name, create=True)
     studies = queries.get_study(name.study, site=name.site)
     scan_name = _get_scan_name(name, tag, series)
@@ -216,7 +204,7 @@ def add_scan(name, tag=None, series=None, description=None):
         raise DashboardException("Scan name {} contains tag not configured "
                 "for study {}".format(scan_name, study))
 
-    return session.add_scan(scan_name, series, tag, description)
+    return session.add_scan(scan_name, series, tag, description, source_id=source)
 
     #### HANDLE LINKS!
 
@@ -231,27 +219,21 @@ def add_scan(name, tag=None, series=None, description=None):
         # 4d. Add to database
     # 5. Get blacklist comment from filesystem, update if differs
 
-def _get_scan_name(ident, tag, series):
-    name = "_".join([str(ident), tag, str(series)])
-    return name
-
-
 @dashboard_required
-def delete_extra_scans(session, file_names):
-    if not dash_found:
-        logger.info("No dashboard installed.")
-        return None
-    # 1. Read into datman ident
-    # 2. Get session from database (if there is one)
-    # 3. For each scan in file_names, get the database record and add name to db_names
-    # 4. Filter out links + spirals (???)
-    # 5. 'extra scans' = set in database - set on file system
-    # 6. For each item in extra scans, delete it from the database
+def delete_extra_scans(local_session):
+    local_scans = [_get_scan_name(n.id_plus_session, n.tag, n.series_num)
+            for n in local_session.niftis]
+    dash_session = get_session(local_session.id_plus_session)
+    dash_scans = [scan.name for scan in dash_session.scans]
+    extra_scans = set(dash_scans) - set(local_scans)
+    for scan in extra_scans:
+        logger.info("Deleting scan {} from dashboard".format(scan))
+        dash_session.delete_scan(scan)
 
-@dashboard_required
-def get_scantype(scantype):
-    if not dash_found:
-        return None
+# @dashboard_required
+# def get_scantype(scantype):
+#     if not dash_found:
+#         return None
     # 1. Just query the database for the tag and return?
 
 # @dashboard_required
@@ -273,3 +255,19 @@ def get_scantype(scantype):
 # @dashboard_required
 # def add_redcap():
     # 1. Makes a redcap record
+
+def _get_session_num(datman_id):
+    try:
+        sess_num = int(datman_id.session)
+    except ValueError:
+        if datman.scanid.is_phantom(datman_id):
+            sess_num = 1
+        else:
+            raise DashboardException("ID {} contains invalid session "
+                    "number".format(str(datman_id)))
+    return sess_num
+
+
+def _get_scan_name(ident, tag, series):
+    name = "_".join([str(ident), tag, str(series)])
+    return name
