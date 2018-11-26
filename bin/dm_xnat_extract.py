@@ -62,24 +62,25 @@ DEPENDENCIES
     dcm2nii
 
 """
+from datetime import datetime
+from glob import glob
 import logging
 import os
-import sys
-import re
-from glob import glob
-import zipfile
 import platform
 import shutil
+import sys
+import re
+import zipfile
 
 from docopt import docopt
 import pydicom as dicom
 
+import datman.dashboard as dashboard
 import datman.config
 import datman.xnat
 import datman.utils
 import datman.scan
 import datman.scanid
-import datman.dashboard
 import datman.exceptions
 
 logger = logging.getLogger(os.path.basename(__file__))
@@ -87,7 +88,6 @@ logger = logging.getLogger(os.path.basename(__file__))
 
 xnat = None
 cfg = None
-dashboard = None
 DRYRUN = False
 db_ignore = False  # if True dont update the dashboard db
 wanted_tags = None
@@ -97,7 +97,6 @@ def main():
     global xnat
     global cfg
     global DRYRUN
-    global dashboard
     global wanted_tags
 
     arguments = docopt(__doc__)
@@ -152,13 +151,6 @@ def main():
 
     # initialize requests module object for XNAT REST API
     xnat = datman.xnat.xnat(server, username, password)
-
-    # setup the dashboard object
-    if not db_ignore:
-        try:
-            dashboard = datman.dashboard.dashboard(study)
-        except datman.dashboard.DashboardException as e:
-            logger.error("Failed to initialise dashboard")
 
     # get the list of XNAT projects linked to the datman study
     xnat_projects = cfg.get_xnat_projects(study)
@@ -278,20 +270,14 @@ def process_session(session):
                        .format(session_label))
         return
 
-    if dashboard:
-        logger.debug("Adding session: {} to dashboard".format(session_label))
+    if not db_ignore:
+        logger.debug("Adding session {} to dashboard".format(session_label))
         try:
-            db_session_name = ident.get_full_subjectid_with_timepoint()
-            db_session = dashboard.get_add_session(db_session_name,
-                                                   date=experiment['data_fields']['date'],
-                                                   create=True)
-            if ident.session and int(ident.session) > 1:
-                db_session.is_repeated = True
-                db_session.repeat_count = int(ident.session)
-
-        except datman.dashboard.DashboardException as e:
-                logger.error("Failed adding session: {} to dashboard"
-                             .format(session_label))
+            db_session = dashboard.get_session(ident, create=True)
+        except dashboard.DashboardException as e:
+            logger.error("Failed adding session {}. Reason: {}".format(
+                    db_session, e))
+        set_date(db_session, experiment)
 
     # experiment['children'] is a list of top level folders in XNAT
     # project --> session --> experiments
@@ -308,6 +294,26 @@ def process_session(session):
                                    session_label,
                                    xnat_project))
 
+def set_date(session, date):
+    try:
+        date = experiment['data_fields']['date']
+    except KeyError:
+        logger.error("No scanning date found for {}, leaving blank.".format(
+                session))
+        return
+
+    try:
+        date = datetime.strptime(date, '%Y-%m-%d')
+    except ValueError:
+        logger.error('Invalid date {} for scan session {}'.format(date,
+                session))
+        return
+
+    if date == session.date:
+        return
+
+    session.date = date
+    session.save()
 
 def process_resources(xnat_project, session_label, experiment_label, data):
     """Export any non-dicom resources from the XNAT archive"""
@@ -479,30 +485,28 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
                           series_id, export_formats, file_stem, multiecho)
 
     # delete any extra scans that exist in the dashboard
-    if dashboard:
+    if not db_ignore:
         local_session = datman.scan.Scan(session_label, cfg)
         try:
             dashboard.delete_extra_scans(local_session)
         except Exception as e:
-            logger.error("Failed deleting extra scans from session:{} with "
-                         "excuse:{}".format(session_label, e))
+            logger.error("Failed deleting extra scans from session {} with "
+                    "excuse {}".format(session_label, e))
 
 
 def process_scan(ident, file_stem, tags, tag, scans_added):
-    if dashboard:
-        logger.info("Adding scan: {} to dashboard".format(file_stem))
+    if not db_ignore:
+        logger.info("Adding scan {} to dashboard".format(file_stem))
         try:
-            dashboard.get_add_scan(file_stem, create=True)
+            scan = dashboard.get_scan(file_stem, create=True)
             scans_added.append(file_stem)
-        except datman.dashboard.DashboardException as e:
-            logger.error("Failed adding scan: {} to dashboard with "
-                         "error {}".format(file_stem, str(e)))
+        except dashboard.DashboardException as e:
+            logger.error("Failed adding scan {} to dashboard with "
+                    "error {}".format(file_stem, e))
 
-    blacklist = datman.utils.check_blacklist(file_stem,
-                                             study=cfg.study_name)
-    if blacklist:
-        logger.warn("Excluding scan: {} due to blacklist: {}"
-                    .format(file_stem, blacklist))
+    if scan.blacklisted():
+        logger.warn("Excluding scan {} due to blacklist entry '{}'".format(
+                file_stem, scan.get_comment()))
         return scans_added, None
 
     try:
@@ -519,7 +523,6 @@ def process_scan(ident, file_stem, tags, tag, scans_added):
         return scans_added, None
 
     return scans_added, export_formats
-
 
 def create_scan_name(exportinfo, scan_info, session_label):
     """Creates name suitable for a scan including the tags"""
