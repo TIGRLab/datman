@@ -21,12 +21,12 @@ FM85=$2
 cd $tempPath
 #split (pre) fieldmap files
 fslsplit ${FM65} split65 -t
-bet split650000 65mag -R -f 0.7 -m
+bet split650000 65mag -R -f 0.5 -m
 fslmaths split650002 -mas 65mag_mask 65realm
 fslmaths split650003 -mas 65mag_mask 65imagm
 
 fslsplit ${FM85} split85 -t
-bet split850000 85mag -R -f 0.7 -m
+bet split850000 85mag -R -f 0.5 -m
 fslmaths split850002 -mas 85mag_mask 85realm
 fslmaths split850003 -mas 85mag_mask 85imagm
 

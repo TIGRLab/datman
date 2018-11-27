@@ -318,7 +318,7 @@ def is_linked(scan):
     scan_type = scan.scan.scantype
     # Sort of hacky way of identifying spirals. Need a refactor to really fix
     # this whole issue. Again, sorry.
-    if scan_type.name == 'SPRL':
+    if scan_type.name in ['SPRL-IN', 'SPRL-OUT', 'SPRL-COMB']:
         return True
     return False
 
