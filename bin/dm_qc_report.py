@@ -582,7 +582,7 @@ def notes_expected(site, study_name):
     if study_name == 'SPINS' and (site == "MRC" or site == 'MRP'):
         return True
 
-    if site == 'CMH':
+    if (site == 'CMH' or site == 'CMP'):
         return True
 
     return False
