@@ -6,11 +6,13 @@ The system is identified from os.environ['DM_SYSTEM']
 
 These can both be overridden at __init__
 """
-import logging
-import yaml
-import os
-import datman.scanid
 from future.utils import iteritems
+import logging
+import os
+
+import yaml
+
+import datman.scanid
 
 logger = logging.getLogger(__name__)
 
