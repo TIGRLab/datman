@@ -21,22 +21,35 @@ import pyxnat
 
 import datman.config
 import datman.scanid as scanid
+import datman.dashboard as dash
 
 logger = logging.getLogger(__name__)
 
 
 def check_checklist(session_name, study=None):
-    """Reads the checklist identified from the session_name
-    If there is an entry returns the comment, otherwise
-    returns None
     """
+    Session name must be full ID with timepoint and session if reading from
+    the dashboard, but can omit the session if reading from a checklist.csv.
 
+    Reads the QC checklist identified from the session_name. If the dashboard
+    is available, it preferentially gets checklist info from there, otherwise
+    it searches in the checklist.csv file in the project's metadata folder.
+
+    If no checklist information is found for <session_name>, None is returned.
+    """
     try:
-        scanid.parse(session_name)
+        ident = scanid.parse(session_name)
     except scanid.ParseException:
         logger.warning('Invalid session id:{}'.format(session_name))
         return
 
+    session = dash.get_session(ident)
+    if session:
+        if session.signed_off:
+            return str(session.reviewer)
+        return
+
+    session_name = ident.get_full_subjectid_with_timepoint()
     if study:
         cfg = datman.config.config(study=study)
     else:
@@ -54,7 +67,7 @@ def check_checklist(session_name, study=None):
         with open(checklist_path, 'r') as f:
             lines = f.readlines()
     except IOError:
-        logger.warning('Unable to open checklist file:{} for reading'
+        logger.warning('Unable to open checklist file {} for reading'
                        .format(checklist_path))
         return
 
@@ -71,18 +84,24 @@ def check_checklist(session_name, study=None):
 
 
 def check_blacklist(scan_name, study=None):
-    """Reads the checklist identified from the session_name
-    If there is an entry returns the comment, otherwise
-    returns None
     """
-
+    Retrieves any blacklist entries that exist for <scan_name>. If the dashboard
+    is available, it will preferentially check this, otherwise defaults to
+    looking for a blacklist.csv file in the study's metadata
+    """
     try:
         ident, tag, series_num, _ = scanid.parse_filename(scan_name)
-        blacklist_id = "_".join([str(ident), tag, series_num])
     except scanid.ParseException:
         logger.warning('Invalid session id:{}'.format(scan_name))
         return
 
+    scan = dash.get_scan(scan_name)
+    if scan:
+        if scan.blacklisted():
+            return scan.get_comment()
+        return
+
+    blacklist_id = "_".join([str(ident), tag, series_num])
     if study:
         cfg = datman.config.config(study=study)
     else:
