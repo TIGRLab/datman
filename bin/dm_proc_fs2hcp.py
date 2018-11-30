@@ -43,10 +43,12 @@ def ciftify_outputs_exist(subject_dir):
     """True if a late-stage output of ciftify_recon_all is found, else False"""
     subject = os.path.basename(subject_dir)
     test_file = os.path.join(subject_dir, 'MNINonLinear', '{}.164k_fs_LR.wb.spec'.format(subject))
-    if os.path.isfile(test_file):
-        return True
-    else:
-        return False
+    return os.path.exists(test_file)
+
+def qc_outputs_exist(subject_dir):
+    hcp_dir, subject = os.path.split(subject_dir)
+    test_file = os.path.join(hcp_dir, 'qc_recon_all', subject, 'aparc.png')
+    return os.path.exists(test_file)
 
 def make_error_log_dir(hcp_path):
     log_dir = os.path.join(hcp_path, 'logs')
@@ -80,11 +82,29 @@ def run_hcp_convert(path, config, study):
         error_message = "ciftify_recon_all failed: {}\n{}".format(command, out)
         logger.debug(error_message)
 
-    command2 = 'cifti_vis_recon_all snaps --hcp-data-dir {} {}'.format(hcp_dir, subject)
+    command2 = make_vis_cmd(hcp_dir, subject)
     rtn, out = utils.run(command2)
     if rtn:
         error_message = "cifti_vis_recon_all snaps failed: {}\n{}".format(command2, out)
         logger.debug(error_message)
+
+def make_subject_cmd(study, subject, debug=False):
+    if debug:
+        debugopt = '--debug'
+    else:
+        debugopt = ''
+    cmd = " ".join([__file__, study, '--subject {} '.format(subject),
+            debugopt])
+    return cmd
+
+def make_vis_cmd(hcp_dir, subject, debug=False):
+    if debug:
+        debugopt = '--debug'
+    else:
+        debugopt = ''
+    cmd = "cifti_vis_recon_all snaps --hcp-data-dir {} {} {}".format(hcp_dir,
+            subject, debugopt)
+    return cmd
 
 def create_indices_bm(config, study):
     hcp_dir = config.get_path('hcp')
@@ -139,35 +159,31 @@ def main():
 
     qced_subjects = config.get_subject_metadata()
 
-# running for batch mode
-
-    new_subjects = []
+    # running for batch mode
+    commands = []
     # find subjects where at least one expected output does not exist
     for subject in qced_subjects:
+        fs_outputs = os.path.join(freesurfer_dir, subject)
+        if not fs_outputs_exist(fs_outputs):
+            continue
         subj_dir = os.path.join(hcp_dir, subject)
         if not ciftify_outputs_exist(subj_dir):
-            if fs_outputs_exist(os.path.join(freesurfer_dir, subject)):
-                new_subjects.append(subject)
-
-    create_indices_bm(config, study)
-
-    # submit a list of calls to ourself, one per subject
-    commands = []
-    if debug:
-        debugopt = '--debug'
-    else:
-        debugopt = ''
-
-    for subject in new_subjects:
-        commands.append(" ".join([__file__, study, '--subject {} '.format(subject), debugopt]))
+            cmd = make_subject_cmd(study, subject, debug=debug)
+            commands.append(cmd)
+        elif not qc_outputs_exist(subj_dir):
+            cmd = make_vis_cmd(hcp_dir, subject, debug=debug)
+            commands.append(cmd)
 
     if commands:
         logger.debug('queueing up the following commands:\n'+'\n'.join(commands))
 
+    # submit a list of calls to ourself, one per subject
     for i, cmd in enumerate(commands):
         job_name = 'dm_fs2hcp_{}_{}'.format(i, time.strftime("%Y%m%d-%H%M%S"))
         utils.submit_job(cmd, job_name, logs_dir,
             system = config.system, dryrun = dryrun)
+
+    create_indices_bm(config, study)
 
 
 if __name__ == '__main__':
