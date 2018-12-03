@@ -30,19 +30,19 @@ SCANID_PHA_RE = '(?P<study>[^_]+)_' \
 FILENAME_RE = SCANID_RE + '_' + \
               r'(?P<tag>[^_]+)_' + \
               r'(?P<series>\d+)_' + \
-              r'(?P<description>[^\.]*)' + \
-              r'(?P<ext>\..*)?'
+              r'(?P<description>.*?)' + \
+              r'(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|.IMA|.mnc|.nrrd|$)'
 
 FILENAME_PHA_RE = SCANID_PHA_RE + '_' + \
               r'(?P<tag>[^_]+)_' + \
               r'(?P<series>\d+)_' + \
-              r'(?P<description>[^\.]*)' + \
-              r'(?P<ext>\..*)?'
+              r'(?P<description>.*?)' + \
+              r'(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|.IMA|.mnc|.nrrd|$)'
 
 SCANID_PATTERN       = re.compile('^'+SCANID_RE+'$')
 SCANID_PHA_PATTERN   = re.compile('^'+SCANID_PHA_RE+'$')
-FILENAME_PATTERN     = re.compile('^'+FILENAME_RE+'$')
-FILENAME_PHA_PATTERN = re.compile('^'+FILENAME_PHA_RE+'$')
+FILENAME_PATTERN     = re.compile('^'+FILENAME_RE)
+FILENAME_PHA_PATTERN = re.compile('^'+FILENAME_PHA_RE)
 
 #python 2 - 3 compatibility hack
 try:
