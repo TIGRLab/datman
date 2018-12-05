@@ -32,9 +32,13 @@ Options:
 
 
 Notes on arguments:
-    option exclude finds files in the temporary BIDS directory created using a *<TAG>* regex.
+    option "exclude" finds files in the temporary BIDS directory created using a *<TAG>* regex.
 
     JSON:
+    REQUIRED KEYS:
+        app: APP-NAME (see supported workflows)
+        img: /path/to/img
+        bidsargs : {...}, a key value pair set of arguments to pass to the BIDS application. Can be empty dict if using default setting
     Additionally, the following arguments will NOT be parsed correctly:
         --participant_label --> wrapper script handles this for you
         w WORKDIR          --> tmp-dir/work becomes the workdir
@@ -42,6 +46,7 @@ Notes on arguments:
     The number of threads requested by qsub (if using HPC) is determined by the number of threads
     indicated in the json file under bidsarg for the particular pipeline. This is done so the number
     of processors per node requested matches that of the expected amount of available cores for the bids-apps
+
 
 Requirements:
     FSL - dm_to_bids.py requires it to run
@@ -564,7 +569,7 @@ def write_executable(f, cmds):
 
     return
 
-def submit_jobfile(job_file,subject,threads,queue,walltime):
+def submit_jobfile(job_file,subject,queue,walltime='24:00:00',threads=1):
 
     '''
     Submit BIDS-app jobfile to queue
@@ -575,14 +580,21 @@ def submit_jobfile(job_file,subject,threads,queue,walltime):
         threads                     Number of threads assigned to each job
     '''
 
-    #Thread argument if provided
-    thread_arg = '-l nodes=1:ppn={threads},walltime={wtime}'.format(threads=threads,wtime=walltime) if \
-    (threads and queue.lower() == 'pbs') else ''
+    if queue == 'slurm':
+        thread_arg = '--job-name {subject} --cpus-per-task {threads} --time {wtime}'.format(subject=subject, 
+                threads=threads,wtime=walltime)
+        cmd = 'sbatch {args} '.format(args=thread_arg)
 
-    #Formulate command
-    cmd = 'qsub {pbs} -V -N {subject} {job}'.format(pbs=thread_arg,subject=subject,job=job_file)
+    else:
+        thread_arg = '-l nodes=1:ppn={threads},walltime={wtime}'.format(threads=threads,wtime=walltime) \
+                if queue =='pbs' else '' 
+        cmd = 'qsub {pbs} -V -N {subject}'.format(pbs=thread_arg,subject=subject)
+
+    #Append job to cmd
+    cmd = ' '.join([cmd,job_file])
+
+    #Submit
     logger.info('Submitting job with command: {}'.format(cmd))
-
     p = proc.Popen(cmd, stdin=proc.PIPE, stdout=proc.PIPE, shell=True)
     std, err = p.communicate()
 
@@ -697,7 +709,7 @@ def main():
 
     DRYRUN              =   arguments['--DRYRUN']
 
-    walltime            =   arguments['--walltime'] or '24:00:00'
+    walltime            =   arguments['--walltime']
 
     #Strategy pattern dictionary
     strat_dict = {
