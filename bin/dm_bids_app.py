@@ -769,7 +769,7 @@ def main():
         write_executable(job_file,master_cmd)
 
         if not DRYRUN:
-            submit_jobfile(job_file,s,n_thread,queue,walltime)
+            submit_jobfile(job_file,s,queue,walltime,n_thread)
 
 if __name__ == '__main__':
     main()
