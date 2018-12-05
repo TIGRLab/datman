@@ -99,12 +99,11 @@ def get_bids_name(subject):
     try:
         ident = scan_ident.parse(subject)
     except scan_ident.ParseException:
-        logger.error('Cannot parse {}, attempting to reconcile with _01!'.format(subject))
 
         try:
             ident = scan_ident.parse(subject + '_01')
         except scan_ident.ParseException: 
-            logger.error('Failed to reconcile with _01, {} is invalid!'.format(subject)) 
+            logger.error('{s} and {s}_01, is invalid!'.format(s=subject)) 
             raise
 
     return ident.get_bids_name()

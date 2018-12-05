@@ -11,8 +11,6 @@ import tarfile
 import logging
 import tempfile
 import shutil
-import shlex
-import pipes
 import contextlib
 import subprocess as proc
 
@@ -26,6 +24,7 @@ import datman.scanid as scanid
 
 logger = logging.getLogger(__name__)
 
+
 def check_checklist(session_name, study=None):
     """Reads the checklist identified from the session_name
     If there is an entry returns the comment, otherwise
@@ -33,7 +32,7 @@ def check_checklist(session_name, study=None):
     """
 
     try:
-        ident = scanid.parse(session_name)
+        scanid.parse(session_name)
     except scanid.ParseException:
         logger.warning('Invalid session id:{}'.format(session_name))
         return
@@ -69,6 +68,7 @@ def check_checklist(session_name, study=None):
                     return ''
 
     return None
+
 
 def check_blacklist(scan_name, study=None):
     """Reads the checklist identified from the session_name
@@ -127,24 +127,6 @@ def script_path():
     """
     return os.path.abspath(os.path.dirname(sys.argv[0]))
 
-def guess_tag(description, tagmap):
-    """
-    Given a series description return a list of series tags this might be.
-
-    By "series tag" we mean a short code like T1, DTI, etc.. that indicates
-    more generally what the data is (usually the DICOM header
-    SeriesDescription).
-
-    <tagmap> is a dictionary that maps a regex to a series tag, where the regex
-    matches the series description dicom header. If not specified this modules
-    SERIES_TAGS_MAP is used.
-    """
-    matches = list(set(
-        [tag for p,tag in tagmap.iteritems() if re.search(p,description)]
-        ))
-    if len(matches) == 0: return None
-    if len(matches) == 1: return matches[0]
-    return matches
 
 def mangle_basename(base_path):
     """
@@ -154,6 +136,7 @@ def mangle_basename(base_path):
     base = os.path.basename(base_path).lower()
 
     return base
+
 
 def mangle(string):
     """Mangles a string to conform with the naming scheme.
@@ -166,6 +149,7 @@ def mangle(string):
     if not string:
         string = ""
     return re.sub(r"[^a-zA-Z0-9.+]+","-",string)
+
 
 def get_extension(path):
     """
@@ -181,6 +165,7 @@ def get_extension(path):
         return '.nii.gz'
     else:
         return os.path.splitext(path)[1]
+
 
 def get_archive_headers(path, stop_after_first = False):
     """
@@ -206,6 +191,7 @@ def get_archive_headers(path, stop_after_first = False):
     else:
         raise Exception("{} must be a file (zip/tar) or folder.".format(path))
 
+
 def get_tarfile_headers(path, stop_after_first = False):
     """
     Get headers for dicom files within a tarball
@@ -226,6 +212,7 @@ def get_tarfile_headers(path, stop_after_first = False):
             continue
     return manifest
 
+
 def get_zipfile_headers(path, stop_after_first = False):
     """
     Get headers for a dicom file within a zipfile
@@ -235,10 +222,12 @@ def get_zipfile_headers(path, stop_after_first = False):
     manifest = {}
     for f in zf.namelist():
         dirname = os.path.dirname(f)
-        if dirname in manifest: continue
+        if dirname in manifest:
+            continue
         try:
             manifest[dirname] = dcm.read_file(io.BytesIO(zf.read(f)))
-            if stop_after_first: break
+            if stop_after_first:
+                break
         except dcm.filereader.InvalidDicomError as e:
             continue
         except zipfile.BadZipfile:
@@ -247,7 +236,8 @@ def get_zipfile_headers(path, stop_after_first = False):
             break
     return manifest
 
-def get_folder_headers(path, stop_after_first = False):
+
+def get_folder_headers(path, stop_after_first=False):
     """
     Generate a dictionary of subfolders and dicom headers.
     """
@@ -258,7 +248,7 @@ def get_folder_headers(path, stop_after_first = False):
     # file that has header information
     subdirs = []
     for filename in os.listdir(path):
-        filepath = os.path.join(path,filename)
+        filepath = os.path.join(path, filename)
         try:
             if os.path.isdir(filepath):
                 subdirs.append(filepath)
@@ -268,14 +258,16 @@ def get_folder_headers(path, stop_after_first = False):
         except dcm.filereader.InvalidDicomError as e:
             pass
 
-    if stop_after_first: return manifest
+    if stop_after_first:
+        return manifest
 
     # recurse
     for subdir in subdirs:
         manifest.update(get_folder_headers(subdir, stop_after_first))
     return manifest
 
-def get_all_headers_in_folder(path, recurse = False):
+
+def get_all_headers_in_folder(path, recurse=False):
     """
     Get DICOM headers for all files in the given path.
 
@@ -286,15 +278,17 @@ def get_all_headers_in_folder(path, recurse = False):
     manifest = {}
     for dirname, dirnames, filenames in os.walk(path):
         for filename in filenames:
-            filepath = os.path.join(dirname,filename)
+            filepath = os.path.join(dirname, filename)
             headers = None
             try:
                 headers = dcm.read_file(filepath)
             except dcm.filereader.InvalidDicomError as e:
                 continue
             manifest[filepath] = headers
-        if not recurse: break
+        if not recurse:
+            break
     return manifest
+
 
 def col(arr, colname):
     """
@@ -302,8 +296,9 @@ def col(arr, colname):
 
     Column names are given by the first row in the ndarray
     """
-    idx = np.where(arr[0,] == colname)[0]
-    return arr[1:,idx][:,0]
+    idx = np.where(arr[0, ] == colname)[0]
+    return arr[1:, idx][:, 0]
+
 
 def subject_type(subject):
     """
@@ -327,6 +322,7 @@ def subject_type(subject):
     except:
         return None
 
+
 def get_subjects(path):
     """
     Finds all of the subject folders in the supplied directory, and returns
@@ -338,6 +334,7 @@ def get_subjects(path):
     subjects.sort()
 
     return subjects
+
 
 def get_phantoms(path):
     """
@@ -352,6 +349,7 @@ def get_phantoms(path):
             phantoms.append(subject)
 
     return phantoms
+
 
 def get_xnat_catalog(data_path, subject):
     """
@@ -377,6 +375,7 @@ def get_xnat_catalog(data_path, subject):
 
     return catalogs
 
+
 def define_folder(path):
     """
     Sets a variable to be the path to a folder. Also, if the folder does not
@@ -395,17 +394,19 @@ def define_folder(path):
 
     return path
 
+
 def has_permissions(path):
     """
     Checks for write access to submitted path.
     """
-    if os.access(path, 7) == True:
+    if os.access(path, 7):
         flag = True
     else:
         logger.error('You do not have write access to path {}'.format(path))
         flag = False
 
     return flag
+
 
 def make_epitome_folders(path, n_runs):
     """
@@ -422,6 +423,7 @@ def make_epitome_folders(path, n_runs):
         num = "{:0>2}".format(str(r))
         run('mkdir -p ' + path + '/TEMP/SUBJ/FUNC/SESS01/RUN' + num)
 
+
 def run_dummy_q(list_of_names):
     """
     This holds the script until all of the queued items are done.
@@ -432,6 +434,7 @@ def run_dummy_q(list_of_names):
     cmd = 'qsub -sync y -hold_jid {} -l {} -b y echo'.format(holds, opts)
     run(cmd)
     logger.info('... Done.')
+
 
 def run(cmd, dryrun=False, specialquote=True, verbose=True):
     """
@@ -478,7 +481,7 @@ def _escape_shell_chars(arg):
     return(arg)
 
 
-def get_files_with_tag(parentdir, tag, fuzzy = False):
+def get_files_with_tag(parentdir, tag, fuzzy=False):
     """
     Returns a list of files that have the specified tag.
 
@@ -494,11 +497,12 @@ def get_files_with_tag(parentdir, tag, fuzzy = False):
         try:
             _, filetag, _, _ = scanid.parse_filename(f)
             if tag == filetag or (fuzzy and tag in filetag):
-                files.append(os.path.join(parentdir,f))
+                files.append(os.path.join(parentdir, f))
         except scanid.ParseException:
             continue
 
     return files
+
 
 def makedirs(path):
     """
@@ -506,6 +510,7 @@ def makedirs(path):
     """
     if not os.path.exists(path):
         os.makedirs(path)
+
 
 def loadnii(filename):
     """
@@ -543,9 +548,11 @@ def loadnii(filename):
 
     return nifti, affine, header, dims
 
+
 def check_returncode(returncode):
     if returncode != 0:
         raise ValueError
+
 
 def get_loaded_modules():
     """Returns a space separated list of loaded modules
@@ -553,7 +560,8 @@ def get_loaded_modules():
     These are modules loaded by the environment-modules system. This function
     just looks in the LOADEDMODULES environment variable for the list.
     """
-    return " ".join(os.environ.get("LOADEDMODULES","").split(":"))
+    return " ".join(os.environ.get("LOADEDMODULES", "").split(":"))
+
 
 def splitext(path):
     """
@@ -565,6 +573,7 @@ def splitext(path):
             return path[:-len(ext)], path[-len(ext):]
     return os.path.splitext(path)
 
+
 @contextlib.contextmanager
 def make_temp_directory(suffix='', prefix='tmp', path=None):
     temp_dir = tempfile.mkdtemp(suffix=suffix, prefix=prefix, dir=path)
@@ -573,6 +582,7 @@ def make_temp_directory(suffix='', prefix='tmp', path=None):
     finally:
         shutil.rmtree(temp_dir)
 
+
 def remove_empty_files(path):
     for root, dirs, files in os.walk(path):
         for f in files:
@@ -580,14 +590,16 @@ def remove_empty_files(path):
             if os.path.getsize(filename) == 0:
                 os.remove(filename)
 
+
 def nifti_basename(fpath):
     """
     return basename without extension (either .nii.gz or .nii)
     """
     basefpath = os.path.basename(fpath)
-    stem = basefpath.replace('.nii','').replace('.gz', '')
+    stem = basefpath.replace('.nii', '').replace('.gz', '')
 
     return(stem)
+
 
 def filter_niftis(candidates):
     """
@@ -597,6 +609,7 @@ def filter_niftis(candidates):
                                      'nii' == '.'.join(x.split('.')[1:]), candidates)
 
     return candidates
+
 
 def split_path(path):
     """
@@ -614,6 +627,7 @@ def split_path(path):
         else:
             break
     return(path_split)
+
 
 class cd(object):
     """
@@ -636,6 +650,7 @@ class cd(object):
     def __exit__(self, e, value, traceback):
         os.chdir(self.old_path)
 
+
 class XNATConnection(object):
     def __init__(self,  xnat_url, user_name, password):
         self.server = xnat_url
@@ -649,6 +664,7 @@ class XNATConnection(object):
 
     def __exit__(self, type, value, traceback):
         self.connection.disconnect()
+
 
 def get_xnat_credentials(config, xnat_cred):
     if not xnat_cred:
@@ -665,6 +681,7 @@ def get_xnat_credentials(config, xnat_cred):
         sys.exit(1)
     return user_name, password
 
+
 def read_credentials(cred_file):
     credentials = []
     try:
@@ -677,6 +694,7 @@ def read_credentials(cred_file):
         sys.exit(1)
     return credentials
 
+
 def get_relative_source(source, target):
     if os.path.isfile(source):
         source_file = os.path.basename(source)
@@ -687,6 +705,7 @@ def get_relative_source(source, target):
     rel_source_dir = os.path.relpath(source, os.path.dirname(target))
     rel_source = os.path.join(rel_source_dir, source_file)
     return rel_source
+
 
 def check_dependency_configured(program_name, shell_cmd=None, env_vars=None):
     """
@@ -721,6 +740,7 @@ def check_dependency_configured(program_name, shell_cmd=None, env_vars=None):
     except KeyError:
         raise EnvironmentError(message)
 
+
 def validate_subject_id(subject_id, config):
     """
     Checks that a given subject id
@@ -751,6 +771,7 @@ def validate_subject_id(subject_id, config):
                 subject_id, scanid.site, scanid.study))
 
     return scanid
+
 
 def submit_job(cmd, job_name, log_dir, system = 'other',
         cpu_cores=1, walltime="2:00:00", dryrun = False):
@@ -790,6 +811,7 @@ def submit_job(cmd, job_name, log_dir, system = 'other',
             logger.error("stdout: {}".format(out))
         sys.exit(1)
 
+
 def get_resources(open_zipfile):
     # filter dirs
     files = open_zipfile.namelist()
@@ -808,9 +830,11 @@ def get_resources(open_zipfile):
             logger.error('Error in zipfile:{}'.format(f))
     return resource_files
 
+
 def is_named_like_a_dicom(path):
     dcm_exts = ('dcm', 'img')
     return any(map(lambda x: path.lower().endswith(x), dcm_exts))
+
 
 def is_dicom(fileobj):
     try:
@@ -818,6 +842,7 @@ def is_dicom(fileobj):
         return True
     except dcm.filereader.InvalidDicomError:
         return False
+
 
 def make_zip(source_dir, dest_zip):
     # Can't use shutil.make_archive here because for python 2.7 it fails on
