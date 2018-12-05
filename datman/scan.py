@@ -156,6 +156,8 @@ class Scan(DatmanNamed):
 
         self.nii_path = self.__get_path('nii', config)
         self.dcm_path = self.__get_path('dcm', config)
+        self.nrrd_path = self.__get_path('nrrd', config)
+        self.mnc_path = self.__get_path('mnc', config)
         self.qc_path = self.__get_path('qc', config)
         self.resource_path = self.__get_path('resources', config, session=True)
 
