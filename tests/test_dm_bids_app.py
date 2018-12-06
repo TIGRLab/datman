@@ -250,7 +250,7 @@ class TestBASHCommands(unittest.TestCase):
         #Remove the temp directory at the end of testing 
         shutil.rmtree(self.tmpdir) 
 
-    def test_get_init_cmd_creates_correct_directories(self):
+    def test_get_init_cmd_creates_correct_directories_when_bidsdir_equals_tmpdir(self):
 
         #Set up test_path 
         os.makedirs(os.path.join(self.tmpdir,'correct_directories'))
@@ -259,12 +259,13 @@ class TestBASHCommands(unittest.TestCase):
         subject = 'SPN01_CMH_1234_01'
         study= 'SPINS' 
         test_dir = os.path.join(self.tmpdir,'correct_directories')
+        bids_dir = test_dir
         sub_dir = 'test'
         simg = 'some_image.img'
         log_tag = ''
 
         #Fetch command 
-        cmd = ba.get_init_cmd(study,subject,test_dir,sub_dir,simg,log_tag)
+        cmd = ba.get_init_cmd(study,subject,bids_dir,test_dir,sub_dir,simg,log_tag)
         cmd = '\n'.join(cmd) 
 
         #Remove EXIT trap to prevent removing file
@@ -298,13 +299,14 @@ class TestBASHCommands(unittest.TestCase):
         subject = 'SPN01_CMH_1234_01' 
         study = 'SPINS' 
         test_dir = os.path.join(self.tmpdir,'get_init_correct_log') 
+        bids_dir = test_dir
         out_dir = 'test' 
         simg = 'some_image.img' 
         log_file = os.path.join(test_dir,'test_log.txt')
         log_tag = ' &> {}'.format(log_file)
 
         #Fetch command
-        cmd = ba.get_init_cmd(study,subject,test_dir,out_dir,simg,log_tag) 
+        cmd = ba.get_init_cmd(study,subject,bids_dir,test_dir,out_dir,simg,log_tag) 
         cmd = '\n'.join(cmd) 
         cmd = cmd.replace('trap cleanup EXIT','') 
 
