@@ -20,6 +20,8 @@ Options:
     -r, --rewrite                   Overwrite if outputs already exist in BIDS output directory 
     -t, --tmp-dir TMPDIR            Specify temporary directory 
                                     [default : '/tmp/']
+    -b, --bids-dir BIDSDIR          Specify BIDS directory to use
+                                    [default : 'TMPDIR/bids']
     -w, --walltime WALLTIME         Specify a walltime to use for the qsub submission
                                     [default : '24:00:00']
     -l, --log LOGDIR                Specify additional bids-app log output directory
@@ -32,9 +34,13 @@ Options:
 
 
 Notes on arguments:
-    option exclude finds files in the temporary BIDS directory created using a *<TAG>* regex.
+    option "exclude" finds files in the temporary BIDS directory created using a *<TAG>* regex.
 
     JSON:
+    REQUIRED KEYS:
+        app: APP-NAME (see supported workflows)
+        img: /path/to/img
+        bidsargs : {...}, a key value pair set of arguments to pass to the BIDS application. Can be empty dict if using default setting
     Additionally, the following arguments will NOT be parsed correctly:
         --participant_label --> wrapper script handles this for you
         w WORKDIR          --> tmp-dir/work becomes the workdir
@@ -42,6 +48,7 @@ Notes on arguments:
     The number of threads requested by qsub (if using HPC) is determined by the number of threads
     indicated in the json file under bidsarg for the particular pipeline. This is done so the number
     of processors per node requested matches that of the expected amount of available cores for the bids-apps
+
 
 Requirements:
     FSL - dm_to_bids.py requires it to run
@@ -247,13 +254,14 @@ def get_dict_args(arg_dict):
 
     return args
 
-def get_init_cmd(study,sgroup,tmp_dir,out_dir,simg,log_tag):
+def get_init_cmd(study,sgroup,bids_dir,tmp_dir,out_dir,simg,log_tag):
     '''
     Get initialization steps prior to running BIDS-apps
 
     Arguments:
         study                       DATMAN-style study shortname
         sgroup                      Output group identifier
+        bids_dir                    Location of BIDS directory to use
         tmp_dir                     Location BIDS-App temporary directory
         out_dir                     Location of output directory
         simg                        Singularity image location
@@ -271,6 +279,7 @@ def get_init_cmd(study,sgroup,tmp_dir,out_dir,simg,log_tag):
     init_cmd = '''
 
     APPHOME=$(mktemp -d {home})
+    BIDS={bids}
     BIDS=$APPHOME/bids
     WORK=$APPHOME/work
     SIMG={simg}
@@ -285,10 +294,12 @@ def get_init_cmd(study,sgroup,tmp_dir,out_dir,simg,log_tag):
     trap cleanup EXIT
 
     '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),
+            bids='$APPHOME/bids' if bids_dir==tmp_dir else bids_dir,
             simg=simg,
             sub=get_bids_name(sgroup).replace('sub-',''),
             out=out_dir,
-            log_tag=log_tag.replace('&>>','&>')) #This bit is to ensure that logs are wiped prior to appending for easier error tracking on re-runs
+            log_tag=log_tag.replace('&>>','&>')) 
+    #The log replace bit is to ensure that logs are wiped prior to appending for easier error tracking on re-runs
 
     return [trap_cmd,init_cmd]
 
@@ -563,7 +574,7 @@ def write_executable(f, cmds):
 
     return
 
-def submit_jobfile(job_file,subject,threads,queue,walltime):
+def submit_jobfile(job_file,subject,queue,walltime='24:00:00',threads=1):
 
     '''
     Submit BIDS-app jobfile to queue
@@ -574,14 +585,21 @@ def submit_jobfile(job_file,subject,threads,queue,walltime):
         threads                     Number of threads assigned to each job
     '''
 
-    #Thread argument if provided
-    thread_arg = '-l nodes=1:ppn={threads},walltime={wtime}'.format(threads=threads,wtime=walltime) if \
-    (threads and queue.lower() == 'pbs') else ''
+    if queue == 'slurm':
+        thread_arg = '--job-name {subject} --cpus-per-task {threads} --time {wtime}'.format(subject=subject, 
+                threads=threads,wtime=walltime)
+        cmd = 'sbatch {args} '.format(args=thread_arg)
 
-    #Formulate command
-    cmd = 'qsub {pbs} -V -N {subject} {job}'.format(pbs=thread_arg,subject=subject,job=job_file)
+    else:
+        thread_arg = '-l nodes=1:ppn={threads},walltime={wtime}'.format(threads=threads,wtime=walltime) \
+                if queue =='pbs' else '' 
+        cmd = 'qsub {pbs} -V -N {subject}'.format(pbs=thread_arg,subject=subject)
+
+    #Append job to cmd
+    cmd = ' '.join([cmd,job_file])
+
+    #Submit
     logger.info('Submitting job with command: {}'.format(cmd))
-
     p = proc.Popen(cmd, stdin=proc.PIPE, stdout=proc.PIPE, shell=True)
     std, err = p.communicate()
 
@@ -692,11 +710,12 @@ def main():
 
     rewrite             =   arguments['--rewrite']
     tmp_dir             =   arguments['--tmp-dir'] or '/tmp/'
+    bids_dir            =   arguments['--bids-dir'] or tmp_dir
     log_dir             =   arguments['--log']
 
     DRYRUN              =   arguments['--DRYRUN']
 
-    walltime            =   arguments['--walltime'] or '24:00:00'
+    walltime            =   arguments['--walltime']
 
     #Strategy pattern dictionary
     strat_dict = {
@@ -746,7 +765,7 @@ def main():
         log_tag = log_cmd(subject=s,app_name=jargs['app'])
 
         #Get commands
-        init_cmd_list = get_init_cmd(study,s,tmp_dir,out,jargs['img'],log_tag)
+        init_cmd_list = get_init_cmd(study,s,bids_dir,tmp_dir,out,jargs['img'],log_tag)
         n2b_cmd = get_nii_to_bids_cmd(study,subjects[s],log_tag)
         bids_cmd_list = strat_dict[jargs['app']](jargs,log_tag,out,s)
 
@@ -757,7 +776,7 @@ def main():
         write_executable(job_file,master_cmd)
 
         if not DRYRUN:
-            submit_jobfile(job_file,s,n_thread,queue,walltime)
+            submit_jobfile(job_file,s,queue,walltime,n_thread)
 
 if __name__ == '__main__':
     main()
