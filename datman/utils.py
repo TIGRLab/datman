@@ -92,7 +92,7 @@ def check_blacklist(scan_name, study=None):
     try:
         ident, tag, series_num, _ = scanid.parse_filename(scan_name)
     except scanid.ParseException:
-        logger.warning('Invalid session id:{}'.format(scan_name))
+        logger.warning('Invalid session id: {}'.format(scan_name))
         return
 
     scan = dash.get_scan(scan_name)
