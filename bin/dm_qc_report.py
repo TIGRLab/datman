@@ -13,7 +13,10 @@ Arguments:
 
 Options:
     --rewrite          Rewrite the html of an existing qc page
-    --log-to-server    If set, all log messages will also be sent to the configured logging server. This is useful when the script is run with the Sun Grid Engine, since it swallows logging messages.
+    --log-to-server    If set, all log messages will also be sent to the
+                       configured logging server. This is useful when the
+                       script is run with the Sun Grid Engine, since it swallows
+                       logging messages.
     -q --quiet         Only report errors
     -v --verbose       Be chatty
     -d --debug         Be extra chatty
@@ -675,6 +678,15 @@ def generate_qc_report(report_name, subject, expected_files, header_diffs, confi
                     tag_settings)
     except:
         raise
+    update_dashboard(subject, report_name)
+
+def update_dashboard(subject, report_name):
+    db_subject = subject.get_from_db()
+    if not db_subject:
+        return
+    db_subject.last_qc_repeat_generated = len(db_subject.sessions)
+    db_subject.static_page = report_name
+    db_subject.save()
 
 def get_position(position_info):
     if isinstance(position_info, list):
@@ -946,29 +958,20 @@ def check_for_repeat_session(subject):
     created.
 
     WARNING: If it cannot find the dashboard/database pages will not be updated
+    to add the new session(s)
     """
     global REWRITE
 
-    try:
-        db_session = subject.get_db_object()
-    except ImportError:
-        logger.error("Cannot access dashboard database, {} QC may become out of "
-                "date if repeat sessions exist".format(subject.full_id))
+    db_subject = subject.get_from_db()
+
+    # will be None if entry doesn't exist in dashboard or dashboard isnt setup
+    if not db_subject:
+        logger.warning('Cannot find subject {} in dashboard database. They may '
+                'be missing, or database may be inaccessible.'.format(subject))
         return
 
-    # db_session is None if entry doesn't exist in dashboard
-    if not db_session:
-        logger.warning('Subject:{} not found in database'.format(subject.full_id))
-        return
-
-    if db_session.last_repeat_qc_generated >= db_session.repeat_count:
-        # Not out of date, no rewrite needed
-        return
-
-    # this is a new session, going to cheat and overwrite REWRITE
-    REWRITE = True
-    db_session.last_repeat_qc_generated = db_session.repeat_count
-    db_session.flush_changes()
+    if db_subject.last_qc_repeat_generated < len(db_subject.sessions):
+        REWRITE = True
 
 def prepare_scan(subject_id, config):
     """
