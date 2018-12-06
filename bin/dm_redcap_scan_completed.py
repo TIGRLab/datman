@@ -23,12 +23,11 @@ from docopt import docopt
 
 import datman.config
 import datman.scanid
-import datman.dashboard
+import datman.dashboard as dashboard
 
 logger = logging.getLogger(os.path.basename(__file__))
 
 cfg = None
-dashboard = None
 redcap_url = None
 redcap_version = None
 redcap_project = None
@@ -71,40 +70,33 @@ def add_session_redcap(record):
     subject_id = record[cfg.get_key(['REDCAP_SUBJ'])].upper()
     if not datman.scanid.is_scanid(subject_id):
         try:
-            subject_id = subject_id + '_01'
+            subject_id = subject_id + '_01_01'
             datman.scanid.is_scanid(subject_id)
         except:
             logger.error('Invalid session: {}, skipping'.format(subject_id))
             return
 
     ident = datman.scanid.parse(subject_id)
-    session_name = ident.get_full_subjectid_with_timepoint()
     session_date = record[cfg.get_key(['REDCAP_DATE'])]
 
     try:
-        session = dashboard.get_add_session(session_name,
-                                            date=session_date,
-                                            create=True)
-    except datman.dashboard.DashboardException as e:
-        logger.error('Failed adding session {} to dashboard'.format(session_name))
+        session = dashboard.get_session(ident, date=session_date, create=True)
+    except datman.exceptions.DashboardException as e:
+        logger.error('Failed adding session {} to dashboard. Reason: {}'.format(
+                ident, e))
 
     try:
-        datman.dashboard.add_redcap(session,
-                                 record_id,
-                                 session_date,
-                                 cfg.get_key(['REDCAP_EVENTID'])[record['redcap_event_name']],
-                                 record[cfg.get_key(['REDCAP_COMMENTS'])],
-                                 redcap_url,
-                                 redcap_version,
-                                 redcap_project,
-                                 instrument)
+        session.add_redcap(record_id, redcap_project, redcap_url, instrument,
+                date=session_date,
+                comment=record[cfg.get_key(['REDCAP_COMMENTS'])],
+                event_id=cfg.get_key(['REDCAP_EVENTID'])[record['redcap_event_name']],
+                version=redcap_version)
     except:
-        logger.error('Failed adding REDCap info for session {} to dashboard'.format(session_name))
+        logger.error('Failed adding REDCap info for session {} to dashboard'.format(ident))
 
 
 def main():
     global cfg
-    global dashboard
     global redcap_url
     global redcap_version
     global redcap_project
@@ -142,13 +134,6 @@ def main():
 
     # get paths
     dir_meta = cfg.get_path('meta')
-
-    # set up the dashboard object
-    try:
-        dashboard = datman.dashboard.dashboard(study)
-    except datman.dashboard.DashboardException as e:
-        raise e
-        logger.error('Failed to initialise dashboard')
 
     # configure redcap variables
     api_url = cfg.get_key(['REDCAP_URL'])
