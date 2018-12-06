@@ -20,6 +20,8 @@ Options:
     -r, --rewrite                   Overwrite if outputs already exist in BIDS output directory 
     -t, --tmp-dir TMPDIR            Specify temporary directory 
                                     [default : '/tmp/']
+    -b, --bids-dir BIDSDIR          Specify BIDS directory to use
+                                    [default : 'TMPDIR/bids']
     -w, --walltime WALLTIME         Specify a walltime to use for the qsub submission
                                     [default : '24:00:00']
     -l, --log LOGDIR                Specify additional bids-app log output directory
@@ -252,13 +254,14 @@ def get_dict_args(arg_dict):
 
     return args
 
-def get_init_cmd(study,sgroup,tmp_dir,out_dir,simg,log_tag):
+def get_init_cmd(study,sgroup,bids_dir,tmp_dir,out_dir,simg,log_tag):
     '''
     Get initialization steps prior to running BIDS-apps
 
     Arguments:
         study                       DATMAN-style study shortname
         sgroup                      Output group identifier
+        bids_dir                    Location of BIDS directory to use
         tmp_dir                     Location BIDS-App temporary directory
         out_dir                     Location of output directory
         simg                        Singularity image location
@@ -276,6 +279,7 @@ def get_init_cmd(study,sgroup,tmp_dir,out_dir,simg,log_tag):
     init_cmd = '''
 
     APPHOME=$(mktemp -d {home})
+    BIDS={bids}
     BIDS=$APPHOME/bids
     WORK=$APPHOME/work
     SIMG={simg}
@@ -290,10 +294,12 @@ def get_init_cmd(study,sgroup,tmp_dir,out_dir,simg,log_tag):
     trap cleanup EXIT
 
     '''.format(home=os.path.join(tmp_dir,'home.XXXXX'),
+            bids='$APPHOME/bids' if bids_dir==tmp_dir else bids_dir,
             simg=simg,
             sub=get_bids_name(sgroup).replace('sub-',''),
             out=out_dir,
-            log_tag=log_tag.replace('&>>','&>')) #This bit is to ensure that logs are wiped prior to appending for easier error tracking on re-runs
+            log_tag=log_tag.replace('&>>','&>')) 
+    #The log replace bit is to ensure that logs are wiped prior to appending for easier error tracking on re-runs
 
     return [trap_cmd,init_cmd]
 
@@ -704,6 +710,7 @@ def main():
 
     rewrite             =   arguments['--rewrite']
     tmp_dir             =   arguments['--tmp-dir'] or '/tmp/'
+    bids_dir            =   arguments['--bids-dir'] or tmp_dir
     log_dir             =   arguments['--log']
 
     DRYRUN              =   arguments['--DRYRUN']
@@ -758,7 +765,7 @@ def main():
         log_tag = log_cmd(subject=s,app_name=jargs['app'])
 
         #Get commands
-        init_cmd_list = get_init_cmd(study,s,tmp_dir,out,jargs['img'],log_tag)
+        init_cmd_list = get_init_cmd(study,s,bids_dir,tmp_dir,out,jargs['img'],log_tag)
         n2b_cmd = get_nii_to_bids_cmd(study,subjects[s],log_tag)
         bids_cmd_list = strat_dict[jargs['app']](jargs,log_tag,out,s)
 
