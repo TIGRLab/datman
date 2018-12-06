@@ -174,7 +174,7 @@ class Scan(DatmanNamed):
             matched_dicoms = []
         return matched_dicoms
 
-    def get_db_object(self):
+    def get_from_db(self):
         """
         Returns the dashboard database object representing a subject
         """
