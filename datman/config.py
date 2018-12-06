@@ -13,6 +13,7 @@ import os
 import yaml
 
 import datman.scanid
+# import datman.dashboard as dash
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +145,6 @@ class config(object):
 
         try:
             parts = datman.scanid.parse(filename)
-            tag = parts.study
         except datman.scanid.ParseException:
             # The exception may be because a study tag was given instead of a
             # full ID. Check for this case, exit if it's just a bad ID
@@ -152,6 +152,16 @@ class config(object):
             if len(parts) > 1:
                 raise datman.scanid.ParseException("Malformed ID: {}".format(filename))
             tag = parts[0]
+            site = None
+        else:
+            tag = parts.study
+            site = parts.site
+
+        # project = dash.get_project(tag, site)
+        # if project:
+        #     return project
+
+        ###### Abandon all hope, ye who enter here
 
         if tag == 'DTI' and not isinstance(parts, datman.scanid.Identifier):
             # if parts isnt a datman scanid, only the study tag was given. Cant
