@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 from functools import wraps
 import logging
+import datetime
 
 import datman.scanid
 import datman.config
@@ -143,27 +144,35 @@ def add_subject(name):
 
 @dashboard_required
 @scanid_required
-def get_session(name, create=False):
+def get_session(name, create=False, date=None):
     session = queries.get_session(name.get_full_subjectid_with_timepoint(),
-            _get_session_num(name))
+            datman.scanid.get_session_num(name))
 
     if not session and create:
-        session = add_session(name)
+        session = add_session(name, date=date)
 
     return session
 
 
 @dashboard_required
 @scanid_required
-def add_session(name):
+def add_session(name, date=None):
     timepoint = get_subject(name, create=True)
-    sess_num = _get_session_num(name)
+    sess_num = datman.scanid.get_session_num(name)
 
     if timepoint.is_phantom and sess_num > 1:
         raise DashboardException("ERROR: attempt to add repeat scan session to "
                 "phantom {}".format(str(name)))
 
-    return timepoint.add_session(sess_num)
+    if date:
+        try:
+            date = datetime.strptime(date, '%Y-%m-%d')
+        except ValueError:
+            logger.error("Cannot create session: Invalid date format {}."
+                    "".format(date))
+            raise DashboardException("Invalid date format {}".format(date))
+
+    return timepoint.add_session(sess_num, date=date)
 
 
 @dashboard_required
@@ -220,6 +229,20 @@ def add_scan(name, tag=None, series=None, description=None, source=None):
     # 5. Get blacklist comment from filesystem, update if differs
 
 @dashboard_required
+def get_project(study_tag, site=None):
+    """
+    Return the full datman study name that owns this tag
+    """
+    studies = dash.queries.get_study(study_tag, site=site)
+    if len(studies) == 0:
+        raise DashboardException("Failed to locate study for tag {}".format(
+                study_tag))
+    if len(studies) > 1:
+        raise DashboardException("Tag {} does not uniquely identify "
+                "a project".format(study_tag))
+    return studies[0].study
+
+@dashboard_required
 def delete_extra_scans(local_session):
     local_scans = [_get_scan_name(n.id_plus_session, n.tag, n.series_num)
             for n in local_session.niftis]
@@ -255,18 +278,6 @@ def delete_extra_scans(local_session):
 # @dashboard_required
 # def add_redcap():
     # 1. Makes a redcap record
-
-def _get_session_num(datman_id):
-    try:
-        sess_num = int(datman_id.session)
-    except ValueError:
-        if datman.scanid.is_phantom(datman_id):
-            sess_num = 1
-        else:
-            raise DashboardException("ID {} contains invalid session "
-                    "number".format(str(datman_id)))
-    return sess_num
-
 
 def _get_scan_name(ident, tag, series):
     name = "_".join([str(ident), tag, str(series)])

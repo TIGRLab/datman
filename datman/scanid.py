@@ -107,7 +107,7 @@ def parse(identifier):
     if not match: match = SCANID_PHA_PATTERN.match(identifier)
     # work around for matching scanid's when session not supplied
     if not match: match = SCANID_PATTERN.match(identifier + '_XX')
-    if not match: raise ParseException()
+    if not match: raise ParseException("Invalid ID {}".format(identifier))
 
     ident = Identifier(study    = match.group("study"),
                        site     = match.group("site"),
@@ -163,3 +163,20 @@ def is_phantom(identifier):
         except ParseException:
             return False
     return identifier.subject[0:3] == 'PHA'
+
+def get_session_num(ident):
+    """
+    For those times when you always want a numeric session (including
+    for phantoms who are technically always session '1')
+    """
+    if ident.session:
+        try:
+            num = int(ident.session)
+        except ValueError:
+            raise ParseException("ID {} has non-numeric session number".format(
+                    ident))
+    elif is_phantom(ident):
+        num = 1
+    else:
+        raise ParseException("ID {} is missing a session number".format(ident))
+    return num
