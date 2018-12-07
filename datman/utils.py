@@ -164,66 +164,7 @@ def _parse_checklist(checklist, subject=None):
             entries[subid] = comment
 
     return entries
-
-
-
-def check_checklist(session_name, study=None):
-    """
-    Session name must be full ID with timepoint and session if reading from
-    the dashboard, but can omit the session if reading from a checklist.csv.
-
-    Reads the QC checklist identified from the session_name. If the dashboard
-    is available, it preferentially gets checklist info from there, otherwise
-    it searches in the checklist.csv file in the project's metadata folder.
-
-    If no checklist information is found for <session_name>, None is returned.
-    """
-    try:
-        ident = scanid.parse(session_name)
-    except scanid.ParseException:
-        logger.warning('Invalid session id:{}'.format(session_name))
-        return
-
-    session = dash.get_session(ident)
-    if session:
-        if session.signed_off:
-            return str(session.reviewer)
-        return
-
-    session_name = ident.get_full_subjectid_with_timepoint()
-    if study:
-        cfg = datman.config.config(study=study)
-    else:
-        cfg = datman.config.config(study=session_name)
-
-    try:
-        checklist_path = os.path.join(cfg.get_path('meta'),
-                                      'checklist.csv')
-    except KeyError:
-        logger.warning('Unable to identify meta path for study:{}'
-                       .format(cfg.study_name))
-        return
-
-    try:
-        with open(checklist_path, 'r') as f:
-            lines = f.readlines()
-    except IOError:
-        logger.warning('Unable to open checklist file {} for reading'
-                       .format(checklist_path))
-        return
-
-    for line in lines:
-        parts = line.split(None, 1)
-        if parts:  # fix for empty lines
-            if os.path.splitext(parts[0])[0] == 'qc_{}'.format(session_name):
-                try:
-                    return parts[1].strip()
-                except IndexError:
-                    return ''
-
-    return None
-
-
+    
 def check_blacklist(scan_name, study=None):
     """
     Retrieves any blacklist entries that exist for <scan_name>. If the dashboard
