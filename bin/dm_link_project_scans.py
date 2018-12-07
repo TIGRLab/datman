@@ -301,12 +301,12 @@ def delete_old_checklist_entry(checklist_path, entry):
             new_list.write(line)
 
 def copy_checklist_entry(source_id, target_id, target_checklist_path):
-    target_comment = datman.utils.check_checklist(target_id, study=target_id)
+    target_comment = datman.utils.read_checklist(subject=target_id)
     if target_comment:
         # Checklist entry already exists and has been signed off.
         return
 
-    source_comment = datman.utils.check_checklist(source_id, study=source_id)
+    source_comment = datman.utils.read_checklist(subject=source_id)
     if not source_comment:
         # No source comment to copy
         return
