@@ -22,8 +22,149 @@ import pyxnat
 import datman.config
 import datman.scanid as scanid
 import datman.dashboard as dash
+from datman.exceptions import MetadataException
 
 logger = logging.getLogger(__name__)
+
+def read_checklist(study=None, subject=None, config=None, path=None):
+    """
+    This function is used to look-up QC checklist entries. If the dashboard is
+    found it will ONLY check the dashboard database, otherwise it expects a
+    datman style 'checklist' file on the filesystem.
+
+    This function can accept either:
+        1) A study name (nickname, not the study tag) or subject ID (Including
+           a session number)
+        2) A datman config object, initialized to the study being worked with
+        3) A full path directly to a checklist file (Will circumvent the
+           dashboard database check and ignore any datman config files)
+
+    Returns:
+        - A dictionary of subject IDs mapped to their comment / name of the
+          person who signed off on their data
+        - OR the comment for a specific subject if a subject ID is given
+        - OR 'None' if a specific subject ID is given and they're not found
+          in the list
+    """
+    if subject:
+        ident = datman.scanid.parse(subject)
+
+    if dash.dash_found and not path:
+        subid = ident.get_full_subjectid_with_timepoint_session()
+        try:
+            entries = _fetch_checklist(subject=subid, study=study, config=config)
+        except Exception as e:
+            raise MetadataException("Can't retrieve checklist information "
+                    "from dashboard database. Reason - {}".format(str(e)))
+        return entries
+
+    logger.info("Dashboard not found, attempting to find a checklist "
+            "metadata file instead.")
+
+    if not (path or study or config or subject):
+        raise MetadataException("Can't locate the checklist file without either "
+                "1) a full path to the file 2) a study or subject ID or "
+                "3) a datman.config object")
+
+    if path:
+        checklist_path = path
+    else:
+        if not config:
+            given_study = subject or study
+            config = datman.config.config(study=given_study)
+        checklist_path = os.path.join(config.get_path('meta'),
+                'checklist.csv')
+
+    try:
+        with open(checklist_path, 'r') as checklist:
+            entries = _parse_checklist(checklist,
+                    subject=ident.get_full_subjectid_with_timepoint())
+    except Exception as e:
+        raise MetadataException("Failed to read checklist file "
+                "{}. Reason - {}".format(checklist_path, str(e)))
+
+    return entries
+
+def _fetch_checklist(subject=None, study=None, config=None):
+    """
+    Gets a list of existing / signed off sessions from the dashboard.
+
+    The checklist.csv file dropped the session number, so only information on
+    the first session is reported to maintain consistency. :(
+    """
+    if not (subject or study or config):
+        raise MetaDataException("Can't retrieve dashboard checklist "
+                "contents without either 1) a subject or study ID 2) a "
+                "datman.config object")
+
+    if subject:
+        session = dash.get_session(subject)
+        if session:
+            if session.signed_off:
+                return str(session.reviewer)
+            return ''
+        return
+
+    if config:
+        study = config.study_name
+
+    db_study = dash.get_project(study)
+    entries = {}
+    for timepoint in db_study.timepoints:
+        if timepoint.is_phantom or not len(timepoint.sessions):
+            continue
+        session = timepoint.sessions.values()[0]
+        if session.signed_off:
+            comment = str(session.reviewer)
+        else:
+            comment = ''
+        entries[timepoint.name] = comment
+
+    return entries
+
+def _parse_checklist(checklist, subject=None):
+    """
+    Gets a list of existing / signed off sessions from a checklist.csv file
+    The 'checklist' argument is expected to be a handler for an already opened
+    file.
+    """
+    if subject:
+        entries = None
+    else:
+        entries = {}
+
+    for line in checklist.readlines():
+        fields = line.split()
+        if not fields:
+            # Ignore blank lines
+            continue
+        try:
+            subid = os.path.splitext(fields[0].replace('qc_', ''))[0]
+        except:
+            raise MetadataException("Found malformed checklist entry: "
+                    "{}".format(line))
+        try:
+            datman.scanid.parse(subid)
+        except:
+            logger.error("Found malformed subject ID {} in checklist. "
+                    "Ignoring.".format(subid))
+            continue
+
+        if entries and subid in entries:
+            logger.info("Found duplicate checklist entries for {}. Ignoring "
+                    "all except the first entry found.".format(subid))
+            continue
+
+        comment = " ".join(fields[1:])
+        if subject:
+            if subid != subject:
+                continue
+            return comment
+        else:
+            entries[subid] = comment
+
+    return entries
+
 
 
 def check_checklist(session_name, study=None):

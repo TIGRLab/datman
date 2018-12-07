@@ -14,3 +14,7 @@ class XnatException(Exception):
 
 class DashboardException(Exception):
     """Default exception for dashboard errors"""
+    pass
+
+class MetadataException(Exception):
+    pass

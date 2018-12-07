@@ -10,7 +10,6 @@ from datman.exceptions import DashboardException
 logger = logging.getLogger(__name__)
 
 try:
-    import dashboard
     from dashboard import queries
 except ImportError:
     dash_found = False
@@ -24,6 +23,8 @@ def dashboard_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not dash_found:
+            logger.warning("Dashboard not installed or configured correctly, "
+                    "ignoring functionality.")
             if 'create' in kwargs.keys() or f.__name__.startswith('add'):
                 raise DashboardException("Can't add record. Dashboard not "
                         "installed or configured")
@@ -120,7 +121,7 @@ def get_subject(name, create=False):
 @dashboard_required
 @scanid_required
 def add_subject(name):
-    studies = queries.get_study(name.study, site=name.site)
+    studies = queries.get_study(tag=name.study, site=name.site)
     if not studies:
         raise DashboardException("ID {} contains invalid study / site "
                 "combination".format(name))
@@ -200,7 +201,7 @@ def get_scan(name, tag=None, series=None, description=None, create=False):
 @filename_required
 def add_scan(name, tag=None, series=None, description=None, source=None):
     session = get_session(name, create=True)
-    studies = queries.get_study(name.study, site=name.site)
+    studies = queries.get_study(tag=name.study, site=name.site)
     scan_name = _get_scan_name(name, tag, series)
 
     if len(studies) != 1:
@@ -229,18 +230,27 @@ def add_scan(name, tag=None, series=None, description=None, source=None):
     # 5. Get blacklist comment from filesystem, update if differs
 
 @dashboard_required
-def get_project(study_tag, site=None):
+def get_project(name=None, tag=None, site=None):
     """
-    Return the full datman study name that owns this tag
+    Return a study from the dashboard database that either matches the
+    study name (e.g. 'SPINS') or matches a study tag (e.g. 'SPN01') + an
+    optional site code to help locate the correct study when the same code
+    is reused for multiple sites or studies.
     """
-    studies = dash.queries.get_study(study_tag, site=site)
+    if not (name or tag):
+        raise DashboardException("Can't locate a study without the study "
+                "nickname or a study tag")
+    studies = queries.get_study(name=name, tag=tag, site=site)
+    search_term = name or tag
     if len(studies) == 0:
-        raise DashboardException("Failed to locate study for tag {}".format(
-                study_tag))
+        raise DashboardException("Failed to locate study matching {}".format(
+                search_term))
     if len(studies) > 1:
-        raise DashboardException("Tag {} does not uniquely identify "
-                "a project".format(study_tag))
-    return studies[0].study
+        raise DashboardException("{} does not uniquely identify "
+                "a project".format(search_term))
+    if not name:
+        return studies[0].study
+    return studies[0]
 
 @dashboard_required
 def delete_extra_scans(local_session):
