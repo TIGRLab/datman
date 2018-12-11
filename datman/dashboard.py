@@ -263,6 +263,20 @@ def delete_extra_scans(local_session):
         logger.info("Deleting scan {} from dashboard".format(scan))
         dash_session.delete_scan(scan)
 
+@dashboard_required
+def get_default_user():
+    try:
+        config = datman.config.config()
+        username = config.get_key('DEFAULT_DASH_USER')
+    except Exception as e:
+        raise DashboardException("Can't retrieve default dashboard user name. "
+                "Reason - {}".format(e))
+    user = queries.get_user(username)
+    if not user or len(user) > 1:
+        raise DashboardException("Can't locate default user {} in "
+                "dashboard database".format(username))
+    return user[0]
+
 # @dashboard_required
 # def get_scantype(scantype):
 #     if not dash_found:
