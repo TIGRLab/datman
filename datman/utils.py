@@ -9,6 +9,8 @@ import glob
 import zipfile
 import tarfile
 import logging
+import random
+import time
 import tempfile
 import shutil
 import contextlib
@@ -25,6 +27,22 @@ import datman.dashboard as dash
 from datman.exceptions import MetadataException
 
 logger = logging.getLogger(__name__)
+
+def locate_metadata(filename, study=None, subject=None, config=None, path=None):
+    if not (path or study or config or subject):
+        raise MetadataException("Can't locate metadata file {} without either "
+                "1) a full path to the file 2) a study or subject ID or "
+                "3) a datman.config object".format(filename))
+
+    if path:
+        file_path = path
+    else:
+        if not config:
+            given_study = subject or study
+            config = datman.config.config(study=given_study)
+        file_path = os.path.join(config.get_path('meta'), filename)
+
+    return file_path
 
 def read_checklist(study=None, subject=None, config=None, path=None):
     """
@@ -50,9 +68,11 @@ def read_checklist(study=None, subject=None, config=None, path=None):
         ident = datman.scanid.parse(subject)
 
     if dash.dash_found and not path:
-        subid = ident.get_full_subjectid_with_timepoint_session()
+        if subject:
+            subject = ident.get_full_subjectid_with_timepoint_session()
         try:
-            entries = _fetch_checklist(subject=subid, study=study, config=config)
+            entries = _fetch_checklist(subject=subject, study=study,
+                    config=config)
         except Exception as e:
             raise MetadataException("Can't retrieve checklist information "
                     "from dashboard database. Reason - {}".format(str(e)))
@@ -60,25 +80,16 @@ def read_checklist(study=None, subject=None, config=None, path=None):
 
     logger.info("Dashboard not found, attempting to find a checklist "
             "metadata file instead.")
+    checklist_path = locate_metadata('checklist.csv', path=path,
+            subject=subject, study=study, config=config)
 
-    if not (path or study or config or subject):
-        raise MetadataException("Can't locate the checklist file without either "
-                "1) a full path to the file 2) a study or subject ID or "
-                "3) a datman.config object")
-
-    if path:
-        checklist_path = path
-    else:
-        if not config:
-            given_study = subject or study
-            config = datman.config.config(study=given_study)
-        checklist_path = os.path.join(config.get_path('meta'),
-                'checklist.csv')
+    if subject:
+        subject = ident.get_full_subjectid_with_timepoint()
 
     try:
         with open(checklist_path, 'r') as checklist:
             entries = _parse_checklist(checklist,
-                    subject=ident.get_full_subjectid_with_timepoint())
+                    subject=subject)
     except Exception as e:
         raise MetadataException("Failed to read checklist file "
                 "{}. Reason - {}".format(checklist_path, str(e)))
@@ -87,23 +98,28 @@ def read_checklist(study=None, subject=None, config=None, path=None):
 
 def _fetch_checklist(subject=None, study=None, config=None):
     """
-    Gets a list of existing / signed off sessions from the dashboard.
+    Support function for read_checklist(). Gets a list of existing / signed off
+    sessions from the dashboard.
 
     The checklist.csv file dropped the session number, so only information on
     the first session is reported to maintain consistency. :(
+
+    Returns a dictionary formatted like that of '_parse_checklist' or a string
+    comment if the 'subject' argument was given
     """
     if not (subject or study or config):
-        raise MetaDataException("Can't retrieve dashboard checklist "
+        raise MetadataException("Can't retrieve dashboard checklist "
                 "contents without either 1) a subject or study ID 2) a "
                 "datman.config object")
 
     if subject:
         session = dash.get_session(subject)
-        if session:
-            if session.signed_off:
-                return str(session.reviewer)
-            return ''
-        return
+        if not session:
+            return
+        if session.signed_off:
+            return str(session.reviewer)
+        return ''
+
 
     if config:
         study = config.study_name
@@ -124,9 +140,15 @@ def _fetch_checklist(subject=None, study=None, config=None):
 
 def _parse_checklist(checklist, subject=None):
     """
-    Gets a list of existing / signed off sessions from a checklist.csv file
+    Support function for read_checklist(). Gets a list of existing / signed off
+    sessions from a checklist.csv file.
+
     The 'checklist' argument is expected to be a handler for an already opened
     file.
+
+    Returns: A dictionary of subject IDs (minus session/repeat num) mapped to
+    their QC comments (or an empty string if it's a new entry). Or a single
+    comment string if the 'subject' option was used
     """
     if subject:
         entries = None
@@ -164,7 +186,141 @@ def _parse_checklist(checklist, subject=None):
             entries[subid] = comment
 
     return entries
-    
+
+def update_checklist(entries, study=None, config=None, path=None):
+    """
+    Handles QC checklist updates. Will preferentially update the dashboard
+    (ignoring any 'checklist.csv' files) unless the dashboard is not installed
+    or a specific path is given to a file.
+
+    <entries> should be a dictionary with subject IDs (minus session/repeat) as
+    the keys and qc entries as the value (with an empty string for new/blank
+    QC entries)
+
+    This will raise a MetadataException if any part of the update fails for
+    any entry.
+    """
+    if not isinstance(entries, dict):
+        raise MetadataException("Checklist entries must be in dictionary "
+                "format with subject ID as the key and comment as the value "
+                "(empty string for new, unreviewed subjects)")
+
+    if dash.dash_found and not path:
+        _update_qc_reviewers(entries)
+        return
+
+    checklist_path = locate_metadata('checklist.csv', study=study,
+            config=config, path=path)
+    old_entries = read_checklist(path=checklist_path)
+
+    for subject in entries:
+        try:
+            ident = datman.scanid.parse(subject)
+        except:
+            raise MetadataException("Attempt to add invalid subject ID {} to "
+                    "QC checklist".format(subject))
+        else:
+            subject = ident.get_full_subjectid_with_timepoint()
+        old_entries[subject] = entries[subject]
+
+    _write_checklist(old_entries, checklist_path)
+
+def _update_qc_reviewers(entries):
+    """
+    Support function for update_checklist(). Updates QC info on the dashboard.
+    """
+    try:
+        user = dash.get_default_user()
+    except:
+        raise MetadataException("Can't update dashboard QC information without "
+                "a default dashboard user defined. Please add "
+                "'DEFAULT_DASH_USER' to your config file.")
+
+    for subject in entries:
+        timepoint = dash.get_subject(subject)
+        if not timepoint or not timepoint.sessions:
+            raise MetadataException("{} exists on the file system but not "
+                "in the dashboard.".format(subject))
+
+        comment = entries[subject]
+        if not comment:
+            # User was just registering a new QC entry. As long as the
+            # session exists in the database there is no work to do.
+            continue
+
+        for num in timepoint.sessions:
+            session = timepoint.sessions[num]
+            if session.is_qcd():
+                # Dont risk writing over QC-ers from the dashboard.
+                continue
+            session.sign_off(user.id)
+
+def _write_checklist(entries, path, retry=3):
+    """
+    Support function for update_checklist(). Updates QC info on the file system.
+    """
+    if not retry:
+        raise MetadataException("Failed to update checklist file {}"
+                "".format(path))
+
+    checklist_lines = []
+    for sub in entries:
+        line = "qc_{}.html {}\n".format(sub, entries[sub])
+        checklist_lines.append(line)
+
+    try:
+        with open(path, 'w') as checklist:
+            checklist.writelines(checklist_lines)
+    except:
+        logger.error("Failed to write checklist file {}. Tries remaining"
+                " - {}".format(path, retry))
+        wait_time = random.uniform(0, 10)
+        time.sleep(wait_time)
+        _write_checklist(entries, path, retry=retry-1)
+
+def read_blacklist(study=None, scan=None, config=None, path=None):
+    if dash.dash_found and not path:
+
+        ## What about if not scan? Retrieve full blacklist for study.
+
+        db_scan = dash.get_scan(scan)
+        if not db_scan:
+            raise MetadataException("Could not find {} in dashboard.".format(
+                    scan))
+        if scan.blacklisted():
+            return scan.get_comment()
+        return
+
+    # And if not scan?
+    if scan:
+        ident, tag, series_num, descr = scanid.parse_filename(scan)
+    blacklist_path = locate_metadata("blacklist.csv", study=study)
+
+def _fetch_blacklist(scan=None, study=None, config=None):
+    if not (scan or study or config):
+        raise MetadataException("Can't retrieve dashboard blacklist info "
+            "without either 1) a scan name 2) a study ID or 3) a datman config "
+            "object")
+
+    if scan:
+        db_scan = dash.get_scan(scan)
+        if db_scan and db_scan.blacklisted():
+            return db_scan.get_comment()
+        return
+
+    if config:
+        study = config.study_name
+
+    db_study = dash.get_project(study)
+    blacklist = db_study.get_blacklisted_scans()
+
+    entries = {}
+    for entry in blacklist:
+        scan_name = str(entry.scan) + "_" + entry.scan.description
+        entries[scan_name] = entry.comment
+
+    return entries
+
 def check_blacklist(scan_name, study=None):
     """
     Retrieves any blacklist entries that exist for <scan_name>. If the dashboard
