@@ -69,6 +69,13 @@ def get_version(api_url, token):
 def add_session_redcap(record):
     record_id = record['record_id']
     subject_id = record[cfg.get_key(['REDCAP_SUBJ'])].upper()
+    if not datman.scanid.is_scanid(subject_id):
+        try:
+            subject_id = subject_id + '_01'
+            datman.scanid.is_scanid(subject_id)
+        except:
+            logger.error('Invalid session: {}, skipping'.format(subject_id))
+            return
     try:
         ident = datman.scanid.parse(subject_id)
     except datman.scanid.ParseException:
