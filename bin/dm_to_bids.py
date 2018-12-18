@@ -126,8 +126,8 @@ def to_bids_name(ident, tag, cnt_run, type_folder, ex):
         return os.path.join(type_folder["anat"], name.format(subject, session, acq,run_num, mod, ext))
     elif (tag in tag_map["fmri"]):
         name = "{}_{}_task-{}_{}_{}_bold{}"
-        if (tag == "RST" or tag == "VN-SPRL"):
-            run_num = to_run(cnt_run["RST"] + cnt_run["VN-SPRL"])
+        if (tag == "RST" or tag == "VN-SPRL-COMB"):
+            run_num = to_run(cnt_run["RST"] + cnt_run["VN-SPRL-COMB"])
             task = "rest"
         else:
             task = tag.lower().replace('-','')
