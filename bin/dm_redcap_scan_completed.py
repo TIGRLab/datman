@@ -76,8 +76,12 @@ def add_session_redcap(record):
         except:
             logger.error('Invalid session: {}, skipping'.format(subject_id))
             return
+    try:
+        ident = datman.scanid.parse(subject_id)
+    except datman.scanid.ParseException:
+        logger.error('Invalid session: {}, skipping'.format(subject_id))
+        return
 
-    ident = datman.scanid.parse(subject_id)
     session_name = ident.get_full_subjectid_with_timepoint()
     session_date = record[cfg.get_key(['REDCAP_DATE'])]
 
@@ -90,14 +94,14 @@ def add_session_redcap(record):
 
     try:
         datman.dashboard.add_redcap(session,
-                                 record_id,
-                                 session_date,
-                                 cfg.get_key(['REDCAP_EVENTID'])[record['redcap_event_name']],
-                                 record[cfg.get_key(['REDCAP_COMMENTS'])],
-                                 redcap_url,
-                                 redcap_version,
-                                 redcap_project,
-                                 instrument)
+                                    record_id,
+                                    session_date,
+                                    cfg.get_key(['REDCAP_EVENTID'])[record['redcap_event_name']],
+                                    record[cfg.get_key(['REDCAP_COMMENTS'])],
+                                    redcap_url,
+                                    redcap_version,
+                                    redcap_project,
+                                    instrument)
     except:
         logger.error('Failed adding REDCap info for session {} to dashboard'.format(session_name))
 

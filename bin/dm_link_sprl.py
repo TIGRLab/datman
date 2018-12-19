@@ -142,7 +142,10 @@ def process_session(cfg, db, dir_nii, dir_res, session):
     # find matching files in the resources folder
     sprl_files = []
     for sprl in sprls:
-        p = re.compile(sprl[1]['SeriesDescription'], re.IGNORECASE)
+        sprl_regex = sprl[1]['SeriesDescription']
+        if isinstance(sprl_regex, list):
+            sprl_regex = '|'.join(sprl_regex)
+        p = re.compile(sprl_regex, re.IGNORECASE)
         logger.info("Search for sprl nii file")
         for root, dirs, files in os.walk(subject_res):
             # exclude the backup resources directory
