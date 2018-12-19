@@ -184,7 +184,7 @@ def _add_sprl_to_dashboard(db, filename):
 def _create_symlink(src, target_name, dir_nii):
     """Check to see if this file has been blacklisted,
     if not create the symlink if it doesnt exist"""
-    if datman.utils.check_blacklist(target_name):
+    if datman.utils.read_blacklist(scan=target_name):
         return
 
     target_path = os.path.join(dir_nii, target_name)

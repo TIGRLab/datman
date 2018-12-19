@@ -44,6 +44,7 @@ def locate_metadata(filename, study=None, subject=None, config=None, path=None):
 
     return file_path
 
+
 def read_checklist(study=None, subject=None, config=None, path=None):
     """
     This function is used to look-up QC checklist entries. If the dashboard is
@@ -96,6 +97,7 @@ def read_checklist(study=None, subject=None, config=None, path=None):
 
     return entries
 
+
 def _fetch_checklist(subject=None, study=None, config=None):
     """
     Support function for read_checklist(). Gets a list of existing / signed off
@@ -138,6 +140,7 @@ def _fetch_checklist(subject=None, study=None, config=None):
 
     return entries
 
+
 def _parse_checklist(checklist, subject=None):
     """
     Support function for read_checklist(). Gets a list of existing / signed off
@@ -177,7 +180,7 @@ def _parse_checklist(checklist, subject=None):
                     "all except the first entry found.".format(subid))
             continue
 
-        comment = " ".join(fields[1:])
+        comment = " ".join(fields[1:]).strip()
         if subject:
             if subid != subject:
                 continue
@@ -186,6 +189,7 @@ def _parse_checklist(checklist, subject=None):
             entries[subid] = comment
 
     return entries
+
 
 def update_checklist(entries, study=None, config=None, path=None):
     """
@@ -209,21 +213,27 @@ def update_checklist(entries, study=None, config=None, path=None):
         _update_qc_reviewers(entries)
         return
 
+    # No dashboard, or path was given, so update file system.
     checklist_path = locate_metadata('checklist.csv', study=study,
             config=config, path=path)
     old_entries = read_checklist(path=checklist_path)
 
+    # Merge with existing list
     for subject in entries:
         try:
             ident = datman.scanid.parse(subject)
         except:
             raise MetadataException("Attempt to add invalid subject ID {} to "
                     "QC checklist".format(subject))
-        else:
-            subject = ident.get_full_subjectid_with_timepoint()
+        subject = ident.get_full_subjectid_with_timepoint()
         old_entries[subject] = entries[subject]
 
-    _write_checklist(old_entries, checklist_path)
+    # Reformat to expected checklist line format
+    lines = ["qc_{}.html {}\n".format(sub, old_entries[sub])
+            for sub in old_entries]
+
+    write_metadata(sorted(lines), checklist_path)
+
 
 def _update_qc_reviewers(entries):
     """
@@ -239,8 +249,8 @@ def _update_qc_reviewers(entries):
     for subject in entries:
         timepoint = dash.get_subject(subject)
         if not timepoint or not timepoint.sessions:
-            raise MetadataException("{} exists on the file system but not "
-                "in the dashboard.".format(subject))
+            raise MetadataException("{} not found in the in the dashboard "
+                    "database.".format(subject))
 
         comment = entries[subject]
         if not comment:
@@ -255,48 +265,60 @@ def _update_qc_reviewers(entries):
                 continue
             session.sign_off(user.id)
 
-def _write_checklist(entries, path, retry=3):
-    """
-    Support function for update_checklist(). Updates QC info on the file system.
-    """
-    if not retry:
-        raise MetadataException("Failed to update checklist file {}"
-                "".format(path))
-
-    checklist_lines = []
-    for sub in entries:
-        line = "qc_{}.html {}\n".format(sub, entries[sub])
-        checklist_lines.append(line)
-
-    try:
-        with open(path, 'w') as checklist:
-            checklist.writelines(checklist_lines)
-    except:
-        logger.error("Failed to write checklist file {}. Tries remaining"
-                " - {}".format(path, retry))
-        wait_time = random.uniform(0, 10)
-        time.sleep(wait_time)
-        _write_checklist(entries, path, retry=retry-1)
 
 def read_blacklist(study=None, scan=None, config=None, path=None):
+    """
+    This function is used to look up blacklisted scans. If the dashboard is
+    found it ONLY checks the dashboard database. Otherwise it expects a datman
+    style 'blacklist' file on the filesystem.
+
+    This function can accept either:
+        1) A study name (nickname, not study tag) or a scan name (may include
+           the full path and extension)
+        2) A datman config object, initialized to the study being worked with
+        3) A full path directly to a blacklist file. If given, this will
+           circumvent any dashboard database checks and ignore any datman
+           config files.
+
+    Returns:
+        - A dictionary of scan names mapped to the comment provided when they
+          were blacklisted (Note: If reading from the filesystem, commas
+          contained in comments will be removed)
+        - OR the comment for a specific scan if a scan is given
+        - OR 'None' if a scan is given but not found in the blacklist
+    """
     if dash.dash_found and not path:
+        return _fetch_blacklist(scan=scan, study=study, config=config)
 
-        ## What about if not scan? Retrieve full blacklist for study.
-
-        db_scan = dash.get_scan(scan)
-        if not db_scan:
-            raise MetadataException("Could not find {} in dashboard.".format(
-                    scan))
-        if scan.blacklisted():
-            return scan.get_comment()
-        return
-
-    # And if not scan?
     if scan:
-        ident, tag, series_num, descr = scanid.parse_filename(scan)
-    blacklist_path = locate_metadata("blacklist.csv", study=study)
+        try:
+            ident, tag, series, descr = scanid.parse_filename(scan)
+        except:
+            logger.error("Invalid scan name: {}".format(scan))
+            return
+        subject = ident.get_full_subjectid_with_timepoint_session()
+        # Need to drop the path and extension if in the original 'scan'
+        scan = "_".join([str(ident), tag, series, descr])
+    else:
+        subject = None
+
+    blacklist_path = locate_metadata("blacklist.csv", study=study,
+            subject=subject, config=config, path=path)
+    try:
+        with open(blacklist_path, 'r') as blacklist:
+            entries = _parse_blacklist(blacklist, scan=scan)
+    except Exception as e:
+        raise MetadataException("Failed to read checklist file {}. Reason - "
+                "{}".format(blacklist_path, str(e)))
+
+    return entries
+
 
 def _fetch_blacklist(scan=None, study=None, config=None):
+    """
+    Helper function for 'read_blacklist()'. Gets the blacklist contents from
+    the dashboard's database
+    """
     if not (scan or study or config):
         raise MetadataException("Can't retrieve dashboard blacklist info "
             "without either 1) a scan name 2) a study ID or 3) a datman config "
@@ -321,53 +343,119 @@ def _fetch_blacklist(scan=None, study=None, config=None):
 
     return entries
 
-def check_blacklist(scan_name, study=None):
-    """
-    Retrieves any blacklist entries that exist for <scan_name>. If the dashboard
-    is available, it will preferentially check this, otherwise defaults to
-    looking for a blacklist.csv file in the study's metadata
-    """
-    try:
-        ident, tag, series_num, _ = scanid.parse_filename(scan_name)
-    except scanid.ParseException:
-        logger.warning('Invalid session id: {}'.format(scan_name))
-        return
 
-    scan = dash.get_scan(scan_name)
+def _parse_blacklist(blacklist, scan=None):
+    """
+    Helper function for 'read_blacklist()'. Gets the blacklist contents from
+    the file system
+    """
     if scan:
-        if scan.blacklisted():
-            return scan.get_comment()
-        return
-
-    blacklist_id = "_".join([str(ident), tag, series_num])
-    if study:
-        cfg = datman.config.config(study=study)
+        entries = None
     else:
-        cfg = datman.config.config(study=ident.get_full_subjectid_with_timepoint())
+        entries = {}
 
-    try:
-        checklist_path = os.path.join(cfg.get_path('meta'),
-                                      'blacklist.csv')
-    except KeyError:
-        logger.warning('Unable to identify meta path for study:{}'
-                       .format(study))
+    # This will mangle any commas in comments, but is the most reliable way
+    # to split the lines
+    regex = ',|\s'
+    for line in blacklist:
+        fields = re.split(regex, line.strip())
+        try:
+            scan_name = fields[0]
+            datman.scanid.parse_filename(scan_name)
+            comment = fields[1:]
+        except:
+            logger.info("Ignoring malformed line: {}".format(line))
+            continue
+
+        comment = " ".join(comment).strip()
+
+        if scan_name == 'series':
+            continue
+
+        if scan:
+            if scan_name == scan:
+                return comment
+            continue
+
+        if entries and scan_name in entries:
+            logger.info("Found duplicate blacklist entries for {}. Ignoring "
+                    "all except the first entry found.".format(scan_name))
+            continue
+        entries[scan_name] = comment
+
+    return entries
+
+
+def update_blacklist(entries, study=None, config=None, path=None):
+    if not isinstance(entries, dict):
+        raise MetadataException("Blacklist entries must be in dictionary "
+                "format with scan name as the key and reason for blacklisting "
+                "as the value")
+
+    if dash.dash_found and not path:
+        _update_scan_checklist(entries)
         return
 
+    blacklist_path = locate_metadata('blacklist.csv', study=study,
+            config=config, path=path)
+    old_entries = read_blacklist(path=blacklist_path)
+
+    for scan_name in entries:
+        try:
+            datman.scanid.parse_filename(scan_name)
+        except:
+            raise MetadataException("Attempt to add invalid scan name {} "
+                    "to blacklist".format(scan_name))
+        if not entries[scan_name]:
+            logger.error("Can't add blacklist entry with empty comment. "
+                    "Skipping {}".format(scan_name))
+            continue
+        old_entries[scan_name] = entries[scan_name]
+
+    lines = ["{} {}\n".format(sub, old_entries[sub]) for sub in old_entries]
+    new_list = ['series\treason\n']
+    new_list.extend(sorted(lines))
+    write_metadata(new_list, blacklist_path)
+
+
+def _update_scan_checklist(entries):
+    """
+    Helper function for 'update_blacklist()'. Updates the dashboard's database.
+    """
     try:
-        with open(checklist_path, 'r') as f:
-            lines = f.readlines()
-    except IOError:
-        logger.warning('Unable to open blacklist file:{} for reading'
-                       .format(checklist_path))
-        return
-    for line in lines:
-        parts = line.split(None, 1)
-        if parts:  # fix for empty lines
-            if blacklist_id in parts[0]:
-                try:
-                    return parts[1].strip()
-                except IndexError:
-                    return
+        user = dash.get_default_user()
+    except:
+        raise MetadataException("Can't update dashboard QC information without "
+                "a default dashboard user defined. Please add "
+                "'DEFAULT_DASH_USER' to your config file.")
+
+    for scan_name in entries:
+        scan = dash.get_scan(scan_name)
+        if not scan:
+            raise MetadataException("{} does not exist in the dashboard "
+                    "database".format(scan_name))
+        scan.add_checklist_entry(user.id, comment=entries[scan_name],
+                sign_off=False)
+
+
+def write_metadata(lines, path, retry=3):
+    """
+    Repeatedly attempts to write lines to <path>. The destination file
+    will be overwritten with <lines> so any contents you wish to preserve
+    should be contained within the list.
+    """
+    if not retry:
+        raise MetadataException("Failed to update {}".format(path))
+
+    try:
+        with open(path, "w") as meta_file:
+            meta_file.writelines(lines)
+    except:
+        logger.error("Failed to write metadata file {}. Tries "
+                "remaining - {}".format(path, retry))
+        wait_time = random.uniform(0, 10)
+        time.sleep(wait_time)
+        write_metadata(lines, path, retry=retry-1)
 
 
 def get_subject_from_filename(filename):
