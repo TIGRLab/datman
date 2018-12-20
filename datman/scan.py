@@ -63,7 +63,6 @@ import logging
 
 import datman.utils
 import datman.scanid as scanid
-import datman.dashboard
 
 class DatmanNamed(object):
     """
@@ -173,12 +172,6 @@ class Scan(DatmanNamed):
         except KeyError:
             matched_dicoms = []
         return matched_dicoms
-
-    def get_from_db(self):
-        """
-        Returns the dashboard database object representing a subject
-        """
-        return datman.dashboard.get_subject(self.full_id)
 
     def __check_session(self, id_str):
         """

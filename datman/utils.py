@@ -458,6 +458,39 @@ def write_metadata(lines, path, retry=3):
         write_metadata(lines, path, retry=retry-1)
 
 
+def get_subject_metadata(config=None, study=None):
+    if not config:
+        if not study:
+            raise MetadataException("A study name or config object must be "
+                    "given to locate study metadata.")
+        config = datman.config.config(study=study)
+
+    checklist = read_checklist(config=config)
+    blacklist = read_blacklist(config=config)
+
+    all_qc = {subid: [] for subid in checklist if checklist[subid]}
+    for bl_entry in blacklist:
+        try:
+            ident, _, _, _ = datman.scanid.parse_filename(bl_entry)
+        except:
+            logger.error("Malformed scan name {} found in blacklist. "
+                    "Ignoring.".format(bl_entry))
+            continue
+
+        subid = ident.get_full_subjectid_with_timepoint()
+        try:
+            all_qc[subid]
+        except KeyError:
+            logger.error("{} has blacklisted series {} but does not "
+                    "appear in QC checklist. Ignoring blacklist entry".format(
+                    subid, bl_entry))
+            continue
+
+        all_qc.setdefault(subid, []).append(bl_entry)
+
+    return all_qc
+
+
 def get_subject_from_filename(filename):
     filename = os.path.basename(filename)
     filename = filename.split('_')[0:5]

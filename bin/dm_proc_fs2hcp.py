@@ -137,7 +137,7 @@ def main():
             sys.exit(1)
         return
 
-    qced_subjects = config.get_subject_metadata()
+    qced_subjects = utils.get_subject_metadata(config)
 
 # running for batch mode
 
