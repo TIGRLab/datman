@@ -104,6 +104,7 @@ import datman.config
 import datman.utils
 import datman.scanid
 import datman.scan
+import datman.dashboard
 
 from docopt import docopt
 
@@ -376,49 +377,6 @@ def get_new_subjects(config):
     new_subs = filter(lambda sub: sub not in finished_phantoms, new_subs)
     return new_subs
 
-def find_existing_reports(checklist_path):
-    found_reports = []
-    with open(checklist_path, 'r') as checklist:
-        for checklist_entry in checklist:
-            checklist_entry = checklist_entry.split(' ')[0].strip()
-            checklist_entry, checklist_ext = os.path.splitext(checklist_entry)
-            found_reports.append(checklist_entry)
-    return found_reports
-
-def add_report_to_checklist(qc_report, checklist_path, retry=3):
-    """
-    Add the given report's name to the QC checklist if it is not already
-    present.
-    """
-    if not qc_report or retry == 0:
-        return
-
-    # remove extension from report name, so we don't double-count .pdfs vs .html
-    report_file_name = os.path.basename(qc_report)
-    report_name, report_ext = os.path.splitext(report_file_name)
-
-    try:
-        found_reports = find_existing_reports(checklist_path)
-    except IOError:
-        logger.info("{} does not exist. "\
-                "Attempting to create it".format(checklist_path))
-        found_reports = []
-
-    if report_name in found_reports:
-        return
-
-    try:
-        with open(checklist_path, 'a') as checklist:
-            checklist.write(report_file_name + '\n')
-    except:
-        logger.error("Failed to write {} to checklist. Tries remaining: "
-                "{}".format(report_file_name, retry))
-        # Sleep for a short time to shuffle processes that are attempting
-        # concurrent writes.
-        wait_time = random.uniform(0, 10)
-        time.sleep(wait_time)
-        add_report_to_checklist(qc_report, checklist_path, retry=retry-1)
-
 def add_header_qc(nifti, qc_html, log_path):
     """
     Adds header-diff.log information to the report.
@@ -681,7 +639,7 @@ def generate_qc_report(report_name, subject, expected_files, header_diffs, confi
     update_dashboard(subject, report_name)
 
 def update_dashboard(subject, report_name):
-    db_subject = subject.get_from_db()
+    db_subject = datman.dashboard.get_subject(subject.full_id)
     if not db_subject:
         return
     db_subject.last_qc_repeat_generated = len(db_subject.sessions)
@@ -869,9 +827,16 @@ def qc_subject(subject, config):
     expected_files = find_expected_files(subject, config)
 
     try:
+
+
         # Update checklist even if report generation fails
-        checklist_path = os.path.join(config.get_path('meta'), 'checklist.csv')
-        add_report_to_checklist(report_name, checklist_path)
+        # checklist_path = os.path.join(config.get_path('meta'), 'checklist.csv')
+        # add_report_to_checklist(report_name, checklist_path)
+
+
+        utils.update_checklist(subject)
+
+
     except:
         logger.error("Error adding {} to checklist.".format(subject.full_id))
 
@@ -962,7 +927,7 @@ def check_for_repeat_session(subject):
     """
     global REWRITE
 
-    db_subject = subject.get_from_db()
+    db_subject = datman.dashboard.get_subject(subject.full_id)
 
     # will be None if entry doesn't exist in dashboard or dashboard isnt setup
     if not db_subject:
