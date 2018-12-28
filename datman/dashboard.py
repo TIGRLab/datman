@@ -4,7 +4,6 @@ import logging
 import datetime
 
 import datman.scanid
-import datman.config
 from datman.exceptions import DashboardException
 
 logger = logging.getLogger(__name__)
@@ -266,11 +265,10 @@ def delete_extra_scans(local_session):
 @dashboard_required
 def get_default_user():
     try:
-        config = datman.config.config()
-        username = config.get_key('DEFAULT_DASH_USER')
-    except Exception as e:
-        raise DashboardException("Can't retrieve default dashboard user name. "
-                "Reason - {}".format(e))
+        user = os.environ['DASHBOARD_USER']
+    except KeyError:
+        raise DashboardException("Can't retrieve default dashboard user ID. "
+                "DASHBOARD_USER environment variable not set.")
     user = queries.get_user(username)
     if not user or len(user) > 1:
         raise DashboardException("Can't locate default user {} in "
