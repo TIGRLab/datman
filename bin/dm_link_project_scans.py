@@ -43,7 +43,7 @@ import re
 import datman as dm
 import datman.scanid, datman.utils
 from docopt import docopt
-import datman.dashboard
+import datman.dashboard as dashboard
 
 DRYRUN = False
 LINK_FILE_HEADERS = ['subject', 'target_subject', 'tags']
@@ -283,23 +283,6 @@ def copy_blacklist_data(source, source_blacklist, target, target_blacklist, tags
         if tags_match(entry, tags):
             update_file(target_blacklist, entry)
 
-def delete_old_checklist_entry(checklist_path, entry):
-    with open(checklist_path, 'r') as checklist:
-        checklist_entries = checklist.readlines()
-
-    new_lines = []
-    for line in checklist_entries:
-        fields = line.split()
-        if not fields:
-            continue
-        if fields[0] == entry:
-            continue
-        new_lines.append(" ".join(fields) + '\n')
-
-    with open(checklist_path, 'w') as new_list:
-        for line in new_lines:
-            new_list.write(line)
-
 def copy_checklist_entry(source_id, target_id, target_checklist_path):
     target_comment = datman.utils.read_checklist(subject=target_id)
     if target_comment:
@@ -311,13 +294,8 @@ def copy_checklist_entry(source_id, target_id, target_checklist_path):
         # No source comment to copy
         return
 
-    qc_page_name = "qc_{}.html".format(target_id)
-    if target_comment == '':
-        # target_comment == '' means there's a qc page entry, but its not signed
-        # off. Old entry must be deleted to avoid duplication.
-        delete_old_checklist_entry(target_checklist_path, qc_page_name)
-    qc_report_entry = " ".join([qc_page_name, source_comment])
-    update_file(target_checklist_path, qc_report_entry + '\n')
+    entries = {target_id: source_comment}
+    datman.utils.update_checklist(entries, path=target_checklist_path)
 
 def copy_metadata(source_id, target_id, tags):
     source_config = datman.config.config(study=source_id)
@@ -373,7 +351,11 @@ def link_session_data(source, target, given_tags):
     logger.debug("Tags set to {}".format(tags))
 
     link_resources(source, target)
-    copy_metadata(source, target, tags)
+
+    if not dashboard.dash_found:
+        # The dashboard automatically handles linked checklist/blacklist
+        # comments so only update if metadata files are being used
+        copy_metadata(source, target, tags)
 
     dirs = get_dirs_to_search(config, tags)
     for path_key in dirs:
