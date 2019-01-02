@@ -64,33 +64,18 @@ def main():
 
     config = datman.config.config(study=project)
 
-    blacklist = get_blacklist(arguments['--blacklist'], series, config)
+    blacklist = get_blacklist(config, arguments['--blacklist'], series)
     logger.debug("Found blacklist data: {}".format(blacklist))
 
     remove_blacklisted_items(blacklist, config, ignored_paths)
 
-def get_blacklist(blacklist_file, series, config):
+def get_blacklist(config, blacklist_file=None, series=None):
     if series:
         return [series]
 
-    if blacklist_file is None:
-        blacklist_file = os.path.join(config.get_path('meta'), 'blacklist.csv')
+    blacklist = datman.utils.read_blacklist(config=config, path=blacklist_file)
 
-    if not os.path.exists(blacklist_file):
-        logger.error("Blacklist {} does not exist. " \
-                "Exiting.".format(blacklist_file))
-        sys.exit(1)
-
-    logger.debug("Reading blacklist file {}".format(blacklist_file))
-    blacklist = []
-    with open(blacklist_file, 'r') as blacklist_data:
-        for line in blacklist_data:
-            series = get_series(line)
-            if not series:
-                continue
-            blacklist.append(series)
-
-    return blacklist
+    return blacklist.keys()
 
 def get_series(line):
     regex = ',|\s'
