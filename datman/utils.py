@@ -264,17 +264,18 @@ def _update_qc_reviewers(entries):
             session.sign_off(user.id)
 
 
-def read_blacklist(study=None, scan=None, config=None, path=None):
+def read_blacklist(study=None, scan=None, subject=None, config=None, path=None):
     """
     This function is used to look up blacklisted scans. If the dashboard is
     found it ONLY checks the dashboard database. Otherwise it expects a datman
     style 'blacklist' file on the filesystem.
 
-    This function can accept either:
-        1) A study name (nickname, not study tag) or a scan name (may include
-           the full path and extension)
-        2) A datman config object, initialized to the study being worked with
-        3) A full path directly to a blacklist file. If given, this will
+    This function can accept:
+        - A study name (nickname, not study tag)
+        - A scan name (may include the full path and extension)
+        - A subject ID
+        - A datman config object, initialized to the study being worked with
+        - A full path directly to a blacklist file. If given, this will
            circumvent any dashboard database checks and ignore any datman
            config files.
 
@@ -282,11 +283,14 @@ def read_blacklist(study=None, scan=None, config=None, path=None):
         - A dictionary of scan names mapped to the comment provided when they
           were blacklisted (Note: If reading from the filesystem, commas
           contained in comments will be removed)
+        - OR a dictionary of the same format containing only entries
+          for a single subject if a specific subject ID was given
         - OR the comment for a specific scan if a scan is given
         - OR 'None' if a scan is given but not found in the blacklist
     """
     if dash.dash_found and not path:
-        return _fetch_blacklist(scan=scan, study=study, config=config)
+        return _fetch_blacklist(scan=scan, subject=subject, study=study,
+                config=config)
 
     if scan:
         try:
@@ -294,17 +298,17 @@ def read_blacklist(study=None, scan=None, config=None, path=None):
         except:
             logger.error("Invalid scan name: {}".format(scan))
             return
-        subject = ident.get_full_subjectid_with_timepoint_session()
+        tmp_sub = ident.get_full_subjectid_with_timepoint_session()
         # Need to drop the path and extension if in the original 'scan'
         scan = "_".join([str(ident), tag, series, descr])
     else:
-        subject = None
+        tmp_sub = subject
 
     blacklist_path = locate_metadata("blacklist.csv", study=study,
-            subject=subject, config=config, path=path)
+            subject=tmp_sub, config=config, path=path)
     try:
         with open(blacklist_path, 'r') as blacklist:
-            entries = _parse_blacklist(blacklist, scan=scan)
+            entries = _parse_blacklist(blacklist, scan=scan, subject=subject)
     except Exception as e:
         raise MetadataException("Failed to read checklist file {}. Reason - "
                 "{}".format(blacklist_path, str(e)))
@@ -312,15 +316,15 @@ def read_blacklist(study=None, scan=None, config=None, path=None):
     return entries
 
 
-def _fetch_blacklist(scan=None, study=None, config=None):
+def _fetch_blacklist(scan=None, subject=None, study=None, config=None):
     """
     Helper function for 'read_blacklist()'. Gets the blacklist contents from
     the dashboard's database
     """
-    if not (scan or study or config):
+    if not (scan or subject or study or config):
         raise MetadataException("Can't retrieve dashboard blacklist info "
-            "without either 1) a scan name 2) a study ID or 3) a datman config "
-            "object")
+            "without either 1) a scan name 2) a subject ID 3) a study ID or "
+            "4) a datman config object")
 
     if scan:
         db_scan = dash.get_scan(scan)
@@ -328,11 +332,14 @@ def _fetch_blacklist(scan=None, study=None, config=None):
             return db_scan.get_comment()
         return
 
-    if config:
-        study = config.study_name
-
-    db_study = dash.get_project(study)
-    blacklist = db_study.get_blacklisted_scans()
+    if subject:
+        db_subject = dash.get_subject(subject)
+        blacklist = db_subject.get_blacklist_entries()
+    else:
+        if config:
+            study = config.study_name
+        db_study = dash.get_project(study)
+        blacklist = db_study.get_blacklisted_scans()
 
     entries = {}
     for entry in blacklist:
@@ -342,7 +349,7 @@ def _fetch_blacklist(scan=None, study=None, config=None):
     return entries
 
 
-def _parse_blacklist(blacklist, scan=None):
+def _parse_blacklist(blacklist, scan=None, subject=None):
     """
     Helper function for 'read_blacklist()'. Gets the blacklist contents from
     the file system
@@ -373,6 +380,9 @@ def _parse_blacklist(blacklist, scan=None):
         if scan:
             if scan_name == scan:
                 return comment
+            continue
+
+        if subject and not scan_name.startswith(subject):
             continue
 
         if entries and scan_name in entries:
