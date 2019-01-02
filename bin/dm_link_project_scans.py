@@ -220,13 +220,7 @@ def tags_match(blacklist_entry, tags):
     Returns true if the filename in <blacklist_entry> contains a tag in <tags>.
     """
     try:
-        blacklisted_file = blacklist_entry.split()[0]
-    except IndexError:
-        # Empty line
-        return False
-
-    try:
-        _, tag, _, _ = datman.scanid.parse_filename(blacklisted_file)
+        _, tag, _, _ = datman.scanid.parse_filename(blacklist_entry)
     except datman.scanid.ParseException:
         logger.error("Blacklist entry {} contains non-datman filename. " \
                 "Entry will not be copied to target blacklist.".format(
@@ -238,50 +232,33 @@ def tags_match(blacklist_entry, tags):
 
     return True
 
-def update_file(file_path, line):
-    logger.debug("Updating file {} with entry {}".format(file_path, line))
-    if DRYRUN:
-        return
-    with open(file_path, 'a') as file_name:
-        file_name.write(line)
-
-def get_blacklist_scans(subject_id, blacklist_path, new_id=None):
-    """
-    Finds all entries in <blacklist_path> that belong to the participant with
-    ID <subject_id>. If <new_id> is given, it modifies the found lines to
-    contain the new subject's ID.
-    """
-    try:
-        with open(blacklist_path, 'r') as blacklist:
-            lines = blacklist.readlines()
-    except IOError:
-        lines = []
-
-    entries = []
-    for line in lines:
-        if subject_id in line:
-            if new_id is not None:
-                line = line.replace(subject_id, new_id)
-            entries.append(line)
-    return entries
-
 def copy_blacklist_data(source, source_blacklist, target, target_blacklist, tags):
     """
     Adds entries from <source_blacklist> to <target_blacklist> if they contain
     one of the given tags and have not already been added.
     """
-    source_entries = get_blacklist_scans(source, source_blacklist, new_id=target)
-    if not source_entries:
+    source_entries = datman.utils.read_blacklist(subject=source,
+            path=source_blacklist)
+    expected_entries = {orig_scan.replace(source, target): comment
+            for (orig_scan, comment) in source_entries.items()}
+
+    if not expected_entries:
         return
 
-    target_entries = get_blacklist_scans(target, target_blacklist)
-    missing_entries = set(source_entries) - set(target_entries)
-    if not missing_entries:
+    target_entries = datman.utils.read_blacklist(subject=target,
+            path=target_blacklist)
+    missing_scans = set(expected_entries.keys()) - set(target_entries.keys())
+
+    new_entries = {}
+    for scan in missing_scans:
+        if not tags_match(scan, tags):
+            continue
+        new_entries[scan] = expected_entries[scan]
+
+    if not new_entries:
         return
 
-    for entry in missing_entries:
-        if tags_match(entry, tags):
-            update_file(target_blacklist, entry)
+    datman.utils.update_blacklist(new_entries, path=target_blacklist)
 
 def copy_checklist_entry(source_id, target_id, target_checklist_path):
     target_comment = datman.utils.read_checklist(subject=target_id)
@@ -354,7 +331,7 @@ def link_session_data(source, target, given_tags):
 
     if not dashboard.dash_found:
         # The dashboard automatically handles linked checklist/blacklist
-        # comments so only update if metadata files are being used
+        # comments so only update if metadata files are being used instead
         copy_metadata(source, target, tags)
 
     dirs = get_dirs_to_search(config, tags)
