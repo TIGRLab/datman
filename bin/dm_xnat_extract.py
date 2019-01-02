@@ -499,10 +499,10 @@ def process_scan(ident, file_stem, tags, tag, scans_added):
         logger.info("Adding scan {} to dashboard".format(file_stem))
         try:
             scan = dashboard.get_scan(file_stem, create=True)
-            scans_added.append(file_stem)
         except dashboard.DashboardException as e:
             logger.error("Failed adding scan {} to dashboard with "
                     "error {}".format(file_stem, e))
+        scans_added.append(file_stem)
 
     if scan.blacklisted():
         logger.warn("Excluding scan {} due to blacklist entry '{}'".format(
