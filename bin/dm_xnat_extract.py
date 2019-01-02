@@ -542,7 +542,7 @@ def create_scan_name(exportinfo, scan_info, session_label):
                      .format(series_id, session_label))
         return None, None, None
 
-    mangled_descr = datman.utils.mangle(description)
+    mangled_descr = mangle(description)
     padded_series = series_id.zfill(2)
 
     multiecho = is_multiecho(scan_info)
@@ -563,6 +563,19 @@ def create_scan_name(exportinfo, scan_info, session_label):
     file_stem = ['_'.join([session_label, t, padded_series, mangled_descr]) for t in tag]
 
     return(file_stem, tag, multiecho)
+
+
+def mangle(string):
+    """Mangles a string to conform with the naming scheme.
+
+    Mangling is roughly: convert runs of non-alphanumeric characters to a dash.
+
+    Does not convert '.' to avoid accidentally mangling extensions and does
+    not convert '+'
+    """
+    if not string:
+        string = ""
+    return re.sub(r"[^a-zA-Z0-9.+]+","-",string)
 
 
 def is_multiecho(scan_info):

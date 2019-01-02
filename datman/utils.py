@@ -17,8 +17,6 @@ import contextlib
 import subprocess as proc
 
 import pydicom as dcm
-import numpy as np
-import nibabel as nib
 import pyxnat
 
 import datman.config
@@ -491,44 +489,6 @@ def get_subject_metadata(config=None, study=None):
     return all_qc
 
 
-def get_subject_from_filename(filename):
-    filename = os.path.basename(filename)
-    filename = filename.split('_')[0:5]
-    filename = '_'.join(filename)
-
-    return filename
-
-
-def script_path():
-    """
-    Returns the full path to the executing script.
-    """
-    return os.path.abspath(os.path.dirname(sys.argv[0]))
-
-
-def mangle_basename(base_path):
-    """
-    strip off final slash to get the appropriate basename if necessary.
-    """
-    base_path = os.path.normpath(base_path)
-    base = os.path.basename(base_path).lower()
-
-    return base
-
-
-def mangle(string):
-    """Mangles a string to conform with the naming scheme.
-
-    Mangling is roughly: convert runs of non-alphanumeric characters to a dash.
-
-    Does not convert '.' to avoid accidentally mangling extensions and does
-    not convert '+'
-    """
-    if not string:
-        string = ""
-    return re.sub(r"[^a-zA-Z0-9.+]+","-",string)
-
-
 def get_extension(path):
     """
     Get the filename extension on this path.
@@ -668,16 +628,6 @@ def get_all_headers_in_folder(path, recurse=False):
     return manifest
 
 
-def col(arr, colname):
-    """
-    Return the named column of an ndarray.
-
-    Column names are given by the first row in the ndarray
-    """
-    idx = np.where(arr[0, ] == colname)[0]
-    return arr[1:, idx][:, 0]
-
-
 def subject_type(subject):
     """
     Uses subject naming to determine what kind of files we are looking at. If
@@ -786,22 +736,6 @@ def has_permissions(path):
     return flag
 
 
-def make_epitome_folders(path, n_runs):
-    """
-    Makes an epitome-compatible folder structure with functional data FUNC of n
-    import pipesruns, and a single T1.
-
-    This works assuming we've run everything through freesurfer.
-
-    If we need multisession, it might make sense to run this multiple times
-    (once per session).
-    """
-    run('mkdir -p ' + path + '/TEMP/SUBJ/T1/SESS01/RUN01')
-    for r in np.arange(n_runs)+1:
-        num = "{:0>2}".format(str(r))
-        run('mkdir -p ' + path + '/TEMP/SUBJ/FUNC/SESS01/RUN' + num)
-
-
 def run_dummy_q(list_of_names):
     """
     This holds the script until all of the queued items are done.
@@ -888,43 +822,6 @@ def makedirs(path):
     """
     if not os.path.exists(path):
         os.makedirs(path)
-
-
-def loadnii(filename):
-    """
-    Usage:
-        nifti, affine, header, dims = loadnii(filename)
-
-    Loads a Nifti file (3 or 4 dimensions).
-
-    Returns:
-        a 2D matrix of voxels x timepoints,
-        the input file affine transform,
-        the input file header,
-        and input file dimensions.
-    """
-
-    # load everything in
-    nifti = nib.load(filename)
-    affine = nifti.get_affine()
-    header = nifti.get_header()
-    dims = nifti.shape
-
-    # if smaller than 3D
-    if len(dims) < 3:
-        raise Exception('Your data has less than 3 dimensions!')
-
-    # if smaller than 4D
-    if len(dims) > 4:
-        raise Exception('Your data is at least a penteract (> 4 dimensions!)')
-
-    # load in nifti and reshape to 2D
-    nifti = nifti.get_data()
-    if len(dims) == 3:
-        dims = tuple(list(dims) + [1])
-    nifti = nifti.reshape(dims[0]*dims[1]*dims[2], dims[3])
-
-    return nifti, affine, header, dims
 
 
 def check_returncode(returncode):
