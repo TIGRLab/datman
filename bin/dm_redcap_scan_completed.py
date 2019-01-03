@@ -70,13 +70,17 @@ def add_session_redcap(record):
     subject_id = record[cfg.get_key(['REDCAP_SUBJ'])].upper()
     if not datman.scanid.is_scanid(subject_id):
         try:
-            subject_id = subject_id + '_01_01'
+            subject_id = subject_id + '_01'
             datman.scanid.is_scanid(subject_id)
         except:
             logger.error('Invalid session: {}, skipping'.format(subject_id))
             return
+    try:
+        ident = datman.scanid.parse(subject_id)
+    except datman.scanid.ParseException:
+        logger.error('Invalid session: {}, skipping'.format(subject_id))
+        return
 
-    ident = datman.scanid.parse(subject_id)
     session_date = record[cfg.get_key(['REDCAP_DATE'])]
 
     try:
