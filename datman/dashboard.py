@@ -177,7 +177,8 @@ def add_session(name, date=None):
 
 @dashboard_required
 @filename_required
-def get_scan(name, tag=None, series=None, description=None, create=False):
+def get_scan(name, tag=None, series=None, description=None, source_id=None,
+        create=False):
     scan_name = _get_scan_name(name, tag, series)
 
     scan = queries.get_scan(scan_name,
@@ -191,14 +192,15 @@ def get_scan(name, tag=None, series=None, description=None, create=False):
         return scan[0]
 
     if create:
-        return add_scan(name, tag=tag, series=series, description=description)
+        return add_scan(name, tag=tag, series=series, description=description,
+                source_id=source_id)
 
     return None
 
 
 @dashboard_required
 @filename_required
-def add_scan(name, tag=None, series=None, description=None, source=None):
+def add_scan(name, tag=None, series=None, description=None, source_id=None):
     session = get_session(name, create=True)
     studies = queries.get_study(tag=name.study, site=name.site)
     scan_name = _get_scan_name(name, tag, series)
@@ -213,7 +215,8 @@ def add_scan(name, tag=None, series=None, description=None, source=None):
         raise DashboardException("Scan name {} contains tag not configured "
                 "for study {}".format(scan_name, study))
 
-    return session.add_scan(scan_name, series, tag, description, source_id=source)
+    return session.add_scan(scan_name, series, tag, description,
+            source_id=source_id)
 
     #### HANDLE LINKS!
 
