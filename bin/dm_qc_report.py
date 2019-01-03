@@ -112,6 +112,7 @@ logging.basicConfig(level=logging.WARN,
         format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
+config = None
 REWRITE = False
 
 SLICER_GAP = 2
@@ -537,16 +538,15 @@ def find_tech_notes(path):
 
 def notes_expected(site, study_name):
     """
-    Messy hardcoded way to find tech notes just for the one SPINS site (MRC/MRP)
-    and all CMH participants that actually have tech notes
+    Grabs 'USES_TECHNOTES' key in study config file to determine
+    whether technotes are expected
     """
-    if study_name == 'SPINS' and (site == "MRC" or site == 'MRP'):
-        return True
 
-    if site == 'CMH':
-        return True
-
-    return False
+    try:
+        technotes = config.get_key('USES_TECHNOTES', site=site)
+    except KeyError:
+        technotes = False
+    return technotes
 
 def write_tech_notes_link(report, site, study_name, resource_path):
     """
@@ -992,6 +992,7 @@ def add_server_handler(config):
     logger.addHandler(server_handler)
 
 def main():
+    global config
     global REWRITE
 
     arguments = docopt(__doc__)
