@@ -827,16 +827,8 @@ def qc_subject(subject, config):
     expected_files = find_expected_files(subject, config)
 
     try:
-
-
         # Update checklist even if report generation fails
-        # checklist_path = os.path.join(config.get_path('meta'), 'checklist.csv')
-        # add_report_to_checklist(report_name, checklist_path)
-
-
         utils.update_checklist(subject)
-
-
     except:
         logger.error("Error adding {} to checklist.".format(subject.full_id))
 
