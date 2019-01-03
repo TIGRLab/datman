@@ -26,6 +26,7 @@ from docopt import docopt
 
 import datman.config
 import datman.scan
+import datman.utils
 
 logging.basicConfig(level=logging.WARN,
         format="[%(name)s] %(levelname)s: %(message)s")
@@ -50,13 +51,12 @@ def main():
         logger.setLevel(logging.ERROR)
 
     config = datman.config.config(study=project)
-    blacklist = config.get_blacklist()
+    metadata = datman.utils.get_subject_metadata(config)
+    remove_blacklisted_items(metadata, config)
 
-    remove_blacklisted_items(blacklist, config)
-
-def remove_blacklisted_items(blacklist, config):
-    for sub in blacklist:
-        blacklist_entries = blacklist[sub]
+def remove_blacklisted_items(metadata, config):
+    for sub in metadata:
+        blacklist_entries = metadata[sub]
         if not blacklist_entries:
             continue
         scan = datman.scan.Scan(sub, config)
