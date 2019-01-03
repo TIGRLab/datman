@@ -40,9 +40,11 @@ import logging
 import yaml
 import csv
 import re
+
+from docopt import docopt
+
 import datman as dm
 import datman.scanid, datman.utils
-from docopt import docopt
 import datman.dashboard as dashboard
 
 DRYRUN = False
@@ -116,45 +118,36 @@ def make_link(source, target):
         os.symlink(rel_source, target)
     except OSError as e:
         logger.debug('Failed to create symlink: {}'.format(e.strerror))
+        return None
+
+    return target
 
 
-def add_link_to_dbase(source, target):
-    logger.debug('Creating database entry linking {} to {}.'.format(source,
-                                                                    target))
-    ident_src = dm.scanid.parse_filename(source)
-    ident_trg = dm.scanid.parse_filename(target)
-
-    db_src = datman.dashboard.dashboard(ident_src[0].get_full_subjectid_with_timepoint())
-    db_trg = datman.dashboard.dashboard(ident_trg[0].get_full_subjectid_with_timepoint())
-
-    src_session_db = db_src.get_add_session(ident_src[0].get_full_subjectid_with_timepoint())
-    trg_session_db = db_trg.get_add_session(ident_trg[0].get_full_subjectid_with_timepoint())
-
-    if not src_session_db:
-        logger.debug('Failed to find source session:{} in database.'
-                     .format(os.path.basename(source)))
+def add_link_to_dashboard(source, target, target_path):
+    if not dashboard.dash_found:
         return
 
-    if not trg_session_db:
-        logger.debug('Failed to find target session:{} in database.'
-                     .format(os.path.basename(target)))
+    logger.debug('Creating database entry linking {} to {}.'.format(
+            source, target))
+    if DRYRUN:
         return
 
-    src_scan_db = db_src.get_add_scan(os.path.basename(source))
+    target_record = dashboard.get_scan(target)
+    if target_record:
+        # Already in database, no work to do.
+        return
 
-    if not src_scan_db:
-        logger.debug('Failed to find src scan:{} in database.'
-                     .format(os.path.basename(source)))
-
-    new_name = datman.scanid.make_filename(ident_trg[0],
-                                           ident_trg[1],
-                                           ident_trg[2],
-                                           ident_trg[3])
-    if not DRYRUN:
-        datman.dashboard.get_add_session_scan_link(trg_session_db,
-                                                   src_scan_db,
-                                                   new_name,
-                                                   is_primary=False)
+    try:
+        db_source = dashboard.get_scan(source)
+        dashboard.add_scan(target, source_id=db_source.id)
+    except Exception as e:
+        logger.error("Failed to add link {} to dashboard database. "
+                "Reason: {}. Removing link from file system to re-attempt "
+                "later.".format(target, str(e)))
+        try:
+            os.remove(result)
+        except:
+            logger.error("Failed to clean up link {}".format(target_path))
 
 
 def link_files(tags, src_session, trg_session, src_data_dir, trg_data_dir):
@@ -189,8 +182,8 @@ def link_files(tags, src_session, trg_session, src_data_dir, trg_data_dir):
                 src_file = os.path.join(root, filename)
                 trg_file = os.path.join(trg_dir, trg_name) + ext
 
-                make_link(src_file, trg_file)
-                add_link_to_dbase(src_file, trg_file)
+                result = make_link(src_file, trg_file)
+                add_link_to_dashboard(src_file, trg_file, result)
 
 
 def get_file_types_for_tag(tag_settings, tag):
