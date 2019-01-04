@@ -826,9 +826,10 @@ def qc_subject(subject, config):
 
     expected_files = find_expected_files(subject, config)
 
+    new_entry = {str(subject): ''}
     try:
         # Update checklist even if report generation fails
-        utils.update_checklist(subject)
+        datman.utils.update_checklist(new_entry, config=config)
     except:
         logger.error("Error adding {} to checklist.".format(subject.full_id))
 

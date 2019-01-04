@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 from functools import wraps
+import os
 import logging
 import datetime
 
@@ -272,10 +273,10 @@ def get_default_user():
     except KeyError:
         raise DashboardException("Can't retrieve default dashboard user ID. "
                 "DASHBOARD_USER environment variable not set.")
-    user = queries.get_user(username)
+    user = queries.get_user(user)
     if not user or len(user) > 1:
         raise DashboardException("Can't locate default user {} in "
-                "dashboard database".format(username))
+                "dashboard database".format(user))
     return user[0]
 
 # @dashboard_required
