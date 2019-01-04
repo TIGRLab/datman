@@ -137,8 +137,13 @@ def add_link_to_dashboard(source, target, target_path):
         # Already in database, no work to do.
         return
 
+    db_source = dashboard.get_scan(source)
+    if not db_source:
+        logger.error("Source scan {} not found in dashboard database. "
+                "Can't create link {}".format(source, target))
+        return
+
     try:
-        db_source = dashboard.get_scan(source)
         dashboard.add_scan(target, source_id=db_source.id)
     except Exception as e:
         logger.error("Failed to add link {} to dashboard database. "
