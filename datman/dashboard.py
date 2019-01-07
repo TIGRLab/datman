@@ -133,15 +133,6 @@ def add_subject(name):
 
     return study.add_timepoint(name)
 
-    # 3. If date convert to datetime object
-    # 4. Search DB for sessions where study = current.study and name = current.name
-    # 5. If match, take first. If date:
-        # 5a. convert db_session's date to datetime
-        # 5b. convert date again??? (strftime this time instead of strptime)
-        # 5c. If the two arent equal: update the date to the new one
-    # 6. If no match + create set add new record, else return None
-    # 7. Get checklist comment (if any), if differs from existing - update it
-    # Commit and return the session
 
 @dashboard_required
 @scanid_required
@@ -219,18 +210,6 @@ def add_scan(name, tag=None, series=None, description=None, source_id=None):
     return session.add_scan(scan_name, series, tag, description,
             source_id=source_id)
 
-    #### HANDLE LINKS!
-
-    # 1. Validate name scheme
-
-    # 2. Search for scan in DB
-    # 3. Raise exception if more than one match found (must be unique name)
-    # 4. If not found + create (otherwise return None)
-        # 4a. get_session(sess_name, create=create) (reraise if exception)
-        # 4b. Try to get scantype from tag
-        # 4c. validate that tag belongs in this study
-        # 4d. Add to database
-    # 5. Get blacklist comment from filesystem, update if differs
 
 @dashboard_required
 def get_project(name=None, tag=None, site=None):
@@ -255,6 +234,7 @@ def get_project(name=None, tag=None, site=None):
         return studies[0].study
     return studies[0]
 
+
 @dashboard_required
 def delete_extra_scans(local_session):
     if not dash_found:
@@ -267,6 +247,7 @@ def delete_extra_scans(local_session):
     for scan in extra_scans:
         logger.info("Deleting scan {} from dashboard".format(scan))
         dash_session.delete_scan(scan)
+
 
 @dashboard_required
 def get_default_user():
@@ -281,6 +262,7 @@ def get_default_user():
                 "dashboard database".format(user))
     return user[0]
 
+
 # @dashboard_required
 # def get_scantype(scantype):
 #     if not dash_found:
@@ -292,16 +274,6 @@ def get_default_user():
     # 1. Retrieve from database
     # 2. Delete, report if attempting to delete non-existent?
     # 3. Return True if delete, false otherwise
-
-# @dashboard_required
-# def is_linked(scan):
-    # 1. Return the database att, unless SPRL in which case hard-coded true????
-
-# Not needed anymore? Or need new function to handle links...)
-# def get_session_scan_link()
-    # 1. Searched DB for match on session and scan name
-    # 2. Returned existing, or made new
-    # 3. Set is_primary to False (so... this is only called for actual links?)
 
 # @dashboard_required
 # def add_redcap():
