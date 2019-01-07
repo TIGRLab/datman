@@ -218,6 +218,7 @@ def process_session(session):
         ident = datman.scanid.parse(session_label)
     except datman.scanid.ParseException:
         logger.error("Invalid session: {}. Skipping".format(session_label))
+        return
 
     # check that the session is valid on XNAT
     try:
@@ -294,7 +295,7 @@ def process_session(session):
                                    session_label,
                                    xnat_project))
 
-def set_date(session, date):
+def set_date(session, experiment):
     try:
         date = experiment['data_fields']['date']
     except KeyError:
@@ -440,10 +441,6 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
                      .format(cfg.study_name, ident.site))
         return
 
-    # need to keep a list of scans added to dashboard
-    # so we can delete any scans that no longer exist
-    scans_added = []
-
     for scan in scans['items']:
         series_id = scan['data_fields']['ID']
         scan_info = xnat.get_scan_info(xnat_project,
@@ -469,7 +466,7 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
             for stem, t in zip(file_stem, tag):
                 if wanted_tags and (t not in wanted_tags):
                     continue
-                scans_added, export_formats = process_scan(ident, stem, tags, t, scans_added)
+                export_formats = process_scan(ident, stem, tags, t)
                 if export_formats:
                     get_scans(ident, xnat_project, session_label, experiment_label,
                               series_id, export_formats, file_stem, multiecho)
@@ -479,7 +476,7 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
             tag = tag[0]
             if wanted_tags and (tag not in wanted_tags):
                 continue
-            scans_added, export_formats = process_scan(ident, file_stem, tags, tag, scans_added)
+            export_formats = process_scan(ident, file_stem, tags, tag)
             if export_formats:
                 get_scans(ident, xnat_project, session_label, experiment_label,
                           series_id, export_formats, file_stem, multiecho)
@@ -494,35 +491,36 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
                     "excuse {}".format(session_label, e))
 
 
-def process_scan(ident, file_stem, tags, tag, scans_added):
+def process_scan(ident, file_stem, tags, tag):
     if not db_ignore:
         logger.info("Adding scan {} to dashboard".format(file_stem))
         try:
-            scan = dashboard.get_scan(file_stem, create=True)
+            dashboard.get_scan(file_stem, create=True)
         except dashboard.DashboardException as e:
             logger.error("Failed adding scan {} to dashboard with "
                     "error {}".format(file_stem, e))
-        scans_added.append(file_stem)
 
-    if scan.blacklisted():
-        logger.warn("Excluding scan {} due to blacklist entry '{}'".format(
-                file_stem, scan.get_comment()))
-        return scans_added, None
+    blacklist_entry = datman.utils.read_blacklist(scan=file_stem, config=cfg)
+    if blacklist_entry:
+        logger.warn("Skipping export of {} due to blacklist entry '{}'".format(
+                file_stem, blacklist_entry))
+        return
 
     try:
         export_formats = tags.get(tag)['formats']
     except KeyError:
         logger.error("Export settings for tag: {} not found for "
                      "study: {}".format(tag, cfg.study_name))
-        return scans_added, None
+        return
 
     export_formats = series_is_processed(ident, file_stem, export_formats)
     if not export_formats:
         logger.warn("Scan: {} has been processed. Skipping"
                     .format(file_stem))
-        return scans_added, None
+        return
 
-    return scans_added, export_formats
+    return export_formats
+
 
 def create_scan_name(exportinfo, scan_info, session_label):
     """Creates name suitable for a scan including the tags"""
@@ -668,7 +666,8 @@ def series_is_processed(ident, file_stem, export_formats):
     return remaining_formats
 
 
-def get_scans(ident, xnat_project, session_label, experiment_label, series_id, export_formats, file_stem, multiecho):
+def get_scans(ident, xnat_project, session_label, experiment_label, series_id,
+        export_formats, file_stem, multiecho):
     logger.info("Getting scan from XNAT")
 
     # setup the export functions for each format

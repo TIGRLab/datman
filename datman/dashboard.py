@@ -257,6 +257,8 @@ def get_project(name=None, tag=None, site=None):
 
 @dashboard_required
 def delete_extra_scans(local_session):
+    if not dash_found:
+        return
     local_scans = [_get_scan_name(n.id_plus_session, n.tag, n.series_num)
             for n in local_session.niftis]
     dash_session = get_session(local_session.id_plus_session)
