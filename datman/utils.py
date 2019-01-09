@@ -21,7 +21,7 @@ import pyxnat
 
 import datman.config
 import datman.scanid as scanid
-import datman.dashboard as dash
+import datman.dashboard as dashboard
 from datman.exceptions import MetadataException
 
 logger = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ def read_checklist(study=None, subject=None, config=None, path=None):
     if subject:
         ident = datman.scanid.parse(subject)
 
-    if dash.dash_found and not path:
+    if dashboard.dash_found and not path:
         if subject:
             subject = ident.get_full_subjectid_with_timepoint_session()
         try:
@@ -113,7 +113,7 @@ def _fetch_checklist(subject=None, study=None, config=None):
                 "datman.config object")
 
     if subject:
-        session = dash.get_session(subject)
+        session = dashboard.get_session(subject)
         if not session:
             return
         if session.signed_off:
@@ -124,7 +124,7 @@ def _fetch_checklist(subject=None, study=None, config=None):
     if config:
         study = config.study_name
 
-    db_study = dash.get_project(study)
+    db_study = dashboard.get_project(study)
     entries = {}
     for timepoint in db_study.timepoints:
         if timepoint.is_phantom or not len(timepoint.sessions):
@@ -207,7 +207,7 @@ def update_checklist(entries, study=None, config=None, path=None):
                 "format with subject ID as the key and comment as the value "
                 "(empty string for new, unreviewed subjects)")
 
-    if dash.dash_found and not path:
+    if dashboard.dash_found and not path:
         _update_qc_reviewers(entries)
         return
 
@@ -238,14 +238,14 @@ def _update_qc_reviewers(entries):
     Support function for update_checklist(). Updates QC info on the dashboard.
     """
     try:
-        user = dash.get_default_user()
+        user = dashboard.get_default_user()
     except:
         raise MetadataException("Can't update dashboard QC information without "
                 "a default dashboard user defined. Please add "
                 "'DEFAULT_DASH_USER' to your config file.")
 
     for subject in entries:
-        timepoint = dash.get_subject(subject)
+        timepoint = dashboard.get_subject(subject)
         if not timepoint or not timepoint.sessions:
             raise MetadataException("{} not found in the in the dashboard "
                     "database.".format(subject))
@@ -288,7 +288,7 @@ def read_blacklist(study=None, scan=None, subject=None, config=None, path=None):
         - OR the comment for a specific scan if a scan is given
         - OR 'None' if a scan is given but not found in the blacklist
     """
-    if dash.dash_found and not path:
+    if dashboard.dash_found and not path:
         return _fetch_blacklist(scan=scan, subject=subject, study=study,
                 config=config)
 
@@ -327,18 +327,18 @@ def _fetch_blacklist(scan=None, subject=None, study=None, config=None):
             "4) a datman config object")
 
     if scan:
-        db_scan = dash.get_scan(scan)
+        db_scan = dashboard.get_scan(scan)
         if db_scan and db_scan.blacklisted():
             return db_scan.get_comment()
         return
 
     if subject:
-        db_subject = dash.get_subject(subject)
+        db_subject = dashboard.get_subject(subject)
         blacklist = db_subject.get_blacklist_entries()
     else:
         if config:
             study = config.study_name
-        db_study = dash.get_project(study)
+        db_study = dashboard.get_project(study)
         blacklist = db_study.get_blacklisted_scans()
 
     entries = {}
@@ -400,7 +400,7 @@ def update_blacklist(entries, study=None, config=None, path=None):
                 "format with scan name as the key and reason for blacklisting "
                 "as the value")
 
-    if dash.dash_found and not path:
+    if dashboard.dash_found and not path:
         _update_scan_checklist(entries)
         return
 
@@ -431,14 +431,14 @@ def _update_scan_checklist(entries):
     Helper function for 'update_blacklist()'. Updates the dashboard's database.
     """
     try:
-        user = dash.get_default_user()
+        user = dashboard.get_default_user()
     except:
         raise MetadataException("Can't update dashboard QC information without "
                 "a default dashboard user defined. Please add "
                 "'DEFAULT_DASH_USER' to your config file.")
 
     for scan_name in entries:
-        scan = dash.get_scan(scan_name)
+        scan = dashboard.get_scan(scan_name)
         if not scan:
             raise MetadataException("{} does not exist in the dashboard "
                     "database".format(scan_name))
