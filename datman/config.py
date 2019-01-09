@@ -13,7 +13,7 @@ import os
 import yaml
 
 import datman.scanid
-import datman.dashboard as dash
+import datman.dashboard as dashboard
 
 logger = logging.getLogger(__name__)
 
@@ -157,7 +157,7 @@ class config(object):
             tag = parts.study
             site = parts.site
 
-        project = dash.get_project(tag=tag, site=site)
+        project = dashboard.get_project(tag=tag, site=site)
         if project:
             return project.id
 
