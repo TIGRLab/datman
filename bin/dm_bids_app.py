@@ -249,7 +249,7 @@ def get_dict_args(arg_dict):
     '''
 
     #Get key:value arguments and format keys
-    args = {'--{}'.format(k.lower()) : v for k,v in arg_dict.items() if str(v).lower() != 'false'}
+    args = {'--{}'.format(k) : v for k,v in arg_dict.items() if str(v).lower() != 'false'}
     args = {k : ('' if str(v).lower() == 'true' else str(v)) for k,v in args.items()}
 
     return args
@@ -485,7 +485,7 @@ def ciftify_fork(jargs,log_tag,out_dir,sublist):
     $SIMG \\
     /input /output participant --fmriprep-workdir /work/fmriprep_work \\
     --participant_label $SUB \\
-    --verbose --fs-license /li/license.txt {args} {log_tag}  
+    --fs-license /li/license.txt {args} {log_tag}
 
     '''.format(args = ' '.join(append_args), log_tag=log_tag)
 
