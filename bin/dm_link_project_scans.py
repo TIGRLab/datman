@@ -150,7 +150,7 @@ def add_link_to_dashboard(source, target, target_path):
                 "Reason: {}. Removing link from file system to re-attempt "
                 "later.".format(target, str(e)))
         try:
-            os.remove(result)
+            os.remove(target_path)
         except:
             logger.error("Failed to clean up link {}".format(target_path))
 
