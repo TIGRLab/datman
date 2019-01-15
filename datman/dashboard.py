@@ -10,7 +10,7 @@ from datman.exceptions import DashboardException
 logger = logging.getLogger(__name__)
 
 try:
-    from dashboard import queries
+    from dashboard import queries, monitors
 except ImportError:
     dash_found = False
     logger.error("Dashboard not found, proceeding without it.")
@@ -164,7 +164,12 @@ def add_session(name, date=None):
                     "".format(date))
             raise DashboardException("Invalid date format {}".format(date))
 
-    return timepoint.add_session(sess_num, date=date)
+    new_session = timepoint.add_session(sess_num, date=date)
+
+    if timepoint.expects_redcap():
+        monitors.monitor_redcap_import(str(timepoint), sess_num)
+
+    return new_session
 
 
 @dashboard_required
