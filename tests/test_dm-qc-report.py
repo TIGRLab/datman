@@ -48,48 +48,6 @@ class VerifyInputPaths(unittest.TestCase):
         paths = ["./somepath", "/some/other/path"]
         qc.verify_input_paths(paths)
 
-@patch('datman.scan.Scan')
-class CheckForRepeatSession(unittest.TestCase):
-
-    def test_doesnt_crash_if_dashboard_not_installed(self, mock_scan):
-        mock_subject = mock_scan.return_value
-        mock_subject.get_db_object.side_effect = ImportError()
-
-        qc.check_for_repeat_session(mock_subject)
-
-        assert qc.REWRITE == False
-
-    def test_rewrite_flag_stays_false_when_subject_not_in_database(self,
-            mock_scan):
-        mock_subject = mock_scan.return_value
-        mock_subject.get_db_object.return_value = None
-
-        qc.check_for_repeat_session(mock_subject)
-
-        assert qc.REWRITE == False
-
-    def test_rewrite_flag_set_to_true_when_qc_page_out_of_date(self, mock_scan):
-        class DBStub(object):
-            def __init__(self):
-                self.last_repeat_qc_generated = 1
-                self.repeat_count = 2
-            def flush_changes(self):
-                return
-
-        mock_subject = mock_scan.return_value
-        mock_subject.get_db_object.return_value = DBStub()
-
-        assert qc.REWRITE == False
-
-        qc.check_for_repeat_session(mock_subject)
-
-        assert qc.REWRITE == True
-
-    def tearDown(self):
-        # Needed in case a test modifies the value, since all tests in the
-        # script reference the same instance of dm_qc_report
-        qc.REWRITE = False
-
 class PrepareScan(unittest.TestCase):
 
     @nose.tools.raises(SystemExit)
