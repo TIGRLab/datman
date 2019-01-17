@@ -18,7 +18,7 @@ class CopyChecklistEntry(unittest.TestCase):
     path = "./target_checklist.csv"
 
     @patch('bin.dm_link_project_scans.update_file')
-    @patch('datman.utils.check_checklist')
+    @patch('datman.utils.read_checklist')
     def test_does_nothing_when_target_checklist_has_entry(self, mock_check,
             mock_update):
         mock_check.return_value = "signed off"
@@ -28,7 +28,7 @@ class CopyChecklistEntry(unittest.TestCase):
         assert mock_update.call_count == 0
 
     @patch('bin.dm_link_project_scans.update_file')
-    @patch('datman.utils.check_checklist')
+    @patch('datman.utils.read_checklist')
     def test_does_nothing_when_no_relevant_entries_in_source(self, mock_check,
             mock_update):
         mock_check.return_value = None
@@ -38,7 +38,7 @@ class CopyChecklistEntry(unittest.TestCase):
         assert mock_update.call_count == 0
 
     @patch('bin.dm_link_project_scans.update_file')
-    @patch('datman.utils.check_checklist')
+    @patch('datman.utils.read_checklist')
     def test_updates_with_correct_entry(self, mock_check, mock_update):
         comment = "signed off"
         target_id_timepoint = self.target.get_full_subjectid_with_timepoint()
@@ -56,7 +56,7 @@ class CopyChecklistEntry(unittest.TestCase):
 
     @patch('bin.dm_link_project_scans.delete_old_checklist_entry')
     @patch('bin.dm_link_project_scans.update_file')
-    @patch('datman.utils.check_checklist')
+    @patch('datman.utils.read_checklist')
     def test_no_repeats_when_checklist_entry_exists_but_not_signed_off(self,
             mock_check, mock_update, mock_delete):
         comment = "signed off"

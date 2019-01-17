@@ -1,10 +1,9 @@
 """
 datman. who dat?
 """
-# thanks to http://stackoverflow.com/questions/1057431/loading-all-modules-in-a-folder-in-python
-#import os, glob
-
-#modules = glob.glob(os.path.dirname(__file__)+"/*.py")
-#__all__ = [ os.path.basename(f)[:-3] for f in modules]
-
-#from . import *
+import datman.scanid
+# If you remove this and dont manually import config before importing
+# datman/dashboard.py you will get circular import errors. I am sooo sorry.
+# We'd have to store hardcoded file paths in the dashboard database to
+# otherwise fix this.
+import datman.config
