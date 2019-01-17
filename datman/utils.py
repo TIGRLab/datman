@@ -1064,7 +1064,7 @@ def validate_subject_id(subject_id, config):
 
 
 def submit_job(cmd, job_name, log_dir, system = 'other',
-        cpu_cores=1, walltime="2:00:00", dryrun = False, partition='low-moby', argslist=None):
+        cpu_cores=1, walltime="2:00:00", dryrun = False, partition='low-moby', argslist=""):
     '''
     submits a job or joblist the queue depending on the system
 
@@ -1084,7 +1084,7 @@ def submit_job(cmd, job_name, log_dir, system = 'other',
 
     # Bit of an ugly hack to allow job submission on the scc. Should be replaced
     # with drmaa or some other queue interface later
-    if system is 'kimel':
+    if system == 'kimel':
         job_file = '/tmp/{}'.format(job_name)
 
         with open(job_file, 'wb') as fid:
@@ -1093,7 +1093,7 @@ def submit_job(cmd, job_name, log_dir, system = 'other',
 
         job = 'sbatch -p {partition} -c {cores} -t {walltime} {args} --job-name {jobname} {jobfile}'.format(
                 partition=partition, cores=cpu_cores, walltime=walltime,
-                args=arglist, jobname=job_name, jobfile=job_file)
+                args=argslist, jobname=job_name, jobfile=job_file)
 
         rtn, out = run(job)
     else:
