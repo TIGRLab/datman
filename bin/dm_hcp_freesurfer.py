@@ -123,7 +123,7 @@ def run_all_subjects(config, arguments):
     blacklist_file = arguments['--blacklist']
     walltime = arguments['--walltime']
 
-    subjects = config.get_subject_metadata()
+    subjects = utils.get_subject_metadata(config)
     if blacklist_file:
         subjects = add_pipeline_blacklist(subjects, blacklist_file)
 
