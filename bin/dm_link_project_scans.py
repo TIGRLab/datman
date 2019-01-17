@@ -40,10 +40,12 @@ import logging
 import yaml
 import csv
 import re
+
+from docopt import docopt
+
 import datman as dm
 import datman.scanid, datman.utils
-from docopt import docopt
-import datman.dashboard
+import datman.dashboard as dashboard
 
 DRYRUN = False
 LINK_FILE_HEADERS = ['subject', 'target_subject', 'tags']
@@ -116,45 +118,41 @@ def make_link(source, target):
         os.symlink(rel_source, target)
     except OSError as e:
         logger.debug('Failed to create symlink: {}'.format(e.strerror))
+        return None
+
+    return target
 
 
-def add_link_to_dbase(source, target):
-    logger.debug('Creating database entry linking {} to {}.'.format(source,
-                                                                    target))
-    ident_src = dm.scanid.parse_filename(source)
-    ident_trg = dm.scanid.parse_filename(target)
-
-    db_src = datman.dashboard.dashboard(ident_src[0].get_full_subjectid_with_timepoint())
-    db_trg = datman.dashboard.dashboard(ident_trg[0].get_full_subjectid_with_timepoint())
-
-    src_session_db = db_src.get_add_session(ident_src[0].get_full_subjectid_with_timepoint())
-    trg_session_db = db_trg.get_add_session(ident_trg[0].get_full_subjectid_with_timepoint())
-
-    if not src_session_db:
-        logger.debug('Failed to find source session:{} in database.'
-                     .format(os.path.basename(source)))
+def add_link_to_dashboard(source, target, target_path):
+    if not dashboard.dash_found:
         return
 
-    if not trg_session_db:
-        logger.debug('Failed to find target session:{} in database.'
-                     .format(os.path.basename(target)))
+    logger.debug('Creating database entry linking {} to {}.'.format(
+            source, target))
+    if DRYRUN:
         return
 
-    src_scan_db = db_src.get_add_scan(os.path.basename(source))
+    target_record = dashboard.get_scan(target)
+    if target_record:
+        # Already in database, no work to do.
+        return
 
-    if not src_scan_db:
-        logger.debug('Failed to find src scan:{} in database.'
-                     .format(os.path.basename(source)))
+    db_source = dashboard.get_scan(source)
+    if not db_source:
+        logger.error("Source scan {} not found in dashboard database. "
+                "Can't create link {}".format(source, target))
+        return
 
-    new_name = datman.scanid.make_filename(ident_trg[0],
-                                           ident_trg[1],
-                                           ident_trg[2],
-                                           ident_trg[3])
-    if not DRYRUN:
-        datman.dashboard.get_add_session_scan_link(trg_session_db,
-                                                   src_scan_db,
-                                                   new_name,
-                                                   is_primary=False)
+    try:
+        dashboard.add_scan(target, source_id=db_source.id)
+    except Exception as e:
+        logger.error("Failed to add link {} to dashboard database. "
+                "Reason: {}. Removing link from file system to re-attempt "
+                "later.".format(target, str(e)))
+        try:
+            os.remove(target_path)
+        except:
+            logger.error("Failed to clean up link {}".format(target_path))
 
 
 def link_files(tags, src_session, trg_session, src_data_dir, trg_data_dir):
@@ -189,8 +187,8 @@ def link_files(tags, src_session, trg_session, src_data_dir, trg_data_dir):
                 src_file = os.path.join(root, filename)
                 trg_file = os.path.join(trg_dir, trg_name) + ext
 
-                make_link(src_file, trg_file)
-                add_link_to_dbase(src_file, trg_file)
+                result = make_link(src_file, trg_file)
+                add_link_to_dashboard(src_file, trg_file, result)
 
 
 def get_file_types_for_tag(tag_settings, tag):
@@ -220,13 +218,7 @@ def tags_match(blacklist_entry, tags):
     Returns true if the filename in <blacklist_entry> contains a tag in <tags>.
     """
     try:
-        blacklisted_file = blacklist_entry.split()[0]
-    except IndexError:
-        # Empty line
-        return False
-
-    try:
-        _, tag, _, _ = datman.scanid.parse_filename(blacklisted_file)
+        _, tag, _, _ = datman.scanid.parse_filename(blacklist_entry)
     except datman.scanid.ParseException:
         logger.error("Blacklist entry {} contains non-datman filename. " \
                 "Entry will not be copied to target blacklist.".format(
@@ -238,86 +230,47 @@ def tags_match(blacklist_entry, tags):
 
     return True
 
-def update_file(file_path, line):
-    logger.debug("Updating file {} with entry {}".format(file_path, line))
-    if DRYRUN:
-        return
-    with open(file_path, 'a') as file_name:
-        file_name.write(line)
-
-def get_blacklist_scans(subject_id, blacklist_path, new_id=None):
-    """
-    Finds all entries in <blacklist_path> that belong to the participant with
-    ID <subject_id>. If <new_id> is given, it modifies the found lines to
-    contain the new subject's ID.
-    """
-    try:
-        with open(blacklist_path, 'r') as blacklist:
-            lines = blacklist.readlines()
-    except IOError:
-        lines = []
-
-    entries = []
-    for line in lines:
-        if subject_id in line:
-            if new_id is not None:
-                line = line.replace(subject_id, new_id)
-            entries.append(line)
-    return entries
-
 def copy_blacklist_data(source, source_blacklist, target, target_blacklist, tags):
     """
     Adds entries from <source_blacklist> to <target_blacklist> if they contain
     one of the given tags and have not already been added.
     """
-    source_entries = get_blacklist_scans(source, source_blacklist, new_id=target)
-    if not source_entries:
+    source_entries = datman.utils.read_blacklist(subject=source,
+            path=source_blacklist)
+    expected_entries = {orig_scan.replace(source, target): comment
+            for (orig_scan, comment) in source_entries.items()}
+
+    if not expected_entries:
         return
 
-    target_entries = get_blacklist_scans(target, target_blacklist)
-    missing_entries = set(source_entries) - set(target_entries)
-    if not missing_entries:
+    target_entries = datman.utils.read_blacklist(subject=target,
+            path=target_blacklist)
+    missing_scans = set(expected_entries.keys()) - set(target_entries.keys())
+
+    new_entries = {}
+    for scan in missing_scans:
+        if not tags_match(scan, tags):
+            continue
+        new_entries[scan] = expected_entries[scan]
+
+    if not new_entries:
         return
 
-    for entry in missing_entries:
-        if tags_match(entry, tags):
-            update_file(target_blacklist, entry)
-
-def delete_old_checklist_entry(checklist_path, entry):
-    with open(checklist_path, 'r') as checklist:
-        checklist_entries = checklist.readlines()
-
-    new_lines = []
-    for line in checklist_entries:
-        fields = line.split()
-        if not fields:
-            continue
-        if fields[0] == entry:
-            continue
-        new_lines.append(" ".join(fields) + '\n')
-
-    with open(checklist_path, 'w') as new_list:
-        for line in new_lines:
-            new_list.write(line)
+    datman.utils.update_blacklist(new_entries, path=target_blacklist)
 
 def copy_checklist_entry(source_id, target_id, target_checklist_path):
-    target_comment = datman.utils.check_checklist(target_id, study=target_id)
+    target_comment = datman.utils.read_checklist(subject=target_id)
     if target_comment:
         # Checklist entry already exists and has been signed off.
         return
 
-    source_comment = datman.utils.check_checklist(source_id, study=source_id)
+    source_comment = datman.utils.read_checklist(subject=source_id)
     if not source_comment:
         # No source comment to copy
         return
 
-    qc_page_name = "qc_{}.html".format(target_id)
-    if target_comment == '':
-        # target_comment == '' means there's a qc page entry, but its not signed
-        # off. Old entry must be deleted to avoid duplication.
-        delete_old_checklist_entry(target_checklist_path, qc_page_name)
-    qc_report_entry = " ".join([qc_page_name, source_comment])
-    update_file(target_checklist_path, qc_report_entry + '\n')
+    entries = {target_id: source_comment}
+    datman.utils.update_checklist(entries, path=target_checklist_path)
 
 def copy_metadata(source_id, target_id, tags):
     source_config = datman.config.config(study=source_id)
@@ -373,7 +326,11 @@ def link_session_data(source, target, given_tags):
     logger.debug("Tags set to {}".format(tags))
 
     link_resources(source, target)
-    copy_metadata(source, target, tags)
+
+    if not dashboard.dash_found:
+        # The dashboard automatically handles linked checklist/blacklist
+        # comments so only update if metadata files are being used instead
+        copy_metadata(source, target, tags)
 
     dirs = get_dirs_to_search(config, tags)
     for path_key in dirs:

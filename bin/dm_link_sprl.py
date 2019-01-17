@@ -74,9 +74,6 @@ def main():
     dir_nii = cfg.get_path('nii')
     dir_res = cfg.get_path('resources')
 
-    # setup the dashboard object
-    db = datman.dashboard.dashboard(study=study)
-
     if session:
         # single session defined on command line
         sessions = [session]
@@ -88,12 +85,12 @@ def main():
     for session in sessions:
         try:
             logger.info('Processing session {}'.format(session))
-            process_session(cfg, db, dir_nii, dir_res, session)
+            process_session(cfg, dir_nii, dir_res, session)
         except:
             logger.error('Failed processing session:{}'.format(session))
 
 
-def process_session(cfg, db, dir_nii, dir_res, session):
+def process_session(cfg, dir_nii, dir_res, session):
     # check everything is setup correctly
     try:
         ident = datman.scanid.parse(session)
@@ -170,24 +167,17 @@ def process_session(cfg, db, dir_nii, dir_res, session):
     for sprl_file in sprl_files:
         logger.info("Currently working on {}".format(sprl_file))
         _create_symlink(sprl_file[0], sprl_file[1], dir_nii)
-        _add_sprl_to_dashboard(db, sprl_file[1])
-
-
-def _add_sprl_to_dashboard(db, filename):
-    try:
-        logger.info("Adding {} to dashboard".format(filename))
-        db.get_add_scan(filename, create=True)
-    except DashboardException as e:
-        logger.error('Failed adding scan:{} to dashboard.'
-                     .format(filename))
-        logger.debug('Failed adding scan:{} to dashboard with error:{}'
-                     .format(filename, str(e)))
+        try:
+            datman.dashboard.get_scan(sprl_file[1], create=True)
+        except Exception as e:
+            logger.error("Failed to add scan {} to dashboard database. "
+                    "Reason: {}".format(sprl_file[1], str(e)))
 
 
 def _create_symlink(src, target_name, dir_nii):
     """Check to see if this file has been blacklisted,
     if not create the symlink if it doesnt exist"""
-    if datman.utils.check_blacklist(target_name):
+    if datman.utils.read_blacklist(scan=target_name):
         return
 
     target_path = os.path.join(dir_nii, target_name)

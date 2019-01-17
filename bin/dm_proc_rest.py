@@ -26,6 +26,7 @@ import datman.config as cfg
 import logging
 import glob
 import numpy as np
+import nibabel as nib
 import os, sys
 import time
 import yaml
@@ -34,6 +35,42 @@ logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(mess
 logger = logging.getLogger(os.path.basename(__file__))
 
 NODE = os.uname()[1]
+
+def loadnii(filename):
+    """
+    Usage:
+        nifti, affine, header, dims = loadnii(filename)
+
+    Loads a Nifti file (3 or 4 dimensions).
+
+    Returns:
+        a 2D matrix of voxels x timepoints,
+        the input file affine transform,
+        the input file header,
+        and input file dimensions.
+    """
+
+    # load everything in
+    nifti = nib.load(filename)
+    affine = nifti.get_affine()
+    header = nifti.get_header()
+    dims = nifti.shape
+
+    # if smaller than 3D
+    if len(dims) < 3:
+        raise Exception('Your data has less than 3 dimensions!')
+
+    # if smaller than 4D
+    if len(dims) > 4:
+        raise Exception('Your data is at least a penteract (> 4 dimensions!)')
+
+    # load in nifti and reshape to 2D
+    nifti = nifti.get_data()
+    if len(dims) == 3:
+        dims = tuple(list(dims) + [1])
+    nifti = nifti.reshape(dims[0]*dims[1]*dims[2], dims[3])
+
+    return nifti, affine, header, dims
 
 def get_inputs(config, path, exp, scanid):
     """
@@ -93,8 +130,8 @@ def run_analysis(scanid, config, study):
                 else:
                     pass
 
-            rois, _, _, _ = utils.loadnii(roi_file)
-            data, _, _, _ = utils.loadnii(filename)
+            rois, _, _, _ = loadnii(roi_file)
+            data, _, _, _ = loadnii(filename)
 
             n_rois = len(np.unique(rois[rois > 0]))
             dims = np.shape(data)

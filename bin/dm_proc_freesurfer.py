@@ -403,7 +403,7 @@ def main():
     check_input_paths(config)
 
     #Get subject QC status, whether they've been inducted into blacklist or not if empty value to subject key
-    qc_subjects = config.get_subject_metadata()
+    qc_subjects = utils.get_subject_metadata(config)
 
     fs_path = config.get_path('freesurfer')
     LOG_DIR = make_error_log_dir(fs_path)

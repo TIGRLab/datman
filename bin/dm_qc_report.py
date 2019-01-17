@@ -13,7 +13,10 @@ Arguments:
 
 Options:
     --rewrite          Rewrite the html of an existing qc page
-    --log-to-server    If set, all log messages will also be sent to the configured logging server. This is useful when the script is run with the Sun Grid Engine, since it swallows logging messages.
+    --log-to-server    If set, all log messages will also be sent to the
+                       configured logging server. This is useful when the
+                       script is run with the Sun Grid Engine, since it swallows
+                       logging messages.
     -q --quiet         Only report errors
     -v --verbose       Be chatty
     -d --debug         Be extra chatty
@@ -101,6 +104,7 @@ import datman.config
 import datman.utils
 import datman.scanid
 import datman.scan
+import datman.dashboard
 
 from docopt import docopt
 
@@ -374,49 +378,6 @@ def get_new_subjects(config):
     new_subs = filter(lambda sub: sub not in finished_phantoms, new_subs)
     return new_subs
 
-def find_existing_reports(checklist_path):
-    found_reports = []
-    with open(checklist_path, 'r') as checklist:
-        for checklist_entry in checklist:
-            checklist_entry = checklist_entry.split(' ')[0].strip()
-            checklist_entry, checklist_ext = os.path.splitext(checklist_entry)
-            found_reports.append(checklist_entry)
-    return found_reports
-
-def add_report_to_checklist(qc_report, checklist_path, retry=3):
-    """
-    Add the given report's name to the QC checklist if it is not already
-    present.
-    """
-    if not qc_report or retry == 0:
-        return
-
-    # remove extension from report name, so we don't double-count .pdfs vs .html
-    report_file_name = os.path.basename(qc_report)
-    report_name, report_ext = os.path.splitext(report_file_name)
-
-    try:
-        found_reports = find_existing_reports(checklist_path)
-    except IOError:
-        logger.info("{} does not exist. "\
-                "Attempting to create it".format(checklist_path))
-        found_reports = []
-
-    if report_name in found_reports:
-        return
-
-    try:
-        with open(checklist_path, 'a') as checklist:
-            checklist.write(report_file_name + '\n')
-    except:
-        logger.error("Failed to write {} to checklist. Tries remaining: "
-                "{}".format(report_file_name, retry))
-        # Sleep for a short time to shuffle processes that are attempting
-        # concurrent writes.
-        wait_time = random.uniform(0, 10)
-        time.sleep(wait_time)
-        add_report_to_checklist(qc_report, checklist_path, retry=retry-1)
-
 def add_header_qc(nifti, qc_html, log_path):
     """
     Adds header-diff.log information to the report.
@@ -675,6 +636,15 @@ def generate_qc_report(report_name, subject, expected_files, header_diffs, confi
                     tag_settings)
     except:
         raise
+    update_dashboard(subject, report_name)
+
+def update_dashboard(subject, report_name):
+    db_subject = datman.dashboard.get_subject(subject.full_id)
+    if not db_subject:
+        return
+    db_subject.last_qc_repeat_generated = len(db_subject.sessions)
+    db_subject.static_page = report_name
+    db_subject.save()
 
 def get_position(position_info):
     if isinstance(position_info, list):
@@ -856,10 +826,10 @@ def qc_subject(subject, config):
 
     expected_files = find_expected_files(subject, config)
 
+    new_entry = {str(subject): ''}
     try:
         # Update checklist even if report generation fails
-        checklist_path = os.path.join(config.get_path('meta'), 'checklist.csv')
-        add_report_to_checklist(report_name, checklist_path)
+        datman.utils.update_checklist(new_entry, config=config)
     except:
         logger.error("Error adding {} to checklist.".format(subject.full_id))
 
@@ -946,29 +916,20 @@ def check_for_repeat_session(subject):
     created.
 
     WARNING: If it cannot find the dashboard/database pages will not be updated
+    to add the new session(s)
     """
     global REWRITE
 
-    try:
-        db_session = subject.get_db_object()
-    except ImportError:
-        logger.error("Cannot access dashboard database, {} QC may become out of "
-                "date if repeat sessions exist".format(subject.full_id))
+    db_subject = datman.dashboard.get_subject(subject.full_id)
+
+    # will be None if entry doesn't exist in dashboard or dashboard isnt setup
+    if not db_subject:
+        logger.warning('Cannot find subject {} in dashboard database. They may '
+                'be missing, or database may be inaccessible.'.format(subject))
         return
 
-    # db_session is None if entry doesn't exist in dashboard
-    if not db_session:
-        logger.warning('Subject:{} not found in database'.format(subject.full_id))
-        return
-
-    if db_session.last_repeat_qc_generated >= db_session.repeat_count:
-        # Not out of date, no rewrite needed
-        return
-
-    # this is a new session, going to cheat and overwrite REWRITE
-    REWRITE = True
-    db_session.last_repeat_qc_generated = db_session.repeat_count
-    db_session.flush_changes()
+    if db_subject.last_qc_repeat_generated < len(db_subject.sessions):
+        REWRITE = True
 
 def prepare_scan(subject_id, config):
     """

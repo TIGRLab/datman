@@ -13,7 +13,7 @@ Options:
     --subject SUBJID            subject name to run on
     --debug                     debug logging
     --dry-run                   don't do anything
-    --output OUTPUT_DIR         Set base output directory 
+    --output OUTPUT_DIR         Set base output directory
     --exports <export,...>      Request additional export options, list of comma-separated strings
     --task TYPE                 Specify which type of scan to run (must be available in config)
 
@@ -24,11 +24,6 @@ DEPENDENCIES
     + epitome
 """
 
-from docopt import docopt
-import datman.scanid as sid
-import datman.utils as utils
-import datman.config as cfg
-import yaml
 import logging
 import os, sys
 import glob
@@ -36,10 +31,33 @@ import shutil
 import tempfile
 import time
 
+from docopt import docopt
+import numpy as np
+import yaml
+
+import datman.scanid as sid
+import datman.utils as utils
+import datman.config as cfg
+
 logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
 NODE = os.uname()[1]
+
+def make_epitome_folders(path, n_runs):
+    """
+    Makes an epitome-compatible folder structure with functional data FUNC of n
+    import pipesruns, and a single T1.
+
+    This works assuming we've run everything through freesurfer.
+
+    If we need multisession, it might make sense to run this multiple times
+    (once per session).
+    """
+    utils.run('mkdir -p ' + path + '/TEMP/SUBJ/T1/SESS01/RUN01')
+    for r in np.arange(n_runs)+1:
+        num = "{:0>2}".format(str(r))
+        utils.run('mkdir -p ' + path + '/TEMP/SUBJ/FUNC/SESS01/RUN' + num)
 
 def check_inputs(config, tag, path, expected_tags):
     """
@@ -64,7 +82,7 @@ def check_inputs(config, tag, path, expected_tags):
         raise Exception('tag {} not defined in Sites:site:ExportInfo or Sites:site:links'.format(tag))
 
     if n_found != n_expected:
-        logger.warning('Found {} files with tag {}, expected {}, check outputs to ensure quality'.format(n_found,tag,n_expected)) 
+        logger.warning('Found {} files with tag {}, expected {}, check outputs to ensure quality'.format(n_found,tag,n_expected))
 
 def export_directory(source, destination):
     """
@@ -198,7 +216,7 @@ def run_epitome(path, config, study, output, exports, tasks):
 
         # create and populate epitome directory
         epi_dir = tempfile.mkdtemp()
-        utils.make_epitome_folders(epi_dir, len(functionals))
+        make_epitome_folders(epi_dir, len(functionals))
         epi_t1_dir = '{}/TEMP/SUBJ/T1/SESS01'.format(epi_dir)
         epi_func_dir = '{}/TEMP/SUBJ/FUNC/SESS01'.format(epi_dir)
 
@@ -287,7 +305,7 @@ def main():
     output = arguments['--output']
     exports = arguments['--exports']
     task = arguments['--task']
-    
+
     # configure logging
     logging.info('Starting')
     if debug:
@@ -303,20 +321,20 @@ def main():
     study_base = config.get_study_base(study)
 
     #Parse optional arguments
-    output_dir = output if output else os.path.join(study_base,config.get_path('fmri')) 
+    output_dir = output if output else os.path.join(study_base,config.get_path('fmri'))
     opt_exports = [e for e in exports.split(',')] if exports else []
 
-    #Check if task is available 
-    if task: 
+    #Check if task is available
+    if task:
 
-        try: 
+        try:
             config.study_config['fmri'][task]
-        except KeyError: 
+        except KeyError:
             logger.error('Task {} not found in study config!'.format(task))
-            sys.exit(1) 
-        tasks = {k:v for k,v in config.study_config['fmri'].iteritems() if k == task} 
+            sys.exit(1)
+        tasks = {k:v for k,v in config.study_config['fmri'].iteritems() if k == task}
 
-    else: 
+    else:
         tasks = config.study_config['fmri']
 
     for k in ['nii', 'fmri', 'hcp']:
@@ -358,7 +376,7 @@ def main():
 
             fmri_dir = utils.define_folder(output_dir)
             for exp in config.study_config['fmri'].keys():
-                expected_names = set(config.study_config['fmri'][exp]['export'] + opt_exports) 
+                expected_names = set(config.study_config['fmri'][exp]['export'] + opt_exports)
                 subj_dir = os.path.join(fmri_dir, exp, subject)
                 if not outputs_exist(subj_dir, expected_names):
                     subjects.append(subject)
@@ -371,14 +389,14 @@ def main():
 
         g_opts = ' --output {} --exports {}'.format(output_dir,exports)
 
-        
-        if task: 
-            g_opts += ' --task {}'.format(task) 
-        if debug: 
+
+        if task:
+            g_opts += ' --task {}'.format(task)
+        if debug:
             g_opts += ' --debug'
 
         for subject in subjects:
-            sub_tag = ' --subject {}'.format(subject) 
+            sub_tag = ' --subject {}'.format(subject)
             commands.append(" ".join(['python ', __file__, study,g_opts,sub_tag]))
 
         if commands:
