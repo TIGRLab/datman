@@ -22,6 +22,7 @@ Options:
     --log-to-server             If set, all log messages are sent to the configured
                                 logging server.
     --debug                     Debug logging
+    -q, --use-queue             Enable queue submission from script
 """
 import datman.config as config
 import datman.scanid as scanid
@@ -125,8 +126,8 @@ def to_bids_name(ident, tag, cnt_run, type_folder, ex):
         return os.path.join(type_folder["anat"], name.format(subject, session, acq,run_num, mod, ext))
     elif (tag in tag_map["fmri"]):
         name = "{}_{}_task-{}_{}_{}_bold{}"
-        if (tag == "RST" or tag == "VN-SPRL"):
-            run_num = to_run(cnt_run["RST"] + cnt_run["VN-SPRL"])
+        if (tag == "RST" or tag == "VN-SPRL-COMB"):
+            run_num = to_run(cnt_run["RST"] + cnt_run["VN-SPRL-COMB"])
             task = "rest"
         else:
             task = tag.lower().replace('-','')
@@ -148,9 +149,9 @@ def to_bids_name(ident, tag, cnt_run, type_folder, ex):
 
 def get_intended_fors(ses_ser_file_map, matched_fmaps):
 
-    #Mapping dictionary to correctly associates files w/subset
+    #Mapping dictionary to correctly associate files w/subset
     fmap_mapping = {'FMRI' : ['FMRI','RST','FACES'],
-                       'FMAP' : ['IMI','OBS','RST']}
+                       'FMAP' : ['IMI','OBS','RST','EMP']}
 
     #Convenience function for checking if intersection between two lists is not null
     intersect = lambda x,y: any([ True if (l in y) else False for l in x])
@@ -368,7 +369,7 @@ def create_dir(dir_path):
             sys.exit(1)
 
 def create_command(subject, arguments):
-    flags = ['python', 'dm_to_bids.py']
+    flags = ['dm_to_bids.py']
     for arg_flag in ['--nii-dir', '--bids-dir', '--fmriprep-out-dir', '--freesurfer-dir']:
         flags += [arg_flag, arguments[arg_flag]] if arguments[arg_flag] else []
     for flag in ['--rewrite', '--log-to-server', '--debug']:
@@ -453,6 +454,7 @@ def main():
     rewrite     = arguments['--rewrite']
     to_server   = arguments['--log-to-server']
     debug       = arguments['--debug']
+    queue       = arguments['--use-queue']
 
     cfg = config.config(study=study)
     logger.info("Study to convert to BIDS Format: {}".format(study))
@@ -485,7 +487,6 @@ def main():
     all_tags = init_setup(study,cfg, bids_dir)
     create_task_json(bids_dir, tag_map['fmri'])
 
-
     to_delete = set()
 
     try:
@@ -501,95 +502,99 @@ def main():
         sub_ids = os.listdir(nii_dir)
     sub_ids = sorted(sub_ids)
 
-    if len(sub_ids) > 1:
+    #Run multi-submission only if multiple subjects with queue option enabled
+    if (len(sub_ids) > 1) and (queue):
         for sub_id in sub_ids:
             logger.info('Submitting subject to queue: {}'.format(sub_id))
             submit_dm_to_bids(log_dir, sub_id, arguments, cfg)
+
+    #Run if either queue disabled or single subject
     else:
-        subject_dir = sub_ids[0]
-        if scanid.is_phantom(subject_dir):
-            logger.info("File is phantom and will be ignored: {}".format(subject_dir))
-            sys.exit(1)
+        for sub_id in sub_ids: 
+            subject_dir = sub_id
+            if scanid.is_phantom(subject_dir):
+                logger.info("File is phantom and will be ignored: {}".format(subject_dir))
+                sys.exit(1)
 
-        parsed = scanid.parse(subject_dir)
-        if os.path.isdir(os.path.join(bids_dir, to_sub(parsed), to_ses(parsed.timepoint))) and not rewrite:
-            logger.warning('BIDS subject directory already exists. Exiting: {}'.format(subject_dir))
-            sys.exit(1)
-        type_folders = create_bids_dirs(bids_dir, parsed)
-        sub_nii_dir = os.path.join(nii_dir,subject_dir) + '/'
-        logger.info("Will now begin creating files in BIDS format for: {}".format(sub_nii_dir))
+            parsed = scanid.parse(subject_dir)
+            if os.path.isdir(os.path.join(bids_dir, to_sub(parsed), to_ses(parsed.timepoint))) and not rewrite:
+                logger.warning('BIDS subject directory already exists. Exiting: {}'.format(subject_dir))
+                sys.exit(1)
+            type_folders = create_bids_dirs(bids_dir, parsed)
+            sub_nii_dir = os.path.join(nii_dir,subject_dir) + '/'
+            logger.info("Will now begin creating files in BIDS format for: {}".format(sub_nii_dir))
 
-        #Pair together FMAPS if using PEPOLAR and map intended for json fields
-        ses_ser_file_map, matched_fmaps = validify_file(sub_nii_dir)
-        intended_fors = get_intended_fors(ses_ser_file_map, matched_fmaps)
+            #Pair together FMAPS if using PEPOLAR and map intended for json fields
+            ses_ser_file_map, matched_fmaps = validify_file(sub_nii_dir)
+            intended_fors = get_intended_fors(ses_ser_file_map, matched_fmaps)
 
-        nii_to_bids_match = dict()
-        if fmriprep_dir:
-            fs_src = os.path.join(fs_dir, subject_dir)
-            sub_ses = "{}_{}".format(to_sub(parsed), to_ses(parsed.timepoint))
-            fs_dst = os.path.join(fmriprep_fs_dir, sub_ses)
-            if os.path.isdir(fs_src):
-                dir_util.copy_tree(fs_src, fs_dst)
-                logger.warning("Copied {} to {}".format(fs_src, fs_dst))
+            nii_to_bids_match = dict()
+            if fmriprep_dir:
+                fs_src = os.path.join(fs_dir, subject_dir)
+                sub_ses = "{}_{}".format(to_sub(parsed), to_ses(parsed.timepoint))
+                fs_dst = os.path.join(fmriprep_fs_dir, sub_ses)
+                if os.path.isdir(fs_src):
+                    dir_util.copy_tree(fs_src, fs_dst)
+                    logger.warning("Copied {} to {}".format(fs_src, fs_dst))
 
-        cnt = {k : 0 for k in all_tags}
-        for ses in sorted(ses_ser_file_map.keys()):
-            logger.info('Session: {}'.format(ses))
-            for ser in sorted(ses_ser_file_map[ses].keys()):
-                logger.info('Series: {}'.format(ser))
-                series_tags = set()
-                for item in sorted(ses_ser_file_map[ses][ser]):
-                    logger.info('File: {}'.format(item))
-                    item_path = os.path.join(sub_nii_dir, item)
-                    ident, tag, series, description = scanid.parse_filename(item)
-                    ext = os.path.splitext(item)[1]
-                    logger.info('to_bids_name')
+            cnt = {k : 0 for k in all_tags}
+            for ses in sorted(ses_ser_file_map.keys()):
+                logger.info('Session: {}'.format(ses))
+                for ser in sorted(ses_ser_file_map[ses].keys()):
+                    logger.info('Series: {}'.format(ser))
+                    series_tags = set()
+                    for item in sorted(ses_ser_file_map[ses][ser]):
+                        logger.info('File: {}'.format(item))
+                        item_path = os.path.join(sub_nii_dir, item)
+                        ident, tag, series, description = scanid.parse_filename(item)
+                        ext = os.path.splitext(item)[1]
+                        logger.info('to_bids_name')
+                        try:
+                            bids_path = to_bids_name(ident, tag, cnt, type_folders, ext)
+                        except ValueError, err:
+                            logger.info(err)
+                            continue
+                        logger.info('Copying file')
+                        copyfile(item_path, bids_path)
+                        if bids_path.endswith('nii.gz') and "task" in os.path.basename(bids_path):
+                            logger.info('fslroi')
+                            os.system('fslroi {0} {0} 4 -1'.format(bids_path))
+                            logger.warning("Finished fslroi on {}".format(os.path.basename(bids_path)))
+                        logger.info("{:<80} {:<80}".format(os.path.basename(item), os.path.basename(bids_path)))
+                        if item_path.endswith('nii.gz'):
+                            nii_to_bids_match[item] = bids_path
+                        series_tags.add(tag)
+                    while len(series_tags) > 0:
+                        cnt[series_tags.pop()] += 1
+
+            run_num = 1
+
+            #Generate field maps
+            fmaps = sorted(glob.glob("{}*run-0{}_FMAP-*".format(type_folders['fmap'],run_num)))
+            while len(fmaps) > 1:
+                for fmap in fmaps:
+                    validify_fmap(fmap)
+                pattern = re.compile(r'_FMAP-\d\.5\.nii\.gz')
+                without_tag = pattern.sub("", fmaps[0])
+                base = os.path.basename(without_tag)
+
+                cmd = ['bash', 'CMH_generate_fmap.sh', fmaps[0], fmaps[1], without_tag, base]
+                datman.utils.run(cmd)
+                logger.warning("Running: {}".format(cmd))
+                run_num+=1
+                fmaps = sorted(glob.glob("{}*run-0{}*_FMAP-*".format(type_folders['fmap'],run_num)))
+
+            modify_json(nii_to_bids_match, intended_fors, sub_nii_dir)
+
+            logger.info("Deleting unecessary BIDS folders")
+            for key in type_folders.keys():
+                folder = type_folders[key]
+                if os.listdir(folder) == []:
                     try:
-                        bids_path = to_bids_name(ident, tag, cnt, type_folders, ext)
-                    except ValueError, err:
-                        logger.info(err)
-                        continue
-                    logger.info('Copying file')
-                    copyfile(item_path, bids_path)
-                    if bids_path.endswith('nii.gz') and "task" in os.path.basename(bids_path):
-                        logger.info('fslroi')
-                        os.system('fslroi {0} {0} 4 -1'.format(bids_path))
-                        logger.warning("Finished fslroi on {}".format(os.path.basename(bids_path)))
-                    logger.info("{:<80} {:<80}".format(os.path.basename(item), os.path.basename(bids_path)))
-                    if item_path.endswith('nii.gz'):
-                        nii_to_bids_match[item] = bids_path
-                    series_tags.add(tag)
-                while len(series_tags) > 0:
-                    cnt[series_tags.pop()] += 1
-
-        run_num = 1
-
-        #Generate field maps
-        fmaps = sorted(glob.glob("{}*run-0{}_FMAP-*".format(type_folders['fmap'],run_num)))
-        while len(fmaps) > 1:
-            for fmap in fmaps:
-                validify_fmap(fmap)
-            pattern = re.compile(r'_FMAP-\d\.5\.nii\.gz')
-            without_tag = pattern.sub("", fmaps[0])
-            base = os.path.basename(without_tag)
-
-            cmd = ['bash', 'CMH_generate_fmap.sh', fmaps[0], fmaps[1], without_tag, base]
-            datman.utils.run(cmd)
-            logger.warning("Running: {}".format(cmd))
-            run_num+=1
-            fmaps = sorted(glob.glob("{}*run-0{}*_FMAP-*".format(type_folders['fmap'],run_num)))
-
-        modify_json(nii_to_bids_match, intended_fors, sub_nii_dir)
-
-        logger.info("Deleting unecessary BIDS folders")
-        for key in type_folders.keys():
-            folder = type_folders[key]
-            if os.listdir(folder) == []:
-                try:
-                    logger.info("Deleting: {}".format(folder))
-                    os.rmdir(folder)
-                except Exception, e:
-                    logger.info("Folder {} contains multiple acquistions. Should not be deleted.")
+                        logger.info("Deleting: {}".format(folder))
+                        os.rmdir(folder)
+                    except Exception, e:
+                        logger.info("Folder {} contains multiple acquistions. Should not be deleted.")
 
 if __name__ == '__main__':
     main()

@@ -30,19 +30,19 @@ SCANID_PHA_RE = '(?P<study>[^_]+)_' \
 FILENAME_RE = SCANID_RE + '_' + \
               r'(?P<tag>[^_]+)_' + \
               r'(?P<series>\d+)_' + \
-              r'(?P<description>[^\.]*)' + \
-              r'(?P<ext>\..*)?'
+              r'(?P<description>.*?)' + \
+              r'(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|.IMA|.mnc|.nrrd|$)'
 
 FILENAME_PHA_RE = SCANID_PHA_RE + '_' + \
               r'(?P<tag>[^_]+)_' + \
               r'(?P<series>\d+)_' + \
-              r'(?P<description>[^\.]*)' + \
-              r'(?P<ext>\..*)?'
+              r'(?P<description>.*?)' + \
+              r'(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|.IMA|.mnc|.nrrd|$)'
 
 SCANID_PATTERN       = re.compile('^'+SCANID_RE+'$')
 SCANID_PHA_PATTERN   = re.compile('^'+SCANID_PHA_RE+'$')
-FILENAME_PATTERN     = re.compile('^'+FILENAME_RE+'$')
-FILENAME_PHA_PATTERN = re.compile('^'+FILENAME_PHA_RE+'$')
+FILENAME_PATTERN     = re.compile('^'+FILENAME_RE)
+FILENAME_PHA_PATTERN = re.compile('^'+FILENAME_PHA_RE)
 
 #python 2 - 3 compatibility hack
 try:
@@ -76,14 +76,14 @@ class Identifier:
     def get_full_subjectid(self):
         return "_".join([self.study, self.site, self.subject])
 
-    def get_bids_name(self): 
+    def get_bids_name(self):
 
         return 'sub-' + self.site + self.subject
 
     def get_full_subjectid_with_timepoint(self):
         ident = self.get_full_subjectid()
         if self.timepoint:
-            ident += "_"+self.timepoint
+            ident += "_" + self.timepoint
         return ident
 
     def get_full_subjectid_with_timepoint_session(self):
@@ -93,14 +93,10 @@ class Identifier:
         return ident
 
     def __str__(self):
-        if self.timepoint:
-            return "_".join([self.study,
-                             self.site,
-                             self.subject,
-                             self.timepoint,
-                             self.session])
-        else:  # it's a phantom, so no timepoints
-            return self.get_full_subjectid()
+        if self.session:
+            return self.get_full_subjectid_with_timepoint_session()
+        else:
+            return self.get_full_subjectid_with_timepoint()
 
 
 def parse(identifier):
@@ -111,7 +107,7 @@ def parse(identifier):
     if not match: match = SCANID_PHA_PATTERN.match(identifier)
     # work around for matching scanid's when session not supplied
     if not match: match = SCANID_PATTERN.match(identifier + '_XX')
-    if not match: raise ParseException()
+    if not match: raise ParseException("Invalid ID {}".format(identifier))
 
     ident = Identifier(study    = match.group("study"),
                        site     = match.group("site"),
@@ -161,8 +157,26 @@ def is_scanid_with_session(identifier):
     return False
 
 def is_phantom(identifier):
-    try:
-        x = parse(identifier)
-        return x.subject[0:3] == 'PHA'
-    except ParseException:
-        return False
+    if not isinstance(identifier, Identifier):
+        try:
+            identifier = parse(identifier)
+        except ParseException:
+            return False
+    return identifier.subject[0:3] == 'PHA'
+
+def get_session_num(ident):
+    """
+    For those times when you always want a numeric session (including
+    for phantoms who are technically always session '1')
+    """
+    if ident.session:
+        try:
+            num = int(ident.session)
+        except ValueError:
+            raise ParseException("ID {} has non-numeric session number".format(
+                    ident))
+    elif is_phantom(ident):
+        num = 1
+    else:
+        raise ParseException("ID {} is missing a session number".format(ident))
+    return num

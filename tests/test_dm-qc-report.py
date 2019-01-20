@@ -10,10 +10,10 @@ from mock import patch, mock_open, call, MagicMock
 import datman.config as cfg
 import datman.scan
 
-# Necessary to silence all logging from dm-qc-report during tests.
+# Necessary to silence all logging from dm_qc_report during tests.
 logging.disable(logging.CRITICAL)
 
-qc = importlib.import_module('bin.dm-qc-report')
+qc = importlib.import_module('bin.dm_qc_report')
 
 FIXTURE = "tests/fixture_project_settings"
 
@@ -48,55 +48,13 @@ class VerifyInputPaths(unittest.TestCase):
         paths = ["./somepath", "/some/other/path"]
         qc.verify_input_paths(paths)
 
-@patch('datman.scan.Scan')
-class CheckForRepeatSession(unittest.TestCase):
-
-    def test_doesnt_crash_if_dashboard_not_installed(self, mock_scan):
-        mock_subject = mock_scan.return_value
-        mock_subject.get_db_object.side_effect = ImportError()
-
-        qc.check_for_repeat_session(mock_subject)
-
-        assert qc.REWRITE == False
-
-    def test_rewrite_flag_stays_false_when_subject_not_in_database(self,
-            mock_scan):
-        mock_subject = mock_scan.return_value
-        mock_subject.get_db_object.return_value = None
-
-        qc.check_for_repeat_session(mock_subject)
-
-        assert qc.REWRITE == False
-
-    def test_rewrite_flag_set_to_true_when_qc_page_out_of_date(self, mock_scan):
-        class DBStub(object):
-            def __init__(self):
-                self.last_repeat_qc_generated = 1
-                self.repeat_count = 2
-            def flush_changes(self):
-                return
-
-        mock_subject = mock_scan.return_value
-        mock_subject.get_db_object.return_value = DBStub()
-
-        assert qc.REWRITE == False
-
-        qc.check_for_repeat_session(mock_subject)
-
-        assert qc.REWRITE == True
-
-    def tearDown(self):
-        # Needed in case a test modifies the value, since all tests in the
-        # script reference the same instance of dm-qc-report
-        qc.REWRITE = False
-
 class PrepareScan(unittest.TestCase):
 
     @nose.tools.raises(SystemExit)
     def test_exits_gracefully_with_bad_subject_id(self):
         qc.prepare_scan("STUDYSITE_ID", config)
 
-    @patch('bin.dm-qc-report.verify_input_paths')
+    @patch('bin.dm_qc_report.verify_input_paths')
     @patch('datman.utils')
     def test_checks_input_paths(self, mock_utils, mock_verify):
         assert mock_verify.call_count == 0
@@ -104,7 +62,7 @@ class PrepareScan(unittest.TestCase):
         assert mock_verify.call_count == 1
 
     @patch('datman.utils.remove_empty_files')
-    @patch('bin.dm-qc-report.verify_input_paths')
+    @patch('bin.dm_qc_report.verify_input_paths')
     @patch('datman.utils.define_folder')
     def test_makes_qc_folder_if_doesnt_exist(self, mock_create, mock_verify,
             mock_remove):
@@ -169,7 +127,7 @@ class RunHeaderQC(unittest.TestCase):
     standards = './standards'
     log = './qc/subject_id/header-diff.log'
 
-    @patch('bin.dm-qc-report.get_standards')
+    @patch('bin.dm_qc_report.get_standards')
     @patch('datman.utils.run')
     def test_doesnt_crash_with_empty_dicom_dir(self, mock_run, mock_standards):
         subject = datman.scan.Scan('STUDY_SITE_ID_01', config)
@@ -181,7 +139,7 @@ class RunHeaderQC(unittest.TestCase):
         assert mock_run.call_count == 0
 
     @patch('datman.scan.Scan')
-    @patch('bin.dm-qc-report.get_standards')
+    @patch('bin.dm_qc_report.get_standards')
     @patch('datman.utils.run')
     def test_doesnt_crash_without_matching_standards(self, mock_run,
             mock_standards, mock_subject):
@@ -194,7 +152,7 @@ class RunHeaderQC(unittest.TestCase):
         assert mock_run.call_count == 0
 
     @patch('datman.scan.Scan')
-    @patch('bin.dm-qc-report.get_standards')
+    @patch('bin.dm_qc_report.get_standards')
     @patch('datman.utils.run', autospec=True)
     def test_expected_qcmon_call_made(self, mock_run, mock_standards, mock_subject):
         dicom1 = datman.scan.Series('./dicoms/subject_id/' \

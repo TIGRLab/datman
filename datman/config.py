@@ -6,11 +6,14 @@ The system is identified from os.environ['DM_SYSTEM']
 
 These can both be overridden at __init__
 """
-import logging
-import yaml
-import os
-import datman.scanid
 from future.utils import iteritems
+import logging
+import os
+
+import yaml
+
+import datman.scanid
+import datman.dashboard as dashboard
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +145,6 @@ class config(object):
 
         try:
             parts = datman.scanid.parse(filename)
-            tag = parts.study
         except datman.scanid.ParseException:
             # The exception may be because a study tag was given instead of a
             # full ID. Check for this case, exit if it's just a bad ID
@@ -150,6 +152,16 @@ class config(object):
             if len(parts) > 1:
                 raise datman.scanid.ParseException("Malformed ID: {}".format(filename))
             tag = parts[0]
+            site = None
+        else:
+            tag = parts.study
+            site = parts.site
+
+        project = dashboard.get_project(tag=tag, site=site)
+        if project:
+            return project.id
+
+        ###### Abandon all hope, ye who enter here
 
         if tag == 'DTI' and not isinstance(parts, datman.scanid.Identifier):
             # if parts isnt a datman scanid, only the study tag was given. Cant
@@ -359,84 +371,6 @@ class config(object):
 
         return sites
 
-    def get_qced_subjects(self):
-        """
-        Returns a dictionary of all the subjects that have been signed off on
-        for a study. The'value' field for each subject is an empty list.
-
-        Why a dictionary?
-            1. Dicts dont allow duplicate keys, so it handles redundant
-            checklist entries easily.
-            2. It makes it easy and efficient to keep track of additional data
-            on a per subject basis, e.g. all series a subject has
-            3. Dicts can be treated like a list, so if the 'value' for
-            each subject 'key' isn't needed it can just be ignored.
-        """
-        checklist_path = os.path.join(self.get_path('meta'), 'checklist.csv')
-        if not os.path.isfile(checklist_path):
-            raise ValueError("Checklist {} not found".format(checklist_path))
-
-        qced_subjects = {}
-        with open(checklist_path, 'r') as checklist:
-            for entry in checklist:
-                fields = entry.split(None, 1)
-                if len(fields) < 2:
-                    continue
-                subid, _ = os.path.splitext(fields[0].strip('qc_'))
-                qced_subjects[subid] = []
-
-        return qced_subjects
-
-    def get_blacklist(self):
-        """
-        Returns a dictionary mapping the subject id to a list of its blacklisted
-        series. A subject id will not appear in the key list if none of that
-        subject's data has been blacklisted.
-
-        Blacklist entries with file names that violate the datman convention
-        will be skipped.
-        """
-        blacklist_path = os.path.join(self.get_path('meta'), 'blacklist.csv')
-        if not os.path.isfile(blacklist_path):
-            raise ValueError("Blacklist {} not found.".format(blacklist_path))
-
-        blacklist = {}
-        with open(blacklist_path, 'r') as blacklist_file:
-            header_line = blacklist_file.readline()
-            for entry in blacklist_file:
-                fields = entry.split(None, 1)
-                try:
-                    ident, _, _, _ = datman.scanid.parse_filename(fields[0])
-                except datman.scanid.ParseException:
-                    logger.warn("Bad subject id in series. Ignoring "
-                            "blacklist entry {}".format(entry))
-                    continue
-                except IndexError:
-                    # Empty line present in blacklist. Skip it.
-                    continue
-                subid = ident.get_full_subjectid_with_timepoint()
-                blacklist.setdefault(subid, []).append(fields[0])
-        return blacklist
-
-    def get_subject_metadata(self):
-        """
-        Returns a dictionary of all qced subjects, with any blacklisted
-        series mapped to the subject id.
-        """
-        qced_subjects = self.get_qced_subjects()
-
-
-        blacklist = self.get_blacklist()
-
-        # Update is not used because it will add keys
-        # That is, if a subject has NOT been signed off but has a blacklist
-        # entry update would add them to qc'd subjects, which is not desirable.
-        for subject in blacklist:
-            if subject in qced_subjects:
-                qced_subjects[subject] = blacklist[subject]
-
-        return qced_subjects
-
     def get_study_tags(self):
         """
         Returns a dictionary of study tags mapped to the sites defined for
@@ -474,7 +408,7 @@ class config(object):
 
         return tags
 
-    
+
 class TagInfo(object):
 
     def __init__(self, export_settings, site_settings=None):
@@ -515,7 +449,7 @@ class TagInfo(object):
                         "specify a site?")
             if type(pattern) is list:
                 pattern = "|".join(pattern)
-            series_map[pattern] = tag
+            series_map[tag] = pattern
         return series_map
 
     def keys(self):

@@ -64,15 +64,6 @@ import logging
 import datman.utils
 import datman.scanid as scanid
 
-try:
-    # Only one function uses dashboard, and it may not always be setup in the
-    # user's environment. So, configured as an optional feature
-    import datman.dashboard
-except:
-    dash_available = False
-else:
-    dash_available = True
-
 class DatmanNamed(object):
     """
     A parent class for all classes that will obey the datman naming scheme
@@ -156,6 +147,8 @@ class Scan(DatmanNamed):
 
         self.nii_path = self.__get_path('nii', config)
         self.dcm_path = self.__get_path('dcm', config)
+        self.nrrd_path = self.__get_path('nrrd', config)
+        self.mnc_path = self.__get_path('mnc', config)
         self.qc_path = self.__get_path('qc', config)
         self.resource_path = self.__get_path('resources', config, session=True)
 
@@ -181,20 +174,6 @@ class Scan(DatmanNamed):
         except KeyError:
             matched_dicoms = []
         return matched_dicoms
-
-    def get_db_object(self):
-        """
-        Returns the dashboard database object representing the scan (session)
-        """
-        if not dash_available:
-            raise ImportError("Scan.get_db_object requires the dashboard be "
-                    "installed")
-        db = datman.dashboard.dashboard(self.project)
-        try:
-            db_session = db.get_add_session(self.full_id)
-        except:
-            db_session = None
-        return db_session
 
     def __check_session(self, id_str):
         """

@@ -1,4 +1,4 @@
-"""Defines the exceptions used by xnat sub-modules"""
+"""Defines the exceptions used by datman sub-modules"""
 
 
 class XnatException(Exception):
@@ -14,3 +14,7 @@ class XnatException(Exception):
 
 class DashboardException(Exception):
     """Default exception for dashboard errors"""
+    pass
+
+class MetadataException(Exception):
+    pass
