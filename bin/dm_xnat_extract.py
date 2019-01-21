@@ -277,8 +277,9 @@ def process_session(session):
             db_session = dashboard.get_session(ident, create=True)
         except dashboard.DashboardException as e:
             logger.error("Failed adding session {}. Reason: {}".format(
-                    db_session, e))
-        set_date(db_session, experiment)
+                    session_label, e))
+        else:
+            set_date(db_session, experiment)
 
     # experiment['children'] is a list of top level folders in XNAT
     # project --> session --> experiments
