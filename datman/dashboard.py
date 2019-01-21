@@ -2,7 +2,7 @@ from __future__ import absolute_import
 from functools import wraps
 import os
 import logging
-import datetime
+from datetime import datetime
 
 import datman.scanid
 from datman.exceptions import DashboardException
