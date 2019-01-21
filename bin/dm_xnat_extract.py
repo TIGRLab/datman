@@ -484,7 +484,12 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
 
     # delete any extra scans that exist in the dashboard
     if not db_ignore:
-        local_session = datman.scan.Scan(session_label, cfg)
+        try:
+            local_session = datman.scan.Scan(session_label, cfg)
+        except datman.scanid.ParseException as e:
+            logger.error("Failed while checking for extra scans on file system "
+                    "for {}. Reason - {}".format(session_label, e))
+            return
         try:
             dashboard.delete_extra_scans(local_session)
         except Exception as e:
