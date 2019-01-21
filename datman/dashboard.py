@@ -137,8 +137,15 @@ def add_subject(name):
 @dashboard_required
 @scanid_required
 def get_session(name, create=False, date=None):
+    try:
+        sess_num = datman.scanid.get_session_num(name)
+    except datman.scanid.ParseException:
+        logger.error("{} is missing a session number. Using default session "
+                "'1'".format(name))
+        sess_num = 1
+
     session = queries.get_session(name.get_full_subjectid_with_timepoint(),
-            datman.scanid.get_session_num(name))
+            sess_num)
 
     if not session and create:
         session = add_session(name, date=date)
@@ -150,7 +157,13 @@ def get_session(name, create=False, date=None):
 @scanid_required
 def add_session(name, date=None):
     timepoint = get_subject(name, create=True)
-    sess_num = datman.scanid.get_session_num(name)
+
+    try:
+        sess_num = datman.scanid.get_session_num(name)
+    except datman.scanid.ParseException:
+        logger.error("{} is missing a session number. Using default session "
+                "'1'".format(name))
+        sess_num = 1
 
     if timepoint.is_phantom and sess_num > 1:
         raise DashboardException("ERROR: attempt to add repeat scan session to "
@@ -205,7 +218,7 @@ def add_scan(name, tag=None, series=None, description=None, source_id=None):
 
     if tag not in allowed_tags:
         raise DashboardException("Scan name {} contains tag not configured "
-                "for study {}".format(scan_name, study))
+                "for study {}".format(scan_name, str(study)))
 
     return session.add_scan(scan_name, series, tag, description,
             source_id=source_id)
