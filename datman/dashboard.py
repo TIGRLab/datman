@@ -140,7 +140,7 @@ def get_session(name, create=False, date=None):
     try:
         sess_num = datman.scanid.get_session_num(name)
     except datman.scanid.ParseException:
-        logger.error("{} is missing a session number. Using default session "
+        logger.info("{} is missing a session number. Using default session "
                 "'1'".format(name))
         sess_num = 1
 
@@ -161,7 +161,7 @@ def add_session(name, date=None):
     try:
         sess_num = datman.scanid.get_session_num(name)
     except datman.scanid.ParseException:
-        logger.error("{} is missing a session number. Using default session "
+        logger.info("{} is missing a session number. Using default session "
                 "'1'".format(name))
         sess_num = 1
 
