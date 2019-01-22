@@ -18,10 +18,9 @@ been signed off on.
 
 import glob
 import os
-import os.path
 import re
 
-import docopt
+from docopt import docopt
 
 import datman.config as config
 import datman.utils
@@ -68,7 +67,7 @@ def get_mtime(path):
             raise
 
 def main():
-    arguments = docopt.docopt(__doc__)
+    arguments = docopt(__doc__)
     rootdir = arguments['--root']
     if arguments['--study']:
         cfg = config.config()
@@ -79,7 +78,8 @@ def main():
 
         checklistdict = datman.utils.read_checklist(path=checklist)
 
-        for timepointdir in sorted(glob.glob(projectdir + '/data/nii/*')):
+        for timepointdir in sorted(glob.glob(os.path.join(projectdir, 'data',
+                'nii', '*'))):
             if '_PHA_' in timepointdir:
                 continue
 

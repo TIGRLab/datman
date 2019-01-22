@@ -63,6 +63,11 @@ def read_checklist(study=None, subject=None, config=None, path=None):
         - OR 'None' if a specific subject ID is given and they're not found
           in the list
     """
+    if not (study or subject or config or path):
+        raise MetadataException("Can't read dashboard checklist "
+                "contents without either 1) a subject or study ID 2) a "
+                "datman.config object or 3) a full path to the checklist")
+
     if subject:
         ident = datman.scanid.parse(subject)
 
@@ -121,7 +126,7 @@ def _fetch_checklist(subject=None, study=None, config=None):
         return ''
 
 
-    if config:
+    if config and not study:
         study = config.study_name
 
     db_study = dashboard.get_project(study)
@@ -134,7 +139,8 @@ def _fetch_checklist(subject=None, study=None, config=None):
             comment = str(session.reviewer)
         else:
             comment = ''
-        entries[timepoint.name] = comment
+        str_name = timepoint.name.encode('utf-8')
+        entries[str_name] = comment
 
     return entries
 
@@ -329,7 +335,10 @@ def _fetch_blacklist(scan=None, subject=None, study=None, config=None):
     if scan:
         db_scan = dashboard.get_scan(scan)
         if db_scan and db_scan.blacklisted():
-            return db_scan.get_comment()
+            try:
+                return db_scan.get_comment().encode('utf-8')
+            except:
+                return db_scan.get_comment()
         return
 
     if subject:
@@ -344,7 +353,12 @@ def _fetch_blacklist(scan=None, subject=None, study=None, config=None):
     entries = {}
     for entry in blacklist:
         scan_name = str(entry.scan) + "_" + entry.scan.description
-        entries[scan_name] = entry.comment
+        try:
+            scan_name = scan_name.encode('utf-8')
+            comment = entry.comment.encode('utf-8')
+        except:
+            comment = entry.comment
+        entries[scan_name] = comment
 
     return entries
 
@@ -494,7 +508,7 @@ def get_subject_metadata(config=None, study=None):
                     subid, bl_entry))
             continue
 
-        all_qc.setdefault(subid, []).append(bl_entry)
+        all_qc[subid].append(bl_entry)
 
     return all_qc
 
