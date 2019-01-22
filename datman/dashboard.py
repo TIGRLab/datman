@@ -249,20 +249,6 @@ def get_project(name=None, tag=None, site=None):
 
 
 @dashboard_required
-def delete_extra_scans(local_session):
-    if not dash_found:
-        return
-    local_scans = [_get_scan_name(n.id_plus_session, n.tag, n.series_num)
-            for n in local_session.niftis]
-    dash_session = get_session(local_session.id_plus_session)
-    dash_scans = [scan.name for scan in dash_session.scans]
-    extra_scans = set(dash_scans) - set(local_scans)
-    for scan in extra_scans:
-        logger.info("Deleting scan {} from dashboard".format(scan))
-        dash_session.delete_scan(scan)
-
-
-@dashboard_required
 def get_default_user():
     try:
         user = os.environ['DASHBOARD_USER']
