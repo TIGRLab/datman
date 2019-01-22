@@ -213,8 +213,8 @@ def make_links(record):
             target_tags = target_cfg.get_tags(site=record.id.site).keys()
         except:
             target_tags = []
-        else:
-            target_tags = ",".join(target_tags)
+
+        target_tags = ",".join(target_tags)
 
         link_scans.create_linked_session(str(source), str(target), target_tags)
 
