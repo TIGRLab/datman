@@ -59,7 +59,6 @@ and uniform.
 """
 import os
 import glob
-import logging
 
 import datman.utils
 import datman.scanid as scanid

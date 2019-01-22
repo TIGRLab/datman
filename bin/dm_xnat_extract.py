@@ -277,7 +277,7 @@ def process_session(session):
             db_session = dashboard.get_session(ident, create=True)
         except dashboard.DashboardException as e:
             logger.error("Failed adding session {}. Reason: {}".format(
-                    db_session, e))
+                    session_label, e))
         else:
             set_date(db_session, experiment)
 
@@ -481,15 +481,6 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
             if export_formats:
                 get_scans(ident, xnat_project, session_label, experiment_label,
                           series_id, export_formats, file_stem, multiecho)
-
-    # delete any extra scans that exist in the dashboard
-    if not db_ignore:
-        local_session = datman.scan.Scan(session_label, cfg)
-        try:
-            dashboard.delete_extra_scans(local_session)
-        except Exception as e:
-            logger.error("Failed deleting extra scans from session {} with "
-                    "excuse {}".format(session_label, e))
 
 
 def process_scan(ident, file_stem, tags, tag):
