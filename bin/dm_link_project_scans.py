@@ -149,6 +149,9 @@ def add_link_to_dashboard(source, target, target_path):
         logger.error("Failed to add link {} to dashboard database. "
                 "Reason: {}. Removing link from file system to re-attempt "
                 "later.".format(target, str(e)))
+        if not target_path:
+            # No link was made
+            return
         try:
             os.remove(target_path)
         except:
