@@ -139,7 +139,8 @@ def _fetch_checklist(subject=None, study=None, config=None):
             comment = str(session.reviewer)
         else:
             comment = ''
-        entries[timepoint.name] = comment
+        str_name = timepoint.name.encode('utf-8')
+        entries[str_name] = comment
 
     return entries
 
@@ -334,7 +335,10 @@ def _fetch_blacklist(scan=None, subject=None, study=None, config=None):
     if scan:
         db_scan = dashboard.get_scan(scan)
         if db_scan and db_scan.blacklisted():
-            return db_scan.get_comment()
+            try:
+                return db_scan.get_comment().encode('utf-8')
+            except:
+                return db_scan.get_comment()
         return
 
     if subject:
@@ -349,7 +353,12 @@ def _fetch_blacklist(scan=None, subject=None, study=None, config=None):
     entries = {}
     for entry in blacklist:
         scan_name = str(entry.scan) + "_" + entry.scan.description
-        entries[scan_name] = entry.comment
+        try:
+            scan_name = scan_name.encode('utf-8')
+            comment = entry.comment.encode('utf-8')
+        except:
+            comment = entry.comment
+        entries[scan_name] = comment
 
     return entries
 

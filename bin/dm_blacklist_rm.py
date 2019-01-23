@@ -27,6 +27,7 @@ from docopt import docopt
 import datman.config
 import datman.scan
 import datman.utils
+from datman.scanid import ParseException
 
 logging.basicConfig(level=logging.WARN,
         format="[%(name)s] %(levelname)s: %(message)s")
@@ -59,7 +60,12 @@ def remove_blacklisted_items(metadata, config):
         blacklist_entries = metadata[sub]
         if not blacklist_entries:
             continue
-        scan = datman.scan.Scan(sub, config)
+        try:
+            scan = datman.scan.Scan(sub, config)
+        except ParseException as e:
+            logger.error("Couldn't retrieve session info for {}, ignoring. "
+                    "Reason - {}".format(sub, e))
+            continue
         logger.debug("Working on {}".format(sub))
         remove_blacklisted(scan, blacklist_entries)
 

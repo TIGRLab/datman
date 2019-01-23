@@ -132,6 +132,7 @@ def main():
     ch.setFormatter(formatter)
     logger.addHandler(ch)
     logging.getLogger('datman.utils').addHandler(ch)
+    logging.getLogger('datman.dashboard').addHandler(ch)
 
     # setup the config object
     cfg = datman.config.config(study=study)
