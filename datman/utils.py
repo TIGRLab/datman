@@ -139,7 +139,8 @@ def _fetch_checklist(subject=None, study=None, config=None):
             comment = str(session.reviewer)
         else:
             comment = ''
-        entries[timepoint.name] = comment
+        str_name = timepoint.name.encode('utf-8')
+        entries[str_name] = comment
 
     return entries
 
@@ -334,7 +335,10 @@ def _fetch_blacklist(scan=None, subject=None, study=None, config=None):
     if scan:
         db_scan = dashboard.get_scan(scan)
         if db_scan and db_scan.blacklisted():
-            return db_scan.get_comment()
+            try:
+                return db_scan.get_comment().encode('utf-8')
+            except:
+                return db_scan.get_comment()
         return
 
     if subject:
@@ -349,7 +353,12 @@ def _fetch_blacklist(scan=None, subject=None, study=None, config=None):
     entries = {}
     for entry in blacklist:
         scan_name = str(entry.scan) + "_" + entry.scan.description
-        entries[scan_name] = entry.comment
+        try:
+            scan_name = scan_name.encode('utf-8')
+            comment = entry.comment.encode('utf-8')
+        except:
+            comment = entry.comment
+        entries[scan_name] = comment
 
     return entries
 
@@ -1064,31 +1073,37 @@ def validate_subject_id(subject_id, config):
 
 
 def submit_job(cmd, job_name, log_dir, system = 'other',
-        cpu_cores=1, walltime="2:00:00", dryrun = False):
+        cpu_cores=1, walltime="2:00:00", dryrun = False, partition='low-moby', argslist=""):
     '''
     submits a job or joblist the queue depending on the system
 
     Args:
-        cmd (str): the command or a list of commands to submits
-        job_name (str): the name for the job
-        log_dir (path): paths where the job logs should go
-        system : the system that we are running on (i.e. 'kimel' or 'scc')
-        cpu_cores (int): the number of CPU cores (default: 1) for the job (on scc)
-        walltime  (time) : the walltime for the job (default 2:00:00, two hrs)
-        dryrun (bool): do not submit the job
+        cmd                         Command or list of commands to submit
+        job_name                    The name for the job
+        log_dir                     Path to where the job logs should go
+        system                      Current system running (similar to DM_SYSTEM) [default=other]
+        cpu_cores                   Number of cores to allocate for job [default=1]
+        walltime                    Real clock time for job [default=2:00:00]
+        dryrun                      Set to true if you want job to not submit [default=False]
+        partition                   Slurm partition [default=low-moby]
+        argslist                    String of additional slurm arguments (etc: --mem X --verbose ...) [default=None]
     '''
     if dryrun:
         return
 
     # Bit of an ugly hack to allow job submission on the scc. Should be replaced
     # with drmaa or some other queue interface later
-    if system is 'kimel':
+    if system == 'kimel':
         job_file = '/tmp/{}'.format(job_name)
 
         with open(job_file, 'wb') as fid:
             fid.write('#!/bin/bash\n')
             fid.write(cmd)
-        job = "qsub -V -q main.q -N {} {}".format(job_name, job_file)
+
+        job = 'sbatch -p {partition} -c {cores} -t {walltime} {args} --job-name {jobname} {jobfile}'.format(
+                partition=partition, cores=cpu_cores, walltime=walltime,
+                args=argslist, jobname=job_name, jobfile=job_file)
+
         rtn, out = run(job)
     else:
         job = "echo {} | qbatch -N {} --logdir {} --ppj {} -i -c 1 -j 1 --walltime {} -".format(
