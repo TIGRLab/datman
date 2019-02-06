@@ -97,7 +97,7 @@ def get_missing_data(data, nii_file):
 
 def to_sub(ident):
 
-    return ident.get_bids_name() 
+    return ident.get_bids_name()
 
 def to_ses(timepoint):
     return "ses-{:02}".format(int(timepoint))
@@ -328,10 +328,8 @@ def create_task_json(file_path, tags_list):
             task_names["RST"] = ["RestingState", "task-rest_bold.json"]
         elif tag == "FACES":
             task_names["FACES"] = ["Faces", "task-faces_bold.json"]
-        elif (tag == "TMS-FMRI"):
-            task_names["TMS-FMRI"] = ["TMS-FMRI", "task-tmsfmri_bold.json"]
         else:
-            task_names[tag] = [tag.lower(), "task-{}_bold.json".format(tag.lower())]
+            task_names[tag] = [tag, "task-{}_bold.json".format(tag.lower().replace('-', ''))]
 
     for task in task_names.keys():
         data = dict()
@@ -510,7 +508,7 @@ def main():
 
     #Run if either queue disabled or single subject
     else:
-        for sub_id in sub_ids: 
+        for sub_id in sub_ids:
             subject_dir = sub_id
             if scanid.is_phantom(subject_dir):
                 logger.info("File is phantom and will be ignored: {}".format(subject_dir))
