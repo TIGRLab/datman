@@ -180,7 +180,12 @@ def add_session(name, date=None):
     new_session = timepoint.add_session(sess_num, date=date)
 
     if timepoint.expects_redcap():
-        monitors.monitor_redcap_import(str(timepoint), sess_num)
+        try:
+            monitors.monitor_redcap_import(str(timepoint), sess_num)
+        except dashboard.monitors.MonitorException as e:
+            logger.error("Could not add scheduled check for redcap scan "
+                    "completed survey for {}. Reason: {}".format(str(timepoint),
+                    str(e)))
 
     return new_session
 
