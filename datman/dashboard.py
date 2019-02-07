@@ -182,7 +182,7 @@ def add_session(name, date=None):
     if timepoint.expects_redcap():
         try:
             monitors.monitor_redcap_import(str(timepoint), sess_num)
-        except dashboard.monitors.MonitorException as e:
+        except monitors.MonitorException as e:
             logger.error("Could not add scheduled check for redcap scan "
                     "completed survey for {}. Reason: {}".format(str(timepoint),
                     str(e)))
