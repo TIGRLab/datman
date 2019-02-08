@@ -27,7 +27,8 @@ from docopt import docopt
 
 import datman.config
 
-FORMAT = logging.Formatter("[%(name)s] %(levelname)s: %(message)s")
+FORMAT = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+        "%H:%M:%S")
 LOG_DIR = None
 
 class LogRecordStreamHandler(SocketServer.StreamRequestHandler):
