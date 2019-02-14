@@ -23,6 +23,11 @@ try:
 except NameError:
     basestring = str
 
+class ConfigException(Exception):
+    pass
+
+class UndefinedSetting(Exception):
+    pass
 
 class config(object):
     site_config = None
@@ -212,92 +217,66 @@ class config(object):
                     .format(tag))
         raise ValueError
 
-    def get_key(self, key, scope=None, site=None):
-        """recursively search the yaml files for a key
-        if it exists in study_config returns that value
-        otherwise checks site_config
-        raises a key error if it's not found
-        If site is specified the study_config first checks the
-        ['Sites'][site] key of the study_config. If the key is not
-        located there the top level of the study_config is checked
-        followed by the site_config.
-        key: [list of subscripted keys]
-        """
-
-        # quick check to see if a single string was passed
-        if isinstance(key, basestring):
-            key = [key]
-
-        if scope:
-            # called recursively, look in site config
-            result = self.site_config
-        elif self.study_config:
-            # first call and study set, look here first
-            result = self.study_config
-        else:
-            # first call and no study set, look at site config
-            logger.warning('Study config not set')
-            result = self.site_config
-        if site:
+    def get_key(self, key, site=None, ignore_defaults=False, defaults_only=False):
+        if site and not defaults_only:
             try:
-                result = result['Sites'][site]
-            except KeyError:
-                logger.info('Site:{} not found in study_config:{}'
-                               .format(site, self.study_config_file))
-
-        for val in key:
-            try:
-                result = result[val]
-            except KeyError as e:
-                if site:
-                    return(self.get_key(key))
-                elif not scope:
-                    return self.get_key(key, scope=1)
-                else:
-                    logger.warning('Failed to find key:{}'
-                                   .format(key))
-                    raise(e)
-        return(result)
-
-    def key_exists(self, scope, key):
-            """DEPRECATED: use get_key()
-            Check the yaml file specified by scope for a key.
-            Return the True if the key exists, False otherwise.
-            Scope [site | study]
-            """
-            if scope == 'site':
-                # make a copy of the original yaml
-                result = self.site_config
+                value = self._search_site_conf(site, key)
+            except UndefinedSetting:
+                pass # Keep searching
             else:
-                result = self.study_config
+                return value
 
-            for val in key:
-                try:
-                    result = result[val]
-                except KeyError:
-                    return(False)
-
-            return(True)
-
-    def get_if_exists(self, scope, key):
-        """DEPRECATED: use get_key()
-        Check the yaml file specified by scope for a key.
-        Return the value if the key exists, None otherwise.
-        Scope [site | study]
-        """
-        if scope == 'site':
-            # make a copy of the original yaml
-            result = self.site_config
-        else:
-            result = self.study_config
-
-        for val in key:
+        if self.study_config and not defaults_only:
             try:
-                result = result[val]
-            except KeyError:
-                return None
+                value = self._search_study_conf(key)
+            except UndefinedSetting:
+                pass # Keep searching
+            else:
+                return value
 
-        return(result)
+        if ignore_defaults:
+            # If we made it here the study wasnt set or didnt have the
+            # setting and we're told to ignore system settings so exit with
+            # an exception!
+            raise UndefinedSetting("{} could not be found in site or "
+                    "study".format(key))
+
+        return self._search_system_conf(key)
+
+    def _search_site_conf(self, site, key):
+        try:
+            site_conf = self._search_study_conf('Sites')
+        except UndefinedSetting:
+            raise ConfigException("'Sites' not defined for study {}".format(
+                    self.study_name))
+        try:
+            site_conf = site_conf[site]
+        except KeyError:
+            raise ConfigException("Site {} not found for study {}".format(site,
+                    self.study_name))
+        try:
+            value = site_conf[key]
+        except KeyError:
+            raise UndefinedSetting("{} not set for site {}".format(key,
+                    site))
+        return value
+
+    def _search_study_conf(self, key):
+        if not self.study_config:
+            raise ConfigException("Study not set.")
+        try:
+            value = self.study_config[key]
+        except KeyError:
+            raise UndefinedSetting("{} not defined for study {}"
+                    "".format(key, self.study_name))
+        return value
+
+    def _search_system_conf(self, key):
+        try:
+            value = self.site_config[key]
+        except KeyError:
+            raise UndefinedSetting("{} not set".format(key))
+        return value
 
     def get_path(self, path_type, study=None):
         """returns the absolute path to a folder type"""
@@ -333,18 +312,16 @@ class config(object):
         """
         if site:
             if not self.study_config:
-                logger.error("Cannot return site tags, study not set.")
-                raise KeyError
-            export_info = self.get_key(['ExportInfo'], site=site)
+                raise ConfigException("Cannot return site tags, study not set.")
+            export_info = self.get_key('ExportInfo', site=site)
         else:
             export_info = {}
 
         try:
             export_settings = self.site_config['ExportSettings']
-        except KeyError:
-            logger.error("Tag dictionary 'ExportSettings' not defined in main "
-                    "configuration file.")
-            raise KeyError
+        except UndefinedSetting:
+            raise UndefinedSetting("Tag dictionary 'ExportSettings' not "
+                    "defined in main configuration file.")
 
         return TagInfo(export_settings, export_info)
 
