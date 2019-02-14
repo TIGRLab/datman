@@ -280,7 +280,6 @@ def get_init_cmd(study,sgroup,bids_dir,tmp_dir,out_dir,simg,log_tag):
 
     APPHOME=$(mktemp -d {home})
     BIDS={bids}
-    BIDS=$APPHOME/bids
     WORK=$APPHOME/work
     SIMG={simg}
     SUB={sub}
