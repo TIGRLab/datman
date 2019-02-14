@@ -11,9 +11,11 @@ Arguments:
 Options:
     --output <PATH>         Full path to store output as a file
     --ignore <STR>          A dicom header field to ignore. Can be specified
-                            more than once.
+                            more than once. Can be used along with the
+                            --ignore-file option
     --ignore-file <PATH>    Full path to a text file of header fields to ignore
-                            with each field name on a new line
+                            with each field name on a new line. Can be used
+                            alongside the --ignore option
     --tolerance <PATH>      Full path to a json file mapping field names to a
                             tolerance for that field
     --ignore-db             Disable attempts to update database
@@ -29,8 +31,12 @@ def main():
     standard_json = args['<standard>']
     output = args['--output']
     ignored_fields = args['--ignore']
+    ignore_file = args['--ignore-file']
     tolerances = args['--tolerance']
     ignore_db = args['--ignore-db']
+
+    if ignore_file:
+        ignored_fields.extend(parse_file(ignore_file))
 
     series = read_json(series_json)
     standard = read_json(standard_json)
@@ -40,15 +46,28 @@ def main():
     diffs = compare_headers(series, standard, ignore=ignored_fields,
             tolerance=tolerances)
 
+    if not diffs:
+        return
+
     if output:
         write_diff_log(diffs, output)
 
-    # if ignore_db:
-    #     return
-    #
+    if ignore_db:
+        return
+
+    # Will add later
     # update_database(series_json, diffs)
 
-# def run all without main!!!
+# def run all without main (for use in other scripts)
+
+def parse_file(file_path):
+    try:
+        with open(file_path, "r") as fh:
+            contents = fh.readlines()
+    except Exception as e:
+        raise type(e)("Couldnt read file of field names to ignore. "
+                "{}".format(str(e)))
+    return [line.strip() for line in contents]
 
 def read_json(json_file):
     with open(json_file, "r") as fp:
@@ -93,8 +112,6 @@ def handle_diff(value, expected, tolerance=None):
     return diffs
 
 def write_diff_log(diffs, output_path):
-    if not diffs:
-        return
     with open(output_path, 'w') as dest:
         json.dump(diffs, dest)
 
