@@ -144,7 +144,7 @@ def get_redcap_token(config, redcap_cred):
 def link_shared_ids(config, connection, record):
     try:
         xnat_archive = config.get_key('XNAT_Archive', site=record.id.site)
-    except KeyError:
+    except datman.config.UndefinedSetting:
         logger.error("Can't find XNAT_Archive for subject {}".format(record.id))
         return
     project = connection.select.project(xnat_archive)
