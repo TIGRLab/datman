@@ -149,7 +149,7 @@ def get_datman_config(study):
         return config
 
 
-def filter_subjects(subjects,out_dir,bids_app):
+def filter_subjects(subjects,out_dir,bids_app,log_dir):
 
     '''
     Filters out subjects that have successfully completed the BIDS-pipeline
@@ -159,6 +159,7 @@ def filter_subjects(subjects,out_dir,bids_app):
         subjects                List of candidate subjects to be processed through pipeline
         out_dir                 Base directory for where BIDS-app will output
         bids_app                Name of BIDS-app (all upper-case convention)
+        log_dir                 Log directory for checking available files
     '''
 
     #Base log directory 
@@ -609,7 +610,7 @@ def submit_jobfile(job_file,subject,queue,walltime='24:00:00',threads=1):
     logger.info('Removing jobfile...')
     os.remove(job_file)
 
-def gen_log_redirect(log_dir,out_dir,subject,app_name):
+def gen_log_redirect(log_dir,subject,app_name):
     '''
     Convenient function to generate a stdout/stderr redirection to a log file
 
@@ -624,14 +625,13 @@ def gen_log_redirect(log_dir,out_dir,subject,app_name):
     2) With a log_dir specified will output to both log_dir and out_dir
     '''
 
-    #Make logging directory in output/bids_logs/app_name
-    default_log = os.path.join(out_dir,'bids_logs',app_name.lower())
+    #Make log directory
     try:
-        os.makedirs(default_log)
+        os.makedirs(log_dir)
     except OSError:
 
         #If failed, then check if path exists
-        if os.path.exists(default_log):
+        if os.path.exists(log_dir):
             pass
         else:
             logger.error('Cannot create directory in {}! Please adjust permissions at target directory'.format(default_log))
@@ -639,16 +639,9 @@ def gen_log_redirect(log_dir,out_dir,subject,app_name):
 
     #Generate base command for default log output
     log_name = '{}_{}.log'.format(subject,app_name)
-    base_redir = ' &>> {}'.format(os.path.join(default_log,log_name))
+    base_redir = ' &>> {}'.format(os.path.join(log_dir,log_name))
 
-    #Optional log tag |& is equivalent to 2&>1 |, both stdout and stderr are directed
-    try:
-        log_tag = ' |& tee {} '.format(os.path.join(log_dir,log_name))
-    except AttributeError:
-        log_tag = ''
-        logger.info('No log directories specified, will output only to {}'.format(default_log))
-
-    return log_tag + base_redir
+    return base_redir
 
 
 def get_requested_threads(jargs, thread_dict):
@@ -710,7 +703,7 @@ def main():
     rewrite             =   arguments['--rewrite']
     tmp_dir             =   arguments['--tmp-dir'] or '/tmp/'
     bids_dir            =   arguments['--bids-dir'] or tmp_dir
-    log_dir             =   arguments['--log']
+    log_dir             =   arguments['--log'] 
 
     DRYRUN              =   arguments['--DRYRUN']
 
@@ -747,12 +740,13 @@ def main():
     n_thread = get_requested_threads(jargs,thread_dict)
 
     #Get redirect command string and exclusion list
-    log_cmd = partial(gen_log_redirect,log_dir=log_dir,out_dir=out)
+    log_dir = log_dir or os.path.join(out_dir,'bids_logs',jargs['app'].lower())
+    log_cmd = partial(gen_log_redirect,log_dir=log_dir)
     exclude_cmd_list = [''] if exclude else get_exclusion_cmd(exclude)
 
     #Get subjects and filter if not rewrite and group if longitudinal
     subjects = subjects or [s for s in os.listdir(config.get_path('nii')) if 'PHA' not in s]
-    subjects = subjects if rewrite else filter_subjects(subjects, out, jargs['app'])
+    subjects = subjects if rewrite else filter_subjects(subjects, out, jargs['app'],log_dir)
     logger.info('Running {}'.format(subjects))
 
     subjects = group_subjects(subjects)
