@@ -1,0 +1,14 @@
+{
+
+	"app":"MRIQC", 
+	"img": "/archive/code/containers/MRIQC/poldracklab_mriqc_0.11.0-2018-06-05-1e4ac9792325.img",
+
+	"bidsargs": 
+	{
+		"n_procs":2,
+		"verbose":"True"
+	
+	}
+
+
+}
