@@ -16,32 +16,14 @@ checklist.csv in subfolders, and prints out any QC pdf from those that haven't
 been signed off on.
 """
 
-import docopt
 import glob
 import os
-import os.path
 import re
+
+from docopt import docopt
+
 import datman.config as config
-
-def read_checklist(checklist_file):
-    checklist_dict = {}
-
-    with open(checklist_file) as checklist:
-        lines = checklist.readlines()
-
-    for line in lines:
-        entry = line.strip().split()
-        try:
-            key = os.path.splitext(entry[0])[0]
-        except:
-            # Empty line, skip it
-            continue
-        try:
-            rest = entry[1:]
-        except:
-            entry = ''
-        checklist_dict[key] = rest
-    return checklist_dict
+import datman.utils
 
 def get_project_dirs(root, maxdepth=2):
     """
@@ -85,7 +67,7 @@ def get_mtime(path):
             raise
 
 def main():
-    arguments = docopt.docopt(__doc__)
+    arguments = docopt(__doc__)
     rootdir = arguments['--root']
     if arguments['--study']:
         cfg = config.config()
@@ -94,9 +76,10 @@ def main():
     for projectdir in get_project_dirs(rootdir):
         checklist = os.path.join(projectdir, 'metadata', 'checklist.csv')
 
-        checklistdict = read_checklist(checklist)
+        checklistdict = datman.utils.read_checklist(path=checklist)
 
-        for timepointdir in sorted(glob.glob(projectdir + '/data/nii/*')):
+        for timepointdir in sorted(glob.glob(os.path.join(projectdir, 'data',
+                'nii', '*'))):
             if '_PHA_' in timepointdir:
                 continue
 
@@ -107,7 +90,7 @@ def main():
             data_mtime = max(map(get_mtime, glob.glob(timepointdir + '/*.nii.gz')+[timepointdir]))
 
             # notify about missing QC reports or those with no checklist entry
-            if qcdocname not in checklistdict:
+            if timepoint not in checklistdict:
                 print('No checklist entry for {}'.format(timepointdir))
                 continue
             elif not os.path.exists(qcdoc):
@@ -122,7 +105,7 @@ def main():
                     print('\t' + '\n\t'.join(newer))
 
             # notify about unchecked QC reports
-            if not checklistdict[qcdocname]:
+            if not checklistdict[timepoint]:
                 print '{}: QC doc not signed off on'.format(qcdoc)
 
 if __name__ == '__main__':
