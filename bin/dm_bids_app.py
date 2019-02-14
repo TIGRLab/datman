@@ -17,8 +17,8 @@ Options:
     -q, --quiet                     Only display ERROR Messages
     -v, --verbose                   Display INFO/WARNING/ERROR Messages
     -d, --debug                     Display DEBUG/INFO/WARNING/ERROR Messages
-    -r, --rewrite                   Overwrite if outputs already exist in BIDS output directory 
-    -t, --tmp-dir TMPDIR            Specify temporary directory 
+    -r, --rewrite                   Overwrite if outputs already exist in BIDS output directory
+    -t, --tmp-dir TMPDIR            Specify temporary directory
                                     [default : '/tmp/']
     -b, --bids-dir BIDSDIR          Specify BIDS directory to use
                                     [default : 'TMPDIR/bids']
@@ -104,8 +104,8 @@ def get_bids_name(subject):
 
         try:
             ident = scan_ident.parse(subject + '_01')
-        except scan_ident.ParseException: 
-            logger.error('{s} and {s}_01, is invalid!'.format(s=subject)) 
+        except scan_ident.ParseException:
+            logger.error('{s} and {s}_01, is invalid!'.format(s=subject))
             raise
 
     return ident.get_bids_name()
@@ -161,25 +161,25 @@ def filter_subjects(subjects,out_dir,bids_app):
         bids_app                Name of BIDS-app (all upper-case convention)
     '''
 
-    #Base log directory 
+    #Base log directory
     log_dir = os.path.join(out_dir,'bids_logs',bids_app.lower())
     log_file = os.path.join(log_dir,'{}_{}.log')
-    run_list = [] 
+    run_list = []
 
     #Use error keyword to identify subjects needing to be re-run
-    for s in subjects: 
+    for s in subjects:
 
         try:
-            if 'error' in open(log_file.format(s,bids_app)).read().lower(): 
-                run_list.append(s) 
+            if 'error' in open(log_file.format(s,bids_app)).read().lower():
+                run_list.append(s)
                 logger.debug('Re-running {} through {}, error found!'.format(s,bids_app))
-        except IOError: 
+        except IOError:
             logger.debug('Running new subject {} through {}'.format(s,bids_app))
-            run_list.append(s) 
-        
+            run_list.append(s)
+
     return run_list
 
-    
+
 
 def get_json_args(json_file):
     '''
@@ -226,10 +226,10 @@ def validate_json_args(jargs,test_dict):
         logger.error('BIDS-app {} not supported!'.format(jargs['app']))
         raise
     else:
-        #Enforce application name will always be in upper case 
-        jargs['app'] = jargs['app'].upper() 
+        #Enforce application name will always be in upper case
+        jargs['app'] = jargs['app'].upper()
 
-    
+
     return jargs
 
 def get_exclusion_cmd(exclude):
@@ -298,7 +298,7 @@ def get_init_cmd(study,sgroup,bids_dir,tmp_dir,out_dir,simg,log_tag):
             simg=simg,
             sub=get_bids_name(sgroup).replace('sub-',''),
             out=out_dir,
-            log_tag=log_tag.replace('&>>','&>')) 
+            log_tag=log_tag.replace('&>>','&>'))
     #The log replace bit is to ensure that logs are wiped prior to appending for easier error tracking on re-runs
 
     return [trap_cmd,init_cmd]
@@ -586,13 +586,13 @@ def submit_jobfile(job_file,subject,queue,walltime='24:00:00',threads=1):
     '''
 
     if queue == 'slurm':
-        thread_arg = '--job-name {subject} --cpus-per-task {threads} --time {wtime}'.format(subject=subject, 
+        thread_arg = '--job-name {subject} --cpus-per-task {threads} --time {wtime}'.format(subject=subject,
                 threads=threads,wtime=walltime)
         cmd = 'sbatch {args} '.format(args=thread_arg)
 
     else:
         thread_arg = '-l nodes=1:ppn={threads},walltime={wtime}'.format(threads=threads,wtime=walltime) \
-                if queue =='pbs' else '' 
+                if queue =='pbs' else ''
         cmd = 'qsub {pbs} -V -N {subject}'.format(pbs=thread_arg,subject=subject)
 
     #Append job to cmd
@@ -743,7 +743,7 @@ def main():
     jargs = validate_json_args(jargs,strat_dict)
     try:
         jargs.update({'keeprecon' : config.get_key('KeepRecon')})
-    except KeyError:
+    except datman.config.UndefinedSetting:
         jargs.update({'keeprecon':True})
     n_thread = get_requested_threads(jargs,thread_dict)
 

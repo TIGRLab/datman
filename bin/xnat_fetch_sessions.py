@@ -218,7 +218,7 @@ def get_credentials(credentials_path):
 def add_server_handler(config):
     try:
         server_ip = config.get_key('LOGSERVER')
-    except KeyError:
+    except datman.config.UndefinedSetting:
         raise KeyError("\'LOGSERVER\' not defined in site config file.")
     server_handler = logging.handlers.SocketHandler(server_ip,
             logging.handlers.DEFAULT_TCP_LOGGING_PORT)
@@ -229,7 +229,7 @@ def get_xnat_config(config, site):
         cred_file = config.get_key('XNAT_source_credentials', site=site)
         server = config.get_key('XNAT_source', site=site)
         archive = config.get_key('XNAT_source_archive', site=site)
-    except KeyError:
+    except datman.config.UndefinedSetting:
         raise KeyError("Missing configuration. Please ensure study or site "
                 "configuration defines all needed values: XNAT_source, "
                 "XNAT_source_credentials, XNAT_source_archive. See help string "

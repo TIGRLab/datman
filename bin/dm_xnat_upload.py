@@ -164,7 +164,7 @@ def get_xnat_session(ident):
     """
     # get the expected xnat project name from the config filename
     try:
-        xnat_project = CFG.get_key(['XNAT_Archive'],
+        xnat_project = CFG.get_key('XNAT_Archive',
                                    site=ident.site)
     except:
         logger.warning('Study:{}, Site:{}, xnat archive not defined in config'
