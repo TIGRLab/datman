@@ -5,8 +5,7 @@
 
 	"bidsargs": 
 	{
-		"n_procs":4,
-		"ica":"True"
+		"n_procs":2
 	
 	}
 
