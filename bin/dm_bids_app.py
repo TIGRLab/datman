@@ -41,7 +41,11 @@ Notes on arguments:
         app: APP-NAME (see supported workflows)
         img: /path/to/img
         bidsargs : {...}, a key value pair set of arguments to pass to the BIDS application. Can be empty dict if using default setting
-    Additionally, the following arguments will NOT be parsed correctly:
+
+    OPTIONAL KEYS:
+        partition: Slurm partition to use, will not use argument in sbatch submission otherwise
+
+    Additionally, the following arguments will NOT be parsed correctly in bidsargs:
         --participant_label --> wrapper script handles this for you
         w WORKDIR          --> tmp-dir/work becomes the workdir
 
@@ -574,7 +578,7 @@ def write_executable(f, cmds):
 
     return
 
-def submit_jobfile(job_file,subject,queue,walltime='24:00:00',threads=1):
+def submit_jobfile(job_file,subject,queue,walltime='24:00:00',threads=1,partition=None):
 
     '''
     Submit BIDS-app jobfile to queue
@@ -582,12 +586,20 @@ def submit_jobfile(job_file,subject,queue,walltime='24:00:00',threads=1):
     Arguments:
         job_file                    Path to BIDSapp job script to be submitted
         subject                     DATMAN style subject ID
+        queue                       Queue system to use
+        walltime                    Wall-clock time of each subject BIDS app
         threads                     Number of threads assigned to each job
+        partition                   SLURM ONLY: Which partition to use, set to use default partition otherwise
+        
     '''
 
     if queue == 'slurm':
-        thread_arg = '--job-name {subject} --cpus-per-task {threads} --time {wtime} -o /dev/null'.format(subject=subject, 
-                threads=threads,wtime=walltime)
+        
+        partition = '' if partition is None else '-p {}'.format(partition)
+        thread_arg = '{partition} --job-name {subject} --cpus-per-task {threads} --time {wtime} -o /dev/null'.format(
+                subject=subject, 
+                threads=threads,wtime=walltime,
+                partition=partition)
         cmd = 'sbatch {args} '.format(args=thread_arg)
 
     else:
@@ -739,6 +751,13 @@ def main():
         jargs.update({'keeprecon':True})
     n_thread = get_requested_threads(jargs,thread_dict)
 
+    #Handle partition argument if using slurm
+    partition=None
+    try:
+        partition = jargs['partition']
+    except KeyError:
+        continue
+
     #Get redirect command string and exclusion list
     log_dir = log_dir or os.path.join(out,'bids_logs')
     log_dir = os.path.join(log_dir,jargs['app'].lower())
@@ -770,7 +789,7 @@ def main():
         write_executable(job_file,master_cmd)
 
         if not DRYRUN:
-            submit_jobfile(job_file,s,queue,walltime,n_thread)
+            submit_jobfile(job_file,s,queue,walltime,n_thread,partition)
 
 if __name__ == '__main__':
     main()
