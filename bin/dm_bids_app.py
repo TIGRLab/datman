@@ -586,7 +586,7 @@ def submit_jobfile(job_file,subject,queue,walltime='24:00:00',threads=1):
     '''
 
     if queue == 'slurm':
-        thread_arg = '--job-name {subject} --cpus-per-task {threads} --time {wtime}'.format(subject=subject, 
+        thread_arg = '--job-name {subject} --cpus-per-task {threads} --time {wtime} -o /dev/null'.format(subject=subject, 
                 threads=threads,wtime=walltime)
         cmd = 'sbatch {args} '.format(args=thread_arg)
 
