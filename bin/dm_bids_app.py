@@ -756,7 +756,7 @@ def main():
     try:
         partition = jargs['partition']
     except KeyError:
-        continue
+        pass
 
     #Get redirect command string and exclusion list
     log_dir = log_dir or os.path.join(out,'bids_logs')
