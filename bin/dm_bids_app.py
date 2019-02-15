@@ -740,7 +740,7 @@ def main():
     n_thread = get_requested_threads(jargs,thread_dict)
 
     #Get redirect command string and exclusion list
-    log_dir = log_dir or os.path.join(out_dir,'bids_logs')
+    log_dir = log_dir or os.path.join(out,'bids_logs')
     log_dir = os.path.join(log_dir,jargs['app'].lower())
     log_cmd = partial(gen_log_redirect,log_dir=log_dir)
     exclude_cmd_list = [''] if exclude else get_exclusion_cmd(exclude)
