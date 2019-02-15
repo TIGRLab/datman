@@ -2,7 +2,7 @@ from __future__ import absolute_import
 from functools import wraps
 import os
 import logging
-import datetime
+from datetime import datetime
 
 import datman.scanid
 from datman.exceptions import DashboardException
@@ -10,7 +10,7 @@ from datman.exceptions import DashboardException
 logger = logging.getLogger(__name__)
 
 try:
-    from dashboard import queries
+    from dashboard import queries, monitors
 except ImportError:
     dash_found = False
     logger.error("Dashboard not found, proceeding without it.")
@@ -137,8 +137,15 @@ def add_subject(name):
 @dashboard_required
 @scanid_required
 def get_session(name, create=False, date=None):
+    try:
+        sess_num = datman.scanid.get_session_num(name)
+    except datman.scanid.ParseException:
+        logger.info("{} is missing a session number. Using default session "
+                "'1'".format(name))
+        sess_num = 1
+
     session = queries.get_session(name.get_full_subjectid_with_timepoint(),
-            datman.scanid.get_session_num(name))
+            sess_num)
 
     if not session and create:
         session = add_session(name, date=date)
@@ -150,7 +157,13 @@ def get_session(name, create=False, date=None):
 @scanid_required
 def add_session(name, date=None):
     timepoint = get_subject(name, create=True)
-    sess_num = datman.scanid.get_session_num(name)
+
+    try:
+        sess_num = datman.scanid.get_session_num(name)
+    except datman.scanid.ParseException:
+        logger.info("{} is missing a session number. Using default session "
+                "'1'".format(name))
+        sess_num = 1
 
     if timepoint.is_phantom and sess_num > 1:
         raise DashboardException("ERROR: attempt to add repeat scan session to "
@@ -164,7 +177,17 @@ def add_session(name, date=None):
                     "".format(date))
             raise DashboardException("Invalid date format {}".format(date))
 
-    return timepoint.add_session(sess_num, date=date)
+    new_session = timepoint.add_session(sess_num, date=date)
+
+    if timepoint.expects_redcap():
+        try:
+            monitors.monitor_redcap_import(str(timepoint), sess_num)
+        except monitors.MonitorException as e:
+            logger.error("Could not add scheduled check for redcap scan "
+                    "completed survey for {}. Reason: {}".format(str(timepoint),
+                    str(e)))
+
+    return new_session
 
 
 @dashboard_required
@@ -205,7 +228,7 @@ def add_scan(name, tag=None, series=None, description=None, source_id=None):
 
     if tag not in allowed_tags:
         raise DashboardException("Scan name {} contains tag not configured "
-                "for study {}".format(scan_name, study))
+                "for study {}".format(scan_name, str(study)))
 
     return session.add_scan(scan_name, series, tag, description,
             source_id=source_id)
@@ -233,20 +256,6 @@ def get_project(name=None, tag=None, site=None):
     if not name:
         return studies[0].study
     return studies[0]
-
-
-@dashboard_required
-def delete_extra_scans(local_session):
-    if not dash_found:
-        return
-    local_scans = [_get_scan_name(n.id_plus_session, n.tag, n.series_num)
-            for n in local_session.niftis]
-    dash_session = get_session(local_session.id_plus_session)
-    dash_scans = [scan.name for scan in dash_session.scans]
-    extra_scans = set(dash_scans) - set(local_scans)
-    for scan in extra_scans:
-        logger.info("Deleting scan {} from dashboard".format(scan))
-        dash_session.delete_scan(scan)
 
 
 @dashboard_required

@@ -125,7 +125,7 @@ def get_project_redcap_records(config, redcap_cred):
         if record.matches_study(current_study):
             project_records.append(record)
 
-    #Return list of records for selected studies 
+    #Return list of records for selected studies
     return project_records
 
 def get_redcap_token(config, redcap_cred):
@@ -208,8 +208,15 @@ def make_links(record):
     for target in record.shared_ids:
         logger.info("Making links from source {} to target {}".format(source,
                 target))
+        target_cfg = datman.config.config(study=target)
+        try:
+            target_tags = target_cfg.get_tags(site=record.id.site).keys()
+        except:
+            target_tags = []
 
-        link_scans.create_linked_session(str(source), str(target), [])
+        target_tags = ",".join(target_tags)
+
+        link_scans.create_linked_session(str(source), str(target), target_tags)
 
 class Record(object):
     def __init__(self, record_dict):
