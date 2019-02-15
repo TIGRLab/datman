@@ -7,7 +7,8 @@
 	"bidsargs": 
 	{
 		"n_procs":2,
-		"verbose":"True"
+		"verbose":"True",
+		"fd_thres":0.5
 	}
 
 
