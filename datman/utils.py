@@ -1100,10 +1100,9 @@ def submit_job(cmd, job_name, log_dir, system = 'other',
             fid.write('#!/bin/bash\n')
             fid.write(cmd)
 
-        job = 'sbatch -p {partition} -c {cores} -t {walltime} {args} --job-name {jobname} {jobfile} -o {log_dir}'.format(
+        job = 'sbatch -p {partition} -c {cores} -t {walltime} {args} --job-name {jobname} {jobfile}'.format(
                 partition=partition, cores=cpu_cores, walltime=walltime,
-                args=argslist, jobname=job_name, jobfile=job_file,
-                log_dir=log_dir if log_dir else '/dev/null')
+                args=argslist, jobname=job_name, jobfile=job_file)
 
         rtn, out = run(job)
     else:
