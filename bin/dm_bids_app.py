@@ -41,7 +41,11 @@ Notes on arguments:
         app: APP-NAME (see supported workflows)
         img: /path/to/img
         bidsargs : {...}, a key value pair set of arguments to pass to the BIDS application. Can be empty dict if using default setting
-    Additionally, the following arguments will NOT be parsed correctly:
+
+    OPTIONAL KEYS:
+        partition: Slurm partition to use, will not use argument in sbatch submission otherwise
+
+    Additionally, the following arguments will NOT be parsed correctly in bidsargs:
         --participant_label --> wrapper script handles this for you
         w WORKDIR          --> tmp-dir/work becomes the workdir
 
@@ -149,7 +153,7 @@ def get_datman_config(study):
         return config
 
 
-def filter_subjects(subjects,out_dir,bids_app):
+def filter_subjects(subjects,out_dir,bids_app,log_dir):
 
     '''
     Filters out subjects that have successfully completed the BIDS-pipeline
@@ -159,6 +163,7 @@ def filter_subjects(subjects,out_dir,bids_app):
         subjects                List of candidate subjects to be processed through pipeline
         out_dir                 Base directory for where BIDS-app will output
         bids_app                Name of BIDS-app (all upper-case convention)
+        log_dir                 Log directory for checking available files
     '''
 
     #Base log directory 
@@ -280,7 +285,6 @@ def get_init_cmd(study,sgroup,bids_dir,tmp_dir,out_dir,simg,log_tag):
 
     APPHOME=$(mktemp -d {home})
     BIDS={bids}
-    BIDS=$APPHOME/bids
     WORK=$APPHOME/work
     SIMG={simg}
     SUB={sub}
@@ -574,7 +578,7 @@ def write_executable(f, cmds):
 
     return
 
-def submit_jobfile(job_file,subject,queue,walltime='24:00:00',threads=1):
+def submit_jobfile(job_file,subject,queue,walltime='24:00:00',threads=1,partition=None):
 
     '''
     Submit BIDS-app jobfile to queue
@@ -582,12 +586,20 @@ def submit_jobfile(job_file,subject,queue,walltime='24:00:00',threads=1):
     Arguments:
         job_file                    Path to BIDSapp job script to be submitted
         subject                     DATMAN style subject ID
+        queue                       Queue system to use
+        walltime                    Wall-clock time of each subject BIDS app
         threads                     Number of threads assigned to each job
+        partition                   SLURM ONLY: Which partition to use, set to use default partition otherwise
+        
     '''
 
     if queue == 'slurm':
-        thread_arg = '--job-name {subject} --cpus-per-task {threads} --time {wtime}'.format(subject=subject, 
-                threads=threads,wtime=walltime)
+        
+        partition = '' if partition is None else '-p {}'.format(partition)
+        thread_arg = '{partition} --job-name {subject} --cpus-per-task {threads} --time {wtime} -o /dev/null'.format(
+                subject=subject, 
+                threads=threads,wtime=walltime,
+                partition=partition)
         cmd = 'sbatch {args} '.format(args=thread_arg)
 
     else:
@@ -610,7 +622,7 @@ def submit_jobfile(job_file,subject,queue,walltime='24:00:00',threads=1):
     logger.info('Removing jobfile...')
     os.remove(job_file)
 
-def gen_log_redirect(log_dir,out_dir,subject,app_name):
+def gen_log_redirect(log_dir,subject,app_name):
     '''
     Convenient function to generate a stdout/stderr redirection to a log file
 
@@ -625,14 +637,13 @@ def gen_log_redirect(log_dir,out_dir,subject,app_name):
     2) With a log_dir specified will output to both log_dir and out_dir
     '''
 
-    #Make logging directory in output/bids_logs/app_name
-    default_log = os.path.join(out_dir,'bids_logs',app_name.lower())
+    #Make log directory
     try:
-        os.makedirs(default_log)
+        os.makedirs(log_dir)
     except OSError:
 
         #If failed, then check if path exists
-        if os.path.exists(default_log):
+        if os.path.exists(log_dir):
             pass
         else:
             logger.error('Cannot create directory in {}! Please adjust permissions at target directory'.format(default_log))
@@ -640,16 +651,9 @@ def gen_log_redirect(log_dir,out_dir,subject,app_name):
 
     #Generate base command for default log output
     log_name = '{}_{}.log'.format(subject,app_name)
-    base_redir = ' &>> {}'.format(os.path.join(default_log,log_name))
+    base_redir = ' &>> {}'.format(os.path.join(log_dir,log_name))
 
-    #Optional log tag |& is equivalent to 2&>1 |, both stdout and stderr are directed
-    try:
-        log_tag = ' |& tee {} '.format(os.path.join(log_dir,log_name))
-    except AttributeError:
-        log_tag = ''
-        logger.info('No log directories specified, will output only to {}'.format(default_log))
-
-    return log_tag + base_redir
+    return base_redir
 
 
 def get_requested_threads(jargs, thread_dict):
@@ -711,7 +715,7 @@ def main():
     rewrite             =   arguments['--rewrite']
     tmp_dir             =   arguments['--tmp-dir'] or '/tmp/'
     bids_dir            =   arguments['--bids-dir'] or tmp_dir
-    log_dir             =   arguments['--log']
+    log_dir             =   arguments['--log'] 
 
     DRYRUN              =   arguments['--DRYRUN']
 
@@ -747,13 +751,22 @@ def main():
         jargs.update({'keeprecon':True})
     n_thread = get_requested_threads(jargs,thread_dict)
 
+    #Handle partition argument if using slurm
+    partition=None
+    try:
+        partition = jargs['partition']
+    except KeyError:
+        pass
+
     #Get redirect command string and exclusion list
-    log_cmd = partial(gen_log_redirect,log_dir=log_dir,out_dir=out)
-    exclude_cmd_list = [''] if exclude else get_exclusion_cmd(exclude)
+    log_dir = log_dir or os.path.join(out,'bids_logs')
+    log_dir = os.path.join(log_dir,jargs['app'].lower())
+    log_cmd = partial(gen_log_redirect,log_dir=log_dir)
+    exclude_cmd_list = [''] if not exclude else get_exclusion_cmd(exclude)
 
     #Get subjects and filter if not rewrite and group if longitudinal
     subjects = subjects or [s for s in os.listdir(config.get_path('nii')) if 'PHA' not in s]
-    subjects = subjects if rewrite else filter_subjects(subjects, out, jargs['app'])
+    subjects = subjects if rewrite else filter_subjects(subjects, out, jargs['app'],log_dir)
     logger.info('Running {}'.format(subjects))
 
     subjects = group_subjects(subjects)
@@ -776,7 +789,7 @@ def main():
         write_executable(job_file,master_cmd)
 
         if not DRYRUN:
-            submit_jobfile(job_file,s,queue,walltime,n_thread)
+            submit_jobfile(job_file,s,queue,walltime,n_thread,partition)
 
 if __name__ == '__main__':
     main()
