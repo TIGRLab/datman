@@ -1102,10 +1102,11 @@ def submit_job(cmd, job_name, log_dir, system='other', cpu_cores=1,
             fid.write('#!/bin/bash\n')
             fid.write(cmd)
 
-        job = 'sbatch -p {partition} -c {cores} -t {walltime} {args} --job-name {jobname} -o {log_dir} -D {workdir} {jobfile}'.format(
-                partition=partition, cores=cpu_cores, walltime=walltime,
-                args=argslist, jobname=job_name, jobfile=job_file,
-                log_dir=log_dir, workdir=workdir)
+        job = 'sbatch -p {partition} -c {cores} -t {walltime} {args} '\
+                '--job-name {jobname} -o {log_dir}/{jobname} -D {workdir} '\
+                '{jobfile}'.format(partition=partition, cores=cpu_cores,
+                walltime=walltime, args=argslist, jobname=job_name,
+                jobfile=job_file, log_dir=log_dir, workdir=workdir)
 
         rtn, out = run(job)
     else:
