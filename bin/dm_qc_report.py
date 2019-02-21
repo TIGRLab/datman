@@ -96,17 +96,15 @@ import copy
 import random
 import string
 
-import numpy as np
 import pandas as pd
 import nibabel as nib
+from docopt import docopt
 
 import datman.config
 import datman.utils
 import datman.scanid
 import datman.scan
 import datman.dashboard
-
-from docopt import docopt
 
 logging.basicConfig(level=logging.WARN,
         format="[%(name)s] %(levelname)s: %(message)s")
@@ -132,6 +130,26 @@ def slicer(fpath, pic, slicergap, picwidth):
         pic         -- fullpath to for output image
     """
     datman.utils.run("slicer {} -S {} {} {}".format(fpath,slicergap,picwidth,pic))
+
+def slicesdir(fpath, pic):
+    """
+    Uses FSL's slicer function to generate a montage of three slices from
+    each direction that matches FSL's slicesdir output
+    """
+
+    with datman.utils.make_temp_directory() as temp:
+        img_command = "slicer {0} -s 1 "\
+                "-x 0.4 {1}/grota.png -x 0.5 {1}/grotb.png -x 0.6 {1}/grotc.png "\
+                "-y 0.4 {1}/grotd.png -y 0.5 {1}/grote.png -y 0.6 {1}/grotf.png "\
+                "-z 0.4 {1}/grotg.png -z 0.5 {1}/groth.png -z 0.6 {1}/groti.png"\
+                .format(fpath, temp)
+        datman.utils.run(img_command)
+
+        montage_command = "pngappend {0}/grota.png + {0}/grotb.png + "\
+                "{0}/grotc.png + {0}/grotd.png + {0}/grote.png + {0}/grotf.png "\
+                "+ {0}/grotg.png + {0}/groth.png + {0}/groti.png {1}"\
+                .format(temp, pic)
+        datman.utils.run(montage_command)
 
 def add_image(qc_html, image, title=None):
     """
@@ -218,9 +236,14 @@ def fmri_qc(file_name, qc_dir, report):
     if not os.path.isfile(script_output):
         datman.utils.run('qc-fmri {} {}'.format(file_name, output_name))
 
+    slices_montage = output_name + "_montage.png"
     image_raw = output_name + '_raw.png'
     image_sfnr = output_name + '_sfnr.png'
     image_corr = output_name + '_corr.png'
+
+    if not os.path.isfile(slices_montage):
+        slicesdir(file_name, slices_montage)
+    add_image(report, slices_montage)
 
     if not os.path.isfile(image_raw):
         slicer(file_name, image_raw, SLICER_GAP, SLICER_FMRI_RES)
@@ -261,47 +284,34 @@ def dti_qc(filename, qc_dir, report):
         datman.utils.run('qc-spikecount {} {} {}'.format(filename,
                 os.path.join(qc_dir, basename + '_spikecount.csv'), bval))
 
+    slices_montage = os.path.join(qc_dir, basename + "_montage.png")
+    if not os.path.isfile(slices_montage):
+        slicesdir(filename, slices_montage)
     image = os.path.join(qc_dir, basename + '_b0.png')
     if not os.path.isfile(image):
         slicer(filename, image, SLICER_GAP, SLICER_RES)
+    add_image(report, slices_montage)
     add_image(report, image, title='b0 montage')
     add_image(report, os.path.join(qc_dir, basename + '_directions.png'),
             title='bvec directions')
 
-def submit_qc_jobs(commands, chained=False):
+def submit_qc_jobs(commands, system=None, chained=False):
     """
     Submits the given commands to the queue. In chained mode, each job will wait
     for the previous job to finish before attempting to run.
     """
     for i, cmd in enumerate(commands):
         if chained and i > 0:
-            lastjob = copy.copy(jobname)
-        jobname = "qc_report_{}_{}_{}".format(time.strftime("%Y%m%d"), random_str(5), i)
-        logfile = '/tmp/{}.log'.format(jobname)
-        errfile = '/tmp/{}.err'.format(jobname)
-
-        job_file = make_job_file(jobname, cmd)
+            last_job = copy.copy(job_name)
+        job_name = "qc_report_{}_{}_{}".format(time.strftime("%Y%m%d"),
+                random_str(5), i)
 
         if chained and i > 0:
-            run_cmd = 'qsub -V -q main.q -hold_jid {} -o {} -e {} -N {} {}'.format(
-                    lastjob, logfile, errfile, jobname, job_file)
+            args = "-d after:{}".format(last_job)
         else:
-            run_cmd = 'qsub -V -q main.q -o {} -e {} -N {} {}'.format(logfile,
-                    errfile, jobname, job_file)
+            args = ""
 
-        rtn, out = datman.utils.run(run_cmd)
-
-        if rtn:
-            logger.error("stdout: {}".format(out))
-        elif out:
-            logger.debug(out)
-
-def make_job_file(job_name, cmd):
-    job_file = '/tmp/{}'.format(job_name)
-    with open(job_file, 'wb') as fid:
-        fid.write('#!/bin/bash\n')
-        fid.write(cmd)
-    return job_file
+        datman.utils.submit_job(cmd, job_name, "/tmp", system=system, argslist=args)
 
 def make_qc_command(subject_id, study):
     arguments = docopt(__doc__)
@@ -346,11 +356,11 @@ def qc_all_scans(config):
 
     if human_commands:
         logger.debug('submitting human qc jobs\n{}'.format(human_commands))
-        submit_qc_jobs(human_commands)
+        submit_qc_jobs(human_commands, system=config.system)
 
     if phantom_commands:
         logger.debug('running phantom qc jobs\n{}'.format(phantom_commands))
-        submit_qc_jobs(phantom_commands, chained=True)
+        submit_qc_jobs(phantom_commands, system=config.system, chained=True)
 
 def get_new_subjects(config):
     qc_dir = config.get_path('qc')
