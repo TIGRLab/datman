@@ -22,9 +22,9 @@ Options:
     -d --debug         Be extra chatty
 
 Details:
-    This program QCs the data contained in <NiftiDir> and <DicomDir>, and
-    outputs a myriad of metrics as well as a report in <QCDir>. All work is done
-    on a per-subject basis.
+    This program QCs the data contained in <NiftiDir> and outputs a myriad of
+    metrics as well as a report in <QCDir>. All work is done on a per-subject
+    basis.
 
     **data directories**
 
@@ -38,31 +38,21 @@ Details:
                file1.nii.gz
                file2.nii.gz
 
-        <DicomDir>/
-           subject1/
-               file1.dcm
-               file2.dcm
-           subject2/
-               file1.dcm
-               file2.dcm
-
-     There should be a .dcm file for each .nii.gz. One subfolder for each
-     subject will be created under the <QCDir> folder.
+     One subfolder for each subject will be created under the <QCDir> folder.
 
      **gold standards**
 
-     To check for changes to the MRI machine's settings over time, this compares
-     the headers found in <DicomDir> with the appropriate dicom file found in
-     <StandardsDir>/<Tag>/filename.dcm.
+     To check for changes to the MRI machine's settings over time this compares
+     the header values found in JSONs produced by dcm2niix with the appropriate
+     JSON file found in <StandardsDir>/<Tag>/filename.json.
 
      **configuration file**
 
-     The locations of the dicom folder, nifti folder, qc folder, gold standards
+     The locations of the nifti folder, qc folder, gold standards
      folder, log folder, and expected set of scans are read from the supplied
      configuration file with the following structure:
 
      paths:
-       dcm: '/archive/data/SPINS/data/dcm'
        nii: '/archive/data/SPINS/data/nii'
        qc:  '/archive/data/SPINS/qc'
        std: '/archive/data/SPINS/metadata/standards'
@@ -100,6 +90,7 @@ import numpy as np
 import pandas as pd
 import nibabel as nib
 
+import dm_header_checks as qc_headers
 import datman.config
 import datman.utils
 import datman.scanid
@@ -544,7 +535,7 @@ def notes_expected(site, study_name):
 
     try:
         technotes = config.get_key('USES_TECHNOTES', site=site)
-    except KeyError:
+    except datman.config.UndefinedSetting:
         technotes = False
     return technotes
 
@@ -726,31 +717,50 @@ def find_expected_files(subject, config):
     expected_files = expected_files.sort_values('Sequence')
     return(expected_files)
 
+def get_ignored_header_fields(config, site):
+    try:
+        site_fields = config.get_key("IgnoreHeaderFields", site=site)
+    except:
+        site_fields = []
+    try:
+        study_fields = config.get_key("IgnoreHeaderFields", ignore_defaults=True)
+    except:
+        study_fields = []
+    try:
+        defaults = config.get_key("IgnoreHeaderFields", defaults_only=True)
+    except:
+        defaults = []
+
+    study_fields.extend(site_fields)
+    study_fields.extend(defaults)
+
+    return study_fields
+
+def find_json(series):
+    json_path = series.path.replace(series.ext, ".json")
+    if not os.path.exists(json_path):
+        raise IOError("JSON not found for {}".format(series))
+    return json_path
+
 def get_standards(standard_dir, site):
     """
-    Constructs a dictionary of standards for each standards file in
-    standard_dir.
+    Constructs a dictionary of standards for the given site.
 
     If a standards file name raises ParseException it will be logged and
     omitted from the standards dictionary.
     """
-    glob_path = os.path.join(standard_dir, "*")
+    glob_path = os.path.join(standard_dir, "*.json")
 
     standards = {}
     misnamed_files = []
     for item in glob.glob(glob_path):
-
-        #Protect against using .bvec/.bvals as headers
-        if '.dcm' not in item:
-            continue
-
         try:
             standard = datman.scan.Series(item)
         except datman.scanid.ParseException:
             misnamed_files.append(item)
             continue
         if standard.site == site:
-            standards[standard.tag] = standard
+            standards[standard.tag] = standard.path
 
     if misnamed_files:
         logging.error("Standards files misnamed, ignoring: \n" \
@@ -758,46 +768,42 @@ def get_standards(standard_dir, site):
 
     return standards
 
-def run_header_qc(subject, standard_dir, log_file, config):
+def run_header_qc(subject, log_file, config):
     """
-    For each .dcm file found in 'dicoms', find the matching site / tag file in
-    'standards', and run qc-headers (from qcmon) on these files. Any
+    For each json file found in 'niftis' find the matching site / tag file in
+    'standards' and run dm_header_checks on these files. Any differences
     are written to log_file.
     """
-
-    if not subject.dicoms:
-        logger.debug("No dicoms found in {}".format(subject.dcm_path))
-        return
-
-
-
+    standard_dir = config.get_path('std')
     standards_dict = get_standards(standard_dir, subject.site)
-    tag_settings=config.get_tags(site=subject.site)
+    tag_settings = config.get_tags(site=subject.site)
 
+    ignored_fields = get_ignored_header_fields(config, subject.site)
 
-    for dicom in subject.dicoms:
+    header_diffs = {}
+    for series in subject.niftis:
         try:
-            standard = standards_dict[dicom.tag]
+            standard_json = standards_dict[series.tag]
         except KeyError:
-            logger.debug('No standard with tag {} found in {}'.format(dicom.tag,
-                    standard_dir))
+            logger.debug('No standard with tag {} found in {}'.format(
+                    series.tag, standard_dir))
+            header_diffs[series.file_name] = {'error': 'Gold standard not found'}
             continue
-        else:
-            #run header check for dicom
-            #if the scan is dti, call qc-headers with the dti tag
-            if tag_settings.get(dicom.tag, "qc_type") == 'dti':
-                datman.utils.run('qc-headers {} {} {} --dti'.format(dicom.path, standard.path,
-                        log_file))
-                logger.debug('doing dti {}'.format(dicom.tag))
-            else:
-                logger.debug('doing other scantype {}'.format(dicom.tag))
-                datman.utils.run('qc-headers {} {} {}'.format(dicom.path, standard.path,
-                        log_file))
 
+        try:
+            series_json = find_json(series)
+        except IOError:
+            logger.debug('No JSON found for {}'.format(series))
+            header_diffs[series.file_name] = {'error': 'JSON not found'}
+            continue
 
-    if not os.path.exists(log_file):
-        logger.error("header-diff.log not generated for {}. Check that gold " \
-                "standards are present for this site.".format(subject.full_id))
+        standard_header = qc_headers.read_json(standard_json)
+        series_header = qc_headers.read_json(series_json)
+        diffs = qc_headers.compare_headers(series_header, standard_header,
+                ignore=ignored_fields)
+        header_diffs[series.file_name] = diffs
+
+    return header_diffs
 
 def qc_subject(subject, config):
     """
@@ -822,7 +828,7 @@ def qc_subject(subject, config):
             pass
 
     if not os.path.isfile(header_diffs):
-        run_header_qc(subject, config.get_path('std'), header_diffs, config)
+        run_header_qc(subject, header_diffs, config)
 
     expected_files = find_expected_files(subject, config)
 
@@ -944,7 +950,7 @@ def prepare_scan(subject_id, config):
         sys.exit(1)
 
     check_for_repeat_session(subject)
-    verify_input_paths([subject.nii_path, subject.dcm_path])
+    verify_input_paths([subject.nii_path])
 
     qc_dir = datman.utils.define_folder(subject.qc_path)
     # If qc_dir already existed and had empty files left over clean up
