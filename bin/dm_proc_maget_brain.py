@@ -354,7 +354,7 @@ class MagetConfig(object):
 
     def __get_datman_atlases(self):
         try:
-            atlas_dir = self.config.system_config['ATLASES']
+            atlas_dir = self.config.get_key('ATLASES')
         except KeyError:
             logger.critical("Cannot find path to atlases for current system.")
             sys.exit(1)
