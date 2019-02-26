@@ -717,6 +717,30 @@ def find_expected_files(subject, config):
     expected_files = expected_files.sort_values('Sequence')
     return(expected_files)
 
+def get_header_tolerances(config, site):
+    try:
+        defaults = config.get_key("HeaderFieldTolerance", defaults_only=True)
+    except:
+        defaults = {}
+    try:
+        study_settings = config.get_key("HeaderFieldTolerance",
+                ignore_defaults=True)
+    except:
+        study_settings = {}
+    try:
+        site_settings = config.get_key("HeaderFieldTolerance", site=site)
+    except:
+        site_settings = {}
+
+    for key in site_settings:
+        # Override any tolerances with same name in the study defaults
+        study_settings[key] = site_settings[key]
+    for key in study_settings:
+        # Override any site wide defaults with the study or site specific settings
+        defaults[key] = study_settings[key]
+
+    return defaults
+
 def get_ignored_header_fields(config, site):
     try:
         site_fields = config.get_key("IgnoreHeaderFields", site=site)
@@ -779,6 +803,7 @@ def run_header_qc(subject, log_file, config):
     tag_settings = config.get_tags(site=subject.site)
 
     ignored_fields = get_ignored_header_fields(config, subject.site)
+    header_tolerances = get_header_tolerances(config, subject.site)
 
     header_diffs = {}
     for series in subject.niftis:
