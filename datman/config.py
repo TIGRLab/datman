@@ -217,33 +217,12 @@ class config(object):
                     .format(tag))
         raise ValueError
 
-    def get_key(self, key, site=None, ignore_defaults=False, defaults_only=False):
-        if site and not defaults_only:
-            try:
-                value = self._search_site_conf(site, key)
-            except UndefinedSetting:
-                pass # Keep searching
-            else:
-                return value
-
-        if self.study_config and not defaults_only:
-            try:
-                value = self._search_study_conf(key)
-            except UndefinedSetting:
-                pass # Keep searching
-            else:
-                return value
-
-        if ignore_defaults:
-            # If we made it here the study wasnt set or didnt have the
-            # setting and we're told to ignore system settings so exit with
-            # an exception!
-            raise UndefinedSetting("{} could not be found in site or "
-                    "study".format(key))
-
-        return self._search_system_conf(key)
-
     def _search_site_conf(self, site, key):
+        """
+        Search a specific study's site for 'key'.
+
+        Raises 'UndefinedSetting' if the key does not exist
+        """
         try:
             site_conf = self._search_study_conf('Sites')
         except UndefinedSetting:
@@ -252,30 +231,137 @@ class config(object):
         try:
             site_conf = site_conf[site]
         except KeyError:
-            raise ConfigException("Site {} not found for study {}".format(site,
-                    self.study_name))
+            raise ConfigException("Site '{}' not found for study {}".format(
+                    site, self.study_name))
         try:
             value = site_conf[key]
         except KeyError:
-            raise UndefinedSetting("{} not set for site {}".format(key,
+            raise UndefinedSetting("'{}' not set for site {}".format(key,
                     site))
         return value
 
     def _search_study_conf(self, key):
+        """
+        Search the current study's config for 'key'. Does not search recursively
+        i.e. will not check all sites.
+
+        Raises UndefinedSetting if key is not found
+        """
         if not self.study_config:
             raise ConfigException("Study not set.")
         try:
             value = self.study_config[key]
         except KeyError:
-            raise UndefinedSetting("{} not defined for study {}"
+            raise UndefinedSetting("'{}' not defined for study {}"
                     "".format(key, self.study_name))
         return value
 
+    def _search_local_conf(self, key):
+        """
+        Searches the currently configured system (i.e. the system found in
+        'SystemSettings' for 'key')
+
+        Raises UndefinedSetting if key is not found
+        """
+        try:
+            system_settings = self._search_system_conf("SystemSettings")
+        except UndefinedSetting:
+            raise ConfigException("'SystemSettings' not defined")
+        try:
+            local_system = system_settings[self.system]
+        except KeyError:
+            raise ConfigException("System '{}' not defined in "
+                    "SystemSettings".format(key))
+        try:
+            value = local_system[key]
+        except KeyError:
+            raise UndefinedSetting("'{}' not defined for system {}".format(key,
+                    self.system))
+        return value
+
     def _search_system_conf(self, key):
+        """
+        Searches the global system-wide settings for 'key'. Will not search
+        recursively (i.e. will not check within studies or sites)
+
+        Raises UndefinedSetting if key is not found.
+        """
         try:
             value = self.site_config[key]
         except KeyError:
-            raise UndefinedSetting("{} not set".format(key))
+            raise UndefinedSetting("'{}' not set".format(key))
+        return value
+
+    def _get_setting(self, search_func, args, stop_search=False, merge=None):
+        """
+        A helper function to assist with changing scope and setting overrides.
+
+        Raises UndefinedSetting if key is not found and 'stop_search' is set,
+        otherwise returns None.
+
+        May raise 'ConfigException' if 'merge' is used and the key returns a
+        value with a type that differs from that of 'merge'.
+        """
+        try:
+            value = search_func(*args)
+        except UndefinedSetting:
+            if stop_search and not merge:
+                raise
+            value = None
+
+        if merge:
+            if not value:
+                value = merge
+            elif isinstance(merge, list) and isinstance(value, list):
+                value = list(set(value).union(set(merge)))
+            elif isinstance(merge, dict) and isinstance(value, dict):
+                # Prevents accidental modification of the original values if
+                # same setting accessed multiple times at different scopes
+                value = value.copy()
+                for key in merge:
+                    value[key] = merge[key]
+            else:
+                raise ConfigException("Can't handle conflicting settings. "
+                        "Found settings formated as type {} and type {}, "
+                        "which may indicate accidental duplication of setting "
+                        "names.".format(type(value), type(merge)))
+        return value
+
+    def get_key(self, key, site=None, ignore_defaults=False,
+            defaults_only=False):
+        """
+        Searches the configuration from most specific settings to least to
+        allow overrides + additional settings to be discovered.
+
+        Searches from site (if given) -> study -> local system -> system wide
+
+        If 'defaults_only' is used the search will restrict itself to system
+        wide settings and local system settings (i.e. settings from the main
+        config file)
+
+        If 'ignore_defaults' is set the search is restricted to only site (if
+        site was given) or only the current study (if site was not).
+
+        Raises UndefinedSetting if no value is found
+        """
+
+        value = None
+        if site and not defaults_only:
+            value = self._get_setting(self._search_site_conf, [site, key],
+                    stop_search=ignore_defaults)
+            if ignore_defaults:
+                return value
+
+        if self.study_config and not defaults_only:
+            value = self._get_setting(self._search_study_conf, [key],
+                    stop_search=ignore_defaults, merge=value)
+            if ignore_defaults:
+                return value
+
+        value = self._get_setting(self._search_local_conf, [key],
+                stop_search=False, merge=value)
+        value = self._get_setting(self._search_system_conf, [key],
+                stop_search=True, merge=value)
         return value
 
     def get_path(self, path_type, study=None):
