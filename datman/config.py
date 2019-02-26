@@ -1,8 +1,10 @@
 """Return the site wide config file and ptoject config files
 
-By default the site_config.yaml file is location is read from the
+By default the system_config.yaml file is location is read from the
 environment variable os.environ['DM_CONFIG']
-The system is identified from os.environ['DM_SYSTEM']
+
+The system is identified from os.environ['DM_SYSTEM'] and can be used to
+switch between multiple installations of datman or different computing systems.
 
 These can both be overridden at __init__
 """
@@ -30,41 +32,50 @@ class UndefinedSetting(Exception):
     pass
 
 class config(object):
-    site_config = None
-    study_config = None
     system_config = None
+    study_config = None
+    install_config = None
     study_name = None
     study_config_file = None
 
     def __init__(self, filename=None, system=None, study=None):
-        """Class object representing the site-wide configuration files.
+        """
+        Manages the datman configuration files.
+
         Inputs:
-            filename - path to the site-wide config file (tigrlab_config.yaml)
-                       If filename is not set will check the environment variable
-                       DM_CONFIG (set during module load datman.module)
-            system - Used to generate different paths when running on SCC or locally
-                     Can be used to create test environments, checks environment variable
-                    DM_SYSTEM if not set
-            study - optional, limits searches to the defined study
-            """
+            filename - Full path to the site-wide config file. If filename is
+                       not set will check the environment variable DM_CONFIG.
+                       All study configuration files are located using the
+                       'Projects' setting from this file
+            system   - Used to generate different paths depending on which
+                       installation is used. At least one 'system' must be
+                       defined. If not set will check environment variable
+                       DM_SYSTEM
+            study    - Loads the settings for a specific study in addition to
+                       the site-wide settings.
+        """
 
         if not filename:
             try:
                 filename = os.environ['DM_CONFIG']
             except KeyError:
-                logger.critical('Failed to find site_config file')
-                raise
+                raise ConfigException("Failed to find main config file")
 
-        self.site_config = self.load_yaml(filename)
+        self.system_config = self.load_yaml(filename)
 
         if not system:
             try:
                 system = os.environ['DM_SYSTEM']
             except KeyError:
-                logger.critical('Failed to identify current system')
-                raise
+                raise ConfigException('Failed to identify current system')
 
-        self.set_system(system)
+        self.system = system
+        system_settings = self._search_system_conf('SystemSettings')
+        try:
+            self.install_config = system_settings[system]
+        except KeyError:
+            raise ConfigException("Installation '{}' not found in main "
+                    "config file")
 
         if study:
             self.set_study(study)
@@ -72,21 +83,13 @@ class config(object):
     def load_yaml(self, filename):
         ## Read in the configuration yaml file
         if not os.path.isfile(filename):
-            raise ValueError("configuration file {} not found. Try again."
+            raise ConfigException("configuration file {} not found. Try again."
                              .format(filename))
-
         ## load the yml file
         with open(filename, 'r') as stream:
             config_yaml = yaml.load(stream)
 
         return config_yaml
-
-    def set_system(self, system):
-        if not self.site_config:
-            logger.error('Site config not set')
-            raise ValueError
-        self.system = system
-        self.system_config = self.site_config['SystemSettings'][system]
 
     def set_study(self, study_name):
         """
@@ -96,7 +99,7 @@ class config(object):
         """
         # make the supplied project_name case insensitive
         valid_projects = {k.lower(): k
-                          for k in self.site_config['Projects']}
+                          for k in self.get_key('Projects')}
 
         if study_name.lower() in valid_projects:
             study_name = study_name.upper()
@@ -108,18 +111,22 @@ class config(object):
 
         self.study_name = study_name
 
-        config_path = self.system_config['CONFIG_DIR']
+        config_path = self.get_key('CONFIG_DIR')
+        projects = self.get_key('Projects')
 
-        project_settings_file = os.path.join(config_path,
-                self.site_config['Projects'][study_name])
+        try:
+            study_yaml = projects[study_name]
+        except KeyError:
+            raise UndefinedSetting("Study {} not configured.".format(study_name))
 
+        project_settings_file = os.path.join(config_path, study_yaml)
         self.study_config = self.load_yaml(project_settings_file)
-        self.study_config_name = project_settings_file
+        self.study_config_path = project_settings_file
 
     def get_study_base(self, study=None):
         """Return the base directory for a study"""
 
-        proj_dir = self.system_config['DATMAN_PROJECTSDIR']
+        proj_dir = self.get_key('DATMAN_PROJECTSDIR')
 
         if study:
             self.set_study(study)
@@ -175,11 +182,12 @@ class config(object):
                     "input: {}".format(filename))
 
         # If a valid project name was given instead of a study tag, return that
-        if tag in self.site_config['Projects'].keys():
+        projects = self.get_key('Projects')
+        if tag in projects.keys():
             self.set_study(tag)
             return tag
 
-        for project in self.site_config['Projects'].keys():
+        for project in projects.keys():
             # search each project for a match to the study tag,
             # this loop exits as soon as a match is found.
             logger.debug('Searching project: {}'.format(project))
@@ -191,7 +199,7 @@ class config(object):
                 logger.debug("No sites defined for {}".format(project))
                 continue
 
-            for key, site_config in self.study_config['Sites'].iteritems():
+            for key, site_config in self.get_key('Sites').iteritems():
                 try:
                     add_tags = [t.lower() for t in site_config['SITE_TAGS']]
                 except KeyError:
@@ -287,7 +295,7 @@ class config(object):
         Raises UndefinedSetting if key is not found.
         """
         try:
-            value = self.site_config[key]
+            value = self.system_config[key]
         except KeyError:
             raise UndefinedSetting("'{}' not set".format(key))
         return value
@@ -370,8 +378,7 @@ class config(object):
         if study:
             self.set_study(study)
         if not self.study_config:
-            logger.error('Study not set')
-            raise KeyError
+            raise ConfigException('Study not set')
 
         try:
             return(os.path.join(self.get_study_base(),
@@ -380,7 +387,7 @@ class config(object):
             logger.info('Path {} not defined in study {} config file'
                         .format(path_type, self.study_name))
             return(os.path.join(self.get_study_base(),
-                                self.site_config['Paths'][path_type]))
+                                self.system_config['Paths'][path_type]))
 
     def get_tags(self, site=None):
         """
@@ -404,7 +411,7 @@ class config(object):
             export_info = {}
 
         try:
-            export_settings = self.site_config['ExportSettings']
+            export_settings = self.get_key('ExportSettings')
         except UndefinedSetting:
             raise UndefinedSetting("Tag dictionary 'ExportSettings' not "
                     "defined in main configuration file.")

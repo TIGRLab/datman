@@ -137,9 +137,9 @@ def get_datman_config(study):
 
     try:
         config = datman.config.config(study=study)
-    except KeyError:
-        logger.error('{} not a valid study ID!'.format(study))
-        sys.exit(1)
+    except Exception as e:
+        logger.error('Failed to retrieve configuration. Reason: {}'.format(e))
+        raise e
 
     if study != config.study_name:
         logger.error('Study incorrectly entered as subject {}, please fix arguments!'.format(study))
@@ -733,10 +733,11 @@ def main():
     config = get_datman_config(study)
     configure_logger(quiet,verbose,debug)
     try:
-        queue = config.site_config['SystemSettings'][os.environ['DM_SYSTEM']]['QUEUE']
-    except KeyError as e:
-        logger.error('Config exception, key not found: {}'.format(e))
-        sys.exit(1)
+        queue = config.get_key('QUEUE')
+    except Exception as e:
+        logger.error("Couldnt retrieve queue type from config. Reason: "
+                "{}".format(e))
+        raise e
 
     #JSON parsing, formatting, and validating
     jargs = get_json_args(bids_json)

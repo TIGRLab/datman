@@ -58,8 +58,6 @@ def main():
     # Will add later
     # update_database(series_json, diffs)
 
-# def run all without main (for use in other scripts)
-
 def parse_file(file_path):
     try:
         with open(file_path, "r") as fh:

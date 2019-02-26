@@ -1,26 +1,26 @@
 #!/usr/bin/env python
 '''
-Launch DTIPrep preprocessing pipeline for tensor-based analysis 
+Launch DTIPrep preprocessing pipeline for tensor-based analysis
 
-Usage: 
-    dm_proc_dtiprep.py [options] [-t <TAG>]... <study> 
+Usage:
+    dm_proc_dtiprep.py [options] [-t <TAG>]... <study>
 
-Arguments: 
-    <study>                                 DATMAN style study shortname 
+Arguments:
+    <study>                                 DATMAN style study shortname
 
 Options:
     -s,--session SESSION                    DATMAN style session ID
-    -t,--tag TAG                            Repeatable option for using substring selection to pick files to 
+    -t,--tag TAG                            Repeatable option for using substring selection to pick files to
                                             process
-    -o,--outDir OUTDIR                      Directory to output pre-processing outputs to 
-    -l,--logDir LOGDIR                      Directory to output logging to 
+    -o,--outDir OUTDIR                      Directory to output pre-processing outputs to
+    -l,--logDir LOGDIR                      Directory to output logging to
     -h,--homeDir HOMEDIR                    Directory to bind Singularity Home into (see NOTE)
-    -q,--quiet                              Only log errors (show ERROR level messages only) 
-    -v,--verbose                            Chatty logging (show INFO level messages) 
-    -n,--nthreads NTHREADS                  Number of threads to utilize on the SCC 
+    -q,--quiet                              Only log errors (show ERROR level messages only)
+    -v,--verbose                            Chatty logging (show INFO level messages)
+    -n,--nthreads NTHREADS                  Number of threads to utilize on the SCC
                                             [default: 3]
 
-Requirements: 
+Requirements:
     slicer
 
 NOTE:
@@ -36,7 +36,7 @@ import sys
 import subprocess
 import re
 from docopt import docopt
-import getpass 
+import getpass
 
 
 CONTAINER = 'DTIPREP/dtiprep.img'
@@ -68,7 +68,7 @@ class QJob(object):
     def __init__(self, queue, nthreads=3, cleanup=True):
         self.cleanup = cleanup
         self.nthreads = nthreads
-        self.queue = queue.lower() 
+        self.queue = queue.lower()
 
     def __enter__(self):
         self.qs_f, self.qs_n = tempfile.mkstemp(suffix='.qsub')
@@ -82,10 +82,10 @@ class QJob(object):
         except OSError:
             pass
 
-    def get_qsub_cmd(self): 
-        if self.queue == 'sge': 
-            return '' 
-        elif self.queue == 'pbs': 
+    def get_qsub_cmd(self):
+        if self.queue == 'sge':
+            return ''
+        elif self.queue == 'pbs':
             return '-l nodes=1:ppn{nthreads}'.format(nthreads=self.nthreads)
 
     def run(self, code, name="DTIPrep", logfile="output.$JOB_ID", errfile="error.$JOB_ID", cleanup=True, slots=1):
@@ -96,7 +96,7 @@ class QJob(object):
                                                        slots=slots))
         logger.info('Submitting job')
 
-        qsub_opt = self.get_qsub_cmd() 
+        qsub_opt = self.get_qsub_cmd()
         subprocess.call('qsub {} < '.format(qsub_opt) + self.qs_n, shell=True)
 
 
@@ -162,7 +162,7 @@ def convert_nii(dst_dir, log_dir):
                 d=dst_dir, nrrd=nrrd_file, nii=nii_file, bvec=bvec_file, bval=bval_file)
             rtn, msg = datman.utils.run(cmd, verbose=False)
 
-            # only report errors for actual diffusion-weighted data with directions 
+            # only report errors for actual diffusion-weighted data with directions
             # since DWIConvert is noisy when converting non-diffusion data from nrrd
             # we assume if this conversion is broken then all other conversion must be
             # suspect as well -- jdv
@@ -211,7 +211,7 @@ def process_session(src_dir, out_dir, protocol_dir, log_dir, session, tags, nthr
 
 if __name__ == '__main__':
 
-    arguments   =   docopt(__doc__) 
+    arguments   =   docopt(__doc__)
 
     study       =   arguments['<study>']
     session     =   arguments['--session']
@@ -235,13 +235,13 @@ if __name__ == '__main__':
     global QUEUE
 
     cfg = datman.config.config(study=study)
-    system_settings = cfg.site_config['SystemSettings'][os.environ['DM_SYSTEM']]
+    system_settings = cfg.install_config
 
     HOME_DIR = homeDir if homeDir else DEFAULT_HOME.format(user=getpass.getuser())
     CONTAINER = os.path.join(system_settings['CONTAINERS'],CONTAINER)
     QUEUE = system_settings['QUEUE']
 
-    #Get source paths 
+    #Get source paths
     nii_path = cfg.get_path('nii')
     nrrd_path = cfg.get_path('nrrd')
     meta_path = cfg.get_path('meta')
@@ -278,4 +278,3 @@ if __name__ == '__main__':
 
     for session in sessions:
         process_session(nrrd_path, outDir, meta_path, logDir, session, tags, nthreads)
-
