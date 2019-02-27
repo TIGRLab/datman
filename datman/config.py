@@ -31,6 +31,16 @@ class ConfigException(Exception):
 class UndefinedSetting(Exception):
     pass
 
+def study_required(func):
+    def method_wrapper(*args, **kwargs):
+        self = args[0]
+        if 'study' in kwargs:
+            self.set_study(kwargs['study'])
+        if not self.study_config:
+            raise ConfigException('Study not set.')
+        return func(*args, **kwargs)
+    return method_wrapper
+
 class config(object):
     system_config = None
     study_config = None
@@ -132,12 +142,10 @@ class config(object):
             self.set_study(study)
 
         if not self.study_config:
-
             logger.warning('Study not set')
-            return(proj_dir)
+            return proj_dir
 
-        return(os.path.join(proj_dir,
-                            self.study_config['PROJECTDIR']))
+        return os.path.join(proj_dir, self.get_key('PROJECTDIR'))
 
     def map_xnat_archive_to_project(self, filename):
         """Maps the XNAT tag (e.g. SPN01) to the project name e.g. SPINS
@@ -372,24 +380,20 @@ class config(object):
                 stop_search=True, merge=value)
         return value
 
+    @study_required
     def get_path(self, path_type, study=None):
         """returns the absolute path to a folder type"""
-        # first try and get the path from the study config
-        if study:
-            self.set_study(study)
-        if not self.study_config:
-            raise ConfigException('Study not set')
+        paths = self.get_key('Paths')
 
         try:
-            return(os.path.join(self.get_study_base(),
-                                self.study_config['Paths'][path_type]))
-        except (KeyError, TypeError):
-            logger.info('Path {} not defined in study {} config file'
-                        .format(path_type, self.study_name))
-            return(os.path.join(self.get_study_base(),
-                                self.system_config['Paths'][path_type]))
+            sub_dir = paths[path_type]
+        except KeyError:
+            raise UndefinedSetting("Path {} not defined".format(path_type))
 
-    def get_tags(self, site=None):
+        return os.path.join(self.get_study_base(), sub_dir)
+
+    @study_required
+    def get_tags(self, site=None, study=None):
         """
         Returns a TagInfo instance.
 
@@ -404,8 +408,6 @@ class config(object):
         the values in 'ExportSettings'.
         """
         if site:
-            if not self.study_config:
-                raise ConfigException("Cannot return site tags, study not set.")
             export_info = self.get_key('ExportInfo', site=site)
         else:
             export_info = {}
@@ -418,43 +420,34 @@ class config(object):
 
         return TagInfo(export_settings, export_info)
 
+    @study_required
     def get_xnat_projects(self, study=None):
-        if study:
-            study = self.set_study(study)
-        if not self.study_config:
-            logger.error('Study not set')
-            raise KeyError
+        xnat_projects = [ self.get_key('XNAT_Archive', site=item)
+                         for item in self.get_sites()]
+        return list(set(xnat_projects))
 
-        xnat_projects = [site['XNAT_Archive']
-                         for site in self.get_key(['Sites']).values()]
-
-        return(list(set(xnat_projects)))
-
-    def get_sites(self):
-        if not self.study_config:
-            raise KeyError('Study not set')
-
+    @study_required
+    def get_sites(self, study=None):
         try:
-            sites = self.study_config['Sites'].keys()
+            sites = self.get_key('Sites').keys()
         except KeyError:
-            raise KeyError('No sites defined for study {}'.format(self.study_name))
-
+            raise ConfigException('No sites defined for study {}'.format(
+                    self.study_name))
         return sites
 
-    def get_study_tags(self):
+    @study_required
+    def get_study_tags(self, study=None):
         """
         Returns a dictionary of study tags mapped to the sites defined for
         that tag.
 
         If a study has not been set then an exception is raised
         """
-        if not self.study_config:
-            raise RuntimeError("Study tags cannot be returned, a study hasn't been set")
-
         try:
-            default_tag = self.study_config['STUDY_TAG']
-        except KeyError:
-            logger.info("No default study tag defined for {}".format(self.study_name))
+            default_tag = self.get_key('STUDY_TAG')
+        except UndefinedSetting:
+            logger.info("No default study tag defined for {}".format(
+                    self.study_name))
             default_tag = None
 
         tags = {}
