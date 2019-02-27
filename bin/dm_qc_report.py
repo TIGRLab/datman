@@ -369,31 +369,47 @@ def get_new_subjects(config):
     new_subs = filter(lambda sub: sub not in finished_phantoms, new_subs)
     return new_subs
 
-def add_header_qc(nifti, qc_html, log_path):
+def add_header_qc(nifti, qc_html, header_diffs):
     """
     Adds header-diff.log information to the report.
     """
-    # get the filename of the nifti in question
-    filestem = nifti.file_name.replace(nifti.ext, '')
-
-    try:
-        # read the log
-        with open(log_path, 'r') as f:
-            f = f.readlines()
-    except IOError:
-        logger.info("header-diff.log not found. Generating page without it.")
-        f = []
+    if not header_diffs:
+        # Nothing to report on
+        return
 
     # find lines in said log that pertain to the nifti
-    lines = [re.sub('^.*?: *','',line) for line in f if filestem in line]
+    lines = header_diffs[nifti]
 
     if not lines:
         return
 
-    qc_html.write('<h3> {} header differences </h3>\n<table>'.format(filestem))
-    for l in lines:
-        qc_html.write('<tr><td>{}</td></tr>'.format(l))
-    qc_html.write('</table>\n')
+    table_header = """
+    <table>
+        <thead align=center>
+            <tr>
+                <th colspan=3><h3> {} header differences </h3></th>
+            </tr>
+            <tr>
+                <th>Field</th>
+                <th>Expected</th>
+                <th>Actual</th>
+            </tr>
+        </thead>
+        <tbody>
+    """.format(nifti)
+
+    qc_html.write(table_header)
+    for field in lines:
+        table_row = """
+        <tr>
+            <td>{field}</td>
+            <td>{expected}</td>
+            <td>{actual}</td>
+        </tr>
+        """.format(field=field, expected=lines[field]['expected'],
+                actual=lines[field]['actual'])
+        qc_html.write(table_row)
+    qc_html.write('</tbody></table>\n')
 
 def write_report_body(report, expected_files, subject, header_diffs, tag_settings):
     handlers = {
@@ -425,7 +441,7 @@ def write_report_body(report, expected_files, subject, header_diffs, tag_setting
                     series.tag))
             continue
 
-        add_header_qc(series, report, header_diffs)
+        add_header_qc(str(series), report, header_diffs)
 
         # This is to deal with the fact that PDT2s are split and both images
         # need to be displayed
@@ -717,48 +733,9 @@ def find_expected_files(subject, config):
     expected_files = expected_files.sort_values('Sequence')
     return(expected_files)
 
-def get_header_tolerances(config, site):
-    try:
-        defaults = config.get_key("HeaderFieldTolerance", defaults_only=True)
-    except:
-        defaults = {}
-    try:
-        study_settings = config.get_key("HeaderFieldTolerance",
-                ignore_defaults=True)
-    except:
-        study_settings = {}
-    try:
-        site_settings = config.get_key("HeaderFieldTolerance", site=site)
-    except:
-        site_settings = {}
-
-    for key in site_settings:
-        # Override any tolerances with same name in the study defaults
-        study_settings[key] = site_settings[key]
-    for key in study_settings:
-        # Override any site wide defaults with the study or site specific settings
-        defaults[key] = study_settings[key]
-
-    return defaults
-
-def get_ignored_header_fields(config, site):
-    try:
-        site_fields = config.get_key("IgnoreHeaderFields", site=site)
-    except:
-        site_fields = []
-    try:
-        study_fields = config.get_key("IgnoreHeaderFields", ignore_defaults=True)
-    except:
-        study_fields = []
-    try:
-        defaults = config.get_key("IgnoreHeaderFields", defaults_only=True)
-    except:
-        defaults = []
-
-    study_fields.extend(site_fields)
-    study_fields.extend(defaults)
-
-    return study_fields
+def add_header_diffs(diffs):
+    # To be added later. Will add diffs to the dashboard
+    return
 
 def find_json(series):
     json_path = series.path.replace(series.ext, ".json")
@@ -792,18 +769,19 @@ def get_standards(standard_dir, site):
 
     return standards
 
-def run_header_qc(subject, log_file, config):
+def run_header_qc(subject, config):
     """
     For each json file found in 'niftis' find the matching site / tag file in
-    'standards' and run dm_header_checks on these files. Any differences
-    are written to log_file.
+    'standards' and run dm_header_checks on these files. Differences are
+    returned in a dictionary that maps the scan name to a dictionary of
+    differences
     """
     standard_dir = config.get_path('std')
     standards_dict = get_standards(standard_dir, subject.site)
     tag_settings = config.get_tags(site=subject.site)
 
-    ignored_fields = get_ignored_header_fields(config, subject.site)
-    header_tolerances = get_header_tolerances(config, subject.site)
+    ignored_headers = config.get_key('IgnoreHeaderFields', site=subject.site)
+    header_tolerances = config.get_key('HeaderFieldTolerance', site=subject.site)
 
     header_diffs = {}
     for series in subject.niftis:
@@ -822,10 +800,18 @@ def run_header_qc(subject, log_file, config):
             header_diffs[series.file_name] = {'error': 'JSON not found'}
             continue
 
-        standard_header = qc_headers.read_json(standard_json)
-        series_header = qc_headers.read_json(series_json)
-        diffs = qc_headers.compare_headers(series_header, standard_header,
-                ignore=ignored_fields)
+        try:
+            qc_type = tag_settings.get(series.tag, "qc_type")
+        except KeyError:
+            logger.error("'qc_type' for tag {} not defined. If it's DTI the "
+                    "bval check will be skipped.".format(series.tag))
+            check_bvals = False
+        else:
+            check_bvals = qc_type == 'dti'
+
+        diffs = qc_headers.construct_diffs(series_json, standard_json,
+                ignored_fields=ignored_headers, tolerances=header_tolerances,
+                dti=check_bvals)
         header_diffs[series.file_name] = diffs
 
     return header_diffs
@@ -839,7 +825,7 @@ def qc_subject(subject, config):
     """
     report_name = os.path.join(subject.qc_path, 'qc_{}.html'.format(subject.full_id))
     # header diff
-    header_diffs = os.path.join(subject.qc_path, 'header-diff.log')
+    header_diffs_log = os.path.join(subject.qc_path, 'header-diff.json')
 
     if os.path.isfile(report_name):
         if not REWRITE:
@@ -848,12 +834,16 @@ def qc_subject(subject, config):
         os.remove(report_name)
         # This probably exists if you're rewriting, and needs to be removed to regenerate
         try:
-            os.remove(header_diffs)
+            os.remove(header_diffs_log)
         except:
             pass
 
-    if not os.path.isfile(header_diffs):
-        run_header_qc(subject, header_diffs, config)
+    header_diffs = run_header_qc(subject, config)
+    if not datman.dashboard.dash_found:
+        if not os.path.isfile(header_diffs_log):
+            qc_headers.write_diff_log(header_diffs, header_diffs_log)
+    else:
+        add_header_diffs(header_diffs)
 
     expected_files = find_expected_files(subject, config)
 
