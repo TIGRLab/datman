@@ -17,8 +17,8 @@ Options:
     -q, --quiet                     Only display ERROR Messages
     -v, --verbose                   Display INFO/WARNING/ERROR Messages
     -d, --debug                     Display DEBUG/INFO/WARNING/ERROR Messages
-    -r, --rewrite                   Overwrite if outputs already exist in BIDS output directory 
-    -t, --tmp-dir TMPDIR            Specify temporary directory 
+    -r, --rewrite                   Overwrite if outputs already exist in BIDS output directory
+    -t, --tmp-dir TMPDIR            Specify temporary directory
                                     [default : '/tmp/']
     -b, --bids-dir BIDSDIR          Specify BIDS directory to use
                                     [default : 'TMPDIR/bids']
@@ -108,8 +108,8 @@ def get_bids_name(subject):
 
         try:
             ident = scan_ident.parse(subject + '_01')
-        except scan_ident.ParseException: 
-            logger.error('{s} and {s}_01, is invalid!'.format(s=subject)) 
+        except scan_ident.ParseException:
+            logger.error('{s} and {s}_01, is invalid!'.format(s=subject))
             raise
 
     return ident.get_bids_name()
@@ -166,25 +166,25 @@ def filter_subjects(subjects,out_dir,bids_app,log_dir):
         log_dir                 Log directory for checking available files
     '''
 
-    #Base log directory 
+    #Base log directory
     log_dir = os.path.join(out_dir,'bids_logs',bids_app.lower())
     log_file = os.path.join(log_dir,'{}_{}.log')
-    run_list = [] 
+    run_list = []
 
     #Use error keyword to identify subjects needing to be re-run
-    for s in subjects: 
+    for s in subjects:
 
         try:
-            if 'error' in open(log_file.format(s,bids_app)).read().lower(): 
-                run_list.append(s) 
+            if 'error' in open(log_file.format(s,bids_app)).read().lower():
+                run_list.append(s)
                 logger.debug('Re-running {} through {}, error found!'.format(s,bids_app))
-        except IOError: 
+        except IOError:
             logger.debug('Running new subject {} through {}'.format(s,bids_app))
-            run_list.append(s) 
-        
+            run_list.append(s)
+
     return run_list
 
-    
+
 
 def get_json_args(json_file):
     '''
@@ -231,10 +231,10 @@ def validate_json_args(jargs,test_dict):
         logger.error('BIDS-app {} not supported!'.format(jargs['app']))
         raise
     else:
-        #Enforce application name will always be in upper case 
-        jargs['app'] = jargs['app'].upper() 
+        #Enforce application name will always be in upper case
+        jargs['app'] = jargs['app'].upper()
 
-    
+
     return jargs
 
 def get_exclusion_cmd(exclude):
@@ -302,7 +302,7 @@ def get_init_cmd(study,sgroup,bids_dir,tmp_dir,out_dir,simg,log_tag):
             simg=simg,
             sub=get_bids_name(sgroup).replace('sub-',''),
             out=out_dir,
-            log_tag=log_tag.replace('&>>','&>')) 
+            log_tag=log_tag.replace('&>>','&>'))
     #The log replace bit is to ensure that logs are wiped prior to appending for easier error tracking on re-runs
 
     return [trap_cmd,init_cmd]
@@ -590,21 +590,21 @@ def submit_jobfile(job_file,subject,queue,walltime='24:00:00',threads=1,partitio
         walltime                    Wall-clock time of each subject BIDS app
         threads                     Number of threads assigned to each job
         partition                   SLURM ONLY: Which partition to use, set to use default partition otherwise
-        
+
     '''
 
     if queue == 'slurm':
-        
+
         partition = '' if partition is None else '-p {}'.format(partition)
         thread_arg = '{partition} --job-name {subject} --cpus-per-task {threads} --time {wtime} -o /dev/null'.format(
-                subject=subject, 
+                subject=subject,
                 threads=threads,wtime=walltime,
                 partition=partition)
         cmd = 'sbatch {args} '.format(args=thread_arg)
 
     else:
         thread_arg = '-l nodes=1:ppn={threads},walltime={wtime}'.format(threads=threads,wtime=walltime) \
-                if queue =='pbs' else '' 
+                if queue =='pbs' else ''
         cmd = 'qsub {pbs} -V -N {subject}'.format(pbs=thread_arg,subject=subject)
 
     #Append job to cmd
@@ -646,7 +646,8 @@ def gen_log_redirect(log_dir,subject,app_name):
         if os.path.exists(log_dir):
             pass
         else:
-            logger.error('Cannot create directory in {}! Please adjust permissions at target directory'.format(default_log))
+            parent_dir = os.path.abspath(os.path.join(log_dir, os.pardir))
+            logger.error('Cannot create directory in {}! Please adjust permissions at target directory'.format(parent_dir))
             raise
 
     #Generate base command for default log output
@@ -715,7 +716,7 @@ def main():
     rewrite             =   arguments['--rewrite']
     tmp_dir             =   arguments['--tmp-dir'] or '/tmp/'
     bids_dir            =   arguments['--bids-dir'] or tmp_dir
-    log_dir             =   arguments['--log'] 
+    log_dir             =   arguments['--log']
 
     DRYRUN              =   arguments['--DRYRUN']
 
