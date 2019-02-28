@@ -11,6 +11,8 @@ These can both be overridden at __init__
 from future.utils import iteritems
 import logging
 import os
+import wrapt
+import inspect
 
 import yaml
 
@@ -31,15 +33,17 @@ class ConfigException(Exception):
 class UndefinedSetting(Exception):
     pass
 
-def study_required(func):
-    def method_wrapper(*args, **kwargs):
-        self = args[0]
-        if 'study' in kwargs:
-            self.set_study(kwargs['study'])
-        if not self.study_config:
-            raise ConfigException('Study not set.')
-        return func(*args, **kwargs)
-    return method_wrapper
+@wrapt.decorator
+def study_required(func, instance, args, kwargs):
+    # This is needed in case user passes keyword args as positional parameters
+    # e.g. config.get_path('nii', 'SPINS') instead of
+    # config.get_path('nii', study='SPINS')
+    found_kwargs = inspect.getcallargs(func, *args, **kwargs)
+    if 'study' in found_kwargs and found_kwargs['study']:
+        instance.set_study(found_kwargs['study'])
+    if not instance.study_config:
+        raise ConfigException('Study not set.')
+    return func(*args, **kwargs)
 
 class config(object):
     system_config = None
