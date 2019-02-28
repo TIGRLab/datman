@@ -789,8 +789,14 @@ def run_header_qc(subject, config):
     standards_dict = get_standards(standard_dir, subject.site)
     tag_settings = config.get_tags(site=subject.site)
 
-    ignored_headers = config.get_key('IgnoreHeaderFields', site=subject.site)
-    header_tolerances = config.get_key('HeaderFieldTolerance', site=subject.site)
+    try:
+        ignored_headers = config.get_key('IgnoreHeaderFields', site=subject.site)
+    except datman.config.UndefinedSetting:
+        ignored_headers = []
+    try:
+        header_tolerances = config.get_key('HeaderFieldTolerance', site=subject.site)
+    except datman.config.UndefinedSetting:
+        header_tolerances = {}
 
     header_diffs = {}
     for series in subject.niftis:
