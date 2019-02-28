@@ -1,0 +1,16 @@
+{
+
+	"app":"MRIQC",
+	"img": "/KIMEL/tigrlab/archive/code/containers/MRIQC/poldracklab_mriqc_0.14.2-2018-08-21-453030cc5a18.img",
+
+
+	"bidsargs":
+	{
+		"n_procs":2,
+		"verbose":"True",
+		"fd_thres":0.5,
+		"no-sub":"True"
+	}
+
+
+}
