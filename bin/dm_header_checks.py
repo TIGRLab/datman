@@ -103,6 +103,7 @@ def compare_headers(series, standard, ignore=None, tolerance=None):
             value = series[field]
         except KeyError:
             diffs.setdefault('missing', []).append(field)
+            continue
         if value != standard[field]:
             result = handle_diff(value, standard[field], tolerance.get(field))
             if result:
