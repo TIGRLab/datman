@@ -1073,7 +1073,7 @@ def validate_subject_id(subject_id, config):
 
 
 def submit_job(cmd, job_name, log_dir, system='other', cpu_cores=1,
-        walltime="2:00:00", dryrun=False, partition='high-moby', argslist="",
+        walltime="2:00:00", dryrun=False, partition=None, argslist="",
         workdir="/tmp"):
     '''
     submits a job or joblist the queue depending on the system
@@ -1086,7 +1086,7 @@ def submit_job(cmd, job_name, log_dir, system='other', cpu_cores=1,
         cpu_cores                   Number of cores to allocate for job [default=1]
         walltime                    Real clock time for job [default=2:00:00]
         dryrun                      Set to true if you want job to not submit [default=False]
-        partition                   Slurm partition [default=low-moby]
+        partition                   Slurm partition. If none specified the default queue will be used
         argslist                    String of additional slurm arguments (etc: --mem X --verbose ...) [default=None]
         workdir                     Location for slurm to use as the work dir [default='/tmp']
     '''
@@ -1101,12 +1101,16 @@ def submit_job(cmd, job_name, log_dir, system='other', cpu_cores=1,
         with open(job_file, 'wb') as fid:
             fid.write('#!/bin/bash\n')
             fid.write(cmd)
-
-        job = 'sbatch -p {partition} -c {cores} -t {walltime} {args} '\
-                '--job-name {jobname} -o {log_dir}/{jobname} -D {workdir} '\
-                '{jobfile}'.format(partition=partition, cores=cpu_cores,
-                walltime=walltime, args=argslist, jobname=job_name,
-                jobfile=job_file, log_dir=log_dir, workdir=workdir)
+            
+        arg_list = '-c {cores} -t {walltime} {args} --job-name {jobname} '\
+                '-o {log_dir}/{jobname} -D {workdir}'.format(cores=cpu_cores,
+                walltime=walltime, args=argslist, jobname=job_name, 
+                log_dir=log_dir, workdir=workdir)
+        
+        if partition:
+            arg_list = arg_list + ' -p {} '.format(partition)
+            
+        job = 'sbatch ' + arg_list + ' {}'.format(job_file)
 
         rtn, out = run(job)
     else:
