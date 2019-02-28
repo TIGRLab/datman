@@ -378,7 +378,8 @@ def add_header_qc(nifti, qc_html, header_diffs):
         return
 
     # find lines in said log that pertain to the nifti
-    lines = header_diffs[nifti]
+    scan_name = get_scan_name(nifti)
+    lines = header_diffs[scan_name]
 
     if not lines:
         return
@@ -441,7 +442,7 @@ def write_report_body(report, expected_files, subject, header_diffs, tag_setting
                     series.tag))
             continue
 
-        add_header_qc(str(series), report, header_diffs)
+        add_header_qc(series, report, header_diffs)
 
         # This is to deal with the fact that PDT2s are split and both images
         # need to be displayed
@@ -643,12 +644,17 @@ def generate_qc_report(report_name, subject, expected_files, header_diffs, confi
                     tag_settings)
     except:
         raise
-    update_dashboard(subject, report_name)
+    update_dashboard(subject, report_name, header_diffs)
 
-def update_dashboard(subject, report_name):
+def update_dashboard(subject, report_name, header_diffs):
     db_subject = datman.dashboard.get_subject(subject.full_id)
     if not db_subject:
         return
+    try:
+        db_subject.add_header_diffs(header_diffs)
+    except Exception as e:
+        logger.error("Failed to add header diffs for {} to dashboard database. "
+                "Reason: {}".format(subject.full_id, e))
     db_subject.last_qc_repeat_generated = len(db_subject.sessions)
     db_subject.static_page = report_name
     db_subject.save()
@@ -733,10 +739,6 @@ def find_expected_files(subject, config):
     expected_files = expected_files.sort_values('Sequence')
     return(expected_files)
 
-def add_header_diffs(diffs):
-    # To be added later. Will add diffs to the dashboard
-    return
-
 def find_json(series):
     json_path = series.path.replace(series.ext, ".json")
     if not os.path.exists(json_path):
@@ -769,6 +771,13 @@ def get_standards(standard_dir, site):
 
     return standards
 
+def get_scan_name(series):
+    # Allows the dashboard to easily access diffs without needing to know
+    # anything about naming scheme
+    scan_name = series.file_name.replace("_" + series.description, "")\
+            .replace(series.ext, "")
+    return scan_name
+
 def run_header_qc(subject, config):
     """
     For each json file found in 'niftis' find the matching site / tag file in
@@ -785,19 +794,20 @@ def run_header_qc(subject, config):
 
     header_diffs = {}
     for series in subject.niftis:
+        scan_name = get_scan_name(series)
         try:
             standard_json = standards_dict[series.tag]
         except KeyError:
             logger.debug('No standard with tag {} found in {}'.format(
                     series.tag, standard_dir))
-            header_diffs[series.file_name] = {'error': 'Gold standard not found'}
+            header_diffs[scan_name] = {'error': 'Gold standard not found'}
             continue
 
         try:
             series_json = find_json(series)
         except IOError:
             logger.debug('No JSON found for {}'.format(series))
-            header_diffs[series.file_name] = {'error': 'JSON not found'}
+            header_diffs[scan_name] = {'error': 'JSON not found'}
             continue
 
         try:
@@ -812,7 +822,7 @@ def run_header_qc(subject, config):
         diffs = qc_headers.construct_diffs(series_json, standard_json,
                 ignored_fields=ignored_headers, tolerances=header_tolerances,
                 dti=check_bvals)
-        header_diffs[series.file_name] = diffs
+        header_diffs[scan_name] = diffs
 
     return header_diffs
 
@@ -839,11 +849,8 @@ def qc_subject(subject, config):
             pass
 
     header_diffs = run_header_qc(subject, config)
-    if not datman.dashboard.dash_found:
-        if not os.path.isfile(header_diffs_log):
-            qc_headers.write_diff_log(header_diffs, header_diffs_log)
-    else:
-        add_header_diffs(header_diffs)
+    if not datman.dashboard.dash_found and not os.path.isfile(header_diffs_log):
+        qc_headers.write_diff_log(header_diffs, header_diffs_log)
 
     expected_files = find_expected_files(subject, config)
 
