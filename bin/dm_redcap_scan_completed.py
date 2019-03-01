@@ -156,11 +156,19 @@ def main():
 
     project_records = []
     for item in response.json():
+        status_val = item[cfg.get_key(['REDCAP_STATUS_VALUE'])]
+
+        #make status_val into a list
+        if not (isinstance(status_val,list)):
+            status_val=[status_val]
+
         # only grab records where instrument has been marked complete
         if not (item[cfg.get_key(['REDCAP_DATE'])] and
-                item[cfg.get_key(['REDCAP_STATUS'])] == '1'):
+                item[cfg.get_key(['REDCAP_STATUS'])] in status_val):
             continue
+
         project_records.append(item)
+
 
     for record in project_records:
         add_session_redcap(record)
