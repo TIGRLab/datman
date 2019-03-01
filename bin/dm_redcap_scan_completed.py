@@ -67,7 +67,7 @@ def get_version(api_url, token):
 
 def add_session_redcap(record):
     record_id = record['record_id']
-    subject_id = record[cfg.get_key(['REDCAP_SUBJ'])].upper()
+    subject_id = record[cfg.get_key('REDCAP_SUBJ')].upper()
     if not datman.scanid.is_scanid(subject_id):
         try:
             subject_id = subject_id + '_01'
@@ -81,7 +81,7 @@ def add_session_redcap(record):
         logger.error('Invalid session: {}, skipping'.format(subject_id))
         return
 
-    session_date = record[cfg.get_key(['REDCAP_DATE'])]
+    session_date = record[cfg.get_key('REDCAP_DATE')]
 
     try:
         session = dashboard.get_session(ident, date=session_date, create=True)
@@ -92,8 +92,8 @@ def add_session_redcap(record):
     try:
         session.add_redcap(record_id, redcap_project, redcap_url, instrument,
                 date=session_date,
-                comment=record[cfg.get_key(['REDCAP_COMMENTS'])],
-                event_id=cfg.get_key(['REDCAP_EVENTID'])[record['redcap_event_name']],
+                comment=record[cfg.get_key('REDCAP_COMMENTS')],
+                event_id=cfg.get_key('REDCAP_EVENTID')[record['redcap_event_name']],
                 version=redcap_version)
     except:
         logger.error('Failed adding REDCap info for session {} to dashboard'.format(ident))
@@ -141,14 +141,14 @@ def main():
     dir_meta = cfg.get_path('meta')
 
     # configure redcap variables
-    api_url = cfg.get_key(['REDCAP_URL'])
+    api_url = cfg.get_key('REDCAP_URL')
     redcap_url = api_url.replace('/api/', '/')
 
-    token_path = os.path.join(dir_meta, cfg.get_key(['REDCAP_TOKEN']))
+    token_path = os.path.join(dir_meta, cfg.get_key('REDCAP_TOKEN'))
     token = read_token(token_path)
 
-    redcap_project = cfg.get_key(['REDCAP_PROJECTID'])
-    instrument = cfg.get_key(['REDCAP_INSTRUMENT'])
+    redcap_project = cfg.get_key('REDCAP_PROJECTID')
+    instrument = cfg.get_key('REDCAP_INSTRUMENT')
 
     redcap_version = get_version(api_url, token)
 
@@ -156,15 +156,15 @@ def main():
 
     project_records = []
     for item in response.json():
-        status_val = item[cfg.get_key(['REDCAP_STATUS_VALUE'])]
+        status_val = item[cfg.get_key('REDCAP_STATUS_VALUE')]
 
         #make status_val into a list
         if not (isinstance(status_val,list)):
             status_val=[status_val]
 
         # only grab records where instrument has been marked complete
-        if not (item[cfg.get_key(['REDCAP_DATE'])] and
-                item[cfg.get_key(['REDCAP_STATUS'])] in status_val):
+        if not (item[cfg.get_key('REDCAP_DATE')] and
+                item[cfg.get_key('REDCAP_STATUS')] in status_val):
             continue
 
         project_records.append(item)
