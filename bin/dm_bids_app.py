@@ -709,10 +709,10 @@ def filter_subjects(subjects,out_dir,bids_app,log_dir):
             'CIFTIFY_FMRIPREP': error_in_ciftify
             }
 
-    error_occurred = key_map[bids_app]
+    check_logfile = key_map[bids_app]
 
     for s in subjects:
-        if error_occurred(out_dir,log_file.format(get_bids_name(s),bids_app)):
+        if check_logfile(out_dir,log_file.format(get_bids_name(s),bids_app)):
             run_list.append(s)
 
     return run_list
@@ -722,12 +722,16 @@ def check_keys_in_file(log_file, keys):
     Check if log file is contained within list
     '''
 
-    with open(log_file) as log:
-        contents = log.read()
+    try:
+        with open(log_file) as log:
+            contents = log.read()
 
-        for key in keys:
-            if key in contents:
-                return True
+            for key in keys:
+                if key in contents:
+                    return True
+    except IOError:
+        # If log-file not available, subject needs to be run
+        return True
 
 def error_in_mriqc(out_dir, log_file):
     '''
