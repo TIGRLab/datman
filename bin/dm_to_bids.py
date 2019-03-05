@@ -97,7 +97,7 @@ def get_missing_data(data, nii_file):
 
 def to_sub(ident):
 
-    return ident.get_bids_name() 
+    return ident.get_bids_name()
 
 def to_ses(timepoint):
     return "ses-{:02}".format(int(timepoint))
@@ -426,7 +426,7 @@ def init_setup(study, cfg, bids_dir):
     data = dict()
     try:
         data["Name"] = cfg.get_key('FullName')
-    except KeyError:
+    except config.UndefinedSetting:
         data["Name"] = study
     data["BIDSVersion"] = "1.0.2"
 
@@ -510,7 +510,7 @@ def main():
 
     #Run if either queue disabled or single subject
     else:
-        for sub_id in sub_ids: 
+        for sub_id in sub_ids:
             subject_dir = sub_id
             if scanid.is_phantom(subject_dir):
                 logger.info("File is phantom and will be ignored: {}".format(subject_dir))

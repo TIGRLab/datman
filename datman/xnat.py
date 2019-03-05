@@ -20,10 +20,7 @@ def get_server(config, url=None, port=None):
         use_port = True
 
     if not url:
-        try:
-            url = config.get_key('XNATSERVER')
-        except KeyError:
-            raise KeyError("'XNATSERVER' not defined in config file")
+        url = config.get_key('XNATSERVER')
 
     # Check for 'http' and NOT https, because checking for https could mangle a
     # url into https://http<restof>
