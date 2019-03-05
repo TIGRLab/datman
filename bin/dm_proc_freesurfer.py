@@ -323,14 +323,14 @@ def update_aggregate_log(config, qc_subjects, destination):
 def update_aggregate_stats(config):
     logger.info("Updating aggregate stats")
     freesurfer_dir = config.get_path('freesurfer')
-    enigma_ctx = os.path.join(config.system_config['DATMAN_ASSETSDIR'],
+    enigma_ctx = os.path.join(config.get_key('DATMAN_ASSETSDIR'),
             'ENGIMA_ExtractCortical.sh')
-    enigma_sub = os.path.join(config.system_config['DATMAN_ASSETSDIR'],
+    enigma_sub = os.path.join(config.get_key('DATMAN_ASSETSDIR'),
             'ENGIMA_ExtractSubcortical.sh')
     utils.run('{} {} {}'.format(enigma_ctx, freesurfer_dir,
-            config.study_config['STUDY_TAG']), dryrun=DRYRUN)
+            config.get_key('STUDY_TAG')), dryrun=DRYRUN)
     utils.run('{} {} {}'.format(enigma_sub, freesurfer_dir,
-            config.study_config['STUDY_TAG']), dryrun=DRYRUN)
+            config.get_key('STUDY_TAG')), dryrun=DRYRUN)
 
 def get_blacklist(qc_subjects, scanid):
     # This function is here as bug prevention: If a subject ID is given that

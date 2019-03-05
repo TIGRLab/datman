@@ -354,7 +354,7 @@ class MagetConfig(object):
 
     def __get_datman_atlases(self):
         try:
-            atlas_dir = self.config.system_config['ATLASES']
+            atlas_dir = self.config.get_key('ATLASES')
         except KeyError:
             logger.critical("Cannot find path to atlases for current system.")
             sys.exit(1)
@@ -367,7 +367,7 @@ class MagetConfig(object):
     def __get_maget_settings(self):
         try:
             maget_config_dict = self.config.get_key('magetbrain')
-        except KeyError:
+        except datman.config.UndefinedSetting:
             logger.critical("Magetbrain configuration not defined for study: {}"
                             "".format(self.config.study_name))
             sys.exit(1)

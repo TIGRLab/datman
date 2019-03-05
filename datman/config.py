@@ -1,14 +1,18 @@
 """Return the site wide config file and ptoject config files
 
-By default the site_config.yaml file is location is read from the
+By default the system_config.yaml file is location is read from the
 environment variable os.environ['DM_CONFIG']
-The system is identified from os.environ['DM_SYSTEM']
+
+The system is identified from os.environ['DM_SYSTEM'] and can be used to
+switch between multiple installations of datman or different computing systems.
 
 These can both be overridden at __init__
 """
 from future.utils import iteritems
 import logging
 import os
+import wrapt
+import inspect
 
 import yaml
 
@@ -23,43 +27,69 @@ try:
 except NameError:
     basestring = str
 
+class ConfigException(Exception):
+    pass
+
+class UndefinedSetting(Exception):
+    pass
+
+@wrapt.decorator
+def study_required(func, instance, args, kwargs):
+    # This is needed in case user passes keyword args as positional parameters
+    # e.g. config.get_path('nii', 'SPINS') instead of
+    # config.get_path('nii', study='SPINS')
+    found_kwargs = inspect.getcallargs(func, *args, **kwargs)
+    if 'study' in found_kwargs and found_kwargs['study']:
+        instance.set_study(found_kwargs['study'])
+    if not instance.study_config:
+        raise ConfigException('Study not set.')
+    return func(*args, **kwargs)
 
 class config(object):
-    site_config = None
-    study_config = None
     system_config = None
+    study_config = None
+    install_config = None
     study_name = None
     study_config_file = None
 
     def __init__(self, filename=None, system=None, study=None):
-        """Class object representing the site-wide configuration files.
+        """
+        Manages the datman configuration files.
+
         Inputs:
-            filename - path to the site-wide config file (tigrlab_config.yaml)
-                       If filename is not set will check the environment variable
-                       DM_CONFIG (set during module load datman.module)
-            system - Used to generate different paths when running on SCC or locally
-                     Can be used to create test environments, checks environment variable
-                    DM_SYSTEM if not set
-            study - optional, limits searches to the defined study
-            """
+            filename - Full path to the site-wide config file. If filename is
+                       not set will check the environment variable DM_CONFIG.
+                       All study configuration files are located using the
+                       'Projects' setting from this file
+            system   - Used to generate different paths depending on which
+                       installation is used. At least one 'system' must be
+                       defined. If not set will check environment variable
+                       DM_SYSTEM
+            study    - Loads the settings for a specific study in addition to
+                       the site-wide settings.
+        """
 
         if not filename:
             try:
                 filename = os.environ['DM_CONFIG']
             except KeyError:
-                logger.critical('Failed to find site_config file')
-                raise
+                raise ConfigException("Failed to find main config file")
 
-        self.site_config = self.load_yaml(filename)
+        self.system_config = self.load_yaml(filename)
 
         if not system:
             try:
                 system = os.environ['DM_SYSTEM']
             except KeyError:
-                logger.critical('Failed to identify current system')
-                raise
+                raise ConfigException('Failed to identify current system')
 
-        self.set_system(system)
+        self.system = system
+        system_settings = self._search_system_conf('SystemSettings')
+        try:
+            self.install_config = system_settings[system]
+        except KeyError:
+            raise ConfigException("Installation '{}' not found in main "
+                    "config file")
 
         if study:
             self.set_study(study)
@@ -67,21 +97,13 @@ class config(object):
     def load_yaml(self, filename):
         ## Read in the configuration yaml file
         if not os.path.isfile(filename):
-            raise ValueError("configuration file {} not found. Try again."
+            raise ConfigException("configuration file {} not found. Try again."
                              .format(filename))
-
         ## load the yml file
         with open(filename, 'r') as stream:
             config_yaml = yaml.load(stream)
 
         return config_yaml
-
-    def set_system(self, system):
-        if not self.site_config:
-            logger.error('Site config not set')
-            raise ValueError
-        self.system = system
-        self.system_config = self.site_config['SystemSettings'][system]
 
     def set_study(self, study_name):
         """
@@ -91,7 +113,7 @@ class config(object):
         """
         # make the supplied project_name case insensitive
         valid_projects = {k.lower(): k
-                          for k in self.site_config['Projects']}
+                          for k in self.get_key('Projects')}
 
         if study_name.lower() in valid_projects:
             study_name = study_name.upper()
@@ -103,29 +125,31 @@ class config(object):
 
         self.study_name = study_name
 
-        config_path = self.system_config['CONFIG_DIR']
+        config_path = self.get_key('CONFIG_DIR')
+        projects = self.get_key('Projects')
 
-        project_settings_file = os.path.join(config_path,
-                self.site_config['Projects'][study_name])
+        try:
+            study_yaml = projects[study_name]
+        except KeyError:
+            raise UndefinedSetting("Study {} not configured.".format(study_name))
 
+        project_settings_file = os.path.join(config_path, study_yaml)
         self.study_config = self.load_yaml(project_settings_file)
-        self.study_config_name = project_settings_file
+        self.study_config_path = project_settings_file
 
     def get_study_base(self, study=None):
         """Return the base directory for a study"""
 
-        proj_dir = self.system_config['DATMAN_PROJECTSDIR']
+        proj_dir = self.get_key('DATMAN_PROJECTSDIR')
 
         if study:
             self.set_study(study)
 
         if not self.study_config:
-
             logger.warning('Study not set')
-            return(proj_dir)
+            return proj_dir
 
-        return(os.path.join(proj_dir,
-                            self.study_config['PROJECTDIR']))
+        return os.path.join(proj_dir, self.get_key('PROJECTDIR'))
 
     def map_xnat_archive_to_project(self, filename):
         """Maps the XNAT tag (e.g. SPN01) to the project name e.g. SPINS
@@ -170,11 +194,12 @@ class config(object):
                     "input: {}".format(filename))
 
         # If a valid project name was given instead of a study tag, return that
-        if tag in self.site_config['Projects'].keys():
+        projects = self.get_key('Projects')
+        if tag in projects.keys():
             self.set_study(tag)
             return tag
 
-        for project in self.site_config['Projects'].keys():
+        for project in projects.keys():
             # search each project for a match to the study tag,
             # this loop exits as soon as a match is found.
             logger.debug('Searching project: {}'.format(project))
@@ -186,7 +211,7 @@ class config(object):
                 logger.debug("No sites defined for {}".format(project))
                 continue
 
-            for key, site_config in self.study_config['Sites'].iteritems():
+            for key, site_config in self.get_key('Sites').iteritems():
                 try:
                     add_tags = [t.lower() for t in site_config['SITE_TAGS']]
                 except KeyError:
@@ -212,112 +237,167 @@ class config(object):
                     .format(tag))
         raise ValueError
 
-    def get_key(self, key, scope=None, site=None):
-        """recursively search the yaml files for a key
-        if it exists in study_config returns that value
-        otherwise checks site_config
-        raises a key error if it's not found
-        If site is specified the study_config first checks the
-        ['Sites'][site] key of the study_config. If the key is not
-        located there the top level of the study_config is checked
-        followed by the site_config.
-        key: [list of subscripted keys]
+    def _search_site_conf(self, site, key):
         """
+        Search a specific study's site for 'key'.
 
-        # quick check to see if a single string was passed
-        if isinstance(key, basestring):
-            key = [key]
+        Raises 'UndefinedSetting' if the key does not exist
+        """
+        try:
+            site_conf = self._search_study_conf('Sites')
+        except UndefinedSetting:
+            raise ConfigException("'Sites' not defined for study {}".format(
+                    self.study_name))
+        try:
+            site_conf = site_conf[site]
+        except KeyError:
+            raise ConfigException("Site '{}' not found for study {}".format(
+                    site, self.study_name))
+        try:
+            value = site_conf[key]
+        except KeyError:
+            raise UndefinedSetting("'{}' not set for site {}".format(key,
+                    site))
+        return value
 
-        if scope:
-            # called recursively, look in site config
-            result = self.site_config
-        elif self.study_config:
-            # first call and study set, look here first
-            result = self.study_config
-        else:
-            # first call and no study set, look at site config
-            logger.warning('Study config not set')
-            result = self.site_config
-        if site:
-            try:
-                result = result['Sites'][site]
-            except KeyError:
-                logger.info('Site:{} not found in study_config:{}'
-                               .format(site, self.study_config_file))
+    def _search_study_conf(self, key):
+        """
+        Search the current study's config for 'key'. Does not search recursively
+        i.e. will not check all sites.
 
-        for val in key:
-            try:
-                result = result[val]
-            except KeyError as e:
-                if site:
-                    return(self.get_key(key))
-                elif not scope:
-                    return self.get_key(key, scope=1)
-                else:
-                    logger.warning('Failed to find key:{}'
-                                   .format(key))
-                    raise(e)
-        return(result)
+        Raises UndefinedSetting if key is not found
+        """
+        if not self.study_config:
+            raise ConfigException("Study not set.")
+        try:
+            value = self.study_config[key]
+        except KeyError:
+            raise UndefinedSetting("'{}' not defined for study {}"
+                    "".format(key, self.study_name))
+        return value
 
-    def key_exists(self, scope, key):
-            """DEPRECATED: use get_key()
-            Check the yaml file specified by scope for a key.
-            Return the True if the key exists, False otherwise.
-            Scope [site | study]
-            """
-            if scope == 'site':
-                # make a copy of the original yaml
-                result = self.site_config
+    def _search_local_conf(self, key):
+        """
+        Searches the currently configured system (i.e. the system found in
+        'SystemSettings' for 'key')
+
+        Raises UndefinedSetting if key is not found
+        """
+        try:
+            system_settings = self._search_system_conf("SystemSettings")
+        except UndefinedSetting:
+            raise ConfigException("'SystemSettings' not defined")
+        try:
+            local_system = system_settings[self.system]
+        except KeyError:
+            raise ConfigException("System '{}' not defined in "
+                    "SystemSettings".format(key))
+        try:
+            value = local_system[key]
+        except KeyError:
+            raise UndefinedSetting("'{}' not defined for system {}".format(key,
+                    self.system))
+        return value
+
+    def _search_system_conf(self, key):
+        """
+        Searches the global system-wide settings for 'key'. Will not search
+        recursively (i.e. will not check within studies or sites)
+
+        Raises UndefinedSetting if key is not found.
+        """
+        try:
+            value = self.system_config[key]
+        except KeyError:
+            raise UndefinedSetting("'{}' not set".format(key))
+        return value
+
+    def _get_setting(self, search_func, args, stop_search=False, merge=None):
+        """
+        A helper function to assist with changing scope and setting overrides.
+
+        Raises UndefinedSetting if key is not found and 'stop_search' is set,
+        otherwise returns None.
+
+        May raise 'ConfigException' if 'merge' is used and the key returns a
+        value with a type that differs from that of 'merge'.
+        """
+        try:
+            value = search_func(*args)
+        except UndefinedSetting:
+            if stop_search and not merge:
+                raise
+            value = None
+
+        if merge:
+            if not value:
+                value = merge
+            elif isinstance(merge, list) and isinstance(value, list):
+                value = list(set(value).union(set(merge)))
+            elif isinstance(merge, dict) and isinstance(value, dict):
+                # Prevents accidental modification of the original values if
+                # same setting accessed multiple times at different scopes
+                value = value.copy()
+                for key in merge:
+                    value[key] = merge[key]
             else:
-                result = self.study_config
+                raise ConfigException("Can't handle conflicting settings. "
+                        "Found settings formated as type {} and type {}, "
+                        "which may indicate accidental duplication of setting "
+                        "names.".format(type(value), type(merge)))
+        return value
 
-            for val in key:
-                try:
-                    result = result[val]
-                except KeyError:
-                    return(False)
-
-            return(True)
-
-    def get_if_exists(self, scope, key):
-        """DEPRECATED: use get_key()
-        Check the yaml file specified by scope for a key.
-        Return the value if the key exists, None otherwise.
-        Scope [site | study]
+    def get_key(self, key, site=None, ignore_defaults=False,
+            defaults_only=False):
         """
-        if scope == 'site':
-            # make a copy of the original yaml
-            result = self.site_config
-        else:
-            result = self.study_config
+        Searches the configuration from most specific settings to least to
+        allow overrides + additional settings to be discovered.
 
-        for val in key:
-            try:
-                result = result[val]
-            except KeyError:
-                return None
+        Searches from site (if given) -> study -> local system -> system wide
 
-        return(result)
+        If 'defaults_only' is used the search will restrict itself to system
+        wide settings and local system settings (i.e. settings from the main
+        config file)
 
+        If 'ignore_defaults' is set the search is restricted to only site (if
+        site was given) or only the current study (if site was not).
+
+        Raises UndefinedSetting if no value is found
+        """
+
+        value = None
+        if site and not defaults_only:
+            value = self._get_setting(self._search_site_conf, [site, key],
+                    stop_search=ignore_defaults)
+            if ignore_defaults:
+                return value
+
+        if self.study_config and not defaults_only:
+            value = self._get_setting(self._search_study_conf, [key],
+                    stop_search=ignore_defaults, merge=value)
+            if ignore_defaults:
+                return value
+
+        value = self._get_setting(self._search_local_conf, [key],
+                stop_search=False, merge=value)
+        value = self._get_setting(self._search_system_conf, [key],
+                stop_search=True, merge=value)
+        return value
+
+    @study_required
     def get_path(self, path_type, study=None):
         """returns the absolute path to a folder type"""
-        # first try and get the path from the study config
-        if study:
-            self.set_study(study)
-        if not self.study_config:
-            logger.error('Study not set')
-            raise KeyError
+        paths = self.get_key('Paths')
 
         try:
-            return(os.path.join(self.get_study_base(),
-                                self.study_config['Paths'][path_type]))
-        except (KeyError, TypeError):
-            logger.info('Path {} not defined in study {} config file'
-                        .format(path_type, self.study_name))
-            return(os.path.join(self.get_study_base(),
-                                self.site_config['Paths'][path_type]))
+            sub_dir = paths[path_type]
+        except KeyError:
+            raise UndefinedSetting("Path {} not defined".format(path_type))
 
-    def get_tags(self, site=None):
+        return os.path.join(self.get_study_base(), sub_dir)
+
+    @study_required
+    def get_tags(self, site=None, study=None):
         """
         Returns a TagInfo instance.
 
@@ -332,59 +412,46 @@ class config(object):
         the values in 'ExportSettings'.
         """
         if site:
-            if not self.study_config:
-                logger.error("Cannot return site tags, study not set.")
-                raise KeyError
-            export_info = self.get_key(['ExportInfo'], site=site)
+            export_info = self.get_key('ExportInfo', site=site)
         else:
             export_info = {}
 
         try:
-            export_settings = self.site_config['ExportSettings']
-        except KeyError:
-            logger.error("Tag dictionary 'ExportSettings' not defined in main "
-                    "configuration file.")
-            raise KeyError
+            export_settings = self.get_key('ExportSettings')
+        except UndefinedSetting:
+            raise UndefinedSetting("Tag dictionary 'ExportSettings' not "
+                    "defined in main configuration file.")
 
         return TagInfo(export_settings, export_info)
 
+    @study_required
     def get_xnat_projects(self, study=None):
-        if study:
-            study = self.set_study(study)
-        if not self.study_config:
-            logger.error('Study not set')
-            raise KeyError
+        xnat_projects = [ self.get_key('XNAT_Archive', site=item)
+                         for item in self.get_sites()]
+        return list(set(xnat_projects))
 
-        xnat_projects = [site['XNAT_Archive']
-                         for site in self.get_key(['Sites']).values()]
-
-        return(list(set(xnat_projects)))
-
-    def get_sites(self):
-        if not self.study_config:
-            raise KeyError('Study not set')
-
+    @study_required
+    def get_sites(self, study=None):
         try:
-            sites = self.study_config['Sites'].keys()
+            sites = self.get_key('Sites').keys()
         except KeyError:
-            raise KeyError('No sites defined for study {}'.format(self.study_name))
-
+            raise ConfigException('No sites defined for study {}'.format(
+                    self.study_name))
         return sites
 
-    def get_study_tags(self):
+    @study_required
+    def get_study_tags(self, study=None):
         """
         Returns a dictionary of study tags mapped to the sites defined for
         that tag.
 
         If a study has not been set then an exception is raised
         """
-        if not self.study_config:
-            raise RuntimeError("Study tags cannot be returned, a study hasn't been set")
-
         try:
-            default_tag = self.study_config['STUDY_TAG']
-        except KeyError:
-            logger.info("No default study tag defined for {}".format(self.study_name))
+            default_tag = self.get_key('STUDY_TAG')
+        except UndefinedSetting:
+            logger.info("No default study tag defined for {}".format(
+                    self.study_name))
             default_tag = None
 
         tags = {}
