@@ -424,7 +424,7 @@ def init_setup(study, cfg, bids_dir):
     data = dict()
     try:
         data["Name"] = cfg.get_key('FullName')
-    except KeyError:
+    except config.UndefinedSetting:
         data["Name"] = study
     data["BIDSVersion"] = "1.0.2"
 
