@@ -156,7 +156,7 @@ def main():
 
     project_records = []
     for item in response.json():
-        status_val = item[cfg.get_key('REDCAP_STATUS_VALUE')]
+        status_val = cfg.get_key('REDCAP_STATUS_VALUE')
 
         #make status_val into a list
         if not (isinstance(status_val,list)):

@@ -37,6 +37,7 @@ import pyxnat as xnat
 import datman
 import datman.config, datman.scanid, datman.utils
 import dm_link_project_scans as link_scans
+import datman.dashboard as dashboard
 
 DRYRUN = False
 
@@ -217,6 +218,34 @@ def make_links(record):
         target_tags = ",".join(target_tags)
 
         link_scans.create_linked_session(str(source), str(target), target_tags)
+        if dashboard.dash_found:
+            share_redcap_record(target, record)
+
+def share_redcap_record(session, shared_record):
+    logger.debug("Sharing redcap record {} from participant {} with ID "
+            "{}".format(shared_record.record_id, shared_record.id, session))
+
+    target_session = dashboard.get_session(session)
+    if not target_session:
+        logger.error("Can't link redcap record in dashboard. Participant {} "
+                "not found".format(session))
+        return
+
+    if target_session.redcap_record:
+        logger.debug("Session {} already has record {}".format(target_session,
+                target_session.redcap_record))
+        return
+
+    source_session = dashboard.get_session(shared_record.id)
+    if not source_session.redcap_record:
+        logger.debug("Redcap record has not been added to original session "
+                "yet, will re-attempt sharing later")
+        return
+
+    try:
+        source_session.redcap_record.share_record(target_session)
+    except Exception as e:
+        logger.error("Failed to link redcap record. Reason: {}".format(e))
 
 class Record(object):
     def __init__(self, record_dict):

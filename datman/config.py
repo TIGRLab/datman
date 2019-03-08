@@ -340,8 +340,10 @@ class config(object):
                 value = value.copy()
                 for key in merge:
                     value[key] = merge[key]
+            elif type(merge) == type(value):
+                value = merge
             else:
-                raise ConfigException("Can't handle conflicting settings. "
+                raise ConfigException("Can't resolve conflicting settings. "
                         "Found settings formated as type {} and type {}, "
                         "which may indicate accidental duplication of setting "
                         "names.".format(type(value), type(merge)))

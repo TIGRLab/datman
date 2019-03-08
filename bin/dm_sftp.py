@@ -109,7 +109,7 @@ def get_server_config(cfg):
     default_mrserver = cfg.get_key('FTPSERVER')
     try:
     	server_config[default_mrserver] = read_config(cfg)
-    except KeyError as e:
+    except datman.config.UndefinedSetting as e:
         # No default config :(
         logger.debug(e.message)
 
@@ -123,7 +123,7 @@ def get_server_config(cfg):
 
         try:
             server_config[site_server] = read_config(cfg, site=site)
-        except KeyError as e:
+        except datman.config.UndefinedSetting as e:
             logger.debug(e.message)
     return server_config
 
