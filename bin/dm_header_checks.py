@@ -134,7 +134,7 @@ def check_bvals(series_path, standard_path):
         series_bval = find_bvals(series_path)
         standard_bval = find_bvals(standard_path)
     except IOError as e:
-        return {'Error - {}'.format(e)}
+        return 'Error - {}'.format(e)
     if series_bval != standard_bval:
         return {'expected': standard_bval, 'actual': series_bval}
     return {}
