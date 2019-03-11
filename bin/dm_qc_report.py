@@ -427,7 +427,7 @@ def add_header_qc(nifti, qc_html, header_diffs):
                 <td>missing</td>
                 <td>{field}</td>
             </tr>
-            """.format(field=field)
+            """.format(field=','.join(lines[field]))
 
         qc_html.write(table_row)
     qc_html.write('</tbody></table>\n')
