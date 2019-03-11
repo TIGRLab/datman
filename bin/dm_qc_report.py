@@ -411,14 +411,24 @@ def add_header_qc(nifti, qc_html, header_diffs):
 
     qc_html.write(table_header)
     for field in lines:
-        table_row = """
-        <tr>
-            <td>{field}</td>
-            <td>{expected}</td>
-            <td>{actual}</td>
-        </tr>
-        """.format(field=field, expected=lines[field]['expected'],
-                actual=lines[field]['actual'])
+
+        if field != 'missing':
+            table_row = """
+            <tr>
+                <td>{field}</td>
+                <td>{expected}</td>
+                <td>{actual}</td>
+            </tr>
+            """.format(field=field, expected=lines[field]['expected'],
+                    actual=lines[field]['actual'])
+        else:
+            table_row = """
+            <tr>
+                <td>missing</td>
+                <td>{field}</td>
+            </tr>
+            """.format(field=field)
+
         qc_html.write(table_row)
     qc_html.write('</tbody></table>\n')
 
