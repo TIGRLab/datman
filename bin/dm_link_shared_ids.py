@@ -117,14 +117,12 @@ def get_project_redcap_records(config, redcap_cred):
 
     current_study = config.get_key('STUDY_TAG')
 
-    #Parse recap records to match selected study
-    project_records = []
-    for item in response.json():
-        record = Record(item)
-        if record.id is None:
-            continue
-        if record.matches_study(current_study):
-            project_records.append(record)
+    try:
+        project_records = parse_records(response, current_study)
+    except ValueError as e:
+        logger.error("Couldnt parse redcap records for server response {}. "
+                "Reason: {}".format(response.content, e))
+        project_records = []
 
     #Return list of records for selected studies
     return project_records
@@ -141,6 +139,16 @@ def get_redcap_token(config, redcap_cred):
         logger.error("REDCap credential file {} is empty.".format(redcap_cred))
         sys.exit(1)
     return token
+
+def parse_records(response, study):
+    records = []
+    for item in response.json():
+        record = Record(item)
+        if record.id is None:
+            continue
+        if record.matches_study(study):
+            records.append(record)
+    return records
 
 def link_shared_ids(config, connection, record):
     try:
