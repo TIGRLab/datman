@@ -286,23 +286,15 @@ def dti_qc(filename, qc_dir, report):
     add_image(report, os.path.join(qc_dir, basename + '_directions.png'),
             title='bvec directions')
 
-def submit_qc_jobs(commands, system=None, chained=False):
+def submit_qc_jobs(commands, system=None):
     """
     Submits the given commands to the queue. In chained mode, each job will wait
     for the previous job to finish before attempting to run.
     """
     for i, cmd in enumerate(commands):
-        if chained and i > 0:
-            last_job = copy.copy(job_name)
         job_name = "qc_report_{}_{}_{}".format(time.strftime("%Y%m%d"),
                 random_str(5), i)
-
-        if chained and i > 0:
-            args = "-d after:{}".format(last_job)
-        else:
-            args = ""
-
-        datman.utils.submit_job(cmd, job_name, "/tmp", system=system, argslist=args)
+        datman.utils.submit_job(cmd, job_name, "/tmp", system=system)
 
 def make_qc_command(subject_id, study):
     arguments = docopt(__doc__)
