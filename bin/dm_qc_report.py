@@ -410,7 +410,7 @@ def add_header_qc(nifti, qc_html, header_diffs):
     """.format(nifti)
 
     qc_html.write(table_header)
-    for field in lines:
+    for field in sorted(lines):
 
         if field not in ['missing', 'error']:
             table_row = """
