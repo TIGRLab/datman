@@ -286,23 +286,15 @@ def dti_qc(filename, qc_dir, report):
     add_image(report, os.path.join(qc_dir, basename + '_directions.png'),
             title='bvec directions')
 
-def submit_qc_jobs(commands, system=None, chained=False):
+def submit_qc_jobs(commands, system=None):
     """
     Submits the given commands to the queue. In chained mode, each job will wait
     for the previous job to finish before attempting to run.
     """
     for i, cmd in enumerate(commands):
-        if chained and i > 0:
-            last_job = copy.copy(job_name)
         job_name = "qc_report_{}_{}_{}".format(time.strftime("%Y%m%d"),
                 random_str(5), i)
-
-        if chained and i > 0:
-            args = "-d after:{}".format(last_job)
-        else:
-            args = ""
-
-        datman.utils.submit_job(cmd, job_name, "/tmp", system=system, argslist=args)
+        datman.utils.submit_job(cmd, job_name, "/tmp", system=system)
 
 def make_qc_command(subject_id, study):
     arguments = docopt(__doc__)
@@ -410,9 +402,9 @@ def add_header_qc(nifti, qc_html, header_diffs):
     """.format(nifti)
 
     qc_html.write(table_header)
-    for field in lines:
+    for field in sorted(lines):
 
-        if field != 'missing':
+        if field not in ['missing', 'error']:
             table_row = """
             <tr>
                 <td>{field}</td>
@@ -424,10 +416,10 @@ def add_header_qc(nifti, qc_html, header_diffs):
         else:
             table_row = """
             <tr>
-                <td>missing</td>
                 <td>{field}</td>
+                <td>{message}</td>
             </tr>
-            """.format(field=','.join(lines[field]))
+            """.format(field=field, message=','.join(lines[field]))
 
         qc_html.write(table_row)
     qc_html.write('</tbody></table>\n')
