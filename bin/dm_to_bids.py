@@ -135,7 +135,7 @@ def to_bids_name(ident, tag, cnt_run, type_folder, ex):
     elif (tag in tag_map["dti"]):
         dtiacq = "{}{}".format(acq, tag.translate(None, "DTI-"))
         return os.path.join(type_folder["dwi"] , "{}_{}_{}_{}_dwi{}".format(subject, session, dtiacq, run_num, ext))
-    elif ("FMAP" in tag) and ext != ".json" and ident.site == 'CMH':
+    elif ("ECHO" in tag) and ext != ".json" and ident.site == 'CMH':
         return os.path.join(type_folder["fmap"] , "{}_{}_{}_{}_{}{}".format(subject, session, acq, run_num, tag, ext))
     elif (tag in ['FMRI-DAP','FMRI-DPA']):
         pe=tag.split('-')[1].replace('D','')
@@ -151,7 +151,7 @@ def get_intended_fors(ses_ser_file_map, matched_fmaps):
 
     #Mapping dictionary to correctly associate files w/subset
     fmap_mapping = {'FMRI' : ['FMRI','RST','FACES'],
-                       'FMAP' : ['IMI','OBS','RST','EMP']}
+                       'ECHO' : ['IMI','OBS','RST','EMP']}
 
     #Convenience function for checking if intersection between two lists is not null
     intersect = lambda x,y: any([ True if (l in y) else False for l in x])
@@ -240,12 +240,12 @@ def validify_file(sub_nii_dir):
         ses_ser_file_map[session][series].append(filename)
         ses_ser = (session, series)
         # fmap validation
-        if tag in ['FMAP-6.5','FMRI-DAP'] and ext == '.gz':
+        if tag in ['ECHO1','FMRI-DAP'] and ext == '.gz':
             if 'flipangle' in filename:
                 blacklist_files.add(ses_ser)
             else:
                 match_six[session].put(series)
-        elif tag in ['FMAP-8.5','FMRI-DPA'] and ext == '.gz':
+        elif tag in ['ECHO2','FMRI-DPA'] and ext == '.gz':
             if 'flipangle' in filename:
                 blacklist_files.add(ses_ser)
             else:
@@ -275,10 +275,11 @@ def validify_file(sub_nii_dir):
                 logger.info("FMAP series not matched: Session {}. Series {} ".format(ses, not_matched))
     for (ses, ser) in blacklist_files:
         ses_ser_file_map[ses].pop(ser)
+
     return ses_ser_file_map, matched_fmaps
 
 def modify_json(nii_to_bids_match, intended_fors, sub_nii_dir):
-    fmap_pattern = re.compile(r'FMAP-\d\.5')
+    fmap_pattern = re.compile(r'ECHO\d')
     for nii, bids in nii_to_bids_match.items():
         intendeds = list()
         nii_file = os.path.join(sub_nii_dir, nii)
@@ -568,11 +569,11 @@ def main():
             run_num = 1
 
             #Generate field maps
-            fmaps = sorted(glob.glob("{}*run-0{}_FMAP-*".format(type_folders['fmap'],run_num)))
+            fmaps = sorted(glob.glob("{}*run-0{}_ECHO*".format(type_folders['fmap'],run_num)))
             while len(fmaps) > 1:
                 for fmap in fmaps:
                     validify_fmap(fmap)
-                pattern = re.compile(r'_FMAP-\d\.5\.nii\.gz')
+                pattern = re.compile(r'_ECHO\d\.nii\.gz')
                 without_tag = pattern.sub("", fmaps[0])
                 base = os.path.basename(without_tag)
 
@@ -580,7 +581,8 @@ def main():
                 datman.utils.run(cmd)
                 logger.warning("Running: {}".format(cmd))
                 run_num+=1
-                fmaps = sorted(glob.glob("{}*run-0{}*_FMAP-*".format(type_folders['fmap'],run_num)))
+                fmaps = sorted(glob.glob("{}*run-0{}*_ECHO*".format(type_folders['fmap'],run_num)))
+
 
             modify_json(nii_to_bids_match, intended_fors, sub_nii_dir)
 
