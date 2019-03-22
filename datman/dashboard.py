@@ -75,8 +75,8 @@ def filename_required(f):
                 try:
                     name = datman.scanid.parse(name)
                 except:
-                    raise DashboardException("A datman file name was expected. "
-                            "Received {} instead.".format(name))
+                    raise datman.scanid.ParseException("A datman file name was "
+                            "expected. Received {} instead.".format(name))
                 try:
                     tag = kwargs['tag']
                     series = kwargs['series']
