@@ -88,6 +88,7 @@ def add_session_redcap(record):
     except datman.exceptions.DashboardException as e:
         logger.error('Failed adding session {} to dashboard. Reason: {}'.format(
                 ident, e))
+        return
 
     try:
         session.add_redcap(record_id, redcap_project, redcap_url, instrument,

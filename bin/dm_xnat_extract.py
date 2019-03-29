@@ -488,9 +488,9 @@ def process_scan(ident, file_stem, tags, tag):
         logger.info("Adding scan {} to dashboard".format(file_stem))
         try:
             dashboard.get_scan(file_stem, create=True)
-        except dashboard.DashboardException as e:
+        except datman.scanid.ParseException as e:
             logger.error("Failed adding scan {} to dashboard with "
-                    "error {}".format(file_stem, e))
+                    "error: {}".format(file_stem, e))
 
     try:
         blacklist_entry = datman.utils.read_blacklist(scan=file_stem, config=cfg)
