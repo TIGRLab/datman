@@ -196,14 +196,8 @@ def link_archive(archive_path, dicom_path, scanid_field, config):
         logger.info('Ignoring {}'.format(archive_path))
         return
 
-    # if we have a scan id, then validate any expected DICOM headers,
-    # otherwise, check the DICOM headers for a valid scan id
-    if scanid:
-        if not validate_headers(archive_path, lookupinfo, scanid_field):
-            logger.error('{}: Dicom headers do not match expected'
-                         .format(archive_path))
-            return
-    else:
+    #Attempt to pull scanid from header
+    if not scanid:
         scanid = get_scanid_from_header(archive_path, scanid_field)
 
     if not scanid:
