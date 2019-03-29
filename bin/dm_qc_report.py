@@ -286,15 +286,6 @@ def dti_qc(filename, qc_dir, report):
     add_image(report, os.path.join(qc_dir, basename + '_directions.png'),
             title='bvec directions')
 
-def submit_qc_jobs(commands, system=None):
-    """
-    Submits the given commands to the queue. In chained mode, each job will wait
-    for the previous job to finish before attempting to run.
-    """
-    for i, cmd in enumerate(commands):
-        job_name = "qc_report_{}_{}_{}".format(time.strftime("%Y%m%d"),
-                random_str(5), i)
-        datman.utils.submit_job(cmd, job_name, "/tmp", system=system)
 
 def make_qc_command(subject_id, study):
     arguments = docopt(__doc__)
@@ -324,26 +315,13 @@ def qc_all_scans(config):
     one at a time. This is currently needed because some of the phantom pipelines
     use expensive and limited software liscenses (i.e., MATLAB).
     """
-    human_commands = []
-    phantom_commands = []
-
     new_subs = get_new_subjects(config)
 
-    for subject in new_subs:
+    for i, subject in enumerate(new_subs):
         command = make_qc_command(subject, config.study_name)
-
-        if '_PHA_' in subject:
-            phantom_commands.append(command)
-        else:
-            human_commands.append(command)
-
-    if human_commands:
-        logger.debug('submitting human qc jobs\n{}'.format(human_commands))
-        submit_qc_jobs(human_commands, system=config.system)
-
-    if phantom_commands:
-        logger.debug('running phantom qc jobs\n{}'.format(phantom_commands))
-        submit_qc_jobs(phantom_commands, system=config.system, chained=True)
+        job_name = "qc_report_{}_{}_{}".format(time.strftime("%Y%m%d"),
+                random_str(5), i)
+        datman.utils.submit_job(command, job_name, "/tmp", system=config.system)
 
 def get_new_subjects(config):
     qc_dir = config.get_path('qc')
