@@ -261,6 +261,22 @@ class xnat(object):
 
         return(result['items'][0])
 
+    def make_experiment(self,project,session,experiment):
+        '''
+        Submits a PUT request to XNAT API to make experiment for a given project
+        and session
+        '''
+
+        url = "{server}/data/archive/projects/{project}/" \
+                "subjects/{subject}/experiments/{experiment}" \
+                "?xsiType=xnat:mrSessionData" \
+                .format(server=self.server,
+                        project=project,
+                        subject=session,
+                        experiment=experiment)
+
+        self._make_xnat_put(url)
+
     def get_scan_list(self, study, session, experiment):
         """The list of dicom scans in an experiment"""
         url = '{}/data/archive/projects/{}' \
@@ -494,12 +510,20 @@ class xnat(object):
             err.session = session
             raise err
 
+
     def put_resource(self, project, session, experiment, filename, data, folder,
                      retries=3):
         """POST a resource file to the xnat server
         filename: string to store filename as
         data: string containing data
             (such as produced by zipfile.ZipFile.read())"""
+
+        try:
+            self.get_experiment(project,session,experiment)
+        except XnatException:
+            logger.warning('Experiment {} in session {} does not exist! Making new experiment')
+            self.make_experiment(project,session,experiment)
+
 
         resource_id = self.get_resource_ids(project,
                                             session,
