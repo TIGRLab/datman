@@ -32,7 +32,6 @@ import datman.scanid
 import datman.xnat
 import datman.exceptions
 
-
 logger = logging.getLogger(os.path.basename(__file__))
 
 username = None

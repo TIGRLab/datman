@@ -510,7 +510,6 @@ class xnat(object):
             err.session = session
             raise err
 
-
     def put_resource(self, project, session, experiment, filename, data, folder,
                      retries=3):
         """POST a resource file to the xnat server
