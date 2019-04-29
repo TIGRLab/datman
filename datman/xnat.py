@@ -20,10 +20,7 @@ def get_server(config, url=None, port=None):
         use_port = True
 
     if not url:
-        try:
-            url = config.get_key('XNATSERVER')
-        except KeyError:
-            raise KeyError("'XNATSERVER' not defined in config file")
+        url = config.get_key('XNATSERVER')
 
     # Check for 'http' and NOT https, because checking for https could mangle a
     # url into https://http<restof>
@@ -264,6 +261,22 @@ class xnat(object):
 
         return(result['items'][0])
 
+    def make_experiment(self,project,session,experiment):
+        '''
+        Submits a PUT request to XNAT API to make experiment for a given project
+        and session
+        '''
+
+        url = "{server}/data/archive/projects/{project}/" \
+                "subjects/{subject}/experiments/{experiment}" \
+                "?xsiType=xnat:mrSessionData" \
+                .format(server=self.server,
+                        project=project,
+                        subject=session,
+                        experiment=experiment)
+
+        self._make_xnat_put(url)
+
     def get_scan_list(self, study, session, experiment):
         """The list of dicom scans in an experiment"""
         url = '{}/data/archive/projects/{}' \
@@ -503,6 +516,13 @@ class xnat(object):
         filename: string to store filename as
         data: string containing data
             (such as produced by zipfile.ZipFile.read())"""
+
+        try:
+            self.get_experiment(project,session,experiment)
+        except XnatException:
+            logger.warning('Experiment {} in session {} does not exist! Making new experiment')
+            self.make_experiment(project,session,experiment)
+
 
         resource_id = self.get_resource_ids(project,
                                             session,

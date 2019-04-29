@@ -144,7 +144,6 @@ def process_archive(archivefile):
                          ' for subject: {}. Check Prearchive.'
                          .format(xnat_session.project, str(scanid)))
             logger.info('Upload failed with reason: {}'.format(str(e)))
-            return
 
     if not resource_exists:
         logger.debug('Uploading resource from: {}'.format(archivefile))
@@ -164,7 +163,7 @@ def get_xnat_session(ident):
     """
     # get the expected xnat project name from the config filename
     try:
-        xnat_project = CFG.get_key(['XNAT_Archive'],
+        xnat_project = CFG.get_key('XNAT_Archive',
                                    site=ident.site)
     except:
         logger.warning('Study:{}, Site:{}, xnat archive not defined in config'
@@ -304,9 +303,14 @@ def upload_dicom_data(archive, xnat_project, scanid):
         XNAT.put_dicoms(xnat_project, scanid, scanid, archive)
         return
 
+    #Need to account for when only niftis are available
     with datman.utils.make_temp_directory() as temp:
-        archive = strip_niftis(archive, temp)
-        XNAT.put_dicoms(xnat_project, scanid, scanid, archive)
+        new_archive = strip_niftis(archive, temp)
+
+        if new_archive:
+            XNAT.put_dicoms(xnat_project, scanid, scanid, new_archive)
+        else:
+            logger.info('No dicoms exist within archive {}, skipping dicom upload!'.format(archive))
 
 
 def contains_niftis(archive):
@@ -332,8 +336,15 @@ def strip_niftis(archive, temp):
         deletable_files = filter(lambda x: datman.utils.splitext(
                 os.path.basename(x))[0] in nifti_names, archive_files)
         non_niftis = filter(lambda x: x not in deletable_files, archive_files)
-        for item in non_niftis:
-            zf.extract(item, unzip_dest)
+
+        #Check if any dicoms exist at all
+        non_niftis_or_paths = [i for i in non_niftis if not os.path.basename(i) == '']
+
+        if not non_niftis_or_paths:
+            return []
+        else:
+            for item in non_niftis:
+                zf.extract(item, unzip_dest)
 
     temp_zip = os.path.join(temp, os.path.basename(archive))
     datman.utils.make_zip(unzip_dest, temp_zip)

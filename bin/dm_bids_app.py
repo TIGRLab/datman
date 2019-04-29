@@ -160,9 +160,9 @@ def get_datman_config(study):
 
     try:
         config = datman.config.config(study=study)
-    except KeyError:
-        logger.error('{} not a valid study ID!'.format(study))
-        sys.exit(1)
+    except Exception as e:
+        logger.error('Failed to retrieve configuration. Reason: {}'.format(e))
+        raise e
 
     if study != config.study_name:
         logger.error('Study incorrectly entered as subject {}, please fix arguments!'.format(study))
@@ -170,7 +170,6 @@ def get_datman_config(study):
         sys.exit(1)
     else:
         return config
-
 
 
 def get_json_args(json_file):
@@ -581,7 +580,6 @@ def submit_jobfile(job_file,subject,queue,walltime='24:00:00',threads=1,partitio
     '''
 
     if queue == 'slurm':
-
         partition = '' if partition is None else '-p {}'.format(partition)
         thread_arg = '{partition} --job-name {subject} --cpus-per-task {threads} --time {wtime} -o /dev/null'.format(
                 subject=subject,
@@ -709,10 +707,10 @@ def filter_subjects(subjects,out_dir,bids_app,log_dir):
             'CIFTIFY_FMRIPREP': error_in_ciftify
             }
 
-    error_occurred = key_map[bids_app]
+    check_logfile = key_map[bids_app]
 
     for s in subjects:
-        if error_occurred(out_dir,log_file.format(get_bids_name(s),bids_app)):
+        if check_logfile(out_dir,log_file.format(get_bids_name(s),bids_app)):
             run_list.append(s)
 
     return run_list
@@ -722,12 +720,16 @@ def check_keys_in_file(log_file, keys):
     Check if log file is contained within list
     '''
 
-    with open(log_file) as log:
-        contents = log.read()
+    try:
+        with open(log_file) as log:
+            contents = log.read()
 
-        for key in keys:
-            if key in contents:
-                return True
+            for key in keys:
+                if key in contents:
+                    return True
+    except IOError:
+        # If log-file not available, subject needs to be run
+        return True
 
 def error_in_mriqc(out_dir, log_file):
     '''
@@ -737,7 +739,7 @@ def error_in_mriqc(out_dir, log_file):
     keywords = ['RuntimeError','ERROR','FileNotFoundError',
             'Workflow did not execute cleanly']
     return check_keys_in_file(log_file,keywords)
-    
+
 
 def error_in_fmriprep(out_dir, log_file):
     '''
@@ -799,17 +801,18 @@ def main():
     config = get_datman_config(study)
     configure_logger(quiet,verbose,debug)
     try:
-        queue = config.site_config['SystemSettings'][os.environ['DM_SYSTEM']]['QUEUE']
-    except KeyError as e:
-        logger.error('Config exception, key not found: {}'.format(e))
-        sys.exit(1)
+        queue = config.get_key('QUEUE')
+    except Exception as e:
+        logger.error("Couldnt retrieve queue type from config. Reason: "
+                "{}".format(e))
+        raise e
 
     #JSON parsing, formatting, and validating
     jargs = get_json_args(bids_json)
     jargs = validate_json_args(jargs,strat_dict)
     try:
         jargs.update({'keeprecon' : config.get_key('KeepRecon')})
-    except KeyError:
+    except datman.config.UndefinedSetting:
         jargs.update({'keeprecon':True})
     n_thread = get_requested_threads(jargs,thread_dict)
 
