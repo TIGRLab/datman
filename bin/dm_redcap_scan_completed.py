@@ -161,6 +161,11 @@ def main():
 
     response = get_records(api_url, token, instrument)
 
+    #http status code 200 indicates a successful request, everything else is an error.
+    if response.status_code != 200:
+        raise Exception('API request failed. HTTP status code: {}.  Reason: {}'.format(
+        response.status_code,response.text))
+
     project_records = []
     for item in response.json():
         # only grab records where instrument has been marked complete
