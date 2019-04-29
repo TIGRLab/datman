@@ -54,7 +54,13 @@ def get_records(api_url, token, instrument):
                'rawOrLabel': 'raw',
                'fields': 'record_id'}
     response = requests.post(api_url, data=payload)
-    return response
+
+    #http status code 200 indicates a successful request, everything else is an error.
+    if response.status_code != 200:
+        raise Exception('API request failed. HTTP status code: {}.  Reason: {}'.format(
+        response.status_code,response.text))
+
+    return response.json()
 
 
 def get_version(api_url, token):
@@ -159,10 +165,10 @@ def main():
 
     redcap_version = get_version(api_url, token)
 
-    response = get_records(api_url, token, instrument)
+    response_json = get_records(api_url, token, instrument)
 
     project_records = []
-    for item in response.json():
+    for item in response_json:
         # only grab records where instrument has been marked complete
         if not (item[date_field] and item[status_field] in status_val):
             continue
