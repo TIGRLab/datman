@@ -27,6 +27,12 @@ import datman.dashboard as dashboard
 
 logger = logging.getLogger(os.path.basename(__file__))
 
+cfg = None
+redcap_url = None
+redcap_version = None
+redcap_project = None
+instrument = None
+
 
 def read_token(token_file):
     if not os.path.isfile(token_file):
@@ -65,9 +71,9 @@ def get_version(api_url, token):
     return version
 
 
-def add_session_redcap(record, subj_val, date_field, redcap_comments, event_key, redcap_project, redcap_url, instrument, redcap_version):
+def add_session_redcap(record):
     record_id = record['record_id']
-    subject_id = record[subj_val].upper()
+    subject_id = record[cfg.get_key('REDCAP_SUBJ')].upper()
     if not datman.scanid.is_scanid(subject_id):
         try:
             subject_id = subject_id + '_01'
@@ -81,7 +87,7 @@ def add_session_redcap(record, subj_val, date_field, redcap_comments, event_key,
         logger.error('Invalid session: {}, skipping'.format(subject_id))
         return
 
-    session_date = record[date_field]
+    session_date = record[cfg.get_key('REDCAP_DATE')]
 
     try:
         session = dashboard.get_session(ident, date=session_date, create=True)
@@ -93,14 +99,20 @@ def add_session_redcap(record, subj_val, date_field, redcap_comments, event_key,
     try:
         session.add_redcap(record_id, redcap_project, redcap_url, instrument,
                 date=session_date,
-                comment=record[redcap_comments],
-                event_id=event_key[record['redcap_event_name']],
+                comment=record[cfg.get_key('REDCAP_COMMENTS')],
+                event_id=cfg.get_key('REDCAP_EVENTID')[record['redcap_event_name']],
                 version=redcap_version)
     except:
         logger.error('Failed adding REDCap info for session {} to dashboard'.format(ident))
 
 
 def main():
+    global cfg
+    global redcap_url
+    global redcap_version
+    global redcap_project
+    global instrument
+
     arguments = docopt(__doc__)
     study = arguments['<study>']
     quiet = arguments['--quiet']
@@ -147,11 +159,6 @@ def main():
     date_field = cfg.get_key('REDCAP_DATE')
     status_field = cfg.get_key('REDCAP_STATUS')
     status_val = cfg.get_key('REDCAP_STATUS_VALUE')
-    subj_val = cfg.get_key('REDCAP_SUBJ')
-    redcap_comments = cfg.get_key('REDCAP_COMMENTS')
-    event_key = cfg.get_key('REDCAP_EVENTID')
-
-
     #make status_val into a list
     if not (isinstance(status_val,list)):
         status_val=[status_val]
@@ -168,7 +175,7 @@ def main():
         project_records.append(item)
 
     for record in project_records:
-        add_session_redcap(record, subj_val, date_field, redcap_comments, event_key, redcap_project, redcap_url, instrument, redcap_version)
+        add_session_redcap(record)
 
 
 if __name__ == '__main__':
