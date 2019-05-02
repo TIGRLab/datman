@@ -45,14 +45,14 @@ def read_token(token_file):
     return token
 
 
-def get_records(api_url, token, instrument):
+def get_records(api_url, token, instrument, record_key):
     payload = {'token': token,
                'content': 'record',
                'forms': instrument,
                'format': 'json',
                'type': 'flat',
                'rawOrLabel': 'raw',
-               'fields': 'record_id'}
+               'fields': record_key}
     response = requests.post(api_url, data=payload)
 
     #http status code 200 indicates a successful request, everything else is an error.
@@ -71,8 +71,8 @@ def get_version(api_url, token):
     return version
 
 
-def add_session_redcap(record):
-    record_id = record['record_id']
+def add_session_redcap(record, record_key):
+    record_id = record[record_key]
     subject_id = record[cfg.get_key('REDCAP_SUBJ')].upper()
     if not datman.scanid.is_scanid(subject_id):
         try:
@@ -159,13 +159,16 @@ def main():
     date_field = cfg.get_key('REDCAP_DATE')
     status_field = cfg.get_key('REDCAP_STATUS')
     status_val = cfg.get_key('REDCAP_STATUS_VALUE')
+    record_key = cfg.get_key('REDCAP_RECORD_KEY')
+
+
     #make status_val into a list
     if not (isinstance(status_val,list)):
         status_val=[status_val]
 
     redcap_version = get_version(api_url, token)
 
-    response_json = get_records(api_url, token, instrument)
+    response_json = get_records(api_url, token, instrument, record_key)
 
     project_records = []
     for item in response_json:
@@ -175,7 +178,7 @@ def main():
         project_records.append(item)
 
     for record in project_records:
-        add_session_redcap(record)
+        add_session_redcap(record, record_key)
 
 
 if __name__ == '__main__':
