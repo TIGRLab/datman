@@ -37,6 +37,7 @@ import pyxnat as xnat
 import datman
 import datman.config, datman.scanid, datman.utils
 import dm_link_project_scans as link_scans
+import datman.dashboard as dashboard
 
 DRYRUN = False
 
@@ -116,14 +117,12 @@ def get_project_redcap_records(config, redcap_cred):
 
     current_study = config.get_key('STUDY_TAG')
 
-    #Parse recap records to match selected study
-    project_records = []
-    for item in response.json():
-        record = Record(item)
-        if record.id is None:
-            continue
-        if record.matches_study(current_study):
-            project_records.append(record)
+    try:
+        project_records = parse_records(response, current_study)
+    except ValueError as e:
+        logger.error("Couldnt parse redcap records for server response {}. "
+                "Reason: {}".format(response.content, e))
+        project_records = []
 
     #Return list of records for selected studies
     return project_records
@@ -141,10 +140,20 @@ def get_redcap_token(config, redcap_cred):
         sys.exit(1)
     return token
 
+def parse_records(response, study):
+    records = []
+    for item in response.json():
+        record = Record(item)
+        if record.id is None:
+            continue
+        if record.matches_study(study):
+            records.append(record)
+    return records
+
 def link_shared_ids(config, connection, record):
     try:
         xnat_archive = config.get_key('XNAT_Archive', site=record.id.site)
-    except KeyError:
+    except datman.config.UndefinedSetting:
         logger.error("Can't find XNAT_Archive for subject {}".format(record.id))
         return
     project = connection.select.project(xnat_archive)
@@ -217,6 +226,34 @@ def make_links(record):
         target_tags = ",".join(target_tags)
 
         link_scans.create_linked_session(str(source), str(target), target_tags)
+        if dashboard.dash_found:
+            share_redcap_record(target, record)
+
+def share_redcap_record(session, shared_record):
+    logger.debug("Sharing redcap record {} from participant {} with ID "
+            "{}".format(shared_record.record_id, shared_record.id, session))
+
+    target_session = dashboard.get_session(session)
+    if not target_session:
+        logger.error("Can't link redcap record in dashboard. Participant {} "
+                "not found".format(session))
+        return
+
+    if target_session.redcap_record:
+        logger.debug("Session {} already has record {}".format(target_session,
+                target_session.redcap_record))
+        return
+
+    source_session = dashboard.get_session(shared_record.id)
+    if not source_session.redcap_record:
+        logger.debug("Redcap record has not been added to original session "
+                "yet, will re-attempt sharing later")
+        return
+
+    try:
+        source_session.redcap_record.share_record(target_session)
+    except Exception as e:
+        logger.error("Failed to link redcap record. Reason: {}".format(e))
 
 class Record(object):
     def __init__(self, record_dict):

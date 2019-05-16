@@ -45,16 +45,22 @@ def read_token(token_file):
     return token
 
 
-def get_records(api_url, token, instrument):
+def get_records(api_url, token, instrument, record_key):
     payload = {'token': token,
                'content': 'record',
                'forms': instrument,
                'format': 'json',
                'type': 'flat',
                'rawOrLabel': 'raw',
-               'fields': 'record_id'}
+               'fields': record_key}
     response = requests.post(api_url, data=payload)
-    return response
+
+    #http status code 200 indicates a successful request, everything else is an error.
+    if response.status_code != 200:
+        raise Exception('API request failed. HTTP status code: {}.  Reason: {}'.format(
+        response.status_code,response.text))
+
+    return response.json()
 
 
 def get_version(api_url, token):
@@ -65,9 +71,9 @@ def get_version(api_url, token):
     return version
 
 
-def add_session_redcap(record):
-    record_id = record['record_id']
-    subject_id = record[cfg.get_key(['REDCAP_SUBJ'])].upper()
+def add_session_redcap(record, record_key):
+    record_id = record[record_key]
+    subject_id = record[cfg.get_key('REDCAP_SUBJ')].upper()
     if not datman.scanid.is_scanid(subject_id):
         try:
             subject_id = subject_id + '_01'
@@ -81,19 +87,20 @@ def add_session_redcap(record):
         logger.error('Invalid session: {}, skipping'.format(subject_id))
         return
 
-    session_date = record[cfg.get_key(['REDCAP_DATE'])]
+    session_date = record[cfg.get_key('REDCAP_DATE')]
 
     try:
         session = dashboard.get_session(ident, date=session_date, create=True)
     except datman.exceptions.DashboardException as e:
         logger.error('Failed adding session {} to dashboard. Reason: {}'.format(
                 ident, e))
+        return
 
     try:
         session.add_redcap(record_id, redcap_project, redcap_url, instrument,
                 date=session_date,
-                comment=record[cfg.get_key(['REDCAP_COMMENTS'])],
-                event_id=cfg.get_key(['REDCAP_EVENTID'])[record['redcap_event_name']],
+                comment=record[cfg.get_key('REDCAP_COMMENTS')],
+                event_id=cfg.get_key('REDCAP_EVENTID')[record['redcap_event_name']],
                 version=redcap_version)
     except:
         logger.error('Failed adding REDCap info for session {} to dashboard'.format(ident))
@@ -141,29 +148,37 @@ def main():
     dir_meta = cfg.get_path('meta')
 
     # configure redcap variables
-    api_url = cfg.get_key(['REDCAP_URL'])
+    api_url = cfg.get_key('REDCAP_URL')
     redcap_url = api_url.replace('/api/', '/')
 
-    token_path = os.path.join(dir_meta, cfg.get_key(['REDCAP_TOKEN']))
+    token_path = os.path.join(dir_meta, cfg.get_key('REDCAP_TOKEN'))
     token = read_token(token_path)
 
-    redcap_project = cfg.get_key(['REDCAP_PROJECTID'])
-    instrument = cfg.get_key(['REDCAP_INSTRUMENT'])
+    redcap_project = cfg.get_key('REDCAP_PROJECTID')
+    instrument = cfg.get_key('REDCAP_INSTRUMENT')
+    date_field = cfg.get_key('REDCAP_DATE')
+    status_field = cfg.get_key('REDCAP_STATUS')
+    status_val = cfg.get_key('REDCAP_STATUS_VALUE')
+    record_key = cfg.get_key('REDCAP_RECORD_KEY')
+
+
+    #make status_val into a list
+    if not (isinstance(status_val,list)):
+        status_val=[status_val]
 
     redcap_version = get_version(api_url, token)
 
-    response = get_records(api_url, token, instrument)
+    response_json = get_records(api_url, token, instrument, record_key)
 
     project_records = []
-    for item in response.json():
+    for item in response_json:
         # only grab records where instrument has been marked complete
-        if not (item[cfg.get_key(['REDCAP_DATE'])] and
-                item[cfg.get_key(['REDCAP_STATUS'])] == '1'):
+        if not (item[date_field] and item[status_field] in status_val):
             continue
         project_records.append(item)
 
     for record in project_records:
-        add_session_redcap(record)
+        add_session_redcap(record, record_key)
 
 
 if __name__ == '__main__':

@@ -17,8 +17,8 @@ Options:
     -q, --quiet                     Only display ERROR Messages
     -v, --verbose                   Display INFO/WARNING/ERROR Messages
     -d, --debug                     Display DEBUG/INFO/WARNING/ERROR Messages
-    -r, --rewrite                   Overwrite if outputs already exist in BIDS output directory 
-    -t, --tmp-dir TMPDIR            Specify temporary directory 
+    -r, --rewrite                   Overwrite if outputs already exist in BIDS output directory
+    -t, --tmp-dir TMPDIR            Specify temporary directory
                                     [default : '/tmp/']
     -b, --bids-dir BIDSDIR          Specify BIDS directory to use
                                     [default : 'TMPDIR/bids']
@@ -41,7 +41,11 @@ Notes on arguments:
         app: APP-NAME (see supported workflows)
         img: /path/to/img
         bidsargs : {...}, a key value pair set of arguments to pass to the BIDS application. Can be empty dict if using default setting
-    Additionally, the following arguments will NOT be parsed correctly:
+
+    OPTIONAL KEYS:
+        partition: Slurm partition to use, will not use argument in sbatch submission otherwise
+
+    Additionally, the following arguments will NOT be parsed correctly in bidsargs:
         --participant_label --> wrapper script handles this for you
         w WORKDIR          --> tmp-dir/work becomes the workdir
 
@@ -89,6 +93,24 @@ logging.basicConfig(level=logging.WARN,
         format='[%(name)s %(levelname)s : %(message)s]')
 logger = logging.getLogger(os.path.basename(__file__))
 
+def get_sub_ident(subject):
+    '''
+    Convenience function for wrapping try/catch around parsing subject identifier
+    Arguments:
+        subject                             Datman style subject ID
+    '''
+
+    try:
+        ident = scan_ident.parse(subject)
+    except scan_ident.ParseException:
+
+        try:
+            ident = scan_ident.parse(subject + '_01')
+        except scan_ident.ParseException:
+            logger.error('{s} and {s}_01, is invalid!'.format(s=subject))
+            raise
+
+    return ident
 
 def get_bids_name(subject):
     '''
@@ -98,17 +120,18 @@ def get_bids_name(subject):
 
     '''
 
-    try:
-        ident = scan_ident.parse(subject)
-    except scan_ident.ParseException:
-
-        try:
-            ident = scan_ident.parse(subject + '_01')
-        except scan_ident.ParseException: 
-            logger.error('{s} and {s}_01, is invalid!'.format(s=subject)) 
-            raise
-
+    ident = get_sub_ident(subject)
     return ident.get_bids_name()
+
+def get_sess_num(subject):
+    '''
+    Helper function to pull session number from datman name
+    Arguments:
+        subject                             Datman style subject ID
+    '''
+
+    ident = get_sub_ident(subject)
+    return ident.session
 
 
 def configure_logger(quiet,verbose,debug):
@@ -137,9 +160,9 @@ def get_datman_config(study):
 
     try:
         config = datman.config.config(study=study)
-    except KeyError:
-        logger.error('{} not a valid study ID!'.format(study))
-        sys.exit(1)
+    except Exception as e:
+        logger.error('Failed to retrieve configuration. Reason: {}'.format(e))
+        raise e
 
     if study != config.study_name:
         logger.error('Study incorrectly entered as subject {}, please fix arguments!'.format(study))
@@ -148,39 +171,6 @@ def get_datman_config(study):
     else:
         return config
 
-
-def filter_subjects(subjects,out_dir,bids_app,log_dir):
-
-    '''
-    Filters out subjects that have successfully completed the BIDS-pipeline
-    Utilizes default log output (always enabled)
-
-    Arguments:
-        subjects                List of candidate subjects to be processed through pipeline
-        out_dir                 Base directory for where BIDS-app will output
-        bids_app                Name of BIDS-app (all upper-case convention)
-        log_dir                 Log directory for checking available files
-    '''
-
-    #Base log directory 
-    log_dir = os.path.join(out_dir,'bids_logs',bids_app.lower())
-    log_file = os.path.join(log_dir,'{}_{}.log')
-    run_list = [] 
-
-    #Use error keyword to identify subjects needing to be re-run
-    for s in subjects: 
-
-        try:
-            if 'error' in open(log_file.format(s,bids_app)).read().lower(): 
-                run_list.append(s) 
-                logger.debug('Re-running {} through {}, error found!'.format(s,bids_app))
-        except IOError: 
-            logger.debug('Running new subject {} through {}'.format(s,bids_app))
-            run_list.append(s) 
-        
-    return run_list
-
-    
 
 def get_json_args(json_file):
     '''
@@ -227,10 +217,10 @@ def validate_json_args(jargs,test_dict):
         logger.error('BIDS-app {} not supported!'.format(jargs['app']))
         raise
     else:
-        #Enforce application name will always be in upper case 
-        jargs['app'] = jargs['app'].upper() 
+        #Enforce application name will always be in upper case
+        jargs['app'] = jargs['app'].upper()
 
-    
+
     return jargs
 
 def get_exclusion_cmd(exclude):
@@ -298,7 +288,7 @@ def get_init_cmd(study,sgroup,bids_dir,tmp_dir,out_dir,simg,log_tag):
             simg=simg,
             sub=get_bids_name(sgroup).replace('sub-',''),
             out=out_dir,
-            log_tag=log_tag.replace('&>>','&>')) 
+            log_tag=log_tag.replace('&>>','&>'))
     #The log replace bit is to ensure that logs are wiped prior to appending for easier error tracking on re-runs
 
     return [trap_cmd,init_cmd]
@@ -574,7 +564,7 @@ def write_executable(f, cmds):
 
     return
 
-def submit_jobfile(job_file,subject,queue,walltime='24:00:00',threads=1):
+def submit_jobfile(job_file,subject,queue,walltime='24:00:00',threads=1,partition=None):
 
     '''
     Submit BIDS-app jobfile to queue
@@ -582,17 +572,24 @@ def submit_jobfile(job_file,subject,queue,walltime='24:00:00',threads=1):
     Arguments:
         job_file                    Path to BIDSapp job script to be submitted
         subject                     DATMAN style subject ID
+        queue                       Queue system to use
+        walltime                    Wall-clock time of each subject BIDS app
         threads                     Number of threads assigned to each job
+        partition                   SLURM ONLY: Which partition to use, set to use default partition otherwise
+
     '''
 
     if queue == 'slurm':
-        thread_arg = '--job-name {subject} --cpus-per-task {threads} --time {wtime}'.format(subject=subject, 
-                threads=threads,wtime=walltime)
+        partition = '' if partition is None else '-p {}'.format(partition)
+        thread_arg = '{partition} --job-name {subject} --cpus-per-task {threads} --time {wtime} -o /dev/null'.format(
+                subject=subject,
+                threads=threads,wtime=walltime,
+                partition=partition)
         cmd = 'sbatch {args} '.format(args=thread_arg)
 
     else:
         thread_arg = '-l nodes=1:ppn={threads},walltime={wtime}'.format(threads=threads,wtime=walltime) \
-                if queue =='pbs' else '' 
+                if queue =='pbs' else ''
         cmd = 'qsub {pbs} -V -N {subject}'.format(pbs=thread_arg,subject=subject)
 
     #Append job to cmd
@@ -634,11 +631,12 @@ def gen_log_redirect(log_dir,subject,app_name):
         if os.path.exists(log_dir):
             pass
         else:
-            logger.error('Cannot create directory in {}! Please adjust permissions at target directory'.format(default_log))
+            parent_dir = os.path.abspath(os.path.join(log_dir, os.pardir))
+            logger.error('Cannot create directory in {}! Please adjust permissions at target directory'.format(parent_dir))
             raise
 
     #Generate base command for default log output
-    log_name = '{}_{}.log'.format(subject,app_name)
+    log_name = '{}_{}.log'.format(get_bids_name(subject),app_name)
     base_redir = ' &>> {}'.format(os.path.join(log_dir,log_name))
 
     return base_redir
@@ -684,6 +682,82 @@ def group_subjects(subjects):
 
     return group_dict
 
+def filter_subjects(subjects,out_dir,bids_app,log_dir):
+
+    '''
+    Filters out subjects that have successfully completed the BIDS-pipeline
+    Utilizes default log output (always enabled)
+
+    Arguments:
+        subjects                List of candidate subjects to be processed through pipeline
+        out_dir                 Base directory for where BIDS-app will output
+        bids_app                Name of BIDS-app (all upper-case convention)
+        log_dir                 Log directory for checking available files
+    '''
+
+    #Base log directory
+    log_file = os.path.join(log_dir,'{}_{}.log')
+    run_list = []
+
+    #BIDS-APP --> keyword map
+    key_map = {
+
+            'MRIQC'     :   error_in_mriqc,
+            'FMRIPREP'  :   error_in_fmriprep,
+            'CIFTIFY_FMRIPREP': error_in_ciftify
+            }
+
+    check_logfile = key_map[bids_app]
+
+    for s in subjects:
+        if check_logfile(out_dir,log_file.format(get_bids_name(s),bids_app)):
+            run_list.append(s)
+
+    return run_list
+
+def check_keys_in_file(log_file, keys):
+    '''
+    Check if log file is contained within list
+    '''
+
+    try:
+        with open(log_file) as log:
+            contents = log.read()
+
+            for key in keys:
+                if key in contents:
+                    return True
+    except IOError:
+        # If log-file not available, subject needs to be run
+        return True
+
+def error_in_mriqc(out_dir, log_file):
+    '''
+    Search target file for error keywords
+    '''
+
+    keywords = ['RuntimeError','ERROR','FileNotFoundError',
+            'Workflow did not execute cleanly']
+    return check_keys_in_file(log_file,keywords)
+
+
+def error_in_fmriprep(out_dir, log_file):
+    '''
+    Search target file for error keywords
+    '''
+
+    keywords = ['error','ERROR','Error']
+    return check_keys_in_file(log_file,keywords)
+
+def error_in_ciftify(out_dir, log_file):
+    '''
+    Search target file for error keywords
+    '''
+
+    keyword = ['ERROR']
+    return check_keys_in_file(log_file,keywords)
+
+
 def main():
 
     #Parse arguments
@@ -703,18 +777,20 @@ def main():
     rewrite             =   arguments['--rewrite']
     tmp_dir             =   arguments['--tmp-dir'] or '/tmp/'
     bids_dir            =   arguments['--bids-dir'] or tmp_dir
-    log_dir             =   arguments['--log'] 
+    log_dir             =   arguments['--log']
 
     DRYRUN              =   arguments['--DRYRUN']
 
     walltime            =   arguments['--walltime']
 
-    #Strategy pattern dictionary
+    #Strategy pattern dictionary for running different applications
     strat_dict = {
             'FMRIPREP' : fmriprep_fork,
             'MRIQC'    : mriqc_fork,
             'FMRIPREP_CIFTIFY' : ciftify_fork
             }
+
+    #Thread dictionary for specifying thread arguments unique to application
     thread_dict = {
             'FMRIPREP'  : '--nthreads',
             'MRIQC'     : '--n_procs',
@@ -725,19 +801,27 @@ def main():
     config = get_datman_config(study)
     configure_logger(quiet,verbose,debug)
     try:
-        queue = config.site_config['SystemSettings'][os.environ['DM_SYSTEM']]['QUEUE']
-    except KeyError as e:
-        logger.error('Config exception, key not found: {}'.format(e))
-        sys.exit(1)
+        queue = config.get_key('QUEUE')
+    except Exception as e:
+        logger.error("Couldnt retrieve queue type from config. Reason: "
+                "{}".format(e))
+        raise e
 
     #JSON parsing, formatting, and validating
     jargs = get_json_args(bids_json)
     jargs = validate_json_args(jargs,strat_dict)
     try:
         jargs.update({'keeprecon' : config.get_key('KeepRecon')})
-    except KeyError:
+    except datman.config.UndefinedSetting:
         jargs.update({'keeprecon':True})
     n_thread = get_requested_threads(jargs,thread_dict)
+
+    #Handle partition argument if using slurm
+    partition=None
+    try:
+        partition = jargs['partition']
+    except KeyError:
+        pass
 
     #Get redirect command string and exclusion list
     log_dir = log_dir or os.path.join(out,'bids_logs')
@@ -746,6 +830,7 @@ def main():
     exclude_cmd_list = [''] if not exclude else get_exclusion_cmd(exclude)
 
     #Get subjects and filter if not rewrite and group if longitudinal
+    #Need better way to manage...
     subjects = subjects or [s for s in os.listdir(config.get_path('nii')) if 'PHA' not in s]
     subjects = subjects if rewrite else filter_subjects(subjects, out, jargs['app'],log_dir)
     logger.info('Running {}'.format(subjects))
@@ -770,7 +855,7 @@ def main():
         write_executable(job_file,master_cmd)
 
         if not DRYRUN:
-            submit_jobfile(job_file,s,queue,walltime,n_thread)
+            submit_jobfile(job_file,s,queue,walltime,n_thread,partition)
 
 if __name__ == '__main__':
     main()

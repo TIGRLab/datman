@@ -488,11 +488,16 @@ def process_scan(ident, file_stem, tags, tag):
         logger.info("Adding scan {} to dashboard".format(file_stem))
         try:
             dashboard.get_scan(file_stem, create=True)
-        except dashboard.DashboardException as e:
+        except datman.scanid.ParseException as e:
             logger.error("Failed adding scan {} to dashboard with "
-                    "error {}".format(file_stem, e))
+                    "error: {}".format(file_stem, e))
 
-    blacklist_entry = datman.utils.read_blacklist(scan=file_stem, config=cfg)
+    try:
+        blacklist_entry = datman.utils.read_blacklist(scan=file_stem, config=cfg)
+    except datman.scanid.ParseException:
+        logger.error("{} is not a datman ID. Skipping.".format(file_stem))
+        return
+
     if blacklist_entry:
         logger.warn("Skipping export of {} due to blacklist entry '{}'".format(
                 file_stem, blacklist_entry))

@@ -22,9 +22,9 @@ Options:
     -d --debug         Be extra chatty
 
 Details:
-    This program QCs the data contained in <NiftiDir> and <DicomDir>, and
-    outputs a myriad of metrics as well as a report in <QCDir>. All work is done
-    on a per-subject basis.
+    This program QCs the data contained in <NiftiDir> and outputs a myriad of
+    metrics as well as a report in <QCDir>. All work is done on a per-subject
+    basis.
 
     **data directories**
 
@@ -38,31 +38,21 @@ Details:
                file1.nii.gz
                file2.nii.gz
 
-        <DicomDir>/
-           subject1/
-               file1.dcm
-               file2.dcm
-           subject2/
-               file1.dcm
-               file2.dcm
-
-     There should be a .dcm file for each .nii.gz. One subfolder for each
-     subject will be created under the <QCDir> folder.
+     One subfolder for each subject will be created under the <QCDir> folder.
 
      **gold standards**
 
-     To check for changes to the MRI machine's settings over time, this compares
-     the headers found in <DicomDir> with the appropriate dicom file found in
-     <StandardsDir>/<Tag>/filename.dcm.
+     To check for changes to the MRI machine's settings over time this compares
+     the header values found in JSONs produced by dcm2niix with the appropriate
+     JSON file found in <StandardsDir>/<Tag>/filename.json.
 
      **configuration file**
 
-     The locations of the dicom folder, nifti folder, qc folder, gold standards
+     The locations of the nifti folder, qc folder, gold standards
      folder, log folder, and expected set of scans are read from the supplied
      configuration file with the following structure:
 
      paths:
-       dcm: '/archive/data/SPINS/data/dcm'
        nii: '/archive/data/SPINS/data/nii'
        qc:  '/archive/data/SPINS/qc'
        std: '/archive/data/SPINS/metadata/standards'
@@ -96,17 +86,16 @@ import copy
 import random
 import string
 
-import numpy as np
 import pandas as pd
 import nibabel as nib
+from docopt import docopt
 
+import dm_header_checks as qc_headers
 import datman.config
 import datman.utils
 import datman.scanid
 import datman.scan
 import datman.dashboard
-
-from docopt import docopt
 
 logging.basicConfig(level=logging.WARN,
         format="[%(name)s] %(levelname)s: %(message)s")
@@ -132,6 +121,26 @@ def slicer(fpath, pic, slicergap, picwidth):
         pic         -- fullpath to for output image
     """
     datman.utils.run("slicer {} -S {} {} {}".format(fpath,slicergap,picwidth,pic))
+
+def slicesdir(fpath, pic):
+    """
+    Uses FSL's slicer function to generate a montage of three slices from
+    each direction that matches FSL's slicesdir output
+    """
+
+    with datman.utils.make_temp_directory() as temp:
+        img_command = "slicer {0} -s 1 "\
+                "-x 0.4 {1}/grota.png -x 0.5 {1}/grotb.png -x 0.6 {1}/grotc.png "\
+                "-y 0.4 {1}/grotd.png -y 0.5 {1}/grote.png -y 0.6 {1}/grotf.png "\
+                "-z 0.4 {1}/grotg.png -z 0.5 {1}/groth.png -z 0.6 {1}/groti.png"\
+                .format(fpath, temp)
+        datman.utils.run(img_command)
+
+        montage_command = "pngappend {0}/grota.png + {0}/grotb.png + "\
+                "{0}/grotc.png + {0}/grotd.png + {0}/grote.png + {0}/grotf.png "\
+                "+ {0}/grotg.png + {0}/groth.png + {0}/groti.png {1}"\
+                .format(temp, pic)
+        datman.utils.run(montage_command)
 
 def add_image(qc_html, image, title=None):
     """
@@ -218,9 +227,14 @@ def fmri_qc(file_name, qc_dir, report):
     if not os.path.isfile(script_output):
         datman.utils.run('qc-fmri {} {}'.format(file_name, output_name))
 
+    slices_montage = output_name + "_montage.png"
     image_raw = output_name + '_raw.png'
     image_sfnr = output_name + '_sfnr.png'
     image_corr = output_name + '_corr.png'
+
+    if not os.path.isfile(slices_montage):
+        slicesdir(file_name, slices_montage)
+    add_image(report, slices_montage)
 
     if not os.path.isfile(image_raw):
         slicer(file_name, image_raw, SLICER_GAP, SLICER_FMRI_RES)
@@ -261,47 +275,17 @@ def dti_qc(filename, qc_dir, report):
         datman.utils.run('qc-spikecount {} {} {}'.format(filename,
                 os.path.join(qc_dir, basename + '_spikecount.csv'), bval))
 
+    slices_montage = os.path.join(qc_dir, basename + "_montage.png")
+    if not os.path.isfile(slices_montage):
+        slicesdir(filename, slices_montage)
     image = os.path.join(qc_dir, basename + '_b0.png')
     if not os.path.isfile(image):
         slicer(filename, image, SLICER_GAP, SLICER_RES)
+    add_image(report, slices_montage)
     add_image(report, image, title='b0 montage')
     add_image(report, os.path.join(qc_dir, basename + '_directions.png'),
             title='bvec directions')
 
-def submit_qc_jobs(commands, chained=False):
-    """
-    Submits the given commands to the queue. In chained mode, each job will wait
-    for the previous job to finish before attempting to run.
-    """
-    for i, cmd in enumerate(commands):
-        if chained and i > 0:
-            lastjob = copy.copy(jobname)
-        jobname = "qc_report_{}_{}_{}".format(time.strftime("%Y%m%d"), random_str(5), i)
-        logfile = '/tmp/{}.log'.format(jobname)
-        errfile = '/tmp/{}.err'.format(jobname)
-
-        job_file = make_job_file(jobname, cmd)
-
-        if chained and i > 0:
-            run_cmd = 'qsub -V -q main.q -hold_jid {} -o {} -e {} -N {} {}'.format(
-                    lastjob, logfile, errfile, jobname, job_file)
-        else:
-            run_cmd = 'qsub -V -q main.q -o {} -e {} -N {} {}'.format(logfile,
-                    errfile, jobname, job_file)
-
-        rtn, out = datman.utils.run(run_cmd)
-
-        if rtn:
-            logger.error("stdout: {}".format(out))
-        elif out:
-            logger.debug(out)
-
-def make_job_file(job_name, cmd):
-    job_file = '/tmp/{}'.format(job_name)
-    with open(job_file, 'wb') as fid:
-        fid.write('#!/bin/bash\n')
-        fid.write(cmd)
-    return job_file
 
 def make_qc_command(subject_id, study):
     arguments = docopt(__doc__)
@@ -331,26 +315,13 @@ def qc_all_scans(config):
     one at a time. This is currently needed because some of the phantom pipelines
     use expensive and limited software liscenses (i.e., MATLAB).
     """
-    human_commands = []
-    phantom_commands = []
-
     new_subs = get_new_subjects(config)
 
-    for subject in new_subs:
+    for i, subject in enumerate(new_subs):
         command = make_qc_command(subject, config.study_name)
-
-        if '_PHA_' in subject:
-            phantom_commands.append(command)
-        else:
-            human_commands.append(command)
-
-    if human_commands:
-        logger.debug('submitting human qc jobs\n{}'.format(human_commands))
-        submit_qc_jobs(human_commands)
-
-    if phantom_commands:
-        logger.debug('running phantom qc jobs\n{}'.format(phantom_commands))
-        submit_qc_jobs(phantom_commands, chained=True)
+        job_name = "qc_report_{}_{}_{}".format(time.strftime("%Y%m%d"),
+                random_str(5), i)
+        datman.utils.submit_job(command, job_name, "/tmp", system=config.system)
 
 def get_new_subjects(config):
     qc_dir = config.get_path('qc')
@@ -378,31 +349,58 @@ def get_new_subjects(config):
     new_subs = filter(lambda sub: sub not in finished_phantoms, new_subs)
     return new_subs
 
-def add_header_qc(nifti, qc_html, log_path):
+def add_header_qc(nifti, qc_html, header_diffs):
     """
     Adds header-diff.log information to the report.
     """
-    # get the filename of the nifti in question
-    filestem = nifti.file_name.replace(nifti.ext, '')
-
-    try:
-        # read the log
-        with open(log_path, 'r') as f:
-            f = f.readlines()
-    except IOError:
-        logger.info("header-diff.log not found. Generating page without it.")
-        f = []
+    if not header_diffs:
+        # Nothing to report on
+        return
 
     # find lines in said log that pertain to the nifti
-    lines = [re.sub('^.*?: *','',line) for line in f if filestem in line]
+    scan_name = get_scan_name(nifti)
+    lines = header_diffs[scan_name]
 
     if not lines:
         return
 
-    qc_html.write('<h3> {} header differences </h3>\n<table>'.format(filestem))
-    for l in lines:
-        qc_html.write('<tr><td>{}</td></tr>'.format(l))
-    qc_html.write('</table>\n')
+    table_header = """
+    <table>
+        <thead align=center>
+            <tr>
+                <th colspan=3><h3> {} header differences </h3></th>
+            </tr>
+            <tr>
+                <th>Field</th>
+                <th>Expected</th>
+                <th>Actual</th>
+            </tr>
+        </thead>
+        <tbody>
+    """.format(nifti)
+
+    qc_html.write(table_header)
+    for field in sorted(lines):
+
+        if field not in ['missing', 'error']:
+            table_row = """
+            <tr>
+                <td>{field}</td>
+                <td>{expected}</td>
+                <td>{actual}</td>
+            </tr>
+            """.format(field=field, expected=lines[field]['expected'],
+                    actual=lines[field]['actual'])
+        else:
+            table_row = """
+            <tr>
+                <td>{field}</td>
+                <td>{message}</td>
+            </tr>
+            """.format(field=field, message=','.join(lines[field]))
+
+        qc_html.write(table_row)
+    qc_html.write('</tbody></table>\n')
 
 def write_report_body(report, expected_files, subject, header_diffs, tag_settings):
     handlers = {
@@ -544,7 +542,7 @@ def notes_expected(site, study_name):
 
     try:
         technotes = config.get_key('USES_TECHNOTES', site=site)
-    except KeyError:
+    except datman.config.UndefinedSetting:
         technotes = False
     return technotes
 
@@ -636,12 +634,17 @@ def generate_qc_report(report_name, subject, expected_files, header_diffs, confi
                     tag_settings)
     except:
         raise
-    update_dashboard(subject, report_name)
+    update_dashboard(subject, report_name, header_diffs)
 
-def update_dashboard(subject, report_name):
+def update_dashboard(subject, report_name, header_diffs):
     db_subject = datman.dashboard.get_subject(subject.full_id)
     if not db_subject:
         return
+    try:
+        db_subject.add_header_diffs(header_diffs)
+    except Exception as e:
+        logger.error("Failed to add header diffs for {} to dashboard database. "
+                "Reason: {}".format(subject.full_id, e))
     db_subject.last_qc_repeat_generated = len(db_subject.sessions)
     db_subject.static_page = report_name
     db_subject.save()
@@ -726,31 +729,31 @@ def find_expected_files(subject, config):
     expected_files = expected_files.sort_values('Sequence')
     return(expected_files)
 
+def find_json(series):
+    json_path = series.path.replace(series.ext, ".json")
+    if not os.path.exists(json_path):
+        raise IOError("JSON not found for {}".format(series))
+    return json_path
+
 def get_standards(standard_dir, site):
     """
-    Constructs a dictionary of standards for each standards file in
-    standard_dir.
+    Constructs a dictionary of standards for the given site.
 
     If a standards file name raises ParseException it will be logged and
     omitted from the standards dictionary.
     """
-    glob_path = os.path.join(standard_dir, "*")
+    glob_path = os.path.join(standard_dir, "*.json")
 
     standards = {}
     misnamed_files = []
     for item in glob.glob(glob_path):
-
-        #Protect against using .bvec/.bvals as headers
-        if '.dcm' not in item:
-            continue
-
         try:
             standard = datman.scan.Series(item)
         except datman.scanid.ParseException:
             misnamed_files.append(item)
             continue
         if standard.site == site:
-            standards[standard.tag] = standard
+            standards[standard.tag] = standard.path
 
     if misnamed_files:
         logging.error("Standards files misnamed, ignoring: \n" \
@@ -758,46 +761,66 @@ def get_standards(standard_dir, site):
 
     return standards
 
-def run_header_qc(subject, standard_dir, log_file, config):
+def get_scan_name(series):
+    # Allows the dashboard to easily access diffs without needing to know
+    # anything about naming scheme
+    scan_name = series.file_name.replace("_" + series.description, "")\
+            .replace(series.ext, "")
+    return scan_name
+
+def run_header_qc(subject, config):
     """
-    For each .dcm file found in 'dicoms', find the matching site / tag file in
-    'standards', and run qc-headers (from qcmon) on these files. Any
-    are written to log_file.
+    For each json file found in 'niftis' find the matching site / tag file in
+    'standards' and run dm_header_checks on these files. Differences are
+    returned in a dictionary that maps the scan name to a dictionary of
+    differences
     """
-
-    if not subject.dicoms:
-        logger.debug("No dicoms found in {}".format(subject.dcm_path))
-        return
-
-
-
+    standard_dir = config.get_path('std')
     standards_dict = get_standards(standard_dir, subject.site)
-    tag_settings=config.get_tags(site=subject.site)
+    tag_settings = config.get_tags(site=subject.site)
 
+    try:
+        ignored_headers = config.get_key('IgnoreHeaderFields', site=subject.site)
+    except datman.config.UndefinedSetting:
+        ignored_headers = []
+    try:
+        header_tolerances = config.get_key('HeaderFieldTolerance', site=subject.site)
+    except datman.config.UndefinedSetting:
+        header_tolerances = {}
 
-    for dicom in subject.dicoms:
+    header_diffs = {}
+    for series in subject.niftis:
+        scan_name = get_scan_name(series)
         try:
-            standard = standards_dict[dicom.tag]
+            standard_json = standards_dict[series.tag]
         except KeyError:
-            logger.debug('No standard with tag {} found in {}'.format(dicom.tag,
-                    standard_dir))
+            logger.debug('No standard with tag {} found in {}'.format(
+                    series.tag, standard_dir))
+            header_diffs[scan_name] = {'error': 'Gold standard not found'}
             continue
+
+        try:
+            series_json = find_json(series)
+        except IOError:
+            logger.debug('No JSON found for {}'.format(series))
+            header_diffs[scan_name] = {'error': 'JSON not found'}
+            continue
+
+        try:
+            qc_type = tag_settings.get(series.tag, "qc_type")
+        except KeyError:
+            logger.error("'qc_type' for tag {} not defined. If it's DTI the "
+                    "bval check will be skipped.".format(series.tag))
+            check_bvals = False
         else:
-            #run header check for dicom
-            #if the scan is dti, call qc-headers with the dti tag
-            if tag_settings.get(dicom.tag, "qc_type") == 'dti':
-                datman.utils.run('qc-headers {} {} {} --dti'.format(dicom.path, standard.path,
-                        log_file))
-                logger.debug('doing dti {}'.format(dicom.tag))
-            else:
-                logger.debug('doing other scantype {}'.format(dicom.tag))
-                datman.utils.run('qc-headers {} {} {}'.format(dicom.path, standard.path,
-                        log_file))
+            check_bvals = qc_type == 'dti'
 
+        diffs = qc_headers.construct_diffs(series_json, standard_json,
+                ignored_fields=ignored_headers, tolerances=header_tolerances,
+                dti=check_bvals)
+        header_diffs[scan_name] = diffs
 
-    if not os.path.exists(log_file):
-        logger.error("header-diff.log not generated for {}. Check that gold " \
-                "standards are present for this site.".format(subject.full_id))
+    return header_diffs
 
 def qc_subject(subject, config):
     """
@@ -808,7 +831,7 @@ def qc_subject(subject, config):
     """
     report_name = os.path.join(subject.qc_path, 'qc_{}.html'.format(subject.full_id))
     # header diff
-    header_diffs = os.path.join(subject.qc_path, 'header-diff.log')
+    header_diffs_log = os.path.join(subject.qc_path, 'header-diff.json')
 
     if os.path.isfile(report_name):
         if not REWRITE:
@@ -817,12 +840,13 @@ def qc_subject(subject, config):
         os.remove(report_name)
         # This probably exists if you're rewriting, and needs to be removed to regenerate
         try:
-            os.remove(header_diffs)
+            os.remove(header_diffs_log)
         except:
             pass
 
-    if not os.path.isfile(header_diffs):
-        run_header_qc(subject, config.get_path('std'), header_diffs, config)
+    header_diffs = run_header_qc(subject, config)
+    if not datman.dashboard.dash_found and not os.path.isfile(header_diffs_log):
+        qc_headers.write_diff_log(header_diffs, header_diffs_log)
 
     expected_files = find_expected_files(subject, config)
 
@@ -944,7 +968,7 @@ def prepare_scan(subject_id, config):
         sys.exit(1)
 
     check_for_repeat_session(subject)
-    verify_input_paths([subject.nii_path, subject.dcm_path])
+    verify_input_paths([subject.nii_path])
 
     qc_dir = datman.utils.define_folder(subject.qc_path)
     # If qc_dir already existed and had empty files left over clean up
