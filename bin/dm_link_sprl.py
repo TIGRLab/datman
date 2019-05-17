@@ -225,14 +225,31 @@ def _get_link_name(path, basepath, ident, tag):
     path = path.replace('/', '-')
     path = path.replace('_', '-')
     # try to see if we can extract the series number
-    p = re.compile('Se(\d+)-')
-    m = p.findall(path)
-    series = '00'
-    if m:
-        try:
-            series = '{0:02d}'.format(int(m[0]))
-        except ValueError:
-            pass
+    if ident.study == 'VRMD':
+        p = re.compile('Run(\d)')
+        run_num = p.findall(path)[0]
+        if run_num == '1':
+            series = '03'
+        if run_num == '2':
+            series = '04'
+        if run_num == '3':
+            series = '05'
+        if run_num == '4':
+            series = '08'
+        if run_num == '5':
+            series = '09'
+        if run_num == '6':
+            series = '10'
+    else:
+        p = re.compile('Se(\d+)-')
+        m = p.findall(path)
+        # figure out a way to change the series number
+        series = '00'
+        if m:
+            try:
+                series = '{0:02d}'.format(int(m[0]))
+            except ValueError:
+                pass
 
     filename = '{exam}_{tag}_{series}_{tail}'.format(exam=str(ident),
                                                      tag=tag,
