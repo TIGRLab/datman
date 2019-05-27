@@ -601,6 +601,7 @@ class xnat(object):
         If filename is not specified creates a temporary file and
         returns the path to that, user needs to be responsible format
         cleaning up any created tempfiles"""
+
         url = '{}/data/archive/projects/{}/' \
               'subjects/{}/experiments/{}/' \
               'resources/{}/files?format=zip' \

@@ -39,10 +39,12 @@ def study_required(func, instance, args, kwargs):
     # e.g. config.get_path('nii', 'SPINS') instead of
     # config.get_path('nii', study='SPINS')
     found_kwargs = inspect.getcallargs(func, *args, **kwargs)
-    if 'study' in found_kwargs and found_kwargs['study']:
+    if 'study' in found_kwargs and found_kwargs['study'] is not None:
         instance.set_study(found_kwargs['study'])
     if not instance.study_config:
         raise ConfigException('Study not set.')
+    if found_kwargs['study'] is None:
+        kwargs.update({'study': instance.study_name})
     return func(*args, **kwargs)
 
 class config(object):
@@ -518,6 +520,7 @@ class TagInfo(object):
                         "specify a site?")
             if type(pattern) is list:
                 pattern = "|".join(pattern)
+                found_kwargs['study'] = instance.study_name
             series_map[tag] = pattern
         return series_map
 
