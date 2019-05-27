@@ -71,7 +71,6 @@ import shutil
 import sys
 import re
 import zipfile
-from collections import namedtuple
 
 from docopt import docopt
 import pydicom as dicom
@@ -476,6 +475,7 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
                                                      scan_info,
                                                      session_label)
 
+        #TODO: Check if null file_stem/tag is skippable on the loop
         if not file_stem:
             continue
 
@@ -545,6 +545,7 @@ def get_exportinfo_patterns(scan_info):
 
 def create_scan_name(exportinfo, scan_info, session_label):
     """Creates name suitable for a scan including the tags"""
+
     try:
         series_id = scan_info['data_fields']['ID']
     except TypeError as e:
@@ -563,6 +564,7 @@ def create_scan_name(exportinfo, scan_info, session_label):
     multiecho = is_multiecho(scan_info)
 
     tag = guess_tag(exportinfo, scan_info, descriptors, multiecho)
+
     if tag is None:
         logger.warning("No matching export pattern for {}, "
                        "descr: {}. Skipping".format(session_label,
@@ -625,8 +627,11 @@ def guess_tag(exportinfo, scan_info, descriptors, multiecho):
 
     if len(matches) == 1:
        return matches
-    elif len(mathces) == 2 and multiecho:
+    elif len(matches) == 2 and multiecho:
        return matches
+    else: 
+       return None
+
 
 def has_valid_dicoms(scan_info, series_id, session_label):
     '''
