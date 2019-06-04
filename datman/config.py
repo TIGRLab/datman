@@ -325,12 +325,12 @@ class config(object):
         try:
             value = search_func(*args)
         except UndefinedSetting:
-            if stop_search and not merge:
+            if stop_search and merge is None:
                 raise
             value = None
 
-        if merge:
-            if not value:
+        if merge is not None:
+            if value is None:
                 value = merge
             elif isinstance(merge, list) and isinstance(value, list):
                 value = list(set(value).union(set(merge)))
