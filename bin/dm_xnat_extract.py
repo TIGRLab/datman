@@ -71,6 +71,7 @@ import shutil
 import sys
 import re
 import zipfile
+from collections import namedtuple
 
 from docopt import docopt
 import pydicom as dicom
@@ -82,6 +83,7 @@ import datman.utils
 import datman.scan
 import datman.scanid
 import datman.exceptions
+
 
 logger = logging.getLogger(os.path.basename(__file__))
 
@@ -173,11 +175,11 @@ def configure_logger(study, quiet, verbose, debug):
         quiet                       Quiet boolean flag
         verbose                     Verbose boolean flag
         debug                       Debug boolean flag
+
+    By default sets log level to WARNING
     '''
-    # setup logging
     ch = logging.StreamHandler(sys.stdout)
 
-    #Default log level
     log_level = logging.WARNING
 
     if quiet:
@@ -259,6 +261,7 @@ def add_session_to_dashboard(session_label,experiment,db_ignore):
         set_date(db_session, experiment)
 
 
+#TODO: Clean dis up
 def collect_sessions(xnat_projects, config):
     sessions = []
 
@@ -441,24 +444,26 @@ def get_resource(xnat_project, xnat_session, xnat_experiment,
 
 
 def process_scans(ident, xnat_project, session_label, experiment_label, scans):
+
     """
     Process a set of scans in an XNAT experiment
     scanid is a valid datman.scanid object
     Scans is the json output from XNAT query representing scans
     in an experiment
     """
+
     logger.info("Processing scans in session: {}"
                 .format(session_label))
 
     # load the export info from the site config files
     tags = cfg.get_tags(site=ident.site)
     exportinfo = tags.series_map
-
     if not exportinfo:
         logger.error("Failed to get exportinfo for study: {} at site: {}"
                      .format(cfg.study_name, ident.site))
         return
 
+    #For each scan 
     for scan in scans['items']:
         series_id = scan['data_fields']['ID']
         scan_info = xnat.get_scan_info(xnat_project,
@@ -466,16 +471,16 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
                                        experiment_label,
                                        series_id)
 
-        if (is_derived(scan_info, series_id, session_label) or
-                not has_valid_dicoms(scan_info,series_id,session_label)):
-
+        if is_derived(scan_info) or not has_valid_dicoms(scan_info):
             continue
 
         file_stem, tag, multiecho = create_scan_name(exportinfo,
                                                      scan_info,
                                                      session_label)
 
-        #TODO: Check if null file_stem/tag is skippable on the loop
+        if len(file_stem) > 1:
+            import pdb; pdb.set_trace()
+
         if not file_stem:
             continue
 
@@ -484,23 +489,33 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
             if wanted_tags and (t not in wanted_tags):
                 continue
 
-            add_scan_to_db(stem)
             if scan_in_blacklist(stem):
                 continue
 
-            export_formats = series_is_processed(ident, file_stem, export_formats)
-            if export_formats:
-                get_scans(ident, xnat_project, session_label, experiment_label,
-                          series_id, export_formats, file_stem, multiecho)
-            else:
-                logger.warn("Scan: {} has been processed. Skipping"
-                            .format(file_stem))
+            if not db_ignore:
+                add_scan_to_db(stem)
 
+            try:
+                export_formats = tags.get(t)['formats']
+            except KeyError:
+                logger.error("Export settings formats for tag: {} not found for "
+                             "study: {}".format(tag, cfg.study_name))
+                continue
+
+            export_formats = [e for e in export_formats if not export_exists(ident, stem, e)]
+            if not export_formats:
+                logger.warn("Scan: {} has been processed. Skipping"
+                            .format(stem))
+                continue
+
+            #Ideally this pulling should be a separate functionality
+            get_scans(ident, xnat_project, session_label, experiment_label,
+                      series_id, export_formats, stem, multiecho)
 
 def add_scan_to_db(stem):
     logger.info('Adding scan {} to dashboard'.format(stem))
     try:
-        dashboard.get_scan(file_stem, create=True)
+        dashboard.get_scan(stem, create=True)
     except datman.scanid.ParseException as e:
         logger.error('Failed adding scan {} to dashboard with error: {}'.format(file_stem,e))
     return
@@ -633,7 +648,7 @@ def guess_tag(exportinfo, scan_info, descriptors, multiecho):
        return None
 
 
-def has_valid_dicoms(scan_info, series_id, session_label):
+def khas_valid_dicoms(scan_info, series_id, session_label):
     '''
     Check whether session contains valid dicoms
     '''
@@ -652,8 +667,35 @@ def has_valid_dicoms(scan_info, series_id, session_label):
                        .format(series_id, session_label))
         return False
 
+def has_valid_dicoms(scan_info):
 
-def is_derived(scan_info, series_id, session_label):
+    for scan_info_child in scan_info['children']:
+        for scan_info_child_item in scan_info_child['items']:
+
+            try:
+                file_type = scan_info_child_item['data_fields']['content']
+            except KeyError:
+                continue
+            else:
+                if file_type == 'RAW': 
+                    return True
+
+    return False
+
+def is_derived(scan_info):
+
+    try:
+        image_type = scan_info['data_fields']['parameters/imageType']
+    except KeyError:
+        return
+
+    if 'DERIVED' in image_type:
+        return True
+    else:
+        return False
+
+
+def kis_derived(scan_info, series_id, session_label):
     try:
         image_type = scan_info['data_fields']['parameters/imageType']
     except:
@@ -668,22 +710,21 @@ def is_derived(scan_info, series_id, session_label):
         derived = False
     return derived
 
+def export_exists(ident, file_stem, export_format):
+    '''
+    Returns True if export format exists in desired output directory
+    '''
 
-def series_is_processed(ident, file_stem, export_formats):
-    """Returns true if exported files exist for all specified formats"""
-    remaining_formats = []
-    for f in export_formats:
-        outdir = os.path.join(cfg.get_path(f),
-                              ident.get_full_subjectid_with_timepoint())
-        outfile = os.path.join(outdir, file_stem)
-        # need to use wildcards here as dont really know what the
-        # file extensions will be
-        exists = [os.path.isfile(p) for p in glob(outfile + '.*')]
-        if not exists:
-            remaining_formats.append(f)
-    return remaining_formats
+    outdir = os.path.join(cfg.get_path(export_format), ident.get_full_subjectid_with_timepoint())
+    outfile = os.path.join(outdir,file_stem)
+    exists = [os.path.isfile(p) for p in glob(outfile + '.*')]
 
+    if exists:
+        return True
+    else:
+        return False
 
+#TODO: Simplify this function to deal with one at a time?
 def get_scans(ident, xnat_project, session_label, experiment_label, series_id,
         export_formats, file_stem, multiecho):
 

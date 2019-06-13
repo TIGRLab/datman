@@ -603,18 +603,18 @@ def analyze_subject(subject, config, study):
             f4.close()
 
     # run the GLM
-    files = glob.glob(os.path.join(ea_dir, subject + '/*.nii.gz'))
-    inputs = get_inputs(files, config)
+#    files = glob.glob(os.path.join(ea_dir, subject + '/*.nii.gz'))
+#    inputs = get_inputs(files, config)
 
-    for input_type in inputs.keys():
-
-        script = generate_analysis_script(subject, inputs, input_type, config, study)
-        rtn, out = utils.run('chmod 754 {}'.format(script))
-        rtn, out = utils.run(script)
-        if rtn:
-            logger.error('Script {} failed to run on subject {} with error:\n{}'.format(
-                script, subject, out))
-            sys.exit(1)
+#    for input_type in inputs.keys():
+#
+#        script = generate_analysis_script(subject, inputs, input_type, config, study)
+#        rtn, out = utils.run('chmod 754 {}'.format(script))
+#        rtn, out = utils.run(script)
+#        if rtn:
+#            logger.error('Script {} failed to run on subject {} with error:\n{}'.format(
+#                script, subject, out))
+#            sys.exit(1)
 
 def main():
     arguments   = docopt(__doc__)
