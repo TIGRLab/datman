@@ -603,18 +603,18 @@ def analyze_subject(subject, config, study):
             f4.close()
 
     # run the GLM
-    files = glob.glob(os.path.join(ea_dir, subject + '/*.nii.gz'))
-    inputs = get_inputs(files, config)
-
-    for input_type in inputs.keys():
-
-        script = generate_analysis_script(subject, inputs, input_type, config, study)
-        rtn, out = utils.run('chmod 754 {}'.format(script))
-        rtn, out = utils.run(script)
-        if rtn:
-            logger.error('Script {} failed to run on subject {} with error:\n{}'.format(
-                script, subject, out))
-            sys.exit(1)
+#    files = glob.glob(os.path.join(ea_dir, subject + '/*.nii.gz'))
+#    inputs = get_inputs(files, config)
+#
+#    for input_type in inputs.keys():
+#
+#        script = generate_analysis_script(subject, inputs, input_type, config, study)
+#        rtn, out = utils.run('chmod 754 {}'.format(script))
+#        rtn, out = utils.run(script)
+#        if rtn:
+#            logger.error('Script {} failed to run on subject {} with error:\n{}'.format(
+#                script, subject, out))
+#            sys.exit(1)
 
 def main():
     arguments   = docopt(__doc__)
@@ -649,50 +649,68 @@ def main():
     nii_dir = os.path.join(study_base, config.get_path('nii'))
 
     if subject:
-        if '_PHA_' in subject:
-            logger.error("{} is a phantom, cannot analyze".format(subject))
-            sys.exit(1)
-        analyze_subject(subject, config, study)
-
+        subjects = [subject]
     else:
-        # batch mode
-        subjects = glob.glob('{}/*'.format(nii_dir))
-        commands = []
+        subjects=glob.glob('{}/*'.format(nii_dir))
 
-        if debug:
-            opts = '--debug'
-        else:
-            opts = ''
+            
 
-        for path in subjects:
-            subject = os.path.basename(path)
-            if check_complete(ea_dir, subject):
-                logger.debug('{} already analysed'.format(subject))
-            else:
-                commands.append(" ".join([__file__, study, '--subject {}'.format(subject), opts]))
+    for s in subjects:
+        if '_PHA_' in subject:
+            logger.error("{} if a phantom, cannot analyze".format(s))
+            continue
+        analyze_subject(s,config,study)
 
-        if commands:
-            logger.debug("queueing up the following commands:\n"+'\n'.join(commands))
-            for i, cmd in enumerate(commands):
-                jobname = "dm_ea_{}_{}".format(i, time.strftime("%Y%m%d-%H%M%S"))
-                jobfile = '/tmp/{}'.format(jobname)
-                logfile = '/tmp/{}.log'.format(jobname)
-                errfile = '/tmp/{}.err'.format(jobname)
 
-                with open(jobfile, 'wb') as fid:
-                    fid.write('#!/bin/bash\n')
-                    fid.write(cmd)
 
-                rtn, out = utils.run('qsub -V -q main.q -o {} -e {} -N {} {}'.format(
-                    logfile, errfile, jobname, jobfile))
-                # qbacth method -- might bring it back, but not needed
-                #fd, path = tempfile.mkstemp()
-                #os.write(fd, '\n'.join(commands))
-                #os.close(fd)
-                #rtn, out, err = utils.run('qbatch -i --logdir {ld} -N {name} --walltime {wt} {cmds}'.format(ld=logdir, name=jobname, wt=walltime, cmds=path))
-                if rtn:
-                    logger.error("Job submission failed\nstdout: {}".format(out))
-                    sys.exit(1)
+
+                
+    
+#    if subject:
+#        if '_PHA_' in subject:
+#            logger.error("{} is a phantom, cannot analyze".format(subject))
+#            sys.exit(1)
+#        analyze_subject(subject, config, study)
+#
+#    else:
+#        # batch mode
+#        subjects = glob.glob('{}/*'.format(nii_dir))
+#        commands = []
+#
+#        if debug:
+#            opts = '--debug'
+#        else:
+#            opts = ''
+#
+#        for path in subjects:
+#            subject = os.path.basename(path)
+#            if check_complete(ea_dir, subject):
+#                logger.debug('{} already analysed'.format(subject))
+#            else:
+#                commands.append(" ".join([__file__, study, '--subject {}'.format(subject), opts]))
+#
+#        if commands:
+#            logger.debug("queueing up the following commands:\n"+'\n'.join(commands))
+#            for i, cmd in enumerate(commands):
+#                jobname = "dm_ea_{}_{}".format(i, time.strftime("%Y%m%d-%H%M%S"))
+#                jobfile = '/tmp/{}'.format(jobname)
+#                logfile = '/tmp/{}.log'.format(jobname)
+#                errfile = '/tmp/{}.err'.format(jobname)
+#
+#                with open(jobfile, 'wb') as fid:
+#                    fid.write('#!/bin/bash\n')
+#                    fid.write(cmd)
+#
+#                rtn, out = utils.run('qsub -V -q main.q -o {} -e {} -N {} {}'.format(
+#                    logfile, errfile, jobname, jobfile))
+#                # qbacth method -- might bring it back, but not needed
+#                #fd, path = tempfile.mkstemp()
+#                #os.write(fd, '\n'.join(commands))
+#                #os.close(fd)
+#                #rtn, out, err = utils.run('qbatch -i --logdir {ld} -N {name} --walltime {wt} {cmds}'.format(ld=logdir, name=jobname, wt=walltime, cmds=path))
+#                if rtn:
+#                    logger.error("Job submission failed\nstdout: {}".format(out))
+#                    sys.exit(1)
 
 if __name__=='__main__':
     main()
