@@ -14,54 +14,53 @@ Options:
      --showheaders       Just list all of the headers for each archive
 """
 
-import datman
 import datman.utils
-import pydicom
-import tarfile
-import zipfile
-import io
-import os.path
-import StringIO
 import pandas as pd
+from docopt import docopt
 
-default_headers=[
-    'StudyDescription',
-    'StudyID',
-    'PatientName',
-    'SeriesNumber',
-    'SeriesDescription']
+
+default_headers = [
+    "StudyDescription",
+    "StudyID",
+    "PatientName",
+    "SeriesNumber",
+    "SeriesDescription",
+]
+
 
 def main():
-    from docopt import docopt
-    import sys
+
     arguments = docopt(__doc__)
 
-    if arguments['--showheaders']:
-        for archive in arguments['<archive>']:
-            manifest = datman.utils.get_archive_headers(archive,
-                                                        stop_after_first=False)
+    if arguments["--showheaders"]:
+        for archive in arguments["<archive>"]:
+            manifest = datman.utils.get_archive_headers(archive, stop_after_first=False)
             filepath, headers = manifest.items()[0]
-            print ",".join([archive,filepath])
-            print "\t"+"\n\t".join(headers.dir())
+            print(",".join([archive, filepath]))
+            print("\t" + "\n\t".join(headers.dir()))
         return
 
-    headers = arguments['--headers'] and arguments['--headers'].split(',') or \
-                default_headers[:]
-    headers.insert(0,"Path")
+    headers = (
+        arguments["--headers"]
+        and arguments["--headers"].split(",")
+        or default_headers[:]
+    )
+    headers.insert(0, "Path")
 
     rows = []
-    for archive in arguments['<archive>']:
+    for archive in arguments["<archive>"]:
         manifest = datman.utils.get_archive_headers(archive)
-        sortedseries = sorted(manifest.iteritems(),
-                              key = lambda x: x[1].get('SeriesNumber'))
+        sortedseries = sorted(manifest.items(), key=lambda x: x[1].get("SeriesNumber"))
         for path, dataset in sortedseries:
-            row = dict([(header,dataset.get(header,"")) for header in headers])
-            row['Path'] = path
+            row = dict([(header, dataset.get(header, "")) for header in headers])
+            row["Path"] = path
             rows.append(row)
-            if arguments['--oneseries']: break
+            if arguments["--oneseries"]:
+                break
 
     data = pd.DataFrame(rows)
-    print data.to_csv(index=False)
+    print(data.to_csv(index=False))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
