@@ -68,17 +68,21 @@ def main():
                     else:
                         raise e
 
-def get_task_files(regex, resource_folder):
+def get_task_files(regex, resource_folder, ignore='.pdf|tech'):
     task_files = []
     for path, subdir, files in os.walk(resource_folder):
         if re.search(regex, path, re.IGNORECASE):
             for item in files:
+                if re.search(ignore, item, re.IGNORECASE):
+                    # Skip items matching the 'ignore' string
+                    continue
                 task_files.append(os.path.join(path, item))
             # move on to avoid adding a duplicate entry if a file name
             # also matches the regex
             continue
         for item in files:
-            if re.search(regex, item, re.IGNORECASE):
+            if re.search(regex, item, re.IGNORECASE) and not re.search(ignore,
+                    item, re.IGNORECASE):
                 task_files.append(os.path.join(path, item))
     return task_files
 
