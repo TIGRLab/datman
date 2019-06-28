@@ -513,12 +513,13 @@ def main():
             subject_dir = sub_id
             if scanid.is_phantom(subject_dir):
                 logger.info("File is phantom and will be ignored: {}".format(subject_dir))
-                sys.exit(1)
+                continue
 
             parsed = scanid.parse(subject_dir)
             if os.path.isdir(os.path.join(bids_dir, to_sub(parsed), to_ses(parsed.timepoint))) and not rewrite:
                 logger.warning('BIDS subject directory already exists. Exiting: {}'.format(subject_dir))
-                sys.exit(1)
+                continue
+
             type_folders = create_bids_dirs(bids_dir, parsed)
             sub_nii_dir = os.path.join(nii_dir,subject_dir) + '/'
             logger.info("Will now begin creating files in BIDS format for: {}".format(sub_nii_dir))
