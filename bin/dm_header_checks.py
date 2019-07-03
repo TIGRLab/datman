@@ -117,7 +117,7 @@ def handle_diff(value, expected, tolerance=None):
 
     close_enough = isclose(value, expected, atol=tolerance)
 
-    if type(close_enough) != bool_:
+    if type(close_enough) != bool:
         if all(close_enough):
             return {}
     elif close_enough:
