@@ -26,7 +26,7 @@ Options:
 import os
 import json
 
-from numpy import isclose, bool_
+from numpy import isclose
 from docopt import docopt
 
 def main():
@@ -115,7 +115,10 @@ def handle_diff(value, expected, tolerance=None):
     if not tolerance:
         return diffs
 
-    close_enough = isclose(value, expected, atol=tolerance)
+    try:
+        close_enough = isclose(value, expected, atol=tolerance)
+    except ValueError as e:
+        close_enough = False
 
     if type(close_enough) != bool:
         if all(close_enough):
