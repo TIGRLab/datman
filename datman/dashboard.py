@@ -285,7 +285,6 @@ def get_default_user():
                 "dashboard database".format(user))
     return user[0]
 
-
 # @dashboard_required
 # def get_scantype(scantype):
 #     if not dash_found:
