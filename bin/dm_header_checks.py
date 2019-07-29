@@ -22,7 +22,6 @@ Options:
                             that there will be a .bval file in the same dir
                             as the series (or gold standard) with the
                             same file name as the series (or gold standard)
-    --ignore-db             Disable attempts to update database
 """
 import os
 import json
@@ -38,7 +37,6 @@ def main():
     ignored_fields = args['--ignore']
     ignore_file = args['--ignore-file']
     tolerances = args['--tolerance']
-    ignore_db = args['--ignore-db']
     dti = args['--dti']
 
     if ignore_file:
@@ -55,12 +53,6 @@ def main():
 
     if output:
         write_diff_log(diffs, output)
-
-    if ignore_db:
-        return
-
-    # Will add later
-    # update_database(series_json, diffs)
 
 def parse_file(file_path):
     try:
@@ -123,7 +115,15 @@ def handle_diff(value, expected, tolerance=None):
     if not tolerance:
         return diffs
 
-    if isclose(value, expected, atol=tolerance):
+    try:
+        close_enough = isclose(value, expected, atol=tolerance)
+    except ValueError as e:
+        close_enough = False
+
+    if type(close_enough) != bool:
+        if all(close_enough):
+            return {}
+    elif close_enough:
         return {}
 
     diffs['tolerance'] = tolerance
@@ -153,9 +153,6 @@ def find_bvals(json_path):
 def write_diff_log(diffs, output_path):
     with open(output_path, 'w') as dest:
         json.dump(diffs, dest)
-
-# def update_database(series, diffs):
-#     return
 
 if __name__ == "__main__":
     main()

@@ -101,6 +101,20 @@ def filename_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+@dashboard_required
+def set_study_status(name, is_open):
+    studies = queries.get_study(name=name)
+    if not studies:
+        raise DashboardException("ID {} contains invalid study / site "
+                "combination".format(name))
+    if len(studies) > 1:
+        raise DashboardException("Can't identify study for {}. {} matching "
+                "records found for the given study name".format(name,
+                len(studies)))
+    study = studies[0]
+    study.is_open = is_open
+    study.save()
+
 
 @dashboard_required
 @scanid_required
@@ -270,7 +284,6 @@ def get_default_user():
         raise DashboardException("Can't locate default user {} in "
                 "dashboard database".format(user))
     return user[0]
-
 
 # @dashboard_required
 # def get_scantype(scantype):
