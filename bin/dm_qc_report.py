@@ -343,7 +343,7 @@ def new_subject(subject_id, config):
     if html_page:
         return False
 
-    if subject.is_phantom and len(os.listdir(subject.qc_dir)) > 0:
+    if subject.is_phantom and len(os.listdir(subject.qc_path)) > 0:
         return False
 
     return True
