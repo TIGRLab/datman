@@ -322,6 +322,8 @@ def qc_all_scans(config):
             command = make_qc_command(subject, config.study_name)
         elif new_session(subject):
             command = make_qc_command(subject, config.study_name, rewrite=True)
+        else:
+            continue
         job_name = "qc_report_{}_{}_{}".format(time.strftime("%Y%m%d"),
                 random_str(5), i)
         datman.utils.submit_job(command, job_name, "/tmp", system=config.system)
