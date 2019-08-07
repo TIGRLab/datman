@@ -957,6 +957,7 @@ def prepare_scan(subject_id, config):
     from needed directories and ensures that if needed input directories do
     not exist that the program exits.
     """
+    global REWRITE
     try:
         subject = datman.scan.Scan(subject_id, config)
     except datman.scanid.ParseException as e:
@@ -964,7 +965,7 @@ def prepare_scan(subject_id, config):
         sys.exit(1)
 
     if new_session(subject_id):
-        global REWRITE = True
+        REWRITE = True
     verify_input_paths([subject.nii_path])
 
     qc_dir = datman.utils.define_folder(subject.qc_path)
