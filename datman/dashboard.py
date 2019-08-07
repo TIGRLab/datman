@@ -121,12 +121,8 @@ def set_study_status(name, is_open):
 def get_subject(name, create=False):
     found = queries.get_session(name.get_full_subjectid_with_timepoint(),
             datman.scanid.get_session_num(name))
-    if len(found) > 1:
-        raise DashboardException("Couldnt identify record for {}. {} matching "
-            "records found".format(name, len(found)))
-    if len(found) == 1:
-        return found[0]
-
+    if found:
+        return found
     if create:
         return add_subject(name)
 
