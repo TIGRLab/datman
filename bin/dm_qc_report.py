@@ -287,7 +287,7 @@ def dti_qc(filename, qc_dir, report):
             title='bvec directions')
 
 
-def make_qc_command(subject_id, study):
+def make_qc_command(subject_id, study, rewrite=False):
     arguments = docopt(__doc__)
     use_server = arguments['--log-to-server']
     verbose = arguments['--verbose']
@@ -303,7 +303,7 @@ def make_qc_command(subject_id, study):
     if use_server:
         command = " ".join([command, '--log-to-server'])
 
-    if REWRITE:
+    if REWRITE or rewrite:
         command = command + ' --rewrite'
 
     return command
@@ -315,39 +315,38 @@ def qc_all_scans(config):
     one at a time. This is currently needed because some of the phantom pipelines
     use expensive and limited software liscenses (i.e., MATLAB).
     """
-    new_subs = get_new_subjects(config)
+    subs = get_all_subjects(config)
 
-    for i, subject in enumerate(new_subs):
-        command = make_qc_command(subject, config.study_name)
+    for i, subject in enumerate(subs):
+        if REWRITE or new_subject(subject, config):
+            command = make_qc_command(subject, config.study_name)
+        elif new_session(subject):
+            command = make_qc_command(subject, config.study_name, rewrite=True)
+        else:
+            continue
         job_name = "qc_report_{}_{}_{}".format(time.strftime("%Y%m%d"),
                 random_str(5), i)
         datman.utils.submit_job(command, job_name, "/tmp", system=config.system)
 
-def get_new_subjects(config):
-    qc_dir = config.get_path('qc')
+def get_all_subjects(config):
     nii_dir = config.get_path('nii')
-
     subject_nii_dirs = glob.glob(os.path.join(nii_dir, '*'))
     all_subs = [os.path.basename(path) for path in subject_nii_dirs]
+    return all_subs
 
-    if REWRITE:
-        return all_subs
+def new_subject(subject_id, config):
+    subject = datman.scan.Scan(subject_id, config)
+    if not os.path.exists(subject.qc_path):
+        return True
 
-    # Finished subjects are those that have an html file in their qc output dir
-    html_pages = glob.glob(os.path.join(qc_dir, '*/*.html'))
-    subject_qc_dirs = [os.path.dirname(qc_path) for qc_path in html_pages]
-    finished_subs = [os.path.basename(path) for path in subject_qc_dirs]
+    html_page = glob.glob(os.path.join(subject.qc_path, '*.html'))
+    if html_page:
+        return False
 
-    # Finished phantoms are those that have a non-empty folder
-    # (so if qc outputs are missing, delete the folder to get it to re-run!)
-    qced_phantoms_paths = [subj for subj in glob.glob(os.path.join(qc_dir, '*_PHA_*'))
-            if len(os.listdir(subj)) > 0]
-    finished_phantoms = [os.path.basename(path) for path in qced_phantoms_paths]
+    if subject.is_phantom and len(os.listdir(subject.qc_path)) > 0:
+        return False
 
-    new_subs = filter(lambda sub: sub not in finished_subs, all_subs)
-    # also filter out the finished phantoms
-    new_subs = filter(lambda sub: sub not in finished_phantoms, new_subs)
-    return new_subs
+    return True
 
 def add_header_qc(nifti, qc_html, header_diffs):
     """
@@ -933,27 +932,26 @@ def verify_input_paths(path_list):
                 "{}".format("\n".join(broken_paths)))
         sys.exit(1)
 
-def check_for_repeat_session(subject):
+def new_session(subject):
     """
-    Will modify the REWRITE flag, causing a page to be regenerated, if new
-    data from a repeat session has been added since the page was originally
-    created.
+    Detects if a repeat has been pulled in since the QC page was originally
+    generated.
 
     WARNING: If it cannot find the dashboard/database pages will not be updated
     to add the new session(s)
     """
-    global REWRITE
 
-    db_subject = datman.dashboard.get_subject(subject.full_id)
+    db_subject = datman.dashboard.get_subject(subject)
 
-    # will be None if entry doesn't exist in dashboard or dashboard isnt setup
+    # If dashboard cant be found it cant detect repeats, return false
     if not db_subject:
         logger.warning('Cannot find subject {} in dashboard database. They may '
                 'be missing, or database may be inaccessible.'.format(subject))
-        return
+        return False
 
     if db_subject.last_qc_repeat_generated < len(db_subject.sessions):
-        REWRITE = True
+        return True
+    return False
 
 def prepare_scan(subject_id, config):
     """
@@ -961,13 +959,15 @@ def prepare_scan(subject_id, config):
     from needed directories and ensures that if needed input directories do
     not exist that the program exits.
     """
+    global REWRITE
     try:
         subject = datman.scan.Scan(subject_id, config)
     except datman.scanid.ParseException as e:
         logger.error(e, exc_info=True)
         sys.exit(1)
 
-    check_for_repeat_session(subject)
+    if new_session(subject_id):
+        REWRITE = True
     verify_input_paths([subject.nii_path])
 
     qc_dir = datman.utils.define_folder(subject.qc_path)
