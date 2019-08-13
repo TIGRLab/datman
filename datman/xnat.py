@@ -643,6 +643,44 @@ class xnat(object):
             raise XnatException('Failed deleting resource with url:{}'
                                 .format(url))
 
+    def rename_session(self, project, old_name, new_name, rename_exp=True):
+        """
+        Will rename an existing XNAT session (given as 'old_name') to
+        the given new_name. Set 'rename_exp' to False to prevent the experiment
+        name from also being set to this new name.
+        """
+        session = self.get_session(project, old_name)
+        if not session:
+            raise XnatException("Can't rename session {}, doesnt "
+                    "exist.".format(old_name))
+
+        url = "{}/data/archive/projects/{}/subjects/{}?xsiType=" \
+                "xnat:mrSessionData&label={}".format(self.server, project,
+                old_name, new_name)
+        try:
+            self._make_xnat_put(url)
+        except requests.HTTPError as e:
+            if e.response.status_code == 409:
+                raise XnatException("Can't rename {} to {} - session "
+                    "already exists".format(old_name, new_name))
+            raise e
+
+        if not rename_exp:
+            return
+        # Verify that exactly one experiment exists and get its name (in
+        # case it differs from subject)
+        experiments = self.get_experiments(project, new_name)
+        if len(experiments) != 1:
+            raise XnatException("{} experiment(s) exist for {}, "
+                "cant rename data to {}".format(len(experiments), old_name,
+                new_name))
+        old_name = experiments[0]['label']
+        url = "{}/data/archive/projects/{}/subjects/{}" \
+                "/experiments/{}?xsiType=" \
+                "xnat:mrSessionData&label={}".format(self.server, project,
+                old_name, old_name, new_name)
+        self._make_xnat_put(url)
+
     def _get_xnat_stream(self, url, filename, retries=3, timeout=120):
         logger.debug('Getting {} from XNAT'.format(url))
         try:
