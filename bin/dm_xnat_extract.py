@@ -300,7 +300,7 @@ def set_date(session, experiment):
     try:
         date = experiment['data_fields']['date']
     except KeyError:
-        logger.error("No scanning date found for {}, leaving blank.".format(
+        logger.debug("No scanning date found for {}, leaving blank.".format(
                 session))
         return
 

@@ -74,6 +74,8 @@ def construct_diffs(series_json, standard_json, ignored_fields=None,
     if dti:
         bval_diffs = check_bvals(series_json, standard_json)
         if bval_diffs:
+            if isinstance(bval_diffs, str):
+                bval_diffs = {'error': bval_diffs}
             diffs['bvals'] = bval_diffs
 
     return diffs
