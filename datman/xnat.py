@@ -873,6 +873,7 @@ class Session(object):
 
         # Experiment attributes
         self.experiment = self._get_experiment()
+        self.experiment_date = self._get_experiment_date()
         self.experiment_label = self._get_experiment_label()
         self.experiment_UID = self._get_experiment_UID()
 
@@ -919,6 +920,15 @@ class Session(object):
         except KeyError:
             uid = ''
         return uid
+
+    def _get_experiment_date(self):
+        if not self.experiment:
+            return ''
+        try:
+            date = self.experiment['data_fields']['date']
+        except KeyError:
+            date = ''
+        return date
 
     def _get_experiment_contents(self, field):
         """

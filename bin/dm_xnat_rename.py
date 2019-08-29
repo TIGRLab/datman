@@ -44,9 +44,8 @@ def main():
         return
 
     names = read_sessions(name_path)
-    config = datman.config.config()
     for entry in names:
-        rename_xnat_session(xnat, names[0], names[1], config)
+        rename_xnat_session(xnat, names[0], names[1])
 
 def get_xnat(server, user, password):
     if not server:
@@ -69,18 +68,12 @@ def read_sessions(name_file):
         entries.append([field.strip() for field in fields])
     return entries
 
-def rename_xnat_session(xnat, current, new, config=None):
+def rename_xnat_session(xnat, current, new, project=None):
     """
     Returns True if rename is successful
     """
-    if not config:
-        config = datman.config.config()
-    try:
-        project = config.map_xnat_archive_to_project(current)
-    except Exception as e:
-        print("Can't find XNAT archive name for {}. Reason - {}".format(
-                current, e))
-        return False
+    if not project:
+        project = get_project(current)
     try:
         xnat.rename_session(project, current, new)
     except HTTPError as e:
@@ -89,15 +82,21 @@ def rename_xnat_session(xnat, current, new, config=None):
         # XNAT may say rename failed when it didnt because of 'autorun.xml'
         # pipeline getting stuck. Check if failure is real before reporting
         try:
-            session = xnat.get_session(study, new)
+            session = xnat.get_session(project, new)
         except:
             print("Can't verify name change from {} to {}. Probable "
                     "failure.".format(current, new))
-            return False
+            raise
         if session.name != new or session.experiment_label != new:
             raise e
 
-    return True
+def get_project(session):
+    config = datman.config.config()
+    try:
+        project = config.map_xnat_archive_to_project(session)
+    except Exception as e:
+        raise type(e)("Can't find XNAT archive name for {}. Reason - {}".format(
+                session, e))
 
 if __name__ == "__main__":
     main()
