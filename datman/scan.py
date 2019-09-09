@@ -70,6 +70,7 @@ class DatmanNamed(object):
         ident:      A datman.scanid.Identifier instance
     """
     def __init__(self, ident):
+        self._ident = ident
         self.full_id = ident.get_full_subjectid_with_timepoint()
         self.id_plus_session = ident.get_full_subjectid_with_timepoint_session()
         self.study = ident.study

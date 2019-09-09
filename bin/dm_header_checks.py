@@ -72,11 +72,7 @@ def construct_diffs(series_json, standard_json, ignored_fields=None,
             tolerance=tolerances)
 
     if dti:
-        bval_diffs = check_bvals(series_json, standard_json)
-        if bval_diffs:
-            if isinstance(bval_diffs, str):
-                bval_diffs = {'error': bval_diffs}
-            diffs['bvals'] = bval_diffs
+        diffs['bvals'] = check_bvals(series_json, standard_json)
 
     return diffs
 
@@ -136,7 +132,7 @@ def check_bvals(series_path, standard_path):
         series_bval = find_bvals(series_path)
         standard_bval = find_bvals(standard_path)
     except IOError as e:
-        return 'Error - {}'.format(e)
+        return {'error': '{}'.format(e)}
     if series_bval != standard_bval:
         return {'expected': standard_bval, 'actual': series_bval}
     return {}
