@@ -90,12 +90,12 @@ import pandas as pd
 import nibabel as nib
 from docopt import docopt
 
-import dm_header_checks as qc_headers
 import datman.config
 import datman.utils
 import datman.scanid
 import datman.scan
 import datman.dashboard
+from datman import header_checks
 
 logging.basicConfig(level=logging.WARN,
         format="[%(name)s] %(levelname)s: %(message)s")
@@ -780,45 +780,42 @@ def needs_bval_check(settings, series):
 
 def run_header_qc(subject, config):
     """
-    For each json file found in 'niftis' find the matching site / tag file in
-    'standards' and run dm_header_checks on these files. Differences are
-    returned in a dictionary that maps the scan name to a dictionary of
-    differences
+    For each nifti, finds its json file + compares it to the matching gold
+    standard. Differences are returned in a dictionary with one entry per scan
     """
     try:
-        ignored_headers = config.get_key('IgnoreHeaderFields', site=subject.site)
+        ignored_headers = config.get_key('IgnoreHeaderFields',
+                site=subject.site)
     except datman.config.UndefinedSetting:
         ignored_headers = []
     try:
-        header_tolerances = config.get_key('HeaderFieldTolerance', site=subject.site)
+        header_tolerances = config.get_key('HeaderFieldTolerance',
+                site=subject.site)
     except datman.config.UndefinedSetting:
         header_tolerances = {}
 
-    standard_dir = config.get_path('std')
-    standards_dict = get_standards(standard_dir, subject.site)
     tag_settings = config.get_tags(site=subject.site)
     header_diffs = {}
 
     if datman.dashboard.dash_found:
         db_session = datman.dashboard.get_session(subject._ident)
-        for series in db_session:
+        if not db_session:
+            logger.error("Can't find {} in dashboard database".format(subject))
+            return
+        for series in db_session.scans:
             if not series.active_gold_standard:
                 continue
-
             check_bvals = needs_bval_check(tag_settings, series)
-            gold_standard = series.active_gold_standard.json_contents
-            diffs = qc_headers.compare_headers(series.json_contents,
-                    gold_standard.json_contents,
-                    ignored_fields=ignored_headers,
-                    tolerances=header_tolerances)
-            if dti:
-                diffs['bvals'] = check_bvals(series.json_path,
-                        gold_standard.json_path)
-            header_diffs[scan_name] = diffs
-            series.update_header_diffs(diffs)
-
+            if not series.json_contents:
+                logger.error("No JSON found for {}".format(series))
+                continue
+            diffs = series.update_header_diffs(ignore=ignored_headers,
+                    tolerance=header_tolerances, bvals=check_bvals)
+            header_diffs[series.name] = diffs
         return header_diffs
 
+    standard_dir = config.get_path('std')
+    standards_dict = get_standards(standard_dir, subject.site)
     for series in subject.niftis:
         scan_name = get_scan_name(series)
         try:
@@ -838,7 +835,7 @@ def run_header_qc(subject, config):
 
         check_bvals = needs_bval_check(tag_settings, series)
 
-        diffs = qc_headers.construct_diffs(series_json, standard_json,
+        diffs = header_checks.construct_diffs(series_json, standard_json,
                 ignored_fields=ignored_headers, tolerances=header_tolerances,
                 dti=check_bvals)
         header_diffs[scan_name] = diffs
@@ -872,7 +869,7 @@ def qc_subject(subject, config):
     else:
         header_diffs = run_header_qc(subject, config)
         if  not os.path.isfile(header_diffs_log):
-            qc_headers.write_diff_log(header_diffs, header_diffs_log)
+            header_checks.write_diff_log(header_diffs, header_diffs_log)
 
     expected_files = find_expected_files(subject, config)
 
