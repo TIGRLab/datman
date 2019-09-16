@@ -68,6 +68,22 @@ def create_symlink(src, target_name, dest):
         except:
             logger.error('Unable to link to {}'.format(rel_path))
 
+def force_json_name(json_filename,sub_dir):
+    '''
+    dcm2niix adds a suffix if a nifti file already exists even though you just want the .json sidecar
+    Force name to match what is expected
+    '''
+
+    json_base = json_filename.split('.')[0]
+    candidate = [f for f in os.listdir(sub_dir) if (json_base in f) and ('.json' in f)][0]
+
+    if candidate != json_base:
+        logger.warning('dcm2niix added suffix!')
+        logger.warning('Should be {}'.format(json_filename))
+        logger.warning('Found {}'.format(candidate))
+        src = os.path.join(sub_dir,candidate)
+        dst = os.path.join(sub_dir,json_filename)
+        os.rename(src,dst)
 
 def create_json_sidecar(scan_filename, session_nii_dir, session_dcm_dir):
     json_filename = os.path.splitext(scan_filename)[0] + '.json'
@@ -82,6 +98,7 @@ def create_json_sidecar(scan_filename, session_nii_dir, session_dcm_dir):
                          .format(os.path.splitext(scan_filename)[0],
                                  session_nii_dir,
                                  os.path.join(session_dcm_dir, scan_filename)))
+        force_json_name(json_filename,session_nii_dir)
     except:
         logger.error('Unable to create JSON sidecar {}'.format(json_filename))
 
