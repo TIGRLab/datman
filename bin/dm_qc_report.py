@@ -179,7 +179,7 @@ def gather_input_req(nifti, pipeline):
             'dti'       :   ['qc-fbirn-dti',        basename + '.nii.gz', basename + '.bvec', basename + '.bval'],
             'qa_dti'    :   ['qa-dti',              basename + '.nii.gz', basename + '.bvec', basename + '.bval',
                 '--accel' if 'NO' in basename else ''],
-            'abcd_fmri' :   ['qc_abcd_fmri',        basename + '.nii.gz', dcm, basename + '.json']
+            'abcd_fmri' :   ['qc-abcd-fmri',        basename + '.nii.gz']
             }
 
     reqs = None
