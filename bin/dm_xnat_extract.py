@@ -864,7 +864,7 @@ def update_side_cars(output_dir, stem):
                 "Reason - {}".format(stem, e))
         return
     try:
-        scan.update_json(side_cars[0])
+        scan.add_json(side_cars[0])
     except Exception as e:
         logger.error("Failed to add JSON side car to dashboard record "
                 "for {}. Reason - {}".format(side_cars[0], e))
