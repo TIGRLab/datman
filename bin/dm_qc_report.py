@@ -95,7 +95,7 @@ import datman.utils
 import datman.scanid
 import datman.scan
 import datman.dashboard
-from datman import header_checks
+import datman.header_checks as header_checks
 
 logging.basicConfig(level=logging.WARN,
         format="[%(name)s] %(levelname)s: %(message)s")
@@ -809,9 +809,9 @@ def run_header_qc(subject, config):
             if not series.json_contents:
                 logger.error("No JSON found for {}".format(series))
                 continue
-            diffs = series.update_header_diffs(ignore=ignored_headers,
+            db_diffs = series.update_header_diffs(ignore=ignored_headers,
                     tolerance=header_tolerances, bvals=check_bvals)
-            header_diffs[series.name] = diffs
+            header_diffs[series.name] = db_diffs.diffs
         return header_diffs
 
     standard_dir = config.get_path('std')
