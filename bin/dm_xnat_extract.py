@@ -844,7 +844,30 @@ def export_nii_command(seriesdir, outputdir, stem, multiecho=False):
                 logger.debug("Moving dcm2niix output {} to {} has failed"
                              .format(f, outputdir))
                 continue
+        if dashboard.dash_found:
+            update_side_cars(outputdir, stem)
 
+def update_side_cars(output_dir, stem):
+    side_cars = glob(os.path.join(output_dir, stem + '*.json'))
+    if not side_cars:
+        logger.error("No JSONs found for {} couldn't update dashboard".format(
+                stem))
+        return
+    if len(side_cars) > 1:
+        logger.error("More than one JSON found for {}, could not update "
+                "dashboard".format(stem))
+        return
+    try:
+        scan = dashboard.get_scan(stem)
+    except Exception as e:
+        logger.error("Failed to retrieve dashboard record for {}. "
+                "Reason - {}".format(stem, e))
+        return
+    try:
+        scan.add_json(side_cars[0])
+    except Exception as e:
+        logger.error("Failed to add JSON side car to dashboard record "
+                "for {}. Reason - {}".format(side_cars[0], e))
 
 def export_nrrd_command(seriesdir, outputdir, stem, multiecho=False):
     """Converts a DICOM series to NRRD format"""
