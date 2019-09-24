@@ -811,7 +811,7 @@ def export_nii_command(seriesdir, outputdir, stem, multiecho=False):
     # convert into tempdir
     with datman.utils.make_temp_directory(prefix="dm_xnat_extract_") as tmpdir:
         datman.utils.run('dcm2niix -z y -b y -o {} {}'
-                         .format(tmpdir, seriesdir), DRYRUN)
+                        .format(tmpdir, seriesdir), DRYRUN)
         # move nii and accompanying files (BIDS, dirs, etc) from tmpdir/ to nii/
         for f in glob('{}/*'.format(tmpdir)):
             bn = os.path.basename(f)
