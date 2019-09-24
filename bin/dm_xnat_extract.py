@@ -852,14 +852,14 @@ def export_nii_command(seriesdir, outputdir, stem, multiecho=False):
 
 def get_scan_db_record(scan_name):
     try:
-        scan = dashboard.get_scan(stem)
+        scan = dashboard.get_scan(scan_name)
     except Exception as e:
         logger.error("Failed to retrieve dashboard record for {}. "
-                     "Reason - {}".format(stem, e))
+                     "Reason - {}".format(scan_name, e))
         return None
     return scan
 
-def update_side_cars(output_dir, stem, scan):
+def update_side_cars(output_dir, stem):
     side_cars = glob(os.path.join(output_dir, stem + '*.json'))
     if not side_cars:
         logger.error("No JSONs found for {} couldn't update dashboard".format(
@@ -878,7 +878,7 @@ def update_side_cars(output_dir, stem, scan):
         logger.error("Failed to add JSON side car to dashboard record "
                      "for {}. Reason - {}".format(side_cars[0], e))
 
-def report_issues(dest, stem, messages):
+def report_issues(dest, messages):
     # The only issue we care about currently is if files are missing
     if 'missing images' not in messages:
         return
@@ -889,7 +889,7 @@ def report_issues(dest, stem, messages):
         logger.error("Failed writing dcm2niix conversion errors to {}. Reason "
                      "- {} {}".format(dest, type(e).__name__, e))
     if dashboard.dash_found:
-        scan = get_scan_db_record(os.path.splitext(os.path.basename(stem))[0])
+        scan = get_scan_db_record(os.path.splitext(os.path.basename(dest))[0])
     if not scan:
         return
     scan.add_error(messages)
