@@ -810,8 +810,8 @@ def export_nii_command(seriesdir, outputdir, stem, multiecho=False):
 
     # convert into tempdir
     with datman.utils.make_temp_directory(prefix="dm_xnat_extract_") as tmpdir:
-        datman.utils.run('dcm2niix -z y -b y -o {} {}'
-                         .format(tmpdir, seriesdir), DRYRUN)
+        _, log_msgs = datman.utils.run('dcm2niix -z y -b y -o {} {}'
+                                       .format(tmpdir, seriesdir), DRYRUN)
         # move nii and accompanying files (BIDS, dirs, etc) from tmpdir/ to nii/
         for f in glob('{}/*'.format(tmpdir)):
             bn = os.path.basename(f)
@@ -844,7 +844,55 @@ def export_nii_command(seriesdir, outputdir, stem, multiecho=False):
                 logger.debug("Moving dcm2niix output {} to {} has failed"
                              .format(f, outputdir))
                 continue
+            error_log = os.path.join(outputdir, stem) + '.err'
+            report_issues(error_log, log_msgs)
 
+        if dashboard.dash_found:
+            update_side_cars(outputdir, stem)
+
+def get_scan_db_record(scan_name):
+    try:
+        scan = dashboard.get_scan(scan_name)
+    except Exception as e:
+        logger.error("Failed to retrieve dashboard record for {}. "
+                     "Reason - {}".format(scan_name, e))
+        return None
+    return scan
+
+def update_side_cars(output_dir, stem):
+    side_cars = glob(os.path.join(output_dir, stem + '*.json'))
+    if not side_cars:
+        logger.error("No JSONs found for {} couldn't update dashboard".format(
+                     stem))
+        return
+    if len(side_cars) > 1:
+        logger.error("More than one JSON found for {}, could not update "
+                     "dashboard".format(stem))
+        return
+    scan = get_scan_db_record(stem)
+    if not scan:
+        return
+    try:
+        scan.add_json(side_cars[0])
+    except Exception as e:
+        logger.error("Failed to add JSON side car to dashboard record "
+                     "for {}. Reason - {}".format(side_cars[0], e))
+
+def report_issues(dest, messages):
+    # The only issue we care about currently is if files are missing
+    if 'missing images' not in messages:
+        return
+    try:
+        with open(dest, "w") as output:
+            output.write(messages)
+    except Exception as e:
+        logger.error("Failed writing dcm2niix conversion errors to {}. Reason "
+                     "- {} {}".format(dest, type(e).__name__, e))
+    if dashboard.dash_found:
+        scan = get_scan_db_record(os.path.splitext(os.path.basename(dest))[0])
+    if not scan:
+        return
+    scan.add_error(messages)
 
 def export_nrrd_command(seriesdir, outputdir, stem, multiecho=False):
     """Converts a DICOM series to NRRD format"""

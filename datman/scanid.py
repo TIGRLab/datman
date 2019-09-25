@@ -78,7 +78,7 @@ class Identifier:
 
     def get_bids_name(self):
 
-        return 'sub-' + self.site + self.subject
+        return  self.site + self.subject
 
     def get_full_subjectid_with_timepoint(self):
         ident = self.get_full_subjectid()
