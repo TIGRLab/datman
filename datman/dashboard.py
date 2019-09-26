@@ -282,22 +282,6 @@ def get_default_user():
                 "dashboard database".format(user))
     return user[0]
 
-# @dashboard_required
-# def get_scantype(scantype):
-#     if not dash_found:
-#         return None
-    # 1. Just query the database for the tag and return?
-
-# @dashboard_required
-# def delete_subject(name):
-    # 1. Retrieve from database
-    # 2. Delete, report if attempting to delete non-existent?
-    # 3. Return True if delete, false otherwise
-
-# @dashboard_required
-# def add_redcap():
-    # 1. Makes a redcap record
-
 def _get_scan_name(ident, tag, series):
     name = "_".join([str(ident), tag, str(series)])
     return name
