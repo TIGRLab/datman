@@ -864,12 +864,9 @@ def qc_subject(subject, config):
         except:
             pass
 
-    if datman.dashboard.dash_found:
-        header_diffs = run_dashboard_header_qc(subject, config)
-    else:
-        header_diffs = run_header_qc(subject, config)
-        if  not os.path.isfile(header_diffs_log):
-            header_checks.write_diff_log(header_diffs, header_diffs_log)
+    header_diffs = run_header_qc(subject, config)
+    if  not os.path.isfile(header_diffs_log):
+        header_checks.write_diff_log(header_diffs, header_diffs_log)
 
     expected_files = find_expected_files(subject, config)
 
