@@ -118,7 +118,7 @@ def set_study_status(name, is_open):
 
 @dashboard_required
 @scanid_required
-def get_subject(name, create=False):
+def get_subject(name, create=False, study=None):
     found = queries.get_timepoint(name.get_full_subjectid_with_timepoint())
     if found:
         return found
@@ -128,6 +128,9 @@ def get_subject(name, create=False):
 
     return None
 
+@dashboard_required
+def get_bids_subject(bids_name, bids_session, study=None):
+    return queries.get_timepoint(bids_name, bids_session, study)
 
 @dashboard_required
 @scanid_required
@@ -223,6 +226,16 @@ def get_scan(name, tag=None, series=None, description=None, source_id=None,
 
     return None
 
+
+@dashboard_required
+def get_bids_scan(name):
+    scan = queries.get_scan(name, bids=True)
+    if len(scan) > 1:
+        raise DashboardException("Couldnt identify scan {}. {} matches "
+                "found".format(scan_name, len(scan)))
+    if len(scan) == 1:
+        return scan[0]
+    return None
 
 @dashboard_required
 @filename_required
