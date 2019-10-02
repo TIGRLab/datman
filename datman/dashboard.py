@@ -118,7 +118,7 @@ def set_study_status(name, is_open):
 
 @dashboard_required
 @scanid_required
-def get_subject(name, create=False, study=None):
+def get_subject(name, create=False):
     found = queries.get_timepoint(name.get_full_subjectid_with_timepoint())
     if found:
         return found
