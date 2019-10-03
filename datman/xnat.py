@@ -288,7 +288,7 @@ class xnat(object):
         try:
             result = self._make_xnat_query(url)
         except:
-            return XnatException('Failed getting scans with url:{}'
+            raise XnatException('Failed getting scans with url:{}'
                                  .format(url))
 
         if result is None:
@@ -312,7 +312,7 @@ class xnat(object):
         try:
             result = self._make_xnat_query(url)
         except:
-            return XnatException('Failed getting scan with url:{}'
+            raise XnatException('Failed getting scan with url:{}'
                                  .format(url))
 
         if result is None:
@@ -409,7 +409,7 @@ class xnat(object):
         try:
             result = self._make_xnat_xml_query(url)
         except:
-            return XnatException("Failed getting resources with url:"
+            raise XnatException("Failed getting resources with url:"
                                  .format(url))
         if result is None:
             raise XnatException('Experiment:{} not found for session:{}'
