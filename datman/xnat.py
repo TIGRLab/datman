@@ -915,8 +915,15 @@ class Session(object):
             for child in scan['children']:
                 if child['field'] != 'file':
                     continue
-                r_id = child['items'][0]['data_fields']['xnat_abstractresource_id']
-                resource_ids.append(str(r_id))
+                for item in child['items']:
+                    try:
+                        label = item['data_fields']['label']
+                    except KeyError:
+                        continue
+                    if label != 'DICOM':
+                        continue
+                    r_id = item['data_fields']['xnat_abstractresource_id']
+                    resource_ids.append(str(r_id))
         return resource_ids
 
     def _get_resource_IDs(self):
