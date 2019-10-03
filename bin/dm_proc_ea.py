@@ -653,19 +653,19 @@ def main():
     else:
         subjects=glob.glob('{}/*'.format(nii_dir))
 
-            
 
-    for s in subjects:
+
+    for subject in subjects:
         if '_PHA_' in subject:
-            logger.error("{} if a phantom, cannot analyze".format(s))
+            logger.error("{} if a phantom, cannot analyze".format(subject))
             continue
-        analyze_subject(s,config,study)
+        analyze_subject(subject,config,study)
 
 
 
 
-                
-    
+
+
 #    if subject:
 #        if '_PHA_' in subject:
 #            logger.error("{} is a phantom, cannot analyze".format(subject))
