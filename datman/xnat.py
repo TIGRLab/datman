@@ -288,7 +288,7 @@ class xnat(object):
         try:
             result = self._make_xnat_query(url)
         except:
-            return XnatException('Failed getting scans with url:{}'
+            raise XnatException('Failed getting scans with url:{}'
                                  .format(url))
 
         if result is None:
@@ -312,7 +312,7 @@ class xnat(object):
         try:
             result = self._make_xnat_query(url)
         except:
-            return XnatException('Failed getting scan with url:{}'
+            raise XnatException('Failed getting scan with url:{}'
                                  .format(url))
 
         if result is None:
@@ -409,7 +409,7 @@ class xnat(object):
         try:
             result = self._make_xnat_xml_query(url)
         except:
-            return XnatException("Failed getting resources with url:"
+            raise XnatException("Failed getting resources with url:"
                                  .format(url))
         if result is None:
             raise XnatException('Experiment:{} not found for session:{}'
@@ -915,8 +915,15 @@ class Session(object):
             for child in scan['children']:
                 if child['field'] != 'file':
                     continue
-                r_id = child['items'][0]['data_fields']['xnat_abstractresource_id']
-                resource_ids.append(str(r_id))
+                for item in child['items']:
+                    try:
+                        label = item['data_fields']['label']
+                    except KeyError:
+                        continue
+                    if label != 'DICOM':
+                        continue
+                    r_id = item['data_fields']['xnat_abstractresource_id']
+                    resource_ids.append(str(r_id))
         return resource_ids
 
     def _get_resource_IDs(self):
