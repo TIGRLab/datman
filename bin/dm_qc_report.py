@@ -807,7 +807,8 @@ def run_header_qc(subject, config):
                 continue
             check_bvals = needs_bval_check(tag_settings, series)
             if not series.json_contents:
-                logger.error("No JSON found for {}".format(series))
+                logger.debug("No JSON found for {}".format(series))
+                header_diffs[series.name] = {'error': 'JSON not found'}
                 continue
             db_diffs = series.update_header_diffs(ignore=ignored_headers,
                     tolerance=header_tolerances, bvals=check_bvals)
