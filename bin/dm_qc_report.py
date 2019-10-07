@@ -804,6 +804,7 @@ def run_header_qc(subject, config):
             return
         for series in db_session.scans:
             if not series.active_gold_standard:
+                header_diffs[scan_name] = {'error': 'Gold standard not found'}
                 continue
             check_bvals = needs_bval_check(tag_settings, series)
             if not series.json_contents:
