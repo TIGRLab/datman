@@ -98,6 +98,7 @@ def main():
     global cfg
     global DRYRUN
     global wanted_tags
+    global db_ignore
 
     arguments = docopt(__doc__)
     verbose = arguments['--verbose']
@@ -114,12 +115,45 @@ def main():
         DRYRUN = True
         db_ignore = True
 
-    # setup logging
+    configure_logging(study, quiet, verbose, debug)
+
+    cfg = datman.config.config(study=study)
+    # get the list of XNAT projects linked to the datman study
+    xnat_projects = cfg.get_xnat_projects(study)
+
+    # get base URL link to XNAT server, authentication info
+    server = datman.xnat.get_server(cfg, url=server)
+    username, password = datman.xnat.get_auth(username)
+
+    # initialize requests module object for XNAT REST API
+    xnat = datman.xnat.xnat(server, username, password)
+
+    if session:
+        datman.utils.validate_subject_id(session, cfg)
+        # if session has been provided on the command line, identify which
+        # xnat project it is in
+        xnat_project = xnat.find_session(session, xnat_projects)
+
+        if not xnat_project:
+            logger.error("Failed to find session {} in XNAT. Ensure it is "
+                         "named correctly with timepoint and repeat."
+                         .format(session))
+            return
+
+        sessions = [(xnat_project, session)]
+    else:
+        sessions = collect_sessions(xnat_projects, cfg)
+
+    logger.info("Found {} sessions for study: {}"
+                .format(len(sessions), study))
+
+    for session in sessions:
+        process_session(session)
+
+def configure_logging(study, quiet=None, verbose=None, debug=None):
     ch = logging.StreamHandler(sys.stdout)
 
-    # setup log levels
     log_level = logging.WARNING
-
     if quiet:
         log_level = logging.ERROR
     if verbose:
@@ -135,50 +169,9 @@ def main():
                                   .format(study=study))
 
     ch.setFormatter(formatter)
-
     logger.addHandler(ch)
     logging.getLogger('datman.utils').addHandler(ch)
     logging.getLogger('datman.dashboard').addHandler(ch)
-
-    # setup the config object
-    logger.info("Loading config")
-
-    cfg = datman.config.config(study=study)
-
-    # get base URL link to XNAT server, authentication info
-    server = datman.xnat.get_server(cfg, url=server)
-    username, password = datman.xnat.get_auth(username)
-
-    # initialize requests module object for XNAT REST API
-    xnat = datman.xnat.xnat(server, username, password)
-
-    # get the list of XNAT projects linked to the datman study
-    xnat_projects = cfg.get_xnat_projects(study)
-
-    if session:
-        # if session has been provided on the command line, identify which
-        # project it is in
-        try:
-            xnat_project = xnat.find_session(session, xnat_projects)
-        except datman.exceptions.XnatException as e:
-            raise e
-
-        if not xnat_project:
-            logger.error("Failed to find session: {} in XNAT. "
-                         "Ensure it is named correctly with timepoint and repeat."
-                         .format(session))
-            return
-
-        sessions = [(xnat_project, session)]
-    else:
-        sessions = collect_sessions(xnat_projects, cfg)
-
-    logger.info("Found {} sessions for study: {}"
-                .format(len(sessions), study))
-
-    for session in sessions:
-        process_session(session)
-
 
 def collect_sessions(xnat_projects, config):
     sessions = []
@@ -196,7 +189,8 @@ def collect_sessions(xnat_projects, config):
                              .format(session['label'], project, str(e)))
                 continue
 
-            if not datman.scanid.is_phantom(session['label']) and sub_id.session is None:
+            if (not datman.scanid.is_phantom(session['label'])
+                and sub_id.session is None):
                 logger.error("Invalid ID {} in project {}. Reason: Not a "
                              "phantom, but missing series number"
                              .format(session['label'], project))
@@ -220,41 +214,12 @@ def process_session(session):
         logger.error("Invalid session: {}. Skipping".format(session_label))
         return
 
-    # check that the session is valid on XNAT
     try:
-        xnat.get_session(xnat_project, session_label)
+        experiment_label = get_experiment_label(xnat_project, session_label)
     except Exception as e:
-        logger.error("Error while getting session {} from XNAT. "
-                     "Message: {}".format(session_label, e.message))
+        logger.error("Can't process session {}. {}{}".format(session_label,
+                type(e), e))
         return
-
-    # look into XNAT project and get list of experiments
-    try:
-        experiments = xnat.get_experiments(xnat_project, session_label)
-    except Exception as e:
-        logger.warning("Failed getting experiments for: {} in project: {} "
-                       "with reason: {}"
-                       .format(session_label, xnat_project, e))
-        return
-
-    # we expect exactly 1 experiment per session
-    if len(experiments) > 1:
-        logger.error("Found more than one experiment for session: {} "
-                     "in study: {}. Skipping"
-                     .format(session_label, xnat_project))
-        return
-
-    if not experiments:
-        logger.error("Session: {} in study: {} has no experiments"
-                     .format(session_label, xnat_project))
-        return
-
-    experiment_label = experiments[0]['label']
-
-    # experiment_label should be the same as the session_label
-    if not experiment_label == session_label:
-        logger.warning("Experiment label: {} doesn't match session label: {}"
-                       .format(experiment_label, session_label))
 
     # retrieve json table from project --> session --> experiment
     try:
@@ -285,16 +250,45 @@ def process_session(session):
     # project --> session --> experiments
     for data in experiment['children']:
         if data['field'] == 'resources/resource':
-            process_resources(xnat_project, session_label, experiment_label, data)
+            process_resources(xnat_project, session_label, experiment_label,
+                              data)
         elif data['field'] == 'scans/scan':
-            process_scans(ident, xnat_project, session_label, experiment_label, data)
+            process_scans(ident, xnat_project, session_label, experiment_label,
+                          data)
         else:
-            logger.warning("Unrecognised field type: {} for experiment: {} "
-                           "in session: {} from study: {}"
+            logger.warning("Unrecognised field type {} for experiment {} "
+                           "in session {} from study {}"
                            .format(data['field'],
                                    experiment_label,
                                    session_label,
                                    xnat_project))
+
+
+def get_experiment_label(xnat_project, session_label):
+    try:
+        experiments = xnat.get_experiments(xnat_project, session_label)
+    except Exception as e:
+        raise datman.exceptions.XnatException("Failed getting experiments for "
+                "{} in project {}. Reason: {}".format(session_label,
+                xnat_project, e))
+
+    if len(experiments) > 1:
+        raise datman.exceptions.XnatException("Found more than one experiment "
+                "for session {} in study {}. ".format(session_label,
+                xnat_project))
+
+    if not experiments:
+        raise datman.exceptions.XnatException("Session {} in study {} has no "
+                "experiments".format(session_label, xnat_project))
+
+    experiment_label = experiments[0]['label']
+
+    if not experiment_label == session_label:
+        logger.warning("Experiment label {} doesn't match session label {}"
+                       .format(experiment_label, session_label))
+
+    return experiment_label
+
 
 def set_date(session, experiment):
     try:
@@ -430,35 +424,31 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
     Scans is the json output from XNAT query representing scans
     in an experiment
     """
-    logger.info("Processing scans in session: {}"
-                .format(session_label))
+    logger.info("Processing scans in session {}".format(session_label))
 
     # load the export info from the site config files
     tags = cfg.get_tags(site=ident.site)
-    exportinfo = tags.series_map
 
-    if not exportinfo:
-        logger.error("Failed to get exportinfo for study: {} at site: {}"
+    if not tags.series_map:
+        logger.error("Failed to get export info for study {} at site {}"
                      .format(cfg.study_name, ident.site))
         return
 
     for scan in scans['items']:
         series_id = scan['data_fields']['ID']
-        scan_info = xnat.get_scan_info(xnat_project,
-                                       session_label,
-                                       experiment_label,
-                                       series_id)
 
-        valid_dicoms = check_valid_dicoms(scan_info, series_id, session_label)
-        if not valid_dicoms:
+        if not raw_dicoms_exist(scan):
+            logger.warning("Skipping series {} for session {}. No RAW dicoms "
+                           "exist".format(series_id, session_label))
             continue
 
-        derived = is_derived(scan_info, series_id, session_label)
-        if derived:
+        if is_derived(scan):
+            logger.warning("Series {} in session {} is a derived scan. "
+                           "Skipping.".format(series_id, session_label))
             continue
 
-        file_stem, tag, multiecho = create_scan_name(exportinfo,
-                                                     scan_info,
+        file_stem, tag, multiecho = create_scan_name(tags.series_map,
+                                                     scan,
                                                      session_label)
         if not file_stem:
             continue
@@ -467,23 +457,23 @@ def process_scans(ident, xnat_project, session_label, experiment_label, scans):
             for stem, t in zip(file_stem, tag):
                 if wanted_tags and (t not in wanted_tags):
                     continue
-                export_formats = process_scan(ident, stem, tags, t)
+                export_formats = get_export_formats(ident, stem, tags, t)
                 if export_formats:
                     get_scans(ident, xnat_project, session_label, experiment_label,
                               series_id, export_formats, file_stem, multiecho)
+            continue
 
-        else:
-            file_stem = file_stem[0]
-            tag = tag[0]
-            if wanted_tags and (tag not in wanted_tags):
-                continue
-            export_formats = process_scan(ident, file_stem, tags, tag)
-            if export_formats:
-                get_scans(ident, xnat_project, session_label, experiment_label,
-                          series_id, export_formats, file_stem, multiecho)
+        file_stem = file_stem[0]
+        tag = tag[0]
+        if wanted_tags and (tag not in wanted_tags):
+            continue
+        export_formats = get_export_formats(ident, file_stem, tags, tag)
+        if export_formats:
+            get_scans(ident, xnat_project, session_label, experiment_label,
+                      series_id, export_formats, file_stem, multiecho)
 
 
-def process_scan(ident, file_stem, tags, tag):
+def get_export_formats(ident, file_stem, tags, tag):
     if not db_ignore:
         logger.info("Adding scan {} to dashboard".format(file_stem))
         try:
@@ -519,7 +509,7 @@ def process_scan(ident, file_stem, tags, tag):
     return export_formats
 
 
-def create_scan_name(exportinfo, scan_info, session_label):
+def create_scan_name(series_map, scan_info, session_label):
     """Creates name suitable for a scan including the tags"""
     try:
         series_id = scan_info['data_fields']['ID']
@@ -542,7 +532,7 @@ def create_scan_name(exportinfo, scan_info, session_label):
 
     multiecho = is_multiecho(scan_info)
 
-    tag = guess_tag(exportinfo, scan_info, description, multiecho)
+    tag = guess_tag(series_map, scan_info, description, multiecho)
 
     if not tag:
         logger.warning("No matching export pattern for {}, "
@@ -555,9 +545,10 @@ def create_scan_name(exportinfo, scan_info, session_label):
                                                   description, tag))
         return None, None, None
 
-    file_stem = ['_'.join([session_label, t, padded_series, mangled_descr]) for t in tag]
+    file_stem = ['_'.join([session_label, t, padded_series, mangled_descr])
+                 for t in tag]
 
-    return(file_stem, tag, multiecho)
+    return file_stem, tag, multiecho
 
 
 def mangle(string):
@@ -574,11 +565,10 @@ def mangle(string):
 
 
 def is_multiecho(scan_info):
-    multiecho = False
-    if 'name' in scan_info['children'][0]['items'][0]['data_fields'].keys():
-        if 'MultiEcho' in scan_info['children'][0]['items'][0]['data_fields']['name']:
-            multiecho = True
-    return multiecho
+    name = scan_info['children'][0]['items'][0]['data_fields'].get('name')
+    if name and 'MultiEcho' in name:
+        return True
+    return False
 
 
 def guess_tag(exportinfo, scan_info, description, multiecho):
@@ -589,63 +579,56 @@ def guess_tag(exportinfo, scan_info, description, multiecho):
             description_regex = '|'.join(description_regex)
         if re.search(description_regex, description, re.IGNORECASE):
             matches.append(tag)
+
     if len(matches) == 1:
         return matches
     elif len(matches) == 2 and multiecho:
         return matches
-    else:
-        # field maps might require more information like image type
-        # to distinguish between magnitude, phase and phasediff scans
-        try:
-            image_type = scan_info['data_fields']['parameters/imageType']
-            for tag, p in exportinfo.iteritems():
-                if tag in matches:
-                    if not re.search(p['ImageType'], image_type):
-                        matches.remove(tag)
-            if len(matches) == 1:
-                return matches
-            elif len(matches) == 2 and multiecho:
-                return matches
-            else:
-                return None
-        except:
-            return None
+
+    return guess_fmap_tag(exportinfo, scan_info, multiecho, matches)
 
 
-def check_valid_dicoms(scan_info, series_id, session_label):
+def guess_fmap_tag(exportinfo, scan_info, multiecho, matches):
+    # field maps might require more information like image type
+    # to distinguish between magnitude, phase and phasediff scans
+    try:
+        image_type = scan_info['data_fields']['parameters/imageType']
+        for tag, p in exportinfo.iteritems():
+            if tag in matches:
+                if not re.search(p['ImageType'], image_type):
+                    matches.remove(tag)
+    except:
+        return None
+
+    if len(matches) == 1:
+        return matches
+    elif len(matches) == 2 and multiecho:
+        return matches
+    return None
+
+
+def raw_dicoms_exist(scan_info):
     # check if the series contains valid dicom files
     # this is to exclude the secondary dicoms generated by some scanners
-    content_types = []
-
     # check if RAW (indicating DICOM) is a file type, if not skip
     for scan_info_child in scan_info['children']:
         for scan_info_child_item in scan_info_child['items']:
             if 'content' in scan_info_child_item['data_fields']:
                 file_type = scan_info_child_item['data_fields']['content']
                 if file_type == 'RAW':
-                    content_types.append(file_type)
-
-    if not content_types:
-        logger.warning("No RAW dicom data found in series: {} session: {}"
-                       .format(series_id, session_label))
-        return None
-    return content_types
+                    return True
+    return False
 
 
-def is_derived(scan_info, series_id, session_label):
+def is_derived(scan_info):
     try:
         image_type = scan_info['data_fields']['parameters/imageType']
     except:
-        logger.warning("Image type for series: {} in session: {} could not be found. Skipping"
-                       .format(series_id, session_label))
-        return
+        logger.warning("Image type could not be found. Assuming it's derived.")
+        return True
     if 'DERIVED' in image_type:
-        derived = True
-        logger.warning("Series: {} in session: {} is a derived scan. Skipping"
-                       .format(series_id, session_label))
-    else:
-        derived = False
-    return derived
+        return True
+    return False
 
 
 def series_is_processed(ident, file_stem, export_formats):
@@ -664,7 +647,7 @@ def series_is_processed(ident, file_stem, export_formats):
 
 
 def get_scans(ident, xnat_project, session_label, experiment_label, series_id,
-        export_formats, file_stem, multiecho):
+              export_formats, file_stem, multiecho):
     logger.info("Getting scan from XNAT")
 
     # setup the export functions for each format
@@ -680,7 +663,7 @@ def get_scans(ident, xnat_project, session_label, experiment_label, series_id,
                                               temp_dir)
 
         if not src_dir:
-            logger.error("Failed getting series: {}, session: {} from XNAT"
+            logger.error("Failed getting series {} for session {} from XNAT"
                          .format(series_id, session_label))
             return
 
@@ -698,15 +681,14 @@ def get_scans(ident, xnat_project, session_label, experiment_label, series_id,
             try:
                 exporter = xporters[export_format]
             except KeyError:
-                logger.error("Export format {} not defined".format(export_format))
+                logger.error("Export format {} not defined".format(
+                             export_format))
 
             logger.info('Exporting scan {} to format {}'.format(file_stem,
                                                                 export_format))
             try:
                 exporter(src_dir, target_dir, file_stem, multiecho)
             except:
-                # The conversion functions dont really ever raise exceptions
-                # even when they fail so this is a bit useless
                 logger.error("An error happened exporting {} from scan: {} "
                              "in session: {}".format(export_format, series_id,
                                                      session_label))
@@ -838,17 +820,16 @@ def export_nii_command(seriesdir, outputdir, stem, multiecho=False):
                              .format(outputfile))
                 continue
 
-            return_code, _ = datman.utils.run("mv {} {}/{}{}"
-                                              .format(f, outputdir, stem, ext), DRYRUN)
+            return_code, _ = datman.utils.run("mv {} {}"
+                                              .format(f, outputfile), DRYRUN)
+            if ext == '.json' and dashboard.dash_found:
+                update_side_cars(outputfile)
             if return_code:
                 logger.debug("Moving dcm2niix output {} to {} has failed"
                              .format(f, outputdir))
                 continue
             error_log = os.path.join(outputdir, stem) + '.err'
             report_issues(error_log, log_msgs)
-
-        if dashboard.dash_found:
-            update_side_cars(outputdir, stem)
 
 def get_scan_db_record(scan_name):
     try:
@@ -859,24 +840,15 @@ def get_scan_db_record(scan_name):
         return None
     return scan
 
-def update_side_cars(output_dir, stem):
-    side_cars = glob(os.path.join(output_dir, stem + '*.json'))
-    if not side_cars:
-        logger.error("No JSONs found for {} couldn't update dashboard".format(
-                     stem))
-        return
-    if len(side_cars) > 1:
-        logger.error("More than one JSON found for {}, could not update "
-                     "dashboard".format(stem))
-        return
-    scan = get_scan_db_record(stem)
+def update_side_cars(side_car):
+    scan = get_scan_db_record(side_car)
     if not scan:
         return
     try:
-        scan.add_json(side_cars[0])
+        scan.add_json(side_car)
     except Exception as e:
         logger.error("Failed to add JSON side car to dashboard record "
-                     "for {}. Reason - {}".format(side_cars[0], e))
+                     "for {}. Reason - {}".format(side_car, e))
 
 def report_issues(dest, messages):
     # The only issue we care about currently is if files are missing
