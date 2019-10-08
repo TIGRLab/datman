@@ -1047,3 +1047,42 @@ class Session(object):
         xnat._get_xnat_stream(url, output_path)
 
         return output_path
+
+class XNATScan(object):
+
+    def __init__(self, scan_json):
+        self.raw_json = scan_json
+        self.multiecho = self.is_multiecho()
+        self.series = scan_json['data_fields']['ID']
+        self.description = self.set_description()
+        self.image_type = scan_info['data_fields'].get('parameters/imageType')
+
+    def is_multiecho(self):
+        name = self.raw_json['children'][0]['items'][0]['data_fields'].get('name')
+        if name and 'MultiEcho' in name:
+            return True
+        return False
+
+    def set_description(self):
+        if 'series_description' in scan_info['data_fields'].keys():
+            return scan_info['data_fields']['series_description']
+        elif 'type' in scan_info['data_fields'].keys():
+            return scan_info['data_fields']['type']
+        return None
+
+    def raw_dicoms_exist(self):
+        for child in self.raw_json['children']:
+            for item in child['items']:
+                file_type = item['data_fields'].get('content')
+                if file_type == 'RAW':
+                    return True
+        return False
+
+    def is_derived(self):
+        if not self.image_type:
+            logger.warning("Image type could not be found for series {}. "
+                           "Assuming it's derived.".format(self.series))
+            return True
+        if 'DERIVED' in image_type:
+            return True
+        return False
