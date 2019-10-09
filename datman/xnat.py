@@ -7,8 +7,10 @@ import tempfile
 import os
 import urllib
 import getpass
-from datman.exceptions import XnatException
+import re
 from xml.etree import ElementTree
+
+from datman.exceptions import XnatException, ExportException
 
 logger = logging.getLogger(__name__)
 
@@ -902,17 +904,19 @@ class Session(object):
         if not scans:
             logger.debug("No scans found for session {}".format(self.name))
             return scans
-        return scans[0]
+        xnat_scans = []
+        for scan_json in scans[0]:
+            xnat_scans.append(XNATScan(self.name, scan_json))
+        return xnat_scans
 
     def _get_scan_UIDs(self):
-        scan_uids = [str(scan['data_fields']['UID']) for scan in self.scans]
-        return scan_uids
+        return [scan.uid for scan in self.scans]
 
     def _get_scan_rIDs(self):
         # These can be used to download a series from xnat
         resource_ids = []
         for scan in self.scans:
-            for child in scan['children']:
+            for child in scan.raw_json['children']:
                 if child['field'] != 'file':
                     continue
                 for item in child['items']:
@@ -953,7 +957,7 @@ class Session(object):
         """
         r_ids = []
         for scan in self.scans:
-            for child in scan['children']:
+            for child in scan.raw_json['children']:
                 for file_upload in child['items']:
                     data_fields = file_upload['data_fields']
                     try:
@@ -1048,27 +1052,35 @@ class Session(object):
 
         return output_path
 
+    def __str__(self):
+        return "<XNATSession {}>".format(self.name)
+
+    def __repr__(self):
+        return self.__str__()
+
 class XNATScan(object):
 
-    def __init__(self, scan_json):
+    def __init__(self, session_name, scan_json):
+        self.session = session_name
+        self.uid = str(scan_json['data_fields']['UID'])
         self.raw_json = scan_json
         self.multiecho = self.is_multiecho()
         self.series = scan_json['data_fields']['ID']
-        self.description = self.set_description()
-        self.image_type = scan_info['data_fields'].get('parameters/imageType')
+        self.description = self._set_description()
+        self.image_type = scan_json['data_fields'].get('parameters/imageType')
+
+    def _set_description(self):
+        if 'series_description' in self.raw_json['data_fields'].keys():
+            return self.raw_json['data_fields']['series_description']
+        elif 'type' in self.raw_json['data_fields'].keys():
+            return self.raw_json['data_fields']['type']
+        return None
 
     def is_multiecho(self):
         name = self.raw_json['children'][0]['items'][0]['data_fields'].get('name')
         if name and 'MultiEcho' in name:
             return True
         return False
-
-    def set_description(self):
-        if 'series_description' in scan_info['data_fields'].keys():
-            return scan_info['data_fields']['series_description']
-        elif 'type' in scan_info['data_fields'].keys():
-            return scan_info['data_fields']['type']
-        return None
 
     def raw_dicoms_exist(self):
         for child in self.raw_json['children']:
@@ -1086,3 +1098,53 @@ class XNATScan(object):
         if 'DERIVED' in image_type:
             return True
         return False
+
+    def set_tag(self, tag_map):
+        matches = []
+        for tag, pattern in tag_map.iteritems():
+            regex = pattern['SeriesDescription']
+            if isinstance(regex, list):
+                regex = '|'.join(regex)
+            if re.search(regex, self.description, re.IGNORECASE):
+                matches.append(tag)
+
+        if len(matches) == 1 or (len(matches) == 2 and self.multiecho):
+            self.tag = matches
+            return matches
+        return self._set_fmap_tag(tag_map, matches)
+
+    def _set_fmap_tag(self, tag_map, matches):
+        try:
+            for tag, pattern in tag_map.iteritems():
+                if tag in matches:
+                    if not re.search(pattern['ImageType'], self.image_type):
+                        matches.remove(tag)
+        except:
+            matches = []
+
+        if len(matches) > 2 or (len(matches) == 2 and not self.multiecho):
+            matches = []
+        self.tag = matches
+        return matches
+
+    def set_datman_name(self, tag_map):
+        mangled_descr = self._mangle_descr()
+        padded_series = self.series.zfill(2)
+        tags = self.set_tag(tag_map)
+        if not tags:
+            raise ExportException("Can't identify tag for series {}".format(
+                                  self.series))
+        self.name = ["_".join([self.session, tag, padded_series, mangled_descr])
+                     for tag in tags]
+        return self.name
+
+    def _mangle_descr(self):
+        if not self.description:
+            return ""
+        return re.sub(r"[^a-zA-Z0-9.+]+", "-", self.description)
+
+    def __str__(self):
+        return "<XNATScan {} - {}>".format(self.session, self.series)
+
+    def __repr__(self):
+        return self.__str__()
