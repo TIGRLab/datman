@@ -846,6 +846,7 @@ class Session(object):
         self.scan_resource_IDs = self._get_scan_rIDs()
 
         # Resource attributes
+        self.resource_files = self._get_experiment_contents('resources/resource')
         self.resource_IDs = self._get_resource_IDs()
 
         # Misc - basically just OPT CU1 needs this
@@ -906,7 +907,8 @@ class Session(object):
             return scans
         xnat_scans = []
         for scan_json in scans[0]:
-            xnat_scans.append(XNATScan(self.name, scan_json))
+            xnat_scans.append(XNATScan(self.name, self.experiment_label,
+                                       scan_json))
         return xnat_scans
 
     def _get_scan_UIDs(self):
@@ -931,16 +933,11 @@ class Session(object):
         return resource_ids
 
     def _get_resource_IDs(self):
-        resources = self._get_experiment_contents('resources/resource')
-
-        if not resources:
+        if not self.resource_files:
             return {}
 
-        # This is a dict because it was in Tom's code. May not need to be though...
-        # need to look at the code more closely to see if it's necessary or was
-        # a silly thing he did - Dawn 2018-04-11
         resource_ids = {}
-        for resource in resources[0]:
+        for resource in self.resource_files[0]:
             try:
                 label = resource['data_fields']['label']
             except KeyError:
@@ -1060,8 +1057,9 @@ class Session(object):
 
 class XNATScan(object):
 
-    def __init__(self, session_name, scan_json):
+    def __init__(self, session_name, experiment_name, scan_json):
         self.session = session_name
+        self.experiment = experiment_name
         self.uid = str(scan_json['data_fields']['UID'])
         self.raw_json = scan_json
         self.multiecho = self.is_multiecho()
@@ -1100,16 +1098,16 @@ class XNATScan(object):
         return False
 
     def set_tag(self, tag_map):
-        matches = []
+        matches = {}
         for tag, pattern in tag_map.iteritems():
             regex = pattern['SeriesDescription']
             if isinstance(regex, list):
                 regex = '|'.join(regex)
             if re.search(regex, self.description, re.IGNORECASE):
-                matches.append(tag)
+                matches[tag] = pattern
 
         if len(matches) == 1 or (len(matches) == 2 and self.multiecho):
-            self.tag = matches
+            self.tags = matches.keys()
             return matches
         return self._set_fmap_tag(tag_map, matches)
 
@@ -1118,25 +1116,34 @@ class XNATScan(object):
             for tag, pattern in tag_map.iteritems():
                 if tag in matches:
                     if not re.search(pattern['ImageType'], self.image_type):
-                        matches.remove(tag)
+                        del matches[tag]
         except:
-            matches = []
+            matches = {}
 
         if len(matches) > 2 or (len(matches) == 2 and not self.multiecho):
-            matches = []
-        self.tag = matches
+            matches = {}
+        self.tags = matches.keys()
         return matches
 
     def set_datman_name(self, tag_map):
         mangled_descr = self._mangle_descr()
         padded_series = self.series.zfill(2)
-        tags = self.set_tag(tag_map)
+        tag_settings = self.set_tag(tag_map)
         if not tags:
             raise ExportException("Can't identify tag for series {}".format(
                                   self.series))
-        self.name = ["_".join([self.session, tag, padded_series, mangled_descr])
-                     for tag in tags]
-        return self.name
+        names = []
+        self.echo_dict = {}
+        for tag in tag_settings:
+            name = "_".join([self.session, tag, padded_series, mangled_descr])
+            if self.multiecho:
+                echo_num = tag_settings[tag]['EchoNumber']
+                if echo_num not in self.echo_dict:
+                    self.echo_dict[echo_num] = name
+            names.append(name)
+
+        self.names = names
+        return names
 
     def _mangle_descr(self):
         if not self.description:
