@@ -908,7 +908,7 @@ class Session(object):
         xnat_scans = []
         for scan_json in scans[0]:
             xnat_scans.append(XNATScan(self.name, self.experiment_label,
-                                       scan_json))
+                                       self.project, scan_json))
         return xnat_scans
 
     def _get_scan_UIDs(self):
@@ -1057,7 +1057,8 @@ class Session(object):
 
 class XNATScan(object):
 
-    def __init__(self, session_name, experiment_name, scan_json):
+    def __init__(self, session_name, experiment_name, project_name, scan_json):
+        self.project = project_name
         self.session = session_name
         self.experiment = experiment_name
         self.uid = str(scan_json['data_fields']['UID'])
@@ -1093,7 +1094,7 @@ class XNATScan(object):
             logger.warning("Image type could not be found for series {}. "
                            "Assuming it's derived.".format(self.series))
             return True
-        if 'DERIVED' in image_type:
+        if 'DERIVED' in self.image_type:
             return True
         return False
 
@@ -1129,7 +1130,7 @@ class XNATScan(object):
         mangled_descr = self._mangle_descr()
         padded_series = self.series.zfill(2)
         tag_settings = self.set_tag(tag_map)
-        if not tags:
+        if not tag_settings:
             raise ExportException("Can't identify tag for series {}".format(
                                   self.series))
         names = []
