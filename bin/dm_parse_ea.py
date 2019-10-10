@@ -250,6 +250,7 @@ def main():
 
     combo['onset']=combo.onset/10000.0
     combo.duration=combo.duration/10000.0
+    combo = combo.sort_values(by=['onset', 'event_type']) #by sorting it makes the fill down accurate instead of mis-labeling (should possibly do this in a better way in future)
     combo.stim_file=combo.stim_file.ffill(axis=0)
 
     log_head, log_tail =os.path.split(log_file)
