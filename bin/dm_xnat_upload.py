@@ -252,6 +252,10 @@ def check_files_exist(archive, xnat_session):
         logger.error('Failed getting zip file headers for: {}'.format(archive))
         return False, False
 
+    if not local_headers:
+        resources_exist = resource_data_exists(xnat_session, archive)
+        return True, resources_exist
+
     if not xnat_session.scans:
         return False, False
 
