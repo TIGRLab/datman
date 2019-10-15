@@ -54,7 +54,7 @@ import datman.scanid as scanid
 import datman.scan as scan
 import datman.dashboard as dashboard
 
-from check_bids import BIDSEnforcer
+from datman.bids.check_bids import BIDSEnforcer
 
 #Set up logger
 logging.basicConfig(level=logging.WARN,
