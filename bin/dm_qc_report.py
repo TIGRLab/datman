@@ -639,11 +639,7 @@ def update_dashboard(subject, report_name, header_diffs):
     db_subject = datman.dashboard.get_subject(subject.full_id)
     if not db_subject:
         return
-    try:
-        db_subject.add_header_diffs(header_diffs)
-    except Exception as e:
-        logger.error("Failed to add header diffs for {} to dashboard database. "
-                "Reason: {}".format(subject.full_id, e))
+    
     db_subject.last_qc_repeat_generated = len(db_subject.sessions)
     db_subject.static_page = report_name
     db_subject.save()
