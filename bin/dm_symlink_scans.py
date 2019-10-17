@@ -53,7 +53,7 @@ def find_files(directory):
                     filename = os.path.join(root, basename)
                     yield filename
 
-                    
+
 def create_symlink(src, target_name, dest):
     datman.utils.define_folder(dest)
     target_path = os.path.join(dest, target_name)
@@ -102,6 +102,20 @@ def create_json_sidecar(scan_filename, session_nii_dir, session_dcm_dir):
     except:
         logger.error('Unable to create JSON sidecar {}'.format(json_filename))
 
+def get_series(file_name):
+    # need better way to get series number from nifti
+    return int(os.path.basename(file_name).split("_")[1][1:])
+
+def is_blacklisted(resource_file, session):
+    blacklist = datman.utils.read_blacklist(subject=session)
+    if not blacklist:
+        return False
+    series = get_series(resource_file)
+    for entry in blacklist:
+        bl_series = int(datman.scanid.parse_filename(entry)[2])
+        if series == bl_series:
+            return True
+    return False
 
 def main():
     arguments = docopt(__doc__)
@@ -161,7 +175,7 @@ def main():
         #     session_res_files.extend(
         #         glob(os.path.join(session_res_dir, extension), recursive=True)
         #     )
-        
+
         for filename in find_files(session_res_dir):
             session_res_files.append(filename)
 
@@ -179,13 +193,15 @@ def main():
             dcm_dict = {int(datman.scanid.parse_filename(dcm)[2]):
                         dcm for dcm in session_dcm_files}
             for f in session_res_files:
-                # need better way to get series number from nifti
-                series_num = int(os.path.basename(f).split("_")[1][1:])
+                series_num = get_series(f)
                 # try to get new nifti filename by matching series number
                 # in dictionary
                 try:
                     scan_filename = os.path.splitext(dcm_dict[series_num])[0]
                 except:
+                    if is_blacklisted(f, session_name):
+                        logger.info('Ignored blacklisted series {}'.format(f))
+                        continue
                     logger.error('Corresponding dcm file not found for {}'
                                  .format(f))
                     continue
@@ -196,7 +212,7 @@ def main():
                     create_json_sidecar(dcm_dict[series_num],
                                         session_nii_dir,
                                         session_dcm_dir)
-                    
+
                 create_symlink(f, nii_name, session_nii_dir)
 
 

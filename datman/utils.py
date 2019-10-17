@@ -43,7 +43,8 @@ def locate_metadata(filename, study=None, subject=None, config=None, path=None):
     return file_path
 
 
-def read_checklist(study=None, subject=None, config=None, path=None):
+def read_checklist(study=None, subject=None, config=None, path=None,
+                   bids_id=None, bids_ses=None, use_bids=False):
     """
     This function is used to look-up QC checklist entries. If the dashboard is
     found it will ONLY check the dashboard database, otherwise it expects a
@@ -51,10 +52,14 @@ def read_checklist(study=None, subject=None, config=None, path=None):
 
     This function can accept either:
         1) A study name (nickname, not the study tag) or subject ID (Including
-           a session number)
+           a session number and may use BIDS ID instead of datman ID)
         2) A datman config object, initialized to the study being worked with
         3) A full path directly to a checklist file (Will circumvent the
            dashboard database check and ignore any datman config files)
+
+    Set use_bids=True to return an entire study's checklist organized by BIDS
+    name instead of datman name. This option only works with dashboard
+    integration.
 
     Returns:
         - A dictionary of subject IDs mapped to their comment / name of the
@@ -63,10 +68,13 @@ def read_checklist(study=None, subject=None, config=None, path=None):
         - OR 'None' if a specific subject ID is given and they're not found
           in the list
     """
-    if not (study or subject or config or path):
+    if not (study or subject or config or path or bids_id):
         raise MetadataException("Can't read dashboard checklist "
                 "contents without either 1) a subject or study ID 2) a "
                 "datman.config object or 3) a full path to the checklist")
+
+    if bids_id and not study:
+        raise MetadataException("Must provide a study to search by BIDS ID")
 
     if subject:
         ident = datman.scanid.parse(subject)
@@ -74,9 +82,14 @@ def read_checklist(study=None, subject=None, config=None, path=None):
     if dashboard.dash_found and not path:
         if subject:
             subject = ident.get_full_subjectid_with_timepoint_session()
+        if bids_id and not bids_ses:
+            bids_ses = "01"
+        if bids_id and not type(bids_ses) == str:
+            bids_ses = '{:02d}'.format(bids_ses)
         try:
             entries = _fetch_checklist(subject=subject, study=study,
-                    config=config)
+                    config=config, bids_id=bids_id, bids_ses=bids_ses,
+                    use_bids=use_bids)
         except Exception as e:
             raise MetadataException("Can't retrieve checklist information "
                     "from dashboard database. Reason - {}".format(str(e)))
@@ -84,6 +97,10 @@ def read_checklist(study=None, subject=None, config=None, path=None):
 
     logger.info("Dashboard not found, attempting to find a checklist "
             "metadata file instead.")
+    if use_bids or bids_id:
+        raise MetadataException("BIDS IDs may only be used if querying the "
+                                "dashboard database.")
+
     checklist_path = locate_metadata('checklist.csv', path=path,
             subject=subject, study=study, config=config)
 
@@ -101,7 +118,8 @@ def read_checklist(study=None, subject=None, config=None, path=None):
     return entries
 
 
-def _fetch_checklist(subject=None, study=None, config=None):
+def _fetch_checklist(subject=None, study=None, config=None, bids_id=None,
+                     bids_ses=None, use_bids=None):
     """
     Support function for read_checklist(). Gets a list of existing / signed off
     sessions from the dashboard.
@@ -110,7 +128,10 @@ def _fetch_checklist(subject=None, study=None, config=None):
     the first session is reported to maintain consistency. :(
 
     Returns a dictionary formatted like that of '_parse_checklist' or a string
-    comment if the 'subject' argument was given
+    comment if the 'subject' argument was given.
+
+    If 'use_bids' is specified, the checklist will be organized with BIDS IDs
+    instead of datman IDs. Subjects missing a bids ID will be omitted.
     """
     if not (subject or study or config):
         raise MetadataException("Can't retrieve dashboard checklist "
@@ -119,12 +140,20 @@ def _fetch_checklist(subject=None, study=None, config=None):
 
     if subject:
         session = dashboard.get_session(subject)
+
+    if bids_id:
+        if not (study and bids_ses):
+            raise MetadataException("Cant retrieve checklist entry for BIDS "
+                                    "ID {} without a study and BIDS session "
+                                    "number".format(bids_id))
+        session = dashboard.get_bids_subject(bids_id, bids_ses, study=study)
+
+    if subject or bids_id:
         if not session:
             return
-        if session.signed_off:
+        if session.is_qcd():
             return str(session.reviewer)
         return ''
-
 
     if config and not study:
         study = config.study_name
@@ -139,7 +168,13 @@ def _fetch_checklist(subject=None, study=None, config=None):
             comment = str(session.reviewer)
         else:
             comment = ''
-        str_name = timepoint.name.encode('utf-8')
+        if use_bids:
+            if not timepoint.bids_name:
+                # If bids is requested ignore subjects without a bids name
+                continue
+            str_name = timepoint.bids_name.encode('utf-8')
+        else:
+            str_name = timepoint.name.encode('utf-8')
         entries[str_name] = comment
 
     return entries
@@ -270,7 +305,8 @@ def _update_qc_reviewers(entries):
             session.sign_off(user.id)
 
 
-def read_blacklist(study=None, scan=None, subject=None, config=None, path=None):
+def read_blacklist(study=None, scan=None, subject=None, config=None, path=None,
+                   bids_ses=None, use_bids=False):
     """
     This function is used to look up blacklisted scans. If the dashboard is
     found it ONLY checks the dashboard database. Otherwise it expects a datman
@@ -278,7 +314,8 @@ def read_blacklist(study=None, scan=None, subject=None, config=None, path=None):
 
     This function can accept:
         - A study name (nickname, not study tag)
-        - A scan name (may include the full path and extension)
+        - A datman scan name (may include the full path and extension)
+        - A BIDS scan name (set the use_bids option to 'True')
         - A subject ID
         - A datman config object, initialized to the study being worked with
         - A full path directly to a blacklist file. If given, this will
@@ -296,7 +333,11 @@ def read_blacklist(study=None, scan=None, subject=None, config=None, path=None):
     """
     if dashboard.dash_found and not path:
         return _fetch_blacklist(scan=scan, subject=subject, study=study,
-                config=config)
+                config=config, bids_ses=bids_ses, use_bids=use_bids)
+
+    if use_bids:
+        raise MetadataException("Can't return BIDs blacklist info without "
+                                "dashboard integration")
 
     if scan:
         try:
@@ -322,7 +363,8 @@ def read_blacklist(study=None, scan=None, subject=None, config=None, path=None):
     return entries
 
 
-def _fetch_blacklist(scan=None, subject=None, study=None, config=None):
+def _fetch_blacklist(scan=None, subject=None, bids_ses=None, study=None,
+                     config=None, use_bids=False):
     """
     Helper function for 'read_blacklist()'. Gets the blacklist contents from
     the dashboard's database
@@ -333,7 +375,10 @@ def _fetch_blacklist(scan=None, subject=None, study=None, config=None):
             "4) a datman config object")
 
     if scan:
-        db_scan = dashboard.get_scan(scan)
+        if use_bids:
+            db_scan = dashboard.get_bids_scan(scan)
+        else:
+            db_scan = dashboard.get_scan(scan)
         if db_scan and db_scan.blacklisted():
             try:
                 return db_scan.get_comment().encode('utf-8')
@@ -342,7 +387,12 @@ def _fetch_blacklist(scan=None, subject=None, study=None, config=None):
         return
 
     if subject:
-        db_subject = dashboard.get_subject(subject)
+        if use_bids or bids_ses:
+            if not bids_ses:
+                bids_ses = '01'
+            db_subject = dashboard.get_bids_subject(subject, bids_ses, study)
+        else:
+            db_subject = dashboard.get_subject(subject)
         blacklist = db_subject.get_blacklist_entries()
     else:
         if config:
@@ -352,7 +402,13 @@ def _fetch_blacklist(scan=None, subject=None, study=None, config=None):
 
     entries = {}
     for entry in blacklist:
-        scan_name = str(entry.scan) + "_" + entry.scan.description
+        if use_bids:
+            if not entry.scan.bids_name:
+                # Ignore scans without a bids name if bids was requested
+                continue
+            scan_name = entry.scan.bids_name
+        else:
+            scan_name = str(entry.scan) + "_" + entry.scan.description
         try:
             scan_name = scan_name.encode('utf-8')
             comment = entry.comment.encode('utf-8')
@@ -1101,15 +1157,15 @@ def submit_job(cmd, job_name, log_dir, system='other', cpu_cores=1,
         with open(job_file, 'wb') as fid:
             fid.write('#!/bin/bash\n')
             fid.write(cmd)
-            
+
         arg_list = '-c {cores} -t {walltime} {args} --job-name {jobname} '\
                 '-o {log_dir}/{jobname} -D {workdir}'.format(cores=cpu_cores,
-                walltime=walltime, args=argslist, jobname=job_name, 
+                walltime=walltime, args=argslist, jobname=job_name,
                 log_dir=log_dir, workdir=workdir)
-        
+
         if partition:
             arg_list = arg_list + ' -p {} '.format(partition)
-            
+
         job = 'sbatch ' + arg_list + ' {}'.format(job_file)
 
         rtn, out = run(job)
