@@ -222,8 +222,8 @@ def process_session(session):
     try:
         xnat_session = xnat.get_session(xnat_project, session_label)
     except Exception as e:
-        logger.error("Cant process session {}. {}{}".format(session_label,
-                     type(e), e))
+        logger.error("Cant process session {}. {}: {}".format(session_label,
+                     type(e).__name__, e))
         return
 
     if not xnat_session.experiment:
