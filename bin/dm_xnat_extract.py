@@ -437,7 +437,7 @@ def update_dashboard(scan_names):
         logger.info("Adding scan {} to dashboard".format(file_stem))
         try:
             dashboard.get_scan(file_stem, create=True)
-        except datman.scanid.ParseException as e:
+        except Exception as e:
             logger.error("Failed adding scan {} to dashboard with "
                     "error: {}".format(file_stem, e))
 
