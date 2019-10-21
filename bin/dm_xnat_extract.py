@@ -408,7 +408,7 @@ def process_scans(ident, xnat_session):
         try:
             scan.set_datman_name(tags.series_map)
         except Exception as e:
-            logger.error("Failed to make file name for series {} in session "
+            logger.info("Failed to make file name for series {} in session "
                          "{}. Reason {}: {}".format(scan.series,
                                                   xnat_session.name,
                                                   type(e),
