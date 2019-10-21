@@ -808,7 +808,8 @@ def run_header_qc(subject, config):
             db_session = db_timepoint.sessions[sess_num]
             for series in db_session.scans:
                 if not series.active_gold_standard:
-                    header_diffs[series.name] = {'error': 'Gold standard not found'}
+                    header_diffs[series.name] = {'error': 'Gold standard not '
+                                                          'found'}
                     continue
 
                 if not series.json_contents:
@@ -817,8 +818,10 @@ def run_header_qc(subject, config):
                     continue
 
                 check_bvals = needs_bval_check(tag_settings, series)
-                db_diffs = series.update_header_diffs(ignore=ignored_headers,
-                        tolerance=header_tolerances, bvals=check_bvals)
+                db_diffs = series.update_header_diffs(
+                                ignore=ignored_headers,
+                                tolerance=header_tolerances,
+                                bvals=check_bvals)
                 header_diffs[series.name] = db_diffs.diffs
 
         return header_diffs

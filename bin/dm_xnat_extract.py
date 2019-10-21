@@ -409,10 +409,10 @@ def process_scans(ident, xnat_session):
             scan.set_datman_name(tags.series_map)
         except Exception as e:
             logger.info("Failed to make file name for series {} in session "
-                         "{}. Reason {}: {}".format(scan.series,
-                                                  xnat_session.name,
-                                                  type(e).__name__,
-                                                  e))
+                        "{}. Reason {}: {}".format(scan.series,
+                                                   xnat_session.name,
+                                                   type(e).__name__,
+                                                   e))
             continue
 
         if len(scan.tags) > 1 and not scan.multiecho:
