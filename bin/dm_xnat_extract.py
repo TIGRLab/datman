@@ -411,7 +411,7 @@ def process_scans(ident, xnat_session):
             logger.info("Failed to make file name for series {} in session "
                          "{}. Reason {}: {}".format(scan.series,
                                                   xnat_session.name,
-                                                  type(e),
+                                                  type(e).__name__,
                                                   e))
             continue
 
