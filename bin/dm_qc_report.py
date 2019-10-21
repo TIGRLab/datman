@@ -639,7 +639,7 @@ def update_dashboard(subject, report_name, header_diffs):
     db_subject = datman.dashboard.get_subject(subject.full_id)
     if not db_subject:
         return
-    
+
     db_subject.last_qc_repeat_generated = len(db_subject.sessions)
     db_subject.static_page = report_name
     db_subject.save()
@@ -794,24 +794,26 @@ def run_header_qc(subject, config):
     header_diffs = {}
 
     if datman.dashboard.dash_found:
-        db_session = datman.dashboard.get_session(subject._ident)
-        if not db_session:
+        db_timepoint = datman.dashboard.get_subject(subject._ident)
+        if not db_timepoint:
             logger.error("Can't find {} in dashboard database".format(subject))
             return
-        for series in db_session.scans:
-            if not series.active_gold_standard:
-                header_diffs[series.name] = {'error': 'Gold standard not found'}
-                continue
+        for sess_num in db_timepoint.sessions:
+            db_session = db_timepoint.sessions[sess_num]
+            for series in db_session.scans:
+                if not series.active_gold_standard:
+                    header_diffs[series.name] = {'error': 'Gold standard not found'}
+                    continue
 
-            if not series.json_contents:
-                logger.debug("No JSON found for {}".format(series))
-                header_diffs[series.name] = {'error': 'JSON not found'}
-                continue
+                if not series.json_contents:
+                    logger.debug("No JSON found for {}".format(series))
+                    header_diffs[series.name] = {'error': 'JSON not found'}
+                    continue
 
-            check_bvals = needs_bval_check(tag_settings, series)
-            db_diffs = series.update_header_diffs(ignore=ignored_headers,
-                    tolerance=header_tolerances, bvals=check_bvals)
-            header_diffs[series.name] = db_diffs.diffs
+                check_bvals = needs_bval_check(tag_settings, series)
+                db_diffs = series.update_header_diffs(ignore=ignored_headers,
+                        tolerance=header_tolerances, bvals=check_bvals)
+                header_diffs[series.name] = db_diffs.diffs
 
         return header_diffs
 
