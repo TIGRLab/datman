@@ -335,7 +335,13 @@ def get_all_subjects(config):
     return all_subs
 
 def new_subject(subject_id, config):
-    subject = datman.scan.Scan(subject_id, config)
+    try:
+        subject = datman.scan.Scan(subject_id, config)
+    except datman.scanid.ParseException:
+        logger.error("{} does not conform to datman naming convention. "
+                     "Ignoring.".format(subject_id))
+        return False
+
     if not os.path.exists(subject.qc_path):
         return True
 
