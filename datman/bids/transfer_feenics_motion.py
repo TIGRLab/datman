@@ -12,7 +12,7 @@ Arguments:
 
 Optional:
     -s, --subject SUBJECT                   Repeatable list of subjects
-    -f, --fmriprep FMRIPREP                 fMRIPREP derivatives directory 
+    -f, --fmriprep FMRIPREP                 fMRIPREP derivatives directory
                                             (default is PROJECT_DIR/pipelines/feenics)
     -d, --debug                             Debug level logging
     -v, --verbose                           Verbose level logging
@@ -67,7 +67,7 @@ def combine_confounds(confound, motion):
     rots = ['rot_{}'.format(d) for d in dirs]
     cols = trans + rots
 
-    #Load in confounds 
+    #Load in confounds
     df = pd.read_csv(confound,delimiter='\t')
 
     #Drop columns to be replaced
@@ -94,20 +94,20 @@ def main():
     output          =   arguments['<output_dir>']
 
     #Default directories
-    cfg = dm_cfg(study=study) 
-    pipeline_dir = cfg.get_path('feenics')
+    cfg = dm_cfg(study=study)
+    feenics_dir = cfg.get_path('feenics')
 
-    fmriprep        =   arguments['--fmriprep']
+    fmriprep        =   arguments['--fmriprep'] or cfg.get_path('fmriprep')
     subjects        =   arguments['--subject']
 
     debug           =   arguments['--debug']
     verbose         =   arguments['--verbose']
     quiet           =   arguments['--quiet']
-    
+
     #Step 1: Loop through subjects available in the feenics pipeline directory
     if not subjects:
-        subjects = [s for s in os.listdir(pipeline_dir) 
-                    if os.path.isdir(os.path.join(pipeline_dir,s))]
+        subjects = [s for s in os.listdir(feenics_dir)
+                    if os.path.isdir(os.path.join(feenics_dir,s))]
 
     #Step 1a: Get BIDS subjects
     layout = BIDSLayout(fmriprep,validate=False)
@@ -119,7 +119,7 @@ def main():
         #Get session info
 
         #Combine motion files
-        motion_comb = proc_subject(s,pipeline_dir)
+        motion_comb = proc_subject(s,feenics_dir)
 
         #Get subject BIDS name and session
         ident = scanid.parse(s)
@@ -128,7 +128,7 @@ def main():
 
         #Get confound file if exists
         try:
-            confound = [c.path for c in confounds if 
+            confound = [c.path for c in confounds if
                     (c.entities['subject'] == bids) and (c.entities['session'] == ses)][0]
         except IndexError:
             continue
