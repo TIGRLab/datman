@@ -1076,7 +1076,11 @@ class XNATScan(object):
         return None
 
     def is_multiecho(self):
-        name = self.raw_json['children'][0]['items'][0]['data_fields'].get('name')
+        try:
+            child = self.raw_json['children'][0]['items'][0]
+        except (KeyError, IndexError):
+            return False
+        name = child['data_fields'].get('name')
         if name and 'MultiEcho' in name:
             return True
         return False

@@ -222,8 +222,8 @@ def process_session(session):
     try:
         xnat_session = xnat.get_session(xnat_project, session_label)
     except Exception as e:
-        logger.error("Cant process session {}. {}{}".format(session_label,
-                     type(e), e))
+        logger.error("Cant process session {}. {}: {}".format(session_label,
+                     type(e).__name__, e))
         return
 
     if not xnat_session.experiment:
@@ -408,11 +408,11 @@ def process_scans(ident, xnat_session):
         try:
             scan.set_datman_name(tags.series_map)
         except Exception as e:
-            logger.error("Failed to make file name for series {} in session "
-                         "{}. Reason {}: {}".format(scan.series,
-                                                  xnat_session.name,
-                                                  type(e),
-                                                  e))
+            logger.info("Failed to make file name for series {} in session "
+                        "{}. Reason {}: {}".format(scan.series,
+                                                   xnat_session.name,
+                                                   type(e).__name__,
+                                                   e))
             continue
 
         if len(scan.tags) > 1 and not scan.multiecho:
@@ -437,7 +437,7 @@ def update_dashboard(scan_names):
         logger.info("Adding scan {} to dashboard".format(file_stem))
         try:
             dashboard.get_scan(file_stem, create=True)
-        except datman.scanid.ParseException as e:
+        except Exception as e:
             logger.error("Failed adding scan {} to dashboard with "
                     "error: {}".format(file_stem, e))
 
