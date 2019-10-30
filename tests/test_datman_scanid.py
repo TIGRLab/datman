@@ -2,15 +2,15 @@ import datman.scanid as scanid
 from nose.tools import *
 
 @raises(scanid.ParseException)
-def test_parse_empty(): 
+def test_parse_empty():
     scanid.parse("")
 
 @raises(scanid.ParseException)
-def test_parse_None(): 
+def test_parse_None():
     scanid.parse(None)
 
 @raises(scanid.ParseException)
-def test_parse_garbage(): 
+def test_parse_garbage():
     scanid.parse("lkjlksjdf")
 
 def test_parse_good_scanid():
@@ -84,7 +84,7 @@ def test_parse_filename_PHA_2():
     eq_(ident.session,'')
     eq_(str(ident),'SPN01_MRC_PHA_FBN0013')
     eq_(tag,'RST')
-    eq_(series,'04') 
+    eq_(series,'04')
     eq_(description,'EPI-3x3x4xTR2')
 
 def test_parse_filename_with_path():
@@ -95,4 +95,67 @@ def test_parse_filename_with_path():
     eq_(series, '02')
     eq_(description, 'description')
 
-# vim: ts=4 sw=4:
+def test_parse_bids_filename():
+    ident = scanid.parse_bids_filename("sub-CMH0001_ses-01_run-1_T1w.nii.gz")
+    assert ident.subject == 'CMH0001'
+    assert ident.session == '01'
+    assert ident.run == '1'
+    assert ident.suffix == 'T1w'
+
+def test_parse_bids_filename_with_full_path():
+    ident = scanid.parse_bids_filename("/some/folder/sub-CMH0001_ses-01_run-1_T1w.nii.gz")
+    assert ident.subject == 'CMH0001'
+    assert ident.session == '01'
+    assert ident.run == '1'
+    assert ident.suffix == 'T1w'
+
+def test_parse_bids_filename_without_ext():
+    ident = scanid.parse_bids_filename("/some/folder/sub-CMH0001_ses-02_run-3_T1w")
+    assert ident.subject == 'CMH0001'
+    assert ident.session == '02'
+    assert ident.run == '3'
+    assert ident.suffix == 'T1w'
+
+def test_parse_bids_filename_without_run():
+    ident = scanid.parse_bids_filename("sub-CMH0001_ses-01_T1w.nii.gz")
+
+@raises(scanid.ParseException)
+def test_parse_bids_filename_missing_subject():
+    ident = scanid.parse_bids_filename("ses-01_run-1_T1w")
+
+@raises(scanid.ParseException)
+def test_parse_bids_filename_malformed_subject():
+    ident = scanid.parse_bids_filename("CMH0001_ses-01_run-1_T1w")
+
+@raises(scanid.ParseException)
+def test_parse_bids_filename_missing_session():
+    ident = scanid.parse_bids_filename("sub-CMH0001_run-1_T1w")
+
+@raises(scanid.ParseException)
+def test_parse_bids_filename_malformed_session():
+    ident = scanid.parse_bids_filename("sub-CMH0001_ses-_run-1_T1w")
+
+@raises(scanid.ParseException)
+def test_parse_bids_filename_missing_suffix():
+    ident = scanid.parse_bids_filename("sub-CMH0001_ses-01_run-1.nii.gz")
+
+@raises(scanid.ParseException)
+def test_parse_bids_filename_missing_suffix_and_run():
+    ident = scanid.parse_bids_filename("sub-CMH0001_ses-01.nii.gz")
+
+def test_bids_file_equals_string_of_itself():
+    bids_name = "sub-CMH0001_ses-01_run-1_T1w"
+    ident = scanid.parse_bids_filename(bids_name)
+    assert ident == bids_name
+
+def test_bids_file_equals_string_of_itself_minus_run():
+    bids_name = "sub-CMH0001_ses-01_run-1_T1w"
+    ident = scanid.parse_bids_filename(bids_name)
+
+    assert ident == bids_name.replace("run-1_", "")
+
+def test_bids_file_equals_itself_with_path_and_ext():
+    bids_name = "sub-CMH0001_ses-01_run-1_T1w"
+    bids_full_path = "/some/folder/somewhere/{}.nii.gz".format(bids_name)
+    ident = scanid.parse_bids_filename(bids_name)
+    assert ident == bids_full_path
