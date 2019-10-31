@@ -19,13 +19,15 @@ FILENAME_RE = SCANID_RE + '_' + \
               r'(?P<tag>[^_]+)_' + \
               r'(?P<series>\d+)_' + \
               r'(?P<description>.*?)' + \
-              r'(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|.IMA|.mnc|.nrrd|$)'
+              r'(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|' + \
+              r'.IMA|.mnc|.nrrd|$)'
 
 FILENAME_PHA_RE = SCANID_PHA_RE + '_' + \
               r'(?P<tag>[^_]+)_' + \
               r'(?P<series>\d+)_' + \
               r'(?P<description>.*?)' + \
-              r'(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|.IMA|.mnc|.nrrd|$)'
+              r'(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|' + \
+              r'.IMA|.mnc|.nrrd|$)'
 
 BIDS_SCAN_RE = r'sub-(?P<subject>[A-Z0-9]+)_' + \
                r'ses-(?P<session>[0-9][0-9])_' + \
@@ -33,20 +35,22 @@ BIDS_SCAN_RE = r'sub-(?P<subject>[A-Z0-9]+)_' + \
                r'(?P<suffix>(?!run-)[^_.]+)' + \
                r'.*$'
 
-SCANID_PATTERN       = re.compile('^'+SCANID_RE+'$')
-SCANID_PHA_PATTERN   = re.compile('^'+SCANID_PHA_RE+'$')
-FILENAME_PATTERN     = re.compile('^'+FILENAME_RE)
+SCANID_PATTERN = re.compile('^'+SCANID_RE+'$')
+SCANID_PHA_PATTERN = re.compile('^'+SCANID_PHA_RE+'$')
+FILENAME_PATTERN = re.compile('^'+FILENAME_RE)
 FILENAME_PHA_PATTERN = re.compile('^'+FILENAME_PHA_RE)
-BIDS_SCAN_PATTERN    = re.compile(BIDS_SCAN_RE)
+BIDS_SCAN_PATTERN = re.compile(BIDS_SCAN_RE)
 
-#python 2 - 3 compatibility hack
+# python 2 - 3 compatibility hack
 try:
     basestring
 except NameError:
     basestring = str
 
+
 class ParseException(Exception):
     pass
+
 
 class Identifier:
     def __init__(self, study, site, subject, timepoint, session):
@@ -54,7 +58,8 @@ class Identifier:
         self.site = site
         self.subject = subject
         self.timepoint = timepoint
-        # Bug fix: spaces were being left after the session number leading to broken file names
+        # Bug fix: spaces were being left after the session number leading to
+        # broken file names
         self._session = session.strip()
 
     @property
@@ -67,13 +72,11 @@ class Identifier:
     def session(self, value):
         self._x = value
 
-
     def get_full_subjectid(self):
         return "_".join([self.study, self.site, self.subject])
 
     def get_bids_name(self):
-
-        return  self.site + self.subject
+        return self.site + self.subject
 
     def get_full_subjectid_with_timepoint(self):
         ident = self.get_full_subjectid()
@@ -132,30 +135,36 @@ def parse(identifier):
         raise ParseException
 
     match = SCANID_PATTERN.match(identifier)
-    if not match: match = SCANID_PHA_PATTERN.match(identifier)
+    if not match:
+        match = SCANID_PHA_PATTERN.match(identifier)
     # work around for matching scanid's when session not supplied
-    if not match: match = SCANID_PATTERN.match(identifier + '_XX')
-    if not match: raise ParseException("Invalid ID {}".format(identifier))
+    if not match:
+        match = SCANID_PATTERN.match(identifier + '_XX')
+    if not match:
+        raise ParseException("Invalid ID {}".format(identifier))
 
-    ident = Identifier(study    = match.group("study"),
-                       site     = match.group("site"),
-                       subject  = match.group("subject"),
-                       timepoint= match.group("timepoint"),
-                       session  = match.group("session"))
+    ident = Identifier(study=match.group("study"),
+                       site=match.group("site"),
+                       subject=match.group("subject"),
+                       timepoint=match.group("timepoint"),
+                       session=match.group("session"))
 
     return ident
+
 
 def parse_filename(path):
     fname = os.path.basename(path)
     match = FILENAME_PHA_PATTERN.match(fname)  # check PHA first
-    if not match: match = FILENAME_PATTERN.match(fname)
-    if not match: raise ParseException()
+    if not match:
+        match = FILENAME_PATTERN.match(fname)
+    if not match:
+        raise ParseException()
 
-    ident = Identifier(study    = match.group("study"),
-                       site     = match.group("site"),
-                       subject  = match.group("subject"),
-                       timepoint= match.group("timepoint"),
-                       session  = match.group("session"))
+    ident = Identifier(study=match.group("study"),
+                       site=match.group("site"),
+                       subject=match.group("subject"),
+                       timepoint=match.group("timepoint"),
+                       session=match.group("session"))
 
     tag = match.group("tag")
     series = match.group("series")
