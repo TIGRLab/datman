@@ -35,8 +35,8 @@ BIDS_SCAN_RE = r'sub-(?P<subject>[A-Z0-9]+)_' + \
                r'(?P<suffix>(?!run-)[^_.]+)' + \
                r'.*$'
 
-SCANID_PATTERN = re.compile('^' + SCANID_RE+'$')
-SCANID_PHA_PATTERN = re.compile('^' + SCANID_PHA_RE+'$')
+SCANID_PATTERN = re.compile('^' + SCANID_RE + '$')
+SCANID_PHA_PATTERN = re.compile('^' + SCANID_PHA_RE + '$')
 FILENAME_PATTERN = re.compile('^' + FILENAME_RE)
 FILENAME_PHA_PATTERN = re.compile('^' + FILENAME_PHA_RE)
 BIDS_SCAN_PATTERN = re.compile(BIDS_SCAN_RE)
