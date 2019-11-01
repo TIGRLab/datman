@@ -35,10 +35,10 @@ BIDS_SCAN_RE = r'sub-(?P<subject>[A-Z0-9]+)_' + \
                r'(?P<suffix>(?!run-)[^_.]+)' + \
                r'.*$'
 
-SCANID_PATTERN = re.compile('^'+SCANID_RE+'$')
-SCANID_PHA_PATTERN = re.compile('^'+SCANID_PHA_RE+'$')
-FILENAME_PATTERN = re.compile('^'+FILENAME_RE)
-FILENAME_PHA_PATTERN = re.compile('^'+FILENAME_PHA_RE)
+SCANID_PATTERN = re.compile('^' + SCANID_RE+'$')
+SCANID_PHA_PATTERN = re.compile('^' + SCANID_PHA_RE+'$')
+FILENAME_PATTERN = re.compile('^' + FILENAME_RE)
+FILENAME_PHA_PATTERN = re.compile('^' + FILENAME_PHA_RE)
 BIDS_SCAN_PATTERN = re.compile(BIDS_SCAN_RE)
 
 # python 2 - 3 compatibility hack
@@ -114,10 +114,10 @@ class BIDSFile(object):
             except ParseException:
                 return False
 
-        if (self.subject == bids_file.subject
-                and self.session == bids_file.session
-                and str(self.run) == str(bids_file.run)
-                and self.suffix == bids_file.suffix):
+        if (self.subject == bids_file.subject and
+                self.session == bids_file.session and
+                str(self.run) == str(bids_file.run) and
+                self.suffix == bids_file.suffix):
             return True
 
         return False
