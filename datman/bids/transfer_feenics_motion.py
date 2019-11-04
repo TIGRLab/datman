@@ -65,7 +65,7 @@ def combine_confounds(confound, motion):
     dirs = ['x','y','z']
     trans = ['trans_{}'.format(d) for d in dirs]
     rots = ['rot_{}'.format(d) for d in dirs]
-    cols = trans + rots
+    cols = rots + trans
 
     #Load in confounds
     df = pd.read_csv(confound,delimiter='\t')
