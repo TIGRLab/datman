@@ -128,6 +128,9 @@ def get_subject(name, create=False):
 
     return None
 
+@dashboard_required
+def get_bids_subject(bids_name, bids_session, study=None):
+    return queries.get_timepoint(bids_name, bids_session, study)
 
 @dashboard_required
 @scanid_required
@@ -225,6 +228,16 @@ def get_scan(name, tag=None, series=None, description=None, source_id=None,
 
 
 @dashboard_required
+def get_bids_scan(name):
+    scan = queries.get_scan(name, bids=True)
+    if len(scan) > 1:
+        raise DashboardException("Couldnt identify scan {}. {} matches "
+                "found".format(scan_name, len(scan)))
+    if len(scan) == 1:
+        return scan[0]
+    return None
+
+@dashboard_required
 @filename_required
 def add_scan(name, tag=None, series=None, description=None, source_id=None):
     session = get_session(name, create=True)
@@ -281,22 +294,6 @@ def get_default_user():
         raise DashboardException("Can't locate default user {} in "
                 "dashboard database".format(user))
     return user[0]
-
-# @dashboard_required
-# def get_scantype(scantype):
-#     if not dash_found:
-#         return None
-    # 1. Just query the database for the tag and return?
-
-# @dashboard_required
-# def delete_subject(name):
-    # 1. Retrieve from database
-    # 2. Delete, report if attempting to delete non-existent?
-    # 3. Return True if delete, false otherwise
-
-# @dashboard_required
-# def add_redcap():
-    # 1. Makes a redcap record
 
 def _get_scan_name(ident, tag, series):
     name = "_".join([str(ident), tag, str(series)])

@@ -90,12 +90,12 @@ import pandas as pd
 import nibabel as nib
 from docopt import docopt
 
-import dm_header_checks as qc_headers
 import datman.config
 import datman.utils
 import datman.scanid
 import datman.scan
 import datman.dashboard
+import datman.header_checks as header_checks
 
 logging.basicConfig(level=logging.WARN,
         format="[%(name)s] %(levelname)s: %(message)s")
@@ -179,7 +179,7 @@ def gather_input_req(nifti, pipeline):
             'dti'       :   ['qc-fbirn-dti',        basename + '.nii.gz', basename + '.bvec', basename + '.bval'],
             'qa_dti'    :   ['qa-dti',              basename + '.nii.gz', basename + '.bvec', basename + '.bval',
                 '--accel' if 'NO' in basename else ''],
-            'abcd_fmri' :   ['qc_abcd_fmri',        basename + '.nii.gz', dcm, basename + '.json']
+            'abcd_fmri' :   ['qc-abcd-fmri',        basename + '.nii.gz']
             }
 
     reqs = None
@@ -335,7 +335,13 @@ def get_all_subjects(config):
     return all_subs
 
 def new_subject(subject_id, config):
-    subject = datman.scan.Scan(subject_id, config)
+    try:
+        subject = datman.scan.Scan(subject_id, config)
+    except datman.scanid.ParseException:
+        logger.error("{} does not conform to datman naming convention. "
+                     "Ignoring.".format(subject_id))
+        return False
+
     if not os.path.exists(subject.qc_path):
         return True
 
@@ -639,11 +645,7 @@ def update_dashboard(subject, report_name, header_diffs):
     db_subject = datman.dashboard.get_subject(subject.full_id)
     if not db_subject:
         return
-    try:
-        db_subject.add_header_diffs(header_diffs)
-    except Exception as e:
-        logger.error("Failed to add header diffs for {} to dashboard database. "
-                "Reason: {}".format(subject.full_id, e))
+
     db_subject.last_qc_repeat_generated = len(db_subject.sessions)
     db_subject.static_page = report_name
     db_subject.save()
@@ -767,27 +769,65 @@ def get_scan_name(series):
             .replace(series.ext, "")
     return scan_name
 
+def needs_bval_check(settings, series):
+    try:
+        qc_type = settings.get(series.tag, "qc_type")
+    except KeyError:
+        logger.error("'qc_type' for tag {} not defined. If it's DTI the "
+                "bval check will be skipped.".format(series.tag))
+        check_bvals = False
+    else:
+        check_bvals = qc_type == 'dti'
+    return check_bvals
+
 def run_header_qc(subject, config):
     """
-    For each json file found in 'niftis' find the matching site / tag file in
-    'standards' and run dm_header_checks on these files. Differences are
-    returned in a dictionary that maps the scan name to a dictionary of
-    differences
+    For each nifti, finds its json file + compares it to the matching gold
+    standard. Differences are returned in a dictionary with one entry per scan
     """
-    standard_dir = config.get_path('std')
-    standards_dict = get_standards(standard_dir, subject.site)
-    tag_settings = config.get_tags(site=subject.site)
-
     try:
-        ignored_headers = config.get_key('IgnoreHeaderFields', site=subject.site)
+        ignored_headers = config.get_key('IgnoreHeaderFields',
+                site=subject.site)
     except datman.config.UndefinedSetting:
         ignored_headers = []
     try:
-        header_tolerances = config.get_key('HeaderFieldTolerance', site=subject.site)
+        header_tolerances = config.get_key('HeaderFieldTolerance',
+                site=subject.site)
     except datman.config.UndefinedSetting:
         header_tolerances = {}
 
+    tag_settings = config.get_tags(site=subject.site)
     header_diffs = {}
+
+    if datman.dashboard.dash_found:
+        db_timepoint = datman.dashboard.get_subject(subject._ident)
+        if not db_timepoint:
+            logger.error("Can't find {} in dashboard database".format(subject))
+            return
+        for sess_num in db_timepoint.sessions:
+            db_session = db_timepoint.sessions[sess_num]
+            for series in db_session.scans:
+                if not series.active_gold_standard:
+                    header_diffs[series.name] = {'error': 'Gold standard not '
+                                                          'found'}
+                    continue
+
+                if not series.json_contents:
+                    logger.debug("No JSON found for {}".format(series))
+                    header_diffs[series.name] = {'error': 'JSON not found'}
+                    continue
+
+                check_bvals = needs_bval_check(tag_settings, series)
+                db_diffs = series.update_header_diffs(
+                                ignore=ignored_headers,
+                                tolerance=header_tolerances,
+                                bvals=check_bvals)
+                header_diffs[series.name] = db_diffs.diffs
+
+        return header_diffs
+
+    standard_dir = config.get_path('std')
+    standards_dict = get_standards(standard_dir, subject.site)
     for series in subject.niftis:
         scan_name = get_scan_name(series)
         try:
@@ -805,16 +845,9 @@ def run_header_qc(subject, config):
             header_diffs[scan_name] = {'error': 'JSON not found'}
             continue
 
-        try:
-            qc_type = tag_settings.get(series.tag, "qc_type")
-        except KeyError:
-            logger.error("'qc_type' for tag {} not defined. If it's DTI the "
-                    "bval check will be skipped.".format(series.tag))
-            check_bvals = False
-        else:
-            check_bvals = qc_type == 'dti'
+        check_bvals = needs_bval_check(tag_settings, series)
 
-        diffs = qc_headers.construct_diffs(series_json, standard_json,
+        diffs = header_checks.construct_diffs(series_json, standard_json,
                 ignored_fields=ignored_headers, tolerances=header_tolerances,
                 dti=check_bvals)
         header_diffs[scan_name] = diffs
@@ -844,8 +877,8 @@ def qc_subject(subject, config):
             pass
 
     header_diffs = run_header_qc(subject, config)
-    if not datman.dashboard.dash_found and not os.path.isfile(header_diffs_log):
-        qc_headers.write_diff_log(header_diffs, header_diffs_log)
+    if  not os.path.isfile(header_diffs_log):
+        header_checks.write_diff_log(header_diffs, header_diffs_log)
 
     expected_files = find_expected_files(subject, config)
 
