@@ -31,9 +31,17 @@ FILENAME_PHA_RE = SCANID_PHA_RE + '_' + \
 
 BIDS_SCAN_RE = r'sub-(?P<subject>[A-Z0-9]+)_' + \
                r'ses-(?P<session>[0-9][0-9])_' + \
-               r'(run-(?P<run>[0-9])_){0,1}' + \
-               r'(?P<suffix>(?!run-)[^_.]+)' + \
+               r'(task-(?P<task>[A-Za-z0-9]+)_){0,1}' + \
+               r'(acq-(?P<acq>[A-Za-z0-9]+)_){0,1}' + \
+               r'(ce-(?P<ce>[A-Za-z0-9]+)_){0,1}' + \
+               r'(dir-(?P<dir>[A-Za-z0-9]+)_){0,1}' + \
+               r'(rec-(?P<rec>[A-Za-z0-9]+)_){0,1}' + \
+               r'(run-(?P<run>[0-9]+)_){0,1}' + \
+               r'(echo-(?P<echo>[0-9]+)_){0,1}' + \
+               r'(mod-(?P<mod>[A-Za-z0-9]+)_){0,1}' + \
+               r'((?![A-Za-z0-9]*-)(?P<suffix>[^_.]+))' + \
                r'.*$'
+
 
 SCANID_PATTERN = re.compile('^' + SCANID_RE + '$')
 SCANID_PHA_PATTERN = re.compile('^' + SCANID_PHA_RE + '$')
@@ -99,13 +107,32 @@ class Identifier:
 
 class BIDSFile(object):
 
-    def __init__(self, subject, session, suffix, run=None):
+    def __init__(self, subject, session, suffix, task=None, acq=None, ce=None,
+                 dir=None, rec=None, run=None, echo=None, mod=None):
         self.subject = subject
         self.session = session
         if not run:
             run = '1'
         self.run = run
         self.suffix = suffix
+
+        if echo or task:
+            if any([ce, dir, mod]):
+                raise ParseException("Invalid entity found for task data")
+        if ce or mod:
+            if any([task, echo, dir]):
+                raise ParseException("Invalid entity found for anat data")
+        if dir:
+            if any([ce, rec, mod, task, echo]):
+                raise ParseException("Invalid entity found for multiphase "
+                                     "fmap")
+        self.task = task
+        self.acq = acq
+        self.ce = ce
+        self.dir = dir
+        self.rec = rec
+        self.echo = echo
+        self.mod = mod
 
     def __eq__(self, bids_file):
         if not isinstance(bids_file, BIDSFile):
@@ -114,17 +141,33 @@ class BIDSFile(object):
             except ParseException:
                 return False
 
-        if (self.subject == bids_file.subject and
-                self.session == bids_file.session and
-                str(self.run) == str(bids_file.run) and
-                self.suffix == bids_file.suffix):
+        if str(self) == str(bids_file):
             return True
 
         return False
 
     def __str__(self):
-        return "sub-{}_ses-{}_run-{}_{}".format(self.subject, self.session,
-                                                self.run, self.suffix)
+        str_rep = ["sub-{}_ses-{}".format(self.subject, self.session)]
+        if self.task:
+            str_rep.append("task-{}".format(self.task))
+        if self.acq:
+            str_rep.append("acq-{}".format(self.acq))
+        if self.ce:
+            str_rep.append("ce-{}".format(self.ce))
+        if self.dir:
+            str_rep.append("dir-{}".format(self.dir))
+        if self.rec:
+            str_rep.append("rec-{}".format(self.rec))
+
+        str_rep.append("run-{}".format(self.run))
+
+        if self.echo:
+            str_rep.append("echo-{}".format(self.echo))
+        if self.mod:
+            str_rep.append("mod-{}".format(self.mod))
+
+        str_rep.append(self.suffix)
+        return "_".join(str_rep)
 
     def __repr__(self):
         return "<datman.scanid.BIDSFile {}>".format(self.__str__())
@@ -177,10 +220,20 @@ def parse_bids_filename(path):
     match = BIDS_SCAN_PATTERN.match(fname)
     if not match:
         raise ParseException("Invalid BIDS file name {}".format(path))
-    ident = BIDSFile(subject=match.group("subject"),
-                     session=match.group("session"),
-                     run=match.group("run"),
-                     suffix=match.group("suffix"))
+    try:
+        ident = BIDSFile(subject=match.group("subject"),
+                         session=match.group("session"),
+                         run=match.group("run"),
+                         suffix=match.group("suffix"),
+                         task=match.group("task"),
+                         acq=match.group("acq"),
+                         ce=match.group("ce"),
+                         dir=match.group("dir"),
+                         rec=match.group("rec"),
+                         echo=match.group("echo"),
+                         mod=match.group("mod"))
+    except ParseException as e:
+        raise ParseException("Invalid BIDS file name {} - {}".format(path, e))
     return ident
 
 

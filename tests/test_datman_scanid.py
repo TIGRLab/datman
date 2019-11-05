@@ -173,6 +173,49 @@ def test_parse_bids_filename_missing_suffix_and_run():
     scanid.parse_bids_filename("sub-CMH0001_ses-01.nii.gz")
 
 
+@raises(scanid.ParseException)
+def test_unknown_entity_does_not_get_set_as_suffix():
+    scanid.parse_bids_filename("sub-CMH_ses-01_new-FIELD_T1w.nii.gz")
+
+
+@raises(scanid.ParseException)
+def test_empty_entity_name_does_not_get_set_as_suffix():
+    scanid.parse_bids_filename("sub-CMH_ses-01_-FIELD_T1w.nii.gz")
+
+
+@raises(scanid.ParseException)
+def test_empty_entity_name_and_label_does_not_get_set_as_suffix():
+    scanid.parse_bids_filename("sub-CMH_ses-01_-_T1w.nii.gz")
+
+
+@raises(scanid.ParseException)
+def test_bids_file_raises_exception_when_wrong_entities_used_for_anat():
+    scanid.parse_bids_filename("sub-CMH0001_ses-01_ce-somefield_dir-somedir"
+                               "_run-1_T1w.nii.gz")
+
+
+@raises(scanid.ParseException)
+def test_bids_file_raises_exception_when_wrong_entities_used_for_task():
+    scanid.parse_bids_filename("sub-CMH0001_ses-01_task-sometask_"
+                               "ce-somefield_run-1_T1w.nii.gz")
+
+
+@raises(scanid.ParseException)
+def test_bids_file_raises_exception_when_wrong_entities_used_for_fmap():
+    scanid.parse_bids_filename("sub-CMH0001_ses-01_dir-somedir_"
+                               "rec-somefield_run-1_T1w.nii.gz")
+
+
+def test_optional_entities_dont_get_parsed_as_suffix():
+    optional_entities = "sub-CMH0001_ses-01_{}_T1w.nii.gz"
+    for entity in ['run', 'acq', 'ce', 'rec', 'echo', 'ce',
+                   'mod', 'task']:
+        optional_field = '{}-11'.format(entity)
+        bids_name = optional_entities.format(optional_field)
+        parsed = scanid.parse_bids_filename(bids_name)
+        assert optional_field not in parsed.suffix
+
+
 def test_bids_file_equals_string_of_itself():
     bids_name = "sub-CMH0001_ses-01_run-1_T1w"
     ident = scanid.parse_bids_filename(bids_name)
@@ -190,3 +233,26 @@ def test_bids_file_equals_itself_with_path_and_ext():
     bids_full_path = "/some/folder/somewhere/{}.nii.gz".format(bids_name)
     ident = scanid.parse_bids_filename(bids_name)
     assert ident == bids_full_path
+
+
+def test_bids_file_correctly_parses_when_all_anat_entities_given():
+    anat_bids = "sub-CMH0001_ses-01_acq-abcd_ce-efgh_rec-ijkl_" + \
+                "run-1_mod-mnop_somesuffix"
+
+    parsed = scanid.parse_bids_filename(anat_bids)
+    assert str(parsed) == anat_bids
+
+
+def test_bids_file_correctly_parses_when_all_task_entities_given():
+    task_bids = "sub-CMH0001_ses-01_task-abcd_acq-efgh_" + \
+                "rec-ijkl_run-1_echo-11_imi"
+
+    parsed = scanid.parse_bids_filename(task_bids)
+    assert str(parsed) == task_bids
+
+
+def test_bids_file_correctly_parses_when_all_fmap_entities_given():
+    fmap_bids = "sub-CMH0001_ses-01_acq-abcd_dir-efgh_run-1_fmap"
+
+    parsed = scanid.parse_bids_filename(fmap_bids)
+    assert str(parsed) == fmap_bids
