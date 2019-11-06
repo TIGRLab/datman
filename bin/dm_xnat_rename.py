@@ -11,7 +11,7 @@ Arguments:
     <new_name>      The name to change to
     <name_file>     The full path to a csv file of sessions to rename. Each
                     entry for a session should be formatted as
-                    "previous_name,new_name", one entry per line.
+                    "current_name,new_name", one entry per line.
 
 Options:
     --server, -s                The URL of the xnat server to rename a session
@@ -25,6 +25,10 @@ Options:
                                 be read from the 'XNAT_PASS' environment var.
 
     --project xnat_project      Limit the rename to the given XNAT project
+
+    --debug, -d
+    --verbose, -v
+    --quiet, -q
 """
 
 import logging
@@ -38,6 +42,7 @@ logging.basicConfig(level=logging.WARN,
                     format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
+
 def main():
     arguments = docopt(__doc__)
     name_path = arguments['<name_file>']
@@ -48,6 +53,8 @@ def main():
     password = arguments['--pass']
     project = arguments['--project']
 
+    set_log_level(arguments)
+
     xnat = get_xnat(server, user, password)
 
     if not name_path:
@@ -56,7 +63,25 @@ def main():
 
     names = read_sessions(name_path)
     for entry in names:
-        rename_xnat_session(xnat, names[0], names[1], project=project)
+        try:
+            rename_xnat_session(xnat, entry[0], entry[1], project=project)
+        except Exception as e:
+            logger.error("Failed to rename {} to {}. Reason - "
+                         "{}".format(entry[0], entry[1], e))
+
+
+def set_log_level(arguments):
+    debug = arguments['--debug']
+    verbose = arguments['--verbose']
+    quiet = arguments['--quiet']
+
+    if debug:
+        logger.setLevel(logging.DEBUG)
+    if verbose:
+        logger.setLevel(logging.INFO)
+    if quiet:
+        logger.setLevel(logging.ERROR)
+
 
 def get_xnat(server, user, password):
     if not server:
@@ -65,6 +90,7 @@ def get_xnat(server, user, password):
     if not user or not password:
         user, password = datman.xnat.get_auth()
     return datman.xnat.xnat(server, user, password)
+
 
 def read_sessions(name_file):
     with open(name_file, "r") as name_list:
@@ -80,6 +106,7 @@ def read_sessions(name_file):
     logger.debug("Found {} valid entries".format(len(entries)))
     return entries
 
+
 def rename_xnat_session(xnat, current, new, project=None, tries=3):
     """
     Returns True if rename is successful
@@ -93,7 +120,7 @@ def rename_xnat_session(xnat, current, new, project=None, tries=3):
     try:
         xnat.rename_session(project, current, new)
     except HTTPError as e:
-        logger.debug("Error {} was raised.".format(e))
+        logger.debug("Error was raised: {}".format(e))
         if e.response.status_code == 409:
             logger.debug("URL conflict reported")
             try:
@@ -117,13 +144,14 @@ def rename_xnat_session(xnat, current, new, project=None, tries=3):
             logger.debug("Partial rename occurred, using new name to search "
                          "for data to finish update")
             current = new
-        logger.debug("Rename verified to have failed. {} tries "
-                     "remaining".format(tries))
+
+        logger.debug("Full rename failed, {} tries remaining".format(tries))
         if tries > 0:
             return rename_xnat_session(xnat, current, new, project, tries - 1)
         raise e
 
     return is_renamed(xnat, project, current, new)
+
 
 def get_project(session):
     config = datman.config.config()
@@ -132,6 +160,8 @@ def get_project(session):
     except Exception as e:
         raise type(e)("Can't find XNAT archive name for {}. "
                       "Reason - {}".format(session, e))
+    return project
+
 
 def is_renamed(xnat, xnat_project, old_name, new_name):
     """
@@ -143,18 +173,17 @@ def is_renamed(xnat, xnat_project, old_name, new_name):
     """
     try:
         session = xnat.get_session(xnat_project, new_name)
-    except:
+    except datman.xnat.XnatException:
         return False
     if session.name == new_name and session.experiment_label == new_name:
         return True
     try:
         session = xnat.get_session(xnat_project, old_name)
     except datman.xnat.XnatException as e:
-        logger.debug("Partial rename happened, search under new name to "
-                     "rename experiment too")
         raise type(e)("Session {} partially renamed to {} for project "
                       "{}".format(old_name, new_name, xnat_project))
     return False
+
 
 if __name__ == "__main__":
     main()

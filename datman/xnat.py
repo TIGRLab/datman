@@ -204,8 +204,8 @@ class xnat(object):
         try:
             session_json = result['items'][0]
         except:
-            msg = "Session:{} doesnt exist on xnat for study:{}".format(session,
-                    study)
+            msg = "Session {} doesnt exist on xnat for study {}".format(session,
+                                                                        study)
             raise XnatException(msg)
 
         return Session(session_json)
@@ -654,33 +654,37 @@ class xnat(object):
         session = self.get_session(project, old_name)
         if not session:
             raise XnatException("Can't rename session {}, doesnt "
-                    "exist.".format(old_name))
+                                "exist.".format(old_name))
 
         url = "{}/data/archive/projects/{}/subjects/{}?xsiType=" \
-                "xnat:mrSessionData&label={}".format(self.server, project,
-                old_name, new_name)
+              "xnat:mrSessionData&label={}".format(self.server, project,
+                                                   old_name, new_name)
         try:
             self._make_xnat_put(url)
         except requests.HTTPError as e:
             if e.response.status_code == 409:
                 raise XnatException("Can't rename {} to {} - session "
-                    "already exists".format(old_name, new_name))
+                                    "already exists".format(old_name,
+                                                            new_name))
             raise e
 
         if not rename_exp:
             return
+
         # Verify that exactly one experiment exists and get its name (in
         # case it differs from subject)
         experiments = self.get_experiments(project, new_name)
         if len(experiments) != 1:
-            raise XnatException("{} experiment(s) exist for {}, "
-                "cant rename data to {}".format(len(experiments), old_name,
-                new_name))
+            raise XnatException("{} experiment(s) exist for {}, cant rename "
+                                "experiment(s) to {}".format(len(experiments),
+                                                             old_name,
+                                                             new_name))
         old_name = experiments[0]['label']
         url = "{}/data/archive/projects/{}/subjects/{}" \
-                "/experiments/{}?xsiType=" \
-                "xnat:mrSessionData&label={}".format(self.server, project,
-                old_name, old_name, new_name)
+              "/experiments/{}?xsiType=" \
+              "xnat:mrSessionData&label={}".format(self.server, project,
+                                                   old_name, old_name,
+                                                   new_name)
         self._make_xnat_put(url)
 
     def _get_xnat_stream(self, url, filename, retries=3, timeout=120):
