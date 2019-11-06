@@ -75,10 +75,16 @@ def set_log_level(arguments):
     verbose = arguments['--verbose']
     quiet = arguments['--quiet']
 
+    # The xnat module is noisy, its default level should be 'error'
+    xnat_logger = logging.getLogger("datman.xnat")
+    xnat_logger.setLevel(logging.ERROR)
+
     if debug:
         logger.setLevel(logging.DEBUG)
+        xnat_logger.setLevel(logging.DEBUG)
     if verbose:
         logger.setLevel(logging.INFO)
+        xnat_logger.setLevel(logging.INFO)
     if quiet:
         logger.setLevel(logging.ERROR)
 
@@ -114,43 +120,60 @@ def rename_xnat_session(xnat, current, new, project=None, tries=3):
     if not project:
         project = get_project(current)
 
-    logger.debug("Renaming {} to {} in project {}".format(current, new,
-                                                          project))
+    logger.info("Renaming {} to {} in project {}".format(current, new,
+                                                         project))
 
     try:
         xnat.rename_session(project, current, new)
     except HTTPError as e:
         logger.debug("Error was raised: {}".format(e))
         if e.response.status_code == 409:
-            logger.debug("URL conflict reported")
-            try:
-                renamed = is_renamed(xnat, project, current, new)
-            except datman.xnat.XnatException:
-                logger.debug("Likely a real error, exiting.")
+            if not false_alarm(tries, xnat, project, current, new):
                 raise e
-            if renamed:
-                logger.debug("False alarm, rename completed successfully.")
-                return renamed
-            if tries <= 2:
-                logger.debug("Likely a real error, exiting.")
+        elif e.response.status_code == 422:
+            if not retry(tries, xnat, project, current, new):
                 raise e
-            logger.debug("Likely false alarm, attempting rename again")
-        elif e.response.status_code != 422:
+        else:
             raise e
-        try:
-            if is_renamed(xnat, project, current, new):
-                return True
-        except datman.xnat.XnatException as e:
-            logger.debug("Partial rename occurred, using new name to search "
-                         "for data to finish update")
-            current = new
-
-        logger.debug("Full rename failed, {} tries remaining".format(tries))
-        if tries > 0:
-            return rename_xnat_session(xnat, current, new, project, tries - 1)
+    except datman.xnat.XnatException as e:
+        if '0 experiment' in str(e):
+            return True
         raise e
 
     return is_renamed(xnat, project, current, new)
+
+
+def false_alarm(tries, xnat, project, current, new):
+    logger.debug("URL conflict reported")
+    try:
+        renamed = is_renamed(xnat, project, current, new)
+    except datman.xnat.XnatException:
+        logger.debug("Likely a real error, exiting.")
+        return False
+    if renamed:
+        logger.debug("False alarm, rename completed successfully.")
+        return True
+    if tries <= 2:
+        logger.debug("Likely a real error, exiting.")
+        return False
+    logger.debug("Likely false alarm, attempting rename again")
+    return True
+
+
+def retry(tries, xnat, project, current, new):
+    try:
+        if is_renamed(xnat, project, current, new):
+            return True
+    except datman.xnat.XnatException as e:
+        logger.debug("Partial rename occurred, using new name to "
+                     "search for data to finish update")
+        current = new
+
+    logger.debug("Full rename failed, {} tries remaining".format(tries))
+    if tries > 0:
+        return rename_xnat_session(xnat, current, new, project,
+                                   tries - 1)
+    return False
 
 
 def get_project(session):
