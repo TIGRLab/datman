@@ -30,7 +30,7 @@ FILENAME_PHA_RE = SCANID_PHA_RE + '_' + \
               r'.IMA|.mnc|.nrrd|$)'
 
 BIDS_SCAN_RE = r'sub-(?P<subject>[A-Z0-9]+)_' + \
-               r'ses-(?P<session>[0-9][0-9])_' + \
+               r'ses-(?P<session>[A-Za-z0-9]+)_' + \
                r'(task-(?P<task>[A-Za-z0-9]+)_){0,1}' + \
                r'(acq-(?P<acq>[A-Za-z0-9]+)_){0,1}' + \
                r'(ce-(?P<ce>[A-Za-z0-9]+)_){0,1}' + \

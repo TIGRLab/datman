@@ -256,3 +256,10 @@ def test_bids_file_correctly_parses_when_all_fmap_entities_given():
 
     parsed = scanid.parse_bids_filename(fmap_bids)
     assert str(parsed) == fmap_bids
+
+
+def test_bids_file_handles_prelapse_session_strings():
+    prelapse_file = "sub-BRG33006_ses-01R_run-1_something"
+
+    parsed = scanid.parse_bids_filename(prelapse_file)
+    assert str(parsed) == prelapse_file
