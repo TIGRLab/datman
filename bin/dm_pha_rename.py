@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 """
 Finds phantoms on XNAT and renames them to our new naming scheme:
-STUDY_SITE_PHA_TYPEYYYYMMDD. Where YYYYMMDD is the scan date of the phantom.
-It will also remove any copies of the phantom under the old name
-from the file system.
+STUDY_SITE_PHA_TYPEYYYYMMDD. It will also remove any copies of the phantom
+under the old name from the file system.
 
 This will find phantoms even if they dont adhere to the datman scheme at all,
 as long as either the patient name or patient ID field contains one of the
@@ -32,13 +31,17 @@ Options:
                                     'old_name,new_name' with one entry per
                                     line.
 
-    --track-changes <csv_record>    Use this option to ignore sessions that
-                                    have been previously renamed and track new
-                                    renames. The file should be formatted as
-                                    'orig_name,current_name'. XNAT sessions
-                                    matching an ID in the 'current_name' column
-                                    will not be touched. Any new name changes
-                                    will be appended to the end of the file.
+    --track-history <csv_record>    Use this option for repeated runs of the
+                                    script. Every subject in the study will
+                                    be entered into the list after it has
+                                    been seen once. Unchanged subjects will
+                                    be entered with the same name in each
+                                    column, changed ones will have their
+                                    original ID in the first column and their
+                                    'post-rename' ID in the second column. Any
+                                    XNAT session matching an ID in the second
+                                    column will be ignored in every subsequent
+                                    run of this script.
 
     --debug,d
     --verbose,v
@@ -46,13 +49,44 @@ Options:
 
 """
 
-import docopt
+from docopt import docopt
 
 import datman.config
 import datman.scanid
 import datman.xnat
 import dm_xnat_rename as rename
 from datman.scanid import ParseException
+
+def main():
+    arguments = docopt(__doc__)
+
+    # set log level (dont forget xnat_rename logger level)
+
+    # If track history, set global flag
+    # If read or track changes parse the csv and turn into dict of old -> new
+
+    # Get xnat project names for the given study
+    # for xnat project in projects:
+    #   Get all xnat sessions (Use the dict, if it exists, to remove entries)
+    #           -> If read, remove entries that DONT match dict keys
+    #           -> If track-history, remove entries that DO match dict values
+    #   For xnat session in session list:
+    #       If is_phantom:
+    #           Add to list of phantoms to rename
+    #       else continue
+
+    # Use list of phantoms + 'generate_id' function to get dict of orig_name -> new_name
+
+    # If write, format into csv and end
+
+    # Use xnat_rename to rename all, and report failed renames +
+    # if track history remove failed renames from list before csv write
+
+    # If track history, add to existing csv and continue
+
+
+def get_xnat_projects(study):
+    return
 
 
 def get_xnat(server, user, password):
