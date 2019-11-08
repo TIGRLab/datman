@@ -14,14 +14,14 @@ Arguments:
                     "current_name,new_name", one entry per line.
 
 Options:
-    --server, -s                The URL of the xnat server to rename a session
+    --server,-s <server>        The URL of the xnat server to rename a session
                                 on. If unset, it will be read from the
                                 'XNATSERVER' environment var
 
-    --user, -u                  The username to log in with. If unset, it will
+    --user,-u <user>            The username to log in with. If unset, it will
                                 be read from the 'XNAT_USER' environment var.
 
-    --pass, -p                  The password to log in with. If unset it will
+    --pass,-p <pass>            The password to log in with. If unset it will
                                 be read from the 'XNAT_PASS' environment var.
 
     --project xnat_project      Limit the rename to the given XNAT project
@@ -30,7 +30,7 @@ Options:
     --verbose, -v
     --quiet, -q
 """
-
+import os
 import logging
 from docopt import docopt
 from requests import HTTPError
@@ -40,7 +40,7 @@ import datman.config
 
 logging.basicConfig(level=logging.WARN,
                     format="[%(name)s] %(levelname)s: %(message)s")
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(os.path.basename(__file__))
 
 
 def main():

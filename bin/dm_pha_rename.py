@@ -20,18 +20,30 @@ Arguments:
     <study>             The datman study that should be worked on
 
 Options:
-    --write <csv_output>            Dont rename anything, but instead dump all
+    --server,-s <server>            The URL of the xnat server to rename a
+                                    session on. If unset, it will be read from
+                                    the 'XNATSERVER' environment var
+
+    --user,-u <user>                The username to log in with. If unset, it
+                                    will be read from the 'XNAT_USER'
+                                    environment var.
+
+    --pass,-p <pass>                The password to log in with. If unset it
+                                    will be read from the 'XNAT_PASS'
+                                    environment var.
+
+    --write,-w <csv_output>         Dont rename anything, but instead dump all
                                     name changes that would have been made to a
                                     csv named <output>, formatted as
                                     'old_name,new_name' with one entry per
-                                    line.
+                                    line. Cant be set alongside --track
 
-    --read <csv_input>              Dont search for phantoms, instead read name
+    --read,-r <csv_input>           Dont search for phantoms, instead read name
                                     changes from the csv <input>, formatted as
                                     'old_name,new_name' with one entry per
-                                    line.
+                                    line. Cant be set alongside --track
 
-    --track-history <csv_record>    Use this option for repeated runs of the
+    --track,-t <csv_record>         Use this option for repeated runs of the
                                     script. Every subject in the study will
                                     be entered into the list after it has
                                     been seen once. Unchanged subjects will
@@ -48,21 +60,37 @@ Options:
     --quiet,q
 
 """
-
+import os
+import csv
+import logging
 from docopt import docopt
 
 import datman.config
-import datman.scanid
 import datman.xnat
+import datman.scanid
 import dm_xnat_rename as rename
-from datman.scanid import ParseException
+
+logging.basicConfig(level=logging.WARN,
+                    format="[%(name)s] %(levelname)s: %(message)s")
+logger = logging.getLogger(os.path.basename(__file__))
+
+TRACK = False
 
 def main():
     arguments = docopt(__doc__)
+    server = arguments['--server']
+    user = arguments['--user']
+    password = arguments['--pass']
+    csv_output = arguments['--write']
+    csv_input = arguments['--read']
+    csv_history = arguments['--track']
 
-    # set log level (dont forget xnat_rename logger level)
+    set_log_level(arguments)
 
-    # If track history, set global flag
+    if csv_history:
+        global TRACK
+        TRACK = True
+
     # If read or track changes parse the csv and turn into dict of old -> new
 
     # Get xnat project names for the given study
@@ -83,6 +111,21 @@ def main():
     # if track history remove failed renames from list before csv write
 
     # If track history, add to existing csv and continue
+
+
+def set_log_level(arguments):
+    debug = arguments['--debug']
+    verbose = arguments['--verbose']
+    quiet = arguments['--quiet']
+
+    rename.set_log_level(arguments)
+
+    if debug:
+        logger.setLevel(logging.DEBUG)
+    if verbose:
+        logger.setLevel(logging.INFO)
+    if quiet:
+        logger.setLevel(logging.ERROR)
 
 
 def get_xnat_projects(study):
@@ -108,7 +151,7 @@ sessions = xnat.get_sessions(study)
 def is_phantom(xnat_sess):
     try:
         ident = datman.scanid.parse(xnat_sess.name)
-    except ParseException:
+    except datman.scanid.ParseException:
         pass
     else:
         return datman.scanid.is_phantom(ident)
@@ -123,3 +166,6 @@ def is_phantom(xnat_sess):
     if 'agar' in patient_id or 'agar' in patient_name:
         return True
     return False
+
+if __name__ == '__main__':
+    main()
