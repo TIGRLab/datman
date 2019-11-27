@@ -27,7 +27,13 @@ from docopt import docopt
 import numpy as np
 import pandas as pd
 import os
+from shutil import copyfile
+import logging
 
+
+logging.basicConfig(level=logging.WARN,
+        format='[%(name)s %(levelname)s : %(message)s]')
+logger = logging.getLogger(os.path.basename(__file__))
 def combine_sprl_motion(sprl_in, sprl_out):
 
     motion_in = np.genfromtxt(sprl_in)
@@ -72,9 +78,14 @@ def combine_confounds(confound, motion):
 
     #Drop columns to be replaced
     df.drop(cols,axis=1,inplace=True)
+    df.drop('framewise_displacement',axis=1,inplace=True)
 
     #Replace with motion information
     motion_df = pd.DataFrame(motion,columns=cols)
+
+    #Calculate new FD
+    fd = lambda x: x.abs().sum()
+    motion_df['framewise_displacement'] = motion_df[cols].apply(fd,axis=1)
 
     #Append to dataframe
     df = df.join(motion_df)
@@ -82,9 +93,31 @@ def combine_confounds(confound, motion):
     #Return dataframe
     return df
 
+def filter_for_sprl(c):
+    '''
+    Given a BIDSFile object, filter for sprl type file
+    '''
 
+    try:
+        val = 'sprlcombined' in c.entities['acquisition']
+    except KeyError:
+        return False
+    else:
+        return val
 
+def configure_logger(quiet,verbose,debug):
+    '''
+    Configure logger settings for script session
+    '''
 
+    if quiet:
+        logger.setLevel(logging.ERROR)
+    elif verbose:
+        logger.setLevel(logging.INFO)
+    elif debug:
+        logger.setLevel(logging.DEBUG)
+
+    return
 
 def main():
 
@@ -104,6 +137,8 @@ def main():
     verbose         =   arguments['--verbose']
     quiet           =   arguments['--quiet']
 
+    configure_logger(quiet,verbose,debug)
+
     #Step 1: Loop through subjects available in the feenics pipeline directory
     if not subjects:
         subjects = [s for s in os.listdir(feenics_dir)
@@ -112,16 +147,14 @@ def main():
     #Step 1a: Get BIDS subjects
     layout = BIDSLayout(fmriprep,validate=False)
     confounds = layout.get(suffix=['confounds','regressors'],extension='tsv')
+    confounds = [c for c in confounds if filter_for_sprl(c)]
 
     #Process each subject
     for s in subjects:
 
-        #Get session info
-
-        #Combine motion files
-        motion_comb = proc_subject(s,feenics_dir)
-
         #Get subject BIDS name and session
+        logger.info('Processing {}'.format(s))
+
         ident = scanid.parse(s)
         bids = ident.get_bids_name()
         ses = ident.timepoint
@@ -131,14 +164,22 @@ def main():
             confound = [c.path for c in confounds if
                     (c.entities['subject'] == bids) and (c.entities['session'] == ses)][0]
         except IndexError:
+            logger.info('Could not find confound file for {}'.format(bids))
             continue
 
-        #Combine confound file using pandas
-        updated_confound = combine_confounds(confound, motion_comb)
-
-        #Write dataframe to output
-        confound_name = os.path.basename(confound)
-        updated_confound.to_csv(os.path.join(output,confound_name),sep='\t')
+        #Transfer confound
+        confound_out = os.path.join(output,os.path.basename(confound))
+        try:
+            motion_comb = proc_subject(s,feenics_dir)
+        except IOError:
+            #Copy over
+            logger.info('Missing FeenICS motion confound files, using fmriprep confound: {}'.format(bids))
+            copyfile(confound, confound_out)
+        else:
+            #Write dataframe to output
+            logger.info('Found FeenICS motion confound for: {}'.format(bids))
+            updated_confound = combine_confounds(confound, motion_comb)
+            updated_confound.to_csv(confound_out,sep='\t')
 
 
 if __name__ == '__main__':
