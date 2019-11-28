@@ -149,6 +149,9 @@ def main():
     confounds = layout.get(suffix=['confounds','regressors'],extension='tsv')
     confounds = [c for c in confounds if filter_for_sprl(c)]
 
+    #Create dictionary to deal with summary mean FD tables
+    sub2meanfd = {}
+
     #Process each subject
     for s in subjects:
 
@@ -176,10 +179,20 @@ def main():
             logger.info('Missing FeenICS motion confound files, using fmriprep confound: {}'.format(bids))
             copyfile(confound, confound_out)
         else:
+
             #Write dataframe to output
             logger.info('Found FeenICS motion confound for: {}'.format(bids))
             updated_confound = combine_confounds(confound, motion_comb)
             updated_confound.to_csv(confound_out,sep='\t')
+
+            #Store mean framewise displacement
+            sub2meanfd[bids] = updated_confound['framewise_displacement'].mean()
+
+    #Generate mean FD dataframe 
+    meanfd_file = os.path.join(output,'mean_FD.csv')
+    meanfd_df = pd.Dataframe.from_dict(sub2meanfd, columns = ['Subject','mean_fd'])
+    meanfd_df.to_csv(meanfd_file, sep=',')
+
 
 
 if __name__ == '__main__':
