@@ -1,0 +1,104 @@
+#YAML configuration for enforcing BIDS imaging standards and naming conventions
+#General structure is as follows
+# Each entry is a modality of imaging (anat,func,fieldmap,dwi etc...)
+# Each modality contains a dictionary with "Required", "Optional" 
+# Each object in required or optional contains the following information:
+#
+# description : what the tag is supposed to mean
+# constraints : if the input is constrained somehow
+#               Several key properties exist for constraints:
+#                       1. IN : if input is required to be in a list
+#                       2. NOT: if the input cannot be some value
+#                       3. PATTERN: if the input is regex constrainted
+#                       4. TYPE: if the input is type constrained
+#                       Constraints are enforced via & operator, | is not supported
+# required    : if a requirement exists for this field, can specify in-class fields
+#               This works in an IF AND ONLY IF fashion (bidirectional requirement)
+#
+# VALID TYPES: INT, FLOAT, STRING
+# REFERENCING OTHER FIELDS: Using "@" before allows you to reference a field in the same modality 
+# and retrieve the associated property
+
+VERSION: "1.2.1"
+
+#GLOBAL properties
+
+global:
+        order: ['sub','ses']
+        required: 
+                sub: 
+                        description: "BIDS subject name"
+        optional:
+                        ses:
+                                description: "A label to indicate the session associated with the scan"
+                        acq:
+                                description: "For characterizing different parameters sets"
+                        run:
+                                description: "If multiple scans of same modality use this to distinguish"
+                                constraint: {TYPE: "INT"}
+
+
+anat:
+        order: ['@global.acq','ce','rec','@global.run','mod','modality_label']
+        required:
+                modality_label: 
+                        description: "Type of anatomical scan"
+                        constraint: {
+                                IN:['T1w','T2w','T1rho','T1map','T2map','T2star','FLAIR','FLASH',
+                                'PD','PDmap','PDT2','inplaneT1','inplaneT2','angio','defacemask']
+                                }
+        optional:
+                ce:
+                        description: "Used to indicate contrast enhanced images and the agent used"
+                rec:
+                        description: "Reconstruction algorithm used" 
+                mod:
+                        description: "Modality associated with defacemask"
+                        required: {
+                                required_modality_label: "defacemask"
+                                }
+                        constraint: {
+                                IN: "@required.modality_label",
+                                NOT: "defacemask"
+                                }
+
+func:
+        order: ['task','@global.acq','ce','dir','rec','@global.run','echo','contrast_label']
+        required:
+                task:
+                        description: "Task label, free-form string"
+                contrast_label:
+                        description: 'Type of contrast'
+                        constraint: {IN: ['bold','cbv','phase']}
+        optional:
+
+                ce: {}
+                dir: {}
+                rec: {}
+                echo:
+                        constraint: {TYPE: "INT"}
+
+
+dwi:
+        order: ['@global.acq','dir','@global.run','modality_label']
+        required: {
+                modality_label: {}
+        }
+        optional: {
+        
+                dir: {}
+        }
+
+fmap:
+        order: ['@global.acq','dir','echo','@global.run','modality_label']
+        required: 
+                modality_label:
+                        constraint: {IN: ['magnitude','fieldmap','magnitude1','magnitude2',
+                        'phase1','phase2','phase','phasediff','epi']}
+        optional:
+                dir:
+                        constraint: {IN: ['AP','PA']}
+                        required: {"@required.modality_label":"epi"}
+                echo:
+                        constraint: {TYPE: "INT"}
+
