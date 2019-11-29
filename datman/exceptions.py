@@ -18,3 +18,6 @@ class DashboardException(Exception):
 
 class MetadataException(Exception):
     pass
+
+class ExportException(Exception):
+    pass
