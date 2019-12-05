@@ -178,20 +178,21 @@ def main():
             #Copy over
             logger.info('Missing FeenICS motion confound files, using fmriprep confound: {}'.format(bids))
             copyfile(confound, confound_out)
+            confound_df = pd.read_csv(confound, delimiter='\t')
         else:
-
             #Write dataframe to output
             logger.info('Found FeenICS motion confound for: {}'.format(bids))
-            updated_confound = combine_confounds(confound, motion_comb)
-            updated_confound.to_csv(confound_out,sep='\t')
-
+            confound_df = combine_confounds(confound, motion_comb)
+            confound_df.to_csv(confound_out,sep='\t')
+        finally:
             #Store mean framewise displacement
-            sub2meanfd.append({'subject': bids, 'mean_fd' : updated_confound['framewise_displacement'].mean()})
+            sub2meanfd.append({'subject': bids, 'mean_fd' : confound_df['framewise_displacement'].mean()})
 
     #Generate mean FD dataframe 
     meanfd_file = os.path.join(output,'mean_FD.csv')
     meanfd_df = pd.DataFrame.from_dict(sub2meanfd)
-    meanfd_df.to_csv(meanfd_file, sep=',')
+    meanfd_df.set_index('subject', drop=True,inplace=True)
+    meanfd_df.to_csv(meanfd_file, sep=',', index_label='subject')
 
 
 
