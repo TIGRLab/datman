@@ -46,7 +46,9 @@ import datman.dashboard as dashboard
 from datman.bids.check_bids import BIDSEnforcer
 
 # Set up logger
-logging.basicConfig(level=logging.WARN, format="[%(name)s %(levelname)s : %(message)s]")
+logging.basicConfig(
+    level=logging.WARN, format="[% (name)s % (levelname)s:" "%(message)s]"
+)
 logger = logging.getLogger(os.path.basename(__file__))
 YAML = "/archive/code/datman/assets/bids_requirements.yaml"
 
@@ -105,7 +107,8 @@ class BIDSFile(object):
 
     @property
     def rel_path(self):
-        return os.path.join(self.session, self.bids_type, self.bids + ".nii.gz")
+        return os.path.join(self.session,
+                            self.bids_type, self.bids + ".nii.gz")
 
     @property
     def dest_nii(self):
@@ -117,7 +120,8 @@ class BIDSFile(object):
         """
 
         return BIDSFile(
-            self.sub, self.ses, self.series, self.dest_dir, self.bids, self.spec
+            self.sub, self.ses, self.series,
+            self.dest_dir, self.bids, self.spec
         )
 
     def transfer_files(self):
@@ -260,7 +264,8 @@ def make_directory(path, suppress=False):
     try:
         os.mkdir(path)
     except OSError:
-        logger.info("Pre-existing folder {}. " "Skipping folder creation".format(path))
+        logger.info("Pre-existing folder {}. "
+                    "Skipping folder creation".format(path))
 
     return
 
@@ -299,7 +304,8 @@ def get_tag_bids_spec(cfg, tag):
         bids = cfg.system_config["ExportSettings"][tag]["bids"].copy()
     except KeyError:
         logger.error(
-            "No BIDS tag available for scan type: {}, skipping conversion".format(tag)
+            "No BIDS tag available for scan type:"
+            "{}, skipping conversion".format(tag)
         )
         return None
 
@@ -312,14 +318,16 @@ def pair_fmaps(series_list):
 
     Method:
         For each BIDSFile get the pairing key and the associated values allowed
-        When another file with an associated value is found, get the intersection of the allowed values
+        When another file with an associated value is found, get the
+        intersection of the allowed values
         This yields the left over requirements that needs to be fulfilled
-        If the other file is not matching (case of lone TOPUP) then a mismatch results in a lone fmap
+        If the other file is not matching (case of lone TOPUP) then a mismatch
+        results in a lone fmap
 
     """
 
-    pair_on = lambda x: x.get_spec("pair", "label")
-    pair_with = lambda x: set(x.get_spec("pair", "with"))
+    def pair_on(x): lambda x: x.get_spec("pair", "label")
+    def pair_with(x): lambda x: set(x.get_spec("pair", "with"))
 
     pair_list = []
     lone = []
@@ -353,7 +361,8 @@ def pair_fmaps(series_list):
             pairs.append(s)
             pairs2go = pairs2go & pair_with(s)
 
-            # If after intersection pairs2go is empty that means no more matches required for set of fmaps
+            # If after intersection pairs2go is empty that means no more
+            # matches required for set of fmaps
             if not pairs2go:
                 pair_list.append(pairs)
                 pairs = []
@@ -382,11 +391,9 @@ def calculate_average_series(series_list):
 
 def is_fieldmap_candidate(scan, scan_type):
     """
-    Given a candidate scan, check whether it is of the correct type and is meant to be corrected
+    Given a candidate scan, check whether it is of the correct type and is
+    meant to be corrected
     """
-
-    # Check if intended type
-    candidate = False
 
     # First check if meant for fieldmaps
     try:
@@ -408,7 +415,8 @@ def process_intended_fors(coupled_fmaps, non_fmaps):
     Derive intended fors using series value matching
 
     Considerations:
-        1. When matching should first scrape the kind of data you can apply fmaps to
+        1. When matching should first scrape the kind of data you can
+        apply fmaps to
         2. Then loop through modalities
         3. Filter scans
         4. Calculate distances and minimizes
@@ -432,7 +440,7 @@ def process_intended_fors(coupled_fmaps, non_fmaps):
             f for f in coupled_fmaps if t in f[0].get_spec("intended_for")
         ]
 
-        # For each candidate scan, calculate distances to each candidate fmap set
+        # Calculate distances to each candidate fmap set
         for c in candidate_scans:
 
             # Calc dists and get minimum index
@@ -488,13 +496,15 @@ def make_bids_template(bids_dir, subject, session):
     """
     Set up folders for making BIDS directory
     Arguments:
-        bids_dir                    Directory to create BIDS project in (project-level directory)
+        bids_dir                    Directory to create BIDS project in
+                                    (project-level directory)
         study_name                  Study code for dataset_description
         subject                     BIDS subject ID
         session                     BIDS session ID
 
     Return:
-        p_bids_sub_ses              Path to BIDS subject-session specific directory
+        p_bids_sub_ses              Path to BIDS subject-session
+                                    specific directory
     """
 
     p_bids_sub = os.path.join(bids_dir, subject)
@@ -524,7 +534,8 @@ def make_dataset_description(bids_dir, study_name, version):
 
 def prioritize_scans(series_list):
     """
-    Given a list of scans apply prioritization heuristics based on spec key "over"
+    Given a list of scans apply prioritization heuristics
+    based on spec key "over"
     """
 
     to_filt = set()
@@ -536,7 +547,8 @@ def prioritize_scans(series_list):
         except KeyError:
             continue
 
-        # If prioritization spec found, then look for it in other scans to replace
+        # If prioritization spec found,
+        # then look for it in other scans to replace
         for f in [k for k in series_list if k != s]:
             try:
                 f_label = f.get_spec(label)
@@ -545,7 +557,8 @@ def prioritize_scans(series_list):
 
             if f_label == on:
                 logger.info(
-                    "{priority} is prioritized over {scan}, not copying {scan}".format(
+                    "{priority} is prioritized over \
+                    {scan}, not copying {scan}".format(
                         priority=s, scan=f
                     )
                 )
@@ -564,7 +577,9 @@ def process_subject(subject, cfg, be, bids_dir, rewrite):
     subscan = scan.Scan(subject, cfg)
     bids_sub = ident.get_bids_name()
     bids_ses = ident.timepoint
-    exp_path = make_bids_template(bids_dir, "sub-" + bids_sub, "ses-" + bids_ses)
+    exp_path = make_bids_template(bids_dir,
+                                  "sub-" + bids_sub,
+                                  "ses-" + bids_ses)
 
     dm_to_bids = []
 
@@ -587,10 +602,6 @@ def process_subject(subject, cfg, be, bids_dir, rewrite):
         # Make required directories
         class_path = os.path.join(exp_path, bids_dict["class"])
         make_directory(class_path)
-
-        # Get json + series
-        source_path = series.path
-        source_json = get_json(series.path)
 
         # Make dm2bids transformation file, update source if applicable
         bidsfile = BIDSFile(
