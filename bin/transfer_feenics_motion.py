@@ -90,7 +90,7 @@ def combine_confounds(confound, motion):
     motion_df = pd.DataFrame(motion, columns=cols)
 
     # Calculate new FD
-    def fd(x): lambda x: x.abs().sum()
+    def fd(x): return x.abs().sum()
     motion_df["framewise_displacement"] = motion_df[cols].apply(fd, axis=1)
 
     # Append to dataframe

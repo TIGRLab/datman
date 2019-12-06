@@ -326,8 +326,8 @@ def pair_fmaps(series_list):
 
     """
 
-    def pair_on(x): lambda x: x.get_spec("pair", "label")
-    def pair_with(x): lambda x: set(x.get_spec("pair", "with"))
+    def pair_on(x): return x.get_spec("pair", "label")
+    def pair_with(x): return set(x.get_spec("pair", "with"))
 
     pair_list = []
     lone = []
