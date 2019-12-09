@@ -206,9 +206,12 @@ def main():
             confound_df.to_csv(confound_out, sep="\t")
         finally:
             # Store mean framewise displacement
+            scan_name = os.path.basename(confound)\
+                               .replace('desc-confounds_regressors.tsv',
+                                        'bold')
             sub2meanfd.append(
                 {
-                    "subject": bids,
+                    "bids_name": scan_name,
                     "mean_fd": confound_df["framewise_displacement"].mean(),
                 }
             )
@@ -216,8 +219,8 @@ def main():
     # Generate mean FD dataframe
     meanfd_file = os.path.join(output, "mean_FD.csv")
     meanfd_df = pd.DataFrame.from_dict(sub2meanfd)
-    meanfd_df.set_index("subject", drop=True, inplace=True)
-    meanfd_df.to_csv(meanfd_file, sep=",", index_label="subject")
+    meanfd_df.set_index("bids_name", drop=True, inplace=True)
+    meanfd_df.to_csv(meanfd_file, sep=",", index_label="bids_name")
 
 
 if __name__ == "__main__":
