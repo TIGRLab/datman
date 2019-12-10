@@ -203,7 +203,7 @@ def main():
             # Write dataframe to output
             logger.info("Found FeenICS motion confound for: {}".format(bids))
             confound_df = combine_confounds(confound, motion_comb)
-            confound_df.to_csv(confound_out, sep="\t")
+            confound_df.to_csv(confound_out, index=False, sep="\t")
         finally:
             # Store mean framewise displacement
             scan_name = os.path.basename(confound)\
