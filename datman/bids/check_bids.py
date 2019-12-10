@@ -62,8 +62,8 @@ class BIDSEnforcer(object):
                 entry = input_dict[f]
             except KeyError:
                 if req_or_opt == "required":
-                    print("Missing required input: {}".format(f))
-                    print("Input dict:", input_dict)
+                    logger.error("Missing required input: {}".format(f))
+                    logger.error("Input dict:", input_dict)
                     raise
             else:
                 if f not in KEYLESS_FIELDS:
