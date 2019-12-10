@@ -82,7 +82,13 @@ func:
 dwi:
         order: ['@global.acq','dir','@global.run','modality_label']
         required: {
-                modality_label: {}
+                modality_label: 
+                        description: "Type of diffusion scan"
+                        constraint: {
+                                IN:['dwi','sbref']
+                        }
+
+                
         }
         optional: {
         
