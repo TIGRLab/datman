@@ -217,10 +217,10 @@ def main():
             )
 
     # Generate mean FD dataframe
-    meanfd_file = os.path.join(output, "mean_FD.csv")
+    meanfd_file = os.path.join(output, "mean_FD.tsv")
     meanfd_df = pd.DataFrame.from_dict(sub2meanfd)
     meanfd_df.set_index("bids_name", drop=True, inplace=True)
-    meanfd_df.to_csv(meanfd_file, sep=",", index_label="bids_name")
+    meanfd_df.to_csv(meanfd_file, sep="\t", index_label="bids_name")
 
 
 if __name__ == "__main__":
