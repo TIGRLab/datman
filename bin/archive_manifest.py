@@ -3,7 +3,7 @@
 Prints a list of the series in an MRI exam archive tarball or directory
 
 Usage:
-    archive-manifest.py [options] <archive>...
+    archive_manifest.py [options] <archive>...
 
 Arguments:
     <archive>            Exam archive (zip, tarball, or folder)

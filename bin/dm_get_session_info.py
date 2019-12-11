@@ -2,8 +2,8 @@
 """Read all scans in data/nii extract the subject Id and scan date info
 
 Usage:
-    dm-get-session-info.py [options] <study>
-    dm-get-session-info.py [options] <study> <csv_file>
+    dm_get_session_info.py [options] <study>
+    dm_get_session_info.py [options] <study> <csv_file>
 
 Arguments:
     <study>         Path to the project config file
