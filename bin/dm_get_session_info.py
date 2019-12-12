@@ -43,14 +43,16 @@ def process_scan(session_name, headers):
     try:
         ident = datman.scanid.parse(session_name)
     except datman.scanid.ParseException:
-        logger.warning('Failed to parse:{}, adding session'.format(session_name))
+        logger.warning('Failed to parse {}, adding session'
+                       .format(session_name))
         return
 
     subject_id = ident.get_full_subjectid_with_timepoint()
 
     scan_date = datetime.strptime(headers.SeriesDate, '%Y%m%d')
 
-    return(subject_id, ident.timepoint, ident.site, scan_date, is_phantom, is_repeat)
+    return (subject_id, ident.timepoint, ident.site, scan_date, is_phantom,
+            is_repeat)
 
 
 def main():
@@ -83,14 +85,19 @@ def main():
     scans = datman.utils.get_folder_headers(dcm_dir)
     logger.info('Found {} scans'.format(len(scans)))
 
-    headers = ["FOLDER", "SUBJECT", "SESSION", "SCANDATE", "SITE", "SUBJECT/REPEAT/PHANTOM"]
+    headers = ["FOLDER", "SUBJECT", "SESSION", "SCANDATE", "SITE",
+               "SUBJECT/REPEAT/PHANTOM"]
 
     results = []
-    for key, val in scans.iteritems():
+    for key, val in scans.items():
         session_name = os.path.basename(key)
         res = process_scan(session_name, val)
         if res:
-            result = [key, res[0], res[1], datetime.strftime(res[3], '%Y-%m-%d'), res[2]]
+            result = [key,
+                      res[0],
+                      res[1],
+                      datetime.strftime(res[3], '%Y-%m-%d'),
+                      res[2]]
             if res[4]:
                 result.append('PHANTOM')
             elif res[5]:
