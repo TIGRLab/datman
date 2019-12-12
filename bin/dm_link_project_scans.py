@@ -37,14 +37,15 @@ Details:
 import os
 import sys
 import logging
-import yaml
 import csv
 import re
 
+import yaml
 from docopt import docopt
 
 import datman as dm
-import datman.scanid, datman.utils
+import datman.scanid
+import datman.utils
 import datman.dashboard as dashboard
 
 DRYRUN = False
@@ -54,7 +55,7 @@ logger = logging.getLogger(os.path.basename(__file__))
 log_handler = logging.StreamHandler()
 logger.addHandler(log_handler)
 log_handler.setFormatter(logging.Formatter('[%(name)s] %(levelname)s : '
-        '%(message)s'))
+                                           '%(message)s'))
 
 
 def read_link_file(link_file):
@@ -68,6 +69,7 @@ def read_link_file(link_file):
             line = line[0:3]
             if not line == LINK_FILE_HEADERS:
                 yield(line)
+
 
 def write_link_file(link_file, src_session, trg_session, tags):
     """If the link file doesnt exist, create it, if it exists and the entry is
@@ -93,12 +95,14 @@ def write_link_file(link_file, src_session, trg_session, tags):
             logger.debug('Writing to link file entry: {}'.format(entry))
             spamwriter.writerow(entry)
 
+
 def get_external_links_csv(session_name):
     # Give whole session_name in case it's 'DTI'
     metadata_path = datman.config.config().get_path('meta',
-            study=session_name)
+                                                    study=session_name)
     csv_path = os.path.join(metadata_path, 'external-links.csv')
     return csv_path
+
 
 def make_link(source, target):
     logger.debug('Linking {} to {}'.format(source, target))
@@ -140,21 +144,21 @@ def add_link_to_dashboard(source, target, target_path):
     db_source = dashboard.get_scan(source)
     if not db_source:
         logger.error("Source scan {} not found in dashboard database. "
-                "Can't create link {}".format(source, target))
+                     "Can't create link {}".format(source, target))
         return
 
     try:
         dashboard.add_scan(target, source_id=db_source.id)
     except Exception as e:
         logger.error("Failed to add link {} to dashboard database. "
-                "Reason: {}. Removing link from file system to re-attempt "
-                "later.".format(target, str(e)))
+                     "Reason {}. Removing link from file system to re-attempt "
+                     "later.".format(target, str(e)))
         if not target_path:
             # No link was made
             return
         try:
             os.remove(target_path)
-        except:
+        except Exception:
             logger.error("Failed to clean up link {}".format(target_path))
 
 
@@ -171,7 +175,7 @@ def link_files(tags, src_session, trg_session, src_data_dir, trg_data_dir):
                            trg_session.get_full_subjectid_with_timepoint())
 
     logger.info("Making links in {} for tagged files in {}".format(trg_dir,
-            src_dir))
+                                                                   src_dir))
 
     for root, dirs, files in os.walk(src_dir):
         for filename in files:
@@ -201,6 +205,7 @@ def get_file_types_for_tag(tag_settings, tag):
     except KeyError:
         return []
 
+
 def get_dirs_to_search(source_config, tag_list):
     dirs_to_search = []
     tag_settings = source_config.get_tags()
@@ -209,12 +214,13 @@ def get_dirs_to_search(source_config, tag_list):
         if filetypes:
             dirs_to_search.extend(filetypes)
         else:
-            logger.error("Tag {} has no file types defined in ExportSettings." \
-                    "Searching all paths for matching data.".format(tag))
-            dirs_to_search = source_config.get_key('Paths').keys()
+            logger.error("Tag {} has no file types defined in ExportSettings."
+                         "Searching all paths for matching data.".format(tag))
+            dirs_to_search = list(source_config.get_key('Paths').keys())
             break
     dirs_to_search = set(dirs_to_search)
     return dirs_to_search
+
 
 def tags_match(blacklist_entry, tags):
     """
@@ -223,9 +229,9 @@ def tags_match(blacklist_entry, tags):
     try:
         _, tag, _, _ = datman.scanid.parse_filename(blacklist_entry)
     except datman.scanid.ParseException:
-        logger.error("Blacklist entry {} contains non-datman filename. " \
-                "Entry will not be copied to target blacklist.".format(
-                blacklist_entry))
+        logger.error("Blacklist entry {} contains non-datman filename. "
+                     "Entry will not be copied to target blacklist."
+                     "".format(blacklist_entry))
         return False
 
     if tag not in tags:
@@ -233,21 +239,23 @@ def tags_match(blacklist_entry, tags):
 
     return True
 
-def copy_blacklist_data(source, source_blacklist, target, target_blacklist, tags):
+
+def copy_blacklist_data(source, source_blacklist, target, target_blacklist,
+                        tags):
     """
     Adds entries from <source_blacklist> to <target_blacklist> if they contain
     one of the given tags and have not already been added.
     """
     source_entries = datman.utils.read_blacklist(subject=source,
-            path=source_blacklist)
+                                                 path=source_blacklist)
     expected_entries = {orig_scan.replace(source, target): comment
-            for (orig_scan, comment) in source_entries.items()}
+                        for (orig_scan, comment) in source_entries.items()}
 
     if not expected_entries:
         return
 
     target_entries = datman.utils.read_blacklist(subject=target,
-            path=target_blacklist)
+                                                 path=target_blacklist)
     missing_scans = set(expected_entries.keys()) - set(target_entries.keys())
 
     new_entries = {}
@@ -260,6 +268,7 @@ def copy_blacklist_data(source, source_blacklist, target, target_blacklist, tags
         return
 
     datman.utils.update_blacklist(new_entries, path=target_blacklist)
+
 
 def copy_checklist_entry(source_id, target_id, target_checklist_path):
     target_comment = datman.utils.read_checklist(subject=target_id)
@@ -275,6 +284,7 @@ def copy_checklist_entry(source_id, target_id, target_checklist_path):
     entries = {target_id: source_comment}
     datman.utils.update_checklist(entries, path=target_checklist_path)
 
+
 def copy_metadata(source_id, target_id, tags):
     source_config = datman.config.config(study=source_id)
     target_config = datman.config.config(study=target_id)
@@ -289,12 +299,14 @@ def copy_metadata(source_id, target_id, tags):
     copy_blacklist_data(source_id, source_blacklist, target_id,
                         target_blacklist, tags)
 
+
 def get_resources_dir(subid):
-    # Creates its a new config each time to avoid side effects (and future bugs)
-    # due to the fact that config.get_path() modifies the study setting.
+    # Creates its a new config each time to avoid side effects (and future
+    # bugs) due to the fact that config.get_path() modifies the study setting.
     config = datman.config.config(study=subid)
     result = os.path.join(config.get_path('resources'), subid)
     return result
+
 
 def link_resources(source_id, target_id):
     source_resources = get_resources_dir(source_id)
@@ -303,6 +315,7 @@ def link_resources(source_id, target_id):
     target_resources = get_resources_dir(target_id)
     make_link(source_resources, target_resources)
 
+
 def get_datman_scanid(session_id, config):
     try:
         session = datman.utils.validate_subject_id(session_id, config)
@@ -310,6 +323,7 @@ def get_datman_scanid(session_id, config):
         logger.error("Invalid session ID given: {}. Exiting".format(str(e)))
         sys.exit(1)
     return session
+
 
 def link_session_data(source, target, given_tags):
     # Must give whole source ID, in case the study portion is 'DTI'
@@ -321,10 +335,10 @@ def link_session_data(source, target, given_tags):
 
     if given_tags:
         # Use the supplied list of tags to link
-         tags = [tag.upper() for tag in given_tags.split(',')]
+        tags = [tag.upper() for tag in given_tags.split(',')]
     else:
         # Use the list of tags from the source site's export info
-        tags = config.get_tags(source_id.site).keys()
+        tags = list(config.get_tags(source_id.site).keys())
 
     logger.debug("Tags set to {}".format(tags))
 
@@ -337,20 +351,23 @@ def link_session_data(source, target, given_tags):
 
     dirs = get_dirs_to_search(config, tags)
     for path_key in dirs:
-        link_files(tags, source_id, target_id,
-                config.get_path(path_key, study=source),
-                config.get_path(path_key, study=target))
+        link_files(tags,
+                   source_id,
+                   target_id,
+                   config.get_path(path_key, study=source),
+                   config.get_path(path_key, study=target))
 
     # Return tags used for linking, in case links file needs to be updated
     return tags
+
 
 def create_linked_session(src_session, trg_session, tags):
     """
     A helper function to allow the main functionality of dm-link-project-scans
     to be imported elsewhere.
     """
-    logger.info("Linking the provided source {} and target " \
-            "{}".format(src_session, trg_session))
+    logger.info("Linking the provided source {} and target "
+                "{}".format(src_session, trg_session))
     tags = link_session_data(src_session, trg_session, tags)
 
     src_link_file = get_external_links_csv(src_session)
@@ -359,17 +376,18 @@ def create_linked_session(src_session, trg_session, tags):
     for link_file in [src_link_file, trg_link_file]:
         write_link_file(link_file, src_session, trg_session, tags)
 
+
 def main():
     global DRYRUN, CONFIG
-    arguments    = docopt(__doc__)
-    link_file    = arguments['<link_file>']
-    src_session  = arguments['<src_session>']
-    trg_session  = arguments['<trg_session>']
-    tags         = arguments['<tags>']
-    verbose      = arguments['--verbose']
-    debug        = arguments['--debug']
-    DRYRUN       = arguments['--dry-run']
-    quiet        = arguments['--quiet']
+    arguments = docopt(__doc__)
+    link_file = arguments['<link_file>']
+    src_session = arguments['<src_session>']
+    trg_session = arguments['<trg_session>']
+    tags = arguments['<tags>']
+    verbose = arguments['--verbose']
+    debug = arguments['--debug']
+    DRYRUN = arguments['--dry-run']
+    quiet = arguments['--quiet']
 
     logger.setLevel(logging.WARN)
 
@@ -389,6 +407,7 @@ def main():
         return
 
     create_linked_session(src_session, trg_session, tags)
+
 
 if __name__ == '__main__':
     main()
