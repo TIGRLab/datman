@@ -14,6 +14,7 @@ import datetime
 import logging
 
 from docopt import docopt
+
 import datman.config
 
 logger = logging.getLogger(os.path.basename(__file__))
