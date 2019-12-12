@@ -8,30 +8,27 @@ switch between multiple installations of datman or different computing systems.
 
 These can both be overridden at __init__
 """
-from future.utils import iteritems
-import logging
+
 import os
-import wrapt
+import logging
 import inspect
 
 import yaml
+import wrapt
 
 import datman.scanid
 import datman.dashboard as dashboard
 
 logger = logging.getLogger(__name__)
 
-#python 2 - 3 compatibility hack
-try:
-    basestring
-except NameError:
-    basestring = str
 
 class ConfigException(Exception):
     pass
 
+
 class UndefinedSetting(Exception):
     pass
+
 
 @wrapt.decorator
 def study_required(func, instance, args, kwargs):
@@ -44,6 +41,7 @@ def study_required(func, instance, args, kwargs):
     if not instance.study_config:
         raise ConfigException('Study not set.')
     return func(*args, **kwargs)
+
 
 class config(object):
     system_config = None
@@ -89,17 +87,17 @@ class config(object):
             self.install_config = system_settings[system]
         except KeyError:
             raise ConfigException("Installation '{}' not found in main "
-                    "config file")
+                                  "config file")
 
         if study:
             self.set_study(study)
 
     def load_yaml(self, filename):
-        ## Read in the configuration yaml file
+        # Read in the configuration yaml file
         if not os.path.isfile(filename):
             raise ConfigException("configuration file {} not found. Try again."
-                             .format(filename))
-        ## load the yml file
+                                  .format(filename))
+        # load the yml file
         with open(filename, 'r') as stream:
             config_yaml = yaml.load(stream)
 
@@ -108,8 +106,8 @@ class config(object):
     def set_study(self, study_name):
         """
         This function can take just the study ID for every study except DTI. So
-        where possible, please give it an exact match to a project name or a full
-        session ID.
+        where possible, please give it an exact match to a project name or a
+        full session ID.
         """
         # make the supplied project_name case insensitive
         valid_projects = {k.lower(): k
@@ -118,9 +116,9 @@ class config(object):
         if study_name.lower() in valid_projects:
             study_name = study_name.upper()
         else:
-            ## This will raise an exception if given only the 'DTI' id because
-            ## two studies are mapped to this ID. Give set_study() a full
-            ## session ID to avoid this
+            # This will raise an exception if given only the 'DTI' id because
+            # two studies are mapped to this ID. Give set_study() a full
+            # session ID to avoid this
             study_name = self.map_xnat_archive_to_project(study_name)
 
         self.study_name = study_name
@@ -131,7 +129,8 @@ class config(object):
         try:
             study_yaml = projects[study_name]
         except KeyError:
-            raise UndefinedSetting("Study {} not configured.".format(study_name))
+            raise UndefinedSetting("Study {} not configured.".format(
+                                                                study_name))
 
         project_settings_file = os.path.join(config_path, study_yaml)
         self.study_config = self.load_yaml(project_settings_file)
@@ -174,7 +173,8 @@ class config(object):
             # full ID. Check for this case, exit if it's just a bad ID
             parts = filename.split('_')
             if len(parts) > 1:
-                raise datman.scanid.ParseException("Malformed ID: {}".format(filename))
+                raise datman.scanid.ParseException("Malformed ID: {}".format(
+                                                                    filename))
             tag = parts[0]
             site = None
         else:
@@ -185,13 +185,13 @@ class config(object):
         if project:
             return project.id
 
-        ###### Abandon all hope, ye who enter here
+        # Abandon all hope, ye who enter here ##########
 
         if tag == 'DTI' and not isinstance(parts, datman.scanid.Identifier):
             # if parts isnt a datman scanid, only the study tag was given. Cant
             # be sure which DTI study is correct without site info
             raise RuntimeError("Cannot determine if DTI15T or DTI3T based on "
-                    "input: {}".format(filename))
+                               "input: {}".format(filename))
 
         # If a valid project name was given instead of a study tag, return that
         projects = self.get_key('Projects')
@@ -211,7 +211,7 @@ class config(object):
                 logger.debug("No sites defined for {}".format(project))
                 continue
 
-            for key, site_config in self.get_key('Sites').iteritems():
+            for key, site_config in self.get_key('Sites').items():
                 try:
                     add_tags = [t.lower() for t in site_config['SITE_TAGS']]
                 except KeyError:
@@ -257,13 +257,13 @@ class config(object):
             value = site_conf[key]
         except KeyError:
             raise UndefinedSetting("'{}' not set for site {}".format(key,
-                    site))
+                                                                     site))
         return value
 
     def _search_study_conf(self, key):
         """
-        Search the current study's config for 'key'. Does not search recursively
-        i.e. will not check all sites.
+        Search the current study's config for 'key'. Does not search
+        recursively i.e. will not check all sites.
 
         Raises UndefinedSetting if key is not found
         """
@@ -273,7 +273,7 @@ class config(object):
             value = self.study_config[key]
         except KeyError:
             raise UndefinedSetting("'{}' not defined for study {}"
-                    "".format(key, self.study_name))
+                                   "".format(key, self.study_name))
         return value
 
     def _search_local_conf(self, key):
@@ -291,12 +291,13 @@ class config(object):
             local_system = system_settings[self.system]
         except KeyError:
             raise ConfigException("System '{}' not defined in "
-                    "SystemSettings".format(key))
+                                  "SystemSettings".format(key))
         try:
             value = local_system[key]
         except KeyError:
-            raise UndefinedSetting("'{}' not defined for system {}".format(key,
-                    self.system))
+            raise UndefinedSetting("'{}' not defined for system {}".format(
+                                                            key,
+                                                            self.system))
         return value
 
     def _search_system_conf(self, key):
@@ -344,13 +345,15 @@ class config(object):
                 value = merge
             else:
                 raise ConfigException("Can't resolve conflicting settings. "
-                        "Found settings formated as type {} and type {}, "
-                        "which may indicate accidental duplication of setting "
-                        "names.".format(type(value), type(merge)))
+                                      "Found settings formated as type {} and "
+                                      "type {}, which may indicate accidental "
+                                      "duplication of setting names.".format(
+                                                    type(value),
+                                                    type(merge)))
         return value
 
     def get_key(self, key, site=None, ignore_defaults=False,
-            defaults_only=False):
+                defaults_only=False):
         """
         Searches the configuration from most specific settings to least to
         allow overrides + additional settings to be discovered.
@@ -370,20 +373,20 @@ class config(object):
         value = None
         if site and not defaults_only:
             value = self._get_setting(self._search_site_conf, [site, key],
-                    stop_search=ignore_defaults)
+                                      stop_search=ignore_defaults)
             if ignore_defaults:
                 return value
 
         if self.study_config and not defaults_only:
             value = self._get_setting(self._search_study_conf, [key],
-                    stop_search=ignore_defaults, merge=value)
+                                      stop_search=ignore_defaults, merge=value)
             if ignore_defaults:
                 return value
 
         value = self._get_setting(self._search_local_conf, [key],
-                stop_search=False, merge=value)
+                                  stop_search=False, merge=value)
         value = self._get_setting(self._search_system_conf, [key],
-                stop_search=True, merge=value)
+                                  stop_search=True, merge=value)
         return value
 
     @study_required
@@ -410,8 +413,8 @@ class config(object):
         If you specify a site, you get the configuration for that site merged
         with the configuration of 'ExportSettings' for the tags matching that
         site. If there's a key conflict between 'ExportInfo' (study config) and
-        'ExportSettings' (system config) the values in 'ExportInfo' will override
-        the values in 'ExportSettings'.
+        'ExportSettings' (system config) the values in 'ExportInfo' will
+        override the values in 'ExportSettings'.
         """
         if site:
             export_info = self.get_key('ExportInfo', site=site)
@@ -422,20 +425,20 @@ class config(object):
             export_settings = self.get_key('ExportSettings')
         except UndefinedSetting:
             raise UndefinedSetting("Tag dictionary 'ExportSettings' not "
-                    "defined in main configuration file.")
+                                   "defined in main configuration file.")
 
         return TagInfo(export_settings, export_info)
 
     @study_required
     def get_xnat_projects(self, study=None):
-        xnat_projects = [ self.get_key('XNAT_Archive', site=item)
+        xnat_projects = [self.get_key('XNAT_Archive', site=item)
                          for item in self.get_sites()]
         return list(set(xnat_projects))
 
     @study_required
     def get_sites(self, study=None):
         try:
-            sites = self.get_key('Sites').keys()
+            sites = list(self.get_key('Sites')).keys()
         except KeyError:
             raise ConfigException('No sites defined for study {}'.format(
                     self.study_name))
@@ -459,7 +462,7 @@ class config(object):
         tags = {}
         tags[default_tag] = []
 
-        for site, site_config in self.study_config['Sites'].iteritems():
+        for site, site_config in self.study_config['Sites'].items():
             # Some sites use both the default and a site_tag so every defined
             # site should be in the default list (if a default is defined)
             tags[default_tag].append(site)
@@ -515,14 +518,14 @@ class TagInfo(object):
                 pattern = self.get(tag, 'Pattern')
             except KeyError:
                 raise KeyError("Cant retrieve 'Pattern' from config. Did you "
-                        "specify a site?")
+                               "specify a site?")
             if type(pattern) is list:
                 pattern = "|".join(pattern)
             series_map[tag] = pattern
         return series_map
 
     def keys(self):
-        return self.tags.keys()
+        return list(self.tags.keys())
 
     def get(self, tag, field=None):
         try:
