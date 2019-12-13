@@ -7,7 +7,9 @@ from mock import patch
 import datman.config as cfg
 import datman.scan
 
-FIXTURE = "tests/fixture_project_settings/"
+FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                       "fixture_project_settings/")
+
 
 site_config = os.path.join(FIXTURE + "site_config.yaml")
 system = 'local'
