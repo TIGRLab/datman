@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 '''
-This script is used to bring redcap demographics variables into our file system.
+This script is used to bring redcap demographics variables into our filesystem.
 
 Usage:
     redcap_demographics.py [options] <study>
@@ -10,8 +10,10 @@ Arguments:
     <study>            Name of the datman managed study
 
 Options:
-    --URL PATH         set the REDCap URL [default: https://redcap.smh.ca/redcap/api/]
-    --output PATH      set the location to save the output csv file [default: clinical/demographics.csv]
+    --URL PATH         set the REDCap URL [default:
+                       https://redcap.smh.ca/redcap/api/]
+    --output PATH      set the location to save the output csv file
+                       [default: clinical/demographics.csv]
 
 '''
 
@@ -20,6 +22,7 @@ from docopt import docopt
 import os
 import sys
 import datman.config
+
 
 def main():
     arguments = docopt(__doc__)
@@ -37,21 +40,22 @@ def main():
     payload = get_payload(token)
 
     REDCap_variables = ['record_id',
-            'redcap_event_name',
-            'demo_sex_birth',
-            'demo_age_study_entry',
-            'demo_highest_grade_self',
-            'term_premature_yn']
+                        'redcap_event_name',
+                        'demo_sex_birth',
+                        'demo_age_study_entry',
+                        'demo_highest_grade_self',
+                        'term_premature_yn']
 
     data = make_rest(url, payload, REDCap_variables)
     column_headers = ['record_id',
-            'group',
-            'sex',
-            'age',
-            'education',
-            'terminated']
+                      'group',
+                      'sex',
+                      'age',
+                      'education',
+                      'terminated']
 
     make_csv(output_path, data, column_headers)
+
 
 def get_token(token_path):
     if not os.path.exists(token_path):
@@ -62,9 +66,10 @@ def get_token(token_path):
         lines = token_file.readlines()
     try:
         token = lines[0]
-    except:
+    except IndexError:
         print("Empty file.")
     return token.strip('\n')
+
 
 def get_payload(token):
     payload = {'token': token,
@@ -72,12 +77,15 @@ def get_payload(token):
                'content': 'record'}
     return payload
 
+
 def make_rest(url, payload, REDCap_variables):
     response = post(url, data=payload)
     if response.status_code is not 200:
-        print('Cannot talk to server, response code is {}.'.format(response.status_code))
+        print('Cannot talk to server, response code is {}.'
+              ''.format(response.status_code))
         sys.exit(1)
     return parse_data(response.json(), REDCap_variables)
+
 
 def parse_data(SPINS_data, REDCap_variables):
     lines = []
@@ -89,6 +97,7 @@ def parse_data(SPINS_data, REDCap_variables):
         lines.append(entry)
     return lines
 
+
 def make_csv(output_path, data, column_headers):
     with open(output_path, 'w') as data_file:
         line = ','.join(column_headers)
@@ -97,5 +106,6 @@ def make_csv(output_path, data, column_headers):
             line = ','.join(item)
             data_file.write(line + '\n')
 
-if  __name__ == '__main__':
+
+if __name__ == '__main__':
     main()
