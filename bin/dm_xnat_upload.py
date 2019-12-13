@@ -11,8 +11,10 @@ Arguments:
     <archive>             Properly named zip file
 
 Options:
-    --server URL          XNAT server to connect to, overrides the server defined in the site config file.
-    -u --username USER    XNAT username. If specified then the credentials file is ignored and you are prompted for password.
+    --server URL          XNAT server to connect to, overrides the server
+                          defined in the site config file.
+    -u --username USER    XNAT username. If specified then the credentials
+                          file is ignored and you are prompted for password.
     -v --verbose          Be chatty
     -d --debug            Be very chatty
     -q --quiet            Be quiet
@@ -22,7 +24,7 @@ import logging
 import sys
 import os
 import zipfile
-import urllib
+import urllib.request
 
 from docopt import docopt
 
@@ -96,7 +98,7 @@ def main():
             dicom_dir = os.path.dirname(os.path.normpath(archive))
             archives = [os.path.basename(os.path.normpath(archive))]
         elif is_datman_id(archive):
-            # a sessionid could have been provided, lets be nice and handle that
+            # sessionid could have been provided, lets be nice and handle that
             archives = [datman.utils.splitext(archive)[0] + '.zip']
         else:
             logger.error('Cant find archive:{}'.format(archive))
@@ -130,7 +132,8 @@ def process_archive(archivefile):
         return
 
     try:
-        data_exists, resource_exists = check_files_exist(archivefile, xnat_session)
+        data_exists, resource_exists = check_files_exist(archivefile,
+                                                         xnat_session)
     except Exception as e:
         logger.error('Failed checking xnat for session: {}'.format(scanid))
         return
@@ -148,7 +151,8 @@ def process_archive(archivefile):
     if not resource_exists:
         logger.debug('Uploading resource from: {}'.format(archivefile))
         try:
-            upload_non_dicom_data(archivefile, xnat_session.project, str(scanid))
+            upload_non_dicom_data(archivefile, xnat_session.project,
+                                  str(scanid))
         except Exception as e:
             logger.debug('An exception occurred: {}'.format(e))
             pass
@@ -165,16 +169,17 @@ def get_xnat_session(ident):
     try:
         xnat_project = CFG.get_key('XNAT_Archive',
                                    site=ident.site)
-    except:
-        logger.warning('Study:{}, Site:{}, xnat archive not defined in config'
+    except datman.config.UndefinedSetting:
+        logger.warning('Study {}, Site {}, xnat archive not defined in config'
                        .format(ident.study, ident.site))
         return None
     # check we can get the archive from xnat
     try:
         XNAT.get_project(xnat_project)
     except datman.exceptions.XnatException as e:
-        logger.error('Study:{}, Site:{}, xnat archive:{} not found with reason:{}'
-                     .format(ident.study, ident.site, xnat_project, e))
+        logger.error('Study {}, Site {}, xnat archive {} not found with '
+                     'reason {}'.format(ident.study, ident.site, xnat_project,
+                                        e))
         return None
     # check we can get or create the session in xnat
     try:
@@ -196,7 +201,8 @@ def get_scanid(archivefile):
     # this could look inside the dicoms similar to dm2-link.py
     scanid = archivefile[:-len(datman.utils.get_extension(archivefile))]
 
-    if not datman.scanid.is_scanid_with_session(scanid) and not datman.scanid.is_phantom(scanid):
+    if not datman.scanid.is_scanid_with_session(scanid) and \
+       not datman.scanid.is_phantom(scanid):
         logger.error('Invalid scanid:{} from archive:{}'
                      .format(scanid, archivefile))
         return False
@@ -209,19 +215,23 @@ def resource_data_exists(xnat_session, archive):
     xnat_resources = xnat_session.get_resources(XNAT)
     with zipfile.ZipFile(archive) as zf:
         local_resources = datman.utils.get_resources(zf)
-        local_resources_mod = [item for item in local_resources if zf.read(item)]
+        local_resources_mod = [item for item in local_resources
+                               if zf.read(item)]
     empty_files = list(set(local_resources) - set(local_resources_mod))
     if empty_files:
-        logger.warn("Cannot upload empty resource files {}, omitting.".format(', '.join(empty_files)))
+        logger.warn("Cannot upload empty resource files {}, omitting."
+                    "".format(', '.join(empty_files)))
     # paths in xnat are url encoded. Need to fix local paths to match
-    local_resources_mod = [urllib.pathname2url(p) for p in local_resources_mod]
+    local_resources_mod = [urllib.request.pathname2url(p)
+                           for p in local_resources_mod]
     if not set(local_resources_mod).issubset(set(xnat_resources)):
         return False
     return True
 
 
 def scan_data_exists(xnat_session, local_headers):
-    local_scan_uids = [scan.SeriesInstanceUID for scan in local_headers.values()]
+    local_scan_uids = [scan.SeriesInstanceUID
+                       for scan in local_headers.values()]
     local_experiment_ids = [v.StudyInstanceUID for v in local_headers.values()]
 
     if len(set(local_experiment_ids)) > 1:
@@ -248,7 +258,7 @@ def check_files_exist(archive, xnat_session):
     logger.info('Checking {} contents on xnat'.format(xnat_session.name))
     try:
         local_headers = datman.utils.get_archive_headers(archive)
-    except:
+    except Exception:
         logger.error('Failed getting zip file headers for: {}'.format(archive))
         return False, False
 
@@ -307,14 +317,15 @@ def upload_dicom_data(archive, xnat_project, scanid):
         XNAT.put_dicoms(xnat_project, scanid, scanid, archive)
         return
 
-    #Need to account for when only niftis are available
+    # Need to account for when only niftis are available
     with datman.utils.make_temp_directory() as temp:
         new_archive = strip_niftis(archive, temp)
 
         if new_archive:
             XNAT.put_dicoms(xnat_project, scanid, scanid, new_archive)
         else:
-            logger.info('No dicoms exist within archive {}, skipping dicom upload!'.format(archive))
+            logger.info('No dicoms exist within archive {}, skipping dicom '
+                        'upload!'.format(archive))
 
 
 def contains_niftis(archive):
@@ -326,8 +337,8 @@ def contains_niftis(archive):
 
 def strip_niftis(archive, temp):
     """
-    Extract the everything except niftis to temp folder, rezip, and then return the
-    path to this temporary zip for upload
+    Extract the everything except niftis to temp folder, rezip, and then
+    return the path to this temporary zip for upload
     """
     unzip_dest = datman.utils.define_folder(os.path.join(temp, 'extracted'))
     with zipfile.ZipFile(archive) as zf:
@@ -335,14 +346,16 @@ def strip_niftis(archive, temp):
         niftis = find_niftis(archive_files)
         # Find and purge associated files too (e.g. .bvec and .bval), so they
         # only appear in resources alongside their niftis
-        nifti_names = [datman.utils.splitext(os.path.basename(nii))[0] for nii in
-                       niftis]
-        deletable_files = filter(lambda x: datman.utils.splitext(
-                os.path.basename(x))[0] in nifti_names, archive_files)
-        non_niftis = filter(lambda x: x not in deletable_files, archive_files)
+        nifti_names = [datman.utils.splitext(os.path.basename(nii))[0]
+                       for nii in niftis]
+        deletable_files = [x for x in archive_files
+                           if datman.utils.splitext(os.path.basename(x))[0]
+                           in nifti_names]
+        non_niftis = [x for x in archive_files if x not in deletable_files]
 
-        #Check if any dicoms exist at all
-        non_niftis_or_paths = [i for i in non_niftis if not os.path.basename(i) == '']
+        # Check if any dicoms exist at all
+        non_niftis_or_paths = [i for i in non_niftis
+                               if not os.path.basename(i) == '']
 
         if not non_niftis_or_paths:
             return []
@@ -356,7 +369,7 @@ def strip_niftis(archive, temp):
 
 
 def find_niftis(files):
-    return filter(lambda x: x.endswith(".nii") or x.endswith(".nii.gz"), files)
+    return [x for x in files if x.endswith(".nii") or x.endswith(".nii.gz")]
 
 
 if __name__ == '__main__':
