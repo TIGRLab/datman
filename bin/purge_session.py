@@ -22,12 +22,14 @@ Details:
     directories and deletes them.
 """
 
+import os
+import subprocess
 import logging
+
 from docopt import docopt
+
 import datman.config
 import datman.dashboard
-import subprocess
-import os
 
 
 logger = logging.getLogger(__file__)

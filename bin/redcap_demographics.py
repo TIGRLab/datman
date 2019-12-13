@@ -16,11 +16,12 @@ Options:
                        [default: clinical/demographics.csv]
 
 '''
+import os
+import sys
 
 from requests import post
 from docopt import docopt
-import os
-import sys
+
 import datman.config
 
 
