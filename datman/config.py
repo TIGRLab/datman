@@ -99,7 +99,7 @@ class config(object):
                                   .format(filename))
         # load the yml file
         with open(filename, 'r') as stream:
-            config_yaml = yaml.load(stream)
+            config_yaml = yaml.load(stream, Loader=yaml.SafeLoader)
 
         return config_yaml
 
