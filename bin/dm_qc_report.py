@@ -395,7 +395,7 @@ def new_subject(subject_id, config):
 
 def add_header_qc(nifti, qc_html, header_diffs):
     """
-    Adds header-diff.log information to the report.
+    Adds header differences information to the report.
     """
     if not header_diffs:
         # Nothing to report on
