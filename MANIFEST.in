@@ -1,0 +1,7 @@
+# General
+include CHANGES.rst
+include LICENSE
+
+# versioneer
+include versioneer.py
+include datman/_version.py

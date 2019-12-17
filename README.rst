@@ -1,8 +1,11 @@
 datman
 ------
 
+<<<<<<< HEAD:README.md
 [![Waffle.io - Columns and their card count](https://badge.waffle.io/TIGRLab/datman.svg?columns=all)](https://waffle.io/TIGRLab/datman)
 
+=======
+>>>>>>> [MAINT] towards pypi package relase:README.rst
 A set of python scripts we use for three major functions:
 
 + Managing data in our XNAT database: https://xnat.imaging-genetics.camh.ca

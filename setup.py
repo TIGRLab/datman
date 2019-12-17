@@ -1,32 +1,20 @@
-#!/usr/bin/env python
-
+"""datman's setup script."""
+import sys
 from setuptools import setup
-import glob
+import versioneer
 
-# pypi doesn't like markdown
-# https://github.com/pypa/packaging-problems/issues/46
-try:
-    import pypandoc
-    description = pypandoc.convert('README.md', 'rst')
-except (IOError, ImportError):
-    description = ''
+# Give setuptools a hint to complain if it's too old a version
+# 30.3.0 allows us to put most metadata in setup.cfg
+# Should match pyproject.toml
+# Not going to help us much without numpy or new pip, but gives us a shot
+SETUP_REQUIRES = ['setuptools >= 40.8']
+# This enables setuptools to install wheel on-the-fly
+SETUP_REQUIRES += ['wheel'] if 'bdist_wheel' in sys.argv else []
 
-setup(
-    name='datman',
-    version='0.9',
-    description='Manage neuroimaging data like a bro',
-    author="Erin Dickie, Jon Pipitone, Joseph Viviano",
-    author_email="erin.w.dickie@gmail.com, jon@pipitone.ca, joseph@viviano.ca",
-    license='Apache 2.0',
-    url="https://github.com/tigrlab/datman",
-    long_description=description,
-    scripts=glob.glob('bin/*.py') + glob.glob('bin/*.sh') + glob.glob('assets/*.sh'),
-    packages=['datman'],
-    classifiers=[
-       'Development Status :: 4 - Beta',
-       'Environment :: Console',
-       'Intended Audience :: Science/Research',
-    ],
-    install_requires=['docopt', 'matplotlib', 'numpy', 'pandas', 'requests',
-        'scipy', 'scikit-image', 'pyyaml', 'nibabel', 'pydicom', 'qbatch'],
- )
+
+if __name__ == '__main__':
+    setup(name='datman',
+          version=versioneer.get_version(),
+          cmdclass=versioneer.get_cmdclass(),
+          setup_requires=SETUP_REQUIRES,
+          )

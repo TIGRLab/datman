@@ -1,0 +1,85 @@
+{
+  "contributors": [
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Calarco, Navona"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Witczak, Kevin J"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Voineskos, Aristotle N"
+    }
+  ],
+  "creators": [
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Viviano, Joseph D"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Smith, Dawn E"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Wright, Tom"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Jeyachandra, Jerrold"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Piptone, Jon"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Joseph, Michael",
+      "orcid": "0000-0002-0068-230X"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Manogaran, Mathuvanthi"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Herman, Gabrielle"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Gonzalez, Oscar"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Overton, Dawson"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Dickie, Erin W"
+    }
+  ],
+  "description": "<p>datman is a </p>",
+  "keywords": [
+    "neuroimaging",
+    "workflow",
+    "pipeline",
+    "BIDS"
+  ],
+  "license": "Apache-2.0",
+  "related_identifiers": [
+    {
+      "identifier": "http://tigrlab.github.io/datman",
+      "relation": "isPartOf",
+      "scheme": "url"
+    },
+    {
+      "identifier": "",
+      "relation": "isPartOf",
+      "scheme": "doi"
+    }
+  ],
+  "title": "datman: a ",
+  "upload_type": "software"
+}
