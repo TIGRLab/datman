@@ -27,7 +27,7 @@ def main():
     study = args['<study>']
 
     config = datman.config.config(study=study)
-    subjects = datman.utils.get_subject_metadata(config)
+    subjects = datman.utils.get_subjects(config.get_path('nii'))
     resources_dir = config.get_path('resources')
     out_dir = config.get_path('task')
     regex = get_regex(config)
@@ -38,6 +38,7 @@ def main():
         pass
 
     for subject in subjects:
+
         sessions = glob.glob(os.path.join(resources_dir, subject + '_*'))
 
         if not sessions:
@@ -98,7 +99,7 @@ def link_task_file(src_path, dest_path):
     except OSError as e:
         if e.errno == 13:
             logger.error("Can't symlink task file {} to {} - Permission"
-                    " denied.".format(task_file, dest))
+                    " denied.".format(src, dest_path))
         elif e.errno == 17:
             pass
         else:
