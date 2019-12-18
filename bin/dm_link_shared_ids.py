@@ -17,10 +17,6 @@ Arguments:
                         that may have multiple IDs for some of its subjects.
 
 Options:
-    --xnat FILE         The path to a text file containing the xnat
-                        credentials. If not set the 'xnat-credentials' file in
-                        the project metadata folder will be used.
-
     --redcap FILE       The path to a text file containing a redcap token to
                         access 'Scan completed' surveys. If not set the
                         'redcap-token' file in the project metadata folder
@@ -37,13 +33,11 @@ Options:
 import os
 import sys
 import logging
-import importlib
 
 from docopt import docopt
 import requests
 import pyxnat as xnat
 
-import datman
 import datman.config
 import datman.scanid
 import datman.utils
@@ -66,7 +60,6 @@ def main():
     global DRYRUN
     arguments = docopt(__doc__)
     project = arguments['<project>']
-    xnat_cred = arguments['--xnat']
     redcap_cred = arguments['--redcap']
     site_config = arguments['--site-config']
     verbose = arguments['--verbose']
