@@ -70,10 +70,9 @@ def get_regex(config):
     try:
         regex = config.get_key('task_regex')
     except datman.config.UndefinedSetting:
-        logger.warn(
-            "'task_regex' not defined in settings, using default regex "
-            "to locate task files.")
-        regex = 'behav|\.edat2'
+        logger.warn("'task_regex' not defined in settings, using default "
+                    "regex to locate task files.")
+        regex = 'behav|\.edat2'  # noqa: W605
     return regex
 
 
@@ -91,7 +90,9 @@ def get_task_files(regex, resource_folder, ignore='.pdf|tech'):
             continue
         for item in files:
             if re.search(regex, item, re.IGNORECASE) and not re.search(
-                    ignore, item, re.IGNORECASE):
+                                                            ignore,
+                                                            item,
+                                                            re.IGNORECASE):
                 task_files.append(os.path.join(path, item))
     return task_files
 
