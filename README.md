@@ -1,7 +1,7 @@
 datman
 ------
 
-[![Waffle.io - Columns and their card count](https://badge.waffle.io/TIGRLab/datman.svg?columns=all)](https://waffle.io/TIGRLab/datman) 
+[![Waffle.io - Columns and their card count](https://badge.waffle.io/TIGRLab/datman.svg?columns=all)](https://waffle.io/TIGRLab/datman)
 
 A set of python scripts we use for three major functions:
 
@@ -55,7 +55,7 @@ Your environment needs to be set up as so:
 
 Datman Overview
 ---------------
-![](assets/data_flow.png)
+![](assets/imgs/data_flow.png)
 
 Quality Control
 ---------------
@@ -139,5 +139,3 @@ A pipeline designed by Sofia Chavez to assess the performance of DTI protocols.
 [Who dat](https://www.youtube.com/watch?v=0bd2emv9fR4)
 [Who dat](https://www.youtube.com/watch?v=FW5Q6Nt6cx0)
 [Who dat man?](https://www.youtube.com/watch?v=whNGgz8e-8o)
-
-

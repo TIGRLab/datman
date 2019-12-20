@@ -55,10 +55,9 @@ def get_records(api_url, token, instrument, record_key):
                'fields': record_key}
     response = requests.post(api_url, data=payload)
 
-    #http status code 200 indicates a successful request, everything else is an error.
     if response.status_code != 200:
-        raise Exception('API request failed. HTTP status code: {}.  Reason: {}'.format(
-        response.status_code,response.text))
+        raise Exception('API request failed. HTTP status code: {}.  Reason: '
+                        '{}'.format(response.status_code, response.text))
 
     return response.json()
 
@@ -75,10 +74,10 @@ def add_session_redcap(record, record_key):
     record_id = record[record_key]
     subject_id = record[cfg.get_key('REDCAP_SUBJ')].upper()
     if not datman.scanid.is_scanid(subject_id):
+        subject_id = subject_id + '_01'
         try:
-            subject_id = subject_id + '_01'
             datman.scanid.is_scanid(subject_id)
-        except:
+        except datman.scanid.ParseException:
             logger.error('Invalid session: {}, skipping'.format(subject_id))
             return
     try:
@@ -92,18 +91,31 @@ def add_session_redcap(record, record_key):
     try:
         session = dashboard.get_session(ident, date=session_date, create=True)
     except datman.exceptions.DashboardException as e:
-        logger.error('Failed adding session {} to dashboard. Reason: {}'.format(
-                ident, e))
+        logger.error('Failed adding session {} to dashboard. Reason: '
+                     '{}'.format(ident, e))
         return
 
     try:
+        record_comment = record[cfg.get_key('REDCAP_COMMENTS')]
+        event_id = cfg.get_key('REDCAP_EVENTID')[record['redcap_event_name']]
+    except (datman.config.UndefinedSetting, datman.config.ConfigException):
+        logger.error("Can't add REDCap session info. Verify that "
+                     "values 'REDCAP_COMMENTS' and 'REDCAP_EVENTID' are "
+                     "correctly defined in the config file")
+        return
+    except KeyError:
+        record_comment = None
+        event_id = None
+
+    try:
         session.add_redcap(record_id, redcap_project, redcap_url, instrument,
-                date=session_date,
-                comment=record[cfg.get_key('REDCAP_COMMENTS')],
-                event_id=cfg.get_key('REDCAP_EVENTID')[record['redcap_event_name']],
-                version=redcap_version)
-    except:
-        logger.error('Failed adding REDCap info for session {} to dashboard'.format(ident))
+                           date=session_date,
+                           comment=record_comment,
+                           event_id=event_id,
+                           version=redcap_version)
+    except Exception:
+        logger.error('Failed adding REDCap info for session {} to '
+                     'dashboard'.format(ident))
 
 
 def main():
@@ -161,10 +173,9 @@ def main():
     status_val = cfg.get_key('REDCAP_STATUS_VALUE')
     record_key = cfg.get_key('REDCAP_RECORD_KEY')
 
-
-    #make status_val into a list
-    if not (isinstance(status_val,list)):
-        status_val=[status_val]
+    # make status_val into a list
+    if not (isinstance(status_val, list)):
+        status_val = [status_val]
 
     redcap_version = get_version(api_url, token)
 
