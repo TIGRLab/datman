@@ -97,7 +97,6 @@ class config(object):
         if not os.path.isfile(filename):
             raise ConfigException("configuration file {} not found. Try again."
                                   .format(filename))
-        # load the yml file
         with open(filename, 'r') as stream:
             config_yaml = yaml.load(stream, Loader=yaml.SafeLoader)
 
