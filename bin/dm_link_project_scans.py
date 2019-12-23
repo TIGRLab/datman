@@ -158,7 +158,7 @@ def add_link_to_dashboard(source, target, target_path):
             return
         try:
             os.remove(target_path)
-        except Exception:
+        except (OSError, IsADirectoryError):
             logger.error("Failed to clean up link {}".format(target_path))
 
 
