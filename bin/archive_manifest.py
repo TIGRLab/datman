@@ -57,8 +57,7 @@ def main():
         sortedseries = sorted(manifest.items(),
                               key=lambda x: x[1].get('SeriesNumber'))
         for path, dataset in sortedseries:
-            row = dict([(header, dataset.get(header, ""))
-                        for header in headers])
+            row = {header: dataset.get(header, "") for header in headers}
             row['Path'] = path
             rows.append(row)
             if arguments['--oneseries']:
