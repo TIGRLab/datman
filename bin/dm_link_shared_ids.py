@@ -91,7 +91,6 @@ def main():
 
     scan_complete_records = get_project_redcap_records(config, redcap_cred)
 
-    # Open up an XNATConnection context then link shared IDs
     with datman.utils.XNATConnection(xnat_url, user_name,
                                      password) as connection:
         for record in scan_complete_records:
