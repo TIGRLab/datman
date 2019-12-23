@@ -197,7 +197,6 @@ def link_archive(archive_path, dicom_path, scanid_field, config):
         logger.info('Ignoring {}'.format(archive_path))
         return
 
-    # Attempt to pull scanid from header
     if not scanid:
         scanid = get_scanid_from_header(archive_path, scanid_field)
 
