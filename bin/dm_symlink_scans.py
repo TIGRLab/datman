@@ -65,7 +65,7 @@ def create_symlink(src, target_name, dest):
         logger.info('Linking {} -> {}'.format(rel_path, target_path))
         try:
             os.symlink(rel_path, target_path)
-        except Exception:
+        except OSError:
             logger.error('Unable to link to {}'.format(rel_path))
 
 

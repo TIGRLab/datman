@@ -105,7 +105,6 @@ def get_xnat_url(config):
 
 
 def get_project_redcap_records(config, redcap_cred):
-    # Read token file and key redcap address
     token = get_redcap_token(config, redcap_cred)
     redcap_url = config.get_key('REDCAPAPI')
 
@@ -116,7 +115,6 @@ def get_project_redcap_records(config, redcap_cred):
                'content': 'record',
                'type': 'flat'}
 
-    # Submit request to REDCAP
     response = requests.post(redcap_url, data=payload)
     if response.status_code != 200:
         logger.error("Cannot access redcap data at URL {}".format(redcap_url))
@@ -131,7 +129,6 @@ def get_project_redcap_records(config, redcap_cred):
                      "Reason: {}".format(response.content, e))
         project_records = []
 
-    # Return list of records for selected studies
     return project_records
 
 
@@ -141,7 +138,6 @@ def get_redcap_token(config, redcap_cred):
         redcap_cred = os.path.join(config.get_path('meta'), 'redcap-token')
 
     try:
-        # If supplied credential
         token = datman.utils.read_credentials(redcap_cred)[0]
     except IndexError:
         logger.error("REDCap credential file {} is empty.".format(redcap_cred))
@@ -182,7 +178,6 @@ def link_shared_ids(config, connection, record):
     if record.comment and not DRYRUN:
         update_xnat_comment(experiment, subject, record)
 
-    # If a shared ID is found in REDCAP update XNAT's shared IDs
     if record.shared_ids and not DRYRUN:
         update_xnat_shared_ids(subject, record)
         make_links(record)
@@ -239,7 +234,7 @@ def make_links(record):
                                                                       target))
         target_cfg = datman.config.config(study=target)
         try:
-            target_tags = list(target_cfg.get_tags(site=record.id.site).keys())
+            target_tags = list(target_cfg.get_tags(site=record.id.site))
         except Exception:
             target_tags = []
 
@@ -299,7 +294,7 @@ class Record(object):
         return self.id.study
 
     def __get_shared_ids(self, record_dict):
-        keys = list(record_dict.keys())
+        keys = list(record_dict)
         shared_id_fields = []
         for key in keys:
             if 'shared_parid' in key:
