@@ -436,7 +436,7 @@ class config(object):
     @study_required
     def get_sites(self, study=None):
         try:
-            sites = list(self.get_key('Sites')).keys()
+            sites = list(self.get_key('Sites'))
         except KeyError:
             raise ConfigException('No sites defined for study {}'.format(
                     self.study_name))
@@ -523,7 +523,7 @@ class TagInfo(object):
         return series_map
 
     def keys(self):
-        return list(self.tags.keys())
+        return list(self.tags)
 
     def get(self, tag, field=None):
         try:
