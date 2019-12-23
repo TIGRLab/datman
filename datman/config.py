@@ -93,7 +93,6 @@ class config(object):
             self.set_study(study)
 
     def load_yaml(self, filename):
-        # Read in the configuration yaml file
         if not os.path.isfile(filename):
             raise ConfigException("configuration file {} not found. Try again."
                                   .format(filename))
