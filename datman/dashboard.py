@@ -148,7 +148,7 @@ def get_study_subjects(study, site=None, phantoms=False):
     """
 
     return queries.get_study_timepoints(study, site, phantoms)
-        
+
 
 @dashboard_required
 def get_bids_subject(bids_name, bids_session, study=None):
