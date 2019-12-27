@@ -18,7 +18,7 @@ import os
 import pickle
 import logging
 import logging.handlers
-import SocketServer
+import socketserver
 import struct
 import select
 import datetime
@@ -28,10 +28,11 @@ from docopt import docopt
 import datman.config
 
 FORMAT = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s",
-        "%H:%M:%S")
+                           "%H:%M:%S")
 LOG_DIR = None
 
-class LogRecordStreamHandler(SocketServer.StreamRequestHandler):
+
+class LogRecordStreamHandler(socketserver.StreamRequestHandler):
     def handle(self):
         while True:
             chunk = self.connection.recv(4)
@@ -72,11 +73,12 @@ class LogRecordStreamHandler(SocketServer.StreamRequestHandler):
             log_name = "{}-{}.log".format(date, name)
         return log_name
 
-class LogRecordSocketReceiver(SocketServer.ThreadingTCPServer):
+
+class LogRecordSocketReceiver(socketserver.ThreadingTCPServer):
     allow_reuse_address = 1
 
     def __init__(self, host, port, handler=LogRecordStreamHandler):
-        SocketServer.ThreadingTCPServer.__init__(self, (host, port), handler)
+        socketserver.ThreadingTCPServer.__init__(self, (host, port), handler)
         self.abort = 0
         self.timeout = 1
 
@@ -89,6 +91,7 @@ class LogRecordSocketReceiver(SocketServer.ThreadingTCPServer):
             if rd:
                 self.handle_request()
             abort = self.abort
+
 
 def main():
     global LOG_DIR
@@ -111,6 +114,7 @@ def main():
     # Start server
     tcpserver = LogRecordSocketReceiver(host, port)
     tcpserver.serve_until_stopped()
+
 
 if __name__ == '__main__':
     main()

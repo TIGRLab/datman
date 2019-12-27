@@ -7,7 +7,9 @@ from mock import patch
 import datman.config as cfg
 import datman.scan
 
-FIXTURE = "tests/fixture_project_settings/"
+FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                       "fixture_project_settings/")
+
 
 site_config = os.path.join(FIXTURE + "site_config.yaml")
 system = 'local'
@@ -33,12 +35,12 @@ class TestSeries(unittest.TestCase):
         assert series.description == 'SagT1Bravo-09mm'
         assert series.full_id == 'STUDY_SITE_9999_01'
 
+
 class TestScan(unittest.TestCase):
     good_name = "STUDY_CMH_9999_01"
     bad_name = "STUDYCMH_9999"
     phantom = "STUDY_CMH_PHA_ID"
     config = cfg.config(filename=site_config, system=system, study=study)
-
 
     @raises(datman.scanid.ParseException)
     def test_raises_parse_exception_with_bad_subject_id(self):
@@ -69,7 +71,8 @@ class TestScan(unittest.TestCase):
         mock_exists.return_value = True
         subject = datman.scan.Scan(self.good_name, self.config)
 
-        expected_path = self.config.get_path('resources') + "STUDY_CMH_9999_01_01"
+        expected_path = self.config.get_path('resources') + \
+            "STUDY_CMH_9999_01_01"
         assert subject.resource_path == expected_path
 
     def test_returns_expected_subject_paths(self):
@@ -92,7 +95,8 @@ class TestScan(unittest.TestCase):
     @patch('glob.glob')
     def test_niftis_with_either_extension_type_found(self, mock_glob):
         simple_ext = "{}_01_T1_02_SagT1-BRAVO.nii".format(self.good_name)
-        complex_ext = "{}_01_DTI60-1000_05_Ax-DTI-60.nii.gz".format(self.good_name)
+        complex_ext = "{}_01_DTI60-1000_05_Ax-DTI-60.nii.gz".format(
+                self.good_name)
         wrong_ext = "{}_01_DTI60-1000_05_Ax-DTI-60.bvec".format(self.good_name)
 
         nii_list = [simple_ext, complex_ext, wrong_ext]
@@ -107,10 +111,12 @@ class TestScan(unittest.TestCase):
 
     @raises(datman.scanid.ParseException)
     @patch('glob.glob')
-    def test_subject_series_with_nondatman_name_causes_parse_exception(self,
+    def test_subject_series_with_nondatman_name_causes_parse_exception(
+            self,
             mock_glob):
         well_named = "{}_01_T1_02_SagT1-BRAVO.nii".format(self.good_name)
-        badly_named1 = "{}_01_DTI60-1000_05_Ax-DTI-60.nii".format(self.bad_name)
+        badly_named1 = "{}_01_DTI60-1000_05_Ax-DTI-60.nii".format(
+                self.bad_name)
         badly_named2 = "{}_01_T2_07.nii".format(self.good_name)
 
         nii_list = [well_named, badly_named1, badly_named2]
@@ -196,7 +202,8 @@ class TestScan(unittest.TestCase):
         assert actual_DTIs == expected
 
     @patch('glob.glob')
-    def test_get_tagged_X_returns_empty_list_when_no_tag_files(self, mock_glob):
+    def test_get_tagged_X_returns_empty_list_when_no_tag_files(self,
+                                                               mock_glob):
         nifti = "STUDY_CAMH_9999_01_01_T1_03_SagT1-BRAVO.nii.gz"
         dicom = "STUDY_CAMH_9999_01_01_DTI_05_Ax-DTI-60.dcm"
 

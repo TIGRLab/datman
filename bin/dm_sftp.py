@@ -19,9 +19,9 @@ import logging
 import sys
 import os
 import shutil
+import fnmatch
 
 import pysftp
-import fnmatch
 import paramiko
 
 from docopt import docopt
@@ -29,8 +29,9 @@ import datman.config
 from datman.utils import make_temp_directory
 
 logging.basicConfig(level=logging.WARN,
-        format="[%(asctime)s %(name)s] %(levelname)s: %(message)s")
+                    format="[%(asctime)s %(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
+
 
 def main():
     arguments = docopt(__doc__)
@@ -69,12 +70,10 @@ def main():
     for mrserver in server_config:
         mrusers, mrfolders, pass_file_name, port = server_config[mrserver]
 
-        # MRfolders entry in config file should be a list, but could be a string
-        if isinstance(mrfolders, basestring):
+        if isinstance(mrfolders, str):
             mrfolders = [mrfolders]
 
-        # MRUSER entry in config file should be a list, but could be a string
-        if isinstance(mrusers, basestring):
+        if isinstance(mrusers, str):
             mrusers = [mrusers]
 
         pass_file = os.path.join(meta_path, pass_file_name)
@@ -94,7 +93,8 @@ def main():
 
                 valid_dirs = get_valid_remote_dirs(sftp, mrfolders)
                 if len(valid_dirs) < 1:
-                    logger.error('Source folders:{} not found'.format(mrfolders))
+                    logger.error('Source folders {} not found'
+                                 ''.format(mrfolders))
 
                 for valid_dir in valid_dirs:
                     #  process each folder in turn
@@ -108,7 +108,7 @@ def get_server_config(cfg):
 
     default_mrserver = cfg.get_key('FTPSERVER')
     try:
-    	server_config[default_mrserver] = read_config(cfg)
+        server_config[default_mrserver] = read_config(cfg)
     except datman.config.UndefinedSetting as e:
         # No default config :(
         logger.debug(e.message)
@@ -171,9 +171,10 @@ def get_valid_remote_dirs(connection, mrfolders):
     remote_dirs = connection.listdir()
     valid_dirs = []
     # ToNI stores the data two folders deep, so the path doesnt work the old
-    # algo (code in else statement). But some studies have Regexs in their
+    # algo (code in else statement). But some studies have Regexes in their
     # mrfolders which doesnt work with the new algo (code in if statement)
-    # So this is an ugly compromise :( (If only pysftp had a sensible 'walk' function...)
+    # So this is an ugly compromise :(
+    # (If only pysftp had a sensible 'walk' function...)
     for mrfolder in mrfolders:
         if connection.exists(mrfolder):
             valid_dirs.append(mrfolder)
@@ -201,6 +202,7 @@ def process_dir(connection, directory, zips_path):
             else:
                 get_folder(connection, file_name, zips_path)
 
+
 def get_folder(connection, folder_name, dst_path):
     expected_file = os.path.join(dst_path, folder_name + ".zip")
     if not download_needed(connection, folder_name, expected_file):
@@ -213,7 +215,9 @@ def get_folder(connection, folder_name, dst_path):
         source = os.path.join(temp_dir, folder_name)
         dest = os.path.join(dst_path, folder_name)
         new_zip = shutil.make_archive(dest, 'zip', source)
-        logger.info("Copied remote file {} to: {}".format(folder_name, new_zip))
+        logger.info("Copied remote file {} to {}".format(folder_name,
+                                                         new_zip))
+
 
 def get_file(connection, file_name, zips_path):
     target = os.path.join(zips_path, file_name)
@@ -222,6 +226,7 @@ def get_file(connection, file_name, zips_path):
         connection.get(file_name, target, preserve_mtime=True)
     else:
         logger.debug("File: {} already exists, skipping".format(file_name))
+
 
 def download_needed(sftp, filename, target):
     """Check if a local copy of the file exists,
@@ -238,6 +243,7 @@ def download_needed(sftp, filename, target):
         return True
 
     return False
+
 
 if __name__ == '__main__':
     main()

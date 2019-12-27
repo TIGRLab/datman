@@ -27,6 +27,7 @@ from docopt import docopt
 
 from datman import header_checks
 
+
 def main():
     args = docopt(__doc__)
     series_json = args['<series>']
@@ -44,13 +45,14 @@ def main():
         tolerances = read_json(tolerances)
 
     diffs = header_checks.construct_diffs(series_json, standard_json,
-            ignored_fields, tolerances, dti)
+                                          ignored_fields, tolerances, dti)
 
     if not diffs:
         return
 
     if output:
         header_checks.write_diff_log(diffs, output)
+
 
 if __name__ == "__main__":
     main()

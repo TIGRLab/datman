@@ -16,8 +16,10 @@ class DashboardException(Exception):
     """Default exception for dashboard errors"""
     pass
 
+
 class MetadataException(Exception):
     pass
+
 
 class ExportException(Exception):
     pass

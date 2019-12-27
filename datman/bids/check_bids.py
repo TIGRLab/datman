@@ -25,7 +25,7 @@ class BIDSEnforcer(object):
     def __init__(self, yml_file):
 
         with open(yml_file, "r") as stream:
-            self.descriptor = yaml.load(stream)
+            self.descriptor = yaml.load(stream, Loader=yaml.SafeLoader)
 
         try:
             self.version = self.descriptor["VERSION"]

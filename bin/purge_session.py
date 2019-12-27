@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
-Purge data and folders for a specified session from a study directory structure.
-In normal use a backup folder is created containing the purged data which can
-easily be removed with rm -r <session>.
+Purge data and folders for a specified session from a study directory
+structure. In normal use a backup folder is created containing the purged data
+which can easily be removed with rm -r <session>.
 
 
 Usage:
@@ -22,12 +22,14 @@ Details:
     directories and deletes them.
 """
 
+import os
+import subprocess
 import logging
+
 from docopt import docopt
+
 import datman.config
 import datman.dashboard
-import subprocess
-import os
 
 
 logger = logging.getLogger(__file__)
@@ -61,14 +63,16 @@ def main():
         try:
             db = datman.dashboard.dashboard(study)
             db.delete_session(session)
-        except:
+        except Exception:
             return
 
+
 def purge_filesystem(session, base_dir, out_dir):
-    """session - session name to remove
-       base_dir - root of the filesystem to search from
-       out_dir  - directory to create the backup
-       """
+    """
+    session - session name to remove
+    base_dir - root of the filesystem to search from
+    out_dir  - directory to create the backup
+    """
     cmd_rsync = ['rsync',
                  '-rmz',
                  '--remove-source-files',
@@ -81,8 +85,6 @@ def purge_filesystem(session, base_dir, out_dir):
     if not run_cmd(cmd_rsync):
         logger.error('Backup of session:{} failed'.format(session))
         return
-
-    #os.chdir(cur_dir)
 
     cmd_find = ['find',
                 base_dir,
@@ -113,6 +115,7 @@ def run_cmd(cmd):
             logger.info('Output:{}'.format(e.output))
         return
     return True
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)

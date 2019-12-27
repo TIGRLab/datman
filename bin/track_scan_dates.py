@@ -1,8 +1,10 @@
-from pyxnat import Interface
-from datetime import datetime
 import json
 import operator
 import os
+from datetime import datetime
+
+from pyxnat import Interface
+
 from datman import config as CON
 from datman import scanid
 
@@ -12,27 +14,27 @@ date = "date"
 uploaddate = "insert_date"
 uploaddiff = "upload_difference"
 
-phan="phantom"
-hum="human"
+phan = "phantom"
+hum = "human"
+
 
 def main():
     quit = "n"
 
     username = os.environ["XNAT_USER"]
     password = os.environ["XNAT_PASS"]
-    central = Interface(server="https://xnat.imaging-genetics.camh.ca", user=username, password=password)
-
+    central = Interface(server="https://xnat.imaging-genetics.camh.ca",
+                        user=username,
+                        password=password)
 
     while (quit != "y"):
-        study = raw_input("Which study do you want to track scans for? ")
-
+        study = input("Which study do you want to track scans for? ")
         con = CON.config()
-
 
         try:
             projects = set(con.get_xnat_projects(study))
         except ValueError:
-            print "Study does not exist"
+            print("Study does not exist")
             return 0
 
         tracking_table = dict()
@@ -40,14 +42,12 @@ def main():
         for project in projects:
             constraints = [('xnat:mrSessionData/PROJECT', '=', project)]
             table = central.select('xnat:mrSessionData',
-                                [
-                                'xnat:mrSessionData/SUBJECT_LABEL',
-                                'xnat:mrSessionData/DATE',
-                                'xnat:mrSessionData/INSERT_DATE']
-                                 ).where(constraints)
+                                   ['xnat:mrSessionData/SUBJECT_LABEL',
+                                    'xnat:mrSessionData/DATE',
+                                    'xnat:mrSessionData/INSERT_DATE']
+                                   ).where(constraints)
             sort = sorted(table.items(), key=operator.itemgetter(2))
             for item in sort:
-                #print(item)
                 site_name = scanid.parse(item[0]).site
                 if scanid.is_phantom(item[0]):
                     site_name += "_PHA"
@@ -64,25 +64,31 @@ def main():
                     if last_update == datetime.min:
                         site_dict[uploaddiff] = "No Other Uploads"
                     else:
-                        site_dict[uploaddiff] = dttostr(current_update - last_update)
-                #break
+                        site_dict[uploaddiff] = dttostr(current_update -
+                                                        last_update)
+
         printdict(tracking_table)
 
-        quit = raw_input("Quit? y/n ")
+        quit = input("Quit? y/n ")
 
 
 def printdict(output):
-    print "{:<15} {:<15} {:<30} {:<40}".format("Site", "Scan Date", "Latest Upload Date", "Time Between Last Uploads")
-    for key, values in output.iteritems():
+    print("{:<15} {:<15} {:<30} {:<40}".format("Site", "Scan Date",
+                                               "Latest Upload Date",
+                                               "Time Between Last Uploads"))
+    for key, values in output.items():
         pdate = values[date]
         update = values[uploaddate]
         updiff = values[uploaddiff]
-        print "{:<15} {:<15} {:<30} {:<40}".format(key, str(pdate), str(update), str(updiff))
+        print("{:<15} {:<15} {:<30} {:<40}".format(key, str(pdate),
+                                                   str(update), str(updiff)))
+
 
 def dttostr(dt):
     hours, rem = divmod(dt.seconds, 3600)
     minutes, seconds = divmod(rem, 60)
     return "%03d days %02d hours" % (dt.days, hours)
+
 
 if __name__ == "__main__":
     main()

@@ -19,7 +19,7 @@ Options:
     -v --verbose        Verbose logging
     -d --debug          Debug logging
 
-"""
+"""  # noqa: E501
 
 import os
 import sys
@@ -65,25 +65,27 @@ def create_symlink(src, target_name, dest):
         logger.info('Linking {} -> {}'.format(rel_path, target_path))
         try:
             os.symlink(rel_path, target_path)
-        except:
+        except OSError:
             logger.error('Unable to link to {}'.format(rel_path))
 
-def force_json_name(json_filename,sub_dir):
+
+def force_json_name(json_filename, sub_dir):
     '''
-    dcm2niix adds a suffix if a nifti file already exists even though you just want the .json sidecar
-    Force name to match what is expected
+    dcm2niix adds a suffix if a nifti file already exists even though you
+    just want the .json sidecar. Force name to match what is expected
     '''
 
     json_base = json_filename.split('.')[0]
-    candidate = [f for f in os.listdir(sub_dir) if (json_base in f) and ('.json' in f)][0]
+    candidate = [f for f in os.listdir(sub_dir)
+                 if (json_base in f) and ('.json' in f)][0]
 
     if candidate != json_base:
-        logger.warning('dcm2niix added suffix!')
-        logger.warning('Should be {}'.format(json_filename))
-        logger.warning('Found {}'.format(candidate))
-        src = os.path.join(sub_dir,candidate)
-        dst = os.path.join(sub_dir,json_filename)
-        os.rename(src,dst)
+        logger.warning('dcm2niix added suffix!\nShould be {}\n'
+                       'Found {}'.format(json_filename, candidate))
+        src = os.path.join(sub_dir, candidate)
+        dst = os.path.join(sub_dir, json_filename)
+        os.rename(src, dst)
+
 
 def create_json_sidecar(scan_filename, session_nii_dir, session_dcm_dir):
     json_filename = os.path.splitext(scan_filename)[0] + '.json'
@@ -93,18 +95,20 @@ def create_json_sidecar(scan_filename, session_nii_dir, session_dcm_dir):
         return
     logger.info('Creating JSON sidecar {}'.format(json_filename))
     try:
-        # dcm2niix creates json without nifti using single dicom in dcm directory
+        # dcm2niix creates json using single dicom in dcm directory
         datman.utils.run('dcm2niix -b o -s y -f {} -o {} {}'
                          .format(os.path.splitext(scan_filename)[0],
                                  session_nii_dir,
                                  os.path.join(session_dcm_dir, scan_filename)))
-        force_json_name(json_filename,session_nii_dir)
-    except:
+        force_json_name(json_filename, session_nii_dir)
+    except Exception:
         logger.error('Unable to create JSON sidecar {}'.format(json_filename))
+
 
 def get_series(file_name):
     # need better way to get series number from nifti
     return int(os.path.basename(file_name).split("_")[1][1:])
+
 
 def is_blacklisted(resource_file, session):
     blacklist = datman.utils.read_blacklist(subject=session)
@@ -116,6 +120,7 @@ def is_blacklisted(resource_file, session):
         if series == bl_series:
             return True
     return False
+
 
 def main():
     arguments = docopt(__doc__)
@@ -173,7 +178,8 @@ def main():
         # temporarily commment out since glob in python 2 can't recurse
         # for extension in extensions:
         #     session_res_files.extend(
-        #         glob(os.path.join(session_res_dir, extension), recursive=True)
+        #         glob(os.path.join(session_res_dir, extension),
+        #              recursive=True)
         #     )
 
         for filename in find_files(session_res_dir):
@@ -198,7 +204,7 @@ def main():
                 # in dictionary
                 try:
                     scan_filename = os.path.splitext(dcm_dict[series_num])[0]
-                except:
+                except (IndexError, KeyError):
                     if is_blacklisted(f, session_name):
                         logger.info('Ignored blacklisted series {}'.format(f))
                         continue

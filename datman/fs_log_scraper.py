@@ -14,9 +14,11 @@ import datetime
 import logging
 
 from docopt import docopt
+
 import datman.config
 
 logger = logging.getLogger(os.path.basename(__file__))
+
 
 def scrape_logs(fs_output_folders, standards=None, col_headers=False):
     """
@@ -47,16 +49,17 @@ def scrape_logs(fs_output_folders, standards=None, col_headers=False):
         log.kernel = check_diff(log.kernel, standards['kernel'])
         log.args = check_diff(log.args, standards['args'])
         entry_line = '{sub},{status},{start},{end},{build},{kernel},{args},' \
-                '{nii}\n'.format(sub=log.subject,
-                                 status=log.status,
-                                 start=log.start,
-                                 end=log.end,
-                                 build=log.build,
-                                 kernel=log.kernel,
-                                 args=log.args,
-                                 nii=log.nii_inputs)
+                     '{nii}\n'.format(sub=log.subject,
+                                      status=log.status,
+                                      start=log.start,
+                                      end=log.end,
+                                      build=log.build,
+                                      kernel=log.kernel,
+                                      args=log.args,
+                                      nii=log.nii_inputs)
         scraped_data.append(entry_line)
     return scraped_data
+
 
 def choose_standard_sub(subject_logs):
     standard_sub = None
@@ -67,8 +70,9 @@ def choose_standard_sub(subject_logs):
         standard_sub = subject
     if not standard_sub:
         raise Exception("Could not create standards. No subjects have "
-                "complete freesurfer outputs.")
+                        "complete freesurfer outputs.")
     return standard_sub
+
 
 def make_standards(standard_log):
     standards = {'build': standard_log.build,
@@ -76,13 +80,15 @@ def make_standards(standard_log):
                  'args': standard_log.args}
     return standards
 
+
 def verify_standards(standards_dict, expected_keys):
     for key in expected_keys:
         try:
             _ = standards_dict[key]
         except KeyError:
             raise KeyError("Missing expected field \"{}\" in given "
-            "standards".format(key))
+                           "standards".format(key))
+
 
 def check_diff(log_field, standards_field):
     diffs = ''
@@ -96,6 +102,7 @@ def check_diff(log_field, standards_field):
             diffs = log_field
     return diffs
 
+
 class FSLog(object):
 
     _MAYBE_HALTED = "FS may have halted."
@@ -108,10 +115,10 @@ class FSLog(object):
         fs_scripts = os.path.join(freesurfer_folder, 'scripts')
         self.status = self._get_status(fs_scripts)
         self.build = self._get_build(os.path.join(fs_scripts,
-                'build-stamp.txt'))
+                                     'build-stamp.txt'))
 
         recon_contents = self.parse_recon_done(os.path.join(fs_scripts,
-                'recon-all.done'))
+                                                            'recon-all.done'))
         self.subject = self.get_subject(recon_contents.get('SUBJECT', ''))
         self.start = self.get_date(recon_contents.get('START_TIME', ''))
         self.end = self.get_date(recon_contents.get('END_TIME', ''))
@@ -141,7 +148,7 @@ class FSLog(object):
             status = ''
         else:
             raise Exception("No freesurfer log files found for "
-                    "{}".format(scripts))
+                            "{}".format(scripts))
 
         return status
 
@@ -205,10 +212,10 @@ class FSLog(object):
     def get_args(cmd_args):
         if not cmd_args:
             return ''
-        cmd_pieces = re.split('^-|\s-', cmd_args)
+        cmd_pieces = re.split('^-|\s-', cmd_args)  # noqa: W605
         args = cmd_pieces
         for item in ['i ', 'T2 ', 'subjid ']:
-            args = filter(lambda x: not x.startswith(item), args)
+            args = [x for x in args if not x.startswith(item)]
         str_args = ' -'.join(sorted(args))
         return str_args.strip()
 
@@ -217,9 +224,11 @@ class FSLog(object):
         if not cmd_args:
             return ''
         # Will break on paths containing white space
-        nifti_inputs = re.findall('-i\s*\S*|-T2\s*\S*', cmd_args)
-        niftis = [item.strip('-i').strip('-T2').strip() for item in nifti_inputs]
+        nifti_inputs = re.findall('-i\s*\S*|-T2\s*\S*', cmd_args)  # noqa: W605
+        niftis = [item.strip('-i').strip('-T2').strip()
+                  for item in nifti_inputs]
         return '; '.join(niftis)
+
 
 if __name__ == '__main__':
     main()

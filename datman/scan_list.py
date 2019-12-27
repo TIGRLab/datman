@@ -22,7 +22,9 @@ class ExampleScanEntry(datman.scan_list.ScanEntryABC):
         ... (code to generate correct datman ID goes here) ...
         return datman_id
 
-datman.scan_list.generate_scan_list(ExampleScanEntry, my_zip_list, metadata_path)
+datman.scan_list.generate_scan_list(ExampleScanEntry,
+                                    my_zip_list,
+                                    metadata_path)
 """
 import os
 import logging
@@ -32,6 +34,7 @@ from collections import defaultdict
 from datman.utils import get_archive_headers
 
 logger = logging.getLogger(os.path.basename(__file__))
+
 
 def generate_scan_list(scan_entry_class, zip_files, dest_dir):
     """
@@ -54,18 +57,22 @@ def generate_scan_list(scan_entry_class, zip_files, dest_dir):
         processed_scans = get_scan_list_contents(output)
     except Exception as e:
         raise RuntimeError("Can't read scan entries from existing scans.csv "
-                "file. Reason: {}".format(e.message))
+                           "file. Reason: {}".format(e.message))
 
-    new_entries = make_new_entries(processed_scans, zip_files, scan_entry_class)
+    new_entries = make_new_entries(processed_scans, zip_files,
+                                   scan_entry_class)
 
-    logger.debug("Writing {} new entries to scans file".format(len(new_entries)))
+    logger.debug("Writing {} new entries to scans file".format(
+                                                        len(new_entries)))
     if new_entries:
         update_scans_csv(output, new_entries)
+
 
 def start_new_scan_list(output):
     logger.info("Starting new scans.csv file at {}".format(output))
     with open(output, 'wb') as out:
         out.write('source_name\ttarget_name\tPatientName\tStudyID\n')
+
 
 def get_scan_list_contents(scans_csv):
     with open(scans_csv, "rb") as scan_entries:
@@ -86,6 +93,7 @@ def get_scan_list_contents(scans_csv):
 
     return processed_files
 
+
 def make_new_entries(processed_scans, zip_files, EntryClass):
     new_entries = []
     for zip_file in zip_files:
@@ -99,30 +107,32 @@ def make_new_entries(processed_scans, zip_files, EntryClass):
         try:
             entry = EntryClass(zip_file)
         except Exception as e:
-            logger.error("Cant make an entry for {}. Reason: {}".format(zip_file,
-                    e.message))
+            logger.error("Cant make an entry for {}. Reason: {}".format(
+                                                        zip_file,
+                                                        e.message))
             continue
 
         new_entries.append(str(entry))
 
     return new_entries
 
+
 def update_scans_csv(output, new_entries):
     with open(output, 'ab') as scan_csv:
         scan_csv.writelines(new_entries)
 
-class ScanEntryABC(object):
 
-    __metaclass__ = ABCMeta
+class ScanEntryABC(object, metaclass=ABCMeta):
 
     def __init__(self, scan_path):
         self.source_name = os.path.basename(scan_path).replace('.zip', '')
         try:
-            header = get_archive_headers(scan_path,
-                    stop_after_first=True).values()[0]
+            header = list(get_archive_headers(scan_path,
+                                              stop_after_first=True).values()
+                          )[0]
         except IndexError:
             logger.debug("{} does not contain dicoms. "
-                    "Creating 'ignore' entry.".format(scan_path))
+                         "Creating 'ignore' entry.".format(scan_path))
             self.patient_name = "<ignore>"
             self.study_id = "<ignore>"
             self.header = None
@@ -137,4 +147,4 @@ class ScanEntryABC(object):
 
     def __str__(self):
         return "\t".join([self.source_name, self.get_target_name(),
-                self.patient_name, self.study_id + "\n"])
+                          self.patient_name, self.study_id + "\n"])

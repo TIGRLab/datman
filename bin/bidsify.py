@@ -52,7 +52,7 @@ logging.basicConfig(
 logger = logging.getLogger(os.path.basename(__file__))
 YAML = os.path.abspath(
         os.path.join(os.path.dirname(__file__),
-                     "../assets/bids_requirements.yaml"))
+                     "../assets/bids/requirements.yaml"))
 
 
 class BIDSFile(object):

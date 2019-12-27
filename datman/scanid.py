@@ -49,12 +49,6 @@ FILENAME_PATTERN = re.compile('^' + FILENAME_RE)
 FILENAME_PHA_PATTERN = re.compile('^' + FILENAME_PHA_RE)
 BIDS_SCAN_PATTERN = re.compile(BIDS_SCAN_RE)
 
-# python 2 - 3 compatibility hack
-try:
-    basestring
-except NameError:
-    basestring = str
-
 
 class ParseException(Exception):
     pass
@@ -174,7 +168,7 @@ class BIDSFile(object):
 
 
 def parse(identifier):
-    if not isinstance(identifier, basestring):
+    if not isinstance(identifier, str):
         raise ParseException
 
     match = SCANID_PATTERN.match(identifier)

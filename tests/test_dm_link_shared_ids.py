@@ -12,19 +12,20 @@ logging.disable(logging.CRITICAL)
 
 link_shared = importlib.import_module('bin.dm_link_shared_ids')
 
+
 class TestRecord(unittest.TestCase):
     mock_redcap_record = {'par_id': 'STUDY_SITE_0001_01_01',
-            'record_id': 0,
-            'shared_parid_1': 'STUDY_SITE_0002_01_01',
-            'shared_parid_2': 'STUDY2_CMH_9999_01_01',
-            'shared_parid_8': 'OTHER_CMH_1234_01_01',
-            'cmts': 'No comment.'}
+                          'record_id': 0,
+                          'shared_parid_1': 'STUDY_SITE_0002_01_01',
+                          'shared_parid_2': 'STUDY2_CMH_9999_01_01',
+                          'shared_parid_8': 'OTHER_CMH_1234_01_01',
+                          'cmts': 'No comment.'}
 
     def test_ignores_records_with_bad_subject_id(self):
         bad_redcap_record = {'par_id': 'STUDY_0001_01',
-                'record_id': 0,
-                'shared_parid': [],
-                'cmts': ''}
+                             'record_id': 0,
+                             'shared_parid_1': '',
+                             'cmts': ''}
 
         record = link_shared.Record(bad_redcap_record)
 

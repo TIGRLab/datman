@@ -19,8 +19,9 @@ import datman.utils
 import datman.dashboard as dashboard
 
 logging.basicConfig(level=logging.WARN,
-        format="[%(name)s] %(levelname)s: %(message)s")
+                    format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
+
 
 def main():
     args = docopt(__doc__)
@@ -68,10 +69,11 @@ def get_regex(config):
     try:
         regex = config.get_key('task_regex')
     except datman.config.UndefinedSetting:
-        logger.warn("'task_regex' not defined in settings, using default regex "
-                "to locate task files.")
-        regex = 'behav|\.edat2'
+        logger.warn("'task_regex' not defined in settings, using default "
+                    "regex to locate task files.")
+        regex = 'behav|\.edat2'  # noqa: W605
     return regex
+
 
 def get_task_files(regex, resource_folder, ignore='.pdf|tech'):
     task_files = []
@@ -86,10 +88,13 @@ def get_task_files(regex, resource_folder, ignore='.pdf|tech'):
             # also matches the regex
             continue
         for item in files:
-            if re.search(regex, item, re.IGNORECASE) and not re.search(ignore,
-                    item, re.IGNORECASE):
+            if re.search(regex, item, re.IGNORECASE) and not re.search(
+                                                            ignore,
+                                                            item,
+                                                            re.IGNORECASE):
                 task_files.append(os.path.join(path, item))
     return task_files
+
 
 def link_task_file(src_path, dest_path):
     src = datman.utils.get_relative_source(src_path, dest_path)
@@ -98,11 +103,12 @@ def link_task_file(src_path, dest_path):
     except OSError as e:
         if e.errno == 13:
             logger.error("Can't symlink task file {} to {} - Permission"
-                    " denied.".format(task_file, dest))
+                         " denied.".format(task_file, dest))
         elif e.errno == 17:
             pass
         else:
             raise e
+
 
 def resolve_duplicate_names(task_files):
     all_fnames = sort_fnames(task_files)
@@ -121,12 +127,14 @@ def resolve_duplicate_names(task_files):
 
     return resolved_names
 
+
 def sort_fnames(file_list):
     all_fnames = {}
     for item in file_list:
         name = os.path.basename(item)
         all_fnames.setdefault(name, []).append(item)
     return all_fnames
+
 
 def morph_name(file_path, common_prefix):
     """
@@ -143,6 +151,7 @@ def morph_name(file_path, common_prefix):
         new_name = "-".join(file_path.split('/')[-(dir_levels + 1):])
     return new_name
 
+
 def add_to_dashboard(session, task_file):
     if not dashboard.dash_found:
         return
@@ -150,14 +159,15 @@ def add_to_dashboard(session, task_file):
     db_session = dashboard.get_session(session)
     if not db_session:
         logger.info("{} not yet in dashboard database. Cannot add task file "
-                "{}".format(session, task_file))
+                    "{}".format(session, task_file))
         return
 
     task = db_session.add_task(task_file)
     if not task:
         logger.error("Failed to add task file {} to dashboard "
-                "database".format(task_file))
+                     "database".format(task_file))
     return
+
 
 if __name__ == '__main__':
     main()
