@@ -30,10 +30,11 @@ import datman.utils
 from datman.scanid import ParseException
 
 logging.basicConfig(level=logging.WARN,
-        format="[%(name)s] %(levelname)s: %(message)s")
+                    format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
 DRYRUN = False
+
 
 def main():
     global DRYRUN
@@ -55,6 +56,7 @@ def main():
     metadata = datman.utils.get_subject_metadata(config)
     remove_blacklisted_items(metadata, config)
 
+
 def remove_blacklisted_items(metadata, config):
     for sub in metadata:
         blacklist_entries = metadata[sub]
@@ -64,10 +66,11 @@ def remove_blacklisted_items(metadata, config):
             scan = datman.scan.Scan(sub, config)
         except ParseException as e:
             logger.error("Couldn't retrieve session info for {}, ignoring. "
-                    "Reason - {}".format(sub, e))
+                         "Reason - {}".format(sub, e))
             continue
         logger.debug("Working on {}".format(sub))
         remove_blacklisted(scan, blacklist_entries)
+
 
 def remove_blacklisted(scan, entries):
     for entry in entries:
@@ -76,6 +79,7 @@ def remove_blacklisted(scan, entries):
         remove_matches(scan.nrrd_path, entry)
         remove_matches(scan.mnc_path, entry)
         remove_matches(scan.resource_path, entry)
+
 
 def remove_matches(path, fname):
     matches = find_files(path, fname)
@@ -86,11 +90,15 @@ def remove_matches(path, fname):
     for item in matches:
         try:
             os.remove(item)
-        except:
-            logger.error("Failed deleting blacklisted item: {}".format(item))
+        except FileNotFoundError:
+            pass
+        except (PermissionError, IsADirectoryError):
+            logger.error("Failed to delete blacklisted item {}.".format(item))
+
 
 def find_files(path, fname):
     return glob.glob(os.path.join(path, fname + "*"))
+
 
 if __name__ == "__main__":
     main()

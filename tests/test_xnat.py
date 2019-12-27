@@ -12,17 +12,20 @@ from datman.config import config as Config
 # Dont care about logging for these tests
 logging.disable(logging.CRITICAL)
 
+
 class TestGetPortStr(unittest.TestCase):
 
     def _set_config_port(self, port):
-        self.mock_config.get_key.side_effect = lambda key: {'XNATPORT': port}[key]
+        self.mock_config.get_key.side_effect = lambda key: {'XNATPORT': port}[
+                key]
 
     def setUp(self):
         self.mock_config = Mock(spec=Config)
         self.mock_config.get_key.side_effect = lambda key: {}[key]
 
     @raises(KeyError)
-    def test_raises_KeyError_when_given_port_is_None_and_config_doesnt_define(self):
+    def test_raises_KeyError_when_given_port_is_None_and_config_doesnt_define(
+            self):
         datman.xnat.get_port_str(self.mock_config, None)
 
     def test_retrieves_port_from_config_file_when_port_is_None(self):
@@ -67,6 +70,7 @@ class TestGetPortStr(unittest.TestCase):
 
         assert actual_result == expected_result
 
+
 class TestGetServer(unittest.TestCase):
 
     def _set_server_config(self, url, port=None):
@@ -86,7 +90,9 @@ class TestGetServer(unittest.TestCase):
         returned_server = datman.xnat.get_server(self.mock_config)
 
         assert returned_server == config_server, ("Returned server {} doesnt "
-                "match {}".format(returned_server, config_server))
+                                                  "match {}".format(
+                                                        returned_server,
+                                                        config_server))
 
     def test_ignores_config_file_when_given_url(self):
         config_server = 'https://fakeserver.ca'
@@ -94,12 +100,13 @@ class TestGetServer(unittest.TestCase):
 
         self._set_server_config(config_server)
         returned_server = datman.xnat.get_server(self.mock_config,
-                url=provided_server)
+                                                 url=provided_server)
 
         assert returned_server != config_server
 
     @raises(KeyError)
-    def test_raises_KeyError_when_server_not_given_and_config_setting_missing(self):
+    def test_raises_KeyError_when_server_not_given_and_config_setting_missing(
+            self):
         datman.xnat.get_server(self.mock_config)
 
     def test_adds_https_protocol_when_no_protocol_in_url(self):
@@ -109,13 +116,14 @@ class TestGetServer(unittest.TestCase):
         returned_url = datman.xnat.get_server(self.mock_config, server)
 
         assert returned_url == expected_url, ('Protocol not added when server '
-                'given as arg')
+                                              'given as arg')
 
         self._set_server_config(server)
         returned_server = datman.xnat.get_server(self.mock_config)
 
         assert returned_server == expected_url, ('Protocol not added when '
-                'server read from config file')
+                                                 'server read from config '
+                                                 'file')
 
     def test_adds_config_port_when_no_port_given(self):
         url = "https://testserver.ca"
@@ -157,6 +165,7 @@ class TestGetServer(unittest.TestCase):
 
         assert result == expected
 
+
 class TestGetAuth(unittest.TestCase):
 
     @patch('getpass.getpass')
@@ -166,12 +175,12 @@ class TestGetAuth(unittest.TestCase):
 
     @raises(KeyError)
     def test_raises_KeyError_if_username_not_given_and_not_set_in_env(self):
-        env = {}
-        with patch.dict('os.environ', env) as mock_env:
+        with patch.dict(os.environ, {}, clear=True) as mock_env:
             datman.xnat.get_auth()
 
     @raises(KeyError)
-    def test_raises_KeyError_if_username_found_in_env_and_password_not_set_in_env(self):
+    def test_raises_KeyError_if_username_found_in_env_and_password_not_set(
+            self):
         env = {'XNAT_USER': 'someuser'}
-        with patch.dict('os.environ', env) as mock_env:
+        with patch.dict('os.environ', env, clear=True) as mock_env:
             datman.xnat.get_auth()

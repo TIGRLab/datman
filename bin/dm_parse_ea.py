@@ -51,7 +51,7 @@ def get_blocks(log,vid_info):
 
 #grabs stimulus metadata
 def format_vid_info(vid):
-    vid.columns = map(str.lower, vid.columns)
+    vid.columns = [c.lower() for c in vid.columns]
     vid = vid.rename(index={0:"stim_file", 1:"duration"}) #grabs the file name and the durations from the info file
     vid = vid.to_dict()
     return(vid)
@@ -59,7 +59,7 @@ def format_vid_info(vid):
 #Reads in gold standard answers
 def read_in_standard(timing_path):
     df = pd.read_csv(timing_path).astype(str)
-    df.columns = map(str.lower, df.columns)
+    df.columns = [c.lower() for c in df.columns]
     df_dict = df.drop([0,0]).reset_index(drop=True).to_dict(orient='list') #drops the video name
     return(df_dict)
 
