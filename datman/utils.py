@@ -179,9 +179,9 @@ def _fetch_checklist(subject=None, study=None, config=None, bids_id=None,
             if not timepoint.bids_name:
                 # If bids is requested ignore subjects without a bids name
                 continue
-            str_name = timepoint.bids_name.encode('utf-8')
+            str_name = timepoint.bids_name
         else:
-            str_name = timepoint.name.encode('utf-8')
+            str_name = timepoint.name
         entries[str_name] = comment
 
     return entries
@@ -392,7 +392,7 @@ def _fetch_blacklist(scan=None, subject=None, bids_ses=None, study=None,
             db_scan = dashboard.get_scan(scan)
         if db_scan and db_scan.blacklisted():
             try:
-                return db_scan.get_comment().encode('utf-8')
+                return db_scan.get_comment()
             except Exception:
                 return db_scan.get_comment()
         return
@@ -420,12 +420,8 @@ def _fetch_blacklist(scan=None, subject=None, bids_ses=None, study=None,
             scan_name = entry.scan.bids_name
         else:
             scan_name = str(entry.scan) + "_" + entry.scan.description
-        try:
-            scan_name = scan_name.encode('utf-8')
-            comment = entry.comment.encode('utf-8')
-        except Exception:
-            comment = entry.comment
-        entries[scan_name] = comment
+
+        entries[scan_name] = entry.comment
 
     return entries
 
