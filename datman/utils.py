@@ -1101,7 +1101,7 @@ def submit_job(cmd, job_name, log_dir, system='other', cpu_cores=1,
     if system == 'kimel':
         job_file = '/tmp/{}'.format(job_name)
 
-        with open(job_file, 'wb') as fid:
+        with open(job_file, 'w') as fid:
             fid.write('#!/bin/bash\n')
             fid.write(cmd)
 
