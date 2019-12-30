@@ -686,7 +686,7 @@ def generate_qc_report(report_name, subject, expected_files, header_diffs,
                        config):
     tag_settings = config.get_tags(site=subject.site)
 
-    with open(report_name, 'wb') as report:
+    with open(report_name, 'w') as report:
         write_report_header(report, subject.full_id)
         write_table(report, expected_files, subject)
         write_tech_notes_link(report, subject.site, config.study_name,
@@ -783,8 +783,7 @@ def find_expected_files(subject, config):
         if tag_counts[tag] < expected_count:
             n_missing = expected_count - tag_counts[tag]
             notes = 'missing({})'.format(n_missing)
-            expected_files.loc[idx] = [tag, '', '', notes,
-                                       expected_positions[tag]]
+            expected_files.loc[idx] = [tag, '', '', notes, 1000]
             idx += 1
     expected_files = expected_files.sort_values('Sequence')
     return(expected_files)
