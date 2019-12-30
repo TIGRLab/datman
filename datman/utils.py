@@ -1062,11 +1062,13 @@ def validate_subject_id(subject_id, config):
         sites = valid_tags[new_subject_id.study]
     except KeyError:
         raise RuntimeError("Subject id {} has undefined study code {}".format(
-                subject_id, new_subject_id.study))
+                           subject_id, new_subject_id.study))
 
     if new_subject_id.site not in sites:
         raise RuntimeError("Subject id {} has undefined site {} for study "
-                           "{}".format(subject_id, new_subject_id.site, new_subject_id.study))
+                           "{}".format(subject_id,
+                                       new_subject_id.site,
+                                       new_subject_id.study))
 
     return new_subject_id
 
