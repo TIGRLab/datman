@@ -23,16 +23,6 @@ import zipfile
 from docopt import docopt
 import pydicom
 import pandas as pd
-from docopt import docopt
-
-
-default_headers = [
-    "StudyDescription",
-    "StudyID",
-    "PatientName",
-    "SeriesNumber",
-    "SeriesDescription",
-]
 
 import datman
 import datman.utils
