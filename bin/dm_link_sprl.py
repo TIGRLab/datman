@@ -86,7 +86,7 @@ def main():
         try:
             logger.info('Processing session {}'.format(session))
             process_session(cfg, dir_nii, dir_res, session)
-        except:
+        except Exception:
             logger.error('Failed processing session:{}'.format(session))
 
 
@@ -99,15 +99,19 @@ def process_session(cfg, dir_nii, dir_res, session):
         return
 
     subject_res = os.path.join(dir_res, str(ident))
-    logger.info('Subject {} resource folder will : {}'.format(str(ident), subject_res))
+    logger.info('Subject {} resource folder will be {}'.format(str(ident),
+                                                               subject_res))
     dir_nii = os.path.join(dir_nii,
                            ident.get_full_subjectid_with_timepoint())
-    logger.info('Subject {} nii folder will be: {}'.format(str(ident), dir_nii))
+    logger.info('Subject {} nii folder will be {}'.format(str(ident),
+                                                          dir_nii))
 
     if not os.path.isdir(subject_res):
-        logger.info("{} does not exist. Will be adding session number to try and find it.".format(subject_res))
-        # Resources folders now require timepoint and session number. If user only
-        # gives the first, check with a default session number before giving up.
+        logger.info("{} does not exist. Will be adding session number to try "
+                    "and find it.".format(subject_res))
+        # Resources folders now require timepoint and session number. If user
+        # only gives the first, check with a default session number before
+        # giving up.
         if not ident.session:
             ident.session = '01'
             session_res = os.path.join(dir_res, str(ident))
@@ -115,7 +119,7 @@ def process_session(cfg, dir_nii, dir_res, session):
             subject_res = session_res
         else:
             logger.error('Could not find session {} resources at expected '
-                    'location {}'.format(session, subject_res))
+                         'location {}'.format(session, subject_res))
             return
 
     if not os.path.isdir(dir_nii):
@@ -134,7 +138,7 @@ def process_session(cfg, dir_nii, dir_res, session):
     export_info = tags.series_map
     # Doing it this way will enable matching multiple types of SPRL with
     # different regexs
-    sprls = [(i, v) for i, v in export_info.iteritems() if 'SPRL' in i]
+    sprls = [(i, v) for i, v in export_info.items() if 'SPRL' in i]
 
     # find matching files in the resources folder
     sprl_files = []
@@ -171,7 +175,8 @@ def process_session(cfg, dir_nii, dir_res, session):
             datman.dashboard.get_scan(sprl_file[1], create=True)
         except Exception as e:
             logger.error("Failed to add scan {} to dashboard database. "
-                    "Reason: {}".format(sprl_file[1], str(e)))
+                         "Reason {}".format(sprl_file[1],
+                                            str(e)))
 
 
 def _create_symlink(src, target_name, dir_nii):
@@ -189,10 +194,10 @@ def _create_symlink(src, target_name, dir_nii):
             os.symlink(rel_src, target_path)
         except OSError as e:
             if e.errno == errno.EEXIST:
-                logger.warning('Failed creating symlink:{} --> {} with reason:{}'
-                             .format(rel_src, target_path, e.strerror))
+                logger.warning('Failed creating symlink {} --> {} with reason '
+                               '{}'.format(rel_src, target_path, e.strerror))
             else:
-                logger.error('Failed creating symlink:{} --> {} with reason:{}'
+                logger.error('Failed creating symlink {} --> {} with reason {}'
                              .format(rel_src, target_path, e.strerror))
 
 
@@ -225,31 +230,14 @@ def _get_link_name(path, basepath, ident, tag):
     path = path.replace('/', '-')
     path = path.replace('_', '-')
     # try to see if we can extract the series number
-    if ident.study == 'VRMD':
-        p = re.compile('Run(\d)')
-        run_num = p.findall(path)[0]
-        if run_num == '1':
-            series = '03'
-        if run_num == '2':
-            series = '04'
-        if run_num == '3':
-            series = '05'
-        if run_num == '4':
-            series = '08'
-        if run_num == '5':
-            series = '09'
-        if run_num == '6':
-            series = '10'
-    else:
-        p = re.compile('Se(\d+)-')
-        m = p.findall(path)
-        # figure out a way to change the series number
-        series = '00'
-        if m:
-            try:
-                series = '{0:02d}'.format(int(m[0]))
-            except ValueError:
-                pass
+    p = re.compile('Se(\d+)-')  # noqa: W605
+    m = p.findall(path)
+    series = '00'
+    if m:
+        try:
+            series = '{0:02d}'.format(int(m[0]))
+        except ValueError:
+            pass
 
     filename = '{exam}_{tag}_{series}_{tail}'.format(exam=str(ident),
                                                      tag=tag,

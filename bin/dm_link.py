@@ -118,7 +118,7 @@ def main():
 
     formatter = logging.Formatter('%(asctime)s - %(name)s - {study} - '
                                   '%(levelname)s - %(message)s'.format(
-                                  study=study))
+                                                    study=study))
     ch.setFormatter(formatter)
 
     logger.addHandler(ch)
@@ -145,7 +145,7 @@ def main():
         return
 
     try:
-        lookup = pd.read_table(lookup_path, sep='\s+', dtype=str)
+        lookup = pd.read_table(lookup_path, sep='\s+', dtype=str)  # noqa: W605
     except IOError:
         logger.error('Lookup file {} not found'.format(lookup_path))
         return
@@ -157,7 +157,7 @@ def main():
                       if os.path.islink(f)}
 
     if zipfile:
-        if isinstance(zipfile, basestring):
+        if isinstance(zipfile, str):
             zipfile = [zipfile]
         archives = [os.path.join(zips_path, zip) for zip in zipfile]
     else:
@@ -182,7 +182,8 @@ def link_archive(archive_path, dicom_path, scanid_field, config):
         linked_path = ""
 
     if linked_path:
-        logger.info("{} already linked at {}".format(archive_path, linked_path))
+        logger.info("{} already linked at {}".format(archive_path,
+                                                     linked_path))
         return
 
     scanid = get_scanid_from_lookup_table(archive_path)
@@ -196,7 +197,6 @@ def link_archive(archive_path, dicom_path, scanid_field, config):
         logger.info('Ignoring {}'.format(archive_path))
         return
 
-    #Attempt to pull scanid from header
     if not scanid:
         scanid = get_scanid_from_header(archive_path, scanid_field)
 
@@ -215,7 +215,7 @@ def link_archive(archive_path, dicom_path, scanid_field, config):
     target = target + datman.utils.get_extension(archive_path)
     if os.path.exists(target):
         logger.error('Target: {} already exists for archive: {}'
-                    .format(target, archive_path))
+                     .format(target, archive_path))
         return
 
     relpath = os.path.relpath(archive_path, dicom_path)
@@ -252,8 +252,8 @@ def get_archive_headers(archive_path):
     try:
         header = datman.utils.get_archive_headers(archive_path,
                                                   stop_after_first=True)
-        header = header.values()[0]
-    except:
+        header = list(header.values())[0]
+    except Exception:
         logger.warn("Archive: {} contains no DICOMs".format(archive_path))
     return header
 
@@ -284,6 +284,7 @@ def get_scanid_from_header(archive_path, scanid_field):
                     .format(archive_path, scanid, scanid_field))
         return None
 
+
 def validate_headers(archive_path, lookupinfo, scanid_field):
     """
     Validates an exam archive against the lookup table
@@ -313,6 +314,7 @@ def validate_headers(archive_path, lookupinfo, scanid_field):
                          .format(archive_path, f, actual, expected))
             return False
     return True
+
 
 if __name__ == '__main__':
     main()

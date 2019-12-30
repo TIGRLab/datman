@@ -11,8 +11,8 @@ Arguments:
     <session>          Fullname of the session to process
 
 Options:
-    --blacklist FILE         Table listing series to ignore override the default
-                             metadata/blacklist.csv
+    --blacklist FILE         Table listing series to ignore override the
+                             default metadata/blacklist.csv
     -v --verbose             Show intermediate steps
     -d --debug               Show debug messages
     -q --quiet               Show minimal output
@@ -194,8 +194,8 @@ def collect_sessions(xnat_projects, config):
                              .format(session['label'], project, str(e)))
                 continue
 
-            if (not datman.scanid.is_phantom(session['label'])
-                and sub_id.session is None):
+            if (not datman.scanid.is_phantom(session['label']) and
+                    sub_id.session is None):
                 logger.error("Invalid ID {} in project {}. Reason: Not a "
                              "phantom, but missing series number"
                              .format(session['label'], project))
@@ -222,8 +222,8 @@ def process_session(session):
     try:
         xnat_session = xnat.get_session(xnat_project, session_label)
     except Exception as e:
-        logger.error("Cant process session {}. {}{}".format(session_label,
-                     type(e), e))
+        logger.error("Cant process session {}. {}: {}".format(session_label,
+                     type(e).__name__, e))
         return
 
     if not xnat_session.experiment:
@@ -246,6 +246,7 @@ def process_session(session):
     if xnat_session.scans:
         process_scans(ident, xnat_session)
 
+
 def set_date(session, experiment):
     try:
         date = experiment['data_fields']['date']
@@ -258,7 +259,7 @@ def set_date(session, experiment):
         date = datetime.strptime(date, '%Y-%m-%d')
     except ValueError:
         logger.error('Invalid date {} for scan session {}'.format(date,
-                session))
+                                                                  session))
         return
 
     if date == session.date:
@@ -266,6 +267,7 @@ def set_date(session, experiment):
 
     session.date = date
     session.save()
+
 
 def process_resources(xnat_session):
     """Export any non-dicom resources from the XNAT archive"""
@@ -305,7 +307,8 @@ def process_resources(xnat_session):
         except Exception as e:
             logger.error("Failed getting resource {} for session {}. "
                          "Reason - {}".format(xnat_resource_id,
-                         xnat_session.name, e))
+                                              xnat_session.name,
+                                              e))
             continue
 
         if not resources:
@@ -319,7 +322,7 @@ def process_resources(xnat_session):
 
             else:
                 logger.info("Resource: {} not found for session: {}"
-                        .format(resource['name'], xnat_session.name))
+                            .format(resource['name'], xnat_session.name))
                 download_resource(xnat_session,
                                   xnat_resource_id,
                                   resource['URI'],
@@ -358,7 +361,7 @@ def download_resource(xnat_session, xnat_resource_id, xnat_resource_uri,
     try:
         if not DRYRUN:
             shutil.copyfile(source, target_path)
-    except:
+    except (IOError, OSError):
         logger.error("Failed copying resource {} to target {}"
                      .format(source, target_path))
 
@@ -408,11 +411,11 @@ def process_scans(ident, xnat_session):
         try:
             scan.set_datman_name(tags.series_map)
         except Exception as e:
-            logger.error("Failed to make file name for series {} in session "
-                         "{}. Reason {}: {}".format(scan.series,
-                                                  xnat_session.name,
-                                                  type(e),
-                                                  e))
+            logger.info("Failed to make file name for series {} in session "
+                        "{}. Reason {}: {}".format(scan.series,
+                                                   xnat_session.name,
+                                                   type(e).__name__,
+                                                   e))
             continue
 
         if len(scan.tags) > 1 and not scan.multiecho:
@@ -432,19 +435,21 @@ def process_scans(ident, xnat_session):
             if export_formats:
                 get_scans(ident, scan, fname, export_formats)
 
+
 def update_dashboard(scan_names):
     for file_stem in scan_names:
         logger.info("Adding scan {} to dashboard".format(file_stem))
         try:
             dashboard.get_scan(file_stem, create=True)
-        except datman.scanid.ParseException as e:
+        except Exception as e:
             logger.error("Failed adding scan {} to dashboard with "
-                    "error: {}".format(file_stem, e))
+                         "error: {}".format(file_stem, e))
 
 
 def get_export_formats(ident, file_stem, tags, tag):
     try:
-        blacklist_entry = datman.utils.read_blacklist(scan=file_stem, config=cfg)
+        blacklist_entry = datman.utils.read_blacklist(scan=file_stem,
+                                                      config=cfg)
     except datman.scanid.ParseException:
         logger.error("{} is not a datman ID. Skipping.".format(file_stem))
         return
@@ -464,7 +469,7 @@ def get_export_formats(ident, file_stem, tags, tag):
     export_formats = series_is_processed(ident, file_stem, export_formats)
     if not export_formats:
         logger.debug("Scan: {} has been processed. Skipping"
-                    .format(file_stem))
+                     .format(file_stem))
         return
 
     return export_formats
@@ -495,8 +500,8 @@ def get_scans(ident, xnat_scan, output_name, export_formats):
                 'dcm': export_dcm_command}
 
     # scan hasn't been completely processed, get it from XNAT
-    with datman.utils.make_temp_directory(prefix='dm_xnat_extract_') as temp_dir:
-        src_dir = get_dicom_archive_from_xnat(xnat_scan, temp_dir)
+    with datman.utils.make_temp_directory(prefix='dm_xnat_extract_') as temp:
+        src_dir = get_dicom_archive_from_xnat(xnat_scan, temp)
 
         if not src_dir:
             logger.error("Failed getting series {} for session {} from XNAT"
@@ -505,8 +510,9 @@ def get_scans(ident, xnat_scan, output_name, export_formats):
 
         for export_format in export_formats:
             target_base_dir = cfg.get_path(export_format)
-            target_dir = os.path.join(target_base_dir,
-                                      ident.get_full_subjectid_with_timepoint())
+            target_dir = os.path.join(
+                                target_base_dir,
+                                ident.get_full_subjectid_with_timepoint())
             try:
                 target_dir = datman.utils.define_folder(target_dir)
             except OSError as e:
@@ -520,15 +526,15 @@ def get_scans(ident, xnat_scan, output_name, export_formats):
                 logger.error("Export format {} not defined".format(
                              export_format))
 
-            logger.info('Exporting scan {} to format {}'.format(xnat_scan.names,
-                                                                export_format))
+            logger.info('Exporting scan {} to format {}'
+                        ''.format(xnat_scan.names, export_format))
             try:
                 exporter(src_dir, target_dir, output_name, xnat_scan)
-            except:
-                logger.error("An error happened exporting {} from scan: {} "
-                             "in session: {}".format(export_format,
-                                                     xnat_scan.series,
-                                                     xnat_scan.session))
+            except Exception:
+                logger.error("An error happened exporting {} from scan {} "
+                             "in session {}".format(export_format,
+                                                    xnat_scan.series,
+                                                    xnat_scan.session))
 
     logger.info('Completed exports')
 
@@ -557,9 +563,9 @@ def get_dicom_archive_from_xnat(xnat_scan, tempdir):
     try:
         with zipfile.ZipFile(dicom_archive, 'r') as myzip:
             myzip.extractall(tempdir)
-    except:
-        logger.error("An error occurred unpacking dicom archive for: {}. Skipping"
-                     .format(xnat_scan.session))
+    except Exception:
+        logger.error("An error occurred unpacking dicom archive for: {}. "
+                     "Skipping".format(xnat_scan.session))
         os.remove(dicom_archive)
         return None
 
@@ -577,8 +583,8 @@ def get_dicom_archive_from_xnat(xnat_scan, tempdir):
     try:
         base_dir = os.path.dirname(archive_files[0])
     except IndexError:
-        logger.warning("There were no valid dicom files in XNAT session: {}, series: {}"
-                       .format(xnat_scan.session, xnat_scan.series))
+        logger.warning("There were no valid dicom files in XNAT session {}, "
+                       "series {}".format(xnat_scan.session, xnat_scan.series))
         return None
     return base_dir
 
@@ -599,7 +605,7 @@ def export_mnc_command(seriesdir, outputdir, stem, scan=None):
 
     try:
         check_create_dir(outputdir)
-    except:
+    except Exception:
         return
 
     if os.path.exists(outputfile):
@@ -619,7 +625,7 @@ def export_nii_command(seriesdir, outputdir, stem, scan=None):
     """Converts a DICOM series to NifTi format"""
     try:
         check_create_dir(outputdir)
-    except:
+    except Exception:
         return
 
     logger.info("Exporting series {}".format(seriesdir))
@@ -628,24 +634,25 @@ def export_nii_command(seriesdir, outputdir, stem, scan=None):
     with datman.utils.make_temp_directory(prefix="dm_xnat_extract_") as tmpdir:
         _, log_msgs = datman.utils.run('dcm2niix -z y -b y -o {} {}'
                                        .format(tmpdir, seriesdir), DRYRUN)
-        # move nii and accompanying files (BIDS, dirs, etc) from tmpdir/ to nii/
+        # move nii and files (BIDS, dirs, etc) from tmpdir/ to nii/
         for f in glob('{}/*'.format(tmpdir)):
             bn = os.path.basename(f)
             ext = datman.utils.get_extension(f)
-            # regex is made up of 14 digit timestamp and 1-3 digit series number
+            # regex is made up of 14 digit timestamp and 1-3 digit series num
             regex = "files_(.*)_([0-9]{14})_([0-9]{1,3})(.*)?" + ext
             m = re.search(regex, bn)
             if not m:
-                logger.error("Unable to parse file {} using the regex".format(bn))
+                logger.error("Unable to parse file {} using the regex"
+                             "".format(bn))
                 continue
 
             if scan and scan.multiecho:
                 try:
                     echo = int(m.group(4).split('e')[-1][0])
                     stem = scan.echo_dict[echo]
-                except:
-                    logger.error("Unable to parse valid echo number from file {}"
-                                 .format(bn))
+                except Exception:
+                    logger.error("Unable to parse valid echo number from file "
+                                 "{}".format(bn))
                     return
 
             outputfile = os.path.join(outputdir, stem) + ext
@@ -709,7 +716,7 @@ def export_nrrd_command(seriesdir, outputdir, stem, scan=None):
     outputfile = os.path.join(outputdir, stem) + '.nrrd'
     try:
         check_create_dir(outputdir)
-    except:
+    except Exception:
         return
     if os.path.exists(outputfile):
         logger.warning("{}: output {} exists. Skipping"
@@ -728,7 +735,7 @@ def export_dcm_command(seriesdir, outputdir, stem, scan=None):
     """Copies a DICOM for each echo number in a scan series."""
     try:
         check_create_dir(outputdir)
-    except:
+    except Exception:
         return
 
     logger.info("Exporting series {}".format(seriesdir))
@@ -755,8 +762,10 @@ def export_dcm_command(seriesdir, outputdir, stem, scan=None):
                 pass
 
     if scan and scan.multiecho:
-        for echo_num, dcm_echo_num in zip(scan.echo_dict.keys(), dcm_dict.keys()):
-            outputfile = os.path.join(outputdir, scan.echo_dict[echo_num]) + '.dcm'
+        for echo_num, dcm_echo_num in zip(scan.echo_dict.keys(),
+                                          dcm_dict.keys()):
+            outputfile = os.path.join(outputdir,
+                                      scan.echo_dict[echo_num] + '.dcm')
             if os.path.exists(outputfile):
                 logger.error("Output file {} already exists. Skipping"
                              .format(outputfile))

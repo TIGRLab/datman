@@ -39,10 +39,10 @@ and uniform.
         qc_path         The path to this subject's generated qc outputs.
         resource_path   The path to all resources (non-scan data) associated
                         with this scan.
-        niftis          A list of 'Series' instances for each nifti in nii_path.
-                        Returns an empty list if none are found.
-        dicoms          A list of 'Series' instances for each dicom in dcm_path.
-                        Returns an empty list if none are found.
+        niftis          A list of 'Series' instances for each nifti in
+                        nii_path. Returns an empty list if none are found.
+        dicoms          A list of 'Series' instances for each dicom in
+                        dcm_path. Returns an empty list if none are found.
         nii_tags        A list of all tags for all niftis found in nii_path.
         dcm_tags        A list of all tags for all dicoms found in dcm_path.
 
@@ -63,6 +63,7 @@ import glob
 import datman.utils
 import datman.scanid as scanid
 
+
 class DatmanNamed(object):
     """
     A parent class for all classes that will obey the datman naming scheme
@@ -72,12 +73,13 @@ class DatmanNamed(object):
     def __init__(self, ident):
         self._ident = ident
         self.full_id = ident.get_full_subjectid_with_timepoint()
-        self.id_plus_session = ident.get_full_subjectid_with_timepoint_session()
+        self.id_plus_session = ident.get_full_subjectid_with_timepoint_session()  # noqa: E501
         self.study = ident.study
         self.site = ident.site
         self.subject = ident.subject
         self.timepoint = ident.timepoint
         self.session = ident.session
+
 
 class Series(DatmanNamed):
     """
@@ -96,10 +98,12 @@ class Series(DatmanNamed):
         path_minus_ext = path.replace(self.ext, "")
 
         try:
-            ident, tag, series, description = scanid.parse_filename(path_minus_ext)
+            ident, tag, series, description = scanid.parse_filename(
+                                                            path_minus_ext)
         except datman.scanid.ParseException:
             # re-raise the exception with a more descriptive message
-            message = "{} does not match datman convention".format(path_minus_ext)
+            message = "{} does not match datman convention".format(
+                                                            path_minus_ext)
             raise datman.scanid.ParseException(message)
         DatmanNamed.__init__(self, ident)
 
@@ -112,6 +116,7 @@ class Series(DatmanNamed):
 
     def __repr__(self):
         return "<datman.scan.Series: {}>".format(self.path)
+
 
 class Scan(DatmanNamed):
     """
@@ -158,8 +163,8 @@ class Scan(DatmanNamed):
         self.__nii_dict = self.__make_dict(self.niftis)
         self.__dcm_dict = self.__make_dict(self.dicoms)
 
-        self.nii_tags = self.__nii_dict.keys()
-        self.dcm_tags = self.__dcm_dict.keys()
+        self.nii_tags = list(self.__nii_dict.keys())
+        self.dcm_tags = list(self.__dcm_dict.keys())
 
     def get_tagged_nii(self, tag):
         try:
