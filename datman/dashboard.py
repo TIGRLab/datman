@@ -135,6 +135,22 @@ def get_subject(name, create=False):
 
 
 @dashboard_required
+def get_study_subjects(study, site=None, phantoms=False):
+    """Pulls a list of subjects from the dashboard from a specified study
+
+    Args:
+        study: Datman STUDY code
+        site: Optional argument to filter for a specific site
+        phantoms: Optional argument to return phantoms as well
+
+    Returns:
+        List of subject IDs within study with applied filtering criteria
+    """
+
+    return queries.get_study_timepoints(study, site, phantoms)
+
+
+@dashboard_required
 def get_bids_subject(bids_name, bids_session, study=None):
     return queries.get_timepoint(bids_name, bids_session, study)
 
