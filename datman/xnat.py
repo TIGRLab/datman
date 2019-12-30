@@ -94,7 +94,7 @@ class xnat(object):
         self.auth = (username, password)
         try:
             self.get_xnat_session()
-        except Exception as e:
+        except Exception:
             raise XnatException("Failed getting xnat session for {}".format(
                     server))
 
@@ -481,7 +481,7 @@ class xnat(object):
             err.study = project
             err.session = session
             raise err
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
             err = XnatException("Error uploading data with url:{}"
                                 .format(upload_url))
             err.study = project

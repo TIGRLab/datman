@@ -77,12 +77,10 @@ Requires:
 
 import os
 import sys
-import re
 import glob
 import time
 import logging
 import logging.handlers
-import copy
 import random
 import string
 
@@ -188,7 +186,6 @@ def gather_input_req(nifti, pipeline):
     # Common requirements
     basename = os.path.join(os.path.dirname(nifti.path),
                             datman.utils.nifti_basename(nifti.path))
-    dcm = nifti.path.replace('/nii/', '/dcm/').replace('.nii.gz', '.dcm')
 
     # Input specifications and pipeline input mapping
     input_spec = {
@@ -513,7 +510,7 @@ def get_series_to_add(series, subject):
 
     try:
         pd = get_split_image(subject, series.series_num, 'PD')
-    except RuntimeError as e:
+    except RuntimeError:
         # A PD image may not exist if the PDT2 is actually just a T2...
         pass
     else:

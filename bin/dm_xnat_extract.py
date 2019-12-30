@@ -515,7 +515,7 @@ def get_scans(ident, xnat_scan, output_name, export_formats):
                                 ident.get_full_subjectid_with_timepoint())
             try:
                 target_dir = datman.utils.define_folder(target_dir)
-            except OSError as e:
+            except OSError:
                 logger.error("Failed creating target folder: {}"
                              .format(target_dir))
                 return
@@ -553,7 +553,7 @@ def get_dicom_archive_from_xnat(xnat_scan, tempdir):
                                        xnat_scan.session,
                                        xnat_scan.experiment,
                                        xnat_scan.series)
-    except Exception as e:
+    except Exception:
         logger.error("Failed to download dicom archive for: {}, series: {}"
                      .format(xnat_scan.session, xnat_scan.series))
         return None
@@ -749,7 +749,7 @@ def export_dcm_command(seriesdir, outputdir, stem, scan=None):
                     dcm_dict[int(dcm_echo_num)] = path
                 if len(dcm_dict.keys()) == 2:
                     break
-            except dicom.filereader.InvalidDicomError as e:
+            except dicom.filereader.InvalidDicomError:
                 pass
 
     else:
@@ -758,7 +758,7 @@ def export_dcm_command(seriesdir, outputdir, stem, scan=None):
                 dicom.read_file(path)
                 dcmfile = path
                 break
-            except dicom.filereader.InvalidDicomError as e:
+            except dicom.filereader.InvalidDicomError:
                 pass
 
     if scan and scan.multiecho:

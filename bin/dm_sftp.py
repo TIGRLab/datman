@@ -16,13 +16,11 @@ Options:
 
 """
 import logging
-import sys
 import os
 import shutil
 import fnmatch
 
 import pysftp
-import paramiko
 
 from docopt import docopt
 import datman.config
