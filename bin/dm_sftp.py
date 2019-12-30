@@ -111,7 +111,7 @@ def get_server_config(cfg):
         server_config[default_mrserver] = read_config(cfg)
     except datman.config.UndefinedSetting as e:
         # No default config :(
-        logger.debug(e.message)
+        logger.debug(e)
 
     # Sites may override the study defaults. If they dont, the defaults will
     # be returned and should NOT be re-added to the config
