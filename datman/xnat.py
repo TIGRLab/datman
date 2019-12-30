@@ -94,7 +94,7 @@ class xnat(object):
         self.auth = (username, password)
         try:
             self.get_xnat_session()
-        except Exception as e:
+        except Exception:
             raise XnatException("Failed getting xnat session for {}".format(
                     server))
 
@@ -121,8 +121,8 @@ class xnat(object):
             logger.debug('Username: {}')
             response.raise_for_status()
 
-        s.cookies = requests.utils.cookiejar_from_dict({'JSESSIONID':
-                                                        response.content})
+        # Cookies are set automatically, dont manually set them or it wipes
+        # out other session info
         self.session = s
 
     def get_projects(self):
@@ -481,7 +481,7 @@ class xnat(object):
             err.study = project
             err.session = session
             raise err
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
             err = XnatException("Error uploading data with url:{}"
                                 .format(upload_url))
             err.study = project
@@ -673,7 +673,7 @@ class xnat(object):
             logger.info("No records returned from xnat server for query {}"
                         "".format(url))
             return
-        elif response.status_code is 504:
+        elif response.status_code == 504:
             if retries:
                 logger.warning('xnat server timed out, retrying')
                 time.sleep(30)
@@ -682,7 +682,7 @@ class xnat(object):
             else:
                 logger.error('xnat server timed out, giving up')
                 response.raise_for_status()
-        elif response.status_code is not 200:
+        elif response.status_code != 200:
             logger.error('xnat error:{} at data upload'
                          .format(response.status_code))
             response.raise_for_status()
@@ -791,7 +791,7 @@ class xnat(object):
                                          headers=headers,
                                          data=data)
 
-        if response.status_code is 504:
+        if response.status_code == 504:
             if retries:
                 logger.warning('xnat server timed out, retrying')
                 time.sleep(30)
@@ -800,7 +800,7 @@ class xnat(object):
                 logger.warn('xnat server timed out, giving up')
                 response.raise_for_status()
 
-        elif response.status_code is not 200:
+        elif response.status_code != 200:
             if 'multiple imaging sessions.' in response.content:
                 raise XnatException('Multiple imaging sessions in archive,'
                                     ' check prearchive')

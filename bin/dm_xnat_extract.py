@@ -455,8 +455,8 @@ def get_export_formats(ident, file_stem, tags, tag):
         return
 
     if blacklist_entry:
-        logger.warn("Skipping export of {} due to blacklist entry '{}'".format(
-                file_stem, blacklist_entry))
+        logger.warning("Skipping export of {} due to blacklist entry "
+                       "'{}'".format(file_stem, blacklist_entry))
         return
 
     try:
@@ -515,7 +515,7 @@ def get_scans(ident, xnat_scan, output_name, export_formats):
                                 ident.get_full_subjectid_with_timepoint())
             try:
                 target_dir = datman.utils.define_folder(target_dir)
-            except OSError as e:
+            except OSError:
                 logger.error("Failed creating target folder: {}"
                              .format(target_dir))
                 return
@@ -553,7 +553,7 @@ def get_dicom_archive_from_xnat(xnat_scan, tempdir):
                                        xnat_scan.session,
                                        xnat_scan.experiment,
                                        xnat_scan.series)
-    except Exception as e:
+    except Exception:
         logger.error("Failed to download dicom archive for: {}, series: {}"
                      .format(xnat_scan.session, xnat_scan.series))
         return None
@@ -670,7 +670,7 @@ def export_nii_command(seriesdir, outputdir, stem, scan=None):
             if ext == '.json' and dashboard.dash_found:
                 update_side_cars(outputfile)
             error_log = os.path.join(outputdir, stem) + '.err'
-            report_issues(error_log, log_msgs)
+            report_issues(error_log, str(log_msgs))
 
 
 def update_side_cars(side_car):
@@ -725,8 +725,8 @@ def export_nrrd_command(seriesdir, outputdir, stem, scan=None):
 
     logger.debug("Exporting series {} to {}".format(seriesdir, outputfile))
 
-    cmd = 'DWIConvert -i {} --conversionMode DicomToNrrd -o {}.nrrd' \
-          ' --outputDirectory {}'.format(seriesdir, stem, outputdir)
+    nrrd_script = os.path.join(os.path.dirname(__file__), "dcm_to_nrrd.sh")
+    cmd = '{} {} {} {}'.format(nrrd_script, seriesdir, stem, outputdir)
 
     datman.utils.run(cmd, DRYRUN)
 
@@ -749,7 +749,7 @@ def export_dcm_command(seriesdir, outputdir, stem, scan=None):
                     dcm_dict[int(dcm_echo_num)] = path
                 if len(dcm_dict.keys()) == 2:
                     break
-            except dicom.filereader.InvalidDicomError as e:
+            except dicom.filereader.InvalidDicomError:
                 pass
 
     else:
@@ -758,7 +758,7 @@ def export_dcm_command(seriesdir, outputdir, stem, scan=None):
                 dicom.read_file(path)
                 dcmfile = path
                 break
-            except dicom.filereader.InvalidDicomError as e:
+            except dicom.filereader.InvalidDicomError:
                 pass
 
     if scan and scan.multiecho:

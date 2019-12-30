@@ -42,7 +42,7 @@ import datman.config
 import datman.scanid
 import datman.utils
 
-from . import dm_link_project_scans as link_scans
+import dm_link_project_scans as link_scans
 import datman.dashboard as dashboard
 
 DRYRUN = False

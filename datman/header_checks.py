@@ -5,7 +5,7 @@ files.
 import os
 import json
 
-from numpy import isclose
+from numpy import isclose, bool_
 
 
 def parse_file(file_path):
@@ -78,10 +78,10 @@ def handle_diff(value, expected, tolerance=None):
 
     try:
         close_enough = isclose(value, expected, atol=tolerance)
-    except ValueError as e:
+    except ValueError:
         close_enough = False
 
-    if type(close_enough) != bool:
+    if type(close_enough) != bool_:
         if all(close_enough):
             return {}
     elif close_enough:

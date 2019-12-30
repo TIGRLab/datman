@@ -138,8 +138,8 @@ class ScanEntryABC(object, metaclass=ABCMeta):
             self.header = None
         else:
             self.header = header
-            self.patient_name = header.get('PatientName')
-            self.study_id = header.get('StudyID')
+            self.patient_name = str(header.get('PatientName'))
+            self.study_id = str(header.get('StudyID'))
 
     @abstractmethod
     def get_target_name(self):
