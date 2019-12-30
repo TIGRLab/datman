@@ -65,7 +65,6 @@ VERBOSE = arguments['--verbose']
 DEBUG = arguments['--debug']
 DRYRUN = arguments['--dry-run']
 
-# check that the input exists
 if not os.path.isfile(inputfile):
     sys.exit("Input file {} doesn't exist.".format(FAmap))
 
@@ -75,9 +74,8 @@ inputdata = pd.read_csv(inputfile, sep=',', dtype=str, comment='#')
 # define columns to test as the second column to the end (excluding
 # 'AnyOutliers or QC')
 cols_to_test = inputdata.columns[1:].tolist()
-cols_to_test = list(set(cols_to_test) - set(['AnyOutliers', 'QC']))
+cols_to_test = set(cols_to_test) - set(['AnyOutliers', 'QC'])
 
-# convert all the cols to test to numeric
 for col in cols_to_test:
     inputdata[[col]] = inputdata[[col]].astype(float)
 
@@ -95,11 +93,9 @@ else:
         sys.exit("Summary Statistics file {} doesn't exist.".format(FAmap))
     SummaryStats = pd.read_csv(summaryin, sep=',', index_col=0)
 
-# add an "AnyOutliers" column to the inputdata DataFrame
 if 'AnyOutliers' not in inputdata.columns:
     inputdata['AnyOutliers'] = pd.Series('', index=inputdata.index)
 
-# the meaty bit
 for idx in inputdata.index.tolist():
     message = ''
     for col in cols_to_test:

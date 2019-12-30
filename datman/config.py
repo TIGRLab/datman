@@ -93,11 +93,9 @@ class config(object):
             self.set_study(study)
 
     def load_yaml(self, filename):
-        # Read in the configuration yaml file
         if not os.path.isfile(filename):
             raise ConfigException("configuration file {} not found. Try again."
                                   .format(filename))
-        # load the yml file
         with open(filename, 'r') as stream:
             config_yaml = yaml.load(stream, Loader=yaml.SafeLoader)
 
@@ -438,7 +436,7 @@ class config(object):
     @study_required
     def get_sites(self, study=None):
         try:
-            sites = list(self.get_key('Sites')).keys()
+            sites = list(self.get_key('Sites'))
         except KeyError:
             raise ConfigException('No sites defined for study {}'.format(
                     self.study_name))
@@ -525,7 +523,7 @@ class TagInfo(object):
         return series_map
 
     def keys(self):
-        return list(self.tags.keys())
+        return list(self.tags)
 
     def get(self, tag, field=None):
         try:

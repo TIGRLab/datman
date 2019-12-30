@@ -361,7 +361,7 @@ def download_resource(xnat_session, xnat_resource_id, xnat_resource_uri,
     try:
         if not DRYRUN:
             shutil.copyfile(source, target_path)
-    except Exception:
+    except (IOError, OSError):
         logger.error("Failed copying resource {} to target {}"
                      .format(source, target_path))
 

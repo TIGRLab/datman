@@ -145,7 +145,7 @@ def main():
         return
 
     try:
-        lookup = pd.read_table(lookup_path, sep='\s+', dtype=str)  # noqa: W605
+        lookup = pd.read_csv(lookup_path, sep='\s+', dtype=str)  # noqa: W605
     except IOError:
         logger.error('Lookup file {} not found'.format(lookup_path))
         return
@@ -197,7 +197,6 @@ def link_archive(archive_path, dicom_path, scanid_field, config):
         logger.info('Ignoring {}'.format(archive_path))
         return
 
-    # Attempt to pull scanid from header
     if not scanid:
         scanid = get_scanid_from_header(archive_path, scanid_field)
 

@@ -52,13 +52,12 @@ def main():
     headers.insert(0, "Path")
 
     rows = []
-    for archive in arguments['<archive>']:
+    for archive in arguments["<archive>"]:
         manifest = datman.utils.get_archive_headers(archive)
         sortedseries = sorted(manifest.items(),
                               key=lambda x: x[1].get('SeriesNumber'))
         for path, dataset in sortedseries:
-            row = dict([(header, dataset.get(header, ""))
-                        for header in headers])
+            row = {header: dataset.get(header, "") for header in headers}
             row['Path'] = path
             rows.append(row)
             if arguments['--oneseries']:
@@ -68,5 +67,5 @@ def main():
     print(data.to_csv(index=False))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

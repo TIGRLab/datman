@@ -229,7 +229,6 @@ def run_phantom_pipeline(nifti, qc_path, reqs):
     logger.info('Running command: \n {}'.format(cmd))
 
     qc_output = os.path.join(qc_path, basename)
-    # If any csv exists in qc path
     if not glob.glob(qc_output + '*.csv') or REWRITE:
         datman.utils.run(cmd)
     else:
@@ -637,7 +636,7 @@ def write_table(report, exportinfo, subject):
             data = nib.load(scan_nii_path)
             try:
                 scanlength = data.shape[3]
-            except Exception:
+            except IndexError:
                 # Note: this might be expected, e.g., for a T1
                 logging.debug("{} exists but scanlength cannot be read."
                               "".format(scan_nii_path))
@@ -943,7 +942,7 @@ def qc_subject(subject, config):
         # to regenerate
         try:
             os.remove(header_diffs_log)
-        except Exception:
+        except OSError:
             pass
 
     header_diffs = run_header_qc(subject, config)
@@ -966,8 +965,10 @@ def qc_subject(subject, config):
         logger.error("Exception raised during qc-report generation for {}. "
                      "Removing .html page.".format(subject.full_id),
                      exc_info=True)
-        if os.path.exists(report_name):
+        try:
             os.remove(report_name)
+        except OSError:
+            pass
 
     return report_name
 
@@ -991,14 +992,12 @@ def qc_phantom(subject, config):
 
     for nifti in subject.niftis:
         tag = get_pha_qc_type(export_tags, nifti.tag)
-        # Gather pipeline input requirements and run if pipeline exists for tag
         input_req = gather_input_req(nifti, tag)
         if input_req:
             run_phantom_pipeline(nifti, subject.qc_path, input_req)
 
 
 def get_pha_qc_type(export_tags, nii_tag):
-    # Use qc_type if default option is set or 'qc_pha' is missing
     try:
         tag = export_tags.get(nii_tag, 'qc_pha')
     except KeyError:
@@ -1053,7 +1052,6 @@ def new_session(subject):
 
     db_subject = datman.dashboard.get_subject(subject)
 
-    # If dashboard cant be found it cant detect repeats, return false
     if not db_subject:
         logger.warning('Cannot find subject {} in dashboard database. They '
                        'may be missing, or database may be '

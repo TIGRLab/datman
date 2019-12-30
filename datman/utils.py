@@ -1051,7 +1051,7 @@ def validate_subject_id(subject_id, config):
     can be ignored if the validation is all that's wanted.
     """
     try:
-        scanid = scanid.parse(subject_id)
+        new_subject_id = scanid.parse(subject_id)
     except scanid.ParseException:
         raise RuntimeError("Subject id {} does not match datman"
                            " convention".format(subject_id))
@@ -1059,16 +1059,18 @@ def validate_subject_id(subject_id, config):
     valid_tags = config.get_study_tags()
 
     try:
-        sites = valid_tags[scanid.study]
+        sites = valid_tags[new_subject_id.study]
     except KeyError:
         raise RuntimeError("Subject id {} has undefined study code {}".format(
-                subject_id, scanid.study))
+                           subject_id, new_subject_id.study))
 
-    if scanid.site not in sites:
+    if new_subject_id.site not in sites:
         raise RuntimeError("Subject id {} has undefined site {} for study "
-                           "{}".format(subject_id, scanid.site, scanid.study))
+                           "{}".format(subject_id,
+                                       new_subject_id.site,
+                                       new_subject_id.study))
 
-    return scanid
+    return new_subject_id
 
 
 def submit_job(cmd, job_name, log_dir, system='other', cpu_cores=1,
