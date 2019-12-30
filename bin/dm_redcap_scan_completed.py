@@ -67,6 +67,12 @@ def get_version(api_url, token):
                'content': 'version'}
     response = requests.post(api_url, data=payload)
     version = response.content
+
+    try:
+        version = version.decode('UTF-8')
+    except AttributeError:
+        pass
+
     return version
 
 
