@@ -145,7 +145,7 @@ def main():
         return
 
     try:
-        lookup = pd.read_table(lookup_path, sep='\s+', dtype=str)  # noqa: W605
+        lookup = pd.read_csv(lookup_path, sep='\s+', dtype=str)  # noqa: W605
     except IOError:
         logger.error('Lookup file {} not found'.format(lookup_path))
         return
