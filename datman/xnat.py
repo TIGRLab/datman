@@ -467,7 +467,7 @@ class xnat(object):
                                        subject=session,
                                        session=experiment)
         try:
-            with open(filename) as data:
+            with open(filename, 'rb') as data:
                 self._make_xnat_post(upload_url, data, retries, headers)
         except XnatException as e:
             e.study = project
