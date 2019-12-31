@@ -23,3 +23,6 @@ class MetadataException(Exception):
 
 class ExportException(Exception):
     pass
+
+class InputException(Exception):
+    pass
