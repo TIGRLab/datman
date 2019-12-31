@@ -1,8 +1,6 @@
-import os
 import unittest
 import importlib
 import logging
-import zipfile
 
 from nose.tools import raises
 from mock import patch, MagicMock
@@ -49,8 +47,7 @@ class CheckFilesExist(unittest.TestCase):
         xnat_session = self.__get_xnat_session(self.session)
 
         # Run
-        files_exist = upload.check_files_exist(self.archive, xnat_session,
-                                               self.ident)
+        upload.check_files_exist(self.archive, xnat_session, self.ident)
 
         # Should raise an exception, so assertion is never reached
         assert False

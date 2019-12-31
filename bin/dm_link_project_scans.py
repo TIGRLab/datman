@@ -40,7 +40,6 @@ import logging
 import csv
 import re
 
-import yaml
 from docopt import docopt
 
 import datman as dm

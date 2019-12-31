@@ -44,7 +44,7 @@ class TestScan(unittest.TestCase):
 
     @raises(datman.scanid.ParseException)
     def test_raises_parse_exception_with_bad_subject_id(self):
-        subject = datman.scan.Scan(self.bad_name, self.config)
+        datman.scan.Scan(self.bad_name, self.config)
 
     def test_makes_scan_instance_for_id_without_session(self):
         subject = datman.scan.Scan(self.good_name, self.config)
@@ -122,7 +122,7 @@ class TestScan(unittest.TestCase):
         nii_list = [well_named, badly_named1, badly_named2]
         mock_glob.return_value = nii_list
 
-        subject = datman.scan.Scan(self.good_name, self.config)
+        datman.scan.Scan(self.good_name, self.config)
 
     @patch('glob.glob')
     def test_dicoms_lists_only_dicom_files(self, mock_glob):

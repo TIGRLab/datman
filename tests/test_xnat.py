@@ -175,12 +175,12 @@ class TestGetAuth(unittest.TestCase):
 
     @raises(KeyError)
     def test_raises_KeyError_if_username_not_given_and_not_set_in_env(self):
-        with patch.dict(os.environ, {}, clear=True) as mock_env:
+        with patch.dict(os.environ, {}, clear=True):
             datman.xnat.get_auth()
 
     @raises(KeyError)
     def test_raises_KeyError_if_username_found_in_env_and_password_not_set(
             self):
         env = {'XNAT_USER': 'someuser'}
-        with patch.dict('os.environ', env, clear=True) as mock_env:
+        with patch.dict('os.environ', env, clear=True):
             datman.xnat.get_auth()

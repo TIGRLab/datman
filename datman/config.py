@@ -470,7 +470,7 @@ class config(object):
             except KeyError:
                 continue
 
-            if type(site_tags) is str:
+            if isinstance(site_tags, str):
                 site_tags = [site_tags]
 
             for tag_name in site_tags:
@@ -517,7 +517,7 @@ class TagInfo(object):
             except KeyError:
                 raise KeyError("Cant retrieve 'Pattern' from config. Did you "
                                "specify a site?")
-            if type(pattern) is list:
+            if isinstance(pattern, list):
                 pattern = "|".join(pattern)
             series_map[tag] = pattern
         return series_map

@@ -51,9 +51,10 @@ from the inputfile by default. However, using the option "--read-stats
 "--write-stats <filename>" option is chosen, the summary statistics calculated
 from this csv are written out to the specified filename.
 """
-from docopt import docopt
-import numpy as np
 import os
+import sys
+
+from docopt import docopt
 import pandas as pd
 
 arguments = docopt(__doc__)
@@ -66,7 +67,7 @@ DEBUG = arguments['--debug']
 DRYRUN = arguments['--dry-run']
 
 if not os.path.isfile(inputfile):
-    sys.exit("Input file {} doesn't exist.".format(FAmap))
+    sys.exit("Input file {} doesn't exist.".format(inputfile))
 
 # read the inputdata into a pandas dataframe
 inputdata = pd.read_csv(inputfile, sep=',', dtype=str, comment='#')
@@ -90,7 +91,7 @@ else:
     if a file is specified, check that it exists and load it
     '''
     if not os.path.isfile(summaryin):
-        sys.exit("Summary Statistics file {} doesn't exist.".format(FAmap))
+        sys.exit("Summary Statistics file {} doesn't exist.".format(summaryin))
     SummaryStats = pd.read_csv(summaryin, sep=',', index_col=0)
 
 if 'AnyOutliers' not in inputdata.columns:

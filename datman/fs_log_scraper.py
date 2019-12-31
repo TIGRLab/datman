@@ -7,15 +7,10 @@ parameters.
 The FSLog class aggregates/parses the most useful details from the log files.
 """
 import os
-import sys
 import glob
 import re
 import datetime
 import logging
-
-from docopt import docopt
-
-import datman.config
 
 logger = logging.getLogger(os.path.basename(__file__))
 
@@ -228,7 +223,3 @@ class FSLog(object):
         niftis = [item.strip('-i').strip('-T2').strip()
                   for item in nifti_inputs]
         return '; '.join(niftis)
-
-
-if __name__ == '__main__':
-    main()
