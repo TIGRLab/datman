@@ -5,6 +5,7 @@ Writes timing files for IMOB task.
 
 import numpy as np
 
+
 def return_timings(data, trial_type):
     """
     Finds all trials matching the string 'trial_type',
@@ -18,6 +19,7 @@ def return_timings(data, trial_type):
 
     return onsets
 
+
 def write_afni_timings(task, offset):
     """
     This takes the CSV files supplied with the imitate/observe
@@ -25,9 +27,10 @@ def write_afni_timings(task, offset):
     3dDeconvolve.
     """
     # import the original data as a list of lists of strings :D
-    data = np.genfromtxt(task + '-timing.csv', skip_header=1,
-                                               delimiter=',',
-                                               dtype=(str))
+    data = np.genfromtxt(task + '-timing.csv',
+                         skip_header=1,
+                         delimiter=',',
+                         dtype=(str))
     # find all trial types
     trials = []
 
@@ -41,7 +44,7 @@ def write_afni_timings(task, offset):
         onsets = return_timings(data, trial)
 
         # write an output file for this trial_type
-        f = open(task + '_event-times_' + trial  + '.1D', 'w')
+        f = open(task + '_event-times_' + trial + '.1D', 'w')
 
         # this is for AFNI -- blank first line for first run if OB
         if task == 'OB':
@@ -54,7 +57,8 @@ def write_afni_timings(task, offset):
         if task == 'IM':
             f.write('\n')
 
-        print('Finished ' + task + ':' +  trial)
+        print('Finished ' + task + ':' + trial)
+
 
 def main():
     """
@@ -66,6 +70,7 @@ def main():
         write_afni_timings(task, 12)
 
     print('Timing files generated. Please have a wonderful day.')
+
 
 if __name__ == '__main__':
     print('Should be run in the folder with the *-timing.csv files.')

@@ -139,8 +139,8 @@ def get_sessions(xnat, xnat_project, destination):
             try:
                 temp_zip = session.download(xnat, temp, zip_name=zip_name)
             except Exception as e:
-                logger.error("Cant download session {}. Reason: {}".format(
-                        session_name, e))
+                logger.error("Cant download session {}. Reason: {}"
+                             "".format(session_name, e))
                 continue
             restructure_zip(temp_zip, zip_path)
 
