@@ -70,7 +70,7 @@ def generate_scan_list(scan_entry_class, zip_files, dest_dir):
 
 def start_new_scan_list(output):
     logger.info("Starting new scans.csv file at {}".format(output))
-    with open(output, 'wb') as out:
+    with open(output, 'w') as out:
         out.write('source_name\ttarget_name\tPatientName\tStudyID\n')
 
 
@@ -118,7 +118,7 @@ def make_new_entries(processed_scans, zip_files, EntryClass):
 
 
 def update_scans_csv(output, new_entries):
-    with open(output, 'ab') as scan_csv:
+    with open(output, 'a') as scan_csv:
         scan_csv.writelines(new_entries)
 
 

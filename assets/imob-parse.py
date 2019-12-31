@@ -25,8 +25,8 @@ def write_afni_timings(task, offset):
     3dDeconvolve.
     """
     # import the original data as a list of lists of strings :D
-    data = np.genfromtxt(task + '-timing.csv', skip_header=1, 
-                                               delimiter=',', 
+    data = np.genfromtxt(task + '-timing.csv', skip_header=1,
+                                               delimiter=',',
                                                dtype=(str))
     # find all trial types
     trials = []
@@ -41,19 +41,19 @@ def write_afni_timings(task, offset):
         onsets = return_timings(data, trial)
 
         # write an output file for this trial_type
-        f = open(task + '_event-times_' + trial  + '.1D', 'wb')
-        
+        f = open(task + '_event-times_' + trial  + '.1D', 'w')
+
         # this is for AFNI -- blank first line for first run if OB
         if task == 'OB':
             f.write('\n')
         for i in range(len(onsets)):
             on = float(onsets[i]) - offset
             f.write('{o:.2f} '.format(o=on))
-	
+
         # this is for AFNI -- blank second line for second run if IM
         if task == 'IM':
             f.write('\n')
-        
+
         print('Finished ' + task + ':' +  trial)
 
 def main():
@@ -70,4 +70,3 @@ def main():
 if __name__ == '__main__':
     print('Should be run in the folder with the *-timing.csv files.')
     main()
-
