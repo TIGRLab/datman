@@ -240,7 +240,7 @@ def get_bids_scan(name):
     scan = queries.get_scan(name, bids=True)
     if len(scan) > 1:
         raise DashboardException("Couldnt identify scan {}. {} matches "
-                                 "found".format(scan_name, len(scan)))
+                                 "found".format(name, len(scan)))
     if len(scan) == 1:
         return scan[0]
     return None

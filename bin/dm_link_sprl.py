@@ -25,16 +25,17 @@ Multiple SPRL tags can be defined with different regexs so long as the
 key contains SPRL
 """
 
-from docopt import docopt
 import sys
 import os
 import re
+import logging
+import errno
+
+from docopt import docopt
+
 import datman.config
 import datman.utils
 import datman.dashboard
-import logging
-import errno
-from datman.exceptions import DashboardException
 
 logger = logging.getLogger(__name__)
 

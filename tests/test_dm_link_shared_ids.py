@@ -1,11 +1,7 @@
-import os
 import importlib
 import unittest
 import copy
 import logging
-
-import datman
-import datman.config
 
 # Disable all logging output for tests
 logging.disable(logging.CRITICAL)

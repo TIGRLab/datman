@@ -3,6 +3,7 @@
 import datman.dashboard as dashboard
 import datman.config as cfg
 
+
 def main():
     config = cfg.config()
     studies = config.get_key('Projects').keys()
@@ -10,7 +11,7 @@ def main():
     for study in studies:
         try:
             config.set_study(study)
-        except:
+        except Exception:
             pass
         is_open = config.get_key('IsOpen')
 

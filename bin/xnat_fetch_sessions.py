@@ -322,7 +322,7 @@ def remove_empty_dirs(base_dir):
 def move(source, dest):
     try:
         shutil.move(source, dest)
-    except Exception as e:
+    except Exception:
         logger.error("Couldnt move {} to destination {}".format(source, dest))
 
 

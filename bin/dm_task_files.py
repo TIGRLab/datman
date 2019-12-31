@@ -103,7 +103,7 @@ def link_task_file(src_path, dest_path):
     except OSError as e:
         if e.errno == 13:
             logger.error("Can't symlink task file {} to {} - Permission"
-                         " denied.".format(task_file, dest))
+                         " denied.".format(src, dest_path))
         elif e.errno == 17:
             pass
         else:

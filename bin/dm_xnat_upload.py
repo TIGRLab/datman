@@ -134,7 +134,7 @@ def process_archive(archivefile):
     try:
         data_exists, resource_exists = check_files_exist(archivefile,
                                                          xnat_session)
-    except Exception as e:
+    except Exception:
         logger.error('Failed checking xnat for session: {}'.format(scanid))
         return
 
