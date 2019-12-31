@@ -505,7 +505,7 @@ def get_series_to_add(series, subject):
         split_series = [t2]
     except RuntimeError as e:
         logger.error("Can't add PDT2 {} to QC page. Reason: {}".format(
-                series.path, e.message))
+                series.path, e))
         return []
 
     try:

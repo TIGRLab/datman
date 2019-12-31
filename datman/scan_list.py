@@ -57,7 +57,7 @@ def generate_scan_list(scan_entry_class, zip_files, dest_dir):
         processed_scans = get_scan_list_contents(output)
     except Exception as e:
         raise RuntimeError("Can't read scan entries from existing scans.csv "
-                           "file. Reason: {}".format(e.message))
+                           "file. Reason: {}".format(e))
 
     new_entries = make_new_entries(processed_scans, zip_files,
                                    scan_entry_class)
@@ -109,7 +109,7 @@ def make_new_entries(processed_scans, zip_files, EntryClass):
         except Exception as e:
             logger.error("Cant make an entry for {}. Reason: {}".format(
                                                         zip_file,
-                                                        e.message))
+                                                        e))
             continue
 
         new_entries.append(str(entry))

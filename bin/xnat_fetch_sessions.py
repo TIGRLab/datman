@@ -101,7 +101,7 @@ def main():
             credentials_file, server, project, destination = get_xnat_config(
                     config, site)
         except KeyError as e:
-            logger.error("{}".format(e.message))
+            logger.error("{}".format(e))
             continue
         username, password = get_credentials(credentials_file)
         with datman.xnat.xnat(server, username, password) as xnat:
@@ -118,7 +118,7 @@ def get_sessions(xnat, xnat_project, destination):
             session = xnat.get_session(xnat_project, session_name)
         except Exception as e:
             logger.error("Failed to get session {} from xnat. "
-                         "Reason: {}".format(session_name, e.message))
+                         "Reason: {}".format(session_name, e))
             continue
 
         zip_name = session_name.upper() + ".zip"
@@ -140,7 +140,7 @@ def get_sessions(xnat, xnat_project, destination):
                 temp_zip = session.download(xnat, temp, zip_name=zip_name)
             except Exception as e:
                 logger.error("Cant download session {}. Reason: {}".format(
-                        session_name, e.message))
+                        session_name, e))
                 continue
             restructure_zip(temp_zip, zip_path)
 
@@ -316,7 +316,7 @@ def remove_empty_dirs(base_dir):
     try:
         shutil.rmtree(empty_dir)
     except OSError as e:
-        logger.info("Cant delete {}. Reason: {}".format(empty_dir, e.message))
+        logger.info("Cant delete {}. Reason: {}".format(empty_dir, e))
 
 
 def move(source, dest):
