@@ -14,14 +14,7 @@ Options:
      --showheaders       Just list all of the headers for each archive
 """
 
-import io
-import sys
-import os.path
-import tarfile
-import zipfile
-
 from docopt import docopt
-import pydicom
 import pandas as pd
 
 import datman

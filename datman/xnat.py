@@ -467,7 +467,7 @@ class xnat(object):
                                        subject=session,
                                        session=experiment)
         try:
-            with open(filename) as data:
+            with open(filename, 'rb') as data:
                 self._make_xnat_post(upload_url, data, retries, headers)
         except XnatException as e:
             e.study = project
@@ -687,7 +687,7 @@ class xnat(object):
                          .format(response.status_code))
             response.raise_for_status()
 
-        with open(filename, 'wb') as f:
+        with open(filename, 'w') as f:
             try:
                 for chunk in response.iter_content(1024):
                     f.write(chunk)

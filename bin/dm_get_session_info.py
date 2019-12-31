@@ -107,7 +107,7 @@ def main():
             results.append(result)
 
     if output_csv:
-        with open(output_csv, 'wb') as csvfile:
+        with open(output_csv, 'w') as csvfile:
             csv_writer = csv.writer(csvfile)
             csv_writer.writerow(headers)
             for row in results:

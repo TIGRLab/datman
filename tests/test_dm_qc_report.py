@@ -6,7 +6,7 @@ from io import TextIOBase
 from random import randint
 
 import nose.tools
-from mock import patch, mock_open, call, MagicMock
+from mock import patch, call, MagicMock
 
 import datman.config as cfg
 import datman.scan
@@ -32,7 +32,7 @@ config = cfg.config(filename=site_config_path, system=system, study=study)
 class GetConfig(unittest.TestCase):
     @nose.tools.raises(SystemExit)
     def test_exits_gracefully_with_bad_study(self):
-        config = qc.get_config(study="madeupcode")
+        qc.get_config(study="madeupcode")
 
     @nose.tools.raises(SystemExit)
     @patch('datman.config.config')
@@ -41,7 +41,7 @@ class GetConfig(unittest.TestCase):
         mock_config.return_value.get_path.side_effect = lambda path: \
                 {'dcm': '',
                  'nii': ''}[path]
-        config = qc.get_config("STUDY")
+        qc.get_config("STUDY")
 
 
 class VerifyInputPaths(unittest.TestCase):
@@ -77,7 +77,7 @@ class PrepareScan(unittest.TestCase):
     def test_makes_qc_folder_if_doesnt_exist(self, mock_create, mock_verify,
                                              mock_remove):
         assert mock_create.call_count == 0
-        scan = qc.prepare_scan("STUDY_SITE_ID_01", config)
+        qc.prepare_scan("STUDY_SITE_ID_01", config)
         assert mock_create.call_count == 1
 
 

@@ -167,7 +167,7 @@ class TestChooseStandardSub(unittest.TestCase):
         subject1 = LogStub('SUBJECT1', 'Exited with error')
         subject2 = LogStub('SUBJECT2', 'Still Running')
 
-        standard_sub = scraper.choose_standard_sub([subject1, subject2])
+        scraper.choose_standard_sub([subject1, subject2])
 
 
 class TestVerifyStandards(unittest.TestCase):

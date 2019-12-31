@@ -10,8 +10,8 @@ Arguments:
     <study>            Name of the datman managed study
 
 Options:
-    --URL PATH         set the REDCap URL [default:
-                       https://redcap.smh.ca/redcap/api/]
+    --URL PATH         set the REDCap URL
+                       [default: https://redcap.smh.ca/redcap/api/]
     --output PATH      set the location to save the output csv file
                        [default: clinical/demographics.csv]
 
@@ -81,7 +81,7 @@ def get_payload(token):
 
 def make_rest(url, payload, REDCap_variables):
     response = post(url, data=payload)
-    if response.status_code is not 200:
+    if response.status_code != 200:
         print('Cannot talk to server, response code is {}.'
               ''.format(response.status_code))
         sys.exit(1)

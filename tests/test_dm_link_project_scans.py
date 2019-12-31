@@ -1,9 +1,8 @@
-import os
 import unittest
 import logging
 import importlib
 
-from mock import patch, mock_open
+from mock import patch
 
 import datman.scanid
 

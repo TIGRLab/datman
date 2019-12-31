@@ -17,10 +17,9 @@ Arguments:
                         that may have multiple IDs for some of its subjects.
 
 Options:
-    --redcap FILE       The path to a text file containing a redcap token to
+    --redcap FILE       A path to a text file containing a redcap token to
                         access 'Scan completed' surveys. If not set the
-                        'redcap-token' file in the project metadata folder
-                        will be used.
+                        environment variable 'REDCAP_TOKEN' will be used
 
     --site-config FILE  The path to a site configuration file. If not set,
                         the default defined for datman.config.config() is used.
@@ -44,6 +43,7 @@ import datman.utils
 
 import dm_link_project_scans as link_scans
 import datman.dashboard as dashboard
+from datman.exceptions import InputException
 
 DRYRUN = False
 
@@ -134,8 +134,11 @@ def get_project_redcap_records(config, redcap_cred):
 
 def get_redcap_token(config, redcap_cred):
     if not redcap_cred:
-        # Read in credentials as string from config file
-        redcap_cred = os.path.join(config.get_path('meta'), 'redcap-token')
+        token = os.getenv('REDCAP_TOKEN')
+        if not token:
+            raise InputException("Redcap token not provided. Set the shell "
+                                 "variable 'REDCAP_TOKEN' or provide a file")
+        return token
 
     try:
         token = datman.utils.read_credentials(redcap_cred)[0]

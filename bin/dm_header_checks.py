@@ -39,10 +39,10 @@ def main():
     dti = args['--dti']
 
     if ignore_file:
-        ignored_fields.extend(parse_file(ignore_file))
+        ignored_fields.extend(header_checks.parse_file(ignore_file))
 
     if tolerances:
-        tolerances = read_json(tolerances)
+        tolerances = header_checks.read_json(tolerances)
 
     diffs = header_checks.construct_diffs(series_json, standard_json,
                                           ignored_fields, tolerances, dti)

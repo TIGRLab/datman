@@ -122,7 +122,7 @@ def get_server_config(cfg):
         try:
             server_config[site_server] = read_config(cfg, site=site)
         except datman.config.UndefinedSetting as e:
-            logger.debug(e.message)
+            logger.debug(e)
     return server_config
 
 

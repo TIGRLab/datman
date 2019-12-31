@@ -504,8 +504,8 @@ def get_series_to_add(series, subject):
         t2 = get_split_image(subject, series.series_num, 'T2')
         split_series = [t2]
     except RuntimeError as e:
-        logger.error("Can't add PDT2 {} to QC page. Reason: {}".format(
-                series.path, e.message))
+        logger.error("Can't add PDT2 {} to QC page. Reason: {}"
+                     "".format(series.path, e))
         return []
 
     try:
