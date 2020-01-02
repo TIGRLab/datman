@@ -12,9 +12,6 @@ import datman.scanid
 # datman/dashboard.py you will get circular import errors. I am sooo sorry.
 # We'd have to store hardcoded file paths in the dashboard database to
 # otherwise fix this.
-<<<<<<< HEAD
-import datman.config  # noqa: F401
-=======
 import datman.config
 
 
@@ -31,5 +28,3 @@ _warnings.filterwarnings('ignore', r'This has not been fully tested. Please repo
 _warnings.filterwarnings('ignore', r"can't resolve package from __spec__ or __package__")
 _warnings.simplefilter('ignore', DeprecationWarning)
 _warnings.simplefilter('ignore', ResourceWarning)
-
->>>>>>> update infrastructure
