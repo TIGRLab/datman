@@ -1,0 +1,179 @@
+{
+  "files": [
+    "CONTRIBUTING.md"
+  ],
+  "imageSize": 100,
+  "commit": false,
+  "contributors": [
+    {
+      "login": "DESm1th",
+      "name": "Dawn E Smith",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/15126366?v=4",
+      "profile": "https://github.com/DESm1th",
+      "contributions": [
+        "code",
+        "doc",
+        "design",
+        "ideas",
+        "infra",
+        "maintenance",
+        "question",
+        "review",
+        "test",
+        "talk"
+      ]
+    },
+    {
+      "login": "josephdviviano",
+      "name": "Joseph D Viviano",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/15126366?v=4",
+      "profile": "https://github.com/josephdviviano",
+      "contributions": [
+        "code",
+        "doc",
+        "design",
+        "ideas",
+        "question",
+        "review",
+        "test"
+      ]
+    },
+    {
+      "login": "tomwright01",
+      "name": "Tom Wright",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/15126366?v=4",
+      "profile": "https://github.com/tomwright01",
+      "contributions": [
+        "code",
+        "ideas",
+        "question",
+        "review"
+      ]
+    },
+    {
+      "login": "jerdra",
+      "name": "Jerrold Jeyachandra",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/15126366?v=4",
+      "profile": "https://github.com/jerdra",
+      "contributions": [
+        "code",
+        "ideas",
+        "question",
+        "review"
+      ]
+    },
+    {
+      "login": "josephmje",
+      "name": "Michael J Joseph",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/15126366?v=4",
+      "profile": "https://github.com/josephmje",
+      "contributions": [
+        "code",
+        "ideas",
+        "question",
+        "review"
+      ]
+    },
+    {
+      "login": "edickie",
+      "name": "Erin W Dickie",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/15126366?v=4",
+      "profile": "https://github.com/edickie",
+      "contributions": [
+        "code",
+        "ideas",
+        "projectManagement",
+        "question",
+        "review"
+      ]
+    },
+    {
+      "login": "pipitone",
+      "name": "Jon Pipitone",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/15126366?v=4",
+      "profile": "https://github.com/pipitone",
+      "contributions": [
+        "code",
+        "ideas",
+        "question",
+        "review"
+      ]
+    },
+    {
+      "login": "Mathu-M",
+      "name": "Mathuvanthi Manogaran",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/15126366?v=4",
+      "profile": "https://github.com/Mathu-M",
+      "contributions": [
+        "code",
+        "ideas",
+        "question",
+        "review"
+      ]
+    },
+    {
+      "login": "gabiherman",
+      "name": "Gabrielle Herman",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/15126366?v=4",
+      "profile": "https://github.com/gabiherman",
+      "contributions": [
+        "code",
+        "ideas",
+        "question",
+        "review"
+      ]
+    },
+    {
+      "login": "ojavellag",
+      "name": "Oscar Javier Avella Gonzalvez",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/15126366?v=4",
+      "profile": "https://github.com/ojavellag",
+      "contributions": [
+        "code",
+        "ideas",
+        "question",
+        "review"
+      ]
+    },
+    {
+      "login": "djoverton",
+      "name": "Dawson Overton",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/15126366?v=4",
+      "profile": "https://github.com/djoverton",
+      "contributions": [
+        "code",
+        "ideas",
+        "question",
+        "review"
+      ]
+    },
+    {
+      "login": "navonacalarco",
+      "name": "Navona Calarco",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/15126366?v=4",
+      "profile": "https://github.com/navonacalarco",
+      "contributions": [
+        "doc",
+        "ideas",
+        "question",
+        "talk"
+      ]
+    },
+    {
+      "login": "kimjetwav",
+      "name": "Kevin J Witczak",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/15126366?v=4",
+      "profile": "https://github.com/kimjetwav",
+      "contributions": [
+        "infra",
+        "question",
+      ]
+    }
+  ],
+  "contributorsPerLine": 5,
+  "projectName": "datman",
+  "projectOwner": "TIGRLab",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "skipCi": true
+}
