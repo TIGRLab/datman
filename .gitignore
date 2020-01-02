@@ -1,12 +1,46 @@
-*.pyc
-.idea/
-.*.swp
-.*.sw*
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+env/
 build/
-datman.egg-info/
+develop-eggs/
 dist/
-_executable
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*,cover
+.hypothesis/
+
+# Sphinx documentation
+docs/_build/
+
+# PyCharm
+.idea/
+.env
+
+# VS code
+.vscode
+
+# Miscellaneous
 .nfs*
-/tests/__pycache__
-/.pytest_cache
-/assets/bids_jsons/
