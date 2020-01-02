@@ -161,10 +161,10 @@ class xnat(object):
         return(result['items'][0])
 
     def get_sessions(self, study):
-        logger.debug('Querying xnat server for sessions in study'
+        logger.debug('Querying xnat server for sessions in study:{}'
                      .format(study))
         if not self.get_project(study):
-            raise XnatException('Invalid xnat project:'
+            raise XnatException('Invalid xnat project:{}'
                                 .format(study))
 
         url = '{}/data/archive/projects/{}/subjects/'.format(self.server,
@@ -348,7 +348,7 @@ class xnat(object):
         try:
             result = self._make_xnat_query(url)
         except Exception:
-            raise XnatException("Failed getting resource ids with url:"
+            raise XnatException("Failed getting resource ids with url:{}"
                                 .format(url))
         if result is None:
             raise XnatException('Experiment:{} not found for session:{}'
@@ -474,7 +474,7 @@ class xnat(object):
             e.session = session
             raise e
         except IOError as e:
-            logger.error('Failed to open file:{} with excuse:'
+            logger.error('Failed to open file:{} with excuse:{}'
                          .format(filename, e.strerror))
             err = XnatException("Error in file:{}".
                                 format(filename))

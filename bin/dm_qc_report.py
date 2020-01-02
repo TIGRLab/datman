@@ -207,8 +207,7 @@ def gather_input_req(nifti, pipeline):
     try:
         reqs = input_spec[pipeline]
     except KeyError:
-        print('No QC pipeline available for {}. Skipping.'.format(nifti.tag,
-                                                                  nifti.path))
+        print('No QC pipeline available for {}. Skipping.'.format(nifti.tag))
 
     return reqs
 
