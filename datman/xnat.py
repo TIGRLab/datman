@@ -689,7 +689,7 @@ class xnat(object):
                          .format(response.status_code))
             response.raise_for_status()
 
-        with open(filename, 'w') as f:
+        with open(filename, 'wb') as f:
             try:
                 for chunk in response.iter_content(1024):
                     f.write(chunk)
