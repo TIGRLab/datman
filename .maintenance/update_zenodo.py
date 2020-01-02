@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Update and sort the creators list of the zenodo record."""
-import sys
+
 import shutil
 from pathlib import Path
 import json
