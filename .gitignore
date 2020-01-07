@@ -39,8 +39,10 @@ docs/_build/
 .idea/
 .env
 
-# VS code
+# VS Code
 .vscode
 
 # Miscellaneous
 .nfs*
+.*swp
+.*.sw*
