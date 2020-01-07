@@ -820,11 +820,9 @@ def get_standards(standard_dir, site):
 
 
 def get_scan_name(series):
-    # Allows the dashboard to easily access diffs without needing to know
-    # anything about naming scheme
-    scan_name = series.file_name.replace("_" + series.description, "")\
-            .replace(series.ext, "")
-    return scan_name
+    fname = series.file_name.replace(series.ext, "")
+    dropped_descr = fname.split("_")[:-1]
+    return "_".join(dropped_descr)
 
 
 def needs_bval_check(settings, series):
