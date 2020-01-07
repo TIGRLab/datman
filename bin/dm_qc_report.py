@@ -398,7 +398,12 @@ def add_header_qc(nifti, qc_html, header_diffs):
 
     # find lines in said log that pertain to the nifti
     scan_name = get_scan_name(nifti)
-    lines = header_diffs[scan_name]
+    try:
+        lines = header_diffs[scan_name]
+    except KeyError:
+        logger.error("Scan name {} missing from generated header diffs."
+                     "".format(scan_name))
+        return
 
     if not lines:
         return
