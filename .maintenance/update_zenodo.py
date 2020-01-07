@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+# Authored by Oscar Esteban
+
 """Update and sort the creators list of the zenodo record."""
 
 import shutil

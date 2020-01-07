@@ -1,9 +1,10 @@
 #!/bin/bash
 #
 # Collects the pull-requests since the latest release and
-# aranges them in the CHANGES.rst.txt file.
+# arranges them in the CHANGES.rst file.
 #
 # This is a script to be run before releasing a new version.
+# Authored by Oscar Esteban
 #
 # Usage /bin/bash update_changes.sh 1.0.1
 #
