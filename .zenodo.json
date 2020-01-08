@@ -14,13 +14,15 @@
     },
     {
       "affiliation": "The Centre for Addiction and Mental Health",
-      "name": "Voineskos, Aristotle N"
+      "name": "Voineskos, Aristotle N",
+      "orcid": "0000-0003-0156-0395"
     }
   ],
   "creators": [
     {
       "affiliation": "The Centre for Addiction and Mental Health",
-      "name": "Viviano, Joseph D"
+      "name": "Viviano, Joseph D",
+      "orcid": "0000-0001-7016-5212"
     },
     {
       "affiliation": "The Centre for Addiction and Mental Health",
@@ -36,7 +38,8 @@
     },
     {
       "affiliation": "The Centre for Addiction and Mental Health",
-      "name": "Piptone, Jon"
+      "name": "Pipitone, Jon",
+      "orcid": "0000-0001-6313-5701"
     },
     {
       "affiliation": "The Centre for Addiction and Mental Health",
@@ -49,7 +52,8 @@
     },
     {
       "affiliation": "The Centre for Addiction and Mental Health",
-      "name": "Herman, Gabrielle"
+      "name": "Herman, Gabrielle",
+      "orcid": "0000-0003-4695-5251"
     },
     {
       "affiliation": "The Centre for Addiction and Mental Health",
@@ -57,10 +61,11 @@
     },
     {
       "affiliation": "The Centre for Addiction and Mental Health",
-      "name": "Dickie, Erin W"
+      "name": "Dickie, Erin W",
+      "orcid": "0000-0003-3028-9864"
     }
   ],
-  "description": "<p>datman is a </p>",
+  "description": "<p>datman is a set of scripts for managing MRI data in XNAT, metadata in REDCap and performing visual quality control.</p>",
   "keywords": [
     "neuroimaging",
     "workflow",
@@ -75,11 +80,11 @@
       "scheme": "url"
     },
     {
-      "identifier": "",
+      "identifier": "10.5281/zenodo.3596917",
       "relation": "isPartOf",
       "scheme": "doi"
     }
   ],
-  "title": "datman: a ",
+  "title": "datman",
   "upload_type": "software"
 }
