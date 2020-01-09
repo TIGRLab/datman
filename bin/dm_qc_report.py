@@ -398,7 +398,12 @@ def add_header_qc(nifti, qc_html, header_diffs):
 
     # find lines in said log that pertain to the nifti
     scan_name = get_scan_name(nifti)
-    lines = header_diffs[scan_name]
+    try:
+        lines = header_diffs[scan_name]
+    except KeyError:
+        logger.error("Scan name {} missing from generated header diffs."
+                     "".format(scan_name))
+        return
 
     if not lines:
         return
@@ -820,11 +825,9 @@ def get_standards(standard_dir, site):
 
 
 def get_scan_name(series):
-    # Allows the dashboard to easily access diffs without needing to know
-    # anything about naming scheme
-    scan_name = series.file_name.replace("_" + series.description, "")\
-            .replace(series.ext, "")
-    return scan_name
+    fname = series.file_name.replace(series.ext, "")
+    dropped_descr = fname.split("_")[:-1]
+    return "_".join(dropped_descr)
 
 
 def needs_bval_check(settings, series):
