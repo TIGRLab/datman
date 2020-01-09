@@ -1,0 +1,90 @@
+{
+  "contributors": [
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Calarco, Navona"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Witczak, Kevin J"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Gonzalez, Oscar"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Voineskos, Aristotle N",
+      "orcid": "0000-0003-0156-0395"
+    }
+  ],
+  "creators": [
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Viviano, Joseph D",
+      "orcid": "0000-0001-7016-5212"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Smith, Dawn E"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Wright, Tom"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Jeyachandra, Jerrold"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Pipitone, Jon",
+      "orcid": "0000-0001-6313-5701"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Joseph, Michael J",
+      "orcid": "0000-0002-0068-230X"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Manogaran, Mathuvanthi"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Herman, Gabrielle",
+      "orcid": "0000-0003-4695-5251"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Overton, Dawson"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Dickie, Erin W",
+      "orcid": "0000-0003-3028-9864"
+    }
+  ],
+  "description": "<p>datman is a set of scripts for managing MRI data in XNAT, metadata in REDCap and performing visual quality control.</p>",
+  "keywords": [
+    "neuroimaging",
+    "workflow",
+    "pipeline",
+    "BIDS"
+  ],
+  "license": "Apache-2.0",
+  "related_identifiers": [
+    {
+      "identifier": "http://tigrlab.github.io/datman",
+      "relation": "isPartOf",
+      "scheme": "url"
+    },
+    {
+      "identifier": "10.5281/zenodo.3596917",
+      "relation": "isPartOf",
+      "scheme": "doi"
+    }
+  ],
+  "title": "datman",
+  "upload_type": "software"
+}
