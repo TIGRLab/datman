@@ -2,40 +2,17 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/python:2.7-jessie-node-browsers
-        environment:
-          DATMAN: /home/circleci/datman
-          NOSE_XUNIT_FILE: /home/circleci/project/outputs/nose/result.xml
+      - image: circleci/python:3.8-buster
     steps:
-      - checkout:
-          path: /home/circleci/datman
-      - restore_cache:
-          key: deps1-{{ .Branch }}-{{ checksum "/home/circleci/datman/requirements.txt" }}
+      - checkout
       - run:
-          name: Install requirements in venv
+          name: Install package using setup.py
           command: |
-            python -m virtualenv venv
-            source venv/bin/activate
-            pip install -r /home/circleci/datman/requirements.txt
-      - save_cache:
-          key: deps1-{{ .Branch }}-{{ checksum "/home/circleci/datman/requirements.txt" }}
-          paths:
-            - "venv"
+            pip install .
       - run:
-          name: Try to run nose
+          name: Run pytests
           command: |
-            ls
-            echo 'export PATH=${DATMAN}/bin/:${DATMAN}/assets/:$PATH:${DATMAN}/:${DATMAN}/datman/' >> $BASH_ENV
-            echo 'export MATLABPATH=${DATMAN}/assets/:$MATLABPATH' >> $BASH_ENV
-            echo 'export PYTHONPATH=${DATMAN}/assets/:${DATMAN}/:$PYTHONPATH' >> $BASH_ENV
-            echo 'export DATMAN_ASSETS=${DATMAN}/assets/'
-            mkdir outputs
-            source venv/bin/activate
-            cd /home/circleci/datman
-            mkdir /home/circleci/project/outputs/nose
-            nosetests --with-xunit
-      - store_artifacts:
-          path: /home/circleci/project/outputs
-          destination: out
+            mkdir test_results
+            pytest --junit-xml test_results/pytest_report.xml tests/
       - store_test_results:
-          path: /home/circleci/project/outputs
+          path: test_results/
