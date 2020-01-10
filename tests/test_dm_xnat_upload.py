@@ -2,7 +2,6 @@ import unittest
 import importlib
 import logging
 
-import pytest
 from mock import patch, MagicMock
 
 import datman
