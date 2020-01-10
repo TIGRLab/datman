@@ -8,7 +8,7 @@ jobs:
       - run:
           name: Install package using setup.py
           command: |
-            pip install .
+            python setup.py test
       - run:
           name: Run pytests
           command: |
