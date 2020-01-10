@@ -1,0 +1,3 @@
+exclude_paths:
+  - versioneer.py
+  - datman/_version.py

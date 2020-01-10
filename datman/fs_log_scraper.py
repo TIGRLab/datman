@@ -79,7 +79,7 @@ def make_standards(standard_log):
 def verify_standards(standards_dict, expected_keys):
     for key in expected_keys:
         try:
-            _ = standards_dict[key]
+            standards_dict[key]
         except KeyError:
             raise KeyError("Missing expected field \"{}\" in given "
                            "standards".format(key))
