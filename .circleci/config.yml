@@ -11,7 +11,7 @@ jobs:
             python3 -m venv venv
             . venv/bin/activate
             pip install .
-            pip install pytests mock
+            pip install pytest mock
       - run:
           name: Run pytests
           command: |
