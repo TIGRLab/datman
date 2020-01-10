@@ -249,7 +249,7 @@ class FindTechNotes(unittest.TestCase):
 
     @patch('os.walk', autospec=True)
     def test_first_file_returned_when_multiple_pdfs_but_no_tech_notes(
-        self, mock_walk):
+            self, mock_walk):
         mock_walk.return_value = self.__mock_file_system(randint(1, 10),
                                                          add_notes=False,
                                                          add_pdf=True)
