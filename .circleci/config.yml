@@ -1,22 +1,9 @@
 version: 2
 jobs:
   build:
+    working_directory: ~/datman
     docker:
-      - image: circleci/python:3.8-buster
+      - image: themattrix/tox
     steps:
       - checkout
-      - run:
-          name: Install package using setup.py
-          command: |
-            python3 -m venv venv
-            . venv/bin/activate
-            pip install .
-            pip install pytest mock
-      - run:
-          name: Run pytests
-          command: |
-            . venv/bin/activate
-            mkdir test_results
-            pytest --junit-xml test_results/pytest_report.xml tests/
-      - store_test_results:
-          path: test_results/
+      - run: tox
