@@ -8,4 +8,4 @@ jobs:
       - checkout
       - run: tox
     store-test-results:
-      path: tests/results/junit_xmls
+      path: tests/results/
