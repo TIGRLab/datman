@@ -7,3 +7,5 @@ jobs:
     steps:
       - checkout
       - run: tox
+    store-test-results:
+      path: junit_xmls
