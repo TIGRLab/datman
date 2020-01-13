@@ -7,12 +7,12 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: tox-env-{{ checksum "setup.cfg" }}
+          key: tox-env-{{ .Branch }}-{{ checksum "setup.cfg" }}
       - run:
           command: |
             tox
       - save_cache:
-          key: tox-env-{{ checksum "setup.cfg" }}
+          key: tox-env-{{ .Branch }}-{{ checksum "setup.cfg" }}
           paths: .tox
     store-test-results:
       path: tests/results/
