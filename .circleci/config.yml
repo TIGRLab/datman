@@ -10,9 +10,7 @@ jobs:
           key: tox-env-{{ checksum "setup.cfg" }}
       - run:
           command: |
-            pip install coveralls
             tox
-            coveralls
       - save_cache:
           key: tox-env-{{ checksum "setup.cfg" }}
           paths: .tox
