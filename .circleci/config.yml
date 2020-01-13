@@ -11,6 +11,7 @@ jobs:
       - run:
           command: |
             tox
+            coveralls
       - save_cache:
           key: tox-env-{{ checksum "setup.cfg" }}
           paths: .tox
