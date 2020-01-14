@@ -542,7 +542,7 @@ def write_metadata(lines, path, retry=3):
                      "remaining - {}".format(path, retry))
         wait_time = random.uniform(0, 10)
         time.sleep(wait_time)
-        write_metadata(lines, path, retry=retry-1)
+        write_metadata(lines, path, retry=retry - 1)
 
 
 def get_subject_metadata(config=None, study=None, allow_partial=False):
@@ -759,7 +759,7 @@ def define_folder(path):
 
     if not has_permissions(path):
         raise OSError("User does not have permission to access {}".format(
-                                                                    path))
+            path))
 
     return path
 
@@ -970,7 +970,7 @@ class cd(object):
 
 
 class XNATConnection(object):
-    def __init__(self,  xnat_url, user_name, password):
+    def __init__(self, xnat_url, user_name, password):
         self.server = xnat_url
         self.user = user_name
         self.password = password
@@ -1037,9 +1037,10 @@ def check_dependency_configured(program_name, shell_cmd=None, env_vars=None):
     Raises EnvironmentError if the command is not findable or if any
     environment variable isnt configured.
     """
-    message = ("{} required but not found. Please check that "
-               "it is installed and correctly configured.".format(
-                                                            program_name))
+    message = (
+        "{} required but not found. Please check that "
+        "it is installed and correctly configured.".format(
+            program_name))
 
     if shell_cmd is not None:
         return_val, found = run('which {}'.format(shell_cmd))
