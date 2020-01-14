@@ -171,7 +171,8 @@ def link_shared_ids(config, connection, record):
     experiment = get_experiment(subject)
 
     if not experiment:
-        logger.error("No matching experiments for subject {}. "
+        logger.error("Redcap record may be misnamed - no matching "
+                     "experiments found on XNAT for redcap subject {}. "
                      "Skipping".format(record.id))
         return
 
