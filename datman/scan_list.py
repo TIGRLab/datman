@@ -75,7 +75,7 @@ def start_new_scan_list(output):
 
 
 def get_scan_list_contents(scans_csv):
-    with open(scans_csv, "rb") as scan_entries:
+    with open(scans_csv, "r") as scan_entries:
         contents = scan_entries.readlines()
 
     processed_files = defaultdict(list)
