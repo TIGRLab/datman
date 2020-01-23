@@ -5,9 +5,8 @@ import logging
 from io import TextIOBase
 from random import randint
 
-import nose.tools
+import pytest
 from mock import patch, call, MagicMock
-
 import datman.config as cfg
 import datman.scan
 import datman.dashboard
@@ -30,26 +29,26 @@ config = cfg.config(filename=site_config_path, system=system, study=study)
 
 
 class GetConfig(unittest.TestCase):
-    @nose.tools.raises(SystemExit)
     def test_exits_gracefully_with_bad_study(self):
-        qc.get_config(study="madeupcode")
+        with pytest.raises(SystemExit):
+            qc.get_config(study="madeupcode")
 
-    @nose.tools.raises(SystemExit)
     @patch('datman.config.config')
-    def test_exits_gracefully_when_paths_missing_from_config(self,
-                                                             mock_config):
-        mock_config.return_value.get_path.side_effect = lambda path: \
+    def test_exits_gracefully_when_paths_missing_from_config(
+            self, mock_config):
+
+        with pytest.raises(SystemExit):
+            mock_config.return_value.get_path.side_effect = lambda path: \
                 {'dcm': '',
                  'nii': ''}[path]
-        qc.get_config("STUDY")
+            qc.get_config("STUDY")
 
 
 class VerifyInputPaths(unittest.TestCase):
-
-    @nose.tools.raises(SystemExit)
     def test_exits_gracefully__with_broken_input_path(self):
         bad_path = ["./fakepath/somewhere"]
-        qc.verify_input_paths(bad_path)
+        with pytest.raises(SystemExit):
+            qc.verify_input_paths(bad_path)
 
     @patch('os.path.exists')
     def test_returns_if_paths_exist(self, mock_exists):
@@ -59,10 +58,9 @@ class VerifyInputPaths(unittest.TestCase):
 
 
 class PrepareScan(unittest.TestCase):
-
-    @nose.tools.raises(SystemExit)
     def test_exits_gracefully_with_bad_subject_id(self):
-        qc.prepare_scan("STUDYSITE_ID", config)
+        with pytest.raises(SystemExit):
+            qc.prepare_scan("STUDYSITE_ID", config)
 
     @patch('bin.dm_qc_report.verify_input_paths')
     @patch('datman.utils')
@@ -106,9 +104,7 @@ class GetStandards(unittest.TestCase):
         T1_standard = 'STUDY_CMH_9999_01_01_T1_02_SagT1.json'
         T1_diff_site = 'STUDY_OTHER_0001_01_01_T1_07_SagT1.json'
 
-        standards = [DTI_standard,
-                     T1_diff_site,
-                     T1_standard]
+        standards = [DTI_standard, T1_diff_site, T1_standard]
         mock_glob.return_value = standards
 
         standard_dict = qc.get_standards(self.path, self.site)
@@ -122,9 +118,11 @@ class GetStandards(unittest.TestCase):
 
     @patch('glob.glob')
     def test_excludes_badly_named_standards(self, mock_glob):
-        standards = ['STUDY_CMH_9999_01_01_DTI60_05_Ax.json',
-                     'STUDY_OTHER_0001_01_01_T1_07_SagT1.json',
-                     'STUDY_CMH_9999_01_01_T102SagT1.json']
+        standards = [
+            'STUDY_CMH_9999_01_01_DTI60_05_Ax.json',
+            'STUDY_OTHER_0001_01_01_T1_07_SagT1.json',
+            'STUDY_CMH_9999_01_01_T102SagT1.json'
+        ]
 
         mock_glob.return_value = standards
 
@@ -141,14 +139,14 @@ class RunHeaderQC(unittest.TestCase):
 
     @patch('bin.dm_qc_report.get_standards')
     @patch('datman.header_checks.construct_diffs')
-    def test_doesnt_crash_with_empty_dicom_dir(self,
-                                               mock_make_diffs,
+    def test_doesnt_crash_with_empty_dicom_dir(self, mock_make_diffs,
                                                mock_standards):
         subject = datman.scan.Scan('STUDY_SITE_ID_01', config)
         assert subject.dicoms == []
 
         mock_standards.return_value = [
-                'STUDY_CMH_0001_01_01_T1_02_SagT1-BRAVO.json']
+            'STUDY_CMH_0001_01_01_T1_02_SagT1-BRAVO.json'
+        ]
 
         qc.run_header_qc(subject, config)
         assert mock_make_diffs.call_count == 0
@@ -156,8 +154,7 @@ class RunHeaderQC(unittest.TestCase):
     @patch('datman.scan.Scan')
     @patch('bin.dm_qc_report.get_standards')
     @patch('datman.header_checks.construct_diffs')
-    def test_doesnt_crash_without_matching_standards(self,
-                                                     mock_make_diffs,
+    def test_doesnt_crash_without_matching_standards(self, mock_make_diffs,
                                                      mock_standards,
                                                      mock_subject):
         dicom1 = datman.scan.Series('STUDY_CMH_9999_01_01_T1_02_Sag.dcm')
@@ -252,8 +249,7 @@ class FindTechNotes(unittest.TestCase):
 
     @patch('os.walk', autospec=True)
     def test_first_file_returned_when_multiple_pdfs_but_no_tech_notes(
-            self,
-            mock_walk):
+            self, mock_walk):
         mock_walk.return_value = self.__mock_file_system(randint(1, 10),
                                                          add_notes=False,
                                                          add_pdf=True)
@@ -272,7 +268,7 @@ class FindTechNotes(unittest.TestCase):
             file_list.append(self.notes)
         for num in range(1, depth + 1):
             cur_path = cur_path + "/dir{}".format(num)
-            dirs = ("dir{}".format(num + 1),)
+            dirs = ("dir{}".format(num + 1), )
             files = ("file1.txt", "file2")
             if num == depth:
                 files = tuple(file_list)

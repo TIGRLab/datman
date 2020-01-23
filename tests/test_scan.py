@@ -1,7 +1,7 @@
 import os
 import unittest
 
-from nose.tools import raises
+import pytest
 from mock import patch
 
 import datman.config as cfg
@@ -20,11 +20,10 @@ class TestSeries(unittest.TestCase):
     good_name = "/somepath/STUDY_SITE_9999_01_01_T1_03_SagT1Bravo-09mm.nii.gz"
     bad_name = "/somepath/STUDYSITE_9999_T1_03_SagT1Bravo-09mm.nii.gz"
 
-    @raises(datman.scanid.ParseException)
     def test_raises_parse_exception_with_bad_file_name(self):
-        series = datman.scan.Series(self.bad_name)
 
-        assert series is None
+        with pytest.raises(datman.scanid.ParseException):
+            datman.scan.Series(self.bad_name)
 
     def test_creates_series_for_well_named_file(self):
         series = datman.scan.Series(self.good_name)
@@ -42,9 +41,9 @@ class TestScan(unittest.TestCase):
     phantom = "STUDY_CMH_PHA_ID"
     config = cfg.config(filename=site_config, system=system, study=study)
 
-    @raises(datman.scanid.ParseException)
     def test_raises_parse_exception_with_bad_subject_id(self):
-        datman.scan.Scan(self.bad_name, self.config)
+        with pytest.raises(datman.scanid.ParseException):
+            datman.scan.Scan(self.bad_name, self.config)
 
     def test_makes_scan_instance_for_id_without_session(self):
         subject = datman.scan.Scan(self.good_name, self.config)
@@ -96,7 +95,7 @@ class TestScan(unittest.TestCase):
     def test_niftis_with_either_extension_type_found(self, mock_glob):
         simple_ext = "{}_01_T1_02_SagT1-BRAVO.nii".format(self.good_name)
         complex_ext = "{}_01_DTI60-1000_05_Ax-DTI-60.nii.gz".format(
-                self.good_name)
+            self.good_name)
         wrong_ext = "{}_01_DTI60-1000_05_Ax-DTI-60.bvec".format(self.good_name)
 
         nii_list = [simple_ext, complex_ext, wrong_ext]
@@ -109,20 +108,20 @@ class TestScan(unittest.TestCase):
 
         assert sorted(found_niftis) == sorted(expected)
 
-    @raises(datman.scanid.ParseException)
     @patch('glob.glob')
     def test_subject_series_with_nondatman_name_causes_parse_exception(
             self,
             mock_glob):
         well_named = "{}_01_T1_02_SagT1-BRAVO.nii".format(self.good_name)
         badly_named1 = "{}_01_DTI60-1000_05_Ax-DTI-60.nii".format(
-                self.bad_name)
+            self.bad_name)
         badly_named2 = "{}_01_T2_07.nii".format(self.good_name)
 
         nii_list = [well_named, badly_named1, badly_named2]
         mock_glob.return_value = nii_list
 
-        datman.scan.Scan(self.good_name, self.config)
+        with pytest.raises(datman.scanid.ParseException):
+            datman.scan.Scan(self.good_name, self.config)
 
     @patch('glob.glob')
     def test_dicoms_lists_only_dicom_files(self, mock_glob):
