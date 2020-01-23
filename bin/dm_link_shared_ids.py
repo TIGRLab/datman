@@ -41,7 +41,7 @@ import datman.config
 import datman.scanid
 import datman.utils
 
-import dm_link_project_scans as link_scans
+import bin.dm_link_project_scans as link_scans
 import datman.dashboard as dashboard
 from datman.exceptions import InputException
 
