@@ -1,4 +1,6 @@
-version: 2
+version: 2.1
+orbs:
+  codecov: codecov/codecov@1.0.5
 jobs:
   build:
     working_directory: ~/datman
@@ -11,6 +13,9 @@ jobs:
       - run:
           command: |
             tox
+      - codecov/upload:
+          file: tests/results/junit*xml
+          flag: unittests
       - save_cache:
           key: tox-env-{{ .Branch }}-{{ checksum "setup.cfg" }}
           paths: .tox
