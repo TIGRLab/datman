@@ -53,7 +53,7 @@ def main():
         logger.setLevel(logging.ERROR)
 
     config = datman.config.config(study=project)
-    metadata = datman.utils.get_subject_metadata(config)
+    metadata = datman.utils.get_subject_metadata(config, allow_partial=True)
     remove_blacklisted_items(metadata, config)
 
 
