@@ -272,7 +272,7 @@ def check_files_exist(archive, xnat_session):
     try:
         scans_exist = scan_data_exists(xnat_session, local_headers)
     except ValueError as e:
-        logger.error("Please check {}: {}".format(archive, e))
+        logger.debug("Please check {}: {}".format(archive, e))
         # Return true for both to prevent XNAT being modified
         return True, True
 

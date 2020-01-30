@@ -171,8 +171,9 @@ def link_shared_ids(config, connection, record):
     experiment = get_experiment(subject)
 
     if not experiment:
-        logger.error("No matching experiments for subject {}. "
-                     "Skipping".format(record.id))
+        logger.error("Redcap or XNAT record may be misnamed - no "
+                     "matching experiments found on XNAT for redcap subject "
+                     "{}. Skipping".format(record.id))
         return
 
     logger.debug("Working on subject {} in project {}".format(record.id,
@@ -205,14 +206,15 @@ def update_xnat_comment(experiment, subject, record):
     try:
         experiment.attrs.set("note", record.comment)
         subject.attrs.set(
-                "xnat:subjectData/fields/field[name='comments']/field",
-                "See MR Scan notes")
+            "xnat:subjectData/fields/field[name='comments']/field",
+            "See MR Scan notes")
     except xnat.core.errors.DatabaseError:
-        logger.error('Cannot write record {} comment to xnat. Adding note to '
-                     'check redcap record instead'.format(record.id))
+        logger.error(
+            "Cannot write record {} comment to xnat. Adding note to "
+            "check redcap record instead".format(record.id))
         subject.attrs.set(
-                "xnat:subjectData/fields/field[name='comments']/field",
-                'Refer to REDCap record.')
+            "xnat:subjectData/fields/field[name='comments']/field",
+            "Refer to REDCap record.")
 
 
 def update_xnat_shared_ids(subject, record):
@@ -220,14 +222,15 @@ def update_xnat_shared_ids(subject, record):
                                                     record.shared_ids))
     try:
         subject.attrs.set(
-                "xnat:subjectData/fields/field[name='sharedids']/field",
-                ", ".join(record.shared_ids))
+            "xnat:subjectData/fields/field[name='sharedids']/field",
+            ", ".join(record.shared_ids))
     except xnat.core.errors.DatabaseError:
-        logger.error('{} shared ids cannot be added to XNAT. Adding note '
-                     'to check REDCap record instead.'.format(record.id))
+        logger.error(
+            "{} shared ids cannot be added to XNAT. Adding note "
+            "to check REDCap record instead.".format(record.id))
         subject.attrs.set(
-                "xnat:subjectData/fields/field[name='sharedids']/field",
-                'Refer to REDCap record.')
+            "xnat:subjectData/fields/field[name='sharedids']/field",
+            "Refer to REDCap record.")
 
 
 def make_links(record):

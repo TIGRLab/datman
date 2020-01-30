@@ -542,10 +542,34 @@ def write_metadata(lines, path, retry=3):
                      "remaining - {}".format(path, retry))
         wait_time = random.uniform(0, 10)
         time.sleep(wait_time)
-        write_metadata(lines, path, retry=retry-1)
+        write_metadata(lines, path, retry=retry - 1)
 
 
-def get_subject_metadata(config=None, study=None):
+def get_subject_metadata(config=None, study=None, allow_partial=False):
+    """Returns all QC'd session IDs mapped to any blacklisted scans they have
+
+    This will collect and organize all checklist and blacklist data for a
+    study. Sessions that do not have a completed checklist entry will have
+    their blacklist entries ommitted from the output unless the 'allow_partial'
+    flag is used. This is done so that partially QC'd subjects do not
+    accidentally get processed by downstream pipelines.
+
+    Either a study name or a datman config object must be supplied to
+    find the checklist and blacklist contents.
+
+    Args:
+        config (:obj:`datman.config.config`, optional): A datman config object
+            with the study set to the study of interest.
+        study (:obj:`str`, optional): A datman study name
+        allow_partial (bool, optional): Whether to include blacklist entries
+            if the subject has not been fully QC'd (i.e. if they dont have
+            a completed checklist entry yet). Defaults to False.
+
+    Returns:
+        dict: A dictionary with any QC'd subject ID mapped to a list of
+        blacklisted scan names that have been mangled to drop the series
+        description and the file extension.
+    """
     if not config:
         if not study:
             raise MetadataException("A study name or config object must be "
@@ -566,14 +590,15 @@ def get_subject_metadata(config=None, study=None):
 
         subid = ident.get_full_subjectid_with_timepoint()
         try:
-            all_qc[subid]
+            all_qc[subid].append(bl_entry)
         except KeyError:
-            logger.error("{} has blacklisted series {} but does not "
-                         "appear in QC checklist. Ignoring blacklist entry"
-                         "".format(subid, bl_entry))
-            continue
-
-        all_qc[subid].append(bl_entry)
+            if allow_partial:
+                all_qc.setdefault(subid, []).append(bl_entry)
+            else:
+                logger.error("{} has blacklisted series {} but does not "
+                             "appear in QC checklist. Ignoring blacklist entry"
+                             "".format(subid, bl_entry))
+                continue
 
     return all_qc
 
@@ -734,7 +759,7 @@ def define_folder(path):
 
     if not has_permissions(path):
         raise OSError("User does not have permission to access {}".format(
-                                                                    path))
+            path))
 
     return path
 
@@ -945,7 +970,7 @@ class cd(object):
 
 
 class XNATConnection(object):
-    def __init__(self,  xnat_url, user_name, password):
+    def __init__(self, xnat_url, user_name, password):
         self.server = xnat_url
         self.user = user_name
         self.password = password
@@ -1012,9 +1037,10 @@ def check_dependency_configured(program_name, shell_cmd=None, env_vars=None):
     Raises EnvironmentError if the command is not findable or if any
     environment variable isnt configured.
     """
-    message = ("{} required but not found. Please check that "
-               "it is installed and correctly configured.".format(
-                                                            program_name))
+    message = (
+        "{} required but not found. Please check that "
+        "it is installed and correctly configured.".format(
+            program_name))
 
     if shell_cmd is not None:
         return_val, found = run('which {}'.format(shell_cmd))
