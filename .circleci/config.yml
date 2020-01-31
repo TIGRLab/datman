@@ -19,5 +19,3 @@ jobs:
       - save_cache:
           key: tox-env-{{ .Branch }}-{{ checksum "setup.cfg" }}
           paths: .tox
-    store-test-results:
-      path: tests/results/
