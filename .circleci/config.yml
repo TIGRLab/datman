@@ -4,18 +4,121 @@ orbs:
 jobs:
   build:
     working_directory: ~/datman
-    docker:
-      - image: themattrix/tox
+    machine:
+      image: ubuntu-1604:201903-01
     steps:
       - checkout
-      - restore_cache:
-          key: tox-env-{{ .Branch }}-{{ checksum "setup.cfg" }}
       - run:
+          name: Check if docs build before continuing
           command: |
-            tox
+            cd ~/datman
+            if [[ "$( git log --format='format:%s' -n 1 $CIRCLE_SHA1 | grep -iE '^docs?(\(\w+\))?:' )" != "" ]]; then
+              echo "Will only be building Docs"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: datman-{{ .Branch }}-{{ checksum "setup.cfg" }}
+      - run:
+          name: Set up installation and cache
+          command: |
+            # Install datman under python 3.6.1 with test packages
+            pyenv global 3.6.5
+            pip install -e .[all]
+      - save_cache:
+          key: datman-{{ .Branch }}-{{ checksum "setup.cfg" }}
+          paths:
+            ~/.cache/pip
+            /opt/circleci/.pyenv/versions/3.6.5/lib/python3.6.5/site-packages
+      - run:
+          name: Run pytest and output junit xml for codecov
+          command: |
+            pyenv global 3.6.5
+            pytest tests/ --junitxml=tests/results/junit-{envname}.xml --cov . \
+              --cov-report term-missing --cov-report xml
       - codecov/upload:
           file: tests/results/junit*xml
-          flag: unittests
-      - save_cache:
-          key: tox-env-{{ .Branch }}-{{ checksum "setup.cfg" }}
-          paths: .tox
+          flags: unittests
+  test_deploy_pypi:
+    working_directory: ~/datman
+    docker:
+      - image: "python:3.6.5"
+    steps:
+      - checkout
+      - run:
+          name: Set up virtual environment
+          command: |
+            python -m venv /tmp/sdist
+            source /tmp/sdist/bin/activate
+            python -m pip install -U pip
+            python -m pip install "setuptools>=30.3.0" twine
+      - run:
+          name: Build datman
+          command: |
+            source /tmp/sdist/bin/activate
+
+            # NOTE THE YAML/WRAPT requirement for __init__
+            pip install wrapt pyyaml
+
+            # Get version, remove dirty suffix
+            THISVERSION=$( python get_version.py )
+            THISVERSION=${THISVERSION%.dirty*}
+            THISVERSION=${CIRCLE_TAG:-$THISVERSION}
+            echo "${THISVERSION}" > VERSION
+            python setup.py sdist
+            pip wheel --no-deps -w dist/ .
+      - store_artifacts:
+          path: ~/datman/dist
+      - run:
+          name: Check sdist
+          command: |
+            source /tmp/sdist/bin/activate
+            THISVERSION=$( python get_version.py )
+            THISVERSION=${THISVERSION%.dirty*}
+            THISVERSION=${CIRCLE_TAG:-$THISVERSION}
+            twine check ~/datman/dist/datman*tar.gz
+            pip install dist/datman*tar.gz
+            INSTALLED_VER=$(python -c 'import datman; print(datman.__version__)')
+            echo "CIRCLETAG: $CIRCLEC_TAG"
+            echo "VERSION: \"$THISVERSION\""
+            echo "INSTALLED: \"$INSTALLED_VER\""
+            test "$INSTALLED_VER" = "$THISVERSION"
+      - run:
+          name: Check wheel
+          command: |
+            python -m venv /tmp/whl
+            source /tmp/whl/bin/activate
+            pip install pyyaml wrapt
+            pip install twine  
+            THISVERSION=$( python get_version.py )
+            THISVERSION=${THISVERSION%.dirty*}
+            THISVERSION=${CIRCLE_TAG:-$THISVERSION}
+            twine check dist/datman*.whl
+            pip install dist/datman*.whl
+            pip install wrapt pyyaml
+            INSTALLED_VER=$(python -c 'import datman; print(datman.__version__)')
+            echo "VERSION: \"$THISVERSION\""
+            echo "INSTALLED: \"$INSTALLED_VER\""
+            test "$INSTALLED_VER" = "$THISVERSION"
+      - store_artifacts:
+          path: ~/datman/dist
+
+##### TO-DO SET UP DEPLOY
+
+workflows:
+  version: 2
+  build_test_deploy:
+    jobs:
+      - build:
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+            tags:
+              only: /.*/
+      - test_deploy_pypi:
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+            tags:
+              only: /.*/
