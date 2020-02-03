@@ -51,13 +51,13 @@ jobs:
             source /tmp/sdist/bin/activate
             python -m pip install -U pip
             python -m pip install "setuptools>=30.3.0" twine
+
+            # NOTE THE YAML/WRAPT requirement for __init__
+            pip install wrapt pyyaml
       - run:
           name: Build datman
           command: |
             source /tmp/sdist/bin/activate
-
-            # NOTE THE YAML/WRAPT requirement for __init__
-            pip install wrapt pyyaml
 
             # Get version, remove dirty suffix
             THISVERSION=$( python get_version.py )
@@ -88,7 +88,7 @@ jobs:
             python -m venv /tmp/whl
             source /tmp/whl/bin/activate
             pip install pyyaml wrapt
-            pip install twine  
+            pip install twine
             THISVERSION=$( python get_version.py )
             THISVERSION=${THISVERSION%.dirty*}
             THISVERSION=${CIRCLE_TAG:-$THISVERSION}
@@ -101,6 +101,41 @@ jobs:
             test "$INSTALLED_VER" = "$THISVERSION"
       - store_artifacts:
           path: ~/datman/dist
+
+  deployable:
+    working_directory: ~/datman
+    docker:
+      - image: "python:3.6.5"
+    steps:
+      - run:
+          command: |
+            echo "Deploying Datman!"
+
+  deploy_pypi:
+    working_directory: ~/datman
+    docker:
+      - image: "python:3.6.5"
+    steps:
+      - checkout
+      - run:
+          name: Configure virtual environment
+          command: |
+            python -m venv /tmp/sdist
+            source /tmp/sdist/bin/activate
+            pip install -U pip
+            pip install "setuptools>=30.3.0 twine wrapt pyyaml"
+            THISVERSION=${THISVERSION%.dirty*}
+            THISVERSION=${CIRCLE_TAG:-$THISVERSION}
+            echo "${CIRCLE_TAG:-%THISVERSION}" > VERSION
+            python setup.py sdist
+            pip wheel --no-deps -w dist/ .
+      - run:
+          name: Upload to PyPI
+          command: |
+            source /tmp/sdist/bin/activate
+            twine upload dist/datman*
+
+
 
 ##### TO-DO SET UP DEPLOY
 
@@ -115,6 +150,7 @@ workflows:
                 - /docs?\/.*/
             tags:
               only: /.*/
+
       - test_deploy_pypi:
           filters:
             branches:
@@ -122,3 +158,23 @@ workflows:
                 - /docs?\/.*/
             tags:
               only: /.*/
+
+      - deployable:
+          requires:
+            - build
+            - test_deploy_pypi
+          filters:
+            branches:
+              only: master
+            tags:
+              only: /.*/
+
+      - deploy_pypi:
+          requires:
+            - deployable
+          filters:
+            branches:
+              only: master
+            tags:
+              only: /.*/
+
