@@ -21,7 +21,6 @@ jobs:
       - run:
           name: Set up installation and cache
           command: |
-            # Install datman under python 3.6.1 with test packages
             pyenv global 3.6.5
             pip install -e .[all]
       - save_cache:
