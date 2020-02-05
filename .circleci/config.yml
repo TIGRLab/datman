@@ -17,9 +17,10 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: datman-v1-{{ .Branch }}-{{ checksum "setup.cfg" }}
-          key: datman-v1-{{ .Branch }}
-          key: datman-v1-
+          keys: 
+            - datman-v1-{{ .Branch }}-{{ checksum "setup.cfg" }}
+            - datman-v1-{{ .Branch }}
+            - datman-v1-
       - run:
           name: Set up installation and cache
           command: |
@@ -27,8 +28,6 @@ jobs:
             pip install -e .[all]
       - save_cache:
           key: datman-v1-{{ .Branch }}-{{ checksum "setup.cfg" }}
-          key: datman-v1-{{ .Branch }}
-          key: datman-v1-
           paths:
             ~/.cache/pip
             /opt/circleci/.pyenv/versions/3.6.5/lib/python3.6.5/site-packages
