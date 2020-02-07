@@ -170,7 +170,7 @@ workflows:
             - test_deploy_pypi
           filters:
             branches:
-              only: release
+              only: master
             tags:
               only: /.*/
 
