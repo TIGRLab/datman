@@ -473,17 +473,17 @@ class xnat(object):
             e.study = project
             e.session = session
             raise e
+        except requests.exceptions.RequestException:
+            err = XnatException("Error uploading data with url: {}"
+                                .format(upload_url))
+            err.study = project
+            err.session = session
+            raise err
         except IOError as e:
             logger.error('Failed to open file: {} with excuse: {}'
                          .format(filename, e.strerror))
             err = XnatException("Error in file: {}".
                                 format(filename))
-            err.study = project
-            err.session = session
-            raise err
-        except requests.exceptions.RequestException:
-            err = XnatException("Error uploading data with url: {}"
-                                .format(upload_url))
             err.study = project
             err.session = session
             raise err
@@ -653,6 +653,48 @@ class xnat(object):
         except Exception:
             raise XnatException('Failed deleting resource with url: {}'
                                 .format(url))
+
+    def rename_session(self, project, old_name, new_name, rename_exp=True):
+        """
+        Will rename an existing XNAT session (given as 'old_name') to
+        the given new_name. Set 'rename_exp' to False to prevent the experiment
+        name from also being set to this new name.
+        """
+        session = self.get_session(project, old_name)
+        if not session:
+            raise XnatException("Can't rename session {}, doesnt "
+                                "exist.".format(old_name))
+
+        url = "{}/data/archive/projects/{}/subjects/{}?xsiType=" \
+              "xnat:mrSessionData&label={}".format(self.server, project,
+                                                   old_name, new_name)
+        try:
+            self._make_xnat_put(url)
+        except requests.HTTPError as e:
+            if e.response.status_code == 409:
+                raise XnatException("Can't rename {} to {} - session "
+                                    "already exists".format(old_name,
+                                                            new_name))
+            raise e
+
+        if not rename_exp:
+            return
+
+        # Verify that exactly one experiment exists and get its name (in
+        # case it differs from subject)
+        experiments = self.get_experiments(project, new_name)
+        if len(experiments) != 1:
+            raise XnatException("{} experiment(s) exist for {}, cant rename "
+                                "experiment(s) to {}".format(len(experiments),
+                                                             old_name,
+                                                             new_name))
+        old_name = experiments[0]['label']
+        url = "{}/data/archive/projects/{}/subjects/{}" \
+              "/experiments/{}?xsiType=" \
+              "xnat:mrSessionData&label={}".format(self.server, project,
+                                                   old_name, old_name,
+                                                   new_name)
+        self._make_xnat_put(url)
 
     def _get_xnat_stream(self, url, filename, retries=3, timeout=120):
         logger.debug('Getting {} from XNAT'.format(url))
@@ -847,6 +889,7 @@ class Session(object):
 
         # Experiment attributes
         self.experiment = self._get_experiment()
+        self.experiment_date = self._get_experiment_date()
         self.experiment_label = self._get_experiment_label()
         self.experiment_UID = self._get_experiment_UID()
 
@@ -895,6 +938,15 @@ class Session(object):
         except KeyError:
             uid = ''
         return uid
+
+    def _get_experiment_date(self):
+        if not self.experiment:
+            return ''
+        try:
+            date = self.experiment['data_fields']['date']
+        except KeyError:
+            date = ''
+        return date
 
     def _get_experiment_contents(self, field):
         """
