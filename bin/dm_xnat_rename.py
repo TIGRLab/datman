@@ -164,7 +164,7 @@ def retry(tries, xnat, project, current, new):
     try:
         if is_renamed(xnat, project, current, new):
             return True
-    except datman.xnat.XnatException as e:
+    except datman.xnat.XnatException:
         logger.debug("Partial rename occurred, using new name to "
                      "search for data to finish update")
         current = new
