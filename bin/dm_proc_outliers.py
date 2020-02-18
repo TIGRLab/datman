@@ -4,7 +4,7 @@ This uses pandas to identify outliers for any csv. It adds outlier notes as a
 new column
 
 Usage:
-  csv-outliers.py [options] <input.csv>
+  dm_proc_outliers.py [options] <input.csv>
 
 Arguments:
     <input.csv>                Inputfile (.csv format)
