@@ -176,7 +176,8 @@ class xnat(object):
                                 .format(url))
 
         if not result:
-            raise XnatException('No sessions found for study: {}'.format(study))
+            raise XnatException('No sessions found for study: {}'
+                                ''.format(study))
 
         return(result['ResultSet']['Result'])
 
@@ -208,7 +209,7 @@ class xnat(object):
                 return result
         try:
             session_json = result['items'][0]
-        except (IndexError, KeyError):
+        except (TypeError, IndexError, KeyError):
             msg = "Session {} doesn't exist on xnat for study {}".format(
                             session,
                             study)
@@ -514,7 +515,8 @@ class xnat(object):
             except OSError as e:
                 logger.warning('Failed to delete tempfile: {} with excuse: {}'
                                .format(filename, str(e)))
-            err = XnatException("Failed getting dicom with url: {}".format(url))
+            err = XnatException('Failed getting dicom with url: {}'
+                                ''.format(url))
             err.study = project
             err.session = session
             raise err
