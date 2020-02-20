@@ -33,10 +33,10 @@ Options:
 import os
 import logging
 from docopt import docopt
-from requests import HTTPError
 
 import datman.xnat
 import datman.config
+from datman.exceptions import XnatException
 
 logging.basicConfig(level=logging.WARN,
                     format="[%(name)s] %(levelname)s: %(message)s")
@@ -113,67 +113,44 @@ def read_sessions(name_file):
     return entries
 
 
-def rename_xnat_session(xnat, current, new, project=None, tries=3):
-    """
-    Returns True if rename is successful
+def rename_xnat_session(xnat, orig_name, new_name, project=None):
+    """Rename a session on XNAT.
+
+    Args:
+        xnat (:obj:`datman.xnat.xnat`): A connection to the XNAT server.
+        orig_name (:obj:`str`): The current session name on XNAT.
+        new_name (:obj:`str`): The new name to apply to the session.
+        project (:obj:`str`, optional): The XNAT project the session belongs
+            to. If not given, it will be guessed based on orig_name. Defaults
+            to None.
+
+    Raises:
+        XnatException: If problems internal to
+            :obj:`datman.xnat.xnat.rename_session` occur.
+        requests.HTTPError: If XNAT's API reports issues.
+
+    Returns:
+        bool: True if rename succeeded, False otherwise
     """
     if not project:
-        project = get_project(current)
+        project = get_project(orig_name)
 
-    logger.info("Renaming {} to {} in project {}".format(current, new,
+    logger.info("Renaming {} to {} in project {}".format(orig_name, new_name,
                                                          project))
 
     try:
-        xnat.rename_session(project, current, new)
-    except HTTPError as e:
-        logger.debug("Error was raised: {}".format(e))
-        if e.response.status_code == 409:
-            if not false_alarm(tries, xnat, project, current, new):
-                raise e
-        elif e.response.status_code == 422:
-            if not retry(tries, xnat, project, current, new):
-                raise e
-        else:
-            raise e
-    except datman.xnat.XnatException as e:
+        xnat.rename_session(project, orig_name, new_name)
+    except XnatException as e:
         if '0 experiment' in str(e):
             return True
-        raise e
+        try:
+            is_renamed(xnat, project, orig_name, new_name)
+        except XnatException:
+            # Try to fix partial rename
+            session = xnat.get_session(project, new_name)
+            xnat.rename_experiment(session, orig_name, new_name)
 
-    return is_renamed(xnat, project, current, new)
-
-
-def false_alarm(tries, xnat, project, current, new):
-    logger.debug("URL conflict reported")
-    try:
-        renamed = is_renamed(xnat, project, current, new)
-    except datman.xnat.XnatException:
-        logger.debug("Likely a real error, exiting.")
-        return False
-    if renamed:
-        logger.debug("False alarm, rename completed successfully.")
-        return True
-    if tries <= 2:
-        logger.debug("Likely a real error, exiting.")
-        return False
-    logger.debug("Likely false alarm, attempting rename again")
-    return True
-
-
-def retry(tries, xnat, project, current, new):
-    try:
-        if is_renamed(xnat, project, current, new):
-            return True
-    except datman.xnat.XnatException:
-        logger.debug("Partial rename occurred, using new name to "
-                     "search for data to finish update")
-        current = new
-
-    logger.debug("Full rename failed, {} tries remaining".format(tries))
-    if tries > 0:
-        return rename_xnat_session(xnat, current, new, project,
-                                   tries - 1)
-    return False
+    return is_renamed(xnat, project, orig_name, new_name)
 
 
 def get_project(session):
@@ -187,24 +164,36 @@ def get_project(session):
 
 
 def is_renamed(xnat, xnat_project, old_name, new_name):
-    """
+    """Verifies that a session rename has succeeded.
+
     Sometimes XNAT renames only the subject or only the experiment when you
     tell it to rename both. Sometimes it says it failed when it succeeded.
-    And sometimes it just fails completely for no observable reason (or
-    because of a three year old failed autorun.xml pipeline). So... use this
-    to check if the job is done before declaring it a failure.
+    And sometimes it just fails completely for no observable reason. So... use
+    this to check if the job is done before declaring it a failure.
+
+    Args:
+        xnat (:obj:`datman.xnat.xnat`): A connection to the XNAT server.
+        xnat_project (:obj:`str`): The session's XNAT project name.
+        old_name (:obj:`str`): The original name of the session on XNAT.
+        new_name (:obj:`str`): The intended final name of the session on XNAT.
+
+    Raises:
+        XnatException: If the session was renamed but the experiment was not.
+
+    Returns:
+        bool. True if rename appears to have succeeded, False otherwise.
     """
     try:
         session = xnat.get_session(xnat_project, new_name)
-    except datman.xnat.XnatException:
+    except XnatException:
         return False
     if session.name == new_name and session.experiment_label == new_name:
         return True
     try:
         session = xnat.get_session(xnat_project, old_name)
-    except datman.xnat.XnatException as e:
-        raise type(e)("Session {} partially renamed to {} for project "
-                      "{}".format(old_name, new_name, xnat_project))
+    except XnatException:
+        raise XnatException("Session {} partially renamed to {} for project "
+                            "{}".format(old_name, new_name, xnat_project))
     return False
 
 
