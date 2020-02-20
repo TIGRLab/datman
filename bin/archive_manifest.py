@@ -41,7 +41,7 @@ def main():
         return
 
     headers = arguments['--headers'] and arguments['--headers'].split(',') or \
-            default_headers[:]
+        default_headers[:]
     headers.insert(0, "Path")
 
     rows = []
