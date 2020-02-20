@@ -97,7 +97,7 @@ class xnat(object):
             self.get_xnat_session()
         except Exception:
             raise XnatException("Failed getting xnat session for {}".format(
-                    server))
+                server))
 
     def __enter__(self):
         return self
@@ -212,8 +212,7 @@ class xnat(object):
             session_json = result['items'][0]
         except (TypeError, IndexError, KeyError):
             msg = "Session {} doesn't exist on xnat for study {}".format(
-                            session,
-                            study)
+                session, study)
             raise XnatException(msg)
 
         return Session(session_json)
@@ -773,8 +772,8 @@ class xnat(object):
             response = self.session.get(url, stream=True, timeout=timeout)
         except requests.exceptions.Timeout as e:
             if retries > 0:
-                return(self._get_xnat_stream(url, filename, retries=retries-1,
-                                             timeout=timeout*2))
+                return(self._get_xnat_stream(
+                    url, filename, retries=retries - 1, timeout=timeout * 2))
             else:
                 raise e
 
@@ -818,7 +817,7 @@ class xnat(object):
             response = self.session.get(url, timeout=30)
         except requests.exceptions.Timeout as e:
             if retries > 0:
-                return(self._make_xnat_query(url, retries=retries-1))
+                return(self._make_xnat_query(url, retries=retries - 1))
             else:
                 logger.error('Xnat server timed out getting url {}'
                              ''.format(url))
@@ -847,7 +846,7 @@ class xnat(object):
             response = self.session.get(url, timeout=30)
         except requests.exceptions.Timeout as e:
             if retries > 0:
-                return(self._make_xnat_xml_query(url, retries=retries-1))
+                return(self._make_xnat_xml_query(url, retries=retries - 1))
             else:
                 raise e
 
@@ -878,7 +877,7 @@ class xnat(object):
         try:
             response = self.session.put(url, timeout=30)
         except requests.exceptions.Timeout:
-            return(self._make_xnat_put(url, retries=retries-1))
+            return(self._make_xnat_put(url, retries=retries - 1))
 
         if response.status_code == 401:
             # possibly the session has timed out
@@ -896,7 +895,7 @@ class xnat(object):
         response = self.session.post(url,
                                      headers=headers,
                                      data=data,
-                                     timeout=60*60)
+                                     timeout=60 * 60)
 
         if response.status_code == 401:
             # possibly the session has timed out
@@ -936,7 +935,7 @@ class xnat(object):
         try:
             response = self.session.delete(url, timeout=30)
         except requests.exceptions.Timeout:
-            return(self._make_xnat_delete(url, retries=retries-1))
+            return(self._make_xnat_delete(url, retries=retries - 1))
 
         if response.status_code == 401:
             # possibly the session has timed out
@@ -974,7 +973,7 @@ class Session(object):
 
         # Resource attributes
         self.resource_files = self._get_experiment_contents(
-                                            'resources/resource')
+            'resources/resource')
         self.resource_IDs = self._get_resource_IDs()
 
         # Misc - basically just OPT CU1 needs this
@@ -1060,7 +1059,7 @@ class Session(object):
             except KeyError:
                 label = 'No Label'
             resource_ids[label] = str(resource['data_fields'][
-                                                'xnat_abstractresource_id'])
+                'xnat_abstractresource_id'])
         return resource_ids
 
     def _get_other_resource_IDs(self):
@@ -1196,10 +1195,7 @@ class Session(object):
         resource_ids.extend(self.misc_resource_IDs)
         for r_id in resource_ids:
             resource_list = xnat_connection.get_resource_list(
-                                    self.project,
-                                    self.name,
-                                    self.experiment_label,
-                                    r_id)
+                self.project, self.name, self.experiment_label, r_id)
             resources.extend([item['URI'] for item in resource_list])
         return resources
 
@@ -1223,7 +1219,7 @@ class Session(object):
         except KeyError:
             raise KeyError("Can't retrieve experiment ID for experiment {}. "
                            "Please check contents.".format(
-                                                    self.experiment_label))
+                               self.experiment_label))
 
         # Grab dicoms
         resources_list = self.scan_resource_IDs
@@ -1238,9 +1234,7 @@ class Session(object):
 
         url = ("{}/REST/experiments/{}/resources/{}/files"
                "?structure=improved&all=true&format=zip".format(
-                            xnat.server,
-                            experiment_ID,
-                            ",".join(resources_list)))
+                   xnat.server, experiment_ID, ",".join(resources_list)))
 
         if not zip_name:
             zip_name = self.name.upper() + ".zip"
@@ -1248,7 +1242,7 @@ class Session(object):
         output_path = os.path.join(dest_folder, zip_name)
         if os.path.exists(output_path):
             logger.error("Cannot download {}, file already exists.".format(
-                    output_path))
+                output_path))
             return output_path
 
         xnat._get_xnat_stream(url, output_path)
