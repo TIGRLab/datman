@@ -7,6 +7,7 @@ import os
 import urllib.parse
 import getpass
 import re
+import json
 from xml.etree import ElementTree
 
 import requests
@@ -657,12 +658,27 @@ class xnat(object):
                                 .format(url))
 
     def rename_session(self, project, old_name, new_name, rename_exp=True):
-        """
-        Will rename an existing XNAT session (given as 'old_name') to
-        the given new_name. Set 'rename_exp' to False to prevent the experiment
-        name from also being set to this new name.
+        """Change a session's name on XNAT.
+
+        Args:
+            project (:obj:`str`): The name of the XNAT project that the session
+                belongs to.
+            old_name (:obj:`str`): The current name on XNAT of the session to
+                be renamed.
+            new_name (:obj:`str`): The new name to apply.
+            rename_exp (bool, optional): Change the experiment name to the new
+                session name. Defaults to True.
+
+        Raises:
+            XnatException: If unable to rename the session (or the experiment
+                if rename_exp=True) due to:
+                    1) A stuck AutoRun.xml pipeline that can't be dismissed
+                    2) A session existing under the 'new_name' already
+            requests.HTTPError: If any unexpected behavior is experienced while
+                interacting with XNAT's API
         """
         session = self.get_session(project, old_name)
+
         if not session:
             raise XnatException("Can't rename session {}, doesnt "
                                 "exist.".format(old_name))
@@ -677,26 +693,79 @@ class xnat(object):
                 raise XnatException("Can't rename {} to {} - session "
                                     "already exists".format(old_name,
                                                             new_name))
-            raise e
+            elif e.response.status_code == 422:
+                # This is raised every time a session is renamed.
+                pass
+            else:
+                raise e
 
         if not rename_exp:
             return
 
-        # Verify that exactly one experiment exists and get its name (in
-        # case it differs from subject)
-        experiments = self.get_experiments(project, new_name)
+        self.rename_experiment(session, old_name, new_name)
+
+    def rename_experiment(self, session, old_exp, new_exp):
+        """Change an experiment's name on XNAT.
+
+        Args:
+            session (:obj:`datman.xnat.Session`): The session object that this
+                experiment belongs to.
+            old_exp (:obj:`str`): The current experiment name.
+            new_exp (:obj:`str`): The new name to give the experiment. This
+                will usually be the same as the session name.
+
+        Raises:
+            XnatException: If unable to rename the experiment due to:
+                1) A stuck AutoRun.xml pipeline that can't be dismissed
+                2) A session existing under the 'new_name' already
+            requests.HTTPError: If any unexpected behavior is experienced while
+                interacting with XNAT's API
+        """
+        try:
+            self.dismiss_autorun(session)
+        except XnatException as e:
+            logger.error("Failed to dismiss AutoRun.xml pipeline, "
+                         "experiment rename may fail. Error - {}".format(e))
+
+        experiments = self.get_experiments(session.project, new_exp)
         if len(experiments) != 1:
             raise XnatException("{} experiment(s) exist for {}, cant rename "
                                 "experiment(s) to {}".format(len(experiments),
-                                                             old_name,
-                                                             new_name))
-        old_name = experiments[0]['label']
+                                                             old_exp,
+                                                             new_exp))
+
+        old_exp = experiments[0]['label']
         url = "{}/data/archive/projects/{}/subjects/{}" \
               "/experiments/{}?xsiType=" \
-              "xnat:mrSessionData&label={}".format(self.server, project,
-                                                   old_name, old_name,
-                                                   new_name)
-        self._make_xnat_put(url)
+              "xnat:mrSessionData&label={}".format(
+                  self.server, session.project, new_exp, old_exp, new_exp)
+
+        try:
+            self._make_xnat_put(url)
+        except requests.HTTPError as e:
+            if e.response.status_code == 409:
+                # A 409 when renaming a subject is a real problem, but a 409
+                # always happens when an experiment rename succeeds. I have
+                # no idea why XNAT works this way.
+                pass
+            else:
+                raise e
+
+    def dismiss_autorun(self, session):
+        """Mark the AutoRun.xml pipeline as finished.
+
+        AutoRun.xml gets stuck as 'Queued' and can cause failures at renaming
+        and deletion. This marks the pipeline as 'Complete' to prevent it from
+        interfering.
+
+        Args:
+            session (:obj:`datman.xnat.Session`): An XNAT session that you wish
+                to dismiss the pipeline for.
+        """
+        autorun_id = session.get_autorun_id(self)
+        dismiss_url = "{}/data/workflows/{}?wrk:workflowData/status=Complete"\
+            "".format(self.server, autorun_id)
+        self._make_xnat_put(dismiss_url)
 
     def _get_xnat_stream(self, url, filename, retries=3, timeout=120):
         logger.debug('Getting {} from XNAT'.format(url))
@@ -847,19 +916,21 @@ class xnat(object):
                 response.raise_for_status()
 
         elif response.status_code != 200:
-            if 'multiple imaging sessions.' in response.content:
+            str_message = str(response.content)
+            if 'multiple imaging sessions.' in str_message:
                 raise XnatException('Multiple imaging sessions in archive,'
                                     ' check prearchive')
-            if '502 Bad Gateway' in response.content:
+            if '502 Bad Gateway' in str_message:
                 raise XnatException('Bad gateway error: Check tomcat logs')
-            if 'Unable to identify experiment' in response.content:
+            if 'Unable to identify experiment' in str_message:
                 raise XnatException('Unable to identify experiment, did '
                                     'dicom upload fail?')
             else:
                 raise XnatException('An unknown error occured uploading data.'
                                     'Status code: {}, reason: {}'
                                     .format(response.status_code,
-                                            response.content))
+                                            str_message))
+        return response.content
 
     def _make_xnat_delete(self, url, retries=3):
         try:
@@ -891,9 +962,10 @@ class Session(object):
 
         # Experiment attributes
         self.experiment = self._get_experiment()
-        self.experiment_date = self._get_experiment_date()
-        self.experiment_label = self._get_experiment_label()
-        self.experiment_UID = self._get_experiment_UID()
+        self.experiment_date = self._get_exp_field('date')
+        self.experiment_label = self._get_exp_field('label')
+        self.experiment_id = self._get_exp_field('id')
+        self.experiment_UID = self._get_exp_field('UID')
 
         # Scan attributes
         self.scans = self._get_scans()
@@ -921,34 +993,14 @@ class Session(object):
 
         return experiments[0]['items'][0]
 
-    def _get_experiment_label(self):
+    def _get_exp_field(self, field):
         if not self.experiment:
             return ''
         try:
-            label = self.experiment['data_fields']['label']
+            result = self.experiment['data_fields'][field]
         except KeyError:
-            logger.error("Could not retrieve experiment label for {}".format(
-                    self.name))
-            label = ''
-        return label
-
-    def _get_experiment_UID(self):
-        if not self.experiment:
             return ''
-        try:
-            uid = self.experiment['data_fields']['UID']
-        except KeyError:
-            uid = ''
-        return uid
-
-    def _get_experiment_date(self):
-        if not self.experiment:
-            return ''
-        try:
-            date = self.experiment['data_fields']['date']
-        except KeyError:
-            date = ''
-        return date
+        return result
 
     def _get_experiment_contents(self, field):
         """
@@ -1055,6 +1107,85 @@ class Session(object):
                                              label != 'SNAPSHOTS'):
                         r_ids.append(r_id)
         return r_ids
+
+    def get_autorun_id(self, xnat):
+        """Find the current status of the 'autorun.xml' workflow
+
+        XNAT has this obnoxious, on-by-default and seemingly impossible to
+        disable, 'workflow' called AutoRun.xml. It appears to do nothing other
+        than prevent certain actions (like renaming sessions/experiments) if
+        it is stuck in the running or queued state. This will grab the autorun
+        ID for this session so that it can be modified.
+
+        Returns:
+            str: an integer reference ID that can be used to change the status
+                of the pipeline for this subject using XNAT's API
+
+        Raises:
+            XnatException: If no AutoRun.xml pipeline instance is found or
+                the API response can't be parsed.
+        """
+        query_xml = """
+            <xdat:bundle
+                    xmlns:xdat="http://nrg.wustl.edu/security"
+                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                    ID="@wrk:workflowData"
+                    brief-description=""
+                    description=""
+                    allow-diff-columns="0"
+                    secure="false">
+                <xdat:root_element_name>wrk:workflowData</xdat:root_element_name>
+                <xdat:search_field>
+                    <xdat:element_name>wrk:workflowData</xdat:element_name>
+                    <xdat:field_ID>pipeline_name</xdat:field_ID>
+                    <xdat:sequence>0</xdat:sequence>
+                    <xdat:type>string</xdat:type>
+                    <xdat:header>wrk:workflowData/pipeline_name</xdat:header>
+                </xdat:search_field>
+                <xdat:search_field>
+                    <xdat:element_name>wrk:workflowData</xdat:element_name>
+                    <xdat:field_ID>wrk_workflowData_id</xdat:field_ID>
+                    <xdat:sequence>1</xdat:sequence>
+                    <xdat:type>string</xdat:type>
+                    <xdat:header>wrk:workflowData/wrk_workflowData_id</xdat:header>
+                </xdat:search_field>
+                <xdat:search_where method="AND">
+                    <xdat:criteria override_value_formatting="0">
+                        <xdat:schema_field>wrk:workflowData/ID</xdat:schema_field>
+                        <xdat:comparison_type>LIKE</xdat:comparison_type>
+                        <xdat:value>{exp_id}</xdat:value>
+                    </xdat:criteria>
+                    <xdat:criteria override_value_formatting="0">
+                        <xdat:schema_field>wrk:workflowData/ExternalID</xdat:schema_field>
+                        <xdat:comparison_type>=</xdat:comparison_type>
+                        <xdat:value>{project}</xdat:value>
+                    </xdat:criteria>
+                    <xdat:criteria override_value_formatting="0">
+                        <xdat:schema_field>wrk:workflowData/pipeline_name</xdat:schema_field>
+                        <xdat:comparison_type>=</xdat:comparison_type>
+                        <xdat:value>xnat_tools/AutoRun.xml</xdat:value>
+                    </xdat:criteria>
+                </xdat:search_where>
+            </xdat:bundle>
+        """.format(exp_id=self.experiment_id, project=self.project)  # noqa: E501
+
+        query_url = "{}/data/search?format=json".format(xnat.server)
+        response = xnat._make_xnat_post(query_url, data=query_xml)
+
+        if not response:
+            raise XnatException("AutoRun.xml pipeline not found.")
+
+        try:
+            found_pipelines = json.loads(response)
+        except json.JSONDecodeError:
+            raise XnatException("Can't decode workflow query response.")
+
+        try:
+            wf_id = found_pipelines['ResultSet']['Result'][0]['workflow_id']
+        except (IndexError, KeyError):
+            raise XnatException("No autorun workflow ID found.")
+
+        return wf_id
 
     def get_resources(self, xnat_connection):
         """
