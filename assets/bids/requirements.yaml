@@ -1,7 +1,7 @@
 #YAML configuration for enforcing BIDS imaging standards and naming conventions
 #General structure is as follows
 # Each entry is a modality of imaging (anat,func,fieldmap,dwi etc...)
-# Each modality contains a dictionary with "Required", "Optional" 
+# Each modality contains a dictionary with "Required", "Optional"
 # Each object in required or optional contains the following information:
 #
 # description : what the tag is supposed to mean
@@ -16,7 +16,7 @@
 #               This works in an IF AND ONLY IF fashion (bidirectional requirement)
 #
 # VALID TYPES: INT, FLOAT, STRING
-# REFERENCING OTHER FIELDS: Using "@" before allows you to reference a field in the same modality 
+# REFERENCING OTHER FIELDS: Using "@" before allows you to reference a field in the same modality
 # and retrieve the associated property
 
 VERSION: "1.2.1"
@@ -25,8 +25,8 @@ VERSION: "1.2.1"
 
 global:
         order: ['sub','ses']
-        required: 
-                sub: 
+        required:
+                sub:
                         description: "BIDS subject name"
         optional:
                         ses:
@@ -41,7 +41,7 @@ global:
 anat:
         order: ['@global.acq','ce','rec','@global.run','mod','modality_label']
         required:
-                modality_label: 
+                modality_label:
                         description: "Type of anatomical scan"
                         constraint: {
                                 IN:['T1w','T2w','T1rho','T1map','T2map','T2star','FLAIR','FLASH',
@@ -51,7 +51,7 @@ anat:
                 ce:
                         description: "Used to indicate contrast enhanced images and the agent used"
                 rec:
-                        description: "Reconstruction algorithm used" 
+                        description: "Reconstruction algorithm used"
                 mod:
                         description: "Modality associated with defacemask"
                         required: {
@@ -81,23 +81,18 @@ func:
 
 dwi:
         order: ['@global.acq','dir','@global.run','modality_label']
-        required: {
-                modality_label: 
+        required:
+                modality_label:
                         description: "Type of diffusion scan"
-                        constraint: {
-                                IN:['dwi','sbref']
-                        }
-
-                
-        }
+                        constraint: {IN:['dwi','sbref']}
         optional: {
-        
+
                 dir: {}
         }
 
 fmap:
         order: ['@global.acq','dir','echo','@global.run','modality_label']
-        required: 
+        required:
                 modality_label:
                         constraint: {IN: ['magnitude','fieldmap','magnitude1','magnitude2',
                         'phase1','phase2','phase','phasediff','epi']}

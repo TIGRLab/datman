@@ -1,41 +1,184 @@
-version: 2
+version: 2.1
+orbs:
+  codecov: codecov/codecov@1.0.5
 jobs:
   build:
-    docker:
-      - image: circleci/python:2.7-jessie-node-browsers
-        environment:
-          DATMAN: /home/circleci/datman
-          NOSE_XUNIT_FILE: /home/circleci/project/outputs/nose/result.xml
+    working_directory: ~/datman
+    machine:
+      image: ubuntu-1604:201903-01
     steps:
-      - checkout:
-          path: /home/circleci/datman
+      - checkout
+      - run:
+          name: Check if docs build before continuing
+          command: |
+            cd ~/datman
+            if [[ "$( git log --format='format:%s' -n 1 $CIRCLE_SHA1 | grep -iE '^docs?(\(\w+\))?:' )" != "" ]]; then
+              echo "Will only be building Docs"
+              circleci step halt
+            fi
       - restore_cache:
-          key: deps1-{{ .Branch }}-{{ checksum "/home/circleci/datman/requirements.txt" }}
+          keys: 
+            - datman-v1-{{ .Branch }}-{{ checksum "setup.cfg" }}
+            - datman-v1-{{ .Branch }}
+            - datman-v1-
       - run:
-          name: Install requirements in venv
+          name: Set up installation and cache
           command: |
-            python -m virtualenv venv
-            source venv/bin/activate
-            pip install -r /home/circleci/datman/requirements.txt
+            pyenv global 3.6.5
+            pip install -e .[all]
       - save_cache:
-          key: deps1-{{ .Branch }}-{{ checksum "/home/circleci/datman/requirements.txt" }}
+          key: datman-v1-{{ .Branch }}-{{ checksum "setup.cfg" }}
           paths:
-            - "venv"
+            ~/.cache/pip
+            /opt/circleci/.pyenv/versions/3.6.5/lib/python3.6.5/site-packages
       - run:
-          name: Try to run nose
+          name: Run pytest and output junit xml for codecov
           command: |
-            ls
-            echo 'export PATH=${DATMAN}/bin/:${DATMAN}/assets/:$PATH:${DATMAN}/:${DATMAN}/datman/' >> $BASH_ENV
-            echo 'export MATLABPATH=${DATMAN}/assets/:$MATLABPATH' >> $BASH_ENV
-            echo 'export PYTHONPATH=${DATMAN}/assets/:${DATMAN}/:$PYTHONPATH' >> $BASH_ENV
-            echo 'export DATMAN_ASSETS=${DATMAN}/assets/'
-            mkdir outputs
-            source venv/bin/activate
-            cd /home/circleci/datman
-            mkdir /home/circleci/project/outputs/nose
-            nosetests --with-xunit
+            pyenv global 3.6.5
+            pytest tests/ --junitxml=tests/results/junit-{envname}.xml --cov . \
+              --cov-report term-missing --cov-report xml
+      - codecov/upload:
+          file: tests/results/junit*xml
+          flags: unittests
+  test_deploy_pypi:
+    working_directory: ~/datman
+    docker:
+      - image: "python:3.6.5"
+    steps:
+      - checkout
+      - run:
+          name: Set up virtual environment
+          command: |
+            python -m venv /tmp/sdist
+            source /tmp/sdist/bin/activate
+            python -m pip install -U pip
+            python -m pip install "setuptools>=30.3.0" twine
+
+            # NOTE THE YAML/WRAPT requirement for __init__
+            wrapt_ver=$(grep "wrapt" setup.cfg | tr -d ' ')
+            pyyaml_ver=$(grep "pyyaml" setup.cfg | tr -d ' ')
+            pip install "$wrapt_ver" "$pyyaml_ver"
+      - run:
+          name: Build datman
+          command: |
+            source /tmp/sdist/bin/activate
+
+            # Get version, remove dirty suffix
+            THISVERSION=$( python get_version.py )
+            THISVERSION=${THISVERSION%.dirty*}
+            THISVERSION=${CIRCLE_TAG:-$THISVERSION}
+            echo "${THISVERSION}" > VERSION
+            python setup.py sdist
+            pip wheel --no-deps -w dist/ .
       - store_artifacts:
-          path: /home/circleci/project/outputs
-          destination: out
-      - store_test_results:
-          path: /home/circleci/project/outputs
+          path: ~/datman/dist
+      - run:
+          name: Check sdist
+          command: |
+            source /tmp/sdist/bin/activate
+            THISVERSION=$( python get_version.py )
+            THISVERSION=${THISVERSION%.dirty*}
+            THISVERSION=${CIRCLE_TAG:-$THISVERSION}
+            twine check ~/datman/dist/datman*tar.gz
+            pip install dist/datman*tar.gz
+            INSTALLED_VER=$(python -c 'import datman; print(datman.__version__)')
+            echo "CIRCLETAG: $CIRCLEC_TAG"
+            echo "VERSION: \"$THISVERSION\""
+            echo "INSTALLED: \"$INSTALLED_VER\""
+            test "$INSTALLED_VER" = "$THISVERSION"
+      - run:
+          name: Check wheel
+          command: |
+            python -m venv /tmp/whl
+            source /tmp/whl/bin/activate
+
+            wrapt_ver=$(grep "wrapt" setup.cfg | tr -d ' ')
+            pyyaml_ver=$(grep "pyyaml" setup.cfg | tr -d ' ')
+            pip install "$wrapt_ver" "$pyyaml_ver"
+
+            pip install twine
+            THISVERSION=$( python get_version.py )
+            THISVERSION=${THISVERSION%.dirty*}
+            THISVERSION=${CIRCLE_TAG:-$THISVERSION}
+            twine check dist/datman*.whl
+            pip install dist/datman*.whl
+
+
+            INSTALLED_VER=$(python -c 'import datman; print(datman.__version__)')
+            echo "VERSION: \"$THISVERSION\""
+            echo "INSTALLED: \"$INSTALLED_VER\""
+            test "$INSTALLED_VER" = "$THISVERSION"
+      - store_artifacts:
+          path: ~/datman/dist
+
+  deployable:
+    working_directory: ~/datman
+    docker:
+      - image: "python:3.6.5"
+    steps:
+      - run:
+          command: |
+            echo "Deploying Datman!"
+
+  deploy_pypi:
+    working_directory: ~/datman
+    docker:
+      - image: "python:3.6.5"
+    steps:
+      - checkout
+      - run:
+          name: Configure virtual environment
+          command: |
+            python -m venv /tmp/sdist
+            source /tmp/sdist/bin/activate
+            pip install -U pip
+            pip install "setuptools>=30.3.0 twine wrapt pyyaml"
+            THISVERSION=${THISVERSION%.dirty*}
+            THISVERSION=${CIRCLE_TAG:-$THISVERSION}
+            echo "${CIRCLE_TAG:-%THISVERSION}" > VERSION
+            python setup.py sdist
+            pip wheel --no-deps -w dist/ .
+      - run:
+          name: Upload to PyPI
+          command: |
+            source /tmp/sdist/bin/activate
+            twine upload dist/datman*
+
+workflows:
+  version: 2
+  build_test_deploy:
+    jobs:
+      - build:
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+            tags:
+              only: /.*/
+
+      - test_deploy_pypi:
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+            tags:
+              only: /.*/
+
+      - deployable:
+          requires:
+            - build
+            - test_deploy_pypi
+          filters:
+            branches:
+              only: master
+            tags:
+              only: /.*/
+
+      - deploy_pypi:
+          requires:
+            - deployable
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /.*/
