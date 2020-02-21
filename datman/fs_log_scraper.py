@@ -9,6 +9,7 @@ The FSLog class aggregates/parses the most useful details from the log files.
 import os
 import glob
 import re
+from dateutil.parser import parse as date_parser
 import datetime
 import logging
 
@@ -196,7 +197,7 @@ class FSLog(object):
     def get_date(self, date_str):
         if not date_str:
             return ''
-        return datetime.datetime.strptime(date_str, '%a %b %d %X %Z %Y')
+        return date_parser(date_str)
 
     def get_kernel(self, log_uname):
         if not log_uname:
