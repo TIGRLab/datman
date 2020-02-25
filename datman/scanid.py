@@ -3,26 +3,27 @@ Represents scan identifiers that conform to the TIGRLab naming scheme
 """
 import os.path
 import re
+from abc import ABC
 
-SCANID_RE = '(?P<study>[^_]+)_' \
-            '(?P<site>[^_]+)_' \
-            '(?P<subject>[^_]+)_' \
-            '(?P<timepoint>[^_]+)_' \
-            '(?P<session>[^_]+)'
+DATMAN_SCAN_RE = '(?P<study>[^_]+)_' \
+                 '(?P<site>[^_]+)_' \
+                 '(?P<subject>[^_]+)_' \
+                 '(?P<timepoint>[^_]+)_' \
+                 '(?P<session>[^_]+)'
 
-SCANID_PHA_RE = '(?P<study>[^_]+)_' \
+DATMAN_PHA_RE = '(?P<study>[^_]+)_' \
                 '(?P<site>[^_]+)_' \
                 '(?P<subject>PHA_[^_]+)' \
                 '(?P<timepoint>)(?P<session>)'  # empty
 
-FILENAME_RE = SCANID_RE + '_' + \
+FILENAME_RE = DATMAN_SCAN_RE + '_' + \
               r'(?P<tag>[^_]+)_' + \
               r'(?P<series>\d+)_' + \
               r'(?P<description>.*?)' + \
               r'(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|' + \
               r'.IMA|.mnc|.nrrd|$)'
 
-FILENAME_PHA_RE = SCANID_PHA_RE + '_' + \
+FILENAME_PHA_RE = DATMAN_PHA_RE + '_' + \
               r'(?P<tag>[^_]+)_' + \
               r'(?P<series>\d+)_' + \
               r'(?P<description>.*?)' + \
@@ -42,9 +43,8 @@ BIDS_SCAN_RE = r'sub-(?P<subject>[A-Z0-9]+)_' + \
                r'((?![A-Za-z0-9]*-)(?P<suffix>[^_.]+))' + \
                r'.*$'
 
-
-SCANID_PATTERN = re.compile('^' + SCANID_RE + '$')
-SCANID_PHA_PATTERN = re.compile('^' + SCANID_PHA_RE + '$')
+DATMAN_PATTERN = re.compile('^' + DATMAN_SCAN_RE + '$')
+DATMAN_PHA_PATTERN = re.compile('^' + DATMAN_PHA_RE + '$')
 FILENAME_PATTERN = re.compile('^' + FILENAME_RE)
 FILENAME_PHA_PATTERN = re.compile('^' + FILENAME_PHA_RE)
 BIDS_SCAN_PATTERN = re.compile(BIDS_SCAN_RE)
@@ -54,25 +54,16 @@ class ParseException(Exception):
     pass
 
 
-class Identifier:
-    def __init__(self, study, site, subject, timepoint, session):
-        self.study = study
-        self.site = site
-        self.subject = subject
-        self.timepoint = timepoint
-        # Bug fix: spaces were being left after the session number leading to
-        # broken file names
-        self._session = session.strip()
+class Identifier(ABC):
 
-    @property
-    def session(self):
-        if self._session == 'XX':
-            return ''
-        return self._session
+    def match(self, identifier):
+        if not isinstance(identifier, str):
+            raise ParseException("Must be given a string to verify ID matches")
 
-    @session.setter
-    def session(self, value):
-        self._x = value
+        match = self.scan_pattern.match(identifier)
+        if not match:
+            match = self.pha_pattern.match(identifier)
+        return match
 
     def get_full_subjectid(self):
         return "_".join([self.study, self.site, self.subject])
@@ -97,6 +88,89 @@ class Identifier:
             return self.get_full_subjectid_with_timepoint_session()
         else:
             return self.get_full_subjectid_with_timepoint()
+
+
+class DatmanIdentifier(Identifier):
+    scan_re = '(?P<study>[^_]+)_' \
+              '(?P<site>[^_]+)_' \
+              '(?P<subject>[^_]+)_' \
+              '(?P<timepoint>[^_]+)_' \
+              '(?!MR)(?P<session>[^_]+)'
+
+    pha_re = '(?P<study>[^_]+)_' \
+             '(?P<site>[^_]+)_' \
+             '(?P<subject>PHA_[^_]+)' \
+             '(?P<timepoint>)(?P<session>)'  # empty
+
+    scan_pattern = re.compile('^' + scan_re + '$')
+    pha_pattern = re.compile('^' + pha_re + '$')
+
+    def __init__(self, identifier):
+        match = self.match(identifier)
+
+        if not match:
+            # work around for matching scanids when session not supplied
+            match = self.scan_pattern.match(identifier + '_XX')
+
+        if not match:
+            raise ParseException('Invalid Datman ID {}'.format(identifier))
+
+        self.study = match.group('study')
+        self.site = match.group('site')
+        self.subject = match.group('subject')
+        self.timepoint = match.group('timepoint')
+        # Bug fix: spaces were being left after the session number leading to
+        # broken file name
+        self._session = match.group('session').strip()
+
+    @property
+    def session(self):
+        if self._session == 'XX':
+            return ''
+        return self._session
+
+    @session.setter
+    def session(self, value):
+        self._session = value
+
+    def __repr__(self):
+        return '<datman.scanid.DatmanIdentifier {}>'.format(self.__str__())
+
+
+class KCNIIdentifier(Identifier):
+    scan_re = '(?P<study>[A-Z]{3}[0-9]{2})_' \
+               '(?P<site>[A-Z]{3})_' \
+               '(?P<subject>[A-Z0-9]{4,8})_' \
+               '(?P<timepoint>[0-9]{2})_' \
+               'SE(?P<session>[0-9]{2})_MR'
+
+    pha_re = '(?P<study>[A-Z]{3}[0-9]{2})_' \
+             '(?P<site>[A-Z]{3})_' \
+             '(?P<pha_type>[A-Z]{3}PHA)_' \
+             '(?P<subject>[0-9]{4})_MR' \
+             '(?P<timepoint>)(?P<session>)'  # empty
+
+    scan_pattern = re.compile('^' + scan_re + '$')
+    pha_pattern = re.compile('^' + pha_re + '$')
+
+    def __init__(self, identifier, settings=None):
+        match = self.match(identifier)
+        if not match:
+            raise ParseException("Invalid KCNI ID {}".format(identifier))
+        # What about if a field has to be translated between conventions?
+        self.study = match.group("study")
+        self.site = match.group("site")
+        self.subject = match.group("subject")
+        self.timepoint = match.group("timepoint")
+        self.session = match.group("session")
+        try:
+            self.pha = match.group("pha_type")
+        except IndexError:
+            # Not a phantom
+            pass
+
+    def __repr__(self):
+        return '<datman.scanid.KCNIIdentifier {}>'.format(self.__str__())
 
 
 class BIDSFile(object):
@@ -167,24 +241,18 @@ class BIDSFile(object):
         return "<datman.scanid.BIDSFile {}>".format(self.__str__())
 
 
-def parse(identifier):
-    if not isinstance(identifier, str):
-        raise ParseException
+def parse(identifier, settings=None):
+    try:
+        ident = DatmanIdentifier(identifier)
+    except ParseException:
+        pass
+    else:
+        return ident
 
-    match = SCANID_PATTERN.match(identifier)
-    if not match:
-        match = SCANID_PHA_PATTERN.match(identifier)
-    # work around for matching scanid's when session not supplied
-    if not match:
-        match = SCANID_PATTERN.match(identifier + '_XX')
-    if not match:
-        raise ParseException("Invalid ID {}".format(identifier))
-
-    ident = Identifier(study=match.group("study"),
-                       site=match.group("site"),
-                       subject=match.group("subject"),
-                       timepoint=match.group("timepoint"),
-                       session=match.group("session"))
+    try:
+        ident = KCNIIdentifier(identifier, settings=settings)
+    except ParseException:
+        raise
 
     return ident
 

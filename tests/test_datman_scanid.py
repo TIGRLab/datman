@@ -1,6 +1,19 @@
 import datman.scanid as scanid
 import pytest
 
+SETTINGS = {
+    'ID_TYPE': 'KCNI',
+    'STUDY': 'DTI',
+    'SITE': {
+        'CMH': 'UT1',
+        'UTO': 'UT2'
+    },
+    'SUBJECT': {
+        '9(?P[0-9]{3,8})': 'H',
+        '8(?P[0-9]{3,8})': 'C'
+    }
+}
+
 
 def test_parse_empty():
     with pytest.raises(scanid.ParseException):
@@ -17,7 +30,7 @@ def test_parse_garbage():
         scanid.parse("lkjlksjdf")
 
 
-def test_parse_good_scanid():
+def test_parse_good_datman_scanid():
     ident = scanid.parse("DTI_CMH_H001_01_02")
     assert ident.study == "DTI"
     assert ident.site == "CMH"
@@ -26,9 +39,45 @@ def test_parse_good_scanid():
     assert ident.session == "02"
 
 
-def test_scanid_to_string():
-    ident = scanid.Identifier("DTI", "CMH", "H001", "01", "02")
-    assert str(ident) == "DTI_CMH_H001_01_02"
+def test_parse_good_kcni_scanid():
+    ident = scanid.parse("ABC01_CMH_12345678_01_SE02_MR")
+    assert ident.study == 'ABC01'
+    assert ident.site == 'CMH'
+    assert ident.subject == '12345678'
+    assert ident.timepoint == '01'
+    assert ident.session == '02'
+
+
+# def test_parse_and_modify_kcni_scanid_when_given_settings():
+#     ident = scanid.parse('DTI01_UTO_9001_01_SE02_MR', settings=SETTINGS)
+#     assert ident.study == 'DTI'
+#     assert ident.site == 'UT2'
+#     assert ident.subject == 'H001'
+#     assert ident.timepoint == '01'
+#     assert ident.session == '02'
+
+def test_parses_datman_subject_id_as_datman_identifier():
+    dm_subject = "DTI01_CMH_H001_01_02"
+    ident = scanid.parse(dm_subject)
+    assert isinstance(ident, scanid.DatmanIdentifier)
+
+
+def test_parses_datman_pha_id_as_datman_identifier():
+    dm_pha = "DTI01_CMH_PHA_H001"
+    ident = scanid.parse(dm_pha)
+    assert isinstance(ident, scanid.DatmanIdentifier)
+
+
+def test_parses_kcni_subject_id_as_kcni_identifier():
+    kcni_subject = "DTI01_CMH_H001_01_SE02_MR"
+    ident = scanid.parse(kcni_subject)
+    assert isinstance(ident, scanid.KCNIIdentifier)
+
+
+def test_parses_kcni_pha_id_as_kcni_identifier():
+    kcni_pha = "DTI01_CMH_ABCPHA_0001_MR"
+    ident = scanid.parse(kcni_pha)
+    assert isinstance(ident, scanid.KCNIIdentifier)
 
 
 def test_is_scanid_garbage():
@@ -43,8 +92,12 @@ def test_is_scanid_extra_fields():
     assert scanid.is_scanid("DTI_CMH_H001_01_01_01_01_01_01") is False
 
 
-def test_is_scanid_good():
+def test_is_datman_scanid_good():
     assert scanid.is_scanid("SPN01_CMH_0002_01_01")
+
+
+def test_is_kcni_scanid_good():
+    assert scanid.is_scanid("SPN01_CMH_0001_01_SE01_MR")
 
 
 def test_get_full_subjectid():
@@ -52,7 +105,7 @@ def test_get_full_subjectid():
     assert ident.get_full_subjectid() == "DTI_CMH_H001"
 
 
-def test_parse_PHA_scanid():
+def test_parse_datman_PHA_scanid():
     ident = scanid.parse("DTI_CMH_PHA_ADN0001")
     assert ident.study == "DTI"
     assert ident.site == "CMH"
@@ -60,6 +113,13 @@ def test_parse_PHA_scanid():
     assert ident.timepoint == ""
     assert ident.session == ""
     assert str(ident) == "DTI_CMH_PHA_ADN0001"
+
+
+def test_parse_kcni_PHA_scanid():
+    ident = scanid.parse("ABC01_CMH_LEGPHA_0001_MR")
+    assert ident.study == 'ABC01'
+    assert ident.site == 'CMH'
+    assert ident.subject == 'LEG0001'
 
 
 def test_subject_id_with_timepoint():
