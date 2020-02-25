@@ -105,7 +105,7 @@ class DatmanIdentifier(Identifier):
     scan_pattern = re.compile('^' + scan_re + '$')
     pha_pattern = re.compile('^' + pha_re + '$')
 
-    def __init__(self, identifier):
+    def __init__(self, identifier, settings=None):
         match = self.match(identifier)
 
         if not match:
@@ -146,7 +146,7 @@ class KCNIIdentifier(Identifier):
 
     pha_re = '(?P<study>[A-Z]{3}[0-9]{2})_' \
              '(?P<site>[A-Z]{3})_' \
-             '(?P<pha_type>[A-Z]{3}PHA)_' \
+             '(?P<pha_type>[A-Z]{3})PHA_' \
              '(?P<subject>[0-9]{4})_MR' \
              '(?P<timepoint>)(?P<session>)'  # empty
 
@@ -157,17 +157,22 @@ class KCNIIdentifier(Identifier):
         match = self.match(identifier)
         if not match:
             raise ParseException("Invalid KCNI ID {}".format(identifier))
+
         # What about if a field has to be translated between conventions?
         self.study = match.group("study")
         self.site = match.group("site")
+
         self.subject = match.group("subject")
-        self.timepoint = match.group("timepoint")
-        self.session = match.group("session")
         try:
-            self.pha = match.group("pha_type")
+            self.pha_type = match.group("pha_type")
         except IndexError:
             # Not a phantom
-            pass
+            self.pha_type = None
+        else:
+            self.subject = "PHA_{}{}".format(self.pha_type, self.subject)
+
+        self.timepoint = match.group("timepoint")
+        self.session = match.group("session")
 
     def __repr__(self):
         return '<datman.scanid.KCNIIdentifier {}>'.format(self.__str__())
