@@ -1,16 +1,15 @@
 import datman.scanid as scanid
 import pytest
 
+# Settings to use for parse() tests
 SETTINGS = {
     'ID_TYPE': 'KCNI',
-    'STUDY': 'DTI',
+    'STUDY': {
+        'DTI01': 'DTI'
+    },
     'SITE': {
         'CMH': 'UT1',
         'UTO': 'UT2'
-    },
-    'SUBJECT': {
-        '9(?P[0-9]{3,8})': 'H',
-        '8(?P[0-9]{3,8})': 'C'
     }
 }
 
@@ -65,14 +64,6 @@ def test_parse_good_kcni_PHA_scanid():
     assert ident.subject == 'PHA_LEG0001'
 
 
-# def test_parse_and_modify_kcni_scanid_when_given_settings():
-#     ident = scanid.parse('DTI01_UTO_9001_01_SE02_MR', settings=SETTINGS)
-#     assert ident.study == 'DTI'
-#     assert ident.site == 'UT2'
-#     assert ident.subject == 'H001'
-#     assert ident.timepoint == '01'
-#     assert ident.session == '02'
-
 def test_parses_datman_subject_id_as_datman_identifier():
     dm_subject = "DTI01_CMH_H001_01_02"
     ident = scanid.parse(dm_subject)
@@ -95,6 +86,25 @@ def test_parses_kcni_pha_id_as_kcni_identifier():
     kcni_pha = "DTI01_CMH_ABCPHA_0001_MR"
     ident = scanid.parse(kcni_pha)
     assert isinstance(ident, scanid.KCNIIdentifier)
+
+
+def test_parse_exception_when_kcni_subject_id_modality_missing():
+    with pytest.raises(scanid.ParseException):
+        scanid.parse("DTI01_CMH_H001_01_SE02")
+
+
+def test_kcni_pha_id_parsed_as_datman_when_modality_missing():
+    # This isn't the behavior we want but unless the user specifies convention
+    # we can't catch that these kcni pha ids are malformed. This test is
+    # just to document that this happens. It's a good thing if it starts to
+    # fail :)
+    ident = scanid.parse("DTI01_CMH_ABCPHA_0001")
+    assert not isinstance(ident, scanid.KCNIIdentifier)
+
+
+def test_parse_exception_when_kcni_session_malformed():
+    with pytest.raises(scanid.ParseException):
+        scanid.parse("DTI01_CMH_H001_01_02_MR")
 
 
 def test_is_scanid_garbage():

@@ -5,50 +5,6 @@ import os.path
 import re
 from abc import ABC
 
-DATMAN_SCAN_RE = '(?P<study>[^_]+)_' \
-                 '(?P<site>[^_]+)_' \
-                 '(?P<subject>[^_]+)_' \
-                 '(?P<timepoint>[^_]+)_' \
-                 '(?P<session>[^_]+)'
-
-DATMAN_PHA_RE = '(?P<study>[^_]+)_' \
-                '(?P<site>[^_]+)_' \
-                '(?P<subject>PHA_[^_]+)' \
-                '(?P<timepoint>)(?P<session>)'  # empty
-
-FILENAME_RE = DATMAN_SCAN_RE + '_' + \
-              r'(?P<tag>[^_]+)_' + \
-              r'(?P<series>\d+)_' + \
-              r'(?P<description>.*?)' + \
-              r'(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|' + \
-              r'.IMA|.mnc|.nrrd|$)'
-
-FILENAME_PHA_RE = DATMAN_PHA_RE + '_' + \
-              r'(?P<tag>[^_]+)_' + \
-              r'(?P<series>\d+)_' + \
-              r'(?P<description>.*?)' + \
-              r'(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|' + \
-              r'.IMA|.mnc|.nrrd|$)'
-
-BIDS_SCAN_RE = r'sub-(?P<subject>[A-Z0-9]+)_' + \
-               r'ses-(?P<session>[A-Za-z0-9]+)_' + \
-               r'(task-(?P<task>[A-Za-z0-9]+)_){0,1}' + \
-               r'(acq-(?P<acq>[A-Za-z0-9]+)_){0,1}' + \
-               r'(ce-(?P<ce>[A-Za-z0-9]+)_){0,1}' + \
-               r'(dir-(?P<dir>[A-Za-z0-9]+)_){0,1}' + \
-               r'(rec-(?P<rec>[A-Za-z0-9]+)_){0,1}' + \
-               r'(run-(?P<run>[0-9]+)_){0,1}' + \
-               r'(echo-(?P<echo>[0-9]+)_){0,1}' + \
-               r'(mod-(?P<mod>[A-Za-z0-9]+)_){0,1}' + \
-               r'((?![A-Za-z0-9]*-)(?P<suffix>[^_.]+))' + \
-               r'.*$'
-
-DATMAN_PATTERN = re.compile('^' + DATMAN_SCAN_RE + '$')
-DATMAN_PHA_PATTERN = re.compile('^' + DATMAN_PHA_RE + '$')
-FILENAME_PATTERN = re.compile('^' + FILENAME_RE)
-FILENAME_PHA_PATTERN = re.compile('^' + FILENAME_PHA_RE)
-BIDS_SCAN_PATTERN = re.compile(BIDS_SCAN_RE)
-
 
 class ParseException(Exception):
     pass
@@ -91,16 +47,16 @@ class Identifier(ABC):
 
 
 class DatmanIdentifier(Identifier):
-    scan_re = '(?P<study>[^_]+)_' \
+    scan_re = '(?P<id>(?P<study>[^_]+)_' \
               '(?P<site>[^_]+)_' \
-              '(?P<subject>[^_]+)_' \
+              '(?!.+PHA)(?P<subject>[^_]+)_' \
               '(?P<timepoint>[^_]+)_' \
-              '(?!MR)(?P<session>[^_]+)'
+              '(?!MR)(?!SE)(?P<session>[^_]+))'
 
-    pha_re = '(?P<study>[^_]+)_' \
+    pha_re = '(?P<id>(?P<study>[^_]+)_' \
              '(?P<site>[^_]+)_' \
              '(?P<subject>PHA_[^_]+)' \
-             '(?P<timepoint>)(?P<session>)'  # empty
+             '(?P<timepoint>)(?P<session>))'  # empty tp + session
 
     scan_pattern = re.compile('^' + scan_re + '$')
     pha_pattern = re.compile('^' + pha_re + '$')
@@ -138,17 +94,17 @@ class DatmanIdentifier(Identifier):
 
 
 class KCNIIdentifier(Identifier):
-    scan_re = '(?P<study>[A-Z]{3}[0-9]{2})_' \
-               '(?P<site>[A-Z]{3})_' \
-               '(?P<subject>[A-Z0-9]{4,8})_' \
-               '(?P<timepoint>[0-9]{2})_' \
-               'SE(?P<session>[0-9]{2})_MR'
+    scan_re = '(?P<id>(?P<study>[A-Z]{3}[0-9]{2})_' \
+              '(?P<site>[A-Z]{3})_' \
+              '(?P<subject>[A-Z0-9]{4,8})_' \
+              '(?P<timepoint>[0-9]{2})_' \
+              'SE(?P<session>[0-9]{2})_MR)'
 
-    pha_re = '(?P<study>[A-Z]{3}[0-9]{2})_' \
+    pha_re = '(?P<id>(?P<study>[A-Z]{3}[0-9]{2})_' \
              '(?P<site>[A-Z]{3})_' \
              '(?P<pha_type>[A-Z]{3})PHA_' \
              '(?P<subject>[0-9]{4})_MR' \
-             '(?P<timepoint>)(?P<session>)'  # empty
+             '(?P<timepoint>)(?P<session>))'  # empty
 
     scan_pattern = re.compile('^' + scan_re + '$')
     pha_pattern = re.compile('^' + pha_re + '$')
@@ -246,23 +202,87 @@ class BIDSFile(object):
         return "<datman.scanid.BIDSFile {}>".format(self.__str__())
 
 
+FILENAME_RE = DatmanIdentifier.scan_re + '_' + \
+              r'(?P<tag>[^_]+)_' + \
+              r'(?P<series>\d+)_' + \
+              r'(?P<description>.*?)' + \
+              r'(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|' + \
+              r'.IMA|.mnc|.nrrd|$)'
+
+FILENAME_PHA_RE = DatmanIdentifier.pha_re + '_' + \
+              r'(?P<tag>[^_]+)_' + \
+              r'(?P<series>\d+)_' + \
+              r'(?P<description>.*?)' + \
+              r'(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|' + \
+              r'.IMA|.mnc|.nrrd|$)'
+
+BIDS_SCAN_RE = r'sub-(?P<subject>[A-Z0-9]+)_' + \
+               r'ses-(?P<session>[A-Za-z0-9]+)_' + \
+               r'(task-(?P<task>[A-Za-z0-9]+)_){0,1}' + \
+               r'(acq-(?P<acq>[A-Za-z0-9]+)_){0,1}' + \
+               r'(ce-(?P<ce>[A-Za-z0-9]+)_){0,1}' + \
+               r'(dir-(?P<dir>[A-Za-z0-9]+)_){0,1}' + \
+               r'(rec-(?P<rec>[A-Za-z0-9]+)_){0,1}' + \
+               r'(run-(?P<run>[0-9]+)_){0,1}' + \
+               r'(echo-(?P<echo>[0-9]+)_){0,1}' + \
+               r'(mod-(?P<mod>[A-Za-z0-9]+)_){0,1}' + \
+               r'((?![A-Za-z0-9]*-)(?P<suffix>[^_.]+))' + \
+               r'.*$'
+
+FILENAME_PATTERN = re.compile('^' + FILENAME_RE)
+FILENAME_PHA_PATTERN = re.compile('^' + FILENAME_PHA_RE)
+BIDS_SCAN_PATTERN = re.compile(BIDS_SCAN_RE)
+
+
 def parse(identifier, settings=None):
+    """Parse a subject ID matching a supported naming convention.
+
+    Args:
+        identifier (:obj:`str`): A string that might be a valid subject ID.
+        settings (:obj:`dict`, optional): A dictionary of settings to use when
+            parsing the ID. Defaults to None.
+
+    Raises:
+        ParseException: If identifier does not match any supported naming
+            convention.
+
+    Returns:
+        :obj:`Identifer`: An instance of a subclass of Identifier for the
+            matched naming convention.
+    """
     try:
-        ident = DatmanIdentifier(identifier)
+        return DatmanIdentifier(identifier)
     except ParseException:
         pass
-    else:
-        return ident
 
     try:
-        ident = KCNIIdentifier(identifier, settings=settings)
+        return KCNIIdentifier(identifier, settings=settings)
     except ParseException:
-        raise
+        pass
 
-    return ident
+    raise ParseException("Invalid ID - {}".format(identifier))
 
 
 def parse_filename(path):
+    """Parse a datman style file name.
+
+    Args:
+        path (:obj:`str`): A file name or full path to parse
+
+    Raises:
+        ParseException: If the file name does not match the datman convention.
+
+    Returns:
+        tuple: A tuple containing:
+
+            ident (:obj:`DatmanIdentifier`): The parsed subject ID portion of
+                the path.
+            tag (:obj:`str`): The scan tag that identifies the acquisition.
+            series (int): The series number.
+            description (:obj:`str`): The series description. Should be
+                identical to the SeriesDescription field of the dicom headers
+                (aside from some mangling to non-alphanumeric characters).
+    """
     fname = os.path.basename(path)
     match = FILENAME_PHA_PATTERN.match(fname)  # check PHA first
     if not match:
@@ -270,11 +290,7 @@ def parse_filename(path):
     if not match:
         raise ParseException()
 
-    ident = Identifier(study=match.group("study"),
-                       site=match.group("site"),
-                       subject=match.group("subject"),
-                       timepoint=match.group("timepoint"),
-                       session=match.group("session"))
+    ident = DatmanIdentifier(match.group("id"))
 
     tag = match.group("tag")
     series = match.group("series")
