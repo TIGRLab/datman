@@ -93,13 +93,9 @@ def test_parse_exception_when_kcni_subject_id_modality_missing():
         scanid.parse("DTI01_CMH_H001_01_SE02")
 
 
-def test_kcni_pha_id_parsed_as_datman_when_modality_missing():
-    # This isn't the behavior we want but unless the user specifies convention
-    # we can't catch that these kcni pha ids are malformed. This test is
-    # just to document that this happens. It's a good thing if it starts to
-    # fail :)
-    ident = scanid.parse("DTI01_CMH_ABCPHA_0001")
-    assert not isinstance(ident, scanid.KCNIIdentifier)
+def test_parse_exception_when_kcni_pha_id_modality_missing():
+    with pytest.raises(scanid.ParseException):
+        scanid.parse("DTI01_CMH_ABCPHA_0001")
 
 
 def test_parse_exception_when_kcni_session_malformed():
