@@ -71,6 +71,8 @@ class DatmanIdentifier(Identifier):
         if not match:
             raise ParseException('Invalid Datman ID {}'.format(identifier))
 
+        self._match_groups = match
+        self.orig_id = match.group('id')
         self.study = match.group('study')
         self.site = match.group('site')
         self.subject = match.group('subject')
@@ -112,23 +114,24 @@ class KCNIIdentifier(Identifier):
     def __init__(self, identifier, settings=None):
         match = self.match(identifier)
         if not match:
-            raise ParseException("Invalid KCNI ID {}".format(identifier))
+            raise ParseException('Invalid KCNI ID {}'.format(identifier))
 
-        # What about if a field has to be translated between conventions?
-        self.study = match.group("study")
-        self.site = match.group("site")
+        self._match_groups = match
+        self.orig_id = match.group('id')
+        self.study = get_field(match, 'study', settings=settings)
+        self.site = get_field(match, 'site', settings=settings)
 
-        self.subject = match.group("subject")
+        self.subject = match.group('subject')
         try:
-            self.pha_type = match.group("pha_type")
+            self.pha_type = match.group('pha_type')
         except IndexError:
             # Not a phantom
             self.pha_type = None
         else:
-            self.subject = "PHA_{}{}".format(self.pha_type, self.subject)
+            self.subject = 'PHA_{}{}'.format(self.pha_type, self.subject)
 
-        self.timepoint = match.group("timepoint")
-        self.session = match.group("session")
+        self.timepoint = match.group('timepoint')
+        self.session = match.group('session')
 
     def __repr__(self):
         return '<datman.scanid.KCNIIdentifier {}>'.format(self.__str__())
@@ -237,6 +240,37 @@ BIDS_SCAN_PATTERN = re.compile(BIDS_SCAN_RE)
 def parse(identifier, settings=None):
     """Parse a subject ID matching a supported naming convention.
 
+    The 'settings' flag can be used to exclude any IDs that do not match the
+    specified convention, or to translate certain ID fields to maintain
+    consistency within a single naming convention.
+
+    Accepted keys include:
+        'ID_TYPE': Restricts parsing to one naming convention (e.g. 'DATMAN'
+            or 'KCNI')
+        'STUDY': Allows the 'study' field of an ID to be mapped to a
+            different code.
+        'SITE': Allows the 'site' field of an ID to be translated between
+            conventions.
+
+    .. note:: All 'settings' keys must be uppercase.
+
+    Using the settings from the below example will cause parse to reject any
+    IDs that are not KCNI format, will translate any valid IDs containing
+    'DTI01' to the study code 'DTI', and will translate any valid IDs
+    containing the site 'UTO' to the site 'UT1'.
+
+    .. code-block:: python
+
+        settings = {
+            'ID_TYPE': 'KCNI',
+            'STUDY': {
+                'DTI01': 'DTI'
+            },
+            'SITE': {
+                'UTO': 'UT2'
+            }
+        }
+
     Args:
         identifier (:obj:`str`): A string that might be a valid subject ID.
         settings (:obj:`dict`, optional): A dictionary of settings to use when
@@ -250,15 +284,23 @@ def parse(identifier, settings=None):
         :obj:`Identifer`: An instance of a subclass of Identifier for the
             matched naming convention.
     """
-    try:
-        return DatmanIdentifier(identifier)
-    except ParseException:
-        pass
 
-    try:
-        return KCNIIdentifier(identifier, settings=settings)
-    except ParseException:
-        pass
+    if settings and 'ID_TYPE' in settings:
+        id_type = settings['ID_TYPE']
+    else:
+        id_type = 'DETECT'
+
+    if id_type in ('DATMAN', 'DETECT'):
+        try:
+            return DatmanIdentifier(identifier)
+        except ParseException:
+            pass
+
+    if id_type in ('KCNI', 'DETECT'):
+        try:
+            return KCNIIdentifier(identifier, settings=settings)
+        except ParseException:
+            pass
 
     raise ParseException("Invalid ID - {}".format(identifier))
 
@@ -370,3 +412,33 @@ def get_session_num(ident):
     else:
         raise ParseException("ID {} is missing a session number".format(ident))
     return num
+
+
+def get_field(match, field, settings=None):
+    """Find the value of an ID field, allowing for user specified changes.
+
+    Args:
+        match (:obj:`re.Match`): A match object created from a valid ID
+        field (:obj:`str`): An ID field name. This is lower case and
+            corresponds to the match groups of valid (supported) ID (e.g.
+            study, site, subject)
+        settings (:obj:`dict`, optional): User settings to specify fields that
+            should be modified and how to modify them. See the settings
+            description in :py:func:`parse` for more info. Defaults to None.
+
+    Returns:
+        str: The value of the field based on the re.Match groups and user
+            settings.
+    """
+
+    if not settings or field.upper() not in settings:
+        return match.group(field)
+
+    mapping = settings[field.upper()]
+    current_field = match.group(field)
+    try:
+        new_field = mapping[current_field]
+    except KeyError:
+        new_field = current_field
+
+    return new_field

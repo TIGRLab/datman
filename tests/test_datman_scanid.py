@@ -1,18 +1,6 @@
 import datman.scanid as scanid
 import pytest
 
-# Settings to use for parse() tests
-SETTINGS = {
-    'ID_TYPE': 'KCNI',
-    'STUDY': {
-        'DTI01': 'DTI'
-    },
-    'SITE': {
-        'CMH': 'UT1',
-        'UTO': 'UT2'
-    }
-}
-
 
 def test_parse_empty():
     with pytest.raises(scanid.ParseException):
@@ -101,6 +89,43 @@ def test_parse_exception_when_kcni_pha_id_modality_missing():
 def test_parse_exception_when_kcni_session_malformed():
     with pytest.raises(scanid.ParseException):
         scanid.parse("DTI01_CMH_H001_01_02_MR")
+
+
+def test_user_settings_id_type_respected():
+    # Datman IDs should be rejected if user says to parse only KCNI IDs
+    with pytest.raises(scanid.ParseException):
+        scanid.parse("DTI01_CMH_H001_01_02", settings={'ID_TYPE': 'KCNI'})
+
+    # KCNI IDs should be rejected if the user says to parse only Datman IDs
+    with pytest.raises(scanid.ParseException):
+        scanid.parse("DTI01_CMH_H001_01_SE02_MR",
+                     settings={'ID_TYPE': 'DATMAN'})
+
+
+def test_kcni_study_field_is_modified_when_settings_given():
+    settings = {
+        'STUDY': {
+            'DTI01': 'DTI'
+        }
+    }
+    kcni_id = "DTI01_CMH_H001_01_SE02_MR"
+    ident = scanid.parse(kcni_id, settings=settings)
+
+    assert ident.study == 'DTI'
+    assert str(ident) == "DTI_CMH_H001_01_02"
+
+
+def test_kcni_site_field_is_modified_when_settings_given():
+    settings = {
+        'SITE': {
+            'UTO': 'UT2'
+        }
+    }
+    kcni_id = 'ABC01_UTO_12345678_01_SE02_MR'
+    ident = scanid.parse(kcni_id, settings=settings)
+
+    assert ident.site == 'UT2'
+    assert str(ident) == 'ABC01_UT2_12345678_01_02'
 
 
 def test_is_scanid_garbage():
