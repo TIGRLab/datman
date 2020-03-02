@@ -1,14 +1,14 @@
 """Module to interact with the xnat server"""
 
+from abc import ABC
+import getpass
 import logging
+import os
+import re
 import time
 import tempfile
-import os
 import urllib.parse
-import getpass
-import re
 from xml.etree import ElementTree
-from abc import ABC
 
 import requests
 
@@ -208,14 +208,14 @@ class xnat(object):
                 result = self.get_session(study, session)
                 return result
         try:
-            session_json = result['items'][0]
+            subject_json = result['items'][0]
         except TypeError:
             msg = "Session {} doesn't exist on xnat for study {}".format(
                             session,
                             study)
             raise XnatException(msg)
 
-        return XNATSession(session_json)
+        return XNATSubject(subject_json)
 
     def make_session(self, study, session):
         url = "{server}/REST/projects/{project}/subjects/{subject}"
@@ -843,10 +843,10 @@ class XNATObject(ABC):
         return self.raw_json['data_fields'].get(key, '')
 
 
-class XNATSession(XNATObject):
+class XNATSubject(XNATObject):
 
-    def __init__(self, session_json):
-        self.raw_json = session_json
+    def __init__(self, subject_json):
+        self.raw_json = subject_json
         self.name = self._get_field('label')
         self.project = self._get_field('project')
         self.experiments = self._get_experiments()
@@ -867,7 +867,7 @@ class XNATSession(XNATObject):
         return found
 
     def __str__(self):
-        return "<XNATSession {}>".format(self.name)
+        return "<XNATSubject {}>".format(self.name)
 
     def __repr__(self):
         return self.__str__()
@@ -881,6 +881,7 @@ class XNATExperiment(XNATObject):
         self.uid = self._get_field('UID')
         self.id = self._get_field('ID')
         self.name = self._get_field('label')
+        self.date = self._get_field('date')
 
         # Scan attributes
         self.scans = self._get_scans()
