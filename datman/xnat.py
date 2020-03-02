@@ -209,7 +209,7 @@ class xnat(object):
                 return result
         try:
             session_json = result['items'][0]
-        except (IndexError, KeyError):
+        except TypeError:
             msg = "Session {} doesn't exist on xnat for study {}".format(
                             session,
                             study)
@@ -838,7 +838,7 @@ class xnat(object):
 
 class XNATObject(ABC):
     def _get_field(self, key):
-        if not self.raw_json['data_fields']:
+        if not self.raw_json.get('data_fields'):
             return ''
         return self.raw_json['data_fields'].get(key, '')
 
@@ -879,6 +879,7 @@ class XNATExperiment(XNATObject):
         self.raw_json = experiment_json
         self.session = session_name
         self.uid = self._get_field('UID')
+        self.id = self._get_field('ID')
         self.name = self._get_field('label')
 
         # Scan attributes
@@ -890,8 +891,8 @@ class XNATExperiment(XNATObject):
         self.resource_files = self._get_contents('resources/resource')
         self.resource_IDs = self._get_resource_IDs()
 
-        # # Misc - basically just OPT CU1 needs this
-        # self.misc_resource_IDs = self._get_other_resource_IDs()
+        # Misc - basically just OPT CU1 needs this
+        self.misc_resource_IDs = self._get_other_resource_IDs()
 
     def _get_contents(self, data_type):
         children = self.raw_json.get('children', [])
@@ -942,118 +943,108 @@ class XNATExperiment(XNATObject):
                                                 'xnat_abstractresource_id'])
         return resource_ids
 
-    # def _get_other_resource_IDs(self):
-    #     """
-    #     OPT's CU site uploads niftis to their server. These niftis are neither
-    #     classified as resources nor as scans so our code misses them entirely.
-    #     This functions grabs the abstractresource_id for these and
-    #     any other unique files aside from snapshots so they can be downloaded
-    #     """
-    #     r_ids = []
-    #     for scan in self.scans:
-    #         for child in scan.raw_json['children']:
-    #             for file_upload in child['items']:
-    #                 data_fields = file_upload['data_fields']
-    #                 try:
-    #                     label = data_fields['label']
-    #                 except KeyError:
-    #                     # Some entries dont have labels. Only hold some header
-    #                     # values. These are safe to ignore
-    #                     continue
+    def _get_other_resource_IDs(self):
+        """
+        OPT's CU site uploads niftis to their server. These niftis are neither
+        classified as resources nor as scans so our code misses them entirely.
+        This functions grabs the abstractresource_id for these and
+        any other unique files aside from snapshots so they can be downloaded
+        """
+        r_ids = []
+        for scan in self.scans:
+            for child in scan.raw_json['children']:
+                for file_upload in child['items']:
+                    data_fields = file_upload['data_fields']
+                    try:
+                        label = data_fields['label']
+                    except KeyError:
+                        # Some entries dont have labels. Only hold some header
+                        # values. These are safe to ignore
+                        continue
 
-    #                 try:
-    #                     data_format = data_fields['format']
-    #                 except KeyError:
-    #                     # Some entries have labels but no format... or neither
-    #                     if not label:
-    #                         # If neither, ignore. Should just be an entry
-    #                         # containing scan parameters, etc.
-    #                         continue
-    #                     data_format = label
+                    try:
+                        data_format = data_fields['format']
+                    except KeyError:
+                        # Some entries have labels but no format... or neither
+                        if not label:
+                            # If neither, ignore. Should just be an entry
+                            # containing scan parameters, etc.
+                            continue
+                        data_format = label
 
-    #                 try:
-    #                     r_id = str(data_fields['xnat_abstractresource_id'])
-    #                 except KeyError:
-    #                     # Some entries have labels and/or a format but no
-    #                     # actual files and so no resource id. These can also be
-    #                     # safely ignored.
-    #                     continue
+                    try:
+                        r_id = str(data_fields['xnat_abstractresource_id'])
+                    except KeyError:
+                        # Some entries have labels and/or a format but no
+                        # actual files and so no resource id. These can also be
+                        # safely ignored.
+                        continue
 
-    #                 # ignore DICOM, it's grabbed elsewhere. Ignore snapshots
-    #                 # entirely. Some things may not be labelled DICOM but may
-    #                 # be format 'DICOM' so that needs to be checked for too.
-    #                 if label != 'DICOM' and (data_format != 'DICOM' and
-    #                                          label != 'SNAPSHOTS'):
-    #                     r_ids.append(r_id)
-    #     return r_ids
+                    # ignore DICOM, it's grabbed elsewhere. Ignore snapshots
+                    # entirely. Some things may not be labelled DICOM but may
+                    # be format 'DICOM' so that needs to be checked for too.
+                    if label != 'DICOM' and (data_format != 'DICOM' and
+                                             label != 'SNAPSHOTS'):
+                        r_ids.append(r_id)
+        return r_ids
 
-    # def get_resources(self, xnat_connection):
-    #     """
-    #     Returns a list of all resource URIs from this session.
-    #     """
-    #     resources = []
-    #     resource_ids = list(self.resource_IDs.values())
-    #     resource_ids.extend(self.misc_resource_IDs)
-    #     for r_id in resource_ids:
-    #         resource_list = xnat_connection.get_resource_list(
-    #                                 self.project,
-    #                                 self.name,
-    #                                 self.experiment_label,
-    #                                 r_id)
-    #         resources.extend([item['URI'] for item in resource_list])
-    #     return resources
+    def get_resources(self, xnat_connection):
+        """
+        Returns a list of all resource URIs from this session.
+        """
+        resources = []
+        resource_ids = list(self.resource_IDs.values())
+        resource_ids.extend(self.misc_resource_IDs)
+        for r_id in resource_ids:
+            resource_list = xnat_connection.get_resource_list(
+                                    self.project,
+                                    self.name,
+                                    self.experiment_label,
+                                    r_id)
+            resources.extend([item['URI'] for item in resource_list])
+        return resources
 
-    # def download(self, xnat, dest_folder, zip_name=None):
-    #     """
-    #     Download a zip file containing all data for this session. Returns the
-    #     path to the new file if download is successful, raises an exception if
-    #     not
+    def download(self, xnat, dest_folder, zip_name=None):
+        """
+        Download a zip file containing all data for this session. Returns the
+        path to the new file if download is successful, raises an exception if
+        not
 
-    #     xnat                An instance of datman.xnat.xnat()
-    #     dest_folder         The absolute path to the folder where the zip
-    #                         should be deposited
-    #     zip_name            An optional name for the output zip file. If not
-    #                         set the zip name will be session.name
-    #     """
-    #     if not self.experiment:
-    #         raise ValueError("No data found for {}".format(self.name))
+        xnat                An instance of datman.xnat.xnat()
+        dest_folder         The absolute path to the folder where the zip
+                            should be deposited
+        zip_name            An optional name for the output zip file. If not
+                            set the zip name will be session.name
+        """
+        # Grab dicoms
+        resources_list = self.scan_resource_IDs
+        # Grab what we define as resources (i.e. tech notes, non-dicoms)
+        resources_list.extend(list(self.resource_IDs.values()))
+        # Grab anything else other than snapshots (i.e. 'MUX' for OPT CU1)
+        resources_list.extend(self.misc_resource_IDs)
 
-    #     try:
-    #         experiment_ID = self.experiment['data_fields']['ID']
-    #     except KeyError:
-    #         raise KeyError("Can't retrieve experiment ID for experiment {}. "
-    #                        "Please check contents.".format(
-    #                                                 self.experiment_label))
+        if not resources_list:
+            raise ValueError("No scans or resources found for {}"
+                             "".format(self.name))
 
-    #     # Grab dicoms
-    #     resources_list = self.scan_resource_IDs
-    #     # Grab what we define as resources (i.e. tech notes, non-dicoms)
-    #     resources_list.extend(list(self.resource_IDs.values()))
-    #     # Grab anything else other than snapshots (i.e. 'MUX' for OPT CU1)
-    #     resources_list.extend(self.misc_resource_IDs)
+        url = ("{}/REST/experiments/{}/resources/{}/files"
+               "?structure=improved&all=true&format=zip".format(
+                            xnat.server,
+                            self.id,
+                            ",".join(resources_list)))
 
-    #     if not resources_list:
-    #         raise ValueError("No scans or resources found for {}"
-    #                          "".format(self.name))
+        if not zip_name:
+            zip_name = self.session.upper() + ".zip"
 
-    #     url = ("{}/REST/experiments/{}/resources/{}/files"
-    #            "?structure=improved&all=true&format=zip".format(
-    #                         xnat.server,
-    #                         experiment_ID,
-    #                         ",".join(resources_list)))
+        output_path = os.path.join(dest_folder, zip_name)
+        if os.path.exists(output_path):
+            logger.error("Cannot download {}, file already exists.".format(
+                    output_path))
+            return output_path
 
-    #     if not zip_name:
-    #         zip_name = self.name.upper() + ".zip"
+        xnat._get_xnat_stream(url, output_path)
 
-    #     output_path = os.path.join(dest_folder, zip_name)
-    #     if os.path.exists(output_path):
-    #         logger.error("Cannot download {}, file already exists.".format(
-    #                 output_path))
-    #         return output_path
-
-    #     xnat._get_xnat_stream(url, output_path)
-
-    #     return output_path
+        return output_path
 
     def __str__(self):
         return "<XNATExperiment {}>".format(self.name)
