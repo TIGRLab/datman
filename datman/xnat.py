@@ -25,7 +25,7 @@ def get_server(config, url=None, port=None):
         use_port = True
 
     if not url:
-        url = config.get_key('XNATSERVER')
+        url = config.get_key("XNATSERVER")
 
     # Check for 'http' and NOT https, because checking for https could mangle a
     # url into https://http<restof>
@@ -40,13 +40,13 @@ def get_server(config, url=None, port=None):
     except KeyError:
         logger.debug("'XNATPORT' undefined in config. Omitting port number "
                      "for {}".format(url))
-        port_str = ''
+        port_str = ""
 
     # Will create a bad url if a port is appended after '/'
-    if url.endswith('/'):
+    if url.endswith("/"):
         url = url[:-1]
 
-    server = '{}{}'.format(url, port_str)
+    server = "{}{}".format(url, port_str)
 
     return server
 
@@ -58,10 +58,10 @@ def get_port_str(config, port):
     Will raise KeyError if port is None and config file doesnt define XNATPORT
     """
     if port is None:
-        port = config.get_key('XNATPORT')
+        port = config.get_key("XNATPORT")
 
-    if not str(port).startswith(':'):
-        port = ':{}'.format(port)
+    if not str(port).startswith(":"):
+        port = ":{}".format(port)
 
     return port
 
@@ -89,14 +89,14 @@ class xnat(object):
     session = None
 
     def __init__(self, server, username, password):
-        if server.endswith('/'):
+        if server.endswith("/"):
             server = server[:-1]
         self.server = server
         self.auth = (username, password)
         try:
-            self.get_xnat_session()
+            self.open_session()
         except Exception:
-            raise XnatException("Failed getting xnat session for {}".format(
+            raise XnatException("Failed to open session with server {}".format(
                     server))
 
     def __enter__(self):
@@ -104,72 +104,89 @@ class xnat(object):
 
     def __exit__(self, type, value, traceback):
         # Ends the session on the server side
-        url = '{}/data/JSESSION'.format(self.server)
+        url = "{}/data/JSESSION".format(self.server)
         self.session.delete(url)
 
-    def get_xnat_session(self):
-        """Setup a session with xnat"""
-        url = '{}/data/JSESSION'.format(self.server)
+    def open_session(self):
+        """Open a session with the XNAT server.
+        """
+        url = "{}/data/JSESSION".format(self.server)
 
         s = requests.Session()
 
         response = s.post(url, auth=self.auth)
 
         if not response.status_code == requests.codes.ok:
-            logger.warn('Failed connecting to xnat server {} '
-                        'with response code {}'
-                        ''.format(self.server, response.status_code))
-            logger.debug('Username: {}')
+            logger.warn("Failed connecting to xnat server {} "
+                        "with response code {}"
+                        "".format(self.server, response.status_code))
+            logger.debug("Username: {}")
             response.raise_for_status()
 
         # Cookies are set automatically, dont manually set them or it wipes
         # out other session info
         self.session = s
 
-    def get_projects(self):
-        """Queries the xnat server for a list of projects"""
-        logger.debug('Querying xnat server for projects')
-        url = '{}/data/archive/projects/?format=json'.format(self.server)
+    def get_projects(self, project=""):
+        """Queries the XNAT server for project metadata.
+
+        Args:
+            project (str, optional): The name of an XNAT project to search for.
+                If unset, metadata from all accessible projects on the server
+                will be returned. Defaults to the empty string.
+
+        Raises:
+            XnatException: If failure is experienced while attempting to access
+                the server's API.
+
+        Returns:
+            list: A list with one dictionary for each study found. Beware - the
+                formats of the dictionaries returned by a server-wide versus a
+                single project search differ greatly in structure.
+                This is a consequence of XNAT's API.
+        """
+        logger.debug("Querying XNAT server for projects")
+        if project:
+            logger.debug("Narrowing search to {}".format(project))
+
+        url = "{}/data/archive/projects/{}?format=json".format(
+            self.server, project)
+
         try:
             result = self._make_xnat_query(url)
         except Exception:
-            raise XnatException("Failed getting projects with url: {}"
-                                .format(url))
+            raise XnatException("Failed getting projects from server with "
+                                "search URL {}".format(url))
 
         if not result:
-            raise XnatException("No studies on server: {}"
-                                .format(self.server))
+            logger.debug("No projects found on server {}".format(self.server))
+            return []
 
-        return(result['ResultSet']['Result'])
+        if not project:
+            return result["ResultSet"]["Result"]
 
-    def get_project(self, project):
-        logger.debug('Querying xnat server for project: {}'.format(project))
-        url = '{}/data/archive/projects/{}?format=json'.format(self.server,
-                                                               project)
-        try:
-            result = self._make_xnat_query(url)
-        except Exception:
-            raise XnatException("Failed getting project with url: {}"
-                                .format(url))
+        return result["items"]
 
-        if not result:
-            logger.warn('Project: {} not found'.format(project))
-            raise XnatException("Project: {} not found. Are credentials"
-                                "exported to the environment and clevis given"
-                                "permission on the xnat project?"
-                                .format(project))
+    def get_subjects(self, project):
+        """Return the IDs for all subjects within an XNAT project.
 
-        return(result['items'][0])
+        Args:
+            project (:obj:`str`): The 'Project ID' for a project on XNAT.
 
-    def get_sessions(self, study):
-        logger.debug('Querying xnat server for sessions in study: {}'
-                     .format(study))
-        if not self.get_project(study):
-            raise XnatException('Invalid xnat project: {}'
-                                .format(study))
+        Raises:
+            XnatException: If the project does not exist, project access fails,
+                or no subjects can be found.
 
-        url = '{}/data/archive/projects/{}/subjects/'.format(self.server,
-                                                             study)
+        Returns:
+            list: A list of subject IDs found within the project.
+        """
+        logger.debug("Querying xnat server for subjects in project: {}"
+                     .format(project))
+        if not self.get_project(project):
+            raise XnatException("Invalid XNAT project: {}".format(project))
+
+        url = "{}/data/archive/projects/{}/subjects/".format(self.server,
+                                                             project)
         try:
             result = self._make_xnat_query(url)
         except Exception:
@@ -177,17 +194,18 @@ class xnat(object):
                                 .format(url))
 
         if not result:
-            raise XnatException('No sessions found for study: {}'.format(study))
+            raise XnatException("No sessions found for project: {}".format(
+                project))
 
-        return(result['ResultSet']['Result'])
+        return result["ResultSet"]["Result"]
 
     def get_session(self, study, session, create=False):
         """Checks to see if session exists in xnat,
         if create and study doesnt exist will try to create it
         returns study or none"""
-        logger.debug('Querying for session: {} in study: {}'
+        logger.debug("Querying for session: {} in study: {}"
                      .format(session, study))
-        url = '{}/data/archive/projects/{}/subjects/{}?format=json' \
+        url = "{}/data/archive/projects/{}/subjects/{}?format=json" \
               .format(self.server, study, session)
 
         try:
@@ -197,7 +215,7 @@ class xnat(object):
                                 .format(url))
 
         if not result:
-            logger.info('Session: {} not found in study: {}'
+            logger.info("Session: {} not found in study: {}"
                         .format(session, study))
             if create:
                 try:
@@ -208,7 +226,7 @@ class xnat(object):
                 result = self.get_session(study, session)
                 return result
         try:
-            subject_json = result['items'][0]
+            subject_json = result["items"][0]
         except TypeError:
             msg = "Session {} doesn't exist on xnat for study {}".format(
                             session,
@@ -225,14 +243,14 @@ class xnat(object):
         try:
             self._make_xnat_put(url)
         except requests.exceptions.RequestException as e:
-            logger.warn('Failed to create xnat subject: {}'.format(session))
+            logger.warn("Failed to create xnat subject: {}".format(session))
             raise e
 
     def get_experiments(self, study, session):
-        logger.debug('Getting experiments for session: {} in study: {}'
+        logger.debug("Getting experiments for session: {} in study: {}"
                      .format(session, study))
-        url = '{}/data/archive/projects/{}' \
-              '/subjects/{}/experiments/?format=json'.format(self.server,
+        url = "{}/data/archive/projects/{}" \
+              "/subjects/{}/experiments/?format=json".format(self.server,
                                                              study,
                                                              session)
         try:
@@ -242,18 +260,18 @@ class xnat(object):
                                 .format(url))
 
         if not result:
-            logger.warn('No experiments found for session: {} in study: {}'
+            logger.warn("No experiments found for session: {} in study: {}"
                         .format(session, study))
             return
 
-        return(result['ResultSet']['Result'])
+        return(result["ResultSet"]["Result"])
 
     def get_experiment(self, study, session, experiment):
-        logger.debug('Getting experiment: {} for session: {} in study: {}'
+        logger.debug("Getting experiment: {} for session: {} in study: {}"
                      .format(experiment, session, study))
-        url = '{}/data/archive/projects/{}' \
-              '/subjects/{}/experiments/{}' \
-              '?format=json'.format(self.server,
+        url = "{}/data/archive/projects/{}" \
+              "/subjects/{}/experiments/{}" \
+              "?format=json".format(self.server,
                                     study,
                                     session,
                                     experiment)
@@ -264,11 +282,11 @@ class xnat(object):
                                 .format(url))
 
         if not result:
-            raise XnatException('Experiment: {} not found for session: {}'
-                                ' in study: {}'
+            raise XnatException("Experiment: {} not found for session: {}"
+                                " in study: {}"
                                 .format(experiment, session, study))
 
-        return result['items'][0]
+        return result["items"][0]
 
     def make_experiment(self, project, session, experiment):
         """
@@ -288,32 +306,32 @@ class xnat(object):
 
     def get_scan_list(self, study, session, experiment):
         """The list of dicom scans in an experiment"""
-        url = '{}/data/archive/projects/{}' \
-              '/subjects/{}/experiments/{}' \
-              '/scans/?format=json'.format(self.server,
+        url = "{}/data/archive/projects/{}" \
+              "/subjects/{}/experiments/{}" \
+              "/scans/?format=json".format(self.server,
                                            study,
                                            session,
                                            experiment)
         try:
             result = self._make_xnat_query(url)
         except Exception:
-            raise XnatException('Failed getting scans with url: {}'
-                                ''.format(url))
+            raise XnatException("Failed getting scans with url: {}"
+                                "".format(url))
 
         if result is None:
-            e = XnatException('Scan not found for experiment: {}'
+            e = XnatException("Scan not found for experiment: {}"
                               .format(experiment))
             e.study = study
             e.session = session
             raise e
 
-        return result['ResultSet']['Result']
+        return result["ResultSet"]["Result"]
 
     def get_scan_info(self, study, session, experiment, scanid):
         """Returns info about an xnat scan"""
-        url = '{}/data/archive/projects/{}' \
-              '/subjects/{}/experiments/{}' \
-              '/scans/{}/?format=json'.format(self.server,
+        url = "{}/data/archive/projects/{}" \
+              "/subjects/{}/experiments/{}" \
+              "/scans/{}/?format=json".format(self.server,
                                               study,
                                               session,
                                               experiment,
@@ -321,28 +339,28 @@ class xnat(object):
         try:
             result = self._make_xnat_query(url)
         except Exception:
-            raise XnatException('Failed getting scan with url: {}'
-                                ''.format(url))
+            raise XnatException("Failed getting scan with url: {}"
+                                "".format(url))
 
         if result is None:
-            e = XnatException('Scan:{} not found for experiment: {}'
+            e = XnatException("Scan:{} not found for experiment: {}"
                               .format(scanid, experiment))
             e.study = study
             e.session = session
             raise e
 
-        return result['items'][0]
+        return result["items"][0]
 
     def get_resource_ids(self, study, session, experiment, folderName=None,
                          create=True):
         """
         Return a list of resource id's (subfolders) from an experiment
         """
-        logger.debug('Getting resource ids for expeiment: {}'
+        logger.debug("Getting resource ids for expeiment: {}"
                      .format(experiment))
-        url = '{}/data/archive/projects/{}' \
-              '/subjects/{}/experiments/{}' \
-              '/resources/?format=json'.format(self.server,
+        url = "{}/data/archive/projects/{}" \
+              "/subjects/{}/experiments/{}" \
+              "/resources/?format=json".format(self.server,
                                                study,
                                                session,
                                                experiment)
@@ -352,24 +370,24 @@ class xnat(object):
             raise XnatException("Failed getting resource ids with url: {}"
                                 .format(url))
         if result is None:
-            raise XnatException('Experiment: {} not found for session: {}'
-                                ' in study: {}'
+            raise XnatException("Experiment: {} not found for session: {}"
+                                " in study: {}"
                                 .format(experiment, session, study))
 
-        if create and int(result['ResultSet']['totalRecords']) < 1:
+        if create and int(result["ResultSet"]["totalRecords"]) < 1:
             return self.create_resource_folder(study,
                                                session,
                                                experiment,
                                                folderName)
 
         resource_ids = {}
-        for r in result['ResultSet']['Result']:
+        for r in result["ResultSet"]["Result"]:
             try:
-                label = r['label']
-                resource_ids[label] = r['xnat_abstractresource_id']
+                label = r["label"]
+                resource_ids[label] = r["xnat_abstractresource_id"]
             except KeyError:
                 # some resource folders have no label
-                resource_ids['No Label'] = r['xnat_abstractresource_id']
+                resource_ids["No Label"] = r["xnat_abstractresource_id"]
 
         if not folderName:
             # foldername not specified return them all
@@ -394,9 +412,9 @@ class xnat(object):
         """
         Creates a resource subfolder and returns the xnat identifier.
         """
-        url = '{}/data/archive/projects/{}' \
-              '/subjects/{}/experiments/{}' \
-              '/resources/{}/'.format(self.server,
+        url = "{}/data/archive/projects/{}" \
+              "/subjects/{}/experiments/{}" \
+              "/resources/{}/".format(self.server,
                                       study,
                                       session,
                                       experiment,
@@ -407,11 +425,11 @@ class xnat(object):
     def get_resource_list(self, study, session, experiment, resource_id):
         """The list of non-dicom resources associated with an experiment
         returns a list of dicts, mostly interested in ID and name"""
-        logger.debug('Getting resource list for expeiment: {}'
+        logger.debug("Getting resource list for expeiment: {}"
                      .format(experiment))
-        url = '{}/data/archive/projects/{}' \
-              '/subjects/{}/experiments/{}' \
-              '/resources/{}/?format=xml'.format(self.server,
+        url = "{}/data/archive/projects/{}" \
+              "/subjects/{}/experiments/{}" \
+              "/resources/{}/?format=xml".format(self.server,
                                                  study,
                                                  session,
                                                  experiment,
@@ -422,19 +440,19 @@ class xnat(object):
             raise XnatException("Failed getting resources with url: {}"
                                 "".format(url))
         if result is None:
-            raise XnatException('Experiment: {} not found for session: {}'
-                                ' in study: {}'
+            raise XnatException("Experiment: {} not found for session: {}"
+                                " in study: {}"
                                 .format(experiment, session, study))
 
         # define the xml namespace
-        ns = {'cat': 'http://nrg.wustl.edu/catalog'}
-        entries = result.find('cat:entries', ns)
+        ns = {"cat": "http://nrg.wustl.edu/catalog"}
+        entries = result.find("cat:entries", ns)
         if entries is None:
             # no files found, just a label
             return []
 
         items = [entry.attrib for entry
-                 in entries.findall('cat:entry', ns)]
+                 in entries.findall("cat:entry", ns)]
 
         return items
 
@@ -444,20 +462,20 @@ class xnat(object):
         in which case the search is limited to projects in the list"""
         if not projects:
             projects = self.get_projects()
-            projects = [p['ID'] for p in projects]
+            projects = [p["ID"] for p in projects]
 
         for project in projects:
             sessions = self.get_sessions(project)
-            session_labels = [s['label'] for s in sessions]
+            session_labels = [s["label"] for s in sessions]
             if session in session_labels:
-                logger.debug('Found session: {} in project: {}'
+                logger.debug("Found session: {} in project: {}"
                              .format(session, project))
                 return project
 
     def put_dicoms(self, project, session, experiment, filename, retries=3):
         """Upload an archive of dicoms to XNAT
         filename: archive to upload"""
-        headers = {'Content-Type': 'application/zip'}
+        headers = {"Content-Type": "application/zip"}
 
         upload_url = "{server}/data/services/import?project={project}" \
                      "&subject={subject}&session={session}&overwrite=delete" \
@@ -468,14 +486,14 @@ class xnat(object):
                                        subject=session,
                                        session=experiment)
         try:
-            with open(filename, 'rb') as data:
+            with open(filename, "rb") as data:
                 self._make_xnat_post(upload_url, data, retries, headers)
         except XnatException as e:
             e.study = project
             e.session = session
             raise e
         except IOError as e:
-            logger.error('Failed to open file: {} with excuse: {}'
+            logger.error("Failed to open file: {} with excuse: {}"
                          .format(filename, e.strerror))
             err = XnatException("Error in file: {}".
                                 format(filename))
@@ -495,9 +513,9 @@ class xnat(object):
         If filename is not specified creates a temporary file
         and returns the path to that, user needs to be responsible
         for cleaning up any created tempfiles"""
-        url = '{}/data/archive/projects/{}/' \
-              'subjects/{}/experiments/{}/' \
-              'scans/{}/resources/DICOM/files?format=zip' \
+        url = "{}/data/archive/projects/{}/" \
+              "subjects/{}/experiments/{}/" \
+              "scans/{}/resources/DICOM/files?format=zip" \
               .format(self.server, project, session, experiment, scan)
 
         if not filename:
@@ -513,7 +531,7 @@ class xnat(object):
             try:
                 os.remove(filename)
             except OSError as e:
-                logger.warning('Failed to delete tempfile: {} with excuse: {}'
+                logger.warning("Failed to delete tempfile: {} with excuse: {}"
                                .format(filename, str(e)))
             err = XnatException("Failed getting dicom with url: {}".format(url))
             err.study = project
@@ -532,8 +550,8 @@ class xnat(object):
         try:
             self.get_experiment(project, session, experiment)
         except XnatException:
-            logger.warning('Experiment: {} in session: {} does not exist! '
-                           'Making new experiment'.format(experiment, session))
+            logger.warning("Experiment: {} in session: {} does not exist! "
+                           "Making new experiment".format(experiment, session))
             self.make_experiment(project, session, experiment)
 
         resource_id = self.get_resource_ids(project,
@@ -576,16 +594,16 @@ class xnat(object):
         retrns the path to that, user needs to be responsible for
         cleaning up any created tempfiles"""
 
-        url = '{}/data/archive/projects/{}/' \
-              'subjects/{}/experiments/{}/' \
-              'resources/{}/files/{}'.format(self.server,
+        url = "{}/data/archive/projects/{}/" \
+              "subjects/{}/experiments/{}/" \
+              "resources/{}/files/{}".format(self.server,
                                              project,
                                              session,
                                              experiment,
                                              resource_group_id,
                                              resource_id)
         if zipped:
-            url = url + '?format=zip'
+            url = url + "?format=zip"
 
         if not filename:
             filename = tempfile.mkstemp(prefix="dm2_xnat_extract_")
@@ -600,9 +618,9 @@ class xnat(object):
             try:
                 os.remove(filename)
             except OSError as e:
-                logger.warning('Failed to delete tempfile: {} with excude: {}'
+                logger.warning("Failed to delete tempfile: {} with excude: {}"
                                .format(filename, str(e)))
-            logger.error('Failed getting resource from xnat', exc_info=True)
+            logger.error("Failed getting resource from xnat", exc_info=True)
             raise XnatException("Failed downloading resource with url: {}"
                                 .format(url))
 
@@ -612,9 +630,9 @@ class xnat(object):
         If filename is not specified creates a temporary file and
         returns the path to that, user needs to be responsible format
         cleaning up any created tempfiles"""
-        url = '{}/data/archive/projects/{}/' \
-              'subjects/{}/experiments/{}/' \
-              'resources/{}/files?format=zip' \
+        url = "{}/data/archive/projects/{}/" \
+              "subjects/{}/experiments/{}/" \
+              "resources/{}/files?format=zip" \
               .format(self.server, project, session, experiment, resource_id)
 
         if not filename:
@@ -641,9 +659,9 @@ class xnat(object):
                         resource_group_id, resource_id, retries=3):
 
         """Delete a resource file from xnat"""
-        url = '{}/data/archive/projects/{}/' \
-              'subjects/{}/experiments/{}/' \
-              'resources/{}/files/{}'.format(self.server,
+        url = "{}/data/archive/projects/{}/" \
+              "subjects/{}/experiments/{}/" \
+              "resources/{}/files/{}".format(self.server,
                                              project,
                                              session,
                                              experiment,
@@ -652,11 +670,11 @@ class xnat(object):
         try:
             self._make_xnat_delete(url)
         except Exception:
-            raise XnatException('Failed deleting resource with url: {}'
+            raise XnatException("Failed deleting resource with url: {}"
                                 .format(url))
 
     def _get_xnat_stream(self, url, filename, retries=3, timeout=120):
-        logger.debug('Getting {} from XNAT'.format(url))
+        logger.debug("Getting {} from XNAT".format(url))
         try:
             response = self.session.get(url, stream=True, timeout=timeout)
         except requests.exceptions.Timeout as e:
@@ -668,8 +686,8 @@ class xnat(object):
 
         if response.status_code == 401:
             # possibly the session has timed out
-            logger.info('Session may have expired, resetting')
-            self.get_xnat_session()
+            logger.info("Session may have expired, resetting")
+            self.open_session()
             response = self.session.get(url, stream=True, timeout=timeout)
 
         if response.status_code == 404:
@@ -678,27 +696,27 @@ class xnat(object):
             return
         elif response.status_code == 504:
             if retries:
-                logger.warning('xnat server timed out, retrying')
+                logger.warning("xnat server timed out, retrying")
                 time.sleep(30)
                 self._get_xnat_stream(url, filename, retries=retries - 1,
                                       timeout=timeout * 2)
             else:
-                logger.error('xnat server timed out, giving up')
+                logger.error("xnat server timed out, giving up")
                 response.raise_for_status()
         elif response.status_code != 200:
-            logger.error('xnat error: {} at data upload'
+            logger.error("xnat error: {} at data upload"
                          .format(response.status_code))
             response.raise_for_status()
 
-        with open(filename, 'wb') as f:
+        with open(filename, "wb") as f:
             try:
                 for chunk in response.iter_content(1024):
                     f.write(chunk)
             except requests.exceptions.RequestException as e:
-                logger.error('Failed reading from xnat')
+                logger.error("Failed reading from xnat")
                 raise(e)
             except IOError as e:
-                logger.error('Failed writing to file')
+                logger.error("Failed writing to file")
                 raise(e)
 
     def _make_xnat_query(self, url, retries=3):
@@ -708,14 +726,14 @@ class xnat(object):
             if retries > 0:
                 return(self._make_xnat_query(url, retries=retries-1))
             else:
-                logger.error('Xnat server timed out getting url {}'
-                             ''.format(url))
+                logger.error("Xnat server timed out getting url {}"
+                             "".format(url))
                 raise e
 
         if response.status_code == 401:
             # possibly the session has timed out
-            logger.info('Session may have expired, resetting')
-            self.get_xnat_session()
+            logger.info("Session may have expired, resetting")
+            self.open_session()
             response = self.session.get(url, timeout=30)
 
         if response.status_code == 404:
@@ -723,10 +741,10 @@ class xnat(object):
                         "".format(url))
             return
         elif not response.status_code == requests.codes.ok:
-            logger.error('Failed connecting to xnat server {} '
-                         'with response code {}'
+            logger.error("Failed connecting to xnat server {} "
+                         "with response code {}"
                          .format(self.server, response.status_code))
-            logger.debug('Username: {}')
+            logger.debug("Username: {}")
             response.raise_for_status()
         return(response.json())
 
@@ -741,8 +759,8 @@ class xnat(object):
 
         if response.status_code == 401:
             # possibly the session has timed out
-            logger.info('Session may have expired, resetting')
-            self.get_xnat_session()
+            logger.info("Session may have expired, resetting")
+            self.open_session()
             response = self.session.get(url, timeout=30)
 
         if response.status_code == 404:
@@ -750,17 +768,17 @@ class xnat(object):
                         "".format(url))
             return
         elif not response.status_code == requests.codes.ok:
-            logger.error('Failed connecting to xnat server {}'
-                         ' with response code {}'
+            logger.error("Failed connecting to xnat server {}"
+                         " with response code {}"
                          .format(self.server, response.status_code))
-            logger.debug('Username: {}')
+            logger.debug("Username: {}")
             response.raise_for_status()
         root = ElementTree.fromstring(response.content)
         return(root)
 
     def _make_xnat_put(self, url, retries=3):
         if retries == 0:
-            logger.info('Timed out making xnat put {}'.format(url))
+            logger.info("Timed out making xnat put {}".format(url))
             requests.exceptions.HTTPError()
 
         try:
@@ -770,8 +788,8 @@ class xnat(object):
 
         if response.status_code == 401:
             # possibly the session has timed out
-            logger.info('Session may have expired, resetting')
-            self.get_xnat_session()
+            logger.info("Session may have expired, resetting")
+            self.open_session()
             response = self.session.put(url, timeout=30)
 
         if response.status_code not in [200, 201]:
@@ -780,7 +798,7 @@ class xnat(object):
             response.raise_for_status()
 
     def _make_xnat_post(self, url, data, retries=3, headers=None):
-        logger.debug('POSTing data to xnat, {} retries left'.format(retries))
+        logger.debug("POSTing data to xnat, {} retries left".format(retries))
         response = self.session.post(url,
                                      headers=headers,
                                      data=data,
@@ -788,33 +806,33 @@ class xnat(object):
 
         if response.status_code == 401:
             # possibly the session has timed out
-            logger.info('Session may have expired, resetting')
-            self.get_xnat_session()
+            logger.info("Session may have expired, resetting")
+            self.open_session()
             response = self.session.post(url,
                                          headers=headers,
                                          data=data)
 
         if response.status_code == 504:
             if retries:
-                logger.warning('xnat server timed out, retrying')
+                logger.warning("xnat server timed out, retrying")
                 time.sleep(30)
                 self._make_xnat_post(url, data, retries=retries - 1)
             else:
-                logger.warn('xnat server timed out, giving up')
+                logger.warn("xnat server timed out, giving up")
                 response.raise_for_status()
 
         elif response.status_code != 200:
-            if 'multiple imaging sessions.' in response.content:
-                raise XnatException('Multiple imaging sessions in archive,'
-                                    ' check prearchive')
-            if '502 Bad Gateway' in response.content:
-                raise XnatException('Bad gateway error: Check tomcat logs')
-            if 'Unable to identify experiment' in response.content:
-                raise XnatException('Unable to identify experiment, did '
-                                    'dicom upload fail?')
+            if "multiple imaging sessions." in response.content:
+                raise XnatException("Multiple imaging sessions in archive,"
+                                    " check prearchive")
+            if "502 Bad Gateway" in response.content:
+                raise XnatException("Bad gateway error: Check tomcat logs")
+            if "Unable to identify experiment" in response.content:
+                raise XnatException("Unable to identify experiment, did "
+                                    "dicom upload fail?")
             else:
-                raise XnatException('An unknown error occured uploading data.'
-                                    'Status code: {}, reason: {}'
+                raise XnatException("An unknown error occured uploading data."
+                                    "Status code: {}, reason: {}"
                                     .format(response.status_code,
                                             response.content))
 
@@ -826,8 +844,8 @@ class xnat(object):
 
         if response.status_code == 401:
             # possibly the session has timed out
-            logger.info('Session may have expired, resetting')
-            self.get_xnat_session()
+            logger.info("Session may have expired, resetting")
+            self.open_session()
             response = self.session.delete(url, timeout=30)
 
         if response.status_code not in [200, 201]:
@@ -838,29 +856,29 @@ class xnat(object):
 
 class XNATObject(ABC):
     def _get_field(self, key):
-        if not self.raw_json.get('data_fields'):
-            return ''
-        return self.raw_json['data_fields'].get(key, '')
+        if not self.raw_json.get("data_fields"):
+            return ""
+        return self.raw_json["data_fields"].get(key, "")
 
 
 class XNATSubject(XNATObject):
 
     def __init__(self, subject_json):
         self.raw_json = subject_json
-        self.name = self._get_field('label')
-        self.project = self._get_field('project')
+        self.name = self._get_field("label")
+        self.project = self._get_field("project")
         self.experiments = self._get_experiments()
 
     def _get_experiments(self):
-        experiments = [exp for exp in self.raw_json['children']
-                       if exp['field'] == 'experiments/experiment']
+        experiments = [exp for exp in self.raw_json["children"]
+                       if exp["field"] == "experiments/experiment"]
 
         if not experiments:
             logger.debug("No experiments found for {}".format(self.name))
             return {}
 
         found = {}
-        for item in experiments[0]['items']:
+        for item in experiments[0]["items"]:
             exper = XNATExperiment(self.name, item)
             found[exper.name] = exper
 
@@ -878,10 +896,10 @@ class XNATExperiment(XNATObject):
     def __init__(self, session_name, experiment_json):
         self.raw_json = experiment_json
         self.session = session_name
-        self.uid = self._get_field('UID')
-        self.id = self._get_field('ID')
-        self.name = self._get_field('label')
-        self.date = self._get_field('date')
+        self.uid = self._get_field("UID")
+        self.id = self._get_field("ID")
+        self.name = self._get_field("label")
+        self.date = self._get_field("date")
 
         # Scan attributes
         self.scans = self._get_scans()
@@ -889,21 +907,21 @@ class XNATExperiment(XNATObject):
         self.scan_resource_IDs = self._get_scan_rIDs()
 
         # Resource attributes
-        self.resource_files = self._get_contents('resources/resource')
+        self.resource_files = self._get_contents("resources/resource")
         self.resource_IDs = self._get_resource_IDs()
 
         # Misc - basically just OPT CU1 needs this
         self.misc_resource_IDs = self._get_other_resource_IDs()
 
     def _get_contents(self, data_type):
-        children = self.raw_json.get('children', [])
+        children = self.raw_json.get("children", [])
 
-        contents = [child['items'] for child in children
-                    if child['field'] == data_type]
+        contents = [child["items"] for child in children
+                    if child["field"] == data_type]
         return contents
 
     def _get_scans(self):
-        scans = self._get_contents('scans/scan')
+        scans = self._get_contents("scans/scan")
         if not scans:
             logger.debug("No scans found for experiment {}".format(self.name))
             return scans
@@ -919,17 +937,17 @@ class XNATExperiment(XNATObject):
         # These can be used to download a series from xnat
         resource_ids = []
         for scan in self.scans:
-            for child in scan.raw_json['children']:
-                if child['field'] != 'file':
+            for child in scan.raw_json["children"]:
+                if child["field"] != "file":
                     continue
-                for item in child['items']:
+                for item in child["items"]:
                     try:
-                        label = item['data_fields']['label']
+                        label = item["data_fields"]["label"]
                     except KeyError:
                         continue
-                    if label != 'DICOM':
+                    if label != "DICOM":
                         continue
-                    r_id = item['data_fields']['xnat_abstractresource_id']
+                    r_id = item["data_fields"]["xnat_abstractresource_id"]
                     resource_ids.append(str(r_id))
         return resource_ids
 
@@ -939,9 +957,9 @@ class XNATExperiment(XNATObject):
 
         resource_ids = {}
         for resource in self.resource_files[0]:
-            label = resource['data_fields'].get('label', 'No Label')
-            resource_ids[label] = str(resource['data_fields'][
-                                                'xnat_abstractresource_id'])
+            label = resource["data_fields"].get("label", "No Label")
+            resource_ids[label] = str(resource["data_fields"][
+                                                "xnat_abstractresource_id"])
         return resource_ids
 
     def _get_other_resource_IDs(self):
@@ -953,18 +971,18 @@ class XNATExperiment(XNATObject):
         """
         r_ids = []
         for scan in self.scans:
-            for child in scan.raw_json['children']:
-                for file_upload in child['items']:
-                    data_fields = file_upload['data_fields']
+            for child in scan.raw_json["children"]:
+                for file_upload in child["items"]:
+                    data_fields = file_upload["data_fields"]
                     try:
-                        label = data_fields['label']
+                        label = data_fields["label"]
                     except KeyError:
                         # Some entries dont have labels. Only hold some header
                         # values. These are safe to ignore
                         continue
 
                     try:
-                        data_format = data_fields['format']
+                        data_format = data_fields["format"]
                     except KeyError:
                         # Some entries have labels but no format... or neither
                         if not label:
@@ -974,7 +992,7 @@ class XNATExperiment(XNATObject):
                         data_format = label
 
                     try:
-                        r_id = str(data_fields['xnat_abstractresource_id'])
+                        r_id = str(data_fields["xnat_abstractresource_id"])
                     except KeyError:
                         # Some entries have labels and/or a format but no
                         # actual files and so no resource id. These can also be
@@ -984,8 +1002,8 @@ class XNATExperiment(XNATObject):
                     # ignore DICOM, it's grabbed elsewhere. Ignore snapshots
                     # entirely. Some things may not be labelled DICOM but may
                     # be format 'DICOM' so that needs to be checked for too.
-                    if label != 'DICOM' and (data_format != 'DICOM' and
-                                             label != 'SNAPSHOTS'):
+                    if label != "DICOM" and (data_format != "DICOM" and
+                                             label != "SNAPSHOTS"):
                         r_ids.append(r_id)
         return r_ids
 
@@ -1002,7 +1020,7 @@ class XNATExperiment(XNATObject):
                                     self.name,
                                     self.experiment_label,
                                     r_id)
-            resources.extend([item['URI'] for item in resource_list])
+            resources.extend([item["URI"] for item in resource_list])
         return resources
 
     def download(self, xnat, dest_folder, zip_name=None):
@@ -1059,33 +1077,33 @@ class XNATSeries(XNATObject):
     def __init__(self, experiment_name, scan_json):
         self.raw_json = scan_json
         self.experiment = experiment_name
-        self.uid = self._get_field('UID')
-        self.series = self._get_field('ID')
-        self.image_type = self._get_field('parameters/imageType')
+        self.uid = self._get_field("UID")
+        self.series = self._get_field("ID")
+        self.image_type = self._get_field("parameters/imageType")
         self.multiecho = self.is_multiecho()
         self.description = self._set_description()
 
     def _set_description(self):
-        series_descr = self._get_field('series_description')
+        series_descr = self._get_field("series_description")
         if series_descr:
             return series_descr
-        return self._get_field('type')
+        return self._get_field("type")
 
     def is_multiecho(self):
         try:
-            child = self.raw_json['children'][0]['items'][0]
+            child = self.raw_json["children"][0]["items"][0]
         except (KeyError, IndexError):
             return False
-        name = child['data_fields'].get('name')
-        if name and 'MultiEcho' in name:
+        name = child["data_fields"].get("name")
+        if name and "MultiEcho" in name:
             return True
         return False
 
     def raw_dicoms_exist(self):
-        for child in self.raw_json['children']:
-            for item in child['items']:
-                file_type = item['data_fields'].get('content')
-                if file_type == 'RAW':
+        for child in self.raw_json["children"]:
+            for item in child["items"]:
+                file_type = item["data_fields"].get("content")
+                if file_type == "RAW":
                     return True
         return False
 
@@ -1094,16 +1112,16 @@ class XNATSeries(XNATObject):
             logger.warning("Image type could not be found for series {}. "
                            "Assuming it's derived.".format(self.series))
             return True
-        if 'DERIVED' in self.image_type:
+        if "DERIVED" in self.image_type:
             return True
         return False
 
     def set_tag(self, tag_map):
         matches = {}
         for tag, pattern in tag_map.items():
-            regex = pattern['SeriesDescription']
+            regex = pattern["SeriesDescription"]
             if isinstance(regex, list):
-                regex = '|'.join(regex)
+                regex = "|".join(regex)
             if re.search(regex, self.description, re.IGNORECASE):
                 matches[tag] = pattern
 
@@ -1116,7 +1134,7 @@ class XNATSeries(XNATObject):
         try:
             for tag, pattern in tag_map.items():
                 if tag in matches:
-                    if not re.search(pattern['ImageType'], self.image_type):
+                    if not re.search(pattern["ImageType"], self.image_type):
                         del matches[tag]
         except Exception:
             matches = {}
@@ -1139,7 +1157,7 @@ class XNATSeries(XNATObject):
             name = "_".join([self.experiment, tag, padded_series,
                              mangled_descr])
             if self.multiecho:
-                echo_num = tag_settings[tag]['EchoNumber']
+                echo_num = tag_settings[tag]["EchoNumber"]
                 if echo_num not in self.echo_dict:
                     self.echo_dict[echo_num] = name
             names.append(name)
