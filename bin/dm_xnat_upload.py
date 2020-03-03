@@ -126,14 +126,14 @@ def process_archive(archivefile):
     if not scanid:
         return
 
-    xnat_session = get_xnat_session(scanid)
-    if not xnat_session:
+    xnat_subject = get_xnat_subject(scanid)
+    if not xnat_subject:
         # failed to get xnat info
         return
 
     try:
         data_exists, resource_exists = check_files_exist(archivefile,
-                                                         xnat_session)
+                                                         xnat_subject)
     except Exception:
         logger.error('Failed checking xnat for session: {}'.format(scanid))
         return
@@ -141,29 +141,35 @@ def process_archive(archivefile):
     if not data_exists:
         logger.info('Uploading dicoms from: {}'.format(archivefile))
         try:
-            upload_dicom_data(archivefile, xnat_session.project, str(scanid))
+            upload_dicom_data(archivefile, xnat_subject.project, str(scanid))
         except Exception as e:
             logger.error('Failed uploading archive to xnat project: {}'
                          ' for subject: {}. Check Prearchive.'
-                         .format(xnat_session.project, str(scanid)))
+                         .format(xnat_subject.project, str(scanid)))
             logger.info('Upload failed with reason: {}'.format(str(e)))
 
     if not resource_exists:
         logger.debug('Uploading resource from: {}'.format(archivefile))
         try:
-            upload_non_dicom_data(archivefile, xnat_session.project,
+            upload_non_dicom_data(archivefile, xnat_subject.project,
                                   str(scanid))
         except Exception as e:
             logger.debug('An exception occurred: {}'.format(e))
             pass
 
 
-def get_xnat_session(ident):
-    """
-    Get an xnat session from the archive. Returns a session instance holding
-    the XNAT json info for this session.
+def get_xnat_subject(ident):
+    """Get an XNAT subject from the server.
 
-    May raise XnatException if session cant be retrieved
+    Args:
+        ident (:obj:`datman.scanid.Identifier`): A datman identifier instance
+            for a supported naming convention.
+
+    Raises:
+        XnatException: If the server or project is not accessible.
+
+    Returns:
+        :obj:`datman.xnat.XNATSubject` or None
     """
     # get the expected xnat project name from the config filename
     try:
@@ -175,15 +181,21 @@ def get_xnat_session(ident):
         return None
     # check we can get the archive from xnat
     try:
-        XNAT.get_project(xnat_project)
+        found = XNAT.get_project(xnat_project)
     except datman.exceptions.XnatException as e:
-        logger.error('Study {}, Site {}, xnat archive {} not found with '
-                     'reason {}'.format(ident.study, ident.site, xnat_project,
-                                        e))
+        logger.error('Failed to get XNAT project {} for study {} and site '
+                     '{}. Reason - {}'.format(xnat_project, ident.study,
+                                              ident.site, e))
         return None
+
+    if not found:
+        logger.error('No match found for XNAT project {} on server {}'.format(
+            xnat_project, XNAT.server))
+        return None
+
     # check we can get or create the session in xnat
     try:
-        xnat_session = XNAT.get_session(xnat_project, str(ident), create=True)
+        xnat_subject = XNAT.get_subject(xnat_project, str(ident), create=True)
     except datman.exceptions.XnatException as e:
         logger.error('Study:{}, site:{}, archive:{} Failed getting session:{}'
                      ' from xnat with reason:{}'
@@ -191,7 +203,7 @@ def get_xnat_session(ident):
                              xnat_project, str(ident), e))
         return None
 
-    return xnat_session
+    return xnat_subject
 
 
 def get_scanid(archivefile):

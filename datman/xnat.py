@@ -128,7 +128,7 @@ class xnat(object):
         self.session = s
 
     def get_projects(self, project=""):
-        """Queries the XNAT server for project metadata.
+        """Query the XNAT server for project metadata.
 
         Args:
             project (str, optional): The name of an XNAT project to search for.
@@ -167,84 +167,103 @@ class xnat(object):
 
         return result["items"]
 
-    def get_subjects(self, project):
-        """Return the IDs for all subjects within an XNAT project.
+    def get_subject_ids(self, project):
+        """Return IDs for all subjects within an XNAT project.
 
         Args:
             project (:obj:`str`): The 'Project ID' for a project on XNAT.
 
         Raises:
-            XnatException: If the project does not exist, project access fails,
-                or no subjects can be found.
+            XnatException: If the project does not exist or access fails.
 
         Returns:
-            list: A list of subject IDs found within the project.
+            list: A list of string subject IDs found within the project.
         """
-        logger.debug("Querying xnat server for subjects in project: {}"
-                     .format(project))
+        logger.debug("Querying xnat server {} for subjects in project {}"
+                     .format(self.server, project))
+
         if not self.get_project(project):
             raise XnatException("Invalid XNAT project: {}".format(project))
 
-        url = "{}/data/archive/projects/{}/subjects/".format(self.server,
-                                                             project)
+        url = "{}/data/archive/projects/{}/subjects/".format(
+            self.server, project)
+
         try:
             result = self._make_xnat_query(url)
         except Exception:
-            raise XnatException("Failed getting xnat sessions with url: {}"
+            raise XnatException("Failed getting xnat sessions with URL {}"
                                 .format(url))
 
         if not result:
-            raise XnatException("No sessions found for project: {}".format(
-                project))
+            return []
 
-        return result["ResultSet"]["Result"]
+        return [item.get("label") for item in result["ResultSet"]["Result"]]
 
-    def get_session(self, study, session, create=False):
-        """Checks to see if session exists in xnat,
-        if create and study doesnt exist will try to create it
-        returns study or none"""
-        logger.debug("Querying for session: {} in study: {}"
-                     .format(session, study))
+    def get_subject(self, project, subject_id, create=False):
+        """Get a subject from the XNAT server.
+
+        Args:
+            project (:obj:`str`): The XNAT project to search within.
+            subject_id (:obj:`str`): The XNAT subject to retrieve.
+            create (bool, optional): Whether to create a subject matching
+                subject_id if a match is not found. Defaults to False.
+
+        Raises:
+            XnatException: If access through the API failed or if the subject
+                does not exist and can't be made.
+
+        Returns:
+            :obj:`datman.xnat.XNATSubject`: An XNATSubject instance matching
+                the given subject_id.
+        """
+        logger.debug("Querying for subject {} in project {}"
+                     .format(subject_id, project))
+
         url = "{}/data/archive/projects/{}/subjects/{}?format=json" \
-              .format(self.server, study, session)
+              .format(self.server, project, subject_id)
 
         try:
             result = self._make_xnat_query(url)
         except Exception:
-            raise XnatException("Failed getting session with url: {}"
-                                .format(url))
+            raise XnatException("Failed getting subject {} with URL {}"
+                                .format(subject_id, url))
+
+        if not create and not result:
+            raise XnatException("Subject {} does not exist for project "
+                                "{}".format(subject_id, project))
 
         if not result:
-            logger.info("Session: {} not found in study: {}"
-                        .format(session, study))
-            if create:
-                try:
-                    self.make_session(study, session)
-                except Exception:
-                    raise XnatException("Failed to create session {} in study "
-                                        "{}".format(session, study))
-                result = self.get_session(study, session)
-                return result
+            logger.info("Creating {} in project {}".format(
+                subject_id, project))
+            self.make_subject(project, subject_id)
+            return self.get_subject(project, subject_id)
+
         try:
             subject_json = result["items"][0]
-        except TypeError:
-            msg = "Session {} doesn't exist on xnat for study {}".format(
-                            session,
-                            study)
-            raise XnatException(msg)
+        except (IndexError, KeyError):
+            raise XnatException("Could not access metadata about subject {}"
+                                "".format(subject_id, project))
 
         return XNATSubject(subject_json)
 
-    def make_session(self, study, session):
-        url = "{server}/REST/projects/{project}/subjects/{subject}"
-        url = url.format(server=self.server,
-                         project=study,
-                         subject=session)
+    def make_subject(self, project, subject):
+        """Make a new (empty) subject on the XNAT server.
+
+        Args:
+            project (:obj:`str`): The 'Project ID' of an existing XNAT project.
+            subject (:obj:`str`): The ID to create the new subject under.
+
+        Raises:
+            XnatException: If subject creation fails.
+        """
+        url = "{}/REST/projects/{}/subjects/{}".format(
+            self.server, project, subject)
+
         try:
             self._make_xnat_put(url)
         except requests.exceptions.RequestException as e:
-            logger.warn("Failed to create xnat subject: {}".format(session))
-            raise e
+            raise XnatException("Failed to create xnat subject {} in project "
+                                "{}. Reason - {}".format(subject, project, e))
 
     def get_experiments(self, study, session):
         logger.debug("Getting experiments for session: {} in study: {}"
@@ -456,7 +475,7 @@ class xnat(object):
 
         return items
 
-    def find_session(self, session, projects=None):
+    def find_session(self, subject_id, projects=None):
         """Find a session label in the xnat archive
         searches all xnat projects unless study is specified
         in which case the search is limited to projects in the list"""
@@ -465,11 +484,9 @@ class xnat(object):
             projects = [p["ID"] for p in projects]
 
         for project in projects:
-            sessions = self.get_sessions(project)
-            session_labels = [s["label"] for s in sessions]
-            if session in session_labels:
-                logger.debug("Found session: {} in project: {}"
-                             .format(session, project))
+            if subject_id in self.get_subject_ids(project):
+                logger.debug("Found session {} in project {}"
+                             .format(subject_id, project))
                 return project
 
     def put_dicoms(self, project, session, experiment, filename, retries=3):

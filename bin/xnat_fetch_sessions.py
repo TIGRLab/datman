@@ -86,7 +86,7 @@ def main():
 
     if not study:
         with datman.xnat.xnat(xnat_server, username, password) as xnat:
-            get_sessions(xnat, xnat_project, destination)
+            download_subjects(xnat, xnat_project, destination)
         return
 
     config = datman.config.config(study=study)
@@ -105,42 +105,40 @@ def main():
             continue
         username, password = get_credentials(credentials_file)
         with datman.xnat.xnat(server, username, password) as xnat:
-            get_sessions(xnat, project, destination)
+            download_subjects(xnat, project, destination)
 
 
-def get_sessions(xnat, xnat_project, destination):
+def download_subjects(xnat, xnat_project, destination):
     current_zips = os.listdir(destination)
 
-    sessions_list = xnat.get_sessions(xnat_project)
-    for session_metadata in sessions_list:
-        session_name = session_metadata['label']
+    for subject_id in xnat.get_subject_ids(xnat_project):
         try:
-            session = xnat.get_session(xnat_project, session_name)
+            subject = xnat.get_subject(xnat_project, subject_id)
         except Exception as e:
-            logger.error("Failed to get session {} from xnat. "
-                         "Reason: {}".format(session_name, e))
+            logger.error("Failed to get subject {} from xnat. "
+                         "Reason: {}".format(subject_id, e))
             continue
 
-        zip_name = session_name.upper() + ".zip"
+        zip_name = subject_id.upper() + ".zip"
         zip_path = os.path.join(destination, zip_name)
         if zip_name in current_zips and not update_needed(zip_path,
-                                                          session,
+                                                          subject,
                                                           xnat):
             logger.debug("All data downloaded for {}. Passing.".format(
-                    session_name))
+                    subject_id))
             continue
 
         if DRYRUN:
-            logger.info("Would have downloaded session {} from project {} to "
-                        "{}".format(session_name, xnat_project, zip_path))
+            logger.info("Would have downloaded subject {} from project {} to "
+                        "{}".format(subject_id, xnat_project, zip_path))
             return
 
         with datman.utils.make_temp_directory() as temp:
             try:
-                temp_zip = session.download(xnat, temp, zip_name=zip_name)
+                temp_zip = subject.download(xnat, temp, zip_name=zip_name)
             except Exception as e:
-                logger.error("Cant download session {}. Reason: {}"
-                             "".format(session_name, e))
+                logger.error("Cant download subject {}. Reason: {}"
+                             "".format(subject_id, e))
                 continue
             restructure_zip(temp_zip, zip_path)
 
