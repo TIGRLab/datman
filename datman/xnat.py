@@ -168,7 +168,7 @@ class xnat(object):
         return result["items"]
 
     def get_subject_ids(self, project):
-        """Return IDs for all subjects within an XNAT project.
+        """Retrieve the IDs for all subjects within an XNAT project.
 
         Args:
             project (:obj:`str`): The 'Project ID' for a project on XNAT.
@@ -191,7 +191,7 @@ class xnat(object):
         try:
             result = self._make_xnat_query(url)
         except Exception:
-            raise XnatException("Failed getting xnat sessions with URL {}"
+            raise XnatException("Failed getting xnat subjects with URL {}"
                                 .format(url))
 
         if not result:
@@ -214,7 +214,7 @@ class xnat(object):
 
         Returns:
             :obj:`datman.xnat.XNATSubject`: An XNATSubject instance matching
-                the given subject_id.
+                the given subject ID.
         """
         logger.debug("Querying for subject {} in project {}"
                      .format(subject_id, project))
@@ -241,7 +241,7 @@ class xnat(object):
         try:
             subject_json = result["items"][0]
         except (IndexError, KeyError):
-            raise XnatException("Could not access metadata about subject {}"
+            raise XnatException("Could not access metadata for subject {}"
                                 "".format(subject_id, project))
 
         return XNATSubject(subject_json)
@@ -265,110 +265,185 @@ class xnat(object):
             raise XnatException("Failed to create xnat subject {} in project "
                                 "{}. Reason - {}".format(subject, project, e))
 
-    def get_experiments(self, study, session):
-        logger.debug("Getting experiments for session: {} in study: {}"
-                     .format(session, study))
-        url = "{}/data/archive/projects/{}" \
-              "/subjects/{}/experiments/?format=json".format(self.server,
-                                                             study,
-                                                             session)
+    def get_experiment_ids(self, project, subject):
+        """Retrieve all experiment IDs belonging to an XNAT subject.
+
+        Args:
+            project (:obj:`str`): An XNAT project ID.
+            subject (:obj:`str`): An existing XNAT subject within 'project'
+
+        Raises:
+            XnatException: If server/API access fails.
+
+        Returns:
+            list: A list of string experiment IDs belonging to 'subject'.
+        """
+        logger.debug("Querying XNAT server {} for experiment IDs for subject "
+                     "{} in project {}".format(self.server, subject, project))
+
+        url = "{}/data/archive/projects/{}/subjects/{}/experiments/" \
+              "?format=json".format(self.server, project, subject)
+
         try:
             result = self._make_xnat_query(url)
         except Exception:
-            raise XnatException("Failed getting experiments with url: {}"
-                                .format(url))
+            raise XnatException("Failed getting experiment IDs for subject {} "
+                                "with URL {}".format(subject, url))
 
         if not result:
-            logger.warn("No experiments found for session: {} in study: {}"
-                        .format(session, study))
-            return
+            return []
 
-        return(result["ResultSet"]["Result"])
+        return [item.get("label") for item in result["ResultSet"]["Result"]]
 
-    def get_experiment(self, study, session, experiment):
-        logger.debug("Getting experiment: {} for session: {} in study: {}"
-                     .format(experiment, session, study))
-        url = "{}/data/archive/projects/{}" \
-              "/subjects/{}/experiments/{}" \
-              "?format=json".format(self.server,
-                                    study,
-                                    session,
-                                    experiment)
+    def get_experiment(self, project, subject_id, exper_id, create=False):
+        """Get an experiment from the XNAT server.
+
+        Args:
+            project (:obj:`str`): The XNAT project to search within.
+            subject_id (:obj:`str`): The XNAT subject to search.
+            exper_id (:obj:`str`): The name of the experiment to retrieve.
+            create (bool, optional): Whether to create an experiment matching
+                exper_id if a match is not found. Defaults to False.
+
+        Raises:
+            XnatException: If the experiment doesnt exist and can't be made
+                or the server/API can't be accessed.
+
+        Returns:
+            :obj:`datman.xnat.XNATExperiment`: An XNATExperiment instance
+                matching the given experiment ID.
+        """
+        logger.debug("Querying XNAT server {} for experiment {} belonging to "
+                     "{} in project {}".format(
+                         self.server, exper_id, subject_id, project))
+
+        url = "{}/data/archive/projects/{}/subjects/{}/experiments/{}" \
+              "?format=json".format(
+                  self.server, project, subject_id, exper_id)
+
         try:
             result = self._make_xnat_query(url)
         except Exception:
-            raise XnatException("Failed getting experiments with url: {}"
+            raise XnatException("Failed getting experiment with URL {}"
                                 .format(url))
 
+        if not create and not result:
+            raise XnatException("Experiment {} does not exist for subject "
+                                "{} in project {}".format(
+                                    exper_id, subject_id, project))
+
         if not result:
-            raise XnatException("Experiment: {} not found for session: {}"
-                                " in study: {}"
-                                .format(experiment, session, study))
+            logger.info("Creating experiment {} for subject_id {}".format(
+                exper_id, subject_id))
+            self.make_experiment(project, subject_id, exper_id)
+            return self.get_experiment(project, subject_id, exper_id)
 
-        return result["items"][0]
+        try:
+            exper_json = result["items"][0]
+        except (IndexError, KeyError):
+            raise XnatException("Could not access metadata for experiment "
+                                "{}".format(exper_id))
 
-    def make_experiment(self, project, session, experiment):
+        return XNATExperiment(subject_id, exper_json)
+
+    def make_experiment(self, project, subject, experiment):
+        """Make a new (empty) experiment on the XNAT server.
+
+        Args:
+            project (:obj:`str`): The 'Project ID' of an existing XNAT project.
+            subject (:obj:`str`): The subject that should own the experiment.
+            experiment (:obj:`str`):The ID to create the new experiment under.
+
+        Raises:
+            XnatException: If experiment creation fails.
         """
-        Submits a PUT request to XNAT API to make experiment for a given
-        project and session
+
+        url = "{}/data/archive/projects/{}/subjects/{}/experiments/" \
+              "{}?xsiType=xnat:mrSessionData".format(
+                  self.server, project, subject, experiment)
+        try:
+            self._make_xnat_put(url)
+        except requests.exceptions.RequestException as e:
+            raise XnatException("Failed to create XNAT experiment {} under "
+                                "subject {} in project {}. Reason - {}".format(
+                                    experiment, subject, project, e))
+
+    def get_scan_ids(self, project, subject, experiment):
+        """Retrieve all scan IDs for an XNAT experiment.
+
+        Args:
+            project (:obj:`str`): An XNAT project ID.
+            subject (:obj:`str`): An existing subject within 'project'.
+            experiment (:obj:`str`): An existing experiment within 'subject'.
+
+        Raises:
+            XnatException: If server/API access fails.
+
+        Returns:
+            list: A list of scan IDs belonging to 'experiment'.
         """
+        logger.debug("Querying XNAT server {} for scan IDs belonging to "
+                     "experiment {} of subject {} in project {}".format(
+                         self.server, experiment, subject, project))
 
-        url = "{server}/data/archive/projects/{project}/" \
-              "subjects/{subject}/experiments/{experiment}" \
-              "?xsiType=xnat:mrSessionData" \
-              .format(server=self.server,
-                      project=project,
-                      subject=session,
-                      experiment=experiment)
+        url = "{}/data/archive/projects/{}/subjects/{}/experiments/{}" \
+              "/scans/?format=json".format(
+                  self.server, project, subject, experiment)
 
-        self._make_xnat_put(url)
-
-    def get_scan_list(self, study, session, experiment):
-        """The list of dicom scans in an experiment"""
-        url = "{}/data/archive/projects/{}" \
-              "/subjects/{}/experiments/{}" \
-              "/scans/?format=json".format(self.server,
-                                           study,
-                                           session,
-                                           experiment)
         try:
             result = self._make_xnat_query(url)
         except Exception:
-            raise XnatException("Failed getting scans with url: {}"
-                                "".format(url))
+            raise XnatException("Failed getting scan IDs for experiment {} "
+                                "with URL {}".format(experiment, url))
 
-        if result is None:
-            e = XnatException("Scan not found for experiment: {}"
-                              .format(experiment))
-            e.study = study
-            e.session = session
-            raise e
+        if not result:
+            return []
 
-        return result["ResultSet"]["Result"]
+        return [item.get("ID") for item in result["ResultSet"]["Result"]]
 
-    def get_scan_info(self, study, session, experiment, scanid):
-        """Returns info about an xnat scan"""
-        url = "{}/data/archive/projects/{}" \
-              "/subjects/{}/experiments/{}" \
-              "/scans/{}/?format=json".format(self.server,
-                                              study,
-                                              session,
-                                              experiment,
-                                              scanid)
+    def get_scan(self, project, subject_id, exper_id, scan_id):
+        """Get a scan from the XNAT server.
+
+        Args:
+            project (:obj:`str`): The XNAT project to search within.
+            subject_id (:obj:`str`): The XNAT subject to search.
+            exper_id (:obj:`str`): The XNAT experiment to search.
+            scan_id (:obj:`str`): The ID of the scan to retrieve.
+
+        Raises:
+            XnatException: If the scan does not exist or the server/API can't
+                be accessed.
+
+        Returns:
+            :obj:`datman.xnat.XNATScan`: An XNATScan instance matching the
+                scan ID from the given experiment.
+        """
+        logger.debug("Querying XNAT server {} for scan {} in experiment {} "
+                     "belonging to subject {} in project {}".format(
+                        self.server, scan_id, exper_id, subject_id))
+
+        url = "{}/data/archive/projects/{}/subject_ids/{}/exper_ids/{}" \
+              "/scans/{}/?format=json".format(
+                  self.server, project, subject_id, exper_id, scan_id)
+
         try:
             result = self._make_xnat_query(url)
         except Exception:
-            raise XnatException("Failed getting scan with url: {}"
+            raise XnatException("Failed getting scan with URL {}"
                                 "".format(url))
 
-        if result is None:
-            e = XnatException("Scan:{} not found for experiment: {}"
-                              .format(scanid, experiment))
-            e.study = study
-            e.session = session
-            raise e
+        if not result:
+            raise XnatException("Scan {} does not exist for experiment {} "
+                                "in project {}".format(
+                                    scan_id, exper_id, project))
 
-        return result["items"][0]
+        try:
+            scan_json = result["items"][0]
+        except (IndexError, KeyError):
+            raise XnatException("Could not access metadata for scan "
+                                "{}".format(scan_id))
+
+        return XNATScan(exper_id, scan_json)
 
     def get_resource_ids(self, study, session, experiment, folderName=None,
                          create=True):
@@ -944,7 +1019,7 @@ class XNATExperiment(XNATObject):
             return scans
         xnat_scans = []
         for scan_json in scans[0]:
-            xnat_scans.append(XNATSeries(self.name, scan_json))
+            xnat_scans.append(XNATScan(self.name, scan_json))
         return xnat_scans
 
     def _get_scan_UIDs(self):
@@ -1089,7 +1164,7 @@ class XNATExperiment(XNATObject):
         return self.__str__()
 
 
-class XNATSeries(XNATObject):
+class XNATScan(XNATObject):
 
     def __init__(self, experiment_name, scan_json):
         self.raw_json = scan_json
@@ -1188,7 +1263,7 @@ class XNATSeries(XNATObject):
         return re.sub(r"[^a-zA-Z0-9.+]+", "-", self.description)
 
     def __str__(self):
-        return "<XNATSeries {} - {}>".format(self.experiment, self.series)
+        return "<XNATScan {} - {}>".format(self.experiment, self.series)
 
     def __repr__(self):
         return self.__str__()
