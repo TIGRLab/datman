@@ -36,17 +36,11 @@ import datman.exceptions
 
 logger = logging.getLogger(os.path.basename(__file__))
 
-username = None
-password = None
-server = None
 XNAT = None
 CFG = None
 
 
 def main():
-    global username
-    global server
-    global password
     global XNAT
     global CFG
 
@@ -79,9 +73,6 @@ def main():
     ch.setFormatter(formatter)
 
     logger.addHandler(ch)
-
-    # setup the config object
-    logger.info('Loading config')
 
     CFG = datman.config.config(study=study)
 
