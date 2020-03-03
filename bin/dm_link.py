@@ -10,18 +10,18 @@ Usage:
     dm_link.py [options] <study> <zipfile>
 
 Arguments:
-    <study>              Name of the study to process
-    <zipfile>           Single Zipfile to process
+    <study>                 Name of the study to process
+    <zipfile>               Single Zipfile to process
 
 Options:
-    --lookup FILE            Path to scan id lookup table,
-                                overrides metadata/scans.csv
-    --scanid-field STR       Dicom field to match target_name with
-                             [default: PatientName]
-    -v --verbose             Verbose logging
-    -d --debug                  Debug logging
-    -q --quiet             Less debuggering
-    --dry-run             Dry run
+    --lookup FILE           Path to scan id lookup table,
+                            overrides metadata/scans.csv
+    --scanid-field STR      Dicom field to match target_name with
+                            [default: PatientName]
+    -v --verbose            Verbose logging
+    -d --debug              Debug logging
+    -q --quiet              Less debuggering
+    --dry-run               Dry run
 
 
 DETAILS
