@@ -187,7 +187,7 @@ def collect_subjects(xnat_projects, config):
             try:
                 sub_id = datman.utils.validate_subject_id(subject_id,
                                                           config)
-            except RuntimeError as e:
+            except datman.scanid.ParseException as e:
                 logger.error("Invalid ID {} in project {}. Reason: {}"
                              .format(subject_id, project, str(e)))
                 continue
