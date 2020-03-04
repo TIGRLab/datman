@@ -7,13 +7,11 @@
     get_full_subjectid and other similar methods are called. The original ID
     in its native convention can always be retrieved from 'orig_id'.
 """
+from abc import ABC
 import os.path
 import re
-from abc import ABC
 
-
-class ParseException(Exception):
-    pass
+from datman.exceptions import ParseException
 
 
 class Identifier(ABC):
