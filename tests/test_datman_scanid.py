@@ -128,6 +128,116 @@ def test_kcni_site_field_is_modified_when_settings_given():
     assert str(ident) == 'ABC01_UT2_12345678_01_02'
 
 
+def test_get_kcni_identifier_from_datman_str():
+    kcni_ident = scanid.get_kcni_identifier("ABC01_UTO_12345678_01_02")
+    assert isinstance(kcni_ident, scanid.KCNIIdentifier)
+    assert kcni_ident.orig_id == "ABC01_UTO_12345678_01_SE02_MR"
+
+
+def test_get_kcni_identifier_from_datman_pha_str():
+    kcni_ident = scanid.get_kcni_identifier("ABC01_CMH_PHA_FBN0001")
+    assert isinstance(kcni_ident, scanid.KCNIIdentifier)
+    assert kcni_ident.orig_id == "ABC01_CMH_FBNPHA_0001_MR"
+
+
+def test_get_kcni_identifier_from_datman_ident():
+    ident = scanid.parse("SPN01_CMH_0001_01_01")
+    kcni_ident = scanid.get_kcni_identifier(ident)
+    assert isinstance(kcni_ident, scanid.KCNIIdentifier)
+    assert kcni_ident.orig_id == "SPN01_CMH_0001_01_SE01_MR"
+
+
+def test_get_kcni_identifier_from_datman_pha_ident():
+    dm_ident = scanid.parse("OPT01_UTO_PHA_ADN0001")
+    kcni_ident = scanid.get_kcni_identifier(dm_ident)
+    assert isinstance(kcni_ident, scanid.KCNIIdentifier)
+    assert kcni_ident.orig_id == "OPT01_UTO_ADNPHA_0001_MR"
+
+
+def test_get_kcni_identifier_from_datman_with_field_changes():
+    settings = {
+        "STUDY": {
+            "AND01": "ANDT"
+        },
+        "SITE": {
+            "UTO": "CMH"
+        }
+    }
+
+    kcni = scanid.get_kcni_identifier("ANDT_CMH_0001_01_01", settings)
+    assert kcni.study == "ANDT"
+    assert kcni.site == "CMH"
+    assert kcni.orig_id == "AND01_UTO_0001_01_SE01_MR"
+
+    kcni_pha = scanid.get_kcni_identifier("ANDT_CMH_PHA_FBN0023", settings)
+    assert kcni_pha.study == "ANDT"
+    assert kcni_pha.site == "CMH"
+    assert kcni_pha.orig_id == "AND01_UTO_FBNPHA_0023_MR"
+
+
+def test_get_kcni_identifier_handles_already_kcni():
+    kcni = "ABC01_UTO_12345678_01_SE02_MR"
+    kcni_ident = scanid.parse(kcni)
+
+    kcni1 = scanid.get_kcni_identifier(kcni)
+    assert isinstance(kcni1, scanid.KCNIIdentifier)
+    assert kcni1.orig_id == kcni
+
+    kcni2 = scanid.get_kcni_identifier(kcni_ident)
+    assert isinstance(kcni2, scanid.KCNIIdentifier)
+    assert kcni2.orig_id == kcni
+
+
+def test_datman_converted_to_kcni_and_back_is_unmodified():
+    orig_datman = 'SPN01_CMH_0001_01_01'
+
+    dm_ident = scanid.parse(orig_datman)
+    kcni = scanid.get_kcni_identifier(dm_ident)
+    assert isinstance(kcni, scanid.KCNIIdentifier)
+
+    new_datman = scanid.parse(str(kcni))
+    assert str(new_datman) == orig_datman
+
+
+def test_kcni_converted_to_datman_and_back_is_unmodified():
+    orig_kcni = 'SPN01_CMH_0001_01_SE01_MR'
+    kcni_ident = scanid.parse(orig_kcni)
+    datman = scanid.parse(str(kcni_ident))
+    assert isinstance(datman, scanid.DatmanIdentifier)
+
+    new_kcni = scanid.get_kcni_identifier(datman)
+    assert new_kcni.orig_id == orig_kcni
+
+
+def test_id_field_changes_correct_for_repeat_conversions():
+    settings = {
+        'STUDY': {
+            'AND01': 'ANDT'
+        },
+        'SITE': {
+            'UTO': 'CMH'
+        }
+    }
+    correct_kcni = "AND01_UTO_0001_01_SE01_MR"
+    correct_datman = "ANDT_CMH_0001_01_01"
+
+    # KCNI to datman and back
+    kcni_ident = scanid.parse(correct_kcni, settings)
+    dm_ident = scanid.parse(str(kcni_ident), settings)
+    assert str(dm_ident) == correct_datman
+
+    new_kcni = scanid.get_kcni_identifier(dm_ident, settings)
+    assert new_kcni.orig_id == correct_kcni
+
+    # Datman to KCNI and back
+    dm_ident = scanid.parse(correct_datman, settings)
+    kcni_ident = scanid.get_kcni_identifier(dm_ident, settings)
+    assert kcni_ident.orig_id == correct_kcni
+
+    new_dm = scanid.parse(str(kcni_ident), settings)
+    assert str(new_dm) == correct_datman
+
+
 def test_is_scanid_garbage():
     assert not scanid.is_scanid("garbage")
 

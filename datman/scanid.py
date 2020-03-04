@@ -1,5 +1,11 @@
-"""
-Represents scan identifiers that conform to the TIGRLab naming scheme
+"""Manages name conventions and functions to ensure that IDs conform to them.
+
+.. note::
+    While multiple ID conventions are supported (Datman, KCNI, BIDS)
+    the datman convention is the 'base'/default convention used. As a result
+    all conventions get parsed into datman fields and return datman IDs when
+    get_full_subjectid and other similar methods are called. The original ID
+    in its native convention can always be retrieved from 'orig_id'.
 """
 import os.path
 import re
@@ -47,6 +53,13 @@ class Identifier(ABC):
 
 
 class DatmanIdentifier(Identifier):
+    """Parses a datman-style ID into fields.
+
+    The datman convention is detailed
+    `here <https://github.com/TIGRLab/documentation/wiki/Data-Naming>`_
+
+    """
+
     scan_re = '(?P<id>(?P<study>[^_]+)_' \
               '(?P<site>[^_]+)_' \
               '(?!.+PHA)(?P<subject>[^_]+)_' \
@@ -96,6 +109,15 @@ class DatmanIdentifier(Identifier):
 
 
 class KCNIIdentifier(Identifier):
+    """Parses a KCNI style ID into datman-style fields.
+
+    The KCNI convention is detailed
+    `here. <http://neurowiki.camh.ca/mediawiki/index.php/XNATNamingConvention>`_
+
+    .. note: The original KCNI format ID is retrievable from orig_id.
+
+    """  # noqa: E501
+
     scan_re = '(?P<id>(?P<study>[A-Z]{3}[0-9]{2})_' \
               '(?P<site>[A-Z]{3})_' \
               '(?P<subject>[A-Z0-9]{4,8})_' \
@@ -247,10 +269,10 @@ def parse(identifier, settings=None):
     Accepted keys include:
         'ID_TYPE': Restricts parsing to one naming convention (e.g. 'DATMAN'
             or 'KCNI')
-        'STUDY': Allows the 'study' field of an ID to be mapped to a
-            different code.
-        'SITE': Allows the 'site' field of an ID to be translated between
-            conventions.
+        'STUDY': Allows the 'study' field of an ID to be mapped from another
+            convention's study code to a datman study code.
+        'SITE': Allows the 'site' field of an ID to be translated from another
+            convention's site code to a datman site code.
 
     .. note:: All 'settings' keys must be uppercase.
 
@@ -442,3 +464,64 @@ def get_field(match, field, settings=None):
         new_field = current_field
 
     return new_field
+
+
+def get_kcni_identifier(identifier, settings=None):
+    """Get a KCNIIdentifier from a valid string or an identifier.
+
+    Args:
+        identifier (:obj:`string`): A string matching a supported naming
+            convention.
+        settings (:obj:`dict`, optional): A settings dictionary matching the
+            format described in :py:func:`parse`. Defaults to None.
+
+    Raises:
+        ParseException: When an ID that doesnt match any supported convention
+            is given or when a valid ID can't be converted to KCNI format.
+
+    Returns:
+        KCNIIdentifier: An instance of a KCNI identifier with any field
+            mappings applied.
+    """
+    if isinstance(identifier, KCNIIdentifier):
+        return identifier
+
+    try:
+        return KCNIIdentifier(identifier, settings)
+    except ParseException:
+        pass
+
+    if isinstance(identifier, DatmanIdentifier):
+        ident = identifier
+    else:
+        ident = DatmanIdentifier(identifier)
+
+    if settings:
+        # Flip settings from KCNI -> datman to datman -> KCNI to ensure the
+        # KCNI convention is used in KCNIIdentifer.orig_id
+        reverse = {}
+        for entry in settings:
+            if entry == 'ID_TYPE' or not isinstance(settings[entry], dict):
+                reverse[entry] = settings[entry]
+                continue
+            reverse[entry] = {val: key for key, val in settings[entry].items()}
+    else:
+        reverse = None
+
+    study = get_field(ident._match_groups, 'study', reverse)
+    site = get_field(ident._match_groups, 'site', reverse)
+
+    if not is_phantom(ident):
+        kcni = '{}_{}_{}_{}_SE{}_MR'.format(
+            study, site, ident.subject.zfill(4), ident.timepoint,
+            ident.session)
+        return KCNIIdentifier(kcni, settings)
+
+    # Break apart datman's phantom subject ID
+    pattern = re.compile('^PHA_(?P<type>[A-Z]{3})(?P<num>[0-9]{4})$')
+    match = pattern.match(ident.subject)
+    if not match:
+        raise ParseException("Can't parse datman phantom {} to KCNI "
+                             "ID".format(ident))
+    subject = '{}PHA_{}'.format(match.group("type"), match.group("num"))
+    return KCNIIdentifier("{}_{}_{}_MR".format(study, site, subject), settings)
