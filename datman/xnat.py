@@ -344,7 +344,7 @@ class xnat(object):
             raise XnatException("Could not access metadata for experiment "
                                 "{}".format(exper_id))
 
-        return XNATExperiment(subject_id, exper_json)
+        return XNATExperiment(project, subject_id, exper_json)
 
     def make_experiment(self, project, subject, experiment):
         """Make a new (empty) experiment on the XNAT server.
@@ -971,7 +971,7 @@ class XNATSubject(XNATObject):
 
         found = {}
         for item in experiments[0]["items"]:
-            exper = XNATExperiment(self.name, item)
+            exper = XNATExperiment(self.project, self.name, item)
             found[exper.name] = exper
 
         return found
@@ -985,8 +985,9 @@ class XNATSubject(XNATObject):
 
 class XNATExperiment(XNATObject):
 
-    def __init__(self, subject_name, experiment_json):
+    def __init__(self, project, subject_name, experiment_json):
         self.raw_json = experiment_json
+        self.project = project
         self.subject = subject_name
         self.uid = self._get_field("UID")
         self.id = self._get_field("ID")
@@ -1109,8 +1110,8 @@ class XNATExperiment(XNATObject):
         for r_id in resource_ids:
             resource_list = xnat_connection.get_resource_list(
                                     self.project,
+                                    self.subject,
                                     self.name,
-                                    self.experiment_label,
                                     r_id)
             resources.extend([item["URI"] for item in resource_list])
         return resources
@@ -1145,7 +1146,7 @@ class XNATExperiment(XNATObject):
                             ",".join(resources_list)))
 
         if not zip_name:
-            zip_name = self.experiment.upper() + ".zip"
+            zip_name = self.name.upper() + ".zip"
 
         output_path = os.path.join(dest_folder, zip_name)
         if os.path.exists(output_path):
