@@ -182,7 +182,7 @@ class xnat(object):
         logger.debug("Querying xnat server {} for subjects in project {}"
                      .format(self.server, project))
 
-        if not self.get_project(project):
+        if not self.get_projects(project):
             raise XnatException("Invalid XNAT project: {}".format(project))
 
         url = "{}/data/archive/projects/{}/subjects/".format(
@@ -564,7 +564,7 @@ class xnat(object):
                              .format(subject_id, project))
                 return project
 
-    def put_dicoms(self, project, session, experiment, filename, retries=3):
+    def put_dicoms(self, project, subject, experiment, filename, retries=3):
         """Upload an archive of dicoms to XNAT
         filename: archive to upload"""
         headers = {"Content-Type": "application/zip"}
@@ -575,14 +575,14 @@ class xnat(object):
 
         upload_url = upload_url.format(server=self.server,
                                        project=project,
-                                       subject=session,
+                                       subject=subject,
                                        session=experiment)
         try:
             with open(filename, "rb") as data:
                 self._make_xnat_post(upload_url, data, retries, headers)
         except XnatException as e:
             e.study = project
-            e.session = session
+            e.session = experiment
             raise e
         except IOError as e:
             logger.error("Failed to open file: {} with excuse: {}"
@@ -590,13 +590,13 @@ class xnat(object):
             err = XnatException("Error in file: {}".
                                 format(filename))
             err.study = project
-            err.session = session
+            err.session = experiment
             raise err
         except requests.exceptions.RequestException:
             err = XnatException("Error uploading data with url: {}"
                                 .format(upload_url))
             err.study = project
-            err.session = session
+            err.session = experiment
             raise err
 
     def get_dicom(self, project, session, experiment, scan,
@@ -630,7 +630,7 @@ class xnat(object):
             err.session = session
             raise err
 
-    def put_resource(self, project, session, experiment, filename, data,
+    def put_resource(self, project, subject, experiment, filename, data,
                      folder, retries=3):
         """
         POST a resource file to the xnat server
@@ -640,14 +640,14 @@ class xnat(object):
         """
 
         try:
-            self.get_experiment(project, session, experiment)
+            self.get_experiment(project, subject, experiment)
         except XnatException:
-            logger.warning("Experiment: {} in session: {} does not exist! "
-                           "Making new experiment".format(experiment, session))
-            self.make_experiment(project, session, experiment)
+            logger.warning("Experiment: {} in subject: {} does not exist! "
+                           "Making new experiment".format(experiment, subject))
+            self.make_experiment(project, subject, experiment)
 
         resource_id = self.get_resource_ids(project,
-                                            session,
+                                            subject,
                                             experiment,
                                             folderName=folder)
 
@@ -660,7 +660,7 @@ class xnat(object):
 
         url = attach_url.format(server=self.server,
                                 project=project,
-                                subject=session,
+                                subject=subject,
                                 experiment=experiment,
                                 resource_id=resource_id,
                                 filename=uploadname)
@@ -669,14 +669,14 @@ class xnat(object):
             self._make_xnat_post(url, data)
         except XnatException as err:
             err.study = project
-            err.session = session
+            err.session = experiment
             raise err
         except Exception:
             logger.warning("Failed adding resource to xnat with url: {}"
                            .format(url))
             err = XnatException("Failed adding resource to xnat")
             err.study = project
-            err.session = session
+            err.session = experiment
 
     def get_resource(self, project, session, experiment,
                      resource_group_id, resource_id,
@@ -985,9 +985,9 @@ class XNATSubject(XNATObject):
 
 class XNATExperiment(XNATObject):
 
-    def __init__(self, session_name, experiment_json):
+    def __init__(self, subject_name, experiment_json):
         self.raw_json = experiment_json
-        self.session = session_name
+        self.subject = subject_name
         self.uid = self._get_field("UID")
         self.id = self._get_field("ID")
         self.name = self._get_field("label")
@@ -1145,7 +1145,7 @@ class XNATExperiment(XNATObject):
                             ",".join(resources_list)))
 
         if not zip_name:
-            zip_name = self.session.upper() + ".zip"
+            zip_name = self.experiment.upper() + ".zip"
 
         output_path = os.path.join(dest_folder, zip_name)
         if os.path.exists(output_path):
