@@ -268,7 +268,7 @@ def scan_data_exists(xnat_experiment, local_headers):
         raise ValueError("More than one experiment UID found - "
                          "{}".format(",".join(local_experiment_ids)))
 
-    if xnat_experiment.experiment_UID not in local_experiment_ids:
+    if xnat_experiment.uid not in local_experiment_ids:
         raise ValueError("Experiment UID doesnt match XNAT")
 
     if not set(local_scan_uids).issubset(set(xnat_experiment.scan_UIDs)):
