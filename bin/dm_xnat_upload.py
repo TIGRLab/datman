@@ -129,7 +129,7 @@ def process_archive(archivefile):
         except datman.config.UndefinedSetting:
             settings = None
         try:
-            scanid = datman.scanid.get_kcni_id(scanid, settings)
+            scanid = datman.scanid.get_kcni_identifier(scanid, settings)
         except datman.scanid.ParseException:
             logger.error("ID {} can't be converted to KCNI convention.".format(
                 scanid))
