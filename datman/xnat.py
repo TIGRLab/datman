@@ -167,6 +167,29 @@ class xnat(object):
 
         return result["items"]
 
+    def find_project(self, subject_id, projects=None):
+        """Find the project a subject belongs to.
+
+        Args:
+            subject_id (:obj:`str`): The subject to search for.
+            projects (:obj:`list`, optional): A list of projects to restrict
+                the search to. Defaults to None.
+
+        Returns:
+            str: The name of the XNAT project the subject belongs to. Note:
+                if the same ID is found in more than one project only the
+                first match is returned.
+        """
+        if not projects:
+            projects = self.get_projects()
+            projects = [p["ID"] for p in projects]
+
+        for project in projects:
+            if subject_id in self.get_subject_ids(project):
+                logger.debug("Found session {} in project {}"
+                             .format(subject_id, project))
+                return project
+
     def get_subject_ids(self, project):
         """Retrieve the IDs for all subjects within an XNAT project.
 
@@ -265,12 +288,13 @@ class xnat(object):
             raise XnatException("Failed to create xnat subject {} in project "
                                 "{}. Reason - {}".format(subject, project, e))
 
-    def get_experiment_ids(self, project, subject):
+    def get_experiment_ids(self, project, subject=''):
         """Retrieve all experiment IDs belonging to an XNAT subject.
 
         Args:
             project (:obj:`str`): An XNAT project ID.
-            subject (:obj:`str`): An existing XNAT subject within 'project'
+            subject (:obj:`str`, optional): An existing XNAT subject within
+                'project' to restrict the search to. Defaults to ''.
 
         Raises:
             XnatException: If server/API access fails.
@@ -281,8 +305,11 @@ class xnat(object):
         logger.debug("Querying XNAT server {} for experiment IDs for subject "
                      "{} in project {}".format(self.server, subject, project))
 
-        url = "{}/data/archive/projects/{}/subjects/{}/experiments/" \
-              "?format=json".format(self.server, project, subject)
+        if subject:
+            subject = "subjects/{}/".format(subject)
+
+        url = "{}/data/projects/{}/{}experiments/?format=json".format(
+            self.server, project, subject)
 
         try:
             result = self._make_xnat_query(url)
@@ -549,20 +576,6 @@ class xnat(object):
                  in entries.findall("cat:entry", ns)]
 
         return items
-
-    def find_session(self, subject_id, projects=None):
-        """Find a session label in the xnat archive
-        searches all xnat projects unless study is specified
-        in which case the search is limited to projects in the list"""
-        if not projects:
-            projects = self.get_projects()
-            projects = [p["ID"] for p in projects]
-
-        for project in projects:
-            if subject_id in self.get_subject_ids(project):
-                logger.debug("Found session {} in project {}"
-                             .format(subject_id, project))
-                return project
 
     def put_dicoms(self, project, subject, experiment, filename, retries=3):
         """Upload an archive of dicoms to XNAT
