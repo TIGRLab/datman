@@ -7,7 +7,7 @@
     get_full_subjectid and other similar methods are called. The original ID
     in its native convention can always be retrieved from 'orig_id'.
 """
-from abc import ABC
+from abc import ABC, abstractmethod
 import os.path
 import re
 
@@ -42,6 +42,14 @@ class Identifier(ABC):
         if self.session:
             ident += "_" + self.session
         return ident
+
+    @abstractmethod
+    def get_xnat_subject_id(self):
+        pass
+
+    @abstractmethod
+    def get_xnat_experiment_id(self):
+        pass
 
     def __str__(self):
         if self.session:
@@ -102,6 +110,12 @@ class DatmanIdentifier(Identifier):
     def session(self, value):
         self._session = value
 
+    def get_xnat_subject_id(self):
+        return self.get_full_subjectid_with_timepoint_session()
+
+    def get_xnat_experiment_id(self):
+        return self.xnat_subject_id()
+
     def __repr__(self):
         return '<datman.scanid.DatmanIdentifier {}>'.format(self.__str__())
 
@@ -152,6 +166,19 @@ class KCNIIdentifier(Identifier):
 
         self.timepoint = match.group('timepoint')
         self.session = match.group('session')
+
+    def get_xnat_subject_id(self):
+        study = self._match_groups.group("study")
+        site = self._match_groups.group("site")
+        subject = self._match_groups.group("subject")
+        if self.pha_type:
+            subject = self.pha_type + "PHA"
+        else:
+            subject = self._match_groups.group("subject")
+        return "_".join([study, site, subject])
+
+    def get_xnat_experiment_id(self):
+        return self.orig_id
 
     def __repr__(self):
         return '<datman.scanid.KCNIIdentifier {}>'.format(self.__str__())

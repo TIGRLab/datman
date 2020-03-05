@@ -238,6 +238,38 @@ def test_id_field_changes_correct_for_repeat_conversions():
     assert str(new_dm) == correct_datman
 
 
+def test_kcni_get_xnat_subject_id_not_affected_by_field_translation():
+    settings = {
+        "STUDY": {
+            "ABC01": "ABCD"
+        }
+    }
+
+    pha = "ABC01_CMH_LEGPHA_0001_MR"
+    pha_ident = scanid.parse(pha, settings)
+    assert pha_ident.get_xnat_subject_id() == "ABC01_CMH_LEGPHA"
+
+    sub = "ABC01_CMH_12345678_01_SE02_MR"
+    sub_ident = scanid.parse(sub, settings)
+    assert sub_ident.get_xnat_subject_id() == "ABC01_CMH_12345678"
+
+
+def test_kcni_get_xnat_experiment_id_not_affected_by_field_translations():
+    settings = {
+        "STUDY": {
+            "ABC01": "ABCD"
+        }
+    }
+
+    pha = "ABC01_CMH_LEGPHA_0001_MR"
+    pha_ident = scanid.parse(pha, settings)
+    assert pha_ident.get_xnat_experiment_id() == pha
+
+    sub = "ABC01_CMH_12345678_01_SE02_MR"
+    sub_ident = scanid.parse(sub, settings)
+    assert sub_ident.get_xnat_experiment_id() == sub
+
+
 def test_is_scanid_garbage():
     assert not scanid.is_scanid("garbage")
 
