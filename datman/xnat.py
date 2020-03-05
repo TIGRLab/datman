@@ -1250,7 +1250,7 @@ class XNATScan(XNATObject):
         self.tags = list(matches.keys())
         return matches
 
-    def set_datman_name(self, tag_map):
+    def set_datman_name(self, base_name, tag_map):
         mangled_descr = self._mangle_descr()
         padded_series = self.series.zfill(2)
         tag_settings = self.set_tag(tag_map)
@@ -1260,7 +1260,7 @@ class XNATScan(XNATObject):
         names = []
         self.echo_dict = {}
         for tag in tag_settings:
-            name = "_".join([self.experiment, tag, padded_series,
+            name = "_".join([base_name, tag, padded_series,
                              mangled_descr])
             if self.multiecho:
                 echo_num = tag_settings[tag]["EchoNumber"]
