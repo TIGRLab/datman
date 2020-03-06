@@ -273,7 +273,7 @@ def scan_data_exists(xnat_experiment, local_headers):
 
     if not set(local_scan_uids).issubset(set(xnat_experiment.scan_UIDs)):
         logger.info("Found UIDs for {} not yet added to xnat".format(
-                xnat_experiment.name))
+            xnat_experiment.name))
         return False
 
     # XNAT data matches local archive data

@@ -253,18 +253,18 @@ class BIDSFile(object):
 
 
 FILENAME_RE = DatmanIdentifier.scan_re + '_' + \
-              r'(?P<tag>[^_]+)_' + \
-              r'(?P<series>\d+)_' + \
-              r'(?P<description>.*?)' + \
-              r'(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|' + \
-              r'.IMA|.mnc|.nrrd|$)'
+    r'(?P<tag>[^_]+)_' + \
+    r'(?P<series>\d+)_' + \
+    r'(?P<description>.*?)' + \
+    r'(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|' + \
+    r'.IMA|.mnc|.nrrd|$)'
 
 FILENAME_PHA_RE = DatmanIdentifier.pha_re + '_' + \
-              r'(?P<tag>[^_]+)_' + \
-              r'(?P<series>\d+)_' + \
-              r'(?P<description>.*?)' + \
-              r'(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|' + \
-              r'.IMA|.mnc|.nrrd|$)'
+    r'(?P<tag>[^_]+)_' + \
+    r'(?P<series>\d+)_' + \
+    r'(?P<description>.*?)' + \
+    r'(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|' + \
+    r'.IMA|.mnc|.nrrd|$)'
 
 BIDS_SCAN_RE = r'sub-(?P<subject>[A-Z0-9]+)_' + \
                r'ses-(?P<session>[A-Za-z0-9]+)_' + \

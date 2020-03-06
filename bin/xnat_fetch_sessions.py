@@ -132,7 +132,7 @@ def download_subjects(xnat, xnat_project, destination):
             if zip_name in current_zips and not update_needed(
                     zip_path, experiment, xnat):
                 logger.debug("All data downloaded for {}. Passing.".format(
-                        experiment.name))
+                    experiment.name))
                 continue
 
             if DRYRUN:

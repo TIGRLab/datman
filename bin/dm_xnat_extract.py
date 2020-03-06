@@ -237,7 +237,7 @@ def process_experiment(project, ident):
             db_session = dashboard.get_session(ident, create=True)
         except dashboard.DashboardException as e:
             logger.error("Failed adding session {}. Reason: {}".format(
-                    experiment_label, e))
+                experiment_label, e))
         else:
             set_alt_ids(db_session, ident)
             set_date(db_session, xnat_experiment)

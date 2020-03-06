@@ -447,7 +447,7 @@ class xnat(object):
         """
         logger.debug("Querying XNAT server {} for scan {} in experiment {} "
                      "belonging to subject {} in project {}".format(
-                        self.server, scan_id, exper_id, subject_id, project))
+                         self.server, scan_id, exper_id, subject_id, project))
 
         url = "{}/data/archive/projects/{}/subject_ids/{}/exper_ids/{}" \
               "/scans/{}/?format=json".format(
@@ -1073,7 +1073,7 @@ class XNATExperiment(XNATObject):
         for resource in self.resource_files[0]:
             label = resource["data_fields"].get("label", "No Label")
             resource_ids[label] = str(resource["data_fields"][
-                                                "xnat_abstractresource_id"])
+                "xnat_abstractresource_id"])
         return resource_ids
 
     def _get_other_resource_IDs(self):
