@@ -516,8 +516,8 @@ def get_scans(ident, xnat_scan, output_name, export_formats):
         src_dir = get_dicom_archive_from_xnat(xnat_scan, temp)
 
         if not src_dir:
-            logger.error("Failed getting series {} for session {} from XNAT"
-                         .format(xnat_scan.series, xnat_scan.session))
+            logger.error("Failed getting series {} for experiment {} from XNAT"
+                         .format(xnat_scan.series, xnat_scan.experiment))
             return
 
         for export_format in export_formats:
@@ -544,9 +544,9 @@ def get_scans(ident, xnat_scan, output_name, export_formats):
                 exporter(src_dir, target_dir, output_name, xnat_scan)
             except Exception:
                 logger.error("An error happened exporting {} from scan {} "
-                             "in session {}".format(export_format,
-                                                    xnat_scan.series,
-                                                    xnat_scan.session))
+                             "in experiment {}".format(
+                                 export_format, xnat_scan.series,
+                                 xnat_scan.experiment))
 
     logger.info('Completed exports')
 
@@ -559,15 +559,15 @@ def get_dicom_archive_from_xnat(xnat_scan, tempdir):
     """
     # make a copy of the dicom files in a local directory
     logger.info("Downloading dicoms for: {}, series: {}"
-                .format(xnat_scan.session, xnat_scan.series))
+                .format(xnat_scan.experiment, xnat_scan.series))
     try:
         dicom_archive = xnat.get_dicom(xnat_scan.project,
-                                       xnat_scan.session,
+                                       xnat_scan.subject,
                                        xnat_scan.experiment,
                                        xnat_scan.series)
     except Exception:
         logger.error("Failed to download dicom archive for: {}, series: {}"
-                     .format(xnat_scan.session, xnat_scan.series))
+                     .format(xnat_scan.subject, xnat_scan.series))
         return None
 
     logger.info("Unpacking archive")
@@ -577,7 +577,7 @@ def get_dicom_archive_from_xnat(xnat_scan, tempdir):
             myzip.extractall(tempdir)
     except Exception:
         logger.error("An error occurred unpacking dicom archive for: {}. "
-                     "Skipping".format(xnat_scan.session))
+                     "Skipping".format(xnat_scan.subject))
         os.remove(dicom_archive)
         return None
 
@@ -596,7 +596,7 @@ def get_dicom_archive_from_xnat(xnat_scan, tempdir):
         base_dir = os.path.dirname(archive_files[0])
     except IndexError:
         logger.warning("There were no valid dicom files in XNAT session {}, "
-                       "series {}".format(xnat_scan.session, xnat_scan.series))
+                       "series {}".format(xnat_scan.subject, xnat_scan.series))
         return None
     return base_dir
 

@@ -447,7 +447,7 @@ class xnat(object):
         """
         logger.debug("Querying XNAT server {} for scan {} in experiment {} "
                      "belonging to subject {} in project {}".format(
-                        self.server, scan_id, exper_id, subject_id))
+                        self.server, scan_id, exper_id, subject_id, project))
 
         url = "{}/data/archive/projects/{}/subject_ids/{}/exper_ids/{}" \
               "/scans/{}/?format=json".format(
@@ -470,7 +470,7 @@ class xnat(object):
             raise XnatException("Could not access metadata for scan "
                                 "{}".format(scan_id))
 
-        return XNATScan(exper_id, scan_json)
+        return XNATScan(project, subject_id, exper_id, scan_json)
 
     def get_resource_ids(self, study, session, experiment, folderName=None,
                          create=True):
@@ -1033,7 +1033,8 @@ class XNATExperiment(XNATObject):
             return scans
         xnat_scans = []
         for scan_json in scans[0]:
-            xnat_scans.append(XNATScan(self.name, scan_json))
+            xnat_scans.append(XNATScan(self.project, self.subject, self.name,
+                                       scan_json))
         return xnat_scans
 
     def _get_scan_UIDs(self):
@@ -1180,8 +1181,10 @@ class XNATExperiment(XNATObject):
 
 class XNATScan(XNATObject):
 
-    def __init__(self, experiment_name, scan_json):
+    def __init__(self, project, subject_name, experiment_name, scan_json):
         self.raw_json = scan_json
+        self.project = project
+        self.subject = subject_name
         self.experiment = experiment_name
         self.uid = self._get_field("UID")
         self.series = self._get_field("ID")
