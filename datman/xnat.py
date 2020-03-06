@@ -638,7 +638,8 @@ class xnat(object):
             except OSError as e:
                 logger.warning("Failed to delete tempfile: {} with excuse: {}"
                                .format(filename, str(e)))
-            err = XnatException("Failed getting dicom with url: {}".format(url))
+            err = XnatException("Failed getting dicom with url: "
+                                "{}".format(url))
             err.study = project
             err.session = session
             raise err
@@ -957,6 +958,12 @@ class xnat(object):
             logger.warn("http client error deleting resource: {}"
                         .format(response.status_code))
             response.raise_for_status()
+
+    def __str__(self):
+        return "<datman.xnat.xnat {}>".format(self.server)
+
+    def __repr__(self):
+        return self.__str__()
 
 
 class XNATObject(ABC):
