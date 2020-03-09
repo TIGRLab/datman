@@ -8,43 +8,43 @@ and uniform.
     become out of date if this is not true.
 
 
-    Both Scan and Series inherit from DatmanNamed.
+    Both Scan and Series inherit from DatmanNamed and have the following
+    attributes:
 
-    Attributes:
-        full_id: A datman style id of the form STUDY_SITE_ID_TIMEPOINT
-        id_plus_session: The same ID as above, except with the session number
-            joined to the end. (Default: "_01")
-        study: The 'study' portion of full_id
-        site: The 'site' portion of full_id
-        subject: The 'ID' portion of full_id
-        timepoint: The 'timepoint' portion of full_id
-        session: The session number (Default: "_01")
+        full_id         A datman style id of the form STUDY_SITE_ID_TIMEPOINT
+        id_plus_session The same ID as above, except with the session number
+                        joined to the end. (Default: "_01")
+        study           The 'study' portion of full_id
+        site            The 'site' portion of full_id
+        subject         The 'ID' portion of full_id
+        timepoint       The 'timepoint' portion of full_id
+        session         The session number (Default: "_01")
 
     In addition each 'Series' instance has the following attributes:
 
-    Attributes:
-        tag: The tag for this series (e.g. T1, DTI60-1000, etc.)
-        series_num: The number of this series in the scan session.
-        description: The description found in the original dicom headers
-        path: The full path to this particular file
-        ext: The extension of this file
+        tag             The tag for this series (e.g. T1, DTI60-1000, etc.)
+        series_num      The number of this series in the scan session.
+        description     The description found in the original dicom headers
+        path            The full path to this particular file
+        ext             The extension of this file
 
     Finally, each 'Scan' instance has the following attributes and methods:
 
     Attributes:
-        is_phantom: True if the subject id used to create this instance
-            belongs to a phantom, false otherwise.
-        nii_path: The path to this subject's nifti data.
-        dcm_path: The path to this subject's dicom data.
-        qc_path: The path to this subject's generated qc outputs.
-        resource_path: The path to all resources (non-scan data) associated
-            with this scan.
-        niftis: A list of 'Series' instances for each nifti in
-            nii_path. Returns an empty list if none are found.
-        dicoms: A list of 'Series' instances for each dicom in
-            dcm_path. Returns an empty list if none are found.
-        nii_tags: A list of all tags for all niftis found in nii_path.
-        dcm_tags: A list of all tags for all dicoms found in dcm_path.
+
+        is_phantom      True if the subject id used to create this instance
+                        belongs to a phantom, false otherwise.
+        nii_path        The path to this subject's nifti data.
+        dcm_path        The path to this subject's dicom data.
+        qc_path         The path to this subject's generated qc outputs.
+        resource_path   The path to all resources (non-scan data) associated
+                        with this scan.
+        niftis          A list of 'Series' instances for each nifti in
+                        nii_path. Returns an empty list if none are found.
+        dicoms          A list of 'Series' instances for each dicom in
+                        dcm_path. Returns an empty list if none are found.
+        nii_tags        A list of all tags for all niftis found in nii_path.
+        dcm_tags        A list of all tags for all dicoms found in dcm_path.
 
     Methods:
 
