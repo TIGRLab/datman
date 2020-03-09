@@ -12,7 +12,6 @@ Contents
    usage
    api
    changes
-   roadmap
 
 
 Indices and tables

@@ -1,0 +1,5 @@
+.. include:: links.rst
+
+------------
+Installation
+------------

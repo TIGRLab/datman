@@ -5,6 +5,7 @@
 # from the environment for the first two.
 SPHINXOPTS    =
 SPHINXBUILD   = sphinx-build
+SOURCEDIR     = .
 BUILDDIR      = _build
 CURBRANCH     = master
 
@@ -22,11 +23,4 @@ help:
 .PHONY: clean
 clean:
 	rm -rf $(BUILDDIR)/*
-	rm -f *.dot*
 	rm -rf api/*
-
-.PHONY: html
-html:
-	PYTHONPATH=$(PYTHONPATH) $(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
-	@echo
-	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
