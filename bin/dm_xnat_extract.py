@@ -210,7 +210,7 @@ def collect_all_experiments(xnat_projects, config):
                 continue
             if (ident.session is None and not datman.scanid.is_phantom(ident)):
                 logger.error("Invalid experiment ID {} in project {}. Reason "
-                             "- Not a phantom, but missing series number"
+                             "- Not a phantom, but missing session number"
                              "".format(exper_id, project))
                 continue
             experiments.append((project, ident))

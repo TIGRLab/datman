@@ -97,7 +97,7 @@ def main():
     else:
         archives = os.listdir(dicom_dir)
 
-    logger.debug("Processing files in:{}".format(dicom_dir))
+    logger.debug("Processing files in: {}".format(dicom_dir))
     logger.info("Processing {} files".format(len(archives)))
 
     for archivefile in archives:
