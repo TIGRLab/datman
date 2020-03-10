@@ -10,18 +10,18 @@ Usage:
     dm_link.py [options] <study> <zipfile>
 
 Arguments:
-    <study>              Name of the study to process
-    <zipfile>           Single Zipfile to process
+    <study>                 Name of the study to process
+    <zipfile>               Single Zipfile to process
 
 Options:
-    --lookup FILE            Path to scan id lookup table,
-                                overrides metadata/scans.csv
-    --scanid-field STR       Dicom field to match target_name with
-                             [default: PatientName]
-    -v --verbose             Verbose logging
-    -d --debug                  Debug logging
-    -q --quiet             Less debuggering
-    --dry-run             Dry run
+    --lookup FILE           Path to scan id lookup table,
+                            overrides metadata/scans.csv
+    --scanid-field STR      Dicom field to match target_name with
+                            [default: PatientName]
+    -v --verbose            Verbose logging
+    -d --debug              Debug logging
+    -q --quiet              Less debuggering
+    --dry-run               Dry run
 
 
 DETAILS
@@ -70,17 +70,21 @@ IGNORING EXAM ARCHIVES
         source_name      target_name            dicom_StudyID
         2014_0126_FB001  <ignore>
 """
-from docopt import docopt
-import sys
-import os
+
 import glob
-import pandas as pd
-import datman.config
-import datman.utils
-import datman.scanid
 import logging
+import os
+import sys
+
+from docopt import docopt
+import pandas as pd
+
+import datman.config
+import datman.scanid
+import datman.utils
 
 logger = logging.getLogger(os.path.basename(__file__))
+
 already_linked = {}
 lookup = None
 DRYRUN = None
@@ -93,14 +97,14 @@ def main():
     global DRYRUN
 
     arguments = docopt(__doc__)
-    verbose = arguments['--verbose']
-    debug = arguments['--debug']
-    DRYRUN = arguments['--dry-run']
-    quiet = arguments['--quiet']
-    study = arguments['<study>']
-    lookup_path = arguments['--lookup']
-    scanid_field = arguments['--scanid-field']
-    zipfile = arguments['<zipfile>']
+    verbose = arguments["--verbose"]
+    debug = arguments["--debug"]
+    DRYRUN = arguments["--dry-run"]
+    quiet = arguments["--quiet"]
+    study = arguments["<study>"]
+    lookup_path = arguments["--lookup"]
+    scanid_field = arguments["--scanid-field"]
+    zipfile = arguments["<zipfile>"]
 
     # setup logging
     ch = logging.StreamHandler(sys.stdout)
@@ -116,8 +120,8 @@ def main():
         logger.setLevel(logging.DEBUG)
         ch.setLevel(logging.DEBUG)
 
-    formatter = logging.Formatter('%(asctime)s - %(name)s - {study} - '
-                                  '%(levelname)s - %(message)s'.format(
+    formatter = logging.Formatter("%(asctime)s - %(name)s - {study} - "
+                                  "%(levelname)s - %(message)s".format(
                                                     study=study))
     ch.setFormatter(formatter)
 
@@ -126,34 +130,34 @@ def main():
     # setup the config object
     cfg = datman.config.config(study=study)
     if not lookup_path:
-        lookup_path = os.path.join(cfg.get_path('meta'), 'scans.csv')
+        lookup_path = os.path.join(cfg.get_path("meta"), "scans.csv")
 
-    dicom_path = cfg.get_path('dicom')
-    zips_path = cfg.get_path('zips')
+    dicom_path = cfg.get_path("dicom")
+    zips_path = cfg.get_path("zips")
 
     if not os.path.isdir(dicom_path):
-        logger.warning('Dicom folder {} doesnt exist, creating it.'.format(
+        logger.warning("Dicom folder {} doesnt exist, creating it.".format(
                 dicom_path))
         try:
             os.makedirs(dicom_path)
         except IOError:
-            logger.error('Failed to create dicom path {}'.format(dicom_path))
+            logger.error("Failed to create dicom path {}".format(dicom_path))
             return
 
     if not os.path.isdir(zips_path):
-        logger.error('Zips path {} doesnt exist'.format(zips_path))
+        logger.error("Zips path {} doesnt exist".format(zips_path))
         return
 
     try:
-        lookup = pd.read_csv(lookup_path, sep='\s+', dtype=str)  # noqa: W605
+        lookup = pd.read_csv(lookup_path, sep="\s+", dtype=str)  # noqa: W605
     except IOError:
-        logger.error('Lookup file {} not found'.format(lookup_path))
+        logger.error("Lookup file {} not found".format(lookup_path))
         return
 
     # identify which zip files have already been linked
     already_linked = {os.path.realpath(f): f
                       for f
-                      in glob.glob(os.path.join(dicom_path, '*'))
+                      in glob.glob(os.path.join(dicom_path, "*"))
                       if os.path.islink(f)}
 
     if zipfile:
@@ -164,16 +168,16 @@ def main():
         archives = [os.path.join(zips_path, archive)
                     for archive
                     in os.listdir(zips_path)
-                    if os.path.splitext(archive)[1] == '.zip']
+                    if os.path.splitext(archive)[1] == ".zip"]
 
-    logger.info('Found {} archives'.format(len(archives)))
+    logger.info("Found {} archives".format(len(archives)))
     for archive in archives:
         link_archive(archive, dicom_path, scanid_field, cfg)
 
 
 def link_archive(archive_path, dicom_path, scanid_field, config):
     if not os.path.isfile(archive_path):
-        logger.error('Archive {} not found'.format(archive_path))
+        logger.error("Archive {} not found".format(archive_path))
         return
 
     try:
@@ -193,33 +197,36 @@ def link_archive(archive_path, dicom_path, scanid_field, config):
     if scanid:
         scanid, lookupinfo = scanid
 
-    if scanid == '<ignore>':
-        logger.info('Ignoring {}'.format(archive_path))
+    if scanid == "<ignore>":
+        logger.info("Ignoring {}".format(archive_path))
         return
 
     if not scanid:
         scanid = get_scanid_from_header(archive_path, scanid_field)
 
     if not scanid:
-        logger.error('Scanid not found for archive: {}'.format(archive_path))
+        logger.error("Scanid not found for archive: {}".format(archive_path))
         return
 
     try:
-        datman.utils.validate_subject_id(scanid, config)
-    except RuntimeError as e:
-        logger.error(str(e) + ". Cannot make link for {}".format(archive_path))
+        ident = datman.utils.validate_subject_id(scanid, config)
+    except datman.scanid.ParseException as e:
+        logger.error("Can't make link for {}. Reason: {}".format(
+            archive_path, e))
         return
+
+    scanid = str(ident)
 
     # do the linking
     target = os.path.join(dicom_path, scanid)
     target = target + datman.utils.get_extension(archive_path)
     if os.path.exists(target):
-        logger.error('Target: {} already exists for archive: {}'
+        logger.error("Target: {} already exists for archive: {}"
                      .format(target, archive_path))
         return
 
     relpath = os.path.relpath(archive_path, dicom_path)
-    logger.info('Linking {} to {}'.format(relpath, target))
+    logger.info("Linking {} to {}".format(relpath, target))
     if not DRYRUN:
         os.symlink(relpath, target)
 
@@ -235,14 +242,14 @@ def get_scanid_from_lookup_table(archive_path):
     global lookup
     basename = os.path.basename(os.path.normpath(archive_path))
     source_name = basename[:-len(datman.utils.get_extension(basename))]
-    lookupinfo = lookup[lookup['source_name'] == source_name]
+    lookupinfo = lookup[lookup["source_name"] == source_name]
 
     if len(lookupinfo) == 0:
         logger.debug("{} not found in source_name column."
                      .format(source_name))
         return
     else:
-        scanid = lookupinfo['target_name'].tolist()[0]
+        scanid = lookupinfo["target_name"].tolist()[0]
         return (scanid, lookupinfo)
 
 
@@ -296,7 +303,7 @@ def validate_headers(archive_path, lookupinfo, scanid_field):
         return False
 
     columns = lookupinfo.columns.values.tolist()
-    dicom_cols = [c for c in columns if c.startswith('dicom_')]
+    dicom_cols = [c for c in columns if c.startswith("dicom_")]
 
     for c in dicom_cols:
         f = c.split("_")[1]
@@ -316,5 +323,5 @@ def validate_headers(archive_path, lookupinfo, scanid_field):
     return True
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

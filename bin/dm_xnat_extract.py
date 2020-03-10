@@ -4,11 +4,11 @@ Extracts data from XNAT archive folders into a few well-known formats.
 
 Usage:
     dm_xnat_extract.py [options] <study> [-t <tag>]...
-    dm_xnat_extract.py [options] <study> <session> [-t <tag>]...
+    dm_xnat_extract.py [options] <study> <experiment> [-t <tag>]...
 
 Arguments:
-    <study>            Nickname of the study to process
-    <session>          Fullname of the session to process
+    <study>                  Nickname of the study to process
+    <experiment>             Full ID of the experiment to process
 
 Options:
     --blacklist FILE         Table listing series to ignore override the
@@ -108,7 +108,7 @@ def main():
     debug = arguments['--debug']
     quiet = arguments['--quiet']
     study = arguments['<study>']
-    session = arguments['<session>']
+    experiment = arguments['<experiment>']
     wanted_tags = arguments['--tag']
     server = arguments['--server']
     username = arguments['--username']
@@ -121,6 +121,7 @@ def main():
     configure_logging(study, quiet, verbose, debug)
 
     cfg = datman.config.config(study=study)
+
     # get the list of XNAT projects linked to the datman study
     xnat_projects = cfg.get_xnat_projects(study)
 
@@ -131,26 +132,16 @@ def main():
     # initialize requests module object for XNAT REST API
     xnat = datman.xnat.xnat(server, username, password)
 
-    if session:
-        datman.utils.validate_subject_id(session, cfg)
-        # identify which xnat project the session is in
-        xnat_project = xnat.find_session(session, xnat_projects)
-
-        if not xnat_project:
-            logger.error("Failed to find session {} in XNAT. Ensure it is "
-                         "named correctly with timepoint and repeat."
-                         .format(session))
-            return
-
-        sessions = [(xnat_project, session)]
+    if experiment:
+        experiments = collect_experiment(experiment, xnat_projects, cfg)
     else:
-        sessions = collect_sessions(xnat_projects, cfg)
+        experiments = collect_all_experiments(xnat_projects, cfg)
 
-    logger.info("Found {} sessions for study: {}"
-                .format(len(sessions), study))
+    logger.info("Found {} experiments for study {}".format(
+        len(experiments), study))
 
-    for session in sessions:
-        process_session(session)
+    for project, experiment in experiments:
+        process_experiment(project, experiment)
 
 
 def configure_logging(study, quiet=None, verbose=None, debug=None):
@@ -178,85 +169,93 @@ def configure_logging(study, quiet=None, verbose=None, debug=None):
     logging.getLogger('datman.xnat').addHandler(ch)
 
 
-def collect_sessions(xnat_projects, config):
-    sessions = []
+def collect_experiment(user_exper, xnat_projects, cfg):
+    ident = datman.utils.validate_subject_id(user_exper, cfg)
+
+    try:
+        convention = cfg.get_key("XNAT_CONVENTION", site=ident.site)
+    except datman.config.UndefinedSetting:
+        convention = "DATMAN"
+
+    if convention == "KCNI":
+        try:
+            settings = cfg.get_key("ID_MAP")
+        except datman.config.UndefinedSetting:
+            settings = None
+        ident = datman.scanid.get_kcni_identifier(ident, settings)
+
+    # identify which xnat project the subject is in
+    xnat_project = xnat.find_project(ident.get_xnat_subject_id(),
+                                     xnat_projects)
+    if not xnat_project:
+        logger.error("Failed to find experiment {}. Ensure it matches an "
+                     "existing experiment ID in XNAT.".format(user_exper))
+        return
+
+    return [(xnat_project, ident)]
+
+
+def collect_all_experiments(xnat_projects, config):
+    experiments = []
 
     # for each XNAT project send out URL request for list of session records
     # then validate and add (XNAT project, subject ID ['label']) to output list
     for project in xnat_projects:
-        project_sessions = xnat.get_sessions(project)
-        for session in project_sessions:
+        for exper_id in xnat.get_experiment_ids(project):
             try:
-                sub_id = datman.utils.validate_subject_id(session['label'],
-                                                          config)
-            except RuntimeError as e:
-                logger.error("Invalid ID {} in project {}. Reason: {}"
-                             .format(session['label'], project, str(e)))
+                ident = datman.utils.validate_subject_id(exper_id, config)
+            except datman.scanid.ParseException:
+                logger.error("Invalid experiment ID {} in project {}.".format(
+                    exper_id, project))
                 continue
-
-            if (not datman.scanid.is_phantom(session['label']) and
-                    sub_id.session is None):
-                logger.error("Invalid ID {} in project {}. Reason: Not a "
-                             "phantom, but missing series number"
-                             .format(session['label'], project))
+            if (ident.session is None and not datman.scanid.is_phantom(ident)):
+                logger.error("Invalid experiment ID {} in project {}. Reason "
+                             "- Not a phantom, but missing session number"
+                             "".format(exper_id, project))
                 continue
+            experiments.append((project, ident))
 
-            sessions.append((project, session['label']))
-
-    return sessions
+    return experiments
 
 
-def process_session(session):
-    xnat_project = session[0]
-    session_label = session[1]
+def process_experiment(project, ident):
+    experiment_label = ident.get_xnat_experiment_id()
 
-    logger.info("Processing session: {}".format(session_label))
-
-    # session_label should be a valid datman scanid
-    try:
-        ident = datman.scanid.parse(session_label)
-    except datman.scanid.ParseException:
-        logger.error("Invalid session: {}. Skipping".format(session_label))
-        return
+    logger.info("Processing experiment: {}".format(experiment_label))
 
     try:
-        xnat_session = xnat.get_session(xnat_project, session_label)
+        xnat_experiment = xnat.get_experiment(
+            project, ident.get_xnat_subject_id(), experiment_label)
     except Exception as e:
-        logger.error("Cant process session {}. {}: {}".format(session_label,
-                     type(e).__name__, e))
-        return
-
-    if not xnat_session.experiment:
-        logger.warning("No experiments found for session: {}"
-                       .format(session_label))
+        logger.error("Unable to retrieve experiment {} from XNAT server. "
+                     "{}: {}".format(experiment_label, type(e).__name__, e))
         return
 
     if not db_ignore:
-        logger.debug("Adding session {} to dashboard".format(session_label))
+        logger.debug("Adding session {} to dashboard".format(experiment_label))
         try:
             db_session = dashboard.get_session(ident, create=True)
         except dashboard.DashboardException as e:
             logger.error("Failed adding session {}. Reason: {}".format(
-                    session_label, e))
+                experiment_label, e))
         else:
-            set_date(db_session, xnat_session.experiment)
+            set_alt_ids(db_session, ident)
+            set_date(db_session, xnat_experiment)
 
-    if xnat_session.resource_files:
-        process_resources(xnat_session)
-    if xnat_session.scans:
-        process_scans(ident, xnat_session)
+    if xnat_experiment.resource_files:
+        process_resources(ident, xnat_experiment)
+    if xnat_experiment.scans:
+        process_scans(ident, xnat_experiment)
 
 
 def set_date(session, experiment):
-    try:
-        date = experiment['data_fields']['date']
-    except KeyError:
+    if not experiment.date:
         logger.debug("No scanning date found for {}, leaving blank.".format(
                 session))
         return
 
     try:
-        date = datetime.strptime(date, '%Y-%m-%d')
+        date = datetime.strptime(experiment.date, '%Y-%m-%d')
     except ValueError:
         logger.error('Invalid date {} for scan session {}'.format(date,
                                                                   session))
@@ -269,13 +268,21 @@ def set_date(session, experiment):
     session.save()
 
 
-def process_resources(xnat_session):
-    """Export any non-dicom resources from the XNAT archive"""
-    logger.info("Extracting {} resources from {}"
-                .format(len(xnat_session.resource_files), xnat_session.name))
+def set_alt_ids(session, ident):
+    if not isinstance(ident, datman.scanid.KCNIIdentifier):
+        return
+    session.timepoint.kcni_name = ident.get_xnat_subject_id()
+    session.kcni_name = ident.get_xnat_experiment_id()
+    session.save()
 
-    base_path = os.path.join(cfg.get_path('resources'),
-                             xnat_session.name)
+
+def process_resources(ident, xnat_experiment):
+    """Export any non-dicom resources from the XNAT archive"""
+    logger.info("Extracting {} resources from {}".format(
+        len(xnat_experiment.resource_files), xnat_experiment.name))
+
+    base_path = os.path.join(cfg.get_path('resources'), str(ident))
+
     if not os.path.isdir(base_path):
         logger.info("Creating resources dir {}".format(base_path))
         try:
@@ -284,7 +291,7 @@ def process_resources(xnat_session):
             logger.error("Failed creating resources dir {}".format(base_path))
             return
 
-    for label in xnat_session.resource_IDs:
+    for label in xnat_experiment.resource_IDs:
         if label == 'No Label':
             target_path = os.path.join(base_path, 'MISC')
         else:
@@ -297,17 +304,17 @@ def process_resources(xnat_session):
                          .format(target_path))
             continue
 
-        xnat_resource_id = xnat_session.resource_IDs[label]
+        xnat_resource_id = xnat_experiment.resource_IDs[label]
 
         try:
-            resources = xnat.get_resource_list(xnat_session.project,
-                                               xnat_session.name,
-                                               xnat_session.experiment_label,
+            resources = xnat.get_resource_list(xnat_experiment.project,
+                                               xnat_experiment.subject,
+                                               xnat_experiment.name,
                                                xnat_resource_id)
         except Exception as e:
-            logger.error("Failed getting resource {} for session {}. "
+            logger.error("Failed getting resource {} for experiment {}. "
                          "Reason - {}".format(xnat_resource_id,
-                                              xnat_session.name,
+                                              xnat_experiment.name,
                                               e))
             continue
 
@@ -317,19 +324,19 @@ def process_resources(xnat_session):
         for resource in resources:
             resource_path = os.path.join(target_path, resource['URI'])
             if os.path.isfile(resource_path):
-                logger.debug("Resource {} found for session {}"
-                             .format(resource['name'], xnat_session.name))
+                logger.debug("Resource {} from experiment {} already exists"
+                             .format(resource['name'], xnat_experiment.name))
 
             else:
-                logger.info("Resource: {} not found for session: {}"
-                            .format(resource['name'], xnat_session.name))
-                download_resource(xnat_session,
+                logger.info("Downloading {} from experiment {}"
+                            .format(resource['name'], xnat_experiment.name))
+                download_resource(xnat_experiment,
                                   xnat_resource_id,
                                   resource['URI'],
                                   resource_path)
 
 
-def download_resource(xnat_session, xnat_resource_id, xnat_resource_uri,
+def download_resource(xnat_experiment, xnat_resource_id, xnat_resource_uri,
                       target_path):
     """
     Download a single resource file from XNAT. Target path should be
@@ -337,15 +344,15 @@ def download_resource(xnat_session, xnat_resource_id, xnat_resource_uri,
     """
 
     try:
-        source = xnat.get_resource(xnat_session.project,
-                                   xnat_session.name,
-                                   xnat_session.experiment_label,
+        source = xnat.get_resource(xnat_experiment.project,
+                                   xnat_experiment.subject,
+                                   xnat_experiment.name,
                                    xnat_resource_id,
                                    xnat_resource_uri,
                                    zipped=False)
     except Exception as e:
         logger.error("Failed downloading resource archive from {} with "
-                     "reason: {}".format(xnat_session.name, e))
+                     "reason: {}".format(xnat_experiment.name, e))
         return
 
     # check that the target path exists
@@ -374,13 +381,18 @@ def download_resource(xnat_session, xnat_resource_id, xnat_resource_uri,
     return target_path
 
 
-def process_scans(ident, xnat_session):
+def process_scans(ident, xnat_experiment):
+    """Download scans from an XNAT experiment and convert to valid formats.
+
+    Args:
+        ident (:obj:`datman.scanid.Identifier`): A valid datman Identifier to
+            name files after.
+        xnat_experiment (:obj:`datman.xnat.XNATExperiment`): An experiment
+            from the XNAT server to download dicoms from.
     """
-    Process a set of scans in an XNAT experiment
-    scanid is a valid datman.scanid object
-    xnat_session is an instance of datman.xnat.Session
-    """
-    logger.info("Processing scans in session {}".format(xnat_session.name))
+
+    logger.info("Processing scans in experiment {}".format(
+        xnat_experiment.name))
 
     # load the export info from the site config files
     tags = cfg.get_tags(site=ident.site)
@@ -390,37 +402,37 @@ def process_scans(ident, xnat_session):
                      .format(cfg.study_name, ident.site))
         return
 
-    for scan in xnat_session.scans:
+    for scan in xnat_experiment.scans:
 
         if not scan.raw_dicoms_exist():
             logger.warning("Skipping series {} for session {}. No RAW dicoms "
-                           "exist".format(scan.series, xnat_session.name))
+                           "exist".format(scan.series, xnat_experiment.name))
             continue
 
         if scan.is_derived():
             logger.warning("Series {} in session {} is a derived scan. "
-                           "Skipping.".format(scan.series, xnat_session.name))
+                           "Skipping.".format(
+                               scan.series, xnat_experiment.name))
             continue
 
         if not scan.description:
-            logger.error("Can't find description for series {} "
-                         "from session {}"
-                         .format(scan.series, xnat_session.name))
+            logger.error("Can't find description for series {} from session {}"
+                         .format(scan.series, xnat_experiment.name))
             continue
 
         try:
-            scan.set_datman_name(tags.series_map)
+            scan.set_datman_name(str(ident), tags.series_map)
         except Exception as e:
             logger.info("Failed to make file name for series {} in session "
                         "{}. Reason {}: {}".format(scan.series,
-                                                   xnat_session.name,
+                                                   xnat_experiment.name,
                                                    type(e).__name__,
                                                    e))
             continue
 
         if len(scan.tags) > 1 and not scan.multiecho:
             logger.error("Multiple export patterns match for {}, "
-                         "descr: {}, tags: {}".format(xnat_session.name,
+                         "descr: {}, tags: {}".format(xnat_experiment.name,
                                                       scan.description,
                                                       scan.tags))
             continue
@@ -504,8 +516,8 @@ def get_scans(ident, xnat_scan, output_name, export_formats):
         src_dir = get_dicom_archive_from_xnat(xnat_scan, temp)
 
         if not src_dir:
-            logger.error("Failed getting series {} for session {} from XNAT"
-                         .format(xnat_scan.series, xnat_scan.session))
+            logger.error("Failed getting series {} for experiment {} from XNAT"
+                         .format(xnat_scan.series, xnat_scan.experiment))
             return
 
         for export_format in export_formats:
@@ -532,9 +544,9 @@ def get_scans(ident, xnat_scan, output_name, export_formats):
                 exporter(src_dir, target_dir, output_name, xnat_scan)
             except Exception:
                 logger.error("An error happened exporting {} from scan {} "
-                             "in session {}".format(export_format,
-                                                    xnat_scan.series,
-                                                    xnat_scan.session))
+                             "in experiment {}".format(
+                                 export_format, xnat_scan.series,
+                                 xnat_scan.experiment))
 
     logger.info('Completed exports')
 
@@ -547,15 +559,15 @@ def get_dicom_archive_from_xnat(xnat_scan, tempdir):
     """
     # make a copy of the dicom files in a local directory
     logger.info("Downloading dicoms for: {}, series: {}"
-                .format(xnat_scan.session, xnat_scan.series))
+                .format(xnat_scan.experiment, xnat_scan.series))
     try:
         dicom_archive = xnat.get_dicom(xnat_scan.project,
-                                       xnat_scan.session,
+                                       xnat_scan.subject,
                                        xnat_scan.experiment,
                                        xnat_scan.series)
     except Exception:
         logger.error("Failed to download dicom archive for: {}, series: {}"
-                     .format(xnat_scan.session, xnat_scan.series))
+                     .format(xnat_scan.subject, xnat_scan.series))
         return None
 
     logger.info("Unpacking archive")
@@ -565,7 +577,7 @@ def get_dicom_archive_from_xnat(xnat_scan, tempdir):
             myzip.extractall(tempdir)
     except Exception:
         logger.error("An error occurred unpacking dicom archive for: {}. "
-                     "Skipping".format(xnat_scan.session))
+                     "Skipping".format(xnat_scan.subject))
         os.remove(dicom_archive)
         return None
 
@@ -584,7 +596,7 @@ def get_dicom_archive_from_xnat(xnat_scan, tempdir):
         base_dir = os.path.dirname(archive_files[0])
     except IndexError:
         logger.warning("There were no valid dicom files in XNAT session {}, "
-                       "series {}".format(xnat_scan.session, xnat_scan.series))
+                       "series {}".format(xnat_scan.subject, xnat_scan.series))
         return None
     return base_dir
 
