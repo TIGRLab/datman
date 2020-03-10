@@ -181,8 +181,7 @@ class xnat(object):
                 first match is returned.
         """
         if not projects:
-            projects = self.get_projects()
-            projects = [p["ID"] for p in projects]
+            projects = [p["ID"] for p in self.get_projects()]
 
         for project in projects:
             if subject_id in self.get_subject_ids(project):
@@ -220,7 +219,13 @@ class xnat(object):
         if not result:
             return []
 
-        return [item.get("label") for item in result["ResultSet"]["Result"]]
+        try:
+            subids = [item["label"] for item in result["ResultSet"]["Result"]]
+        except KeyError as e:
+            raise XnatException("get_subject_ids - Malformed response. "
+                                "{}".format(e))
+
+        return subids
 
     def get_subject(self, project, subject_id, create=False):
         """Get a subject from the XNAT server.
@@ -426,7 +431,14 @@ class xnat(object):
         if not result:
             return []
 
-        return [item.get("ID") for item in result["ResultSet"]["Result"]]
+        try:
+            scan_ids = [item.get("ID")
+                        for item in result["ResultSet"]["Result"]]
+        except KeyError as e:
+            raise XnatException("get_scan_ids - Malformed response. {}".format(
+                e))
+
+        return scan_ids
 
     def get_scan(self, project, subject_id, exper_id, scan_id):
         """Get a scan from the XNAT server.
@@ -503,12 +515,8 @@ class xnat(object):
 
         resource_ids = {}
         for r in result["ResultSet"]["Result"]:
-            try:
-                label = r["label"]
-                resource_ids[label] = r["xnat_abstractresource_id"]
-            except KeyError:
-                # some resource folders have no label
-                resource_ids["No Label"] = r["xnat_abstractresource_id"]
+            label = r.get("label", "No Label")
+            resource_ids[label] = r["xnat_abstractresource_id"]
 
         if not folderName:
             # foldername not specified return them all
