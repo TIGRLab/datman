@@ -86,7 +86,7 @@ def main():
 
     if not study:
         with datman.xnat.xnat(xnat_server, username, password) as xnat:
-            get_sessions(xnat, xnat_project, destination)
+            download_subjects(xnat, xnat_project, destination)
         return
 
     config = datman.config.config(study=study)
@@ -105,47 +105,54 @@ def main():
             continue
         username, password = get_credentials(credentials_file)
         with datman.xnat.xnat(server, username, password) as xnat:
-            get_sessions(xnat, project, destination)
+            download_subjects(xnat, project, destination)
 
 
-def get_sessions(xnat, xnat_project, destination):
-    current_zips = os.listdir(destination)
+def download_subjects(xnat, xnat_project, destination):
+    try:
+        current_zips = os.listdir(destination)
+    except FileNotFoundError:
+        os.mkdir(destination)
 
-    sessions_list = xnat.get_sessions(xnat_project)
-    for session_metadata in sessions_list:
-        session_name = session_metadata['label']
+    for subject_id in xnat.get_subject_ids(xnat_project):
         try:
-            session = xnat.get_session(xnat_project, session_name)
+            subject = xnat.get_subject(xnat_project, subject_id)
         except Exception as e:
-            logger.error("Failed to get session {} from xnat. "
-                         "Reason: {}".format(session_name, e))
+            logger.error("Failed to get subject {} from xnat. "
+                         "Reason: {}".format(subject_id, e))
             continue
 
-        zip_name = session_name.upper() + ".zip"
-        zip_path = os.path.join(destination, zip_name)
-        if zip_name in current_zips and not update_needed(zip_path,
-                                                          session,
-                                                          xnat):
-            logger.debug("All data downloaded for {}. Passing.".format(
-                    session_name))
-            continue
-
-        if DRYRUN:
-            logger.info("Would have downloaded session {} from project {} to "
-                        "{}".format(session_name, xnat_project, zip_path))
+        if not subject.experiments:
+            logger.error("Subject {} has no experiments.".format(subject.name))
             return
 
-        with datman.utils.make_temp_directory() as temp:
-            try:
-                temp_zip = session.download(xnat, temp, zip_name=zip_name)
-            except Exception as e:
-                logger.error("Cant download session {}. Reason: {}"
-                             "".format(session_name, e))
+        for experiment in subject.experiments.values():
+            zip_name = experiment.name.upper() + ".zip"
+            zip_path = os.path.join(destination, zip_name)
+            if zip_name in current_zips and not update_needed(
+                    zip_path, experiment, xnat):
+                logger.debug("All data downloaded for {}. Passing.".format(
+                    experiment.name))
                 continue
-            restructure_zip(temp_zip, zip_path)
+
+            if DRYRUN:
+                logger.info("Would have downloaded experiment {} from project "
+                            "{} to {}".format(
+                                experiment.name, xnat_project, zip_path))
+                return
+
+            with datman.utils.make_temp_directory() as temp:
+                try:
+                    temp_zip = experiment.download(
+                        xnat, temp, zip_name=zip_name)
+                except Exception as e:
+                    logger.error("Cant download experiment {}. Reason: {}"
+                                 "".format(experiment, e))
+                    continue
+                restructure_zip(temp_zip, zip_path)
 
 
-def update_needed(zip_file, session, xnat):
+def update_needed(zip_file, experiment, xnat):
     """
     This checks if an update is needed the same way dm_xnat_upload does. The
     logic is not great. A single file being deleted / truncated / corrupted
@@ -153,31 +160,26 @@ def update_needed(zip_file, session, xnat):
     preferably to use XNAT's metadata on num of files and file size.
     """
     zip_headers = datman.utils.get_archive_headers(zip_file)
-
-    if not session.experiment:
-        logger.error("{} does not have any experiments.".format(session.name))
-        return False
-
     zip_experiment_ids = get_experiment_ids(zip_headers)
     if len(set(zip_experiment_ids)) > 1:
         logger.error("Zip file contains more than one experiment: "
                      "{}. Passing.".format(zip_file))
         return False
 
-    if session.experiment_UID not in zip_experiment_ids:
-        logger.error("Zip file experiment ID does not match xnat session of "
-                     "the same name: {}".format(zip_file))
+    if experiment.uid not in zip_experiment_ids:
+        logger.error("Zip file UID does not match xnat experiment "
+                     "of the same name: {}".format(zip_file))
         return False
 
     zip_scan_uids = get_scan_uids(zip_headers)
     zip_resources = get_resources(zip_file)
-    xnat_resources = session.get_resources(xnat)
+    xnat_resources = experiment.get_resources(xnat)
 
     if not files_downloaded(zip_resources, xnat_resources) or \
-       not files_downloaded(zip_scan_uids, session.scan_UIDs):
+       not files_downloaded(zip_scan_uids, experiment.scan_UIDs):
         logger.error("Some of XNAT contents for {} is missing from file "
                      "system. Zip file will be deleted and recreated"
-                     "".format(session.name))
+                     "".format(experiment.name))
         return True
 
     return False

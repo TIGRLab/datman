@@ -318,7 +318,7 @@ def link_resources(source_id, target_id):
 def get_datman_scanid(session_id, config):
     try:
         session = datman.utils.validate_subject_id(session_id, config)
-    except RuntimeError as e:
+    except datman.scanid.ParseException as e:
         logger.error("Invalid session ID given: {}. Exiting".format(str(e)))
         sys.exit(1)
     return session

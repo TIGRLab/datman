@@ -21,7 +21,8 @@ import pyxnat
 import datman.config
 import datman.scanid as scanid
 import datman.dashboard as dashboard
-from datman.exceptions import MetadataException, DashboardException
+from datman.exceptions import (MetadataException, DashboardException,
+                               ParseException)
 
 logger = logging.getLogger(__name__)
 
@@ -1061,35 +1062,47 @@ def check_dependency_configured(program_name, shell_cmd=None, env_vars=None):
 
 
 def validate_subject_id(subject_id, config):
-    """
-    Checks that a given subject id
-        a) Matches the datman convention
-        b) Matches a study tag that is defined in the configuration file for
-           the current study
-        c) Matches a site that is defined for the given study tag
+    """Ensures subject ID correctness based on configuration settings.
 
-    If all validation checks pass, will return a datman scanid instance. This
-    can be ignored if the validation is all that's wanted.
+    This checks that a given ID:
+        1. Matches a supported naming convention
+        2. Matches a study tag that's defined in the configuration file for
+           the current study
+        3. Matches a site that is defined for the study tag
+
+    Args:
+        subject_id (:obj:`str`): A subject ID to check.
+        config (:obj:`datman.config.config`): A datman config instance that
+            has been initialized to the study the subject ID should belong to.
+
+    Raises:
+        ParseException: When an ID is given that does not match any supported
+            convention or that contains incorrect fields for the current study.
+
+    Returns:
+        :obj:`datman.scanid.Identifier`: A parsed datman identifier matching
+            subject_id
     """
     try:
-        new_subject_id = scanid.parse(subject_id)
-    except scanid.ParseException:
-        raise RuntimeError("Subject id {} does not match datman"
-                           " convention".format(subject_id))
+        settings = config.get_key("ID_MAP")
+    except datman.config.UndefinedSetting:
+        settings = None
+
+    new_subject_id = scanid.parse(subject_id, settings)
 
     valid_tags = config.get_study_tags()
 
     try:
         sites = valid_tags[new_subject_id.study]
     except KeyError:
-        raise RuntimeError("Subject id {} has undefined study code {}".format(
-                           subject_id, new_subject_id.study))
+        raise ParseException("Subject id {} has undefined study code {}"
+                             "".format(new_subject_id, new_subject_id.study))
 
     if new_subject_id.site not in sites:
-        raise RuntimeError("Subject id {} has undefined site {} for study "
-                           "{}".format(subject_id,
-                                       new_subject_id.site,
-                                       new_subject_id.study))
+        raise ParseException("Subject id {} has undefined site {} for study "
+                             "{}".format(new_subject_id,
+                                         new_subject_id.site,
+                                         new_subject_id.study))
 
     return new_subject_id
 

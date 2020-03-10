@@ -45,9 +45,10 @@ class CheckFilesExist(unittest.TestCase):
         mock_resources_exist.return_value = True
         xnat_session = self.__get_xnat_session(self.session)
 
+
         # Run
         data_exists, resources_exist = upload.check_files_exist(
-            self.archive, xnat_session)
+            self.archive, xnat_session.experiments["STUDY_SITE_9999_01_01"])
 
         # Should raise an exception, so assertion is never reached
         assert data_exists
@@ -69,4 +70,4 @@ class CheckFilesExist(unittest.TestCase):
     def __get_xnat_session(self, text_file):
         with open(text_file, 'r') as session_data:
             xnat_session = eval(session_data.read())
-        return datman.xnat.Session(xnat_session)
+        return datman.xnat.XNATSubject(xnat_session)
