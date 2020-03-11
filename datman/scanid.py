@@ -68,7 +68,7 @@ class DatmanIdentifier(Identifier):
 
     scan_re = '(?P<id>(?P<study>[^_]+)_' \
               '(?P<site>[^_]+)_' \
-              '(?!.+PHA)(?P<subject>[^_]+)_' \
+              '(?P<subject>[^_]+)(?<!PHA)_' \
               '(?P<timepoint>[^_]+)_' \
               '(?!MR)(?!SE)(?P<session>[^_]+))'
 
