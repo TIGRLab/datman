@@ -259,6 +259,8 @@ workflows:
       - build_docs:
           filters:
             branches:
+              ignore:
+                - /tests?\/.*/
             tags:
               only: /.*/
 
