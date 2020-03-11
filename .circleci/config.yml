@@ -185,6 +185,9 @@ jobs:
             - ./docs/_build/_html
       - checkout
       - run:
+          name: Install deps
+          command: pip install --no-cache-dir -r docs/requirements.txt
+      - run:
           name: Build only this commit
           command: make -C docs SPHINXOPTS="-W" BUILDDIR="_build/no_version_html" html
       - store_artifacts:
