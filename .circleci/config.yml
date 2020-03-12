@@ -97,7 +97,7 @@ jobs:
             THISVERSION=$( python get_version.py )
             THISVERSION=${THISVERSION%.dirty*}
             THISVERSION=${CIRCLE_TAG:-$THISVERSION}
-            echo "${THISVERSION}" > VERSION
+            echo "${CIRCLE_TAG:-%THISVERSION}" > VERSION
             python setup.py sdist
             pip wheel --no-deps -w dist/ .
       - store_artifacts:
@@ -109,7 +109,7 @@ jobs:
             THISVERSION=$( python get_version.py )
             THISVERSION=${THISVERSION%.dirty*}
             THISVERSION=${CIRCLE_TAG:-$THISVERSION}
-            twine check ~/datman/dist/datman*tar.gz
+            twine check dist/datman*tar.gz
             pip install dist/datman*tar.gz
             INSTALLED_VER=$(python -c 'import datman; print(datman.__version__)')
             echo "CIRCLETAG: $CIRCLEC_TAG"
@@ -121,19 +121,18 @@ jobs:
           command: |
             python -m venv /tmp/whl
             source /tmp/whl/bin/activate
+            python -m pip install -U pip
+            python -m pip install "setuptools>=30.3.0" twine
 
             wrapt_ver=$(grep "wrapt" setup.cfg | tr -d ' ')
             pyyaml_ver=$(grep "pyyaml" setup.cfg | tr -d ' ')
             pip install "$wrapt_ver" "$pyyaml_ver"
 
-            pip install twine
             THISVERSION=$( python get_version.py )
             THISVERSION=${THISVERSION%.dirty*}
             THISVERSION=${CIRCLE_TAG:-$THISVERSION}
             twine check dist/datman*.whl
             pip install dist/datman*.whl
-
-
             INSTALLED_VER=$(python -c 'import datman; print(datman.__version__)')
             echo "VERSION: \"$THISVERSION\""
             echo "INSTALLED: \"$INSTALLED_VER\""
@@ -162,7 +161,16 @@ jobs:
             python -m venv /tmp/sdist
             source /tmp/sdist/bin/activate
             pip install -U pip
-            pip install "setuptools>=30.3.0 twine wrapt pyyaml"
+            pip install "setuptools>=30.3.0 twine"
+
+            wrapt_ver=$(grep "wrapt" setup.cfg | tr -d ' ')
+            pyyaml_ver=$(grep "pyyaml" setup.cfg | tr -d ' ')
+            pip install "$wrapt_ver" "$pyyaml_ver"
+      - run:
+          name: Build datman
+          command: |
+            source /tmp/sdist/bin/activate
+            THISVERSION=$( python get_version.py )
             THISVERSION=${THISVERSION%.dirty*}
             THISVERSION=${CIRCLE_TAG:-$THISVERSION}
             echo "${CIRCLE_TAG:-%THISVERSION}" > VERSION
@@ -183,6 +191,7 @@ jobs:
           keys:
             - datman-v1-{{ .Branch }}-{{ checksum "setup.cfg" }}
             - datman-v1-{{ .Branch }}
+            - datman-v1-master
             - datman-v1-
           paths:
             - ./docs/_build/_html
