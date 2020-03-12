@@ -158,7 +158,7 @@ class FSLog(object):
 
         _, date_str = date_entry[0].strip('\n').split(None, 1)
         date = self.get_date(date_str)
-        now = datetime.datetime.now()
+        now = datetime.datetime.now(date.tzinfo)
         diff = now - date
         if diff < datetime.timedelta(hours=24):
             status = self._RUNNING

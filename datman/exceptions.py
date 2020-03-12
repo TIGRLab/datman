@@ -1,6 +1,12 @@
 """Defines the exceptions used by datman sub-modules"""
 
 
+class ParseException(Exception):
+    """For participant ID parsing issues.
+    """
+    pass
+
+
 class XnatException(Exception):
     """Default exception for xnat errors"""
     study = None
