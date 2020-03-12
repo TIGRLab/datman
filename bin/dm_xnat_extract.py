@@ -94,7 +94,6 @@ cfg = None
 DRYRUN = False
 db_ignore = False  # if True dont update the dashboard db
 wanted_tags = None
-XNAT_CONVENTION = 'DATMAN'
 
 
 def main():
@@ -103,7 +102,6 @@ def main():
     global DRYRUN
     global wanted_tags
     global db_ignore
-    global XNAT_CONVENTION
 
     arguments = docopt(__doc__)
     verbose = arguments['--verbose']
@@ -123,11 +121,6 @@ def main():
     configure_logging(study, quiet, verbose, debug)
 
     cfg = datman.config.config(study=study)
-
-    try:
-        XNAT_CONVENTION = cfg.get_key("XNAT_CONVENTION", site=ident.site)
-    except datman.config.UndefinedSetting:
-        pass
 
     # get the list of XNAT projects linked to the datman study
     xnat_projects = cfg.get_xnat_projects(study)
@@ -179,7 +172,12 @@ def configure_logging(study, quiet=None, verbose=None, debug=None):
 def collect_experiment(user_exper, xnat_projects, cfg):
     ident = datman.utils.validate_subject_id(user_exper, cfg)
 
-    if XNAT_CONVENTION == "KCNI":
+    try:
+        convention = cfg.get_key("XNAT_CONVENTION", site=ident.site)
+    except datman.config.UndefinedSetting:
+        convention = "DATMAN"
+
+    if convention == "KCNI":
         try:
             settings = cfg.get_key("ID_MAP")
         except datman.config.UndefinedSetting:
@@ -200,25 +198,20 @@ def collect_experiment(user_exper, xnat_projects, cfg):
 def collect_all_experiments(xnat_projects, config):
     experiments = []
 
-    if XNAT_CONVENTION == "DATMAN":
-        get_ids = xnat.get_subject_ids
-    else:
-        get_ids = xnat.get_experiment_ids
-
     # for each XNAT project send out URL request for list of session records
     # then validate and add (XNAT project, subject ID ['label']) to output list
     for project in xnat_projects:
-        for found_id in get_ids(project):
+        for exper_id in xnat.get_experiment_ids(project):
             try:
-                ident = datman.utils.validate_subject_id(found_id, config)
+                ident = datman.utils.validate_subject_id(exper_id, config)
             except datman.scanid.ParseException:
-                logger.error("Invalid ID {} in project {}.".format(
-                    found_id, project))
+                logger.error("Invalid experiment ID {} in project {}.".format(
+                    exper_id, project))
                 continue
             if (ident.session is None and not datman.scanid.is_phantom(ident)):
-                logger.error("Invalid ID {} in project {}. Reason "
+                logger.error("Invalid experiment ID {} in project {}. Reason "
                              "- Not a phantom, but missing session number"
-                             "".format(found_id, project))
+                             "".format(exper_id, project))
                 continue
             experiments.append((project, ident))
 
