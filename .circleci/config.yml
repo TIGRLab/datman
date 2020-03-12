@@ -29,7 +29,7 @@ orbs:
 jobs:
 
   build:
-    working_directory: ~/datman
+    working_directory: /tmp/src/datman
     machine:
       image: ubuntu-1604:201903-01
     steps:
@@ -37,7 +37,6 @@ jobs:
       - run:
           name: Check if docs build before continuing
           command: |
-            cd ~/datman
             if [[ "$( git log --format='format:%s' -n 1 $CIRCLE_SHA1 | grep -iE '^docs?(\(\w+\))?:' )" != "" ]]; then
               echo "Will only be building Docs"
               circleci step halt
@@ -46,6 +45,7 @@ jobs:
           keys:
             - datman-v1-{{ .Branch }}-{{ checksum "setup.cfg" }}
             - datman-v1-{{ .Branch }}
+            - datman-v1-master-
             - datman-v1-
       - run:
           name: Set up installation and cache
@@ -55,8 +55,11 @@ jobs:
       - save_cache:
           key: datman-v1-{{ .Branch }}-{{ checksum "setup.cfg" }}
           paths:
-            ~/.cache/pip
-            /opt/circleci/.pyenv/versions/3.6.5/lib/python3.6.5/site-packages
+            - /tmp/python
+      - persist_to_workspace:
+          root: /tmp
+          paths:
+            - src/datman
       - run:
           name: Run pytest and output junit xml for codecov
           command: |
@@ -68,7 +71,7 @@ jobs:
           flags: unittests
 
   test_deploy_pypi:
-    working_directory: ~/datman
+    working_directory: /tmp/src/datman
     docker:
       - image: "python:3.6.5"
     steps:
@@ -98,7 +101,7 @@ jobs:
             python setup.py sdist
             pip wheel --no-deps -w dist/ .
       - store_artifacts:
-          path: ~/datman/dist
+          path: /tmp/src/datman/dist
       - run:
           name: Check sdist
           command: |
@@ -136,10 +139,10 @@ jobs:
             echo "INSTALLED: \"$INSTALLED_VER\""
             test "$INSTALLED_VER" = "$THISVERSION"
       - store_artifacts:
-          path: ~/datman/dist
+          path: /tmp/src/datman/dist
 
   deployable:
-    working_directory: ~/datman
+    working_directory: /tmp/src/datman
     docker:
       - image: "python:3.6.5"
     steps:
@@ -148,7 +151,7 @@ jobs:
             echo "Deploying Datman!"
 
   deploy_pypi:
-    working_directory: ~/datman
+    working_directory: /tmp/src/datman
     docker:
       - image: "python:3.6.5"
     steps:
@@ -172,7 +175,7 @@ jobs:
             twine upload dist/datman*
 
   build_docs:
-    working_directory: ~/datman
+    working_directory: /tmp/src/datman
     docker:
       - image: "python:3.6.5"
     steps:
