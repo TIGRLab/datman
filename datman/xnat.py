@@ -98,7 +98,7 @@ class xnat(object):
             self.open_session()
         except Exception:
             raise XnatException("Failed to open session with server {}".format(
-                    server))
+                server))
 
     def __enter__(self):
         return self
@@ -788,7 +788,7 @@ class xnat(object):
             raise XnatException("Failed deleting resource with url: {}"
                                 .format(url))
 
-    def rename_subject(self, project, old_name, new_name, rename_exp=True):
+    def rename_subject(self, project, old_name, new_name, rename_exp=False):
         """Change a subjects's name on XNAT.
 
         Args:
@@ -797,22 +797,22 @@ class xnat(object):
             old_name (:obj:`str`): The current name on XNAT of the subject to
                 be renamed.
             new_name (:obj:`str`): The new name to apply.
-            rename_exp (bool, optional): Change the experiment name to the new
-                subject name. Defaults to True.
+            rename_exp (bool, optional): Also change the experiment name to
+                the new subject name. Obviously, this should NOT be used when
+                subjects and experiments are meant to use different naming
+                conventions. Defaults to False.
 
         Raises:
             XnatException: If unable to rename the subject (or the experiment
-                if rename_exp=True) due to:
-                    1) A stuck AutoRun.xml pipeline that can't be dismissed
-                    2) A subject existing under the 'new_name' already
+                if rename_exp=True) because:
+                    1) The subject doesnt exist.
+                    2) A stuck AutoRun.xml pipeline can't be dismissed
+                    3) A subject exists under the 'new_name' already
             requests.HTTPError: If any unexpected behavior is experienced while
                 interacting with XNAT's API
         """
-        session = self.get_session(project, old_name)
-
-        if not session:
-            raise XnatException("Can't rename session {}, doesnt "
-                                "exist.".format(old_name))
+        # Ensures subject exists, and raises an exception if not
+        self.get_subject(project, old_name)
 
         url = "{}/data/archive/projects/{}/subjects/{}?xsiType=" \
               "xnat:mrSessionData&label={}".format(self.server, project,
@@ -821,11 +821,11 @@ class xnat(object):
             self._make_xnat_put(url)
         except requests.HTTPError as e:
             if e.response.status_code == 409:
-                raise XnatException("Can't rename {} to {} - session "
+                raise XnatException("Can't rename {} to {} - subject "
                                     "already exists".format(old_name,
                                                             new_name))
             elif e.response.status_code == 422:
-                # This is raised every time a session is renamed.
+                # This is raised every time a subject is renamed.
                 pass
             else:
                 raise e
@@ -833,43 +833,45 @@ class xnat(object):
         if not rename_exp:
             return
 
-        self.rename_experiment(session, old_name, new_name)
+        self.rename_experiment(project, new_name, old_name, new_name)
 
-    def rename_experiment(self, session, old_exp, new_exp):
+    def rename_experiment(self, project, subject, old_name, new_name):
         """Change an experiment's name on XNAT.
 
         Args:
-            session (:obj:`datman.xnat.Session`): The session object that this
-                experiment belongs to.
-            old_exp (:obj:`str`): The current experiment name.
-            new_exp (:obj:`str`): The new name to give the experiment. This
-                will usually be the same as the session name.
+            project (:obj:`str`): The name of the project the experiment
+                can be found in.
+            subject (:obj:`str`): The ID of the subject this experiment
+                belongs to.
+            old_name (:obj:`str`): The current experiment name.
+            new_name (:obj:`str`): The new name to give the experiment.
 
         Raises:
-            XnatException: If unable to rename the experiment due to:
-                1) A stuck AutoRun.xml pipeline that can't be dismissed
-                2) A session existing under the 'new_name' already
+            XnatException: If unable to rename the experiment because:
+                1) The experiment doesnt exist
+                2) A stuck AutoRun.xml pipeline can't be dismissed
+                3) An experiment exists under 'new_name' already
             requests.HTTPError: If any unexpected behavior is experienced while
                 interacting with XNAT's API
         """
+        experiment = self.get_experiment(project, subject, old_name)
+
         try:
-            self.dismiss_autorun(session)
+            self.dismiss_autorun(experiment)
         except XnatException as e:
-            logger.error("Failed to dismiss AutoRun.xml pipeline, "
-                         "experiment rename may fail. Error - {}".format(e))
+            logger.error("Failed to dismiss AutoRun.xml pipeline for {}, "
+                         "experiment rename may fail. Error - {}"
+                         "".format(old_name, e))
 
-        experiments = self.get_experiments(session.project, new_exp)
-        if len(experiments) != 1:
-            raise XnatException("{} experiment(s) exist for {}, cant rename "
-                                "experiment(s) to {}".format(len(experiments),
-                                                             old_exp,
-                                                             new_exp))
+        experiments = self.get_experiment_ids(project, subject)
+        if new_name in experiments:
+            raise XnatException("Can't rename experiment {} to {} - ID "
+                                "already in use.".format(old_name, new_name))
 
-        old_exp = experiments[0]['label']
         url = "{}/data/archive/projects/{}/subjects/{}" \
               "/experiments/{}?xsiType=" \
               "xnat:mrSessionData&label={}".format(
-                  self.server, session.project, new_exp, old_exp, new_exp)
+                  self.server, project, subject, old_name, new_name)
 
         try:
             self._make_xnat_put(url)
@@ -882,7 +884,7 @@ class xnat(object):
             else:
                 raise e
 
-    def dismiss_autorun(self, session):
+    def dismiss_autorun(self, experiment):
         """Mark the AutoRun.xml pipeline as finished.
 
         AutoRun.xml gets stuck as 'Queued' and can cause failures at renaming
@@ -890,10 +892,10 @@ class xnat(object):
         interfering.
 
         Args:
-            session (:obj:`datman.xnat.Session`): An XNAT session that you wish
-                to dismiss the pipeline for.
+            subject (:obj:`datman.xnat.XNATExperiment`): An XNAT experiment to
+                dismiss the pipeline for.
         """
-        autorun_id = session.get_autorun_id(self)
+        autorun_id = experiment.get_autorun_id(self)
         dismiss_url = "{}/data/workflows/{}?wrk:workflowData/status=Complete"\
             "".format(self.server, autorun_id)
         self._make_xnat_put(dismiss_url)
@@ -1246,9 +1248,9 @@ class XNATExperiment(XNATObject):
 
         XNAT has this obnoxious, on-by-default and seemingly impossible to
         disable, 'workflow' called AutoRun.xml. It appears to do nothing other
-        than prevent certain actions (like renaming sessions/experiments) if
+        than prevent certain actions (like renaming subjects/experiments) if
         it is stuck in the running or queued state. This will grab the autorun
-        ID for this session so that it can be modified.
+        ID for this experiment so that it can be modified.
 
         Returns:
             str: an integer reference ID that can be used to change the status
@@ -1300,7 +1302,7 @@ class XNATExperiment(XNATObject):
                     </xdat:criteria>
                 </xdat:search_where>
             </xdat:bundle>
-        """.format(exp_id=self.experiment_id, project=self.project)  # noqa: E501
+        """.format(exp_id=self.id, project=self.project)  # noqa: E501
 
         query_url = "{}/data/search?format=json".format(xnat.server)
         response = xnat._make_xnat_post(query_url, data=query_xml)
@@ -1329,10 +1331,10 @@ class XNATExperiment(XNATObject):
         resource_ids.extend(self.misc_resource_IDs)
         for r_id in resource_ids:
             resource_list = xnat_connection.get_resource_list(
-                                    self.project,
-                                    self.subject,
-                                    self.name,
-                                    r_id)
+                self.project,
+                self.subject,
+                self.name,
+                r_id)
             resources.extend([item["URI"] for item in resource_list])
         return resources
 
@@ -1359,10 +1361,8 @@ class XNATExperiment(XNATObject):
                              "".format(self.name))
 
         url = ("{}/REST/experiments/{}/resources/{}/files"
-               "?structure=improved&all=true&format=zip".format(
-                            xnat.server,
-                            self.id,
-                            ",".join(resources_list)))
+               "?structure=improved&all=true&format=zip"
+               "".format(xnat.server, self.id, ",".join(resources_list)))
 
         if not zip_name:
             zip_name = self.name.upper() + ".zip"
