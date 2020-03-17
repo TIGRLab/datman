@@ -77,8 +77,6 @@ def main():
     logger.addHandler(ch)
 
     CFG = datman.config.config(study=study)
-
-    server = datman.xnat.get_server(CFG, url=server)
     AUTH = datman.xnat.get_auth(username)
 
     dicom_dir = CFG.get_path("dicom", study)
@@ -109,7 +107,8 @@ def get_xnat(url):
     try:
         connection = SERVER[url]
     except KeyError:
-        connection = datman.xnat.xnat(url, AUTH[0], AUTH[1])
+        server_url = datman.xnat.get_server(url=url)
+        connection = datman.xnat.xnat(server_url, AUTH[0], AUTH[1])
         SERVER[url] = connection
     return connection
 

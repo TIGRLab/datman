@@ -17,7 +17,11 @@ from datman.exceptions import XnatException, ExportException
 logger = logging.getLogger(__name__)
 
 
-def get_server(config, url=None, port=None):
+def get_server(config=None, url=None, port=None):
+    if not config and not url:
+        raise XnatException("Can't construct a valid server URL without a "
+                            "datman.config.config instance or string url")
+
     if url and not port:
         # Avoid mangling user's url by appending a port from the config
         use_port = False
@@ -51,12 +55,15 @@ def get_server(config, url=None, port=None):
     return server
 
 
-def get_port_str(config, port):
+def get_port_str(config=None, port=None):
     """
     Returns a port string of the format :portnum
 
     Will raise KeyError if port is None and config file doesnt define XNATPORT
     """
+    if not config and not port:
+        raise XnatException("Can't construct port substring without a "
+                            "datman.config.config instance or a port number")
     if port is None:
         port = config.get_key("XNATPORT")
 

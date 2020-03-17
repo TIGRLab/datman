@@ -122,9 +122,6 @@ def main():
     configure_logging(study, quiet, verbose, debug)
 
     cfg = datman.config.config(study=study)
-
-    # get base URL link to XNAT server, authentication info
-    server = datman.xnat.get_server(cfg, url=server)
     AUTH = datman.xnat.get_auth(username)
 
     if experiment:
@@ -169,7 +166,8 @@ def get_xnat(url):
     try:
         connection = SERVER[url]
     except KeyError:
-        connection = datman.xnat.xnat(url, AUTH[0], AUTH[1])
+        server_url = datman.xnat.get_server(url=url)
+        connection = datman.xnat.xnat(server_url, AUTH[0], AUTH[1])
         SERVER[url] = connection
     return connection
 
