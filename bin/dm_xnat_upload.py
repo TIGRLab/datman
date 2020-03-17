@@ -71,7 +71,7 @@ def main():
 
     formatter = logging.Formatter("%(asctime)s - %(name)s - {study} - "
                                   "%(levelname)s - %(message)s".format(
-                                   study=study))
+                                      study=study))
     ch.setFormatter(formatter)
 
     logger.addHandler(ch)
