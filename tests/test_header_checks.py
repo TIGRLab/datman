@@ -2,7 +2,7 @@
 import datman.header_checks as header_checks
 
 
-def test_handle_diff_returns_false_on_valueerror():
+def test_handle_diff_returns_dict_on_valueerror():
 
     value = [1, 2, 3]
     expected = [1, 2, 3, 5]
