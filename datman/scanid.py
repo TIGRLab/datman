@@ -331,6 +331,11 @@ def parse(identifier, settings=None):
         :obj:`Identifer`: An instance of a subclass of Identifier for the
             matched naming convention.
     """
+    if isinstance(identifier, Identifier):
+        if not settings:
+            return identifier
+        # ID may need to be reparsed based on settings
+        identifier = identifier.orig_id
 
     if settings and 'ID_TYPE' in settings:
         id_type = settings['ID_TYPE']
@@ -419,9 +424,9 @@ def make_filename(ident, tag, series, description, ext=None):
 def is_scanid(identifier):
     try:
         parse(identifier)
-        return True
     except ParseException:
         return False
+    return True
 
 
 def is_scanid_with_session(identifier):
