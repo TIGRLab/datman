@@ -73,9 +73,24 @@ def get_port_str(config=None, port=None):
     return port
 
 
-def get_auth(username=None):
+def get_auth(username=None, file_path=None):
     if username:
         return (username, getpass.getpass())
+
+    if file_path:
+        try:
+            with open(file_path, 'r') as cred_file:
+                contents = cred_file.readlines()
+        except Exception as e:
+            raise XnatException("Failed to read credentials file {}. "
+                                "Reason - {}".format(file_path, e))
+        try:
+            username = contents[0].strip()
+            password = contents[1].strip()
+        except IndexError:
+            raise XnatException("Failed to read credentials file {} - "
+                                "incorrectly formatted.".format(file_path))
+        return (username, password)
 
     try:
         username = os.environ["XNAT_USER"]

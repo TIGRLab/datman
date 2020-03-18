@@ -103,12 +103,21 @@ def main():
         process_archive(os.path.join(dicom_dir, archivefile))
 
 
-def get_xnat(url):
+def get_xnat(config, site):
+    """Creates an xnat connection for each defined server and caches it.
+    """
+    url = config.get_key("XNATSERVER", site=site)
     try:
         connection = SERVER[url]
     except KeyError:
         server_url = datman.xnat.get_server(url=url)
-        connection = datman.xnat.xnat(server_url, AUTH[0], AUTH[1])
+        try:
+            auth_file = config.get_key("XNAT_CREDENTIALS", site=site)
+        except datman.config.UndefinedSetting:
+            connection = datman.xnat.xnat(server_url, AUTH[0], AUTH[1])
+        else:
+            username, password = datman.xnat.get_auth(file_path=auth_file)
+            connection = datman.xnat.xnat(server_url, username, password)
         SERVER[url] = connection
     return connection
 
@@ -123,29 +132,14 @@ def is_datman_id(archive):
 def process_archive(archivefile):
     """Upload data from a zip archive to the xnat server"""
 
-    scanid = get_scanid(os.path.basename(archivefile))
-    if not scanid:
+    try:
+        scanid = get_scanid(os.path.basename(archivefile))
+    except datman.scanid.ParseException as e:
+        logger.error("Failed to find valid identifier for {}. Reason: {}"
+                     "".format(archivefile, e))
         return
 
-    try:
-        convention = CFG.get_key("XNAT_CONVENTION", site=scanid.site).upper()
-    except datman.config.UndefinedSetting:
-        convention = "DATMAN"
-
-    if convention == "KCNI":
-        try:
-            settings = CFG.get_key("ID_MAP")
-        except datman.config.UndefinedSetting:
-            settings = None
-        try:
-            scanid = datman.scanid.get_kcni_identifier(scanid, settings)
-        except datman.scanid.ParseException:
-            logger.error("ID {} can't be converted to KCNI convention.".format(
-                scanid))
-            return
-
-    server_url = CFG.get_key("XNATSERVER", site=scanid.site)
-    xnat = get_xnat(server_url)
+    xnat = get_xnat(CFG, scanid.site)
 
     xnat_subject = get_xnat_subject(scanid, xnat)
     if not xnat_subject:
@@ -242,20 +236,43 @@ def get_xnat_subject(ident, xnat):
 
 
 def get_scanid(archivefile):
-    """Check we can can a valid scanid from the archive
-    Returns a scanid object or False"""
+    """Get a valid ID matching the expected XNAT convention.
+
+    Args:
+        archivefile (str): The path to the zip file to find an ID for.
+
+    Raises:
+        datman.scanid.ParseException: If an ID can't be found or an ID matching
+            the naming convention can't be constructed.
+
+    Returns:
+        :obj:`datman.scanid.Identifer`: An Identifier instance matching a
+            supported naming convention.
+    """
     # currently only look at filename
     # this could look inside the dicoms similar to dm2-link.py
     scanid = archivefile[:-len(datman.utils.get_extension(archivefile))]
 
-    if not datman.scanid.is_scanid_with_session(scanid) and \
-       not datman.scanid.is_phantom(scanid):
-        logger.error("Invalid ID {} found for archive {}"
-                     .format(scanid, archivefile))
-        return False
-
     ident = datman.scanid.parse(scanid)
-    return(ident)
+
+    try:
+        convention = CFG.get_key("XNAT_CONVENTION", site=ident.site).upper()
+    except datman.config.UndefinedSetting:
+        convention = "DATMAN"
+
+    if convention == "KCNI":
+        try:
+            settings = CFG.get_key("ID_MAP")
+        except datman.config.UndefinedSetting:
+            settings = None
+        ident = datman.scanid.get_kcni_identifier(ident, settings)
+
+    if not datman.scanid.is_scanid_with_session(ident) and \
+       not datman.scanid.is_phantom(ident):
+        raise datman.scanid.ParseException("Invalid ID {} found for archive "
+                                           "{}".format(scanid, archivefile))
+
+    return ident
 
 
 def resource_data_exists(xnat_resources, archive):
