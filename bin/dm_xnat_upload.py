@@ -38,11 +38,13 @@ import datman.exceptions
 logger = logging.getLogger(os.path.basename(__file__))
 
 SERVER = {}
+SERVER_OVERRIDE = None
 AUTH = None
 CFG = None
 
 
 def main():
+    global SERVER_OVERRIDE
     global AUTH
     global CFG
 
@@ -51,7 +53,7 @@ def main():
     debug = arguments["--debug"]
     quiet = arguments["--quiet"]
     study = arguments["<study>"]
-    server = arguments["--server"]
+    SERVER_OVERRIDE = arguments["--server"]
     username = arguments["--username"]
     archive = arguments["<archive>"]
 
@@ -77,7 +79,8 @@ def main():
     logger.addHandler(ch)
 
     CFG = datman.config.config(study=study)
-    AUTH = datman.xnat.get_auth(username)
+    if username:
+        AUTH = datman.xnat.get_auth(username)
 
     dicom_dir = CFG.get_path("dicom", study)
     # deal with a single archive specified on the command line,
@@ -103,25 +106,6 @@ def main():
         process_archive(os.path.join(dicom_dir, archivefile))
 
 
-def get_xnat(config, site):
-    """Creates an xnat connection for each defined server and caches it.
-    """
-    url = config.get_key("XNATSERVER", site=site)
-    try:
-        connection = SERVER[url]
-    except KeyError:
-        server_url = datman.xnat.get_server(url=url)
-        try:
-            auth_file = config.get_key("XNAT_CREDENTIALS", site=site)
-        except datman.config.UndefinedSetting:
-            connection = datman.xnat.xnat(server_url, AUTH[0], AUTH[1])
-        else:
-            username, password = datman.xnat.get_auth(file_path=auth_file)
-            connection = datman.xnat.xnat(server_url, username, password)
-        SERVER[url] = connection
-    return connection
-
-
 def is_datman_id(archive):
     # scanid.is_scanid() isnt used because a complete id is needed (either
     # a whole phantom ID or a subid with timepoint and session)
@@ -139,7 +123,11 @@ def process_archive(archivefile):
                      "".format(archivefile, e))
         return
 
-    xnat = get_xnat(CFG, scanid.site)
+    xnat = datman.xnat.get_connection(CFG,
+                                      site=scanid.site,
+                                      url=SERVER_OVERRIDE,
+                                      auth=AUTH,
+                                      server_cache=SERVER)
 
     xnat_subject = get_xnat_subject(scanid, xnat)
     if not xnat_subject:

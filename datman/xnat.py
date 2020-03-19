@@ -12,7 +12,7 @@ from xml.etree import ElementTree
 
 import requests
 
-from datman.exceptions import XnatException, ExportException
+from datman.exceptions import XnatException, ExportException, UndefinedSetting
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +102,34 @@ def get_auth(username=None, file_path=None):
         raise KeyError("'XNAT_PASS' not defined in environment")
 
     return (username, password)
+
+
+def get_connection(config, site=None, url=None, auth=None, server_cache=None):
+    if not url:
+        url = config.get_key("XNATSERVER", site=site)
+
+    if server_cache:
+        try:
+            return server_cache[url]
+        except KeyError:
+            pass
+
+    server_url = get_server(url=url)
+
+    if auth:
+        connection = xnat(server_url, auth[0], auth[1])
+    else:
+        try:
+            auth_file = config.get_key("XNAT_CREDENTIALS", site=site)
+        except UndefinedSetting:
+            auth_file = None
+        username, password = get_auth(file_path=auth_file)
+        connection = xnat(server_url, username, password)
+
+    if server_cache:
+        server_cache[url] = connection
+
+    return connection
 
 
 class xnat(object):
