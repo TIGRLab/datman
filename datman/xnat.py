@@ -105,6 +105,30 @@ def get_auth(username=None, file_path=None):
 
 
 def get_connection(config, site=None, url=None, auth=None, server_cache=None):
+    """Create (or retrieve) a connection to an XNAT server
+
+    Args:
+        config (:obj:`datman.config.config`): A study's configuration
+        site (:obj:`str`, optional): A valid site for the current study. If
+            given, site-specific settings will be searched for before
+            defaulting to study or organization wide settings.
+            Defaults to None.
+        url (:obj:`str`, optional): An XNAT server URL. If given the
+            configuration will NOT be consulted. Defaults to None.
+        auth (:obj:`tuple`, optional): A (username, password) tuple. If given
+            configuration / environment variables will NOT be consulted.
+            Defaults to None.
+        server_cache (:obj:`dict`, optional): A dictionary used to map URLs to
+            open XNAT connections. If given, connections will be retrieved
+            from the cache as needed or added if a new URL is requested.
+            Defaults to None.
+
+    Raises:
+        XnatException: If a connection can't be made.
+
+    Returns:
+        :obj:`datman.xnat.xnat`: A connection to the required XNAT server.
+    """
     if not url:
         url = config.get_key("XNATSERVER", site=site)
 
@@ -131,7 +155,7 @@ def get_connection(config, site=None, url=None, auth=None, server_cache=None):
         username, password = get_auth(file_path=auth_file)
         connection = xnat(server_url, username, password)
 
-    if server_cache:
+    if server_cache is not None:
         server_cache[url] = connection
 
     return connection
