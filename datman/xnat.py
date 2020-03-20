@@ -123,6 +123,9 @@ def get_connection(config, site=None, url=None, auth=None, server_cache=None):
             auth_file = config.get_key("XNAT_CREDENTIALS", site=site)
         except UndefinedSetting:
             auth_file = None
+        else:
+            if not os.path.exists(auth_file):
+                auth_file = os.path.join(config.get_key("meta"), auth_file)
         username, password = get_auth(file_path=auth_file)
         connection = xnat(server_url, username, password)
 
