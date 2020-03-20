@@ -243,7 +243,12 @@ def get_scanid(archivefile):
     # this could look inside the dicoms similar to dm2-link.py
     scanid = archivefile[:-len(datman.utils.get_extension(archivefile))]
 
-    ident = datman.scanid.parse(scanid)
+    try:
+        id_settings = CFG.get_key("ID_MAP")
+    except datman.config.UndefinedSetting:
+        id_settings = None
+
+    ident = datman.scanid.parse(scanid, settings=id_settings)
 
     try:
         convention = CFG.get_key("XNAT_CONVENTION", site=ident.site).upper()
@@ -251,11 +256,7 @@ def get_scanid(archivefile):
         convention = "DATMAN"
 
     if convention == "KCNI":
-        try:
-            settings = CFG.get_key("ID_MAP")
-        except datman.config.UndefinedSetting:
-            settings = None
-        ident = datman.scanid.get_kcni_identifier(ident, settings)
+        ident = datman.scanid.get_kcni_identifier(ident, id_settings)
 
     if not datman.scanid.is_scanid_with_session(ident) and \
        not datman.scanid.is_phantom(ident):
