@@ -205,14 +205,15 @@ def collect_experiment(user_exper, study, cfg):
 def collect_all_experiments(config):
     experiments = []
 
-    xnat_projects = get_project_urls(config)
+    xnat_projects = get_projects(config)
 
     # for each XNAT project send out URL request for list of experiment IDs
-    # then validate and add (connection, XNAT project, subject ID ['label'])
+    # then validate and add (connection, XNAT project, subject ID) to output
     for project in xnat_projects:
-        for url in xnat_projects[project]:
+        for site in xnat_projects[project]:
             xnat = datman.xnat.get_connection(config,
-                                              url=url,
+                                              site=site,
+                                              url=SERVER_OVERRIDE,
                                               auth=AUTH,
                                               server_cache=SERVERS)
             for exper_id in xnat.get_experiment_ids(project):
@@ -233,8 +234,8 @@ def collect_all_experiments(config):
     return experiments
 
 
-def get_project_urls(config):
-    """Find the set of XNAT servers that a study is stored on.
+def get_projects(config):
+    """Find all XNAT projects and the list of scan sites uploaded to each one.
 
     Args:
         config (:obj:`datman.config.config`): The config for a study
@@ -246,11 +247,7 @@ def get_project_urls(config):
     projects = {}
     for site in config.get_sites():
         xnat_project = config.get_key("XNAT_Archive", site=site)
-        if SERVER_OVERRIDE:
-            server = SERVER_OVERRIDE
-        else:
-            server = config.get_key("XNATSERVER", site=site)
-        projects.setdefault(xnat_project, set()).add(server)
+        projects.setdefault(xnat_project, set()).add(site)
     return projects
 
 
