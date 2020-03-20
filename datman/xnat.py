@@ -127,7 +127,7 @@ def get_connection(config, site=None, url=None, auth=None, server_cache=None):
             if (not os.path.exists(auth_file) and
                     not os.path.dirname(auth_file)):
                 # User probably provided metadata file name only
-                auth_file = os.path.join(config.get_key("meta"), auth_file)
+                auth_file = os.path.join(config.get_path("meta"), auth_file)
         username, password = get_auth(file_path=auth_file)
         connection = xnat(server_url, username, password)
 
