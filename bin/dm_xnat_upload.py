@@ -12,10 +12,12 @@ Arguments:
 
 Options:
     --server URL          XNAT server to connect to, overrides the server
-                          defined in the site config file.
+                          defined in the configuration files.
     -u --username USER    XNAT username. If specified then the environment
-                          variables are ignored and you are prompted for
-                          password.
+                          variables (or any credential files) are ignored and
+                          you are prompted for a password. Note that if
+                          multiple servers are configured for a study the
+                          login used should be valid for all servers.
     -v --verbose          Be chatty
     -d --debug            Be very chatty
     -q --quiet            Be quiet
@@ -37,7 +39,7 @@ import datman.exceptions
 
 logger = logging.getLogger(os.path.basename(__file__))
 
-SERVER = {}
+SERVERS = {}
 SERVER_OVERRIDE = None
 AUTH = None
 CFG = None
@@ -127,7 +129,7 @@ def process_archive(archivefile):
                                       site=scanid.site,
                                       url=SERVER_OVERRIDE,
                                       auth=AUTH,
-                                      server_cache=SERVER)
+                                      server_cache=SERVERS)
 
     xnat_subject = get_xnat_subject(scanid, xnat)
     if not xnat_subject:

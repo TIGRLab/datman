@@ -18,9 +18,12 @@ Options:
     -q --quiet               Show minimal output
     -n --dry-run             Do nothing
     --server URL             XNAT server to connect to, overrides the server
-                             defined in the site config file.
-    -u --username USER       XNAT username. If specified then the credentials
-                             file is ignored and you are prompted for password.
+                             defined in the configuration files.
+    -u --username USER       XNAT username. If specified then the environment
+                             variables (or any credential files) are ignored
+                             and you are prompted for a password. Note that if
+                             multiple servers are configured for a study the
+                             login used should be valid for all servers.
     --dont-update-dashboard  Dont update the dashboard database
     -t --tag tag,...         List of scan tags to download
 
@@ -89,8 +92,9 @@ import datman.exceptions
 logger = logging.getLogger(os.path.basename(__file__))
 
 
+SERVERS = {}
+SERVER_OVERRIDE = None
 AUTH = None
-SERVER = {}
 cfg = None
 DRYRUN = False
 db_ignore = False  # if True dont update the dashboard db
@@ -99,6 +103,7 @@ wanted_tags = None
 
 def main():
     global AUTH
+    global SERVER_OVERRIDE
     global cfg
     global DRYRUN
     global wanted_tags
@@ -111,9 +116,9 @@ def main():
     study = arguments['<study>']
     experiment = arguments['<experiment>']
     wanted_tags = arguments['--tag']
-    server = arguments['--server']
     username = arguments['--username']
     db_ignore = arguments['--dont-update-dashboard']
+    SERVER_OVERRIDE = arguments['--server']
 
     if arguments['--dry-run']:
         DRYRUN = True
@@ -122,7 +127,8 @@ def main():
     configure_logging(study, quiet, verbose, debug)
 
     cfg = datman.config.config(study=study)
-    AUTH = datman.xnat.get_auth(username)
+    if username:
+        AUTH = datman.xnat.get_auth(username)
 
     if experiment:
         experiments = collect_experiment(experiment, study, cfg)
@@ -132,8 +138,7 @@ def main():
     logger.info("Found {} experiments for study {}".format(
         len(experiments), study))
 
-    for url, project, experiment in experiments:
-        xnat = get_xnat(url)
+    for xnat, project, experiment in experiments:
         process_experiment(xnat, project, experiment)
 
 
@@ -162,16 +167,6 @@ def configure_logging(study, quiet=None, verbose=None, debug=None):
     logging.getLogger('datman.xnat').addHandler(ch)
 
 
-def get_xnat(url):
-    try:
-        connection = SERVER[url]
-    except KeyError:
-        server_url = datman.xnat.get_server(url=url)
-        connection = datman.xnat.xnat(server_url, AUTH[0], AUTH[1])
-        SERVER[url] = connection
-    return connection
-
-
 def collect_experiment(user_exper, study, cfg):
     ident = datman.utils.validate_subject_id(user_exper, cfg)
 
@@ -187,8 +182,11 @@ def collect_experiment(user_exper, study, cfg):
             settings = None
         ident = datman.scanid.get_kcni_identifier(ident, settings)
 
-    server_url = cfg.get_key("XNATSERVER", site=ident.site)
-    xnat = get_xnat(server_url)
+    xnat = datman.xnat.get_connection(cfg,
+                                      site=ident.site,
+                                      url=SERVER_OVERRIDE,
+                                      auth=AUTH,
+                                      server_cache=SERVERS)
 
     # get the list of XNAT projects linked to the datman study
     xnat_projects = cfg.get_xnat_projects(study)
@@ -201,19 +199,22 @@ def collect_experiment(user_exper, study, cfg):
                      "existing experiment ID in XNAT.".format(user_exper))
         return
 
-    return [(server_url, xnat_project, ident)]
+    return [(xnat, xnat_project, ident)]
 
 
 def collect_all_experiments(config):
     experiments = []
 
-    xnat_projects = get_urls()
+    xnat_projects = get_project_urls(config)
 
     # for each XNAT project send out URL request for list of experiment IDs
-    # then validate and add (url, XNAT project, subject ID ['label']) to output
+    # then validate and add (connection, XNAT project, subject ID ['label'])
     for project in xnat_projects:
         for url in xnat_projects[project]:
-            xnat = get_xnat(url)
+            xnat = datman.xnat.get_connection(config,
+                                              url=url,
+                                              auth=AUTH,
+                                              server_cache=SERVERS)
             for exper_id in xnat.get_experiment_ids(project):
                 try:
                     ident = datman.utils.validate_subject_id(exper_id, config)
@@ -227,16 +228,28 @@ def collect_all_experiments(config):
                                  "Reason - Not a phantom, but missing session "
                                  "number".format(exper_id, project))
                     continue
-                experiments.append((url, project, ident))
+                experiments.append((xnat, project, ident))
 
     return experiments
 
 
-def get_urls(config):
+def get_project_urls(config):
+    """Find the set of XNAT servers that a study is stored on.
+
+    Args:
+        config (:obj:`datman.config.config`): The config for a study
+
+    Returns:
+        dict: A map of XNAT project names to the URL(s) of the server holding
+            that project.
+    """
     projects = {}
     for site in config.get_sites():
         xnat_project = config.get_key("XNAT_Archive", site=site)
-        server = config.get_key("XNATSERVER", site=site)
+        if SERVER_OVERRIDE:
+            server = SERVER_OVERRIDE
+        else:
+            server = config.get_key("XNATSERVER", site=site)
         projects.setdefault(xnat_project, set()).add(server)
     return projects
 
