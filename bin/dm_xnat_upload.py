@@ -92,7 +92,7 @@ def main():
         if os.path.isfile(archive):
             dicom_dir = os.path.dirname(os.path.normpath(archive))
             archives = [os.path.basename(os.path.normpath(archive))]
-        elif is_datman_id(archive):
+        elif is_valid_id(archive):
             # sessionid could have been provided, lets be nice and handle that
             archives = [datman.utils.splitext(archive)[0] + ".zip"]
         else:
@@ -104,26 +104,30 @@ def main():
     logger.debug("Processing files in: {}".format(dicom_dir))
     logger.info("Processing {} files".format(len(archives)))
 
-    for archivefile in archives:
-        process_archive(os.path.join(dicom_dir, archivefile))
+    for file_name in archives:
+        process_archive(file_name, dicom_dir)
 
 
-def is_datman_id(archive):
+def is_valid_id(archive):
     # scanid.is_scanid() isnt used because a complete id is needed (either
     # a whole phantom ID or a subid with timepoint and session)
     return (datman.scanid.is_scanid_with_session(archive) or
             datman.scanid.is_phantom(archive))
 
 
-def process_archive(archivefile):
+def process_archive(file_name, dicom_dir):
     """Upload data from a zip archive to the xnat server"""
 
     try:
-        scanid = get_scanid(os.path.basename(archivefile))
+        scanid = get_scanid(file_name)
     except datman.scanid.ParseException as e:
         logger.error("Failed to find valid identifier for {}. Reason: {}"
-                     "".format(archivefile, e))
+                     "".format(file_name, e))
         return
+
+    # Make full path after ID conversion, in case user gave different naming
+    # convention than file system uses.
+    archive_file = os.path.join(dicom_dir, str(scanid))
 
     xnat = datman.xnat.get_connection(CFG,
                                       site=scanid.site,
@@ -144,7 +148,7 @@ def process_archive(archivefile):
         resource_exists = False
     else:
         try:
-            data_exists, resource_exists = check_files_exist(archivefile,
+            data_exists, resource_exists = check_files_exist(archive_file,
                                                              xnat_experiment,
                                                              xnat)
         except Exception:
@@ -153,9 +157,9 @@ def process_archive(archivefile):
             return
 
     if not data_exists:
-        logger.info("Uploading dicoms from {}".format(archivefile))
+        logger.info("Uploading dicoms from {}".format(archive_file))
         try:
-            upload_dicom_data(archivefile, xnat_subject.project, scanid, xnat)
+            upload_dicom_data(archive_file, xnat_subject.project, scanid, xnat)
         except Exception as e:
             logger.error("Failed uploading archive to xnat project {} "
                          "for experiment {}. Check Prearchive. Reason - {}"
@@ -163,9 +167,9 @@ def process_archive(archivefile):
                                  e))
 
     if not resource_exists:
-        logger.debug("Uploading resource from: {}".format(archivefile))
+        logger.debug("Uploading resource from: {}".format(archive_file))
         try:
-            upload_non_dicom_data(archivefile, xnat_subject.project, scanid,
+            upload_non_dicom_data(archive_file, xnat_subject.project, scanid,
                                   xnat)
         except Exception as e:
             logger.debug("An exception occurred: {}".format(e))
