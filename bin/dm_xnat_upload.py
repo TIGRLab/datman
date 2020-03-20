@@ -127,7 +127,7 @@ def process_archive(file_name, dicom_dir):
 
     # Make full path after ID conversion, in case user gave different naming
     # convention than file system uses.
-    archive_file = os.path.join(dicom_dir, str(scanid))
+    archive_file = os.path.join(dicom_dir, str(scanid) + ".zip")
 
     xnat = datman.xnat.get_connection(CFG,
                                       site=scanid.site,
