@@ -68,7 +68,7 @@ class DatmanIdentifier(Identifier):
 
     scan_re = '(?P<id>(?P<study>[^_]+)_' \
               '(?P<site>[^_]+)_' \
-              '(?!.+PHA)(?P<subject>[^_]+)_' \
+              '(?P<subject>[^_]+)(?<!PHA)_' \
               '(?P<timepoint>[^_]+)_' \
               '(?!MR)(?!SE)(?P<session>[^_]+))'
 
@@ -114,7 +114,7 @@ class DatmanIdentifier(Identifier):
         return self.get_full_subjectid_with_timepoint_session()
 
     def get_xnat_experiment_id(self):
-        return self.xnat_subject_id()
+        return self.get_xnat_subject_id()
 
     def __repr__(self):
         return '<datman.scanid.DatmanIdentifier {}>'.format(self.__str__())

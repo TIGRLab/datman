@@ -314,6 +314,60 @@ def test_parse_filename():
     assert description == 'description'
 
 
+def test_parse_filename_parses_when_tag_contains_pha():
+    ident, tag, series, description = scanid.parse_filename(
+        "CLZ_CMP_0000_01_01_PHABCD_11_FieldMap-2mm")
+
+    assert str(ident) == "CLZ_CMP_0000_01_01"
+    assert tag == "PHABCD"
+    assert series == "11"
+    assert description == "FieldMap-2mm"
+
+    _, tag, _, _ = scanid.parse_filename(
+        "CLZ_CMP_0000_01_01_ABCPHA_11_FieldMap-2mm")
+    assert tag == "ABCPHA"
+
+    _, tag, _, _ = scanid.parse_filename(
+        "CLZ_CMP_0000_01_01_ABCPHADEF_11_FieldMap-2mm")
+    assert tag == "ABCPHADEF"
+
+
+def test_parse_filename_parses_when_tag_contains_kcniish_MR_substring():
+    ident, tag, series, description = scanid.parse_filename(
+        "CLZ_CMP_0000_01_01_MRABC_11_FieldMap-2mm.nii.gz")
+
+    assert str(ident) == "CLZ_CMP_0000_01_01"
+    assert tag == "MRABC"
+    assert series == "11"
+    assert description == "FieldMap-2mm"
+
+    _, tag, _, _ = scanid.parse_filename(
+        "CLZ_CMP_0000_01_01_ABCMR_11_FieldMap-2mm")
+    assert tag == "ABCMR"
+
+    _, tag, _, _ = scanid.parse_filename(
+        "CLZ_CMP_0000_01_01_ABCMRDEF_11_FieldMap-2mm")
+    assert tag == "ABCMRDEF"
+
+
+def test_parse_filename_parses_when_tag_contains_kcniish_SE_substring():
+    ident, tag, series, description = scanid.parse_filename(
+        "CLZ_CMP_0000_01_01_SEABC_11_FieldMap-2mm.nii.gz")
+
+    assert str(ident) == "CLZ_CMP_0000_01_01"
+    assert tag == "SEABC"
+    assert series == "11"
+    assert description == "FieldMap-2mm"
+
+    _, tag, _, _ = scanid.parse_filename(
+        "CLZ_CMP_0000_01_01_ABCSE_11_FieldMap-2mm")
+    assert tag == "ABCSE"
+
+    _, tag, _, _ = scanid.parse_filename(
+        "CLZ_CMP_0000_01_01_ABCSEDEF_11_FieldMap-2mm")
+    assert tag == "ABCSEDEF"
+
+
 def test_parse_filename_PHA():
     ident, tag, series, description = scanid.parse_filename(
         'DTI_CMH_PHA_ADN0001_T1_02_description.nii.gz')

@@ -122,34 +122,42 @@ def download_subjects(xnat, xnat_project, destination):
                          "Reason: {}".format(subject_id, e))
             continue
 
-        if not subject.experiments:
+        exp_names = [item for item in subject.experiments.keys()]
+
+        if not exp_names:
             logger.error("Subject {} has no experiments.".format(subject.name))
             return
 
-        for experiment in subject.experiments.values():
-            zip_name = experiment.name.upper() + ".zip"
-            zip_path = os.path.join(destination, zip_name)
-            if zip_name in current_zips and not update_needed(
-                    zip_path, experiment, xnat):
-                logger.debug("All data downloaded for {}. Passing.".format(
-                    experiment.name))
+        if len(exp_names) > 1:
+            logger.error("Found {} experiments for subject {}".format(
+                len(exp_names), subject.name))
+            return
+
+        experiment = subject.experiments[exp_names[0]]
+
+        zip_name = subject.name.upper() + ".zip"
+        zip_path = os.path.join(destination, zip_name)
+        if zip_name in current_zips and not update_needed(
+                zip_path, experiment, xnat):
+            logger.debug("All data downloaded for {}. Passing.".format(
+                experiment.name))
+            continue
+
+        if DRYRUN:
+            logger.info("Would have downloaded experiment {} from project "
+                        "{} to {}".format(
+                            experiment.name, xnat_project, zip_path))
+            return
+
+        with datman.utils.make_temp_directory() as temp:
+            try:
+                temp_zip = experiment.download(
+                    xnat, temp, zip_name=zip_name)
+            except Exception as e:
+                logger.error("Cant download experiment {}. Reason: {}"
+                             "".format(experiment, e))
                 continue
-
-            if DRYRUN:
-                logger.info("Would have downloaded experiment {} from project "
-                            "{} to {}".format(
-                                experiment.name, xnat_project, zip_path))
-                return
-
-            with datman.utils.make_temp_directory() as temp:
-                try:
-                    temp_zip = experiment.download(
-                        xnat, temp, zip_name=zip_name)
-                except Exception as e:
-                    logger.error("Cant download experiment {}. Reason: {}"
-                                 "".format(experiment, e))
-                    continue
-                restructure_zip(temp_zip, zip_path)
+            restructure_zip(temp_zip, zip_path)
 
 
 def update_needed(zip_file, experiment, xnat):
