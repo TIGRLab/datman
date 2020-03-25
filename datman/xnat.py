@@ -294,6 +294,29 @@ class xnat(object):
             raise XnatException("Failed to create xnat subject {} in project "
                                 "{}. Reason - {}".format(subject, project, e))
 
+    def find_subject(self, project, exper_id):
+        """Find the parent subject ID for an experiment.
+
+        Args:
+            project (:obj:`str`): An XNAT project to search.
+            exper_id (:obj:`str`): The experiment to find the parent ID for.
+
+        Returns:
+            str: The ID of the parent subject. Note that this returns the ID,
+                not the label. The label and ID can be used interchangeably
+                to query XNAT but the ID tends to not conform to any naming
+                convention.
+        """
+        url = "{}/data/archive/projects/{}/experiments/{}?format=json".format(
+            self.server, project, exper_id)
+
+        try:
+            result = self._make_xnat_query(url)
+        except Exception:
+            XnatException("Failed to query XNAT server {} for experiment {}"
+                          "".format(project, exper_id))
+        return result["items"][0]["data_fields"]["subject_ID"]
+
     def get_experiment_ids(self, project, subject=''):
         """Retrieve all experiment IDs belonging to an XNAT subject.
 
@@ -896,6 +919,9 @@ class xnat(object):
                 dismiss the pipeline for.
         """
         autorun_id = experiment.get_autorun_id(self)
+        if not autorun_id:
+            return
+
         dismiss_url = "{}/data/workflows/{}?wrk:workflowData/status=Complete"\
             "".format(self.server, autorun_id)
         self._make_xnat_put(dismiss_url)
@@ -1254,7 +1280,8 @@ class XNATExperiment(XNATObject):
 
         Returns:
             str: an integer reference ID that can be used to change the status
-                of the pipeline for this subject using XNAT's API
+                of the pipeline for this subject using XNAT's API, or the empty
+                string if the pipeline is not found.
 
         Raises:
             XnatException: If no AutoRun.xml pipeline instance is found or
@@ -1318,7 +1345,7 @@ class XNATExperiment(XNATObject):
         try:
             wf_id = found_pipelines['ResultSet']['Result'][0]['workflow_id']
         except (IndexError, KeyError):
-            raise XnatException("No autorun workflow ID found.")
+            return ""
 
         return wf_id
 

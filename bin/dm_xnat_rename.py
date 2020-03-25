@@ -7,8 +7,8 @@ Usage:
     dm_xnat_rename.py [options] <name_file>
 
 Arguments:
-    <prev_name>     The current name on XNAT
-    <new_name>      The name to change to
+    <prev_name>     The current experiment name on XNAT
+    <new_name>      The new experiment name
     <name_file>     The full path to a csv file of sessions to rename. Each
                     entry for a session should be formatted as
                     "current_name,new_name", one entry per line.
@@ -34,9 +34,12 @@ import os
 import logging
 from docopt import docopt
 
+from requests import HTTPError
+
 import datman.xnat
 import datman.config
-from datman.exceptions import XnatException
+import datman.scanid
+from datman.exceptions import XnatException, ParseException
 
 logging.basicConfig(level=logging.WARN,
                     format="[%(name)s] %(levelname)s: %(message)s")
@@ -135,66 +138,45 @@ def rename_xnat_session(xnat, orig_name, new_name, project=None):
     if not project:
         project = get_project(orig_name)
 
+    try:
+        ident = datman.scanid.parse(new_name)
+    except ParseException:
+        raise ParseException("New ID {} for experiment {} doesnt match a "
+                             "supported naming convention.".format(
+                                 new_name, orig_name))
+
     logger.info("Renaming {} to {} in project {}".format(orig_name, new_name,
                                                          project))
 
+    orig_subject = xnat.find_subject(project, orig_name)
     try:
-        xnat.rename_session(project, orig_name, new_name)
-    except XnatException as e:
-        if '0 experiment' in str(e):
-            return True
-        try:
-            is_renamed(xnat, project, orig_name, new_name)
-        except XnatException:
-            # Try to fix partial rename
-            session = xnat.get_session(project, new_name)
-            xnat.rename_experiment(session, orig_name, new_name)
+        xnat.rename_subject(project, orig_subject, ident.get_xnat_subject_id())
+    except HTTPError as e:
+        if e.response.status_code == 500:
+            # This happens on success sometimes (usually when experiment
+            # is empty). Check if the rename succeeded.
+            try:
+                xnat.get_subject(project, ident.get_xnat_subject_id())
+            except XnatException:
+                raise e
 
-    return is_renamed(xnat, project, orig_name, new_name)
+    xnat.rename_experiment(project, ident.get_xnat_subject_id(),
+                           orig_name, ident.get_xnat_experiment_id())
 
 
 def get_project(session):
     config = datman.config.config()
     try:
         project = config.map_xnat_archive_to_project(session)
+    except ParseException as e:
+        raise ParseException(
+            "Can't guess the XNAT Archive for {}. Reason - {}. Please provide "
+            "an XNAT Archive name with the --project option".format(
+                session, e))
     except Exception as e:
-        raise type(e)("Can't find XNAT archive name for {}. "
-                      "Reason - {}".format(session, e))
+        raise type(e)("Can't determine XNAT Archive for {}. Reason - {}"
+                      "".format(session, e))
     return project
-
-
-def is_renamed(xnat, xnat_project, old_name, new_name):
-    """Verifies that a session rename has succeeded.
-
-    Sometimes XNAT renames only the subject or only the experiment when you
-    tell it to rename both. Sometimes it says it failed when it succeeded.
-    And sometimes it just fails completely for no observable reason. So... use
-    this to check if the job is done before declaring it a failure.
-
-    Args:
-        xnat (:obj:`datman.xnat.xnat`): A connection to the XNAT server.
-        xnat_project (:obj:`str`): The session's XNAT project name.
-        old_name (:obj:`str`): The original name of the session on XNAT.
-        new_name (:obj:`str`): The intended final name of the session on XNAT.
-
-    Raises:
-        XnatException: If the session was renamed but the experiment was not.
-
-    Returns:
-        bool. True if rename appears to have succeeded, False otherwise.
-    """
-    try:
-        session = xnat.get_session(xnat_project, new_name)
-    except XnatException:
-        return False
-    if session.name == new_name and session.experiment_label == new_name:
-        return True
-    try:
-        session = xnat.get_session(xnat_project, old_name)
-    except XnatException:
-        raise XnatException("Session {} partially renamed to {} for project "
-                            "{}".format(old_name, new_name, xnat_project))
-    return False
 
 
 if __name__ == "__main__":
