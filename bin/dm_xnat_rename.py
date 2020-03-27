@@ -65,12 +65,12 @@ def main():
         return
 
     names = read_sessions(name_path)
-    for entry in names:
+    for old_name, new_name in names:
         try:
-            rename_xnat_session(xnat, entry[0], entry[1], project=project)
+            rename_xnat_session(xnat, old_name, new_name, project=project)
         except Exception as e:
             logger.error("Failed to rename {} to {}. Reason - "
-                         "{}".format(entry[0], entry[1], e))
+                         "{}".format(old_name, new_name, e))
 
 
 def set_log_level(arguments):
