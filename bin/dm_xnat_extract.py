@@ -205,12 +205,10 @@ def collect_experiment(user_exper, study, cfg):
 def collect_all_experiments(config):
     experiments = []
 
-    xnat_projects = get_projects(config)
-
     # for each XNAT project send out URL request for list of experiment IDs
     # then validate and add (connection, XNAT project, subject ID) to output
-    for project in xnat_projects:
-        for site in xnat_projects[project]:
+    for project, sites in get_projects(config).items():
+        for site in sites:
             xnat = datman.xnat.get_connection(config,
                                               site=site,
                                               url=SERVER_OVERRIDE,
