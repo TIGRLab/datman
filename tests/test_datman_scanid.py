@@ -290,6 +290,16 @@ def test_is_kcni_scanid_good():
     assert scanid.is_scanid("SPN01_CMH_0001_01_SE01_MR")
 
 
+def test_is_scanid_good_when_already_parsed():
+    parsed = scanid.parse("DTI_CMH_H001_01_01")
+    assert scanid.is_scanid(parsed)
+
+
+def test_is_scanid_with_session_when_already_parsed():
+    parsed = scanid.parse("OPT01_UT2_UT10001_01_01")
+    assert scanid.is_scanid_with_session(parsed)
+
+
 def test_get_full_subjectid():
     ident = scanid.parse("DTI_CMH_H001_01_02")
     assert ident.get_full_subjectid() == "DTI_CMH_H001"

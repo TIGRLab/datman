@@ -18,16 +18,9 @@ import wrapt
 
 import datman.scanid
 import datman.dashboard as dashboard
+from datman.exceptions import ConfigException, UndefinedSetting
 
 logger = logging.getLogger(__name__)
-
-
-class ConfigException(Exception):
-    pass
-
-
-class UndefinedSetting(Exception):
-    pass
 
 
 @wrapt.decorator

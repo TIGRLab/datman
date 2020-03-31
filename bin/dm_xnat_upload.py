@@ -12,9 +12,12 @@ Arguments:
 
 Options:
     --server URL          XNAT server to connect to, overrides the server
-                          defined in the site config file.
-    -u --username USER    XNAT username. If specified then the credentials
-                          file is ignored and you are prompted for password.
+                          defined in the configuration files.
+    -u --username USER    XNAT username. If specified then the environment
+                          variables (or any credential files) are ignored and
+                          you are prompted for a password. Note that if
+                          multiple servers are configured for a study the
+                          login used should be valid for all servers.
     -v --verbose          Be chatty
     -d --debug            Be very chatty
     -q --quiet            Be quiet
@@ -36,12 +39,15 @@ import datman.exceptions
 
 logger = logging.getLogger(os.path.basename(__file__))
 
-XNAT = None
+SERVERS = {}
+SERVER_OVERRIDE = None
+AUTH = None
 CFG = None
 
 
 def main():
-    global XNAT
+    global SERVER_OVERRIDE
+    global AUTH
     global CFG
 
     arguments = docopt(__doc__)
@@ -49,7 +55,7 @@ def main():
     debug = arguments["--debug"]
     quiet = arguments["--quiet"]
     study = arguments["<study>"]
-    server = arguments["--server"]
+    SERVER_OVERRIDE = arguments["--server"]
     username = arguments["--username"]
     archive = arguments["<archive>"]
 
@@ -69,16 +75,14 @@ def main():
 
     formatter = logging.Formatter("%(asctime)s - %(name)s - {study} - "
                                   "%(levelname)s - %(message)s".format(
-                                   study=study))
+                                      study=study))
     ch.setFormatter(formatter)
 
     logger.addHandler(ch)
 
     CFG = datman.config.config(study=study)
-
-    server = datman.xnat.get_server(CFG, url=server)
-    username, password = datman.xnat.get_auth(username)
-    XNAT = datman.xnat.xnat(server, username, password)
+    if username:
+        AUTH = datman.xnat.get_auth(username)
 
     dicom_dir = CFG.get_path("dicom", study)
     # deal with a single archive specified on the command line,
@@ -88,7 +92,7 @@ def main():
         if os.path.isfile(archive):
             dicom_dir = os.path.dirname(os.path.normpath(archive))
             archives = [os.path.basename(os.path.normpath(archive))]
-        elif is_datman_id(archive):
+        elif is_valid_id(archive):
             # sessionid could have been provided, lets be nice and handle that
             archives = [datman.utils.splitext(archive)[0] + ".zip"]
         else:
@@ -100,42 +104,38 @@ def main():
     logger.debug("Processing files in: {}".format(dicom_dir))
     logger.info("Processing {} files".format(len(archives)))
 
-    for archivefile in archives:
-        process_archive(os.path.join(dicom_dir, archivefile))
+    for file_name in archives:
+        process_archive(file_name, dicom_dir)
 
 
-def is_datman_id(archive):
+def is_valid_id(archive):
     # scanid.is_scanid() isnt used because a complete id is needed (either
     # a whole phantom ID or a subid with timepoint and session)
     return (datman.scanid.is_scanid_with_session(archive) or
             datman.scanid.is_phantom(archive))
 
 
-def process_archive(archivefile):
+def process_archive(file_name, dicom_dir):
     """Upload data from a zip archive to the xnat server"""
 
-    scanid = get_scanid(os.path.basename(archivefile))
-    if not scanid:
+    try:
+        scanid = get_scanid(file_name)
+    except datman.scanid.ParseException as e:
+        logger.error("Failed to find valid identifier for {}. Reason: {}"
+                     "".format(file_name, e))
         return
 
-    try:
-        convention = CFG.get_key("XNAT_CONVENTION", site=scanid.site).upper()
-    except datman.config.UndefinedSetting:
-        convention = "DATMAN"
+    # Make full path after ID conversion, in case user gave different naming
+    # convention than file system uses.
+    archive_file = os.path.join(dicom_dir, str(scanid) + ".zip")
 
-    if convention == "KCNI":
-        try:
-            settings = CFG.get_key("ID_MAP")
-        except datman.config.UndefinedSetting:
-            settings = None
-        try:
-            scanid = datman.scanid.get_kcni_identifier(scanid, settings)
-        except datman.scanid.ParseException:
-            logger.error("ID {} can't be converted to KCNI convention.".format(
-                scanid))
-            return
+    xnat = datman.xnat.get_connection(CFG,
+                                      site=scanid.site,
+                                      url=SERVER_OVERRIDE,
+                                      auth=AUTH,
+                                      server_cache=SERVERS)
 
-    xnat_subject = get_xnat_subject(scanid)
+    xnat_subject = get_xnat_subject(scanid, xnat)
     if not xnat_subject:
         # failed to get xnat info
         return
@@ -148,17 +148,18 @@ def process_archive(archivefile):
         resource_exists = False
     else:
         try:
-            data_exists, resource_exists = check_files_exist(archivefile,
-                                                             xnat_experiment)
+            data_exists, resource_exists = check_files_exist(archive_file,
+                                                             xnat_experiment,
+                                                             xnat)
         except Exception:
             logger.error("Failed checking xnat for experiment {}".format(
                 exper_id))
             return
 
     if not data_exists:
-        logger.info("Uploading dicoms from {}".format(archivefile))
+        logger.info("Uploading dicoms from {}".format(archive_file))
         try:
-            upload_dicom_data(archivefile, xnat_subject.project, scanid)
+            upload_dicom_data(archive_file, xnat_subject.project, scanid, xnat)
         except Exception as e:
             logger.error("Failed uploading archive to xnat project {} "
                          "for experiment {}. Check Prearchive. Reason - {}"
@@ -166,20 +167,23 @@ def process_archive(archivefile):
                                  e))
 
     if not resource_exists:
-        logger.debug("Uploading resource from: {}".format(archivefile))
+        logger.debug("Uploading resource from: {}".format(archive_file))
         try:
-            upload_non_dicom_data(archivefile, xnat_subject.project, scanid)
+            upload_non_dicom_data(archive_file, xnat_subject.project, scanid,
+                                  xnat)
         except Exception as e:
             logger.debug("An exception occurred: {}".format(e))
             pass
 
 
-def get_xnat_subject(ident):
+def get_xnat_subject(ident, xnat):
     """Get an XNAT subject from the server.
 
     Args:
         ident (:obj:`datman.scanid.Identifier`): A datman identifier instance
             for a supported naming convention.
+        xnat (:obj:`datman.xnat.xnat`): An XNAT connection to the server
+            to upload to.
 
     Raises:
         XnatException: If the server or project is not accessible.
@@ -195,9 +199,10 @@ def get_xnat_subject(ident):
         logger.warning("Study {}, Site {}, xnat archive not defined in config"
                        .format(ident.study, ident.site))
         return None
+
     # check we can get the archive from xnat
     try:
-        found = XNAT.get_projects(xnat_project)
+        found = xnat.get_projects(xnat_project)
     except datman.exceptions.XnatException as e:
         logger.error("Failed to get XNAT project {} for study {} and site "
                      "{}. Reason - {}".format(xnat_project, ident.study,
@@ -206,12 +211,12 @@ def get_xnat_subject(ident):
 
     if not found:
         logger.error("No match found for XNAT project {} on server {}".format(
-            xnat_project, XNAT.server))
+            xnat_project, xnat.server))
         return None
 
     # check we can get or create the session in xnat
     try:
-        xnat_subject = XNAT.get_subject(xnat_project,
+        xnat_subject = xnat.get_subject(xnat_project,
                                         ident.get_xnat_subject_id(),
                                         create=True)
     except datman.exceptions.XnatException as e:
@@ -225,24 +230,47 @@ def get_xnat_subject(ident):
 
 
 def get_scanid(archivefile):
-    """Check we can can a valid scanid from the archive
-    Returns a scanid object or False"""
+    """Get a valid ID matching the expected XNAT convention.
+
+    Args:
+        archivefile (str): The path to the zip file to find an ID for.
+
+    Raises:
+        datman.scanid.ParseException: If an ID can't be found or an ID matching
+            the naming convention can't be constructed.
+
+    Returns:
+        :obj:`datman.scanid.Identifer`: An Identifier instance matching a
+            supported naming convention.
+    """
     # currently only look at filename
     # this could look inside the dicoms similar to dm2-link.py
     scanid = archivefile[:-len(datman.utils.get_extension(archivefile))]
 
-    if not datman.scanid.is_scanid_with_session(scanid) and \
-       not datman.scanid.is_phantom(scanid):
-        logger.error("Invalid ID {} found for archive {}"
-                     .format(scanid, archivefile))
-        return False
+    try:
+        id_settings = CFG.get_key("ID_MAP")
+    except datman.config.UndefinedSetting:
+        id_settings = None
 
-    ident = datman.scanid.parse(scanid)
-    return(ident)
+    ident = datman.scanid.parse(scanid, settings=id_settings)
+
+    try:
+        convention = CFG.get_key("XNAT_CONVENTION", site=ident.site).upper()
+    except datman.config.UndefinedSetting:
+        convention = "DATMAN"
+
+    if convention == "KCNI":
+        ident = datman.scanid.get_kcni_identifier(ident, id_settings)
+
+    if not datman.scanid.is_scanid_with_session(ident) and \
+       not datman.scanid.is_phantom(ident):
+        raise datman.scanid.ParseException("Invalid ID {} found for archive "
+                                           "{}".format(scanid, archivefile))
+
+    return ident
 
 
-def resource_data_exists(xnat_experiment, archive):
-    xnat_resources = xnat_experiment.get_resources(XNAT)
+def resource_data_exists(xnat_resources, archive):
     with zipfile.ZipFile(archive) as zf:
         local_resources = datman.utils.get_resources(zf)
         local_resources_mod = [item for item in local_resources
@@ -280,7 +308,7 @@ def scan_data_exists(xnat_experiment, local_headers):
     return True
 
 
-def check_files_exist(archive, xnat_experiment):
+def check_files_exist(archive, xnat_experiment, xnat):
     """Check to see if the dicom files in the local archive have
     been uploaded to xnat
     Returns True if all files exist, otherwise False
@@ -306,12 +334,13 @@ def check_files_exist(archive, xnat_experiment):
         # Return true for both to prevent XNAT being modified
         return True, True
 
-    resources_exist = resource_data_exists(xnat_experiment, archive)
+    xnat_resources = xnat_experiment.get_resources(xnat)
+    resources_exist = resource_data_exists(xnat_resources, archive)
 
     return scans_exist, resources_exist
 
 
-def upload_non_dicom_data(archive, xnat_project, scanid):
+def upload_non_dicom_data(archive, xnat_project, scanid, xnat):
     with zipfile.ZipFile(archive) as zf:
         resource_files = datman.utils.get_resources(zf)
         logger.info("Uploading {} files of non-dicom data..."
@@ -324,7 +353,7 @@ def upload_non_dicom_data(archive, xnat_project, scanid):
                 # By default files are placed in a MISC subfolder
                 # if this is changed it may require changes to
                 # check_duplicate_resources()
-                XNAT.put_resource(xnat_project,
+                xnat.put_resource(xnat_project,
                                   scanid.get_xnat_subject_id(),
                                   scanid.get_xnat_experiment_id(),
                                   item,
@@ -337,14 +366,14 @@ def upload_non_dicom_data(archive, xnat_project, scanid):
         return uploaded_files
 
 
-def upload_dicom_data(archive, xnat_project, scanid):
+def upload_dicom_data(archive, xnat_project, scanid, xnat):
     # XNAT API for upload fails if the zip contains a mix of dicom and nifti.
     # OPT CU definitely contains a mix and others may later on. Soooo
     # here's an ugly but effective fix! The niftis will get uploaded with
     # upload_non_dicom_data and added to resources - Dawn
 
     if not contains_niftis(archive):
-        XNAT.put_dicoms(xnat_project, scanid.get_xnat_subject_id(),
+        xnat.put_dicoms(xnat_project, scanid.get_xnat_subject_id(),
                         scanid.get_xnat_experiment_id(), archive)
         return
 
@@ -353,7 +382,7 @@ def upload_dicom_data(archive, xnat_project, scanid):
         new_archive = strip_niftis(archive, temp)
 
         if new_archive:
-            XNAT.put_dicoms(xnat_project, scanid.get_xnat_subject_id(),
+            xnat.put_dicoms(xnat_project, scanid.get_xnat_subject_id(),
                             scanid.get_xnat_experiment_id(), new_archive)
         else:
             logger.info("No dicoms exist within archive {}, skipping dicom "
