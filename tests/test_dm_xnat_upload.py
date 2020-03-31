@@ -45,10 +45,12 @@ class CheckFilesExist(unittest.TestCase):
         mock_resources_exist.return_value = True
         xnat_session = self.__get_xnat_session(self.session)
 
+        xnat = MagicMock()
 
         # Run
         data_exists, resources_exist = upload.check_files_exist(
-            self.archive, xnat_session.experiments["STUDY_SITE_9999_01_01"])
+            self.archive, xnat_session.experiments["STUDY_SITE_9999_01_01"],
+            xnat)
 
         # Should raise an exception, so assertion is never reached
         assert data_exists
