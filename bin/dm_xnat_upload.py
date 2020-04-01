@@ -161,10 +161,10 @@ def process_archive(file_name, dicom_dir):
         try:
             upload_dicom_data(archive_file, xnat_subject.project, scanid, xnat)
         except Exception as e:
-            logger.error("Failed uploading archive to xnat project {} "
-                         "for experiment {}. Check Prearchive. Reason - {}"
-                         .format(xnat_subject.project, xnat_experiment.name,
-                                 e))
+            logger.error("Failed uploading archive {} to xnat project {} "
+                         "for subject {}. Check Prearchive. Reason - {}"
+                         .format(archive_file, xnat_subject.project,
+                                 xnat_subject.name, e))
 
     if not resource_exists:
         logger.debug("Uploading resource from: {}".format(archive_file))
