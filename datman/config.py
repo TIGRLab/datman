@@ -1,4 +1,4 @@
-"""Return the site wide config file and ptoject config files
+"""Return the site wide config file and project config files
 
 By default the system_config.yaml file is location is read from the
 environment variable os.environ['DM_CONFIG']

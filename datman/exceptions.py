@@ -2,13 +2,12 @@
 
 
 class ParseException(Exception):
-    """For participant ID parsing issues.
-    """
+    """For participant ID parsing issues."""
     pass
 
 
 class XnatException(Exception):
-    """Default exception for xnat errors"""
+    """Default exception for XNAT errors"""
     study = None
     session = None
 

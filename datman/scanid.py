@@ -353,7 +353,7 @@ def parse(identifier, settings=None):
 
 
 def parse_filename(path):
-    """Parse a datman style file name.
+    r"""Parse a datman style file name.
 
     Args:
         path (:obj:`str`): A file name or full path to parse
