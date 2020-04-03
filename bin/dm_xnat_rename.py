@@ -58,7 +58,9 @@ def main():
 
     set_log_level(arguments)
 
-    xnat = get_xnat(server, user, password)
+    config = datman.config.config()
+    xnat = datman.xnat.get_connection(
+        config, url=server, auth=(user, password))
 
     if not name_path:
         rename_xnat_session(xnat, source, dest, project=project)
@@ -90,15 +92,6 @@ def set_log_level(arguments):
         xnat_logger.setLevel(logging.INFO)
     if quiet:
         logger.setLevel(logging.ERROR)
-
-
-def get_xnat(server, user, password):
-    if not server:
-        config = datman.config.config()
-        server = datman.xnat.get_server(config)
-    if not user or not password:
-        user, password = datman.xnat.get_auth()
-    return datman.xnat.xnat(server, user, password)
 
 
 def read_sessions(name_file):

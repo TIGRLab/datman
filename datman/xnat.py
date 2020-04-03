@@ -932,10 +932,10 @@ class xnat(object):
             else:
                 raise e
 
-        if not rename_exp:
-            return
+        if rename_exp:
+            self.rename_experiment(project, new_name, old_name, new_name)
 
-        self.rename_experiment(project, new_name, old_name, new_name)
+        return
 
     def rename_experiment(self, project, subject, old_name, new_name):
         """Change an experiment's name on XNAT.
