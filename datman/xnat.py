@@ -355,8 +355,7 @@ class xnat(object):
             subject_json = result["items"][0]
         except (IndexError, KeyError):
             raise XnatException(
-                "Could not access metadata for subject {}"
-                "".format(subject_id, project)
+                f"Could not access metadata for subject {subject_id}"
             )
 
         return XNATSubject(subject_json)

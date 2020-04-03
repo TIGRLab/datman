@@ -12,9 +12,12 @@ class XnatException(Exception):
 
     study = None
     session = None
+    message = None
 
     def __repr__(self):
-        return f"Study: {study} Session: {session} Error: {message}"
+        return (
+            f"Study: {self.study} Session: {self.session} Error: {self.message}"
+        )
 
 
 class DashboardException(Exception):

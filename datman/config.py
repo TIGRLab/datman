@@ -237,12 +237,14 @@ class config(object):
         try:
             site_conf = self._search_study_conf("Sites")
         except UndefinedSetting:
-            raise ConfigException(f"'Sites' not defined for study {study_name}")
+            raise ConfigException(
+                f"'Sites' not defined for study {self.study_name}"
+            )
         try:
             site_conf = site_conf[site]
         except KeyError:
             raise ConfigException(
-                f"Site '{site}' not found for study {study_name}"
+                f"Site '{site}' not found for study {self.study_name}"
             )
         try:
             value = site_conf[key]
