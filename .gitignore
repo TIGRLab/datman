@@ -46,3 +46,4 @@ docs/_build/
 .nfs*
 .*swp
 .*.sw*
+process.yml

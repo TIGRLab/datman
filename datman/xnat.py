@@ -12,12 +12,16 @@ from xml.etree import ElementTree
 
 import requests
 
-from datman.exceptions import XnatException, ExportException
+from datman.exceptions import XnatException, ExportException, UndefinedSetting
 
 logger = logging.getLogger(__name__)
 
 
-def get_server(config, url=None, port=None):
+def get_server(config=None, url=None, port=None):
+    if not config and not url:
+        raise XnatException("Can't construct a valid server URL without a "
+                            "datman.config.config instance or string url")
+
     if url and not port:
         # Avoid mangling user's url by appending a port from the config
         use_port = False
@@ -52,12 +56,15 @@ def get_server(config, url=None, port=None):
     return server
 
 
-def get_port_str(config, port):
+def get_port_str(config=None, port=None):
     """
     Returns a port string of the format :portnum
 
     Will raise KeyError if port is None and config file doesnt define XNATPORT
     """
+    if not config and not port:
+        raise XnatException("Can't construct port substring without a "
+                            "datman.config.config instance or a port number")
     if port is None:
         port = config.get_key("XNATPORT")
 
@@ -67,9 +74,24 @@ def get_port_str(config, port):
     return port
 
 
-def get_auth(username=None):
+def get_auth(username=None, file_path=None):
     if username:
         return (username, getpass.getpass())
+
+    if file_path:
+        try:
+            with open(file_path, 'r') as cred_file:
+                contents = cred_file.readlines()
+        except Exception as e:
+            raise XnatException("Failed to read credentials file {}. "
+                                "Reason - {}".format(file_path, e))
+        try:
+            username = contents[0].strip()
+            password = contents[1].strip()
+        except IndexError:
+            raise XnatException("Failed to read credentials file {} - "
+                                "incorrectly formatted.".format(file_path))
+        return (username, password)
 
     try:
         username = os.environ["XNAT_USER"]
@@ -81,6 +103,63 @@ def get_auth(username=None):
         raise KeyError("'XNAT_PASS' not defined in environment")
 
     return (username, password)
+
+
+def get_connection(config, site=None, url=None, auth=None, server_cache=None):
+    """Create (or retrieve) a connection to an XNAT server
+
+    Args:
+        config (:obj:`datman.config.config`): A study's configuration
+        site (:obj:`str`, optional): A valid site for the current study. If
+            given, site-specific settings will be searched for before
+            defaulting to study or organization wide settings.
+            Defaults to None.
+        url (:obj:`str`, optional): An XNAT server URL. If given the
+            configuration will NOT be consulted. Defaults to None.
+        auth (:obj:`tuple`, optional): A (username, password) tuple. If given
+            configuration / environment variables will NOT be consulted.
+            Defaults to None.
+        server_cache (:obj:`dict`, optional): A dictionary used to map URLs to
+            open XNAT connections. If given, connections will be retrieved
+            from the cache as needed or added if a new URL is requested.
+            Defaults to None.
+
+    Raises:
+        XnatException: If a connection can't be made.
+
+    Returns:
+        :obj:`datman.xnat.xnat`: A connection to the required XNAT server.
+    """
+    if not url:
+        url = config.get_key("XNATSERVER", site=site)
+
+    if server_cache:
+        try:
+            return server_cache[url]
+        except KeyError:
+            pass
+
+    server_url = get_server(url=url)
+
+    if auth:
+        connection = xnat(server_url, auth[0], auth[1])
+    else:
+        try:
+            auth_file = config.get_key("XNAT_CREDENTIALS", site=site)
+        except UndefinedSetting:
+            auth_file = None
+        else:
+            if (not os.path.exists(auth_file) and
+                    not os.path.dirname(auth_file)):
+                # User probably provided metadata file name only
+                auth_file = os.path.join(config.get_path("meta"), auth_file)
+        username, password = get_auth(file_path=auth_file)
+        connection = xnat(server_url, username, password)
+
+    if server_cache is not None:
+        server_cache[url] = connection
+
+    return connection
 
 
 class xnat(object):

@@ -69,10 +69,9 @@ Details:
            - T1:  {Pattern: {'regex1', 'regex2'}, Count: n_expected}
            - DTI: {Pattern: {'regex1', 'regex2'}, Count: n_expected}
 Requires:
-    FSL
-    QCMON
+    FSL/5.0.10
     MATLAB/R2014a - qa-dti phantom pipeline
-    AFNI - abcd_fmri phantom pipeline
+    AFNI/2014.12.16 - abcd_fmri phantom pipeline
 """
 
 import os

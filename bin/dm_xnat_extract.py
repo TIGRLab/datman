@@ -18,9 +18,12 @@ Options:
     -q --quiet               Show minimal output
     -n --dry-run             Do nothing
     --server URL             XNAT server to connect to, overrides the server
-                             defined in the site config file.
-    -u --username USER       XNAT username. If specified then the credentials
-                             file is ignored and you are prompted for password.
+                             defined in the configuration files.
+    -u --username USER       XNAT username. If specified then the environment
+                             variables (or any credential files) are ignored
+                             and you are prompted for a password. Note that if
+                             multiple servers are configured for a study the
+                             login used should be valid for all servers.
     --dont-update-dashboard  Dont update the dashboard database
     -t --tag tag,...         List of scan tags to download
 
@@ -89,7 +92,9 @@ import datman.exceptions
 logger = logging.getLogger(os.path.basename(__file__))
 
 
-xnat = None
+SERVERS = {}
+SERVER_OVERRIDE = None
+AUTH = None
 cfg = None
 DRYRUN = False
 db_ignore = False  # if True dont update the dashboard db
@@ -97,7 +102,8 @@ wanted_tags = None
 
 
 def main():
-    global xnat
+    global AUTH
+    global SERVER_OVERRIDE
     global cfg
     global DRYRUN
     global wanted_tags
@@ -110,9 +116,9 @@ def main():
     study = arguments['<study>']
     experiment = arguments['<experiment>']
     wanted_tags = arguments['--tag']
-    server = arguments['--server']
     username = arguments['--username']
     db_ignore = arguments['--dont-update-dashboard']
+    SERVER_OVERRIDE = arguments['--server']
 
     if arguments['--dry-run']:
         DRYRUN = True
@@ -121,27 +127,19 @@ def main():
     configure_logging(study, quiet, verbose, debug)
 
     cfg = datman.config.config(study=study)
-
-    # get the list of XNAT projects linked to the datman study
-    xnat_projects = cfg.get_xnat_projects(study)
-
-    # get base URL link to XNAT server, authentication info
-    server = datman.xnat.get_server(cfg, url=server)
-    username, password = datman.xnat.get_auth(username)
-
-    # initialize requests module object for XNAT REST API
-    xnat = datman.xnat.xnat(server, username, password)
+    if username:
+        AUTH = datman.xnat.get_auth(username)
 
     if experiment:
-        experiments = collect_experiment(experiment, xnat_projects, cfg)
+        experiments = collect_experiment(experiment, study, cfg)
     else:
-        experiments = collect_all_experiments(xnat_projects, cfg)
+        experiments = collect_all_experiments(cfg)
 
     logger.info("Found {} experiments for study {}".format(
         len(experiments), study))
 
-    for project, experiment in experiments:
-        process_experiment(project, experiment)
+    for xnat, project, experiment in experiments:
+        process_experiment(xnat, project, experiment)
 
 
 def configure_logging(study, quiet=None, verbose=None, debug=None):
@@ -169,7 +167,7 @@ def configure_logging(study, quiet=None, verbose=None, debug=None):
     logging.getLogger('datman.xnat').addHandler(ch)
 
 
-def collect_experiment(user_exper, xnat_projects, cfg):
+def collect_experiment(user_exper, study, cfg):
     ident = datman.utils.validate_subject_id(user_exper, cfg)
 
     try:
@@ -184,6 +182,15 @@ def collect_experiment(user_exper, xnat_projects, cfg):
             settings = None
         ident = datman.scanid.get_kcni_identifier(ident, settings)
 
+    xnat = datman.xnat.get_connection(cfg,
+                                      site=ident.site,
+                                      url=SERVER_OVERRIDE,
+                                      auth=AUTH,
+                                      server_cache=SERVERS)
+
+    # get the list of XNAT projects linked to the datman study
+    xnat_projects = cfg.get_xnat_projects(study)
+
     # identify which xnat project the subject is in
     xnat_project = xnat.find_project(ident.get_xnat_subject_id(),
                                      xnat_projects)
@@ -192,33 +199,57 @@ def collect_experiment(user_exper, xnat_projects, cfg):
                      "existing experiment ID in XNAT.".format(user_exper))
         return
 
-    return [(xnat_project, ident)]
+    return [(xnat, xnat_project, ident)]
 
 
-def collect_all_experiments(xnat_projects, config):
+def collect_all_experiments(config):
     experiments = []
 
-    # for each XNAT project send out URL request for list of session records
-    # then validate and add (XNAT project, subject ID ['label']) to output list
-    for project in xnat_projects:
-        for exper_id in xnat.get_experiment_ids(project):
-            try:
-                ident = datman.utils.validate_subject_id(exper_id, config)
-            except datman.scanid.ParseException:
-                logger.error("Invalid experiment ID {} in project {}.".format(
-                    exper_id, project))
-                continue
-            if (ident.session is None and not datman.scanid.is_phantom(ident)):
-                logger.error("Invalid experiment ID {} in project {}. Reason "
-                             "- Not a phantom, but missing session number"
-                             "".format(exper_id, project))
-                continue
-            experiments.append((project, ident))
+    # for each XNAT project send out URL request for list of experiment IDs
+    # then validate and add (connection, XNAT project, subject ID) to output
+    for project, sites in get_projects(config).items():
+        for site in sites:
+            xnat = datman.xnat.get_connection(config,
+                                              site=site,
+                                              url=SERVER_OVERRIDE,
+                                              auth=AUTH,
+                                              server_cache=SERVERS)
+            for exper_id in xnat.get_experiment_ids(project):
+                try:
+                    ident = datman.utils.validate_subject_id(exper_id, config)
+                except datman.scanid.ParseException:
+                    logger.error("Invalid experiment ID {} in project {}."
+                                 "".format(exper_id, project))
+                    continue
+                if (ident.session is None and
+                        not datman.scanid.is_phantom(ident)):
+                    logger.error("Invalid experiment ID {} in project {}. "
+                                 "Reason - Not a phantom, but missing session "
+                                 "number".format(exper_id, project))
+                    continue
+                experiments.append((xnat, project, ident))
 
     return experiments
 
 
-def process_experiment(project, ident):
+def get_projects(config):
+    """Find all XNAT projects and the list of scan sites uploaded to each one.
+
+    Args:
+        config (:obj:`datman.config.config`): The config for a study
+
+    Returns:
+        dict: A map of XNAT project names to the URL(s) of the server holding
+            that project.
+    """
+    projects = {}
+    for site in config.get_sites():
+        xnat_project = config.get_key("XNAT_Archive", site=site)
+        projects.setdefault(xnat_project, set()).add(site)
+    return projects
+
+
+def process_experiment(xnat, project, ident):
     experiment_label = ident.get_xnat_experiment_id()
 
     logger.info("Processing experiment: {}".format(experiment_label))
@@ -243,15 +274,15 @@ def process_experiment(project, ident):
             set_date(db_session, xnat_experiment)
 
     if xnat_experiment.resource_files:
-        process_resources(ident, xnat_experiment)
+        process_resources(xnat, ident, xnat_experiment)
     if xnat_experiment.scans:
-        process_scans(ident, xnat_experiment)
+        process_scans(xnat, ident, xnat_experiment)
 
 
 def set_date(session, experiment):
     if not experiment.date:
         logger.debug("No scanning date found for {}, leaving blank.".format(
-                session))
+            session))
         return
 
     try:
@@ -276,7 +307,7 @@ def set_alt_ids(session, ident):
     session.save()
 
 
-def process_resources(ident, xnat_experiment):
+def process_resources(xnat, ident, xnat_experiment):
     """Export any non-dicom resources from the XNAT archive"""
     logger.info("Extracting {} resources from {}".format(
         len(xnat_experiment.resource_files), xnat_experiment.name))
@@ -330,14 +361,15 @@ def process_resources(ident, xnat_experiment):
             else:
                 logger.info("Downloading {} from experiment {}"
                             .format(resource['name'], xnat_experiment.name))
-                download_resource(xnat_experiment,
+                download_resource(xnat,
+                                  xnat_experiment,
                                   xnat_resource_id,
                                   resource['URI'],
                                   resource_path)
 
 
-def download_resource(xnat_experiment, xnat_resource_id, xnat_resource_uri,
-                      target_path):
+def download_resource(xnat, xnat_experiment, xnat_resource_id,
+                      xnat_resource_uri, target_path):
     """
     Download a single resource file from XNAT. Target path should be
     full path to store the file, including filename
@@ -381,7 +413,7 @@ def download_resource(xnat_experiment, xnat_resource_id, xnat_resource_uri,
     return target_path
 
 
-def process_scans(ident, xnat_experiment):
+def process_scans(xnat, ident, xnat_experiment):
     """Download scans from an XNAT experiment and convert to valid formats.
 
     Args:
@@ -445,7 +477,7 @@ def process_scans(ident, xnat_experiment):
                 continue
             export_formats = get_export_formats(ident, fname, tags, tag)
             if export_formats:
-                get_scans(ident, scan, fname, export_formats)
+                get_scans(xnat, ident, scan, fname, export_formats)
 
 
 def update_dashboard(scan_names):
@@ -502,7 +534,7 @@ def series_is_processed(ident, file_stem, export_formats):
     return remaining_formats
 
 
-def get_scans(ident, xnat_scan, output_name, export_formats):
+def get_scans(xnat, ident, xnat_scan, output_name, export_formats):
     logger.info("Getting scan from XNAT")
 
     # setup the export functions for each format
@@ -513,7 +545,7 @@ def get_scans(ident, xnat_scan, output_name, export_formats):
 
     # scan hasn't been completely processed, get it from XNAT
     with datman.utils.make_temp_directory(prefix='dm_xnat_extract_') as temp:
-        src_dir = get_dicom_archive_from_xnat(xnat_scan, temp)
+        src_dir = get_dicom_archive_from_xnat(xnat, xnat_scan, temp)
 
         if not src_dir:
             logger.error("Failed getting series {} for experiment {} from XNAT"
@@ -523,8 +555,8 @@ def get_scans(ident, xnat_scan, output_name, export_formats):
         for export_format in export_formats:
             target_base_dir = cfg.get_path(export_format)
             target_dir = os.path.join(
-                                target_base_dir,
-                                ident.get_full_subjectid_with_timepoint())
+                target_base_dir,
+                ident.get_full_subjectid_with_timepoint())
             try:
                 target_dir = datman.utils.define_folder(target_dir)
             except OSError:
@@ -551,7 +583,7 @@ def get_scans(ident, xnat_scan, output_name, export_formats):
     logger.info('Completed exports')
 
 
-def get_dicom_archive_from_xnat(xnat_scan, tempdir):
+def get_dicom_archive_from_xnat(xnat, xnat_scan, tempdir):
     """
     Downloads and extracts a dicom archive from XNAT to a local temp folder
     Returns the path to the tempdir (for later cleanup) as well as the

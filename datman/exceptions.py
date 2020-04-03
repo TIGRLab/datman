@@ -36,3 +36,11 @@ class ExportException(Exception):
 
 class InputException(Exception):
     pass
+
+
+class ConfigException(Exception):
+    pass
+
+
+class UndefinedSetting(Exception):
+    pass
