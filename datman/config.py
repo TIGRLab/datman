@@ -87,7 +87,7 @@ class config(object):
     def load_yaml(self, filename):
         if not os.path.isfile(filename):
             raise ConfigException(
-                "configuration file {} not found. Try again.".format(filename)
+                f"configuration file {filename} not found. Try again."
             )
         with open(filename, "r") as stream:
             config_yaml = yaml.load(stream, Loader=yaml.SafeLoader)
@@ -119,7 +119,7 @@ class config(object):
         try:
             study_yaml = projects[study_name]
         except KeyError:
-            raise UndefinedSetting("Study {} not configured.".format(study_name))
+            raise UndefinedSetting(f"Study {study_name} not configured.")
 
         project_settings_file = os.path.join(config_path, study_yaml)
         self.study_config = self.load_yaml(project_settings_file)
@@ -153,7 +153,7 @@ class config(object):
         DTI3T), the site is used to differentiate between them. As a result, if
         only a 'DTI' project tag is given this function raises an exception.
         """
-        logger.debug("Searching projects for: {}".format(filename))
+        logger.debug(f"Searching projects for: {filename}")
 
         try:
             parts = datman.scanid.parse(filename)
@@ -162,7 +162,7 @@ class config(object):
             # full ID. Check for this case, exit if it's just a bad ID
             parts = filename.split("_")
             if len(parts) > 1:
-                raise datman.scanid.ParseException("Malformed ID: {}".format(filename))
+                raise datman.scanid.ParseException(f"Malformed ID: {filename}")
             tag = parts[0]
             site = None
         else:
@@ -179,8 +179,7 @@ class config(object):
             # if parts isnt a datman scanid, only the study tag was given. Cant
             # be sure which DTI study is correct without site info
             raise RuntimeError(
-                "Cannot determine if DTI15T or DTI3T based on "
-                "input: {}".format(filename)
+                f"Cannot determine if DTI15T or DTI3T based on " "input: {filename}"
             )
 
         # If a valid project name was given instead of a study tag, return that
@@ -192,13 +191,13 @@ class config(object):
         for project in projects.keys():
             # search each project for a match to the study tag,
             # this loop exits as soon as a match is found.
-            logger.debug("Searching project: {}".format(project))
+            logger.debug(f"Searching project: {project}")
 
             self.set_study(project)
             site_tags = []
 
             if "Sites" not in self.study_config.keys():
-                logger.debug("No sites defined for {}".format(project))
+                logger.debug(f"No sites defined for {project}")
                 continue
 
             for key, site_config in self.get_key("Sites").items():
@@ -223,7 +222,7 @@ class config(object):
                 self.set_study(project)
                 return project
         # didn't find a match throw a warning
-        logger.warn("Failed to find a valid project for xnat id: {}".format(tag))
+        logger.warn(f"Failed to find a valid project for xnat id: {tag}")
         raise ValueError
 
     def _search_site_conf(self, site, key):
@@ -235,19 +234,15 @@ class config(object):
         try:
             site_conf = self._search_study_conf("Sites")
         except UndefinedSetting:
-            raise ConfigException(
-                "'Sites' not defined for study {}".format(self.study_name)
-            )
+            raise ConfigException(f"'Sites' not defined for study {study_name}")
         try:
             site_conf = site_conf[site]
         except KeyError:
-            raise ConfigException(
-                "Site '{}' not found for study {}".format(site, self.study_name)
-            )
+            raise ConfigException(f"Site '{site}' not found for study {study_name}")
         try:
             value = site_conf[key]
         except KeyError:
-            raise UndefinedSetting("'{}' not set for site {}".format(key, site))
+            raise UndefinedSetting(f"'{key}' not set for site {site}")
         return value
 
     def _search_study_conf(self, key):
@@ -262,9 +257,7 @@ class config(object):
         try:
             value = self.study_config[key]
         except KeyError:
-            raise UndefinedSetting(
-                "'{}' not defined for study {}" "".format(key, self.study_name)
-            )
+            raise UndefinedSetting(f"'{key}' not defined for study {self.study_name}")
         return value
 
     def _search_local_conf(self, key):
@@ -281,15 +274,11 @@ class config(object):
         try:
             local_system = system_settings[self.system]
         except KeyError:
-            raise ConfigException(
-                "System '{}' not defined in " "SystemSettings".format(key)
-            )
+            raise ConfigException(f"System '{key}' not defined in SystemSettings")
         try:
             value = local_system[key]
         except KeyError:
-            raise UndefinedSetting(
-                "'{}' not defined for system {}".format(key, self.system)
-            )
+            raise UndefinedSetting(f"'{key}' not defined for system {self.system}")
         return value
 
     def _search_system_conf(self, key):
@@ -302,7 +291,7 @@ class config(object):
         try:
             value = self.system_config[key]
         except KeyError:
-            raise UndefinedSetting("'{}' not set".format(key))
+            raise UndefinedSetting(f"'{key}' not set")
         return value
 
     def _get_setting(self, search_func, args, stop_search=False, merge=None):
@@ -392,7 +381,7 @@ class config(object):
         try:
             sub_dir = paths[path_type]
         except KeyError:
-            raise UndefinedSetting("Path {} not defined".format(path_type))
+            raise UndefinedSetting(f"Path {path_type} not defined")
 
         return os.path.join(self.get_study_base(), sub_dir)
 
@@ -438,9 +427,7 @@ class config(object):
         try:
             sites = list(self.get_key("Sites"))
         except KeyError:
-            raise ConfigException(
-                "No sites defined for study {}".format(self.study_name)
-            )
+            raise ConfigException(f"No sites defined for study {self.study_name}")
         return sites
 
     @study_required
@@ -454,7 +441,7 @@ class config(object):
         try:
             default_tag = self.get_key("STUDY_TAG")
         except UndefinedSetting:
-            logger.info("No default study tag defined for {}".format(self.study_name))
+            logger.info(f"No default study tag defined for {self.study_name}")
             default_tag = None
 
         tags = {}
@@ -494,7 +481,7 @@ class TagInfo(object):
             try:
                 export_info = export[entry]
             except KeyError:
-                logger.info("{} not defined in ExportSettings.".format(entry))
+                logger.info(f"{entry} not defined in ExportSettings.")
                 export_info = {}
             # Update with export info first, so that site_info will override it
             # if there's a key conflict
@@ -529,13 +516,13 @@ class TagInfo(object):
         try:
             tag_entry = self.tags[tag]
         except KeyError:
-            raise KeyError("Series tag {} not defined".format(tag))
+            raise KeyError(f"Series tag {tag} not defined")
 
         if field:
             try:
                 field_val = tag_entry[field]
             except KeyError:
-                raise KeyError("Tag {} does not define {}".format(tag, field))
+                raise KeyError(f"Tag {tag} does not define {field}")
             return field_val
 
         return tag_entry

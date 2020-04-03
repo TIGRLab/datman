@@ -31,7 +31,7 @@ class BIDSEnforcer(object):
             self.version = self.descriptor["VERSION"]
         except KeyError:
             logger.error("No version indicated in" "BIDS syntax description file!")
-            logger.error("Add a VERSION key to {}".format(yml_file))
+            logger.error(f"Add a VERSION key to {yml_file}")
 
         self.inverse_map = self._invert_descriptor_map()
         self.run_counter = {}
@@ -61,18 +61,18 @@ class BIDSEnforcer(object):
                 entry = input_dict[f]
             except KeyError:
                 if req_or_opt == "required":
-                    logger.error("Missing required input: {}".format(f))
+                    logger.error(f"Missing required input: {f}")
                     logger.error("Input dict:", input_dict)
                     raise
             else:
                 if f not in KEYLESS_FIELDS:
-                    input_constructor.append("{}-{}".format(f, entry))
+                    input_constructor.append(f"{f}-{entry}")
                 else:
                     input_constructor.append(entry)
 
         if use_internal_run:
             run = self._get_run_count(tuple(input_constructor))
-            input_constructor.insert(-1, "run-{}".format(run))
+            input_constructor.insert(-1, f"run-{run}")
 
         return "_".join(input_constructor)
 

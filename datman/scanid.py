@@ -94,7 +94,7 @@ class DatmanIdentifier(Identifier):
             match = self.scan_pattern.match(identifier + "_XX")
 
         if not match:
-            raise ParseException("Invalid Datman ID {}".format(identifier))
+            raise ParseException(f"Invalid Datman ID {identifier}")
 
         self._match_groups = match
         self.orig_id = match.group("id")
@@ -123,7 +123,7 @@ class DatmanIdentifier(Identifier):
         return self.get_xnat_subject_id()
 
     def __repr__(self):
-        return "<datman.scanid.DatmanIdentifier {}>".format(self.__str__())
+        return f"<datman.scanid.DatmanIdentifier {self.__str__()}>"
 
 
 class KCNIIdentifier(Identifier):
@@ -159,7 +159,7 @@ class KCNIIdentifier(Identifier):
     def __init__(self, identifier, settings=None):
         match = self.match(identifier)
         if not match:
-            raise ParseException("Invalid KCNI ID {}".format(identifier))
+            raise ParseException(f"Invalid KCNI ID {identifier}")
 
         self._match_groups = match
         self.orig_id = match.group("id")
@@ -173,7 +173,7 @@ class KCNIIdentifier(Identifier):
             # Not a phantom
             self.pha_type = None
         else:
-            self.subject = "PHA_{}{}".format(self.pha_type, self.subject)
+            self.subject = f"PHA_{self.pha_type}{self.subject}"
 
         self.timepoint = match.group("timepoint")
         self.session = match.group("session")
@@ -192,7 +192,7 @@ class KCNIIdentifier(Identifier):
         return self.orig_id
 
     def __repr__(self):
-        return "<datman.scanid.KCNIIdentifier {}>".format(self.__str__())
+        return f"<datman.scanid.KCNIIdentifier {self.__str__()}>"
 
 
 class BIDSFile(object):
@@ -247,30 +247,30 @@ class BIDSFile(object):
         return False
 
     def __str__(self):
-        str_rep = ["sub-{}_ses-{}".format(self.subject, self.session)]
+        str_rep = [f"sub-{self.subject}_ses-{self.session}"]
         if self.task:
-            str_rep.append("task-{}".format(self.task))
+            str_rep.append(f"task-{self.task}")
         if self.acq:
-            str_rep.append("acq-{}".format(self.acq))
+            str_rep.append(f"acq-{self.acq}")
         if self.ce:
-            str_rep.append("ce-{}".format(self.ce))
+            str_rep.append(f"ce-{self.ce}")
         if self.dir:
-            str_rep.append("dir-{}".format(self.dir))
+            str_rep.append(f"dir-{self.dir}")
         if self.rec:
-            str_rep.append("rec-{}".format(self.rec))
+            str_rep.append(f"rec-{self.rec}")
 
-        str_rep.append("run-{}".format(self.run))
+        str_rep.append(f"run-{self.run}")
 
         if self.echo:
-            str_rep.append("echo-{}".format(self.echo))
+            str_rep.append(f"echo-{self.echo}")
         if self.mod:
-            str_rep.append("mod-{}".format(self.mod))
+            str_rep.append(f"mod-{self.mod}")
 
         str_rep.append(self.suffix)
         return "_".join(str_rep)
 
     def __repr__(self):
-        return "<datman.scanid.BIDSFile {}>".format(self.__str__())
+        return f"<datman.scanid.BIDSFile {self.__str__()}>"
 
 
 FILENAME_RE = (
@@ -384,7 +384,7 @@ def parse(identifier, settings=None):
         except ParseException:
             pass
 
-    raise ParseException("Invalid ID - {}".format(identifier))
+    raise ParseException(f"Invalid ID - {identifier}")
 
 
 def parse_filename(path):
@@ -428,7 +428,7 @@ def parse_bids_filename(path):
     fname = os.path.basename(path)
     match = BIDS_SCAN_PATTERN.match(fname)
     if not match:
-        raise ParseException("Invalid BIDS file name {}".format(path))
+        raise ParseException(f"Invalid BIDS file name {path}")
     try:
         ident = BIDSFile(
             subject=match.group("subject"),
@@ -444,7 +444,7 @@ def parse_bids_filename(path):
             mod=match.group("mod"),
         )
     except ParseException as e:
-        raise ParseException("Invalid BIDS file name {} - {}".format(path, e))
+        raise ParseException(f"Invalid BIDS file name {path} - {e}")
     return ident
 
 
@@ -492,11 +492,11 @@ def get_session_num(ident):
         try:
             num = int(ident.session)
         except ValueError:
-            raise ParseException("ID {} has non-numeric session number".format(ident))
+            raise ParseException(f"ID {ident} has non-numeric session number")
     elif is_phantom(ident):
         num = 1
     else:
-        raise ParseException("ID {} is missing a session number".format(ident))
+        raise ParseException(f"ID {ident} is missing a session number")
     return num
 
 
@@ -589,8 +589,6 @@ def get_kcni_identifier(identifier, settings=None):
     pattern = re.compile("^PHA_(?P<type>[A-Z]{3})(?P<num>[0-9]{4})$")
     match = pattern.match(ident.subject)
     if not match:
-        raise ParseException(
-            "Can't parse datman phantom {} to KCNI " "ID".format(ident)
-        )
-    subject = "{}PHA_{}".format(match.group("type"), match.group("num"))
-    return KCNIIdentifier("{}_{}_{}_MR".format(study, site, subject), settings)
+        raise ParseException(f"Can't parse datman phantom {ident} to KCNI ID")
+    subject = f"{match.group('type')}PHA_{match.group('num')}"
+    return KCNIIdentifier(f"{study}_{site}_{subject}_MR", settings)

@@ -14,6 +14,6 @@ __credits__ = (
 )
 __url__ = "https://github.com/tigrlab/datman"
 
-DOWNLOAD_URL = "https://github.com/tigrlab/{name}/archive/{ver}.tar.gz".format(
-    name=__packagename__, ver=__version__
+DOWNLOAD_URL = (
+    f"https://github.com/tigrlab/{__packagename__}/archive/{__version__}.tar.gz"
 )

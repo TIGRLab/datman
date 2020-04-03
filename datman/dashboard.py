@@ -85,8 +85,7 @@ def filename_required(f):
                     name = datman.scanid.parse(name)
                 except datman.scanid.ParseException:
                     raise datman.scanid.ParseException(
-                        "A datman file name was expected. Received "
-                        "{} instead.".format(name)
+                        f"A datman file name was expected. Received {name} instead."
                     )
                 try:
                     tag = kwargs["tag"]
@@ -125,9 +124,7 @@ def filename_required(f):
 def set_study_status(name, is_open):
     studies = queries.get_study(name=name)
     if not studies:
-        raise DashboardException(
-            "ID {} contains invalid study / site " "combination".format(name)
-        )
+        raise DashboardException(f"ID {name} contains invalid study / site combination")
     if len(studies) > 1:
         raise DashboardException(
             "Can't identify study for {}. {} matching "
@@ -178,9 +175,7 @@ def get_bids_subject(bids_name, bids_session, study=None):
 def add_subject(name):
     studies = queries.get_study(tag=name.study, site=name.site)
     if not studies:
-        raise DashboardException(
-            "ID {} contains invalid study / site " "combination".format(name)
-        )
+        raise DashboardException(f"ID {name} contains invalid study / site combination")
     if len(studies) > 1:
         raise DashboardException(
             "Can't identify study for {}. {} matching "
@@ -198,9 +193,7 @@ def get_session(name, create=False, date=None):
     try:
         sess_num = datman.scanid.get_session_num(name)
     except datman.scanid.ParseException:
-        logger.info(
-            "{} is missing a session number. Using default session " "'1'".format(name)
-        )
+        logger.info(f"{name} is missing a session number. Using default session '1'")
         sess_num = 1
 
     session = queries.get_session(name.get_full_subjectid_with_timepoint(), sess_num)
@@ -219,25 +212,20 @@ def add_session(name, date=None):
     try:
         sess_num = datman.scanid.get_session_num(name)
     except datman.scanid.ParseException:
-        logger.info(
-            "{} is missing a session number. Using default session " "'1'".format(name)
-        )
+        logger.info(f"{name} is missing a session number. Using default session '1'")
         sess_num = 1
 
     if timepoint.is_phantom and sess_num > 1:
         raise DashboardException(
-            "ERROR: attempt to add repeat scan session "
-            "to phantom {}".format(str(name))
+            f"ERROR: attempt to add repeat scan session to phantom {str(name)}"
         )
 
     if date:
         try:
             date = datetime.strptime(date, "%Y-%m-%d")
         except ValueError:
-            logger.error(
-                "Cannot create session: Invalid date format {}." "".format(date)
-            )
-            raise DashboardException("Invalid date format {}".format(date))
+            logger.error(f"Cannot create session: Invalid date format {date}.")
+            raise DashboardException(f"Invalid date format {date}")
 
     new_session = timepoint.add_session(sess_num, date=date)
 
@@ -268,7 +256,7 @@ def get_scan(
 
     if len(scan) > 1:
         raise DashboardException(
-            "Couldnt identify scan {}. {} matches " "found".format(scan_name, len(scan))
+            f"Couldnt identify scan {scan_name}. {len(scan)} matches found"
         )
     if len(scan) == 1:
         return scan[0]
@@ -286,7 +274,7 @@ def get_bids_scan(name):
     scan = queries.get_scan(name, bids=True)
     if len(scan) > 1:
         raise DashboardException(
-            "Couldnt identify scan {}. {} matches " "found".format(name, len(scan))
+            f"Couldnt identify scan {name}. {len(scan)} matches found"
         )
     if len(scan) == 1:
         return scan[0]
@@ -310,8 +298,7 @@ def add_scan(name, tag=None, series=None, description=None, source_id=None):
 
     if tag not in allowed_tags:
         raise DashboardException(
-            "Scan name {} contains tag not configured "
-            "for study {}".format(scan_name, str(study))
+            f"Scan name {scan_name} contains tag not configured for study {str(study)}"
         )
 
     return session.add_scan(scan_name, series, tag, description, source_id=source_id)
@@ -333,13 +320,9 @@ def get_project(name=None, tag=None, site=None):
     studies = queries.get_study(name=name, tag=tag, site=site)
     search_term = name or tag
     if len(studies) == 0:
-        raise DashboardException(
-            "Failed to locate study matching {}" "".format(search_term)
-        )
+        raise DashboardException(f"Failed to locate study matching {search_term}")
     if len(studies) > 1:
-        raise DashboardException(
-            "{} does not uniquely identify " "a project".format(search_term)
-        )
+        raise DashboardException(f"{search_term} does not uniquely identify a project")
     if not name:
         return studies[0].study
     return studies[0]
@@ -358,7 +341,7 @@ def get_default_user():
     user = queries.get_user(user)
     if not user or len(user) > 1:
         raise DashboardException(
-            "Can't locate default user {} in " "dashboard database".format(user)
+            f"Can't locate default user {user} in dashboard database"
         )
     return user[0]
 

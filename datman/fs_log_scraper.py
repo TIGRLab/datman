@@ -151,7 +151,7 @@ class FSLog(object):
         elif os.path.exists(recon_log):
             status = ""
         else:
-            raise Exception("No freesurfer log files found for " "{}".format(scripts))
+            raise Exception(f"No freesurfer log files found for {scripts}")
 
         return status
 

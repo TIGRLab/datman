@@ -2,30 +2,19 @@
 
 
 class ParseException(Exception):
-<<<<<<< HEAD
-    """For participant ID parsing issues.
-    """
-
-=======
     """For participant ID parsing issues."""
->>>>>>> 1dd4b64a0b4f414b8070cf5a8cb1bf00aea77ecc
+
     pass
 
 
 class XnatException(Exception):
-<<<<<<< HEAD
-    """Default exception for xnat errors"""
-
-=======
     """Default exception for XNAT errors"""
->>>>>>> 1dd4b64a0b4f414b8070cf5a8cb1bf00aea77ecc
+
     study = None
     session = None
 
     def __repr__(self):
-        return "Study:{} Session:{} Error:{}".format(
-            self.study, self.session, self.message
-        )
+        return f"Study: {study} Session: {session} Error: {message}"
 
 
 class DashboardException(Exception):

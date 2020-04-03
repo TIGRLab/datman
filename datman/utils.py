@@ -98,7 +98,7 @@ def read_checklist(
         if bids_id and not bids_ses:
             bids_ses = "01"
         if bids_id and not type(bids_ses) == str:
-            bids_ses = "{:02d}".format(bids_ses)
+            bids_ses = f"{bids_ses:02d}"
         try:
             entries = _fetch_checklist(
                 subject=subject,
@@ -136,8 +136,7 @@ def read_checklist(
             entries = _parse_checklist(checklist, subject=subject)
     except Exception as e:
         raise MetadataException(
-            "Failed to read checklist file "
-            "{}. Reason - {}".format(checklist_path, str(e))
+            f"Failed to read checklist file {checklist_path}. Reason - {str(e)}"
         )
 
     return entries
@@ -235,15 +234,11 @@ def _parse_checklist(checklist, subject=None):
         try:
             subid = os.path.splitext(fields[0].replace("qc_", ""))[0]
         except (IndexError, TypeError):
-            raise MetadataException(
-                "Found malformed checklist entry: " "{}".format(line)
-            )
+            raise MetadataException(f"Found malformed checklist entry: {line}")
         try:
             scanid.parse(subid)
         except scanid.ParseException:
-            logger.error(
-                "Found malformed subject ID {} in checklist. " "Ignoring.".format(subid)
-            )
+            logger.error(f"Found malformed subject ID {subid} in checklist. Ignoring.")
             continue
 
         if entries and subid in entries:
@@ -301,14 +296,13 @@ def update_checklist(entries, study=None, config=None, path=None):
             ident = scanid.parse(subject)
         except scanid.ParseException:
             raise MetadataException(
-                "Attempt to add invalid subject ID {} to "
-                "QC checklist".format(subject)
+                f"Attempt to add invalid subject ID {subject} to QC checklist"
             )
         subject = ident.get_full_subjectid_with_timepoint()
         old_entries[subject] = entries[subject]
 
     # Reformat to expected checklist line format
-    lines = ["qc_{}.html {}\n".format(sub, old_entries[sub]) for sub in old_entries]
+    lines = [f"qc_{sub}.html {old_entries[sub]}\n" for sub in old_entries]
 
     write_metadata(sorted(lines), checklist_path)
 
@@ -331,7 +325,7 @@ def _update_qc_reviewers(entries):
         timepoint = dashboard.get_subject(subject)
         if not timepoint or not timepoint.sessions:
             raise MetadataException(
-                "{} not found in the in the dashboard " "database.".format(subject)
+                f"{subject} not found in the in the dashboard database."
             )
 
         comment = entries[subject]
@@ -400,7 +394,7 @@ def read_blacklist(
         try:
             ident, tag, series, descr = scanid.parse_filename(scan)
         except scanid.ParseException:
-            logger.error("Invalid scan name: {}".format(scan))
+            logger.error(f"Invalid scan name: {scan}")
             return
         tmp_sub = ident.get_full_subjectid_with_timepoint_session()
         # Need to drop the path and extension if in the original 'scan'
@@ -416,8 +410,7 @@ def read_blacklist(
             entries = _parse_blacklist(blacklist, scan=scan, subject=subject)
     except Exception as e:
         raise MetadataException(
-            "Failed to read checklist file {}. Reason - "
-            "{}".format(blacklist_path, str(e))
+            f"Failed to read checklist file {blacklist_path}. Reason - {str(e)}"
         )
 
     return entries
@@ -499,7 +492,7 @@ def _parse_blacklist(blacklist, scan=None, subject=None):
             scanid.parse_filename(scan_name)
             comment = fields[1:]
         except (IndexError, scanid.ParseException):
-            logger.info("Ignoring malformed line: {}".format(line))
+            logger.info(f"Ignoring malformed line: {line}")
             continue
 
         comment = " ".join(comment).strip()
@@ -548,17 +541,16 @@ def update_blacklist(entries, study=None, config=None, path=None):
             scanid.parse_filename(scan_name)
         except scanid.ParseException:
             raise MetadataException(
-                "Attempt to add invalid scan name {} " "to blacklist".format(scan_name)
+                f"Attempt to add invalid scan name {scan_name} to blacklist"
             )
         if not entries[scan_name]:
             logger.error(
-                "Can't add blacklist entry with empty comment. "
-                "Skipping {}".format(scan_name)
+                f"Can't add blacklist entry with empty comment. Skipping {scan_name}"
             )
             continue
         old_entries[scan_name] = entries[scan_name]
 
-    lines = ["{} {}\n".format(sub, old_entries[sub]) for sub in old_entries]
+    lines = [f"{sub} {old_entries[sub]}\n" for sub in old_entries]
     new_list = ["series\treason\n"]
     new_list.extend(sorted(lines))
     write_metadata(new_list, blacklist_path)
@@ -582,7 +574,7 @@ def _update_scan_checklist(entries):
         scan = dashboard.get_scan(scan_name)
         if not scan:
             raise MetadataException(
-                "{} does not exist in the dashboard " "database".format(scan_name)
+                f"{scan_name} does not exist in the dashboard database"
             )
         scan.add_checklist_entry(user.id, comment=entries[scan_name], sign_off=False)
 
@@ -594,16 +586,13 @@ def write_metadata(lines, path, retry=3):
     should be contained within the list.
     """
     if not retry:
-        raise MetadataException("Failed to update {}".format(path))
+        raise MetadataException(f"Failed to update {path}")
 
     try:
         with open(path, "w") as meta_file:
             meta_file.writelines(lines)
     except Exception:
-        logger.error(
-            "Failed to write metadata file {}. Tries "
-            "remaining - {}".format(path, retry)
-        )
+        logger.error(f"Failed to write metadata file {path}. Tries remaining - {retry}")
         wait_time = random.uniform(0, 10)
         time.sleep(wait_time)
         write_metadata(lines, path, retry=retry - 1)
@@ -651,8 +640,7 @@ def get_subject_metadata(config=None, study=None, allow_partial=False):
             ident, _, _, _ = scanid.parse_filename(bl_entry)
         except scanid.ParseException:
             logger.error(
-                "Malformed scan name {} found in blacklist. "
-                "Ignoring.".format(bl_entry)
+                f"Malformed scan name {bl_entry} found in blacklist. Ignoring."
             )
             continue
 
@@ -711,7 +699,7 @@ def get_archive_headers(path, stop_after_first=False):
     elif os.path.isfile(path) and path.endswith(".tar.gz"):
         return get_tarfile_headers(path, stop_after_first)
     else:
-        raise Exception("{} must be a file (zip/tar) or folder.".format(path))
+        raise Exception(f"{path} must be a file (zip/tar) or folder.")
 
 
 def get_tarfile_headers(path, stop_after_first=False):
@@ -755,7 +743,7 @@ def get_zipfile_headers(path, stop_after_first=False):
         except dcm.filereader.InvalidDicomError:
             continue
         except zipfile.BadZipfile:
-            logger.warning("Error in zipfile:{}".format(path))
+            logger.warning(f"Error in zipfile:{path}")
             break
     return manifest
 
@@ -823,11 +811,11 @@ def define_folder(path):
         try:
             os.makedirs(path)
         except OSError as e:
-            logger.error("failed to make directory {}".format(path))
+            logger.error(f"failed to make directory {path}")
             raise (e)
 
     if not has_permissions(path):
-        raise OSError("User does not have permission to access {}".format(path))
+        raise OSError(f"User does not have permission to access {path}")
 
     return path
 
@@ -839,7 +827,7 @@ def has_permissions(path):
     if os.access(path, 7):
         flag = True
     else:
-        logger.error("You do not have write access to path {}".format(path))
+        logger.error(f"You do not have write access to path {path}")
         flag = False
 
     return flag
@@ -852,7 +840,7 @@ def run_dummy_q(list_of_names):
     logger.info("Holding for remaining processes.")
     opts = "h_vmem=3G,mem_free=3G,virtual_free=3G"
     holds = ",".join(list_of_names)
-    cmd = "qsub -sync y -hold_jid {} -l {} -b y echo".format(holds, opts)
+    cmd = f"qsub -sync y -hold_jid {holds} -l {opts} -b y echo"
     run(cmd)
     logger.info("... Done.")
 
@@ -872,20 +860,16 @@ def run(cmd, dryrun=False, specialquote=True, verbose=True):
         cmd = _escape_shell_chars(cmd)
 
     if dryrun:
-        logger.info("Performing dry-run. Skipped command: {}".format(cmd))
+        logger.info(f"Performing dry-run. Skipped command: {cmd}")
         return 0, ""
 
-    logger.debug("Executing command: {}".format(cmd))
+    logger.debug(f"Executing command: {cmd}")
 
     p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
     out, err = p.communicate()
 
     if p.returncode and verbose:
-        logger.error(
-            "run({}) failed with returncode {}. STDERR: {}".format(
-                cmd, p.returncode, err
-            )
-        )
+        logger.error(f"run({cmd}) failed with returncode {p.returncode}. STDERR: {err}")
 
     return p.returncode, out
 
@@ -1065,15 +1049,14 @@ def get_xnat_credentials(config, xnat_cred):
     if not xnat_cred:
         xnat_cred = os.path.join(config.get_path("meta"), "xnat-credentials")
 
-    logger.debug("Retrieving xnat credentials from {}".format(xnat_cred))
+    logger.debug(f"Retrieving xnat credentials from {xnat_cred}")
     try:
         credentials = read_credentials(xnat_cred)
         user_name = credentials[0]
         password = credentials[1]
     except IndexError:
         logger.error(
-            "XNAT credential file {} is missing the user name or "
-            "password.".format(xnat_cred)
+            f"XNAT credential file {xnat_cred} is missing the user name or password."
         )
         sys.exit(1)
     return user_name, password
@@ -1086,7 +1069,7 @@ def read_credentials(cred_file):
             for line in creds:
                 credentials.append(line.strip("\n"))
     except Exception as e:
-        logger.error("Cannot read credential file {}.".format(cred_file))
+        logger.error(f"Cannot read credential file {cred_file}.")
         raise e
     return credentials
 
@@ -1122,7 +1105,7 @@ def check_dependency_configured(program_name, shell_cmd=None, env_vars=None):
     )
 
     if shell_cmd is not None:
-        return_val, found = run("which {}".format(shell_cmd))
+        return_val, found = run(f"which {shell_cmd}")
         if return_val or not found:
             raise EnvironmentError(message)
 
@@ -1226,7 +1209,7 @@ def submit_job(
     # Bit of an ugly hack to allow job submission on the scc. Should be
     # replaced with drmaa or some other queue interface later
     if system == "kimel":
-        job_file = "/tmp/{}".format(job_name)
+        job_file = f"/tmp/{job_name}"
 
         with open(job_file, "w") as fid:
             fid.write("#!/bin/bash\n")
@@ -1245,9 +1228,9 @@ def submit_job(
         )
 
         if partition:
-            arg_list = arg_list + " -p {} ".format(partition)
+            arg_list = arg_list + f" -p {partition} "
 
-        job = "sbatch " + arg_list + " {}".format(job_file)
+        job = "sbatch " + arg_list + f" {job_file}"
 
         rtn, out = run(job)
     else:
@@ -1260,7 +1243,7 @@ def submit_job(
     if rtn:
         logger.error("Job submission failed.")
         if out:
-            logger.error("stdout: {}".format(out))
+            logger.error(f"stdout: {out}")
         sys.exit(1)
 
 
@@ -1279,7 +1262,7 @@ def get_resources(open_zipfile):
             if not is_dicom(io.BytesIO(open_zipfile.read(f))):
                 resource_files.append(f)
         except zipfile.BadZipfile:
-            logger.error("Error in zipfile:{}".format(f))
+            logger.error(f"Error in zipfile:{f}")
     return resource_files
 
 

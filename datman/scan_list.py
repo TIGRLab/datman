@@ -57,19 +57,18 @@ def generate_scan_list(scan_entry_class, zip_files, dest_dir):
         processed_scans = get_scan_list_contents(output)
     except Exception as e:
         raise RuntimeError(
-            "Can't read scan entries from existing scans.csv "
-            "file. Reason: {}".format(e)
+            f"Can't read scan entries from existing scans.csv file. Reason: {e}"
         )
 
     new_entries = make_new_entries(processed_scans, zip_files, scan_entry_class)
 
-    logger.debug("Writing {} new entries to scans file".format(len(new_entries)))
+    logger.debug(f"Writing {len(new_entries)} new entries to scans file")
     if new_entries:
         update_scans_csv(output, new_entries)
 
 
 def start_new_scan_list(output):
-    logger.info("Starting new scans.csv file at {}".format(output))
+    logger.info(f"Starting new scans.csv file at {output}")
     with open(output, "w") as out:
         out.write("source_name\ttarget_name\tPatientName\tStudyID\n")
 
@@ -88,7 +87,7 @@ def get_scan_list_contents(scans_csv):
         try:
             scan_name = scan_entry[0]
         except IndexError:
-            raise IndexError("Malformed scan entry: {}".format(line))
+            raise IndexError(f"Malformed scan entry: {line}")
         processed_files[scan_name].append(line)
 
     return processed_files
@@ -107,7 +106,7 @@ def make_new_entries(processed_scans, zip_files, EntryClass):
         try:
             entry = EntryClass(zip_file)
         except Exception as e:
-            logger.error("Cant make an entry for {}. Reason: {}".format(zip_file, e))
+            logger.error(f"Cant make an entry for {zip_file}. Reason: {e}")
             continue
 
         new_entries.append(str(entry))
@@ -129,8 +128,7 @@ class ScanEntryABC(object, metaclass=ABCMeta):
             )[0]
         except IndexError:
             logger.debug(
-                "{} does not contain dicoms. "
-                "Creating 'ignore' entry.".format(scan_path)
+                f"{scan_path} does not contain dicoms. Creating 'ignore' entry."
             )
             self.patient_name = "<ignore>"
             self.study_id = "<ignore>"

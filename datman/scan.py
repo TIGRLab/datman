@@ -59,7 +59,7 @@ class Series(DatmanNamed):
             ident, tag, series, description = scanid.parse_filename(path_minus_ext)
         except datman.scanid.ParseException:
             # re-raise the exception with a more descriptive message
-            message = "{} does not match datman convention".format(path_minus_ext)
+            message = f"{path_minus_ext} does not match datman convention"
             raise datman.scanid.ParseException(message)
         DatmanNamed.__init__(self, ident)
 
@@ -71,7 +71,7 @@ class Series(DatmanNamed):
         return self.file_name
 
     def __repr__(self):
-        return "<datman.scan.Series: {}>".format(self.path)
+        return f"<datman.scan.Series: {self.path}>"
 
 
 class Scan(DatmanNamed):
@@ -98,13 +98,13 @@ class Scan(DatmanNamed):
         try:
             ident = scanid.parse(subject_id)
         except datman.scanid.ParseException:
-            message = "{} does not match datman convention".format(subject_id)
+            message = f"{subject_id} does not match datman convention"
             raise datman.scanid.ParseException(message)
 
         try:
             self.project = config.map_xnat_archive_to_project(subject_id)
         except Exception as e:
-            message = "Failed getting project from config: {}".format(str(e))
+            message = f"Failed getting project from config: {str(e)}"
             raise Exception(message)
 
         DatmanNamed.__init__(self, ident)
@@ -174,7 +174,7 @@ class Scan(DatmanNamed):
                     continue
                 series_list.append(series)
         if badly_named:
-            message = "File(s) misnamed: {}".format(", ".join(badly_named))
+            message = f"File(s) misnamed: {', '.join(badly_named)}"
             raise datman.scanid.ParseException(message)
         return series_list
 
@@ -192,4 +192,4 @@ class Scan(DatmanNamed):
         return self.full_id
 
     def __repr__(self):
-        return "<datman.scan.Scan: {}>".format(self.full_id)
+        return f"<datman.scan.Scan: {self.full_id}>"

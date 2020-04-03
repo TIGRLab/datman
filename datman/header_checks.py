@@ -13,9 +13,7 @@ def parse_file(file_path):
         with open(file_path, "r") as fh:
             contents = fh.readlines()
     except Exception as e:
-        raise type(e)(
-            "Couldn't read file of field names to ignore. " "{}".format(str(e))
-        )
+        raise type(e)(f"Couldn't read file of field names to ignore. {str(e)}")
     return [line.strip() for line in contents]
 
 
@@ -98,7 +96,7 @@ def check_bvals(series_path, standard_path):
         series_bval = find_bvals(series_path)
         standard_bval = find_bvals(standard_path)
     except IOError as e:
-        return {"error": "{}".format(e)}
+        return {"error": f"{e}"}
     if series_bval != standard_bval:
         return {"expected": standard_bval, "actual": series_bval}
     return {}
@@ -107,12 +105,12 @@ def check_bvals(series_path, standard_path):
 def find_bvals(json_path):
     bval_path = json_path.replace("json", "bval")
     if not os.path.isfile(bval_path):
-        raise IOError("bval for {} does not exist".format(json_path))
+        raise IOError(f"bval for {json_path} does not exist")
     try:
         with open(bval_path, "r") as bval_fh:
             bvals = bval_fh.readlines()[0]
     except Exception:
-        raise IOError("Unable to read bval file {}".format(bval_path))
+        raise IOError(f"Unable to read bval file {bval_path}")
     return bvals
 
 
