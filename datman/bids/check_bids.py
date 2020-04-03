@@ -30,8 +30,7 @@ class BIDSEnforcer(object):
         try:
             self.version = self.descriptor["VERSION"]
         except KeyError:
-            logger.error("No version indicated in"
-                         "BIDS syntax description file!")
+            logger.error("No version indicated in" "BIDS syntax description file!")
             logger.error("Add a VERSION key to {}".format(yml_file))
 
         self.inverse_map = self._invert_descriptor_map()
@@ -105,16 +104,14 @@ class BIDSEnforcer(object):
         Iterate through order
         """
 
-        field_list = [("global", o) for o in
-                      self.descriptor["global"]["order"]]
+        field_list = [("global", o) for o in self.descriptor["global"]["order"]]
 
         try:
             mode_field_list = self.descriptor[mode]["order"]
         except KeyError:
             yield []
 
-        field_list.extend([self._make_field_list(o, mode)
-                           for o in mode_field_list])
+        field_list.extend([self._make_field_list(o, mode) for o in mode_field_list])
 
         for m, f in field_list:
 

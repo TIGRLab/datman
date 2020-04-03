@@ -56,22 +56,22 @@ def generate_scan_list(scan_entry_class, zip_files, dest_dir):
     try:
         processed_scans = get_scan_list_contents(output)
     except Exception as e:
-        raise RuntimeError("Can't read scan entries from existing scans.csv "
-                           "file. Reason: {}".format(e))
+        raise RuntimeError(
+            "Can't read scan entries from existing scans.csv "
+            "file. Reason: {}".format(e)
+        )
 
-    new_entries = make_new_entries(processed_scans, zip_files,
-                                   scan_entry_class)
+    new_entries = make_new_entries(processed_scans, zip_files, scan_entry_class)
 
-    logger.debug("Writing {} new entries to scans file".format(
-                                                        len(new_entries)))
+    logger.debug("Writing {} new entries to scans file".format(len(new_entries)))
     if new_entries:
         update_scans_csv(output, new_entries)
 
 
 def start_new_scan_list(output):
     logger.info("Starting new scans.csv file at {}".format(output))
-    with open(output, 'w') as out:
-        out.write('source_name\ttarget_name\tPatientName\tStudyID\n')
+    with open(output, "w") as out:
+        out.write("source_name\ttarget_name\tPatientName\tStudyID\n")
 
 
 def get_scan_list_contents(scans_csv):
@@ -97,7 +97,7 @@ def get_scan_list_contents(scans_csv):
 def make_new_entries(processed_scans, zip_files, EntryClass):
     new_entries = []
     for zip_file in zip_files:
-        if not zip_file.endswith('.zip'):
+        if not zip_file.endswith(".zip"):
             continue
 
         zip_name = os.path.basename(zip_file).replace(".zip", "")
@@ -107,9 +107,7 @@ def make_new_entries(processed_scans, zip_files, EntryClass):
         try:
             entry = EntryClass(zip_file)
         except Exception as e:
-            logger.error("Cant make an entry for {}. Reason: {}".format(
-                                                        zip_file,
-                                                        e))
+            logger.error("Cant make an entry for {}. Reason: {}".format(zip_file, e))
             continue
 
         new_entries.append(str(entry))
@@ -118,33 +116,40 @@ def make_new_entries(processed_scans, zip_files, EntryClass):
 
 
 def update_scans_csv(output, new_entries):
-    with open(output, 'a') as scan_csv:
+    with open(output, "a") as scan_csv:
         scan_csv.writelines(new_entries)
 
 
 class ScanEntryABC(object, metaclass=ABCMeta):
-
     def __init__(self, scan_path):
-        self.source_name = os.path.basename(scan_path).replace('.zip', '')
+        self.source_name = os.path.basename(scan_path).replace(".zip", "")
         try:
-            header = list(get_archive_headers(scan_path,
-                                              stop_after_first=True).values()
-                          )[0]
+            header = list(
+                get_archive_headers(scan_path, stop_after_first=True).values()
+            )[0]
         except IndexError:
-            logger.debug("{} does not contain dicoms. "
-                         "Creating 'ignore' entry.".format(scan_path))
+            logger.debug(
+                "{} does not contain dicoms. "
+                "Creating 'ignore' entry.".format(scan_path)
+            )
             self.patient_name = "<ignore>"
             self.study_id = "<ignore>"
             self.header = None
         else:
             self.header = header
-            self.patient_name = str(header.get('PatientName'))
-            self.study_id = str(header.get('StudyID'))
+            self.patient_name = str(header.get("PatientName"))
+            self.study_id = str(header.get("StudyID"))
 
     @abstractmethod
     def get_target_name(self):
         pass
 
     def __str__(self):
-        return "\t".join([self.source_name, self.get_target_name(),
-                          self.patient_name, self.study_id + "\n"])
+        return "\t".join(
+            [
+                self.source_name,
+                self.get_target_name(),
+                self.patient_name,
+                self.study_id + "\n",
+            ]
+        )
