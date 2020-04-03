@@ -290,6 +290,16 @@ def test_is_kcni_scanid_good():
     assert scanid.is_scanid("SPN01_CMH_0001_01_SE01_MR")
 
 
+def test_is_scanid_good_when_already_parsed():
+    parsed = scanid.parse("DTI_CMH_H001_01_01")
+    assert scanid.is_scanid(parsed)
+
+
+def test_is_scanid_with_session_when_already_parsed():
+    parsed = scanid.parse("OPT01_UT2_UT10001_01_01")
+    assert scanid.is_scanid_with_session(parsed)
+
+
 def test_get_full_subjectid():
     ident = scanid.parse("DTI_CMH_H001_01_02")
     assert ident.get_full_subjectid() == "DTI_CMH_H001"
@@ -312,6 +322,60 @@ def test_parse_filename():
     assert tag == 'T1'
     assert series == '03'
     assert description == 'description'
+
+
+def test_parse_filename_parses_when_tag_contains_pha():
+    ident, tag, series, description = scanid.parse_filename(
+        "CLZ_CMP_0000_01_01_PHABCD_11_FieldMap-2mm")
+
+    assert str(ident) == "CLZ_CMP_0000_01_01"
+    assert tag == "PHABCD"
+    assert series == "11"
+    assert description == "FieldMap-2mm"
+
+    _, tag, _, _ = scanid.parse_filename(
+        "CLZ_CMP_0000_01_01_ABCPHA_11_FieldMap-2mm")
+    assert tag == "ABCPHA"
+
+    _, tag, _, _ = scanid.parse_filename(
+        "CLZ_CMP_0000_01_01_ABCPHADEF_11_FieldMap-2mm")
+    assert tag == "ABCPHADEF"
+
+
+def test_parse_filename_parses_when_tag_contains_kcniish_MR_substring():
+    ident, tag, series, description = scanid.parse_filename(
+        "CLZ_CMP_0000_01_01_MRABC_11_FieldMap-2mm.nii.gz")
+
+    assert str(ident) == "CLZ_CMP_0000_01_01"
+    assert tag == "MRABC"
+    assert series == "11"
+    assert description == "FieldMap-2mm"
+
+    _, tag, _, _ = scanid.parse_filename(
+        "CLZ_CMP_0000_01_01_ABCMR_11_FieldMap-2mm")
+    assert tag == "ABCMR"
+
+    _, tag, _, _ = scanid.parse_filename(
+        "CLZ_CMP_0000_01_01_ABCMRDEF_11_FieldMap-2mm")
+    assert tag == "ABCMRDEF"
+
+
+def test_parse_filename_parses_when_tag_contains_kcniish_SE_substring():
+    ident, tag, series, description = scanid.parse_filename(
+        "CLZ_CMP_0000_01_01_SEABC_11_FieldMap-2mm.nii.gz")
+
+    assert str(ident) == "CLZ_CMP_0000_01_01"
+    assert tag == "SEABC"
+    assert series == "11"
+    assert description == "FieldMap-2mm"
+
+    _, tag, _, _ = scanid.parse_filename(
+        "CLZ_CMP_0000_01_01_ABCSE_11_FieldMap-2mm")
+    assert tag == "ABCSE"
+
+    _, tag, _, _ = scanid.parse_filename(
+        "CLZ_CMP_0000_01_01_ABCSEDEF_11_FieldMap-2mm")
+    assert tag == "ABCSEDEF"
 
 
 def test_parse_filename_PHA():
