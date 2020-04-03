@@ -9,11 +9,12 @@ from datman.exceptions import DashboardException
 logger = logging.getLogger(__name__)
 
 try:
-    from dashboard import queries, monitors
+    from dashboard import queries, monitors, connect_db
 except ImportError:
     dash_found = False
     logger.error("Dashboard not found, proceeding without it.")
 else:
+    connect_db()
     dash_found = True
 
 
