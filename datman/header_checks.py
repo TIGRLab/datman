@@ -79,7 +79,7 @@ def handle_diff(value, expected, tolerance=None):
     try:
         close_enough = isclose(value, expected, atol=tolerance)
     except ValueError:
-        close_enough = False
+        close_enough = bool_(False)
 
     if type(close_enough) != bool_:
         if all(close_enough):
