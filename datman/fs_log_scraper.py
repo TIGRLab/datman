@@ -36,7 +36,9 @@ def scrape_logs(fs_output_folders, standards=None, col_headers=False):
         header = "Name,Status,Start,End,Build,Kernel,Arguments,Nifti Inputs\n"
         scraped_data.append(header)
 
-    standards_line = "Expected Values,,,,{build},{kernel},{args},\n".format(**standards)
+    standards_line = "Expected Values,,,,{build},{kernel},{args},\n".format(
+        **standards
+    )
     scraped_data.append(standards_line)
 
     for log in subject_logs:
@@ -118,7 +120,9 @@ class FSLog(object):
         self._path = freesurfer_folder
         fs_scripts = os.path.join(freesurfer_folder, "scripts")
         self.status = self._get_status(fs_scripts)
-        self.build = self._get_build(os.path.join(fs_scripts, "build-stamp.txt"))
+        self.build = self._get_build(
+            os.path.join(fs_scripts, "build-stamp.txt")
+        )
 
         recon_contents = self.parse_recon_done(
             os.path.join(fs_scripts, "recon-all.done")
@@ -228,5 +232,7 @@ class FSLog(object):
             return ""
         # Will break on paths containing white space
         nifti_inputs = re.findall("-i\s*\S*|-T2\s*\S*", cmd_args)  # noqa: W605
-        niftis = [item.strip("-i").strip("-T2").strip() for item in nifti_inputs]
+        niftis = [
+            item.strip("-i").strip("-T2").strip() for item in nifti_inputs
+        ]
         return "; ".join(niftis)

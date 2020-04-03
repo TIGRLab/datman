@@ -21,7 +21,11 @@ import pyxnat
 import datman.config
 import datman.scanid as scanid
 import datman.dashboard as dashboard
-from datman.exceptions import MetadataException, DashboardException, ParseException
+from datman.exceptions import (
+    MetadataException,
+    DashboardException,
+    ParseException,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +33,10 @@ logger = logging.getLogger(__name__)
 def locate_metadata(filename, study=None, subject=None, config=None, path=None):
     if not (path or study or config or subject):
         raise MetadataException(
-            "Can't locate metadata file {} without either "
+            f"Can't locate metadata file {filename} without either "
             "1) a full path to the file 2) a study or "
             "subject ID or 3) a datman.config "
-            "object".format(filename)
+            "object"
         )
 
     if path:
@@ -112,12 +116,13 @@ def read_checklist(
             raise MetadataException(
                 "Can't retrieve checklist information "
                 "from dashboard database. Reason - "
-                "{}".format(str(e))
+                f"{str(e)}"
             )
         return entries
 
     logger.info(
-        "Dashboard not found, attempting to find a checklist " "metadata file instead."
+        "Dashboard not found, attempting to find a checklist "
+        "metadata file instead."
     )
     if use_bids or bids_id:
         raise MetadataException(
@@ -143,7 +148,12 @@ def read_checklist(
 
 
 def _fetch_checklist(
-    subject=None, study=None, config=None, bids_id=None, bids_ses=None, use_bids=None
+    subject=None,
+    study=None,
+    config=None,
+    bids_id=None,
+    bids_ses=None,
+    use_bids=None,
 ):
     """
     Support function for read_checklist(). Gets a list of existing / signed off
@@ -172,8 +182,8 @@ def _fetch_checklist(
         if not (study and bids_ses):
             raise MetadataException(
                 "Cant retrieve checklist entry for BIDS "
-                "ID {} without a study and BIDS session "
-                "number".format(bids_id)
+                f"ID {bids_id} without a study and BIDS session "
+                "number"
             )
         session = dashboard.get_bids_subject(bids_id, bids_ses, study=study)
 
@@ -238,13 +248,15 @@ def _parse_checklist(checklist, subject=None):
         try:
             scanid.parse(subid)
         except scanid.ParseException:
-            logger.error(f"Found malformed subject ID {subid} in checklist. Ignoring.")
+            logger.error(
+                f"Found malformed subject ID {subid} in checklist. Ignoring."
+            )
             continue
 
         if entries and subid in entries:
             logger.info(
-                "Found duplicate checklist entries for {}. Ignoring "
-                "all except the first entry found.".format(subid)
+                f"Found duplicate checklist entries for {subid}. Ignoring "
+                "all except the first entry found."
             )
             continue
 
@@ -417,7 +429,12 @@ def read_blacklist(
 
 
 def _fetch_blacklist(
-    scan=None, subject=None, bids_ses=None, study=None, config=None, use_bids=False
+    scan=None,
+    subject=None,
+    bids_ses=None,
+    study=None,
+    config=None,
+    use_bids=False,
 ):
     """
     Helper function for 'read_blacklist()'. Gets the blacklist contents from
@@ -510,8 +527,8 @@ def _parse_blacklist(blacklist, scan=None, subject=None):
 
         if entries and scan_name in entries:
             logger.info(
-                "Found duplicate blacklist entries for {}. Ignoring "
-                "all except the first entry found.".format(scan_name)
+                f"Found duplicate blacklist entries for {scan_name}. Ignoring "
+                "all except the first entry found."
             )
             continue
         entries[scan_name] = comment
@@ -576,7 +593,9 @@ def _update_scan_checklist(entries):
             raise MetadataException(
                 f"{scan_name} does not exist in the dashboard database"
             )
-        scan.add_checklist_entry(user.id, comment=entries[scan_name], sign_off=False)
+        scan.add_checklist_entry(
+            user.id, comment=entries[scan_name], sign_off=False
+        )
 
 
 def write_metadata(lines, path, retry=3):
@@ -592,7 +611,9 @@ def write_metadata(lines, path, retry=3):
         with open(path, "w") as meta_file:
             meta_file.writelines(lines)
     except Exception:
-        logger.error(f"Failed to write metadata file {path}. Tries remaining - {retry}")
+        logger.error(
+            f"Failed to write metadata file {path}. Tries remaining - {retry}"
+        )
         wait_time = random.uniform(0, 10)
         time.sleep(wait_time)
         write_metadata(lines, path, retry=retry - 1)
@@ -652,9 +673,8 @@ def get_subject_metadata(config=None, study=None, allow_partial=False):
                 all_qc.setdefault(subid, []).append(bl_entry)
             else:
                 logger.error(
-                    "{} has blacklisted series {} but does not "
+                    f"{subid} has blacklisted series {bl_entry} but does not "
                     "appear in QC checklist. Ignoring blacklist entry"
-                    "".format(subid, bl_entry)
                 )
                 continue
 
@@ -869,7 +889,9 @@ def run(cmd, dryrun=False, specialquote=True, verbose=True):
     out, err = p.communicate()
 
     if p.returncode and verbose:
-        logger.error(f"run({cmd}) failed with returncode {p.returncode}. STDERR: {err}")
+        logger.error(
+            f"run({cmd}) failed with returncode {p.returncode}. STDERR: {err}"
+        )
 
     return p.returncode, out
 
@@ -1100,8 +1122,8 @@ def check_dependency_configured(program_name, shell_cmd=None, env_vars=None):
     environment variable isnt configured.
     """
     message = (
-        "{} required but not found. Please check that "
-        "it is installed and correctly configured.".format(program_name)
+        f"{program_name} required but not found. Please check that "
+        "it is installed and correctly configured."
     )
 
     if shell_cmd is not None:
@@ -1157,14 +1179,13 @@ def validate_subject_id(subject_id, config):
         sites = valid_tags[new_subject_id.study]
     except KeyError:
         raise ParseException(
-            "Subject id {} has undefined study code {}"
-            "".format(new_subject_id, new_subject_id.study)
+            f"Subject id {new_subject_id} has undefined study code {new_subject_id.study}"
         )
 
     if new_subject_id.site not in sites:
         raise ParseException(
-            "Subject id {} has undefined site {} for study "
-            "{}".format(new_subject_id, new_subject_id.site, new_subject_id.study)
+            f"Subject id {new_subject_id} has undefined site {new_subject_id.site} for study "
+            "{new_subject_id.study}"
         )
 
     return new_subject_id
@@ -1236,7 +1257,9 @@ def submit_job(
     else:
         job = (
             "echo {} | qbatch -N {} --logdir {} --ppj {} -i -c 1 -j "
-            "1 --walltime {} -".format(cmd, job_name, log_dir, cpu_cores, walltime)
+            "1 --walltime {} -".format(
+                cmd, job_name, log_dir, cpu_cores, walltime
+            )
         )
         rtn, out = run(job, specialquote=False)
 

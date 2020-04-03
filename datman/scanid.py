@@ -225,7 +225,9 @@ class BIDSFile(object):
                 raise ParseException("Invalid entity found for anat data")
         if dir:
             if any([ce, rec, mod, task, echo]):
-                raise ParseException("Invalid entity found for multiphase " "fmap")
+                raise ParseException(
+                    "Invalid entity found for multiphase " "fmap"
+                )
         self.task = task
         self.acq = acq
         self.ce = ce
@@ -580,9 +582,7 @@ def get_kcni_identifier(identifier, settings=None):
     site = get_field(ident._match_groups, "site", reverse)
 
     if not is_phantom(ident):
-        kcni = "{}_{}_{}_{}_SE{}_MR".format(
-            study, site, ident.subject.zfill(4), ident.timepoint, ident.session
-        )
+        kcni = f"{study}_{site}_{ident.subject.zfill(4)}_{ident.timepoint}_SE{ident.session}_MR"
         return KCNIIdentifier(kcni, settings)
 
     # Break apart datman's phantom subject ID

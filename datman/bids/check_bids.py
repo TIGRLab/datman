@@ -30,7 +30,9 @@ class BIDSEnforcer(object):
         try:
             self.version = self.descriptor["VERSION"]
         except KeyError:
-            logger.error("No version indicated in" "BIDS syntax description file!")
+            logger.error(
+                "No version indicated in" "BIDS syntax description file!"
+            )
             logger.error(f"Add a VERSION key to {yml_file}")
 
         self.inverse_map = self._invert_descriptor_map()
@@ -111,7 +113,9 @@ class BIDSEnforcer(object):
         except KeyError:
             yield []
 
-        field_list.extend([self._make_field_list(o, mode) for o in mode_field_list])
+        field_list.extend(
+            [self._make_field_list(o, mode) for o in mode_field_list]
+        )
 
         for m, f in field_list:
 

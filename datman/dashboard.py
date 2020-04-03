@@ -53,9 +53,9 @@ def scanid_required(f):
                 name = datman.scanid.parse(name)
             except datman.scanid.ParseException:
                 raise DashboardException(
-                    "Expected: a valid subject ID or "
+                    f"Expected: a valid subject ID or "
                     "an instance of datman.scanid.Identifier. Received: "
-                    "{}".format(name)
+                    "{name}"
                 )
             args = list(args)
             args[0] = name
@@ -106,7 +106,9 @@ def filename_required(f):
             kwargs["series"] = series
             kwargs["description"] = descr
         elif (
-            "tag" not in kwargs or "series" not in kwargs or "description" not in kwargs
+            "tag" not in kwargs
+            or "series" not in kwargs
+            or "description" not in kwargs
         ):
             raise DashboardException(
                 "An expected option was unset. This "
@@ -124,12 +126,12 @@ def filename_required(f):
 def set_study_status(name, is_open):
     studies = queries.get_study(name=name)
     if not studies:
-        raise DashboardException(f"ID {name} contains invalid study / site combination")
+        raise DashboardException(
+            f"ID {name} contains invalid study / site combination"
+        )
     if len(studies) > 1:
         raise DashboardException(
-            "Can't identify study for {}. {} matching "
-            "records found for the given study name"
-            "".format(name, len(studies))
+            f"Can't identify study for {name}. {len(studies)} matching records found for the given study name"
         )
     study = studies[0]
     study.is_open = is_open
@@ -175,12 +177,14 @@ def get_bids_subject(bids_name, bids_session, study=None):
 def add_subject(name):
     studies = queries.get_study(tag=name.study, site=name.site)
     if not studies:
-        raise DashboardException(f"ID {name} contains invalid study / site combination")
+        raise DashboardException(
+            f"ID {name} contains invalid study / site combination"
+        )
     if len(studies) > 1:
         raise DashboardException(
-            "Can't identify study for {}. {} matching "
+            f"Can't identify study for {name}. {len(studies)} matching "
             "records found for that study / site "
-            "combination".format(name, len(studies))
+            "combination"
         )
     study = studies[0].study
 
@@ -193,10 +197,14 @@ def get_session(name, create=False, date=None):
     try:
         sess_num = datman.scanid.get_session_num(name)
     except datman.scanid.ParseException:
-        logger.info(f"{name} is missing a session number. Using default session '1'")
+        logger.info(
+            f"{name} is missing a session number. Using default session '1'"
+        )
         sess_num = 1
 
-    session = queries.get_session(name.get_full_subjectid_with_timepoint(), sess_num)
+    session = queries.get_session(
+        name.get_full_subjectid_with_timepoint(), sess_num
+    )
 
     if not session and create:
         session = add_session(name, date=date)
@@ -212,7 +220,9 @@ def add_session(name, date=None):
     try:
         sess_num = datman.scanid.get_session_num(name)
     except datman.scanid.ParseException:
-        logger.info(f"{name} is missing a session number. Using default session '1'")
+        logger.info(
+            f"{name} is missing a session number. Using default session '1'"
+        )
         sess_num = 1
 
     if timepoint.is_phantom and sess_num > 1:
@@ -235,7 +245,7 @@ def add_session(name, date=None):
         except monitors.MonitorException as e:
             logger.error(
                 "Could not add scheduled check for redcap scan "
-                "completed survey for {}. Reason: {}".format(str(timepoint), str(e))
+                f"completed survey for {str(timepoint)}. Reason: {str(e)}"
             )
 
     return new_session
@@ -256,14 +266,18 @@ def get_scan(
 
     if len(scan) > 1:
         raise DashboardException(
-            f"Couldnt identify scan {scan_name}. {len(scan)} matches found"
+            f"Couldn't identify scan {scan_name}. {len(scan)} matches found"
         )
     if len(scan) == 1:
         return scan[0]
 
     if create:
         return add_scan(
-            name, tag=tag, series=series, description=description, source_id=source_id
+            name,
+            tag=tag,
+            series=series,
+            description=description,
+            source_id=source_id,
         )
 
     return None
@@ -274,7 +288,7 @@ def get_bids_scan(name):
     scan = queries.get_scan(name, bids=True)
     if len(scan) > 1:
         raise DashboardException(
-            f"Couldnt identify scan {name}. {len(scan)} matches found"
+            f"Couldn't identify scan {name}. {len(scan)} matches found"
         )
     if len(scan) == 1:
         return scan[0]
@@ -290,8 +304,8 @@ def add_scan(name, tag=None, series=None, description=None, source_id=None):
 
     if len(studies) != 1:
         raise DashboardException(
-            "Can't identify study to add scan {} to. {} "
-            "matches found.".format(scan_name, len(studies))
+            f"Can't identify study to add scan {scan_name} to. {len(studies)} "
+            "matches found."
         )
     study = studies[0].study
     allowed_tags = [st.tag for st in study.scantypes]
@@ -301,7 +315,9 @@ def add_scan(name, tag=None, series=None, description=None, source_id=None):
             f"Scan name {scan_name} contains tag not configured for study {str(study)}"
         )
 
-    return session.add_scan(scan_name, series, tag, description, source_id=source_id)
+    return session.add_scan(
+        scan_name, series, tag, description, source_id=source_id
+    )
 
 
 @dashboard_required
@@ -320,9 +336,13 @@ def get_project(name=None, tag=None, site=None):
     studies = queries.get_study(name=name, tag=tag, site=site)
     search_term = name or tag
     if len(studies) == 0:
-        raise DashboardException(f"Failed to locate study matching {search_term}")
+        raise DashboardException(
+            f"Failed to locate study matching {search_term}"
+        )
     if len(studies) > 1:
-        raise DashboardException(f"{search_term} does not uniquely identify a project")
+        raise DashboardException(
+            f"{search_term} does not uniquely identify a project"
+        )
     if not name:
         return studies[0].study
     return studies[0]

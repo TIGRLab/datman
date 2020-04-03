@@ -79,7 +79,9 @@ class config(object):
         try:
             self.install_config = system_settings[system]
         except KeyError:
-            raise ConfigException("Installation '{}' not found in main " "config file")
+            raise ConfigException(
+                "Installation '{}' not found in main " "config file"
+            )
 
         if study:
             self.set_study(study)
@@ -179,7 +181,8 @@ class config(object):
             # if parts isnt a datman scanid, only the study tag was given. Cant
             # be sure which DTI study is correct without site info
             raise RuntimeError(
-                f"Cannot determine if DTI15T or DTI3T based on " "input: {filename}"
+                f"Cannot determine if DTI15T or DTI3T based on "
+                "input: {filename}"
             )
 
         # If a valid project name was given instead of a study tag, return that
@@ -238,7 +241,9 @@ class config(object):
         try:
             site_conf = site_conf[site]
         except KeyError:
-            raise ConfigException(f"Site '{site}' not found for study {study_name}")
+            raise ConfigException(
+                f"Site '{site}' not found for study {study_name}"
+            )
         try:
             value = site_conf[key]
         except KeyError:
@@ -257,7 +262,9 @@ class config(object):
         try:
             value = self.study_config[key]
         except KeyError:
-            raise UndefinedSetting(f"'{key}' not defined for study {self.study_name}")
+            raise UndefinedSetting(
+                f"'{key}' not defined for study {self.study_name}"
+            )
         return value
 
     def _search_local_conf(self, key):
@@ -274,11 +281,15 @@ class config(object):
         try:
             local_system = system_settings[self.system]
         except KeyError:
-            raise ConfigException(f"System '{key}' not defined in SystemSettings")
+            raise ConfigException(
+                f"System '{key}' not defined in SystemSettings"
+            )
         try:
             value = local_system[key]
         except KeyError:
-            raise UndefinedSetting(f"'{key}' not defined for system {self.system}")
+            raise UndefinedSetting(
+                f"'{key}' not defined for system {self.system}"
+            )
         return value
 
     def _search_system_conf(self, key):
@@ -327,13 +338,15 @@ class config(object):
             else:
                 raise ConfigException(
                     "Can't resolve conflicting settings. "
-                    "Found settings formated as type {} and "
-                    "type {}, which may indicate accidental "
-                    "duplication of setting names.".format(type(value), type(merge))
+                    f"Found settings formated as type {type(value)} and "
+                    f"type {type(merge)}, which may indicate accidental "
+                    "duplication of setting names."
                 )
         return value
 
-    def get_key(self, key, site=None, ignore_defaults=False, defaults_only=False):
+    def get_key(
+        self, key, site=None, ignore_defaults=False, defaults_only=False
+    ):
         """
         Searches the configuration from most specific settings to least to
         allow overrides + additional settings to be discovered.
@@ -360,7 +373,10 @@ class config(object):
 
         if self.study_config and not defaults_only:
             value = self._get_setting(
-                self._search_study_conf, [key], stop_search=ignore_defaults, merge=value
+                self._search_study_conf,
+                [key],
+                stop_search=ignore_defaults,
+                merge=value,
             )
             if ignore_defaults:
                 return value
@@ -427,7 +443,9 @@ class config(object):
         try:
             sites = list(self.get_key("Sites"))
         except KeyError:
-            raise ConfigException(f"No sites defined for study {self.study_name}")
+            raise ConfigException(
+                f"No sites defined for study {self.study_name}"
+            )
         return sites
 
     @study_required
@@ -502,7 +520,8 @@ class TagInfo(object):
                 pattern = self.get(tag, "Pattern")
             except KeyError:
                 raise KeyError(
-                    "Cant retrieve 'Pattern' from config. Did you " "specify a site?"
+                    "Cant retrieve 'Pattern' from config. Did you "
+                    "specify a site?"
                 )
             if isinstance(pattern, list):
                 pattern = "|".join(pattern)

@@ -56,7 +56,9 @@ class Series(DatmanNamed):
         path_minus_ext = path.replace(self.ext, "")
 
         try:
-            ident, tag, series, description = scanid.parse_filename(path_minus_ext)
+            ident, tag, series, description = scanid.parse_filename(
+                path_minus_ext
+            )
         except datman.scanid.ParseException:
             # re-raise the exception with a more descriptive message
             message = f"{path_minus_ext} does not match datman convention"
