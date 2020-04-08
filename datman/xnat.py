@@ -997,13 +997,12 @@ class xnat(object):
             subject (:obj:`datman.xnat.XNATExperiment`): An XNAT experiment to
                 dismiss the pipeline for.
         """
-        autorun_id = experiment.get_autorun_id(self)
-        if not autorun_id:
-            return
+        autorun_ids = experiment.get_autorun_ids(self)
 
-        dismiss_url = "{}/data/workflows/{}?wrk:workflowData/status=Complete"\
-            "".format(self.server, autorun_id)
-        self._make_xnat_put(dismiss_url)
+        for autorun in autorun_ids:
+            dismiss_url = "{}/data/workflows/{}?wrk:workflowData/" \
+                "status=Complete".format(self.server, autorun)
+            self._make_xnat_put(dismiss_url)
 
     def _get_xnat_stream(self, url, filename, retries=3, timeout=120):
         logger.debug("Getting {} from XNAT".format(url))
@@ -1348,8 +1347,8 @@ class XNATExperiment(XNATObject):
                         r_ids.append(r_id)
         return r_ids
 
-    def get_autorun_id(self, xnat):
-        """Find the current status of the 'autorun.xml' workflow
+    def get_autorun_ids(self, xnat):
+        """Find the ID(s) of the 'autorun.xml' workflow
 
         XNAT has this obnoxious, on-by-default and seemingly impossible to
         disable, 'workflow' called AutoRun.xml. It appears to do nothing other
@@ -1357,10 +1356,13 @@ class XNATExperiment(XNATObject):
         it is stuck in the running or queued state. This will grab the autorun
         ID for this experiment so that it can be modified.
 
+        Sometimes more than one pipeline gets launched for a subject even
+        though the GUI only reports one. This will grab the ID for all of them.
+
         Returns:
-            str: an integer reference ID that can be used to change the status
-                of the pipeline for this subject using XNAT's API, or the empty
-                string if the pipeline is not found.
+            list: A list of string reference IDs that can be used to change
+                the status of the pipeline for this subject using XNAT's API,
+                or the empty string if the pipeline is not found.
 
         Raises:
             XnatException: If no AutoRun.xml pipeline instance is found or
@@ -1422,11 +1424,13 @@ class XNATExperiment(XNATObject):
             raise XnatException("Can't decode workflow query response.")
 
         try:
-            wf_id = found_pipelines['ResultSet']['Result'][0]['workflow_id']
-        except (IndexError, KeyError):
-            return ""
+            results = found_pipelines["ResultSet"]["Result"]
+        except KeyError:
+            return []
 
-        return wf_id
+        wf_ids = [item.get("workflow_id") for item in results]
+
+        return wf_ids
 
     def get_resources(self, xnat_connection):
         """
