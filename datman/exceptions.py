@@ -13,9 +13,13 @@ class XnatException(Exception):
     session = None
 
     def __repr__(self):
+        if len(self.args) > 0:
+            message = self.args[0]
+        else:
+            message = "No message given"
         return 'Study:{} Session:{} Error:{}'.format(self.study,
                                                      self.session,
-                                                     self.message)
+                                                     message)
 
 
 class DashboardException(Exception):
