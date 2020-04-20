@@ -26,8 +26,8 @@ datman.scan_list.generate_scan_list(ExampleScanEntry,
                                     my_zip_list,
                                     metadata_path)
 """
-import os
 import logging
+import os
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 

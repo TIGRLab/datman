@@ -9,9 +9,9 @@ Manages name conventions and functions to ensure that IDs conform to them.
     in its native convention can always be retrieved from 'orig_id'.
 
 """
-from abc import ABC, abstractmethod
 import os.path
 import re
+from abc import ABC, abstractmethod
 
 from datman.exceptions import ParseException
 

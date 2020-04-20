@@ -9,15 +9,15 @@ switch between multiple installations of datman or different computing systems.
 These can both be overridden at __init__
 """
 
-import os
-import logging
 import inspect
+import logging
+import os
 
-import yaml
 import wrapt
+import yaml
 
-import datman.scanid
 import datman.dashboard as dashboard
+import datman.scanid
 from datman.exceptions import ConfigException, UndefinedSetting
 
 logger = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ class config(object):
             self.install_config = system_settings[system]
         except KeyError:
             raise ConfigException(
-                "Installation '{}' not found in main " "config file"
+                f"Installation {system} not found in main config file"
             )
 
         if study:
@@ -181,8 +181,7 @@ class config(object):
             # if parts isnt a datman scanid, only the study tag was given. Cant
             # be sure which DTI study is correct without site info
             raise RuntimeError(
-                f"Cannot determine if DTI15T or DTI3T based on "
-                "input: {filename}"
+                f"Cannot determine if DTI15T or DTI3T based on input: {filename}"
             )
 
         # If a valid project name was given instead of a study tag, return that

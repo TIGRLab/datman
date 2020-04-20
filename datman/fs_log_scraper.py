@@ -6,12 +6,13 @@ parameters.
 
 The FSLog class aggregates/parses the most useful details from the log files.
 """
-import os
-import glob
-import re
-from dateutil.parser import parse as date_parser
 import datetime
+import glob
 import logging
+import os
+import re
+
+from dateutil.parser import parse as date_parser
 
 logger = logging.getLogger(os.path.basename(__file__))
 
@@ -91,9 +92,7 @@ def verify_standards(standards_dict, expected_keys):
         try:
             standards_dict[key]
         except KeyError:
-            raise KeyError(
-                'Missing expected field "{}" in given ' "standards".format(key)
-            )
+            raise KeyError(f"Missing expected field '{key}' in given standards")
 
 
 def check_diff(log_field, standards_field):

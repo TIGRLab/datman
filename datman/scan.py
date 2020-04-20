@@ -7,11 +7,11 @@ does not change after the object is created. Certain attribute values may
 become out of date if this is not true.
 
 """
-import os
 import glob
+import os
 
-import datman.utils
 import datman.scanid as scanid
+import datman.utils
 
 
 class DatmanNamed(object):

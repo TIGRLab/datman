@@ -1,7 +1,7 @@
-import os
 import logging
-from functools import wraps
+import os
 from datetime import datetime
+from functools import wraps
 
 import datman.scanid
 from datman.exceptions import DashboardException
@@ -28,7 +28,7 @@ def dashboard_required(f):
             )
             if "create" in kwargs.keys() or f.__name__.startswith("add"):
                 raise DashboardException(
-                    "Can't add record. Dashboard not " "installed or configured"
+                    "Can't add record. Dashboard not installed or configured"
                 )
             return None
         return f(*args, **kwargs)
@@ -85,7 +85,8 @@ def filename_required(f):
                     name = datman.scanid.parse(name)
                 except datman.scanid.ParseException:
                     raise datman.scanid.ParseException(
-                        f"A datman file name was expected. Received {name} instead."
+                        f"A datman file name was expected. Received {name} "
+                        "instead."
                     )
                 try:
                     tag = kwargs["tag"]
@@ -131,7 +132,8 @@ def set_study_status(name, is_open):
         )
     if len(studies) > 1:
         raise DashboardException(
-            f"Can't identify study for {name}. {len(studies)} matching records found for the given study name"
+            f"Can't identify study for {name}. "
+            f"{len(studies)} matching records found for the given study name"
         )
     study = studies[0]
     study.is_open = is_open
@@ -312,7 +314,8 @@ def add_scan(name, tag=None, series=None, description=None, source_id=None):
 
     if tag not in allowed_tags:
         raise DashboardException(
-            f"Scan name {scan_name} contains tag not configured for study {str(study)}"
+            f"Scan name {scan_name} contains tag not configured for "
+            f"study {str(study)}"
         )
 
     return session.add_scan(
@@ -330,7 +333,7 @@ def get_project(name=None, tag=None, site=None):
     """
     if not (name or tag):
         raise DashboardException(
-            "Can't locate a study without the study " "nickname or a study tag"
+            "Can't locate a study without the study nickname or a study tag"
         )
 
     studies = queries.get_study(name=name, tag=tag, site=site)

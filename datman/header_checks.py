@@ -2,10 +2,10 @@
 Utility functions for comparing nifti json header files to json gold standard
 files.
 """
-import os
 import json
+import os
 
-from numpy import isclose, bool_
+from numpy import bool_, isclose
 
 
 def parse_file(file_path):

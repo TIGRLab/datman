@@ -1,29 +1,29 @@
 """
 A collection of utilities for generally munging imaging data.
 """
-import os
-import sys
-import re
-import io
-import zipfile
-import tarfile
-import logging
-import random
-import time
-import tempfile
-import shutil
 import contextlib
+import io
+import logging
+import os
+import random
+import re
+import shutil
 import subprocess as proc
+import sys
+import tarfile
+import tempfile
+import time
+import zipfile
 
 import pydicom as dcm
 import pyxnat
 
 import datman.config
-import datman.scanid as scanid
 import datman.dashboard as dashboard
+import datman.scanid as scanid
 from datman.exceptions import (
-    MetadataException,
     DashboardException,
+    MetadataException,
     ParseException,
 )
 
