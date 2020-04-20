@@ -40,8 +40,8 @@ def main():
             print("\t" + "\n\t".join(headers.dir()))
         return
 
-    headers = arguments['--headers'] and (arguments['--headers'].split(',') or
-                                          default_headers[:])
+    headers = (arguments['--headers'] and arguments['--headers'].split(',')) \
+        or default_headers[:]
     headers.insert(0, "Path")
 
     rows = []
