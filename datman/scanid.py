@@ -582,7 +582,10 @@ def get_kcni_identifier(identifier, settings=None):
     site = get_field(ident._match_groups, "site", reverse)
 
     if not is_phantom(ident):
-        kcni = f"{study}_{site}_{ident.subject.zfill(4)}_{ident.timepoint}_SE{ident.session}_MR"
+        kcni = (
+            f"{study}_{site}_{ident.subject.zfill(4)}_"
+            f"{ident.timepoint}_SE{ident.session}_MR"
+        )
         return KCNIIdentifier(kcni, settings)
 
     # Break apart datman's phantom subject ID

@@ -562,7 +562,8 @@ def update_blacklist(entries, study=None, config=None, path=None):
             )
         if not entries[scan_name]:
             logger.error(
-                f"Can't add blacklist entry with empty comment. Skipping {scan_name}"
+                "Can't add blacklist entry with empty comment. "
+                f"Skipping {scan_name}"
             )
             continue
         old_entries[scan_name] = entries[scan_name]
@@ -1078,7 +1079,8 @@ def get_xnat_credentials(config, xnat_cred):
         password = credentials[1]
     except IndexError:
         logger.error(
-            f"XNAT credential file {xnat_cred} is missing the user name or password."
+            f"XNAT credential file {xnat_cred} is missing the user name "
+            "or password."
         )
         sys.exit(1)
     return user_name, password
@@ -1179,13 +1181,15 @@ def validate_subject_id(subject_id, config):
         sites = valid_tags[new_subject_id.study]
     except KeyError:
         raise ParseException(
-            f"Subject id {new_subject_id} has undefined study code {new_subject_id.study}"
+            f"Subject id {new_subject_id} has undefined "
+            f"study code {new_subject_id.study}"
         )
 
     if new_subject_id.site not in sites:
         raise ParseException(
-            f"Subject id {new_subject_id} has undefined site {new_subject_id.site} for study "
-            "{new_subject_id.study}"
+            f"Subject id {new_subject_id} has undefined "
+            f"site {new_subject_id.site} for study "
+            f"{new_subject_id.study}"
         )
 
     return new_subject_id

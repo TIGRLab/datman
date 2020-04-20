@@ -181,7 +181,8 @@ class config(object):
             # if parts isnt a datman scanid, only the study tag was given. Cant
             # be sure which DTI study is correct without site info
             raise RuntimeError(
-                f"Cannot determine if DTI15T or DTI3T based on input: {filename}"
+                "Cannot determine if DTI15T or DTI3T based on "
+                f"input: {filename}"
             )
 
         # If a valid project name was given instead of a study tag, return that

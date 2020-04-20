@@ -7,14 +7,13 @@ Data is read off a YAML configuration file that specifies
 of each class of MR data within the BIDS framework
 """
 
-import yaml
-import os
 import logging
+import os
+
+import yaml
 
 logging.basicConfig(
-    level=logging.WARN,
-    format="[%(name)s %(levelname)s\
-                                                : %(message)s]",
+    level=logging.WARN, format="[%(name)s %(levelname)s: %(message)s]",
 )
 logger = logging.getLogger(os.path.basename(__file__))
 
@@ -31,7 +30,7 @@ class BIDSEnforcer(object):
             self.version = self.descriptor["VERSION"]
         except KeyError:
             logger.error(
-                "No version indicated in" "BIDS syntax description file!"
+                "No version indicated in BIDS syntax description file!"
             )
             logger.error(f"Add a VERSION key to {yml_file}")
 
@@ -40,7 +39,7 @@ class BIDSEnforcer(object):
 
     def construct_bids_name(self, input_dict):
         """
-        Recieve a dictionary with input mappings (available in yaml)
+        Receive a dictionary with input mappings (available in yaml)
         then apply input constraints to ensure compliance with BIDS
         naming standards
 
@@ -64,7 +63,7 @@ class BIDSEnforcer(object):
             except KeyError:
                 if req_or_opt == "required":
                     logger.error(f"Missing required input: {f}")
-                    logger.error("Input dict:", input_dict)
+                    logger.error(f"Input dict: {input_dict}")
                     raise
             else:
                 if f not in KEYLESS_FIELDS:
