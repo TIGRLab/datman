@@ -225,9 +225,7 @@ class BIDSFile(object):
                 raise ParseException("Invalid entity found for anat data")
         if dir:
             if any([ce, rec, mod, task, echo]):
-                raise ParseException(
-                    "Invalid entity found for multiphase " "fmap"
-                )
+                raise ParseException("Invalid entity found for multiphase fmap")
         self.task = task
         self.acq = acq
         self.ce = ce

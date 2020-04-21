@@ -42,7 +42,7 @@ def read_json(json_file):
 def compare_headers(series, standard, ignore=None, tolerance=None):
     if not series or not standard:
         raise Exception(
-            "Must provide JSON contents for series and gold " "standard"
+            "Must provide JSON contents for series and gold standard"
         )
 
     if ignore:

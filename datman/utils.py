@@ -126,7 +126,7 @@ def read_checklist(
     )
     if use_bids or bids_id:
         raise MetadataException(
-            "BIDS IDs may only be used if querying the " "dashboard database."
+            "BIDS IDs may only be used if querying the dashboard database."
         )
 
     checklist_path = locate_metadata(
@@ -399,7 +399,7 @@ def read_blacklist(
 
     if use_bids:
         raise MetadataException(
-            "Can't return BIDs blacklist info without " "dashboard integration"
+            "Can't return BIDs blacklist info without dashboard integration"
         )
 
     if scan:
