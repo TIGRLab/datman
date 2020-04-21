@@ -288,7 +288,8 @@ class xnat(object):
             list: A list of string subject IDs found within the project.
         """
         logger.debug(
-            f"Querying xnat server {self.server} for subjects in project {project}"
+            f"Querying xnat server {self.server} for subjects in "
+            f"project {project}"
         )
 
         if not self.get_projects(project):
@@ -330,7 +331,10 @@ class xnat(object):
         """
         logger.debug(f"Querying for subject {subject_id} in project {project}")
 
-        url = f"{self.server}/data/archive/projects/{project}/subjects/{subject_id}?format=json"
+        url = (
+            f"{self.server}/data/archive/projects/{project}/"
+            f"subjects/{subject_id}?format=json"
+        )
 
         try:
             result = self._make_xnat_query(url)
@@ -511,7 +515,7 @@ class xnat(object):
         url = (
             f"{self.server}/data/archive/projects/{project}/subjects/{subject}/experiments/"
             f"{experiment}?xsiType=xnat:mrSessionData"
-            )
+        )
         try:
             self._make_xnat_put(url)
         except requests.exceptions.RequestException as e:
@@ -1033,9 +1037,7 @@ class xnat(object):
         if not autorun_id:
             return
 
-        dismiss_url = (
-            f"{self.server}/data/workflows/{autorun_id}?wrk:workflowData/status=Complete"
-        )
+        dismiss_url = f"{self.server}/data/workflows/{autorun_id}?wrk:workflowData/status=Complete"
         self._make_xnat_put(dismiss_url)
 
     def _get_xnat_stream(self, url, filename, retries=3, timeout=120):
@@ -1510,8 +1512,8 @@ class XNATExperiment(XNATObject):
             raise ValueError(f"No scans or resources found for {self.name}")
 
         url = (
-            f"{xnat.server}/REST/experiments/{self.id}/resources/{",".join(resources_list)}/files"
-            "?structure=improved&all=true&format=zip"
+            f"{xnat.server}/REST/experiments/{self.id}/resources/"
+            f"{','.join(resources_list)}/files?structure=improved&all=true&format=zip"
         )
 
         if not zip_name:
@@ -1519,9 +1521,7 @@ class XNATExperiment(XNATObject):
 
         output_path = os.path.join(dest_folder, zip_name)
         if os.path.exists(output_path):
-            logger.error(
-                f"Cannot download {output_path}, file already exists."
-            )
+            logger.error(f"Cannot download {output_path}, file already exists.")
             return output_path
 
         xnat._get_xnat_stream(url, output_path)
