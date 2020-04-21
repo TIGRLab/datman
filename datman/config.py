@@ -1,12 +1,12 @@
 """Return the site wide config file and project config files
 
 By default the system_config.yaml file is location is read from the
-environment variable os.environ['DM_CONFIG']
+environment variable ``os.environ['DM_CONFIG']``
 
-The system is identified from os.environ['DM_SYSTEM'] and can be used to
+The system is identified from ``os.environ['DM_SYSTEM']`` and can be used to
 switch between multiple installations of datman or different computing systems.
 
-These can both be overridden at __init__
+These can both be overridden at ``__init__.py``
 """
 
 import inspect
