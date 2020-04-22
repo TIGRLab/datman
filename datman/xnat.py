@@ -1456,8 +1456,6 @@ class XNATExperiment(XNATObject):
         zip_name            An optional name for the output zip file. If not
                             set the zip name will be session.name
         """
-        if not self.experiment:
-            raise ValueError("No data found for {}".format(self.name))
 
         resources_list = self.scan_resource_IDs
         resources_list.extend(self.misc_resource_IDs)
