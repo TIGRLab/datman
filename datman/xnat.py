@@ -1136,6 +1136,8 @@ class xnat(object):
                                      data=data,
                                      timeout=60 * 60)
 
+        reply = str(response.content)
+
         if response.status_code == 401:
             # possibly the session has timed out
             logger.info("Session may have expired, resetting")
@@ -1154,20 +1156,20 @@ class xnat(object):
                 response.raise_for_status()
 
         elif response.status_code != 200:
-            if "multiple imaging sessions." in response.content:
+            if "multiple imaging sessions." in reply:
                 raise XnatException("Multiple imaging sessions in archive,"
                                     " check prearchive")
-            if "502 Bad Gateway" in response.content:
+            if "502 Bad Gateway" in reply:
                 raise XnatException("Bad gateway error: Check tomcat logs")
-            if "Unable to identify experiment" in response.content:
+            if "Unable to identify experiment" in reply:
                 raise XnatException("Unable to identify experiment, did "
                                     "dicom upload fail?")
             else:
                 raise XnatException("An unknown error occured uploading data."
                                     "Status code: {}, reason: {}"
                                     .format(response.status_code,
-                                            response.content))
-        return response.content
+                                            reply))
+        return reply
 
     def _make_xnat_delete(self, url, retries=3):
         try:
