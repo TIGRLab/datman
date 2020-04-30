@@ -147,7 +147,7 @@ def download_subjects(xnat, xnat_project, destination):
             logger.info("Would have downloaded experiment {} from project "
                         "{} to {}".format(
                             experiment.name, xnat_project, zip_path))
-            return
+            continue
 
         with datman.utils.make_temp_directory() as temp:
             try:
