@@ -1,4 +1,5 @@
-"""Manages name conventions and functions to ensure that IDs conform to them.
+"""
+Manages name conventions and functions to ensure that IDs conform to them.
 
 .. note::
     While multiple ID conventions are supported (Datman, KCNI, BIDS)
@@ -6,16 +7,16 @@
     all conventions get parsed into datman fields and return datman IDs when
     get_full_subjectid and other similar methods are called. The original ID
     in its native convention can always be retrieved from 'orig_id'.
+
 """
-from abc import ABC, abstractmethod
 import os.path
 import re
+from abc import ABC, abstractmethod
 
 from datman.exceptions import ParseException
 
 
 class Identifier(ABC):
-
     def match(self, identifier):
         if not isinstance(identifier, str):
             raise ParseException("Must be given a string to verify ID matches")
@@ -59,51 +60,56 @@ class Identifier(ABC):
 
 
 class DatmanIdentifier(Identifier):
-    """Parses a datman-style ID into fields.
+    """
+    Parses a datman-style ID into fields.
 
     The datman convention is detailed
     `here <https://github.com/TIGRLab/documentation/wiki/Data-Naming>`_
 
     """
 
-    scan_re = '(?P<id>(?P<study>[^_]+)_' \
-              '(?P<site>[^_]+)_' \
-              '(?P<subject>[^_]+)(?<!PHA)_' \
-              '(?P<timepoint>[^_]+)_' \
-              '(?!MR)(?!SE)(?P<session>[^_]+))'
+    scan_re = (
+        "(?P<id>(?P<study>[^_]+)_"
+        "(?P<site>[^_]+)_"
+        "(?P<subject>[^_]+)(?<!PHA)_"
+        "(?P<timepoint>[^_]+)_"
+        "(?!MR)(?!SE)(?P<session>[^_]+))"
+    )
 
-    pha_re = '(?P<id>(?P<study>[^_]+)_' \
-             '(?P<site>[^_]+)_' \
-             '(?P<subject>PHA_[^_]+)' \
-             '(?P<timepoint>)(?P<session>))'  # empty tp + session
+    pha_re = (
+        "(?P<id>(?P<study>[^_]+)_"
+        "(?P<site>[^_]+)_"
+        "(?P<subject>PHA_[^_]+)"
+        "(?P<timepoint>)(?P<session>))"
+    )  # empty tp + session
 
-    scan_pattern = re.compile('^' + scan_re + '$')
-    pha_pattern = re.compile('^' + pha_re + '$')
+    scan_pattern = re.compile("^" + scan_re + "$")
+    pha_pattern = re.compile("^" + pha_re + "$")
 
     def __init__(self, identifier, settings=None):
         match = self.match(identifier)
 
         if not match:
             # work around for matching scanids when session not supplied
-            match = self.scan_pattern.match(identifier + '_XX')
+            match = self.scan_pattern.match(identifier + "_XX")
 
         if not match:
-            raise ParseException('Invalid Datman ID {}'.format(identifier))
+            raise ParseException(f"Invalid Datman ID {identifier}")
 
         self._match_groups = match
-        self.orig_id = match.group('id')
-        self.study = match.group('study')
-        self.site = match.group('site')
-        self.subject = match.group('subject')
-        self.timepoint = match.group('timepoint')
+        self.orig_id = match.group("id")
+        self.study = match.group("study")
+        self.site = match.group("site")
+        self.subject = match.group("subject")
+        self.timepoint = match.group("timepoint")
         # Bug fix: spaces were being left after the session number leading to
         # broken file name
-        self._session = match.group('session').strip()
+        self._session = match.group("session").strip()
 
     @property
     def session(self):
-        if self._session == 'XX':
-            return ''
+        if self._session == "XX":
+            return ""
         return self._session
 
     @session.setter
@@ -117,11 +123,12 @@ class DatmanIdentifier(Identifier):
         return self.get_xnat_subject_id()
 
     def __repr__(self):
-        return '<datman.scanid.DatmanIdentifier {}>'.format(self.__str__())
+        return f"<datman.scanid.DatmanIdentifier {self.__str__()}>"
 
 
 class KCNIIdentifier(Identifier):
-    """Parses a KCNI style ID into datman-style fields.
+    """
+    Parses a KCNI style ID into datman-style fields.
 
     The KCNI convention is detailed
     `here. <http://neurowiki.camh.ca/mediawiki/index.php/XNATNamingConvention>`_
@@ -130,42 +137,46 @@ class KCNIIdentifier(Identifier):
 
     """  # noqa: E501
 
-    scan_re = '(?P<id>(?P<study>[A-Z]{3}[0-9]{2})_' \
-              '(?P<site>[A-Z]{3})_' \
-              '(?P<subject>[A-Z0-9]{4,8})_' \
-              '(?P<timepoint>[0-9]{2})_' \
-              'SE(?P<session>[0-9]{2})_MR)'
+    scan_re = (
+        "(?P<id>(?P<study>[A-Z]{3}[0-9]{2})_"
+        "(?P<site>[A-Z]{3})_"
+        "(?P<subject>[A-Z0-9]{4,8})_"
+        "(?P<timepoint>[0-9]{2})_"
+        "SE(?P<session>[0-9]{2})_MR)"
+    )
 
-    pha_re = '(?P<id>(?P<study>[A-Z]{3}[0-9]{2})_' \
-             '(?P<site>[A-Z]{3})_' \
-             '(?P<pha_type>[A-Z]{3})PHA_' \
-             '(?P<subject>[0-9]{4})_MR' \
-             '(?P<timepoint>)(?P<session>))'  # empty
+    pha_re = (
+        "(?P<id>(?P<study>[A-Z]{3}[0-9]{2})_"
+        "(?P<site>[A-Z]{3})_"
+        "(?P<pha_type>[A-Z]{3})PHA_"
+        "(?P<subject>[0-9]{4})_MR"
+        "(?P<timepoint>)(?P<session>))"
+    )  # empty
 
-    scan_pattern = re.compile('^' + scan_re + '$')
-    pha_pattern = re.compile('^' + pha_re + '$')
+    scan_pattern = re.compile("^" + scan_re + "$")
+    pha_pattern = re.compile("^" + pha_re + "$")
 
     def __init__(self, identifier, settings=None):
         match = self.match(identifier)
         if not match:
-            raise ParseException('Invalid KCNI ID {}'.format(identifier))
+            raise ParseException(f"Invalid KCNI ID {identifier}")
 
         self._match_groups = match
-        self.orig_id = match.group('id')
-        self.study = get_field(match, 'study', settings=settings)
-        self.site = get_field(match, 'site', settings=settings)
+        self.orig_id = match.group("id")
+        self.study = get_field(match, "study", settings=settings)
+        self.site = get_field(match, "site", settings=settings)
 
-        self.subject = match.group('subject')
+        self.subject = match.group("subject")
         try:
-            self.pha_type = match.group('pha_type')
+            self.pha_type = match.group("pha_type")
         except IndexError:
             # Not a phantom
             self.pha_type = None
         else:
-            self.subject = 'PHA_{}{}'.format(self.pha_type, self.subject)
+            self.subject = f"PHA_{self.pha_type}{self.subject}"
 
-        self.timepoint = match.group('timepoint')
-        self.session = match.group('session')
+        self.timepoint = match.group("timepoint")
+        self.session = match.group("session")
 
     def get_xnat_subject_id(self):
         study = self._match_groups.group("study")
@@ -181,17 +192,28 @@ class KCNIIdentifier(Identifier):
         return self.orig_id
 
     def __repr__(self):
-        return '<datman.scanid.KCNIIdentifier {}>'.format(self.__str__())
+        return f"<datman.scanid.KCNIIdentifier {self.__str__()}>"
 
 
 class BIDSFile(object):
-
-    def __init__(self, subject, session, suffix, task=None, acq=None, ce=None,
-                 dir=None, rec=None, run=None, echo=None, mod=None):
+    def __init__(
+        self,
+        subject,
+        session,
+        suffix,
+        task=None,
+        acq=None,
+        ce=None,
+        dir=None,
+        rec=None,
+        run=None,
+        echo=None,
+        mod=None,
+    ):
         self.subject = subject
         self.session = session
         if not run:
-            run = '1'
+            run = "1"
         self.run = run
         self.suffix = suffix
 
@@ -203,8 +225,7 @@ class BIDSFile(object):
                 raise ParseException("Invalid entity found for anat data")
         if dir:
             if any([ce, rec, mod, task, echo]):
-                raise ParseException("Invalid entity found for multiphase "
-                                     "fmap")
+                raise ParseException("Invalid entity found for multiphase fmap")
         self.task = task
         self.acq = acq
         self.ce = ce
@@ -226,66 +247,75 @@ class BIDSFile(object):
         return False
 
     def __str__(self):
-        str_rep = ["sub-{}_ses-{}".format(self.subject, self.session)]
+        str_rep = [f"sub-{self.subject}_ses-{self.session}"]
         if self.task:
-            str_rep.append("task-{}".format(self.task))
+            str_rep.append(f"task-{self.task}")
         if self.acq:
-            str_rep.append("acq-{}".format(self.acq))
+            str_rep.append(f"acq-{self.acq}")
         if self.ce:
-            str_rep.append("ce-{}".format(self.ce))
+            str_rep.append(f"ce-{self.ce}")
         if self.dir:
-            str_rep.append("dir-{}".format(self.dir))
+            str_rep.append(f"dir-{self.dir}")
         if self.rec:
-            str_rep.append("rec-{}".format(self.rec))
+            str_rep.append(f"rec-{self.rec}")
 
-        str_rep.append("run-{}".format(self.run))
+        str_rep.append(f"run-{self.run}")
 
         if self.echo:
-            str_rep.append("echo-{}".format(self.echo))
+            str_rep.append(f"echo-{self.echo}")
         if self.mod:
-            str_rep.append("mod-{}".format(self.mod))
+            str_rep.append(f"mod-{self.mod}")
 
         str_rep.append(self.suffix)
         return "_".join(str_rep)
 
     def __repr__(self):
-        return "<datman.scanid.BIDSFile {}>".format(self.__str__())
+        return f"<datman.scanid.BIDSFile {self.__str__()}>"
 
 
-FILENAME_RE = DatmanIdentifier.scan_re + '_' + \
-    r'(?P<tag>[^_]+)_' + \
-    r'(?P<series>\d+)_' + \
-    r'(?P<description>.*?)' + \
-    r'(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|' + \
-    r'.IMA|.mnc|.nrrd|$)'
+FILENAME_RE = (
+    DatmanIdentifier.scan_re
+    + "_"
+    + r"(?P<tag>[^_]+)_"
+    + r"(?P<series>\d+)_"
+    + r"(?P<description>.*?)"
+    + r"(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|"
+    + r".IMA|.mnc|.nrrd|$)"
+)
 
-FILENAME_PHA_RE = DatmanIdentifier.pha_re + '_' + \
-    r'(?P<tag>[^_]+)_' + \
-    r'(?P<series>\d+)_' + \
-    r'(?P<description>.*?)' + \
-    r'(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|' + \
-    r'.IMA|.mnc|.nrrd|$)'
+FILENAME_PHA_RE = (
+    DatmanIdentifier.pha_re
+    + "_"
+    + r"(?P<tag>[^_]+)_"
+    + r"(?P<series>\d+)_"
+    + r"(?P<description>.*?)"
+    + r"(?P<ext>.nii.gz|.nii|.json|.bvec|.bval|.tar.gz|.tar|.dcm|"
+    + r".IMA|.mnc|.nrrd|$)"
+)
 
-BIDS_SCAN_RE = r'sub-(?P<subject>[A-Z0-9]+)_' + \
-               r'ses-(?P<session>[A-Za-z0-9]+)_' + \
-               r'(task-(?P<task>[A-Za-z0-9]+)_){0,1}' + \
-               r'(acq-(?P<acq>[A-Za-z0-9]+)_){0,1}' + \
-               r'(ce-(?P<ce>[A-Za-z0-9]+)_){0,1}' + \
-               r'(dir-(?P<dir>[A-Za-z0-9]+)_){0,1}' + \
-               r'(rec-(?P<rec>[A-Za-z0-9]+)_){0,1}' + \
-               r'(run-(?P<run>[0-9]+)_){0,1}' + \
-               r'(echo-(?P<echo>[0-9]+)_){0,1}' + \
-               r'(mod-(?P<mod>[A-Za-z0-9]+)_){0,1}' + \
-               r'((?![A-Za-z0-9]*-)(?P<suffix>[^_.]+))' + \
-               r'.*$'
+BIDS_SCAN_RE = (
+    r"sub-(?P<subject>[A-Z0-9]+)_"
+    + r"ses-(?P<session>[A-Za-z0-9]+)_"
+    + r"(task-(?P<task>[A-Za-z0-9]+)_){0,1}"
+    + r"(acq-(?P<acq>[A-Za-z0-9]+)_){0,1}"
+    + r"(ce-(?P<ce>[A-Za-z0-9]+)_){0,1}"
+    + r"(dir-(?P<dir>[A-Za-z0-9]+)_){0,1}"
+    + r"(rec-(?P<rec>[A-Za-z0-9]+)_){0,1}"
+    + r"(run-(?P<run>[0-9]+)_){0,1}"
+    + r"(echo-(?P<echo>[0-9]+)_){0,1}"
+    + r"(mod-(?P<mod>[A-Za-z0-9]+)_){0,1}"
+    + r"((?![A-Za-z0-9]*-)(?P<suffix>[^_.]+))"
+    + r".*$"
+)
 
-FILENAME_PATTERN = re.compile('^' + FILENAME_RE)
-FILENAME_PHA_PATTERN = re.compile('^' + FILENAME_PHA_RE)
+FILENAME_PATTERN = re.compile("^" + FILENAME_RE)
+FILENAME_PHA_PATTERN = re.compile("^" + FILENAME_PHA_RE)
 BIDS_SCAN_PATTERN = re.compile(BIDS_SCAN_RE)
 
 
 def parse(identifier, settings=None):
-    """Parse a subject ID matching a supported naming convention.
+    """
+    Parse a subject ID matching a supported naming convention.
 
     The 'settings' flag can be used to exclude any IDs that do not match the
     specified convention, or to translate certain ID fields to maintain
@@ -337,28 +367,29 @@ def parse(identifier, settings=None):
         # ID may need to be reparsed based on settings
         identifier = identifier.orig_id
 
-    if settings and 'ID_TYPE' in settings:
-        id_type = settings['ID_TYPE']
+    if settings and "ID_TYPE" in settings:
+        id_type = settings["ID_TYPE"]
     else:
-        id_type = 'DETECT'
+        id_type = "DETECT"
 
-    if id_type in ('DATMAN', 'DETECT'):
+    if id_type in ("DATMAN", "DETECT"):
         try:
             return DatmanIdentifier(identifier)
         except ParseException:
             pass
 
-    if id_type in ('KCNI', 'DETECT'):
+    if id_type in ("KCNI", "DETECT"):
         try:
             return KCNIIdentifier(identifier, settings=settings)
         except ParseException:
             pass
 
-    raise ParseException("Invalid ID - {}".format(identifier))
+    raise ParseException(f"Invalid ID - {identifier}")
 
 
 def parse_filename(path):
-    """Parse a datman style file name.
+    """
+    Parse a datman style file name.
 
     Args:
         path (:obj:`str`): A file name or full path to parse
@@ -367,15 +398,16 @@ def parse_filename(path):
         ParseException: If the file name does not match the datman convention.
 
     Returns:
-        tuple: A tuple containing:
+        (tuple): A tuple containing:
 
-            ident (:obj:`DatmanIdentifier`): The parsed subject ID portion of
+            * ident (:obj:`DatmanIdentifier`): The parsed subject ID portion of
                 the path.
-            tag (:obj:`str`): The scan tag that identifies the acquisition.
-            series (int): The series number.
-            description (:obj:`str`): The series description. Should be
+            * tag (:obj:`str`): The scan tag that identifies the acquisition.
+            * series (int): The series number.
+            * description (:obj:`str`): The series description. Should be
                 identical to the SeriesDescription field of the dicom headers
                 (aside from some mangling to non-alphanumeric characters).
+
     """
     fname = os.path.basename(path)
     match = FILENAME_PHA_PATTERN.match(fname)  # check PHA first
@@ -396,21 +428,23 @@ def parse_bids_filename(path):
     fname = os.path.basename(path)
     match = BIDS_SCAN_PATTERN.match(fname)
     if not match:
-        raise ParseException("Invalid BIDS file name {}".format(path))
+        raise ParseException(f"Invalid BIDS file name {path}")
     try:
-        ident = BIDSFile(subject=match.group("subject"),
-                         session=match.group("session"),
-                         run=match.group("run"),
-                         suffix=match.group("suffix"),
-                         task=match.group("task"),
-                         acq=match.group("acq"),
-                         ce=match.group("ce"),
-                         dir=match.group("dir"),
-                         rec=match.group("rec"),
-                         echo=match.group("echo"),
-                         mod=match.group("mod"))
+        ident = BIDSFile(
+            subject=match.group("subject"),
+            session=match.group("session"),
+            run=match.group("run"),
+            suffix=match.group("suffix"),
+            task=match.group("task"),
+            acq=match.group("acq"),
+            ce=match.group("ce"),
+            dir=match.group("dir"),
+            rec=match.group("rec"),
+            echo=match.group("echo"),
+            mod=match.group("mod"),
+        )
     except ParseException as e:
-        raise ParseException("Invalid BIDS file name {} - {}".format(path, e))
+        raise ParseException(f"Invalid BIDS file name {path} - {e}")
     return ident
 
 
@@ -445,29 +479,30 @@ def is_phantom(identifier):
             identifier = parse(identifier)
         except ParseException:
             return False
-    return identifier.subject[0:3] == 'PHA'
+    return identifier.subject[0:3] == "PHA"
 
 
 def get_session_num(ident):
     """
     For those times when you always want a numeric session (including
     for phantoms who are technically always session '1')
+
     """
     if ident.session:
         try:
             num = int(ident.session)
         except ValueError:
-            raise ParseException("ID {} has non-numeric session number".format(
-                    ident))
+            raise ParseException(f"ID {ident} has non-numeric session number")
     elif is_phantom(ident):
         num = 1
     else:
-        raise ParseException("ID {} is missing a session number".format(ident))
+        raise ParseException(f"ID {ident} is missing a session number")
     return num
 
 
 def get_field(match, field, settings=None):
-    """Find the value of an ID field, allowing for user specified changes.
+    """
+    Find the value of an ID field, allowing for user specified changes.
 
     Args:
         match (:obj:`re.Match`): A match object created from a valid ID
@@ -481,6 +516,7 @@ def get_field(match, field, settings=None):
     Returns:
         str: The value of the field based on the re.Match groups and user
             settings.
+
     """
 
     if not settings or field.upper() not in settings:
@@ -497,7 +533,8 @@ def get_field(match, field, settings=None):
 
 
 def get_kcni_identifier(identifier, settings=None):
-    """Get a KCNIIdentifier from a valid string or an identifier.
+    """
+    Get a KCNIIdentifier from a valid string or an identifier.
 
     Args:
         identifier (:obj:`string`): A string matching a supported naming
@@ -512,6 +549,7 @@ def get_kcni_identifier(identifier, settings=None):
     Returns:
         KCNIIdentifier: An instance of a KCNI identifier with any field
             mappings applied.
+
     """
     if isinstance(identifier, KCNIIdentifier):
         return identifier
@@ -531,27 +569,27 @@ def get_kcni_identifier(identifier, settings=None):
         # KCNI convention is used in KCNIIdentifer.orig_id
         reverse = {}
         for entry in settings:
-            if entry == 'ID_TYPE' or not isinstance(settings[entry], dict):
+            if entry == "ID_TYPE" or not isinstance(settings[entry], dict):
                 reverse[entry] = settings[entry]
                 continue
             reverse[entry] = {val: key for key, val in settings[entry].items()}
     else:
         reverse = None
 
-    study = get_field(ident._match_groups, 'study', reverse)
-    site = get_field(ident._match_groups, 'site', reverse)
+    study = get_field(ident._match_groups, "study", reverse)
+    site = get_field(ident._match_groups, "site", reverse)
 
     if not is_phantom(ident):
-        kcni = '{}_{}_{}_{}_SE{}_MR'.format(
-            study, site, ident.subject.zfill(4), ident.timepoint,
-            ident.session)
+        kcni = (
+            f"{study}_{site}_{ident.subject.zfill(4)}_"
+            f"{ident.timepoint}_SE{ident.session}_MR"
+        )
         return KCNIIdentifier(kcni, settings)
 
     # Break apart datman's phantom subject ID
-    pattern = re.compile('^PHA_(?P<type>[A-Z]{3})(?P<num>[0-9]{4})$')
+    pattern = re.compile("^PHA_(?P<type>[A-Z]{3})(?P<num>[0-9]{4})$")
     match = pattern.match(ident.subject)
     if not match:
-        raise ParseException("Can't parse datman phantom {} to KCNI "
-                             "ID".format(ident))
-    subject = '{}PHA_{}'.format(match.group("type"), match.group("num"))
-    return KCNIIdentifier("{}_{}_{}_MR".format(study, site, subject), settings)
+        raise ParseException(f"Can't parse datman phantom {ident} to KCNI ID")
+    subject = f"{match.group('type')}PHA_{match.group('num')}"
+    return KCNIIdentifier(f"{study}_{site}_{subject}_MR", settings)

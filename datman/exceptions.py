@@ -2,28 +2,29 @@
 
 
 class ParseException(Exception):
-    """For participant ID parsing issues.
-    """
+    """For participant ID parsing issues."""
+
     pass
 
 
 class XnatException(Exception):
-    """Default exception for xnat errors"""
+    """Default exception for XNAT errors"""
+
     study = None
     session = None
+    message = None
 
     def __repr__(self):
         if len(self.args) > 0:
             message = self.args[0]
         else:
             message = "No message given"
-        return 'Study:{} Session:{} Error:{}'.format(self.study,
-                                                     self.session,
-                                                     message)
+        return f'Study:{self.study} Session:{self.session} Error:{message}'
 
 
 class DashboardException(Exception):
     """Default exception for dashboard errors"""
+
     pass
 
 
