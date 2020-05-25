@@ -1050,8 +1050,8 @@ class xnat(object):
 
         for autorun in autorun_ids:
             dismiss_url = (
-              f"{self.server}/data/workflows/{autorun}"
-              "?wrk:workflowData/status=Complete"
+                f"{self.server}/data/workflows/{autorun}"
+                "?wrk:workflowData/status=Complete"
             )
             self._make_xnat_put(dismiss_url)
 
