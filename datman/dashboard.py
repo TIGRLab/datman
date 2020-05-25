@@ -1,7 +1,7 @@
-import os
 import logging
-from functools import wraps
+import os
 from datetime import datetime
+from functools import wraps
 
 import datman.scanid
 from datman.exceptions import DashboardException
@@ -22,13 +22,17 @@ def dashboard_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not dash_found:
-            logger.warning("Dashboard not installed or configured correctly, "
-                           "ignoring functionality.")
-            if 'create' in kwargs.keys() or f.__name__.startswith('add'):
-                raise DashboardException("Can't add record. Dashboard not "
-                                         "installed or configured")
+            logger.warning(
+                "Dashboard not installed or configured correctly, "
+                "ignoring functionality."
+            )
+            if "create" in kwargs.keys() or f.__name__.startswith("add"):
+                raise DashboardException(
+                    "Can't add record. Dashboard not installed or configured"
+                )
             return None
         return f(*args, **kwargs)
+
     return decorated_function
 
 
@@ -40,6 +44,7 @@ def scanid_required(f):
     A DashboardException will be raised if an Identifier isn't found or can't
     be created
     """
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         name = args[0]
@@ -48,12 +53,14 @@ def scanid_required(f):
                 name = datman.scanid.parse(name)
             except datman.scanid.ParseException:
                 raise DashboardException(
-                        "Expected: a valid subject ID or "
-                        "an instance of datman.scanid.Identifier. Received: "
-                        "{}".format(name))
+                    f"Expected: a valid subject ID or "
+                    "an instance of datman.scanid.Identifier. Received: "
+                    "{name}"
+                )
             args = list(args)
             args[0] = name
         return f(*args, **kwargs)
+
     return decorated_function
 
 
@@ -66,6 +73,7 @@ def filename_required(f):
     A DashboardException will be raised if the expected information is not
     given
     """
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         name = args[0]
@@ -77,33 +85,41 @@ def filename_required(f):
                     name = datman.scanid.parse(name)
                 except datman.scanid.ParseException:
                     raise datman.scanid.ParseException(
-                            "A datman file name was expected. Received "
-                            "{} instead.".format(name))
+                        f"A datman file name was expected. Received {name} "
+                        "instead."
+                    )
                 try:
-                    tag = kwargs['tag']
-                    series = kwargs['series']
-                    descr = kwargs['description']
+                    tag = kwargs["tag"]
+                    series = kwargs["series"]
+                    descr = kwargs["description"]
                 except KeyError:
-                    raise DashboardException("An expected keyword argument "
-                                             "wasnt found. Please ensure "
-                                             "either 'tag', 'series', and "
-                                             "'description' are set, or a "
-                                             "datman filename is given as an "
-                                             "argument.")
+                    raise DashboardException(
+                        "An expected keyword argument "
+                        "wasnt found. Please ensure "
+                        "either 'tag', 'series', and "
+                        "'description' are set, or a "
+                        "datman filename is given as an "
+                        "argument."
+                    )
             args = list(args)
             args[0] = name
-            kwargs['tag'] = tag
-            kwargs['series'] = series
-            kwargs['description'] = descr
-        elif ('tag' not in kwargs or
-                'series' not in kwargs or
-                'description' not in kwargs):
-            raise DashboardException("An expected option was unset. This "
-                                     "function requires either a datman ident "
-                                     "+ 'tag', 'series' and 'description' "
-                                     "options be set or that a full filename "
-                                     "is given as a string")
+            kwargs["tag"] = tag
+            kwargs["series"] = series
+            kwargs["description"] = descr
+        elif (
+            "tag" not in kwargs
+            or "series" not in kwargs
+            or "description" not in kwargs
+        ):
+            raise DashboardException(
+                "An expected option was unset. This "
+                "function requires either a datman ident "
+                "+ 'tag', 'series' and 'description' "
+                "options be set or that a full filename "
+                "is given as a string"
+            )
         return f(*args, **kwargs)
+
     return decorated_function
 
 
@@ -111,12 +127,14 @@ def filename_required(f):
 def set_study_status(name, is_open):
     studies = queries.get_study(name=name)
     if not studies:
-        raise DashboardException("ID {} contains invalid study / site "
-                                 "combination".format(name))
+        raise DashboardException(
+            f"ID {name} contains invalid study / site combination"
+        )
     if len(studies) > 1:
-        raise DashboardException("Can't identify study for {}. {} matching "
-                                 "records found for the given study name"
-                                 "".format(name, len(studies)))
+        raise DashboardException(
+            f"Can't identify study for {name}. "
+            f"{len(studies)} matching records found for the given study name"
+        )
     study = studies[0]
     study.is_open = is_open
     study.save()
@@ -161,12 +179,15 @@ def get_bids_subject(bids_name, bids_session, study=None):
 def add_subject(name):
     studies = queries.get_study(tag=name.study, site=name.site)
     if not studies:
-        raise DashboardException("ID {} contains invalid study / site "
-                                 "combination".format(name))
+        raise DashboardException(
+            f"ID {name} contains invalid study / site combination"
+        )
     if len(studies) > 1:
-        raise DashboardException("Can't identify study for {}. {} matching "
-                                 "records found for that study / site "
-                                 "combination".format(name, len(studies)))
+        raise DashboardException(
+            f"Can't identify study for {name}. {len(studies)} matching "
+            "records found for that study / site "
+            "combination"
+        )
     study = studies[0].study
 
     return study.add_timepoint(name)
@@ -178,12 +199,14 @@ def get_session(name, create=False, date=None):
     try:
         sess_num = datman.scanid.get_session_num(name)
     except datman.scanid.ParseException:
-        logger.info("{} is missing a session number. Using default session "
-                    "'1'".format(name))
+        logger.info(
+            f"{name} is missing a session number. Using default session '1'"
+        )
         sess_num = 1
 
-    session = queries.get_session(name.get_full_subjectid_with_timepoint(),
-                                  sess_num)
+    session = queries.get_session(
+        name.get_full_subjectid_with_timepoint(), sess_num
+    )
 
     if not session and create:
         session = add_session(name, date=date)
@@ -199,21 +222,22 @@ def add_session(name, date=None):
     try:
         sess_num = datman.scanid.get_session_num(name)
     except datman.scanid.ParseException:
-        logger.info("{} is missing a session number. Using default session "
-                    "'1'".format(name))
+        logger.info(
+            f"{name} is missing a session number. Using default session '1'"
+        )
         sess_num = 1
 
     if timepoint.is_phantom and sess_num > 1:
-        raise DashboardException("ERROR: attempt to add repeat scan session "
-                                 "to phantom {}".format(str(name)))
+        raise DashboardException(
+            f"ERROR: attempt to add repeat scan session to phantom {str(name)}"
+        )
 
     if date:
         try:
-            date = datetime.strptime(date, '%Y-%m-%d')
+            date = datetime.strptime(date, "%Y-%m-%d")
         except ValueError:
-            logger.error("Cannot create session: Invalid date format {}."
-                         "".format(date))
-            raise DashboardException("Invalid date format {}".format(date))
+            logger.error(f"Cannot create session: Invalid date format {date}.")
+            raise DashboardException(f"Invalid date format {date}")
 
     new_session = timepoint.add_session(sess_num, date=date)
 
@@ -221,33 +245,42 @@ def add_session(name, date=None):
         try:
             monitors.monitor_redcap_import(str(timepoint), sess_num)
         except monitors.MonitorException as e:
-            logger.error("Could not add scheduled check for redcap scan "
-                         "completed survey for {}. Reason: {}".format(
-                                                            str(timepoint),
-                                                            str(e)))
+            logger.error(
+                "Could not add scheduled check for redcap scan "
+                f"completed survey for {str(timepoint)}. Reason: {str(e)}"
+            )
 
     return new_session
 
 
 @dashboard_required
 @filename_required
-def get_scan(name, tag=None, series=None, description=None, source_id=None,
-             create=False):
+def get_scan(
+    name, tag=None, series=None, description=None, source_id=None, create=False
+):
     scan_name = _get_scan_name(name, tag, series)
 
-    scan = queries.get_scan(scan_name,
-                            timepoint=name.get_full_subjectid_with_timepoint(),
-                            session=name.session)
+    scan = queries.get_scan(
+        scan_name,
+        timepoint=name.get_full_subjectid_with_timepoint(),
+        session=name.session,
+    )
 
     if len(scan) > 1:
-        raise DashboardException("Couldnt identify scan {}. {} matches "
-                                 "found".format(scan_name, len(scan)))
+        raise DashboardException(
+            f"Couldn't identify scan {scan_name}. {len(scan)} matches found"
+        )
     if len(scan) == 1:
         return scan[0]
 
     if create:
-        return add_scan(name, tag=tag, series=series, description=description,
-                        source_id=source_id)
+        return add_scan(
+            name,
+            tag=tag,
+            series=series,
+            description=description,
+            source_id=source_id,
+        )
 
     return None
 
@@ -256,8 +289,9 @@ def get_scan(name, tag=None, series=None, description=None, source_id=None,
 def get_bids_scan(name):
     scan = queries.get_scan(name, bids=True)
     if len(scan) > 1:
-        raise DashboardException("Couldnt identify scan {}. {} matches "
-                                 "found".format(name, len(scan)))
+        raise DashboardException(
+            f"Couldn't identify scan {name}. {len(scan)} matches found"
+        )
     if len(scan) == 1:
         return scan[0]
     return None
@@ -271,18 +305,22 @@ def add_scan(name, tag=None, series=None, description=None, source_id=None):
     scan_name = _get_scan_name(name, tag, series)
 
     if len(studies) != 1:
-        raise DashboardException("Can't identify study to add scan {} to. {} "
-                                 "matches found.".format(scan_name,
-                                                         len(studies)))
+        raise DashboardException(
+            f"Can't identify study to add scan {scan_name} to. {len(studies)} "
+            "matches found."
+        )
     study = studies[0].study
     allowed_tags = [st.tag for st in study.scantypes]
 
     if tag not in allowed_tags:
-        raise DashboardException("Scan name {} contains tag not configured "
-                                 "for study {}".format(scan_name, str(study)))
+        raise DashboardException(
+            f"Scan name {scan_name} contains tag not configured for "
+            f"study {str(study)}"
+        )
 
-    return session.add_scan(scan_name, series, tag, description,
-                            source_id=source_id)
+    return session.add_scan(
+        scan_name, series, tag, description, source_id=source_id
+    )
 
 
 @dashboard_required
@@ -294,17 +332,20 @@ def get_project(name=None, tag=None, site=None):
     is reused for multiple sites or studies.
     """
     if not (name or tag):
-        raise DashboardException("Can't locate a study without the study "
-                                 "nickname or a study tag")
+        raise DashboardException(
+            "Can't locate a study without the study nickname or a study tag"
+        )
 
     studies = queries.get_study(name=name, tag=tag, site=site)
     search_term = name or tag
     if len(studies) == 0:
-        raise DashboardException("Failed to locate study matching {}"
-                                 "".format(search_term))
+        raise DashboardException(
+            f"Failed to locate study matching {search_term}"
+        )
     if len(studies) > 1:
-        raise DashboardException("{} does not uniquely identify "
-                                 "a project".format(search_term))
+        raise DashboardException(
+            f"{search_term} does not uniquely identify a project"
+        )
     if not name:
         return studies[0].study
     return studies[0]
@@ -313,15 +354,18 @@ def get_project(name=None, tag=None, site=None):
 @dashboard_required
 def get_default_user():
     try:
-        user = os.environ['DASHBOARD_USER']
+        user = os.environ["DASHBOARD_USER"]
     except KeyError:
-        raise DashboardException("Can't retrieve default dashboard user ID. "
-                                 "DASHBOARD_USER environment variable not "
-                                 "set.")
+        raise DashboardException(
+            "Can't retrieve default dashboard user ID. "
+            "DASHBOARD_USER environment variable not "
+            "set."
+        )
     user = queries.get_user(user)
     if not user or len(user) > 1:
-        raise DashboardException("Can't locate default user {} in "
-                                 "dashboard database".format(user))
+        raise DashboardException(
+            f"Can't locate default user {user} in dashboard database"
+        )
     return user[0]
 
 
