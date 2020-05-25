@@ -271,7 +271,11 @@ class xnat(object):
             projects = [p["ID"] for p in self.get_projects()]
 
         for project in projects:
-            if subject_id in self.get_subject_ids(project):
+            try:
+                found_ids = self.get_subject_ids(project)
+            except XnatException:
+                continue
+            if subject_id in found_ids:
                 logger.debug(f"Found session {subject_id} in project {project}")
                 return project
 
