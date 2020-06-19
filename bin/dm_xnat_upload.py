@@ -161,10 +161,10 @@ def process_archive(file_name, dicom_dir):
         try:
             upload_dicom_data(archive_file, xnat_subject.project, scanid, xnat)
         except Exception as e:
-            logger.error("Failed uploading archive to xnat project {} "
-                         "for experiment {}. Check Prearchive. Reason - {}"
-                         .format(xnat_subject.project, xnat_experiment.name,
-                                 e))
+            logger.error("Failed uploading archive {} to xnat project {} "
+                         "for subject {}. Check Prearchive. Reason - {}"
+                         .format(archive_file, xnat_subject.project,
+                                 xnat_subject.name, e))
 
     if not resource_exists:
         logger.debug("Uploading resource from: {}".format(archive_file))
@@ -320,8 +320,10 @@ def check_files_exist(archive, xnat_experiment, xnat):
         logger.error("Failed getting zip file headers for: {}".format(archive))
         return False, False
 
+    xnat_resources = xnat_experiment.get_resources(xnat)
+
     if not local_headers:
-        resources_exist = resource_data_exists(xnat_experiment, archive)
+        resources_exist = resource_data_exists(xnat_resources, archive)
         return True, resources_exist
 
     if not xnat_experiment.scans:
@@ -334,7 +336,6 @@ def check_files_exist(archive, xnat_experiment, xnat):
         # Return true for both to prevent XNAT being modified
         return True, True
 
-    xnat_resources = xnat_experiment.get_resources(xnat)
     resources_exist = resource_data_exists(xnat_resources, archive)
 
     return scans_exist, resources_exist
