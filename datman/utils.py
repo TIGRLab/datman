@@ -1,39 +1,43 @@
 """
 A collection of utilities for generally munging imaging data.
 """
-import os
-import sys
-import re
-import io
-import zipfile
-import tarfile
-import logging
-import random
-import time
-import tempfile
-import shutil
 import contextlib
+import io
+import logging
+import os
+import random
+import re
+import shutil
 import subprocess as proc
+import sys
+import tarfile
+import tempfile
+import time
+import zipfile
 
 import pydicom as dcm
 import pyxnat
 
 import datman.config
-import datman.scanid as scanid
 import datman.dashboard as dashboard
-from datman.exceptions import (MetadataException, DashboardException,
-                               ParseException)
+import datman.scanid as scanid
+from datman.exceptions import (
+    DashboardException,
+    MetadataException,
+    ParseException,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def locate_metadata(filename, study=None, subject=None, config=None,
-                    path=None):
+def locate_metadata(filename, study=None, subject=None, config=None, path=None):
     if not (path or study or config or subject):
-        raise MetadataException("Can't locate metadata file {} without either "
-                                "1) a full path to the file 2) a study or "
-                                "subject ID or 3) a datman.config "
-                                "object".format(filename))
+        raise MetadataException(
+            f"Can't locate metadata file {filename} without either "
+            "1) a full path to the file 2) a study or "
+            "subject ID or 3) a datman.config "
+            "object"
+        )
 
     if path:
         file_path = path
@@ -41,13 +45,20 @@ def locate_metadata(filename, study=None, subject=None, config=None,
         if not config:
             given_study = subject or study
             config = datman.config.config(study=given_study)
-        file_path = os.path.join(config.get_path('meta'), filename)
+        file_path = os.path.join(config.get_path("meta"), filename)
 
     return file_path
 
 
-def read_checklist(study=None, subject=None, config=None, path=None,
-                   bids_id=None, bids_ses=None, use_bids=False):
+def read_checklist(
+    study=None,
+    subject=None,
+    config=None,
+    path=None,
+    bids_id=None,
+    bids_ses=None,
+    use_bids=False,
+):
     """
     This function is used to look-up QC checklist entries. If the dashboard is
     found it will ONLY check the dashboard database, otherwise it expects a
@@ -72,10 +83,12 @@ def read_checklist(study=None, subject=None, config=None, path=None,
           in the list
     """
     if not (study or subject or config or path or bids_id):
-        raise MetadataException("Can't read dashboard checklist "
-                                "contents without either 1) a subject or "
-                                "study ID 2) a datman.config object or 3) a "
-                                "full path to the checklist")
+        raise MetadataException(
+            "Can't read dashboard checklist "
+            "contents without either 1) a subject or "
+            "study ID 2) a datman.config object or 3) a "
+            "full path to the checklist"
+        )
 
     if bids_id and not study:
         raise MetadataException("Must provide a study to search by BIDS ID")
@@ -89,44 +102,59 @@ def read_checklist(study=None, subject=None, config=None, path=None,
         if bids_id and not bids_ses:
             bids_ses = "01"
         if bids_id and not type(bids_ses) == str:
-            bids_ses = '{:02d}'.format(bids_ses)
+            bids_ses = f"{bids_ses:02d}"
         try:
-            entries = _fetch_checklist(subject=subject, study=study,
-                                       config=config, bids_id=bids_id,
-                                       bids_ses=bids_ses, use_bids=use_bids)
+            entries = _fetch_checklist(
+                subject=subject,
+                study=study,
+                config=config,
+                bids_id=bids_id,
+                bids_ses=bids_ses,
+                use_bids=use_bids,
+            )
         except Exception as e:
-            raise MetadataException("Can't retrieve checklist information "
-                                    "from dashboard database. Reason - "
-                                    "{}".format(str(e)))
+            raise MetadataException(
+                "Can't retrieve checklist information "
+                "from dashboard database. Reason - "
+                f"{str(e)}"
+            )
         return entries
 
-    logger.info("Dashboard not found, attempting to find a checklist "
-                "metadata file instead.")
+    logger.info(
+        "Dashboard not found, attempting to find a checklist "
+        "metadata file instead."
+    )
     if use_bids or bids_id:
-        raise MetadataException("BIDS IDs may only be used if querying the "
-                                "dashboard database.")
+        raise MetadataException(
+            "BIDS IDs may only be used if querying the dashboard database."
+        )
 
-    checklist_path = locate_metadata('checklist.csv', path=path,
-                                     subject=subject, study=study,
-                                     config=config)
+    checklist_path = locate_metadata(
+        "checklist.csv", path=path, subject=subject, study=study, config=config
+    )
 
     if subject:
         subject = ident.get_full_subjectid_with_timepoint()
 
     try:
-        with open(checklist_path, 'r') as checklist:
-            entries = _parse_checklist(checklist,
-                                       subject=subject)
+        with open(checklist_path, "r") as checklist:
+            entries = _parse_checklist(checklist, subject=subject)
     except Exception as e:
-        raise MetadataException("Failed to read checklist file "
-                                "{}. Reason - {}".format(checklist_path,
-                                                         str(e)))
+        raise MetadataException(
+            f"Failed to read checklist file {checklist_path}. Reason - {str(e)}"
+        )
 
     return entries
 
 
-def _fetch_checklist(subject=None, study=None, config=None, bids_id=None,
-                     bids_ses=None, use_bids=None):
+def _fetch_checklist(
+    subject=None,
+    study=None,
+    config=None,
+    bids_id=None,
+    bids_ses=None,
+    use_bids=None,
+):
     """
     Support function for read_checklist(). Gets a list of existing / signed off
     sessions from the dashboard.
@@ -141,18 +169,22 @@ def _fetch_checklist(subject=None, study=None, config=None, bids_id=None,
     instead of datman IDs. Subjects missing a bids ID will be omitted.
     """
     if not (subject or study or config):
-        raise MetadataException("Can't retrieve dashboard checklist "
-                                "contents without either 1) a subject or "
-                                "study ID 2) a datman.config object")
+        raise MetadataException(
+            "Can't retrieve dashboard checklist "
+            "contents without either 1) a subject or "
+            "study ID 2) a datman.config object"
+        )
 
     if subject:
         session = dashboard.get_session(subject)
 
     if bids_id:
         if not (study and bids_ses):
-            raise MetadataException("Cant retrieve checklist entry for BIDS "
-                                    "ID {} without a study and BIDS session "
-                                    "number".format(bids_id))
+            raise MetadataException(
+                "Cant retrieve checklist entry for BIDS "
+                f"ID {bids_id} without a study and BIDS session "
+                "number"
+            )
         session = dashboard.get_bids_subject(bids_id, bids_ses, study=study)
 
     if subject or bids_id:
@@ -160,7 +192,7 @@ def _fetch_checklist(subject=None, study=None, config=None, bids_id=None,
             return
         if session.is_qcd():
             return str(session.reviewer)
-        return ''
+        return ""
 
     if config and not study:
         study = config.study_name
@@ -174,7 +206,7 @@ def _fetch_checklist(subject=None, study=None, config=None, bids_id=None,
         if session.signed_off:
             comment = str(session.reviewer)
         else:
-            comment = ''
+            comment = ""
         if use_bids:
             if not timepoint.bids_name:
                 # If bids is requested ignore subjects without a bids name
@@ -210,20 +242,22 @@ def _parse_checklist(checklist, subject=None):
             # Ignore blank lines
             continue
         try:
-            subid = os.path.splitext(fields[0].replace('qc_', ''))[0]
+            subid = os.path.splitext(fields[0].replace("qc_", ""))[0]
         except (IndexError, TypeError):
-            raise MetadataException("Found malformed checklist entry: "
-                                    "{}".format(line))
+            raise MetadataException(f"Found malformed checklist entry: {line}")
         try:
             scanid.parse(subid)
         except scanid.ParseException:
-            logger.error("Found malformed subject ID {} in checklist. "
-                         "Ignoring.".format(subid))
+            logger.error(
+                f"Found malformed subject ID {subid} in checklist. Ignoring."
+            )
             continue
 
         if entries and subid in entries:
-            logger.info("Found duplicate checklist entries for {}. Ignoring "
-                        "all except the first entry found.".format(subid))
+            logger.info(
+                f"Found duplicate checklist entries for {subid}. Ignoring "
+                "all except the first entry found."
+            )
             continue
 
         comment = " ".join(fields[1:]).strip()
@@ -251,18 +285,21 @@ def update_checklist(entries, study=None, config=None, path=None):
     any entry.
     """
     if not isinstance(entries, dict):
-        raise MetadataException("Checklist entries must be in dictionary "
-                                "format with subject ID as the key and "
-                                "comment as the value (empty string for new, "
-                                "unreviewed subjects)")
+        raise MetadataException(
+            "Checklist entries must be in dictionary "
+            "format with subject ID as the key and "
+            "comment as the value (empty string for new, "
+            "unreviewed subjects)"
+        )
 
     if dashboard.dash_found and not path:
         _update_qc_reviewers(entries)
         return
 
     # No dashboard, or path was given, so update file system.
-    checklist_path = locate_metadata('checklist.csv', study=study,
-                                     config=config, path=path)
+    checklist_path = locate_metadata(
+        "checklist.csv", study=study, config=config, path=path
+    )
     old_entries = read_checklist(path=checklist_path)
 
     # Merge with existing list
@@ -270,14 +307,14 @@ def update_checklist(entries, study=None, config=None, path=None):
         try:
             ident = scanid.parse(subject)
         except scanid.ParseException:
-            raise MetadataException("Attempt to add invalid subject ID {} to "
-                                    "QC checklist".format(subject))
+            raise MetadataException(
+                f"Attempt to add invalid subject ID {subject} to QC checklist"
+            )
         subject = ident.get_full_subjectid_with_timepoint()
         old_entries[subject] = entries[subject]
 
     # Reformat to expected checklist line format
-    lines = ["qc_{}.html {}\n".format(sub, old_entries[sub])
-             for sub in old_entries]
+    lines = [f"qc_{sub}.html {old_entries[sub]}\n" for sub in old_entries]
 
     write_metadata(sorted(lines), checklist_path)
 
@@ -289,16 +326,19 @@ def _update_qc_reviewers(entries):
     try:
         user = dashboard.get_default_user()
     except (KeyError, DashboardException):
-        raise MetadataException("Can't update dashboard QC information "
-                                "without a default dashboard user defined. "
-                                "Please add 'DEFAULT_DASH_USER' to your "
-                                "config file.")
+        raise MetadataException(
+            "Can't update dashboard QC information "
+            "without a default dashboard user defined. "
+            "Please add 'DEFAULT_DASH_USER' to your "
+            "config file."
+        )
 
     for subject in entries:
         timepoint = dashboard.get_subject(subject)
         if not timepoint or not timepoint.sessions:
-            raise MetadataException("{} not found in the in the dashboard "
-                                    "database.".format(subject))
+            raise MetadataException(
+                f"{subject} not found in the in the dashboard database."
+            )
 
         comment = entries[subject]
         if not comment:
@@ -314,8 +354,15 @@ def _update_qc_reviewers(entries):
             session.sign_off(user.id)
 
 
-def read_blacklist(study=None, scan=None, subject=None, config=None, path=None,
-                   bids_ses=None, use_bids=False):
+def read_blacklist(
+    study=None,
+    scan=None,
+    subject=None,
+    config=None,
+    path=None,
+    bids_ses=None,
+    use_bids=False,
+):
     """
     This function is used to look up blacklisted scans. If the dashboard is
     found it ONLY checks the dashboard database. Otherwise it expects a datman
@@ -341,19 +388,25 @@ def read_blacklist(study=None, scan=None, subject=None, config=None, path=None,
         - OR 'None' if a scan is given but not found in the blacklist
     """
     if dashboard.dash_found and not path:
-        return _fetch_blacklist(scan=scan, subject=subject, study=study,
-                                config=config, bids_ses=bids_ses,
-                                use_bids=use_bids)
+        return _fetch_blacklist(
+            scan=scan,
+            subject=subject,
+            study=study,
+            config=config,
+            bids_ses=bids_ses,
+            use_bids=use_bids,
+        )
 
     if use_bids:
-        raise MetadataException("Can't return BIDs blacklist info without "
-                                "dashboard integration")
+        raise MetadataException(
+            "Can't return BIDs blacklist info without dashboard integration"
+        )
 
     if scan:
         try:
             ident, tag, series, descr = scanid.parse_filename(scan)
         except scanid.ParseException:
-            logger.error("Invalid scan name: {}".format(scan))
+            logger.error(f"Invalid scan name: {scan}")
             return
         tmp_sub = ident.get_full_subjectid_with_timepoint_session()
         # Need to drop the path and extension if in the original 'scan'
@@ -361,29 +414,39 @@ def read_blacklist(study=None, scan=None, subject=None, config=None, path=None,
     else:
         tmp_sub = subject
 
-    blacklist_path = locate_metadata("blacklist.csv", study=study,
-                                     subject=tmp_sub, config=config, path=path)
+    blacklist_path = locate_metadata(
+        "blacklist.csv", study=study, subject=tmp_sub, config=config, path=path
+    )
     try:
-        with open(blacklist_path, 'r') as blacklist:
+        with open(blacklist_path, "r") as blacklist:
             entries = _parse_blacklist(blacklist, scan=scan, subject=subject)
     except Exception as e:
-        raise MetadataException("Failed to read checklist file {}. Reason - "
-                                "{}".format(blacklist_path, str(e)))
+        raise MetadataException(
+            f"Failed to read checklist file {blacklist_path}. Reason - {str(e)}"
+        )
 
     return entries
 
 
-def _fetch_blacklist(scan=None, subject=None, bids_ses=None, study=None,
-                     config=None, use_bids=False):
+def _fetch_blacklist(
+    scan=None,
+    subject=None,
+    bids_ses=None,
+    study=None,
+    config=None,
+    use_bids=False,
+):
     """
     Helper function for 'read_blacklist()'. Gets the blacklist contents from
     the dashboard's database
     """
     if not (scan or subject or study or config):
-        raise MetadataException("Can't retrieve dashboard blacklist info "
-                                "without either 1) a scan name 2) a subject "
-                                "ID 3) a study ID or 4) a datman config "
-                                "object")
+        raise MetadataException(
+            "Can't retrieve dashboard blacklist info "
+            "without either 1) a scan name 2) a subject "
+            "ID 3) a study ID or 4) a datman config "
+            "object"
+        )
 
     if scan:
         if use_bids:
@@ -400,7 +463,7 @@ def _fetch_blacklist(scan=None, subject=None, bids_ses=None, study=None,
     if subject:
         if use_bids or bids_ses:
             if not bids_ses:
-                bids_ses = '01'
+                bids_ses = "01"
             db_subject = dashboard.get_bids_subject(subject, bids_ses, study)
         else:
             db_subject = dashboard.get_subject(subject)
@@ -438,7 +501,7 @@ def _parse_blacklist(blacklist, scan=None, subject=None):
 
     # This will mangle any commas in comments, but is the most reliable way
     # to split the lines
-    regex = ',|\s'  # noqa: W605
+    regex = ",|\s"  # noqa: W605
     for line in blacklist:
         fields = re.split(regex, line.strip())
         try:
@@ -446,12 +509,12 @@ def _parse_blacklist(blacklist, scan=None, subject=None):
             scanid.parse_filename(scan_name)
             comment = fields[1:]
         except (IndexError, scanid.ParseException):
-            logger.info("Ignoring malformed line: {}".format(line))
+            logger.info(f"Ignoring malformed line: {line}")
             continue
 
         comment = " ".join(comment).strip()
 
-        if scan_name == 'series':
+        if scan_name == "series":
             continue
 
         if scan:
@@ -463,8 +526,10 @@ def _parse_blacklist(blacklist, scan=None, subject=None):
             continue
 
         if entries and scan_name in entries:
-            logger.info("Found duplicate blacklist entries for {}. Ignoring "
-                        "all except the first entry found.".format(scan_name))
+            logger.info(
+                f"Found duplicate blacklist entries for {scan_name}. Ignoring "
+                "all except the first entry found."
+            )
             continue
         entries[scan_name] = comment
 
@@ -473,33 +538,38 @@ def _parse_blacklist(blacklist, scan=None, subject=None):
 
 def update_blacklist(entries, study=None, config=None, path=None):
     if not isinstance(entries, dict):
-        raise MetadataException("Blacklist entries must be in dictionary "
-                                "format with scan name as the key and reason "
-                                "for blacklisting as the value")
+        raise MetadataException(
+            "Blacklist entries must be in dictionary "
+            "format with scan name as the key and reason "
+            "for blacklisting as the value"
+        )
 
     if dashboard.dash_found and not path:
         _update_scan_checklist(entries)
         return
 
-    blacklist_path = locate_metadata('blacklist.csv',
-                                     study=study,
-                                     config=config, path=path)
+    blacklist_path = locate_metadata(
+        "blacklist.csv", study=study, config=config, path=path
+    )
     old_entries = read_blacklist(path=blacklist_path)
 
     for scan_name in entries:
         try:
             scanid.parse_filename(scan_name)
         except scanid.ParseException:
-            raise MetadataException("Attempt to add invalid scan name {} "
-                                    "to blacklist".format(scan_name))
+            raise MetadataException(
+                f"Attempt to add invalid scan name {scan_name} to blacklist"
+            )
         if not entries[scan_name]:
-            logger.error("Can't add blacklist entry with empty comment. "
-                         "Skipping {}".format(scan_name))
+            logger.error(
+                "Can't add blacklist entry with empty comment. "
+                f"Skipping {scan_name}"
+            )
             continue
         old_entries[scan_name] = entries[scan_name]
 
-    lines = ["{} {}\n".format(sub, old_entries[sub]) for sub in old_entries]
-    new_list = ['series\treason\n']
+    lines = [f"{sub} {old_entries[sub]}\n" for sub in old_entries]
+    new_list = ["series\treason\n"]
     new_list.extend(sorted(lines))
     write_metadata(new_list, blacklist_path)
 
@@ -511,19 +581,22 @@ def _update_scan_checklist(entries):
     try:
         user = dashboard.get_default_user()
     except (KeyError, DashboardException):
-        raise MetadataException("Can't update dashboard QC information "
-                                "without a default dashboard user defined. "
-                                "Please add 'DEFAULT_DASH_USER' to your "
-                                "config file.")
+        raise MetadataException(
+            "Can't update dashboard QC information "
+            "without a default dashboard user defined. "
+            "Please add 'DEFAULT_DASH_USER' to your "
+            "config file."
+        )
 
     for scan_name in entries:
         scan = dashboard.get_scan(scan_name)
         if not scan:
-            raise MetadataException("{} does not exist in the dashboard "
-                                    "database".format(scan_name))
-        scan.add_checklist_entry(user.id,
-                                 comment=entries[scan_name],
-                                 sign_off=False)
+            raise MetadataException(
+                f"{scan_name} does not exist in the dashboard database"
+            )
+        scan.add_checklist_entry(
+            user.id, comment=entries[scan_name], sign_off=False
+        )
 
 
 def write_metadata(lines, path, retry=3):
@@ -533,14 +606,15 @@ def write_metadata(lines, path, retry=3):
     should be contained within the list.
     """
     if not retry:
-        raise MetadataException("Failed to update {}".format(path))
+        raise MetadataException(f"Failed to update {path}")
 
     try:
         with open(path, "w") as meta_file:
             meta_file.writelines(lines)
     except Exception:
-        logger.error("Failed to write metadata file {}. Tries "
-                     "remaining - {}".format(path, retry))
+        logger.error(
+            f"Failed to write metadata file {path}. Tries remaining - {retry}"
+        )
         wait_time = random.uniform(0, 10)
         time.sleep(wait_time)
         write_metadata(lines, path, retry=retry - 1)
@@ -573,8 +647,10 @@ def get_subject_metadata(config=None, study=None, allow_partial=False):
     """
     if not config:
         if not study:
-            raise MetadataException("A study name or config object must be "
-                                    "given to locate study metadata.")
+            raise MetadataException(
+                "A study name or config object must be "
+                "given to locate study metadata."
+            )
         config = datman.config.config(study=study)
 
     checklist = read_checklist(config=config)
@@ -585,8 +661,9 @@ def get_subject_metadata(config=None, study=None, allow_partial=False):
         try:
             ident, _, _, _ = scanid.parse_filename(bl_entry)
         except scanid.ParseException:
-            logger.error("Malformed scan name {} found in blacklist. "
-                         "Ignoring.".format(bl_entry))
+            logger.error(
+                f"Malformed scan name {bl_entry} found in blacklist. Ignoring."
+            )
             continue
 
         subid = ident.get_full_subjectid_with_timepoint()
@@ -596,9 +673,10 @@ def get_subject_metadata(config=None, study=None, allow_partial=False):
             if allow_partial:
                 all_qc.setdefault(subid, []).append(bl_entry)
             else:
-                logger.error("{} has blacklisted series {} but does not "
-                             "appear in QC checklist. Ignoring blacklist entry"
-                             "".format(subid, bl_entry))
+                logger.error(
+                    f"{subid} has blacklisted series {bl_entry} but does not "
+                    "appear in QC checklist. Ignoring blacklist entry"
+                )
                 continue
 
     return all_qc
@@ -612,10 +690,10 @@ def get_extension(path):
     this will correctly return the extension for '.tar.gz' files, for example.
     :D
     """
-    if path.endswith('.tar.gz'):
-        return '.tar.gz'
-    if path.endswith('.nii.gz'):
-        return '.nii.gz'
+    if path.endswith(".tar.gz"):
+        return ".tar.gz"
+    if path.endswith(".nii.gz"):
+        return ".nii.gz"
     else:
         return os.path.splitext(path)[1]
 
@@ -639,10 +717,10 @@ def get_archive_headers(path, stop_after_first=False):
         return get_folder_headers(path, stop_after_first)
     elif zipfile.is_zipfile(path):
         return get_zipfile_headers(path, stop_after_first)
-    elif os.path.isfile(path) and path.endswith('.tar.gz'):
+    elif os.path.isfile(path) and path.endswith(".tar.gz"):
         return get_tarfile_headers(path, stop_after_first)
     else:
-        raise Exception("{} must be a file (zip/tar) or folder.".format(path))
+        raise Exception(f"{path} must be a file (zip/tar) or folder.")
 
 
 def get_tarfile_headers(path, stop_after_first=False):
@@ -686,8 +764,7 @@ def get_zipfile_headers(path, stop_after_first=False):
         except dcm.filereader.InvalidDicomError:
             continue
         except zipfile.BadZipfile:
-            logger.warning('Error in zipfile:{}'
-                           .format(path))
+            logger.warning(f"Error in zipfile:{path}")
             break
     return manifest
 
@@ -755,12 +832,11 @@ def define_folder(path):
         try:
             os.makedirs(path)
         except OSError as e:
-            logger.error('failed to make directory {}'.format(path))
-            raise(e)
+            logger.error(f"failed to make directory {path}")
+            raise (e)
 
     if not has_permissions(path):
-        raise OSError("User does not have permission to access {}".format(
-            path))
+        raise OSError(f"User does not have permission to access {path}")
 
     return path
 
@@ -772,7 +848,7 @@ def has_permissions(path):
     if os.access(path, 7):
         flag = True
     else:
-        logger.error('You do not have write access to path {}'.format(path))
+        logger.error(f"You do not have write access to path {path}")
         flag = False
 
     return flag
@@ -782,12 +858,12 @@ def run_dummy_q(list_of_names):
     """
     This holds the script until all of the queued items are done.
     """
-    logger.info('Holding for remaining processes.')
-    opts = 'h_vmem=3G,mem_free=3G,virtual_free=3G'
+    logger.info("Holding for remaining processes.")
+    opts = "h_vmem=3G,mem_free=3G,virtual_free=3G"
     holds = ",".join(list_of_names)
-    cmd = 'qsub -sync y -hold_jid {} -l {} -b y echo'.format(holds, opts)
+    cmd = f"qsub -sync y -hold_jid {holds} -l {opts} -b y echo"
     run(cmd)
-    logger.info('... Done.')
+    logger.info("... Done.")
 
 
 def run(cmd, dryrun=False, specialquote=True, verbose=True):
@@ -805,17 +881,18 @@ def run(cmd, dryrun=False, specialquote=True, verbose=True):
         cmd = _escape_shell_chars(cmd)
 
     if dryrun:
-        logger.info("Performing dry-run. Skipped command: {}".format(cmd))
-        return 0, ''
+        logger.info(f"Performing dry-run. Skipped command: {cmd}")
+        return 0, ""
 
-    logger.debug("Executing command: {}".format(cmd))
+    logger.debug(f"Executing command: {cmd}")
 
     p = proc.Popen(cmd, shell=True, stdout=proc.PIPE, stderr=proc.PIPE)
     out, err = p.communicate()
 
     if p.returncode and verbose:
-        logger.error('run({}) failed with returncode {}. STDERR: {}'
-                     .format(cmd, p.returncode, err))
+        logger.error(
+            f"run({cmd}) failed with returncode {p.returncode}. STDERR: {err}"
+        )
 
     return p.returncode, out
 
@@ -828,11 +905,11 @@ def _escape_shell_chars(arg):
     >>> _escape_shell_chars('This (; file has funky chars')
     'This \\(\\; file has funky chars'
     """
-    arg = arg.replace('(', '\\(')
-    arg = arg.replace(';', '\\;')
-    arg = arg.replace(')', '\\)')
+    arg = arg.replace("(", "\\(")
+    arg = arg.replace(";", "\\;")
+    arg = arg.replace(")", "\\)")
 
-    return(arg)
+    return arg
 
 
 def get_files_with_tag(parentdir, tag, fuzzy=False):
@@ -885,14 +962,14 @@ def splitext(path):
     Function that will remove extension, including specially-defined extensions
     that fool os.path.splitext
     """
-    for ext in ['.nii.gz', '.mnc.gz']:
+    for ext in [".nii.gz", ".mnc.gz"]:
         if path.endswith(ext):
-            return path[:-len(ext)], path[-len(ext):]
+            return path[: -len(ext)], path[-len(ext) :]
     return os.path.splitext(path)
 
 
 @contextlib.contextmanager
-def make_temp_directory(suffix='', prefix='tmp', path=None):
+def make_temp_directory(suffix="", prefix="tmp", path=None):
     temp_dir = tempfile.mkdtemp(suffix=suffix, prefix=prefix, dir=path)
     try:
         yield temp_dir
@@ -913,9 +990,9 @@ def nifti_basename(fpath):
     return basename without extension (either .nii.gz or .nii)
     """
     basefpath = os.path.basename(fpath)
-    stem = basefpath.replace('.nii', '').replace('.gz', '')
+    stem = basefpath.replace(".nii", "").replace(".gz", "")
 
-    return(stem)
+    return stem
 
 
 def filter_niftis(candidates):
@@ -923,9 +1000,14 @@ def filter_niftis(candidates):
     Takes a list and returns all items that contain the extensions
     '.nii' or '.nii.gz'.
     """
-    candidates = [x for x in candidates
-                  if ('nii.gz' == '.'.join(x.split('.')[1:]) or
-                      'nii' == '.'.join(x.split('.')[1:]))]
+    candidates = [
+        x
+        for x in candidates
+        if (
+            "nii.gz" == ".".join(x.split(".")[1:])
+            or "nii" == ".".join(x.split(".")[1:])
+        )
+    ]
 
     return candidates
 
@@ -941,11 +1023,11 @@ def split_path(path):
     path_split = []
     while True:
         dirname, leaf = os.path.split(dirname)
-        if (leaf):
+        if leaf:
             path_split = [leaf] + path_split
         else:
             break
-    return(path_split)
+    return path_split
 
 
 class cd(object):
@@ -977,8 +1059,9 @@ class XNATConnection(object):
         self.password = password
 
     def __enter__(self):
-        self.connection = pyxnat.Interface(server=self.server, user=self.user,
-                                           password=self.password)
+        self.connection = pyxnat.Interface(
+            server=self.server, user=self.user, password=self.password
+        )
         return self.connection
 
     def __exit__(self, type, value, traceback):
@@ -987,16 +1070,18 @@ class XNATConnection(object):
 
 def get_xnat_credentials(config, xnat_cred):
     if not xnat_cred:
-        xnat_cred = os.path.join(config.get_path('meta'), 'xnat-credentials')
+        xnat_cred = os.path.join(config.get_path("meta"), "xnat-credentials")
 
-    logger.debug("Retrieving xnat credentials from {}".format(xnat_cred))
+    logger.debug(f"Retrieving xnat credentials from {xnat_cred}")
     try:
         credentials = read_credentials(xnat_cred)
         user_name = credentials[0]
         password = credentials[1]
     except IndexError:
-        logger.error("XNAT credential file {} is missing the user name or "
-                     "password.".format(xnat_cred))
+        logger.error(
+            f"XNAT credential file {xnat_cred} is missing the user name "
+            "or password."
+        )
         sys.exit(1)
     return user_name, password
 
@@ -1004,11 +1089,11 @@ def get_xnat_credentials(config, xnat_cred):
 def read_credentials(cred_file):
     credentials = []
     try:
-        with open(cred_file, 'r') as creds:
+        with open(cred_file, "r") as creds:
             for line in creds:
-                credentials.append(line.strip('\n'))
+                credentials.append(line.strip("\n"))
     except Exception as e:
-        logger.error("Cannot read credential file {}.".format(cred_file))
+        logger.error(f"Cannot read credential file {cred_file}.")
         raise e
     return credentials
 
@@ -1018,7 +1103,7 @@ def get_relative_source(source, target):
         source_file = os.path.basename(source)
         source = os.path.dirname(source)
     else:
-        source_file = ''
+        source_file = ""
 
     rel_source_dir = os.path.relpath(source, os.path.dirname(target))
     rel_source = os.path.join(rel_source_dir, source_file)
@@ -1039,12 +1124,12 @@ def check_dependency_configured(program_name, shell_cmd=None, env_vars=None):
     environment variable isnt configured.
     """
     message = (
-        "{} required but not found. Please check that "
-        "it is installed and correctly configured.".format(
-            program_name))
+        f"{program_name} required but not found. Please check that "
+        "it is installed and correctly configured."
+    )
 
     if shell_cmd is not None:
-        return_val, found = run('which {}'.format(shell_cmd))
+        return_val, found = run(f"which {shell_cmd}")
         if return_val or not found:
             raise EnvironmentError(message)
 
@@ -1095,22 +1180,34 @@ def validate_subject_id(subject_id, config):
     try:
         sites = valid_tags[new_subject_id.study]
     except KeyError:
-        raise ParseException("Subject id {} has undefined study code {}"
-                             "".format(new_subject_id, new_subject_id.study))
+        raise ParseException(
+            f"Subject id {new_subject_id} has undefined "
+            f"study code {new_subject_id.study}"
+        )
 
     if new_subject_id.site not in sites:
-        raise ParseException("Subject id {} has undefined site {} for study "
-                             "{}".format(new_subject_id,
-                                         new_subject_id.site,
-                                         new_subject_id.study))
+        raise ParseException(
+            f"Subject id {new_subject_id} has undefined "
+            f"site {new_subject_id.site} for study "
+            f"{new_subject_id.study}"
+        )
 
     return new_subject_id
 
 
-def submit_job(cmd, job_name, log_dir, system='other', cpu_cores=1,
-               walltime="2:00:00", dryrun=False, partition=None, argslist="",
-               workdir="/tmp"):
-    '''
+def submit_job(
+    cmd,
+    job_name,
+    log_dir,
+    system="other",
+    cpu_cores=1,
+    walltime="2:00:00",
+    dryrun=False,
+    partition=None,
+    argslist="",
+    workdir="/tmp",
+):
+    """
     submits a job or joblist the queue depending on the system
 
     Args:
@@ -1130,51 +1227,57 @@ def submit_job(cmd, job_name, log_dir, system='other', cpu_cores=1,
                                     --mem X --verbose ...) [default=None]
         workdir                     Location for slurm to use as the work
                                     dir [default='/tmp']
-    '''
+    """
     if dryrun:
         return
 
     # Bit of an ugly hack to allow job submission on the scc. Should be
     # replaced with drmaa or some other queue interface later
-    if system == 'kimel':
-        job_file = '/tmp/{}'.format(job_name)
+    if system == "kimel":
+        job_file = f"/tmp/{job_name}"
 
-        with open(job_file, 'w') as fid:
-            fid.write('#!/bin/bash\n')
+        with open(job_file, "w") as fid:
+            fid.write("#!/bin/bash\n")
             fid.write(cmd)
 
-        arg_list = '-c {cores} -t {walltime} {args} --job-name {jobname} '\
-                   '-o {log_dir}/{jobname} -D {workdir}'.format(
-                            cores=cpu_cores,
-                            walltime=walltime,
-                            args=argslist,
-                            jobname=job_name,
-                            log_dir=log_dir,
-                            workdir=workdir)
+        arg_list = (
+            "-c {cores} -t {walltime} {args} --job-name {jobname} "
+            "-o {log_dir}/{jobname} -D {workdir}".format(
+                cores=cpu_cores,
+                walltime=walltime,
+                args=argslist,
+                jobname=job_name,
+                log_dir=log_dir,
+                workdir=workdir,
+            )
+        )
 
         if partition:
-            arg_list = arg_list + ' -p {} '.format(partition)
+            arg_list = arg_list + f" -p {partition} "
 
-        job = 'sbatch ' + arg_list + ' {}'.format(job_file)
+        job = "sbatch " + arg_list + f" {job_file}"
 
         rtn, out = run(job)
     else:
-        job = "echo {} | qbatch -N {} --logdir {} --ppj {} -i -c 1 -j "\
-              "1 --walltime {} -".format(cmd, job_name, log_dir, cpu_cores,
-                                         walltime)
+        job = (
+            "echo {} | qbatch -N {} --logdir {} --ppj {} -i -c 1 -j "
+            "1 --walltime {} -".format(
+                cmd, job_name, log_dir, cpu_cores, walltime
+            )
+        )
         rtn, out = run(job, specialquote=False)
 
     if rtn:
         logger.error("Job submission failed.")
         if out:
-            logger.error("stdout: {}".format(out))
+            logger.error(f"stdout: {out}")
         sys.exit(1)
 
 
 def get_resources(open_zipfile):
     # filter dirs
     files = open_zipfile.namelist()
-    files = [f for f in files if not f.endswith('/')]
+    files = [f for f in files if not f.endswith("/")]
 
     # filter files named like dicoms
     files = [f for f in files if not is_named_like_a_dicom(f)]
@@ -1186,12 +1289,12 @@ def get_resources(open_zipfile):
             if not is_dicom(io.BytesIO(open_zipfile.read(f))):
                 resource_files.append(f)
         except zipfile.BadZipfile:
-            logger.error('Error in zipfile:{}'.format(f))
+            logger.error(f"Error in zipfile:{f}")
     return resource_files
 
 
 def is_named_like_a_dicom(path):
-    dcm_exts = ('dcm', 'img')
+    dcm_exts = ("dcm", "img")
     return any([path.lower().endswith(x) for x in dcm_exts])
 
 
@@ -1208,10 +1311,9 @@ def make_zip(source_dir, dest_zip):
     # large zip files (seemingly > 2GB) and zips with more than about 65000
     # files. Soooo, doing it the hard way. Can change this if we ever move to
     # py3
-    with zipfile.ZipFile(dest_zip,
-                         "w",
-                         compression=zipfile.ZIP_DEFLATED,
-                         allowZip64=True) as zip_handle:
+    with zipfile.ZipFile(
+        dest_zip, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True
+    ) as zip_handle:
         # We want this to use 'w' flag, since it should overwrite any existing
         # zip of the same name
         for current_dir, folders, files in os.walk(source_dir):

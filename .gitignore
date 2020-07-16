@@ -42,6 +42,9 @@ docs/_build/
 # VS Code
 .vscode
 
+# pyenv
+.python-version
+
 # Miscellaneous
 .nfs*
 .*swp

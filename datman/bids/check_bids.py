@@ -7,14 +7,13 @@ Data is read off a YAML configuration file that specifies
 of each class of MR data within the BIDS framework
 """
 
-import yaml
-import os
 import logging
+import os
+
+import yaml
 
 logging.basicConfig(
-    level=logging.WARN,
-    format="[%(name)s %(levelname)s\
-                                                : %(message)s]",
+    level=logging.WARN, format="[%(name)s %(levelname)s: %(message)s]",
 )
 logger = logging.getLogger(os.path.basename(__file__))
 
@@ -30,16 +29,17 @@ class BIDSEnforcer(object):
         try:
             self.version = self.descriptor["VERSION"]
         except KeyError:
-            logger.error("No version indicated in"
-                         "BIDS syntax description file!")
-            logger.error("Add a VERSION key to {}".format(yml_file))
+            logger.error(
+                "No version indicated in BIDS syntax description file!"
+            )
+            logger.error(f"Add a VERSION key to {yml_file}")
 
         self.inverse_map = self._invert_descriptor_map()
         self.run_counter = {}
 
     def construct_bids_name(self, input_dict):
         """
-        Recieve a dictionary with input mappings (available in yaml)
+        Receive a dictionary with input mappings (available in yaml)
         then apply input constraints to ensure compliance with BIDS
         naming standards
 
@@ -62,18 +62,18 @@ class BIDSEnforcer(object):
                 entry = input_dict[f]
             except KeyError:
                 if req_or_opt == "required":
-                    logger.error("Missing required input: {}".format(f))
-                    logger.error("Input dict:", input_dict)
+                    logger.error(f"Missing required input: {f}")
+                    logger.error(f"Input dict: {input_dict}")
                     raise
             else:
                 if f not in KEYLESS_FIELDS:
-                    input_constructor.append("{}-{}".format(f, entry))
+                    input_constructor.append(f"{f}-{entry}")
                 else:
                     input_constructor.append(entry)
 
         if use_internal_run:
             run = self._get_run_count(tuple(input_constructor))
-            input_constructor.insert(-1, "run-{}".format(run))
+            input_constructor.insert(-1, f"run-{run}")
 
         return "_".join(input_constructor)
 
@@ -105,16 +105,16 @@ class BIDSEnforcer(object):
         Iterate through order
         """
 
-        field_list = [("global", o) for o in
-                      self.descriptor["global"]["order"]]
+        field_list = [("global", o) for o in self.descriptor["global"]["order"]]
 
         try:
             mode_field_list = self.descriptor[mode]["order"]
         except KeyError:
             yield []
 
-        field_list.extend([self._make_field_list(o, mode)
-                           for o in mode_field_list])
+        field_list.extend(
+            [self._make_field_list(o, mode) for o in mode_field_list]
+        )
 
         for m, f in field_list:
 

@@ -1,9 +1,35 @@
+docs_deploy: &docs
+  docker:
+    - image: node:8.10.0
+  steps:
+    - checkout
+    - attach_workspace:
+        at: docs/_build
+    - run:
+        name: Disable jekyll builds
+        command: touch docs/_build/html/.nojekyll
+    - run:
+        name: Install and configure dependencies
+        command: |
+          npm install -g --silent gh-pages@2.0.1
+          git config user.email "tigrlabcamh@gmail.com"
+          git config user.name "ci-build"
+    - add_ssh_keys:
+        fingerprints:
+          - "64:8f:b5:92:aa:6a:8b:d2:cc:9a:d8:49:4f:ae:d3:f6"
+    - run:
+        name: Deploy docs to gh-pages branch
+        command: gh-pages --dotfiles --message "doc(update) [skip ci]" --dist docs/_build/html
+
 version: 2.1
+
 orbs:
   codecov: codecov/codecov@1.0.5
+
 jobs:
+
   build:
-    working_directory: ~/datman
+    working_directory: /tmp/src/datman
     machine:
       image: ubuntu-1604:201903-01
     steps:
@@ -11,15 +37,15 @@ jobs:
       - run:
           name: Check if docs build before continuing
           command: |
-            cd ~/datman
             if [[ "$( git log --format='format:%s' -n 1 $CIRCLE_SHA1 | grep -iE '^docs?(\(\w+\))?:' )" != "" ]]; then
               echo "Will only be building Docs"
               circleci step halt
             fi
       - restore_cache:
-          keys: 
+          keys:
             - datman-v1-{{ .Branch }}-{{ checksum "setup.cfg" }}
             - datman-v1-{{ .Branch }}
+            - datman-v1-master-
             - datman-v1-
       - run:
           name: Set up installation and cache
@@ -29,8 +55,11 @@ jobs:
       - save_cache:
           key: datman-v1-{{ .Branch }}-{{ checksum "setup.cfg" }}
           paths:
-            ~/.cache/pip
-            /opt/circleci/.pyenv/versions/3.6.5/lib/python3.6.5/site-packages
+            - /tmp/python
+      - persist_to_workspace:
+          root: /tmp
+          paths:
+            - src/datman
       - run:
           name: Run pytest and output junit xml for codecov
           command: |
@@ -40,8 +69,9 @@ jobs:
       - codecov/upload:
           file: tests/results/junit*xml
           flags: unittests
+
   test_deploy_pypi:
-    working_directory: ~/datman
+    working_directory: /tmp/src/datman
     docker:
       - image: "python:3.6.5"
     steps:
@@ -67,11 +97,11 @@ jobs:
             THISVERSION=$( python get_version.py )
             THISVERSION=${THISVERSION%.dirty*}
             THISVERSION=${CIRCLE_TAG:-$THISVERSION}
-            echo "${THISVERSION}" > VERSION
+            echo "${CIRCLE_TAG:-%THISVERSION}" > VERSION
             python setup.py sdist
             pip wheel --no-deps -w dist/ .
       - store_artifacts:
-          path: ~/datman/dist
+          path: /tmp/src/datman/dist
       - run:
           name: Check sdist
           command: |
@@ -79,7 +109,7 @@ jobs:
             THISVERSION=$( python get_version.py )
             THISVERSION=${THISVERSION%.dirty*}
             THISVERSION=${CIRCLE_TAG:-$THISVERSION}
-            twine check ~/datman/dist/datman*tar.gz
+            twine check dist/datman*tar.gz
             pip install dist/datman*tar.gz
             INSTALLED_VER=$(python -c 'import datman; print(datman.__version__)')
             echo "CIRCLETAG: $CIRCLEC_TAG"
@@ -91,28 +121,27 @@ jobs:
           command: |
             python -m venv /tmp/whl
             source /tmp/whl/bin/activate
+            python -m pip install -U pip
+            python -m pip install "setuptools>=30.3.0" twine
 
             wrapt_ver=$(grep "wrapt" setup.cfg | tr -d ' ')
             pyyaml_ver=$(grep "pyyaml" setup.cfg | tr -d ' ')
             pip install "$wrapt_ver" "$pyyaml_ver"
 
-            pip install twine
             THISVERSION=$( python get_version.py )
             THISVERSION=${THISVERSION%.dirty*}
             THISVERSION=${CIRCLE_TAG:-$THISVERSION}
             twine check dist/datman*.whl
             pip install dist/datman*.whl
-
-
             INSTALLED_VER=$(python -c 'import datman; print(datman.__version__)')
             echo "VERSION: \"$THISVERSION\""
             echo "INSTALLED: \"$INSTALLED_VER\""
             test "$INSTALLED_VER" = "$THISVERSION"
       - store_artifacts:
-          path: ~/datman/dist
+          path: /tmp/src/datman/dist
 
   deployable:
-    working_directory: ~/datman
+    working_directory: /tmp/src/datman
     docker:
       - image: "python:3.6.5"
     steps:
@@ -121,7 +150,7 @@ jobs:
             echo "Deploying Datman!"
 
   deploy_pypi:
-    working_directory: ~/datman
+    working_directory: /tmp/src/datman
     docker:
       - image: "python:3.6.5"
     steps:
@@ -132,7 +161,16 @@ jobs:
             python -m venv /tmp/sdist
             source /tmp/sdist/bin/activate
             pip install -U pip
-            pip install "setuptools>=30.3.0 twine wrapt pyyaml"
+            pip install "setuptools>=30.3.0 twine"
+
+            wrapt_ver=$(grep "wrapt" setup.cfg | tr -d ' ')
+            pyyaml_ver=$(grep "pyyaml" setup.cfg | tr -d ' ')
+            pip install "$wrapt_ver" "$pyyaml_ver"
+      - run:
+          name: Build datman
+          command: |
+            source /tmp/sdist/bin/activate
+            THISVERSION=$( python get_version.py )
             THISVERSION=${THISVERSION%.dirty*}
             THISVERSION=${CIRCLE_TAG:-$THISVERSION}
             echo "${CIRCLE_TAG:-%THISVERSION}" > VERSION
@@ -143,6 +181,56 @@ jobs:
           command: |
             source /tmp/sdist/bin/activate
             twine upload dist/datman*
+
+  build_docs:
+    working_directory: /tmp/src/datman
+    docker:
+      - image: "python:3.6.5"
+    steps:
+      - restore_cache:
+          keys:
+            - datman-v1-{{ .Branch }}-{{ checksum "setup.cfg" }}
+            - datman-v1-{{ .Branch }}
+            - datman-v1-master
+            - datman-v1-
+          paths:
+            - ./docs/_build/_html
+      - checkout
+      - run:
+          name: Install deps
+          command: pip install --no-cache-dir -r docs/requirements.txt
+      - run:
+          name: Build only this commit
+          command: make -C docs SPHINXOPTS="-W" BUILDDIR="_build/no_version_html" html
+      - store_artifacts:
+          path: ./docs/_build/no_version_html
+      - run:
+          name: Generate Versioned Docs
+          command: |
+            set +e
+            force_versioned="$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[docs?[ _]?versions?\]' )"
+            set -e
+            if [[ "x${CIRCLE_TAG}" = "x" && "${CIRCLE_BRANCH}" != "master" && "x${force_versioned}" = "x" ]]; then
+              echo "Not a tag or master branch - skipping versioned docs."
+              circleci step halt
+            else
+              make -f ./docs/Makefile versioned CURBRANCH=${CIRCLE_TAG:-$CIRCLE_BRANCH}
+            fi
+      - save_cache:
+          key: docs-v1-{{ .Branch }}-{{ .Revision }}
+          paths:
+            - ./docs/_build/_html
+      - persist_to_workspace:
+          root: docs/_build
+          paths: html
+      - store_artifacts:
+          path: ./docs/_build/html
+
+  deploy_docs_tag:
+    <<: *docs
+
+  deploy_docs_master:
+    <<: *docs
 
 workflows:
   version: 2
@@ -182,3 +270,31 @@ workflows:
               ignore: /.*/
             tags:
               only: /.*/
+
+      - build_docs:
+          filters:
+            branches:
+              ignore:
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - deploy_docs_master:
+          requires:
+            - build_docs
+            - test_deploy_pypi
+          filters:
+            branches:
+              only: /master/
+            tags:
+              ignore: /.*/
+
+      - deploy_docs_tag:
+          requires:
+            - deployable
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /.*/
+
