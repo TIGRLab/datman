@@ -38,7 +38,7 @@ class TestSeries(unittest.TestCase):
 class TestScan(unittest.TestCase):
     good_name = "STUDY_CMH_9999_01"
     bad_name = "STUDYCMH_9999"
-    phantom = "STUDY_CMH_PHA_ID"
+    phantom = "STUDY_CMH_PHA_XXX9999"
     config = cfg.config(filename=site_config, system=system, study=study)
 
     def test_raises_parse_exception_with_bad_subject_id(self):
