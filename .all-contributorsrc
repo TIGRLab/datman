@@ -1,0 +1,33 @@
+{
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": false,
+  "contributors": [
+    {
+      "login": "DESm1th",
+      "name": "Dawn E. Smith",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/10541496?v=4",
+      "profile": "https://github.com/DESm1th",
+      "contributions": [
+        "code",
+        "doc",
+        "design",
+        "ideas",
+        "infra",
+        "maintenance",
+        "question",
+        "review",
+        "test",
+        "talk"
+      ]
+    }
+  ],
+  "contributorsPerLine": 7,
+  "projectName": "datman",
+  "projectOwner": "TIGRLab",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "skipCi": true
+}
