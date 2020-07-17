@@ -15,9 +15,11 @@ class XnatException(Exception):
     message = None
 
     def __repr__(self):
-        return (
-            f"Study: {self.study} Session: {self.session} Error: {self.message}"
-        )
+        if len(self.args) > 0:
+            message = self.args[0]
+        else:
+            message = "No message given"
+        return f'Study:{self.study} Session:{self.session} Error:{message}'
 
 
 class DashboardException(Exception):
