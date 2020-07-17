@@ -60,7 +60,9 @@ def main():
 
     config = datman.config.config()
     xnat = datman.xnat.get_connection(
-        config, url=server, auth=(user, password))
+        config,
+        url=server,
+        auth=(user, password) if user and password else None)
 
     if not name_path:
         rename_xnat_session(xnat, source, dest, project=project)
