@@ -531,8 +531,9 @@ def make_dataset_description(bids_dir, study_name, version):
 
     # Should be separate functionality
     p_dataset_desc = os.path.join(bids_dir, "dataset_description.json")
-    with open(p_dataset_desc, "w") as f:
-        json.dump({"Name": study_name, "BIDSVersion": version}, f, indent=3)
+    if not os.path.isfile(p_dataset_desc):
+        with open(p_dataset_desc, "w") as f:
+            json.dump({"Name": study_name, "BIDSVersion": version}, f, indent=3)
 
     return
 
