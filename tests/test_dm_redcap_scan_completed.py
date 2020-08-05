@@ -8,6 +8,7 @@ import datman.config
 
 rc = importlib.import_module('bin.dm_redcap_scan_completed')
 
+
 class TestParseID:
 
     datman_id = "ABC01_DEF_0001_01_01"
@@ -50,11 +51,12 @@ class TestParseID:
         with pytest.raises(ParseException):
             rc.parse_id(bad_id)
 
-
     @pytest.fixture
     def config(self):
         conf = Mock(spec=datman.config.config)
+
         def mock_get_key(key):
             raise datman.config.UndefinedSetting
+
         conf.get_key.side_effect = mock_get_key
         return conf
