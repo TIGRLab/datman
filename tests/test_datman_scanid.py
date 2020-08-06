@@ -36,6 +36,15 @@ def test_parse_good_datman_PHA_scanid():
     assert str(ident) == "DTI_CMH_PHA_ADN0001"
 
 
+def test_parse_good_date_based_datman_pha_scanid():
+    ident = scanid.parse("OPT01_UTO_PHA_FBN190603")
+    assert ident.study == "OPT01"
+    assert ident.site == "UTO"
+    assert ident.subject == "PHA_FBN190603"
+    assert ident.timepoint == ""
+    assert str(ident) == "OPT01_UTO_PHA_FBN190603"
+
+
 def test_parse_good_kcni_scanid():
     ident = scanid.parse("ABC01_CMH_12345678_01_SE02_MR")
     assert ident.study == 'ABC01'
@@ -59,7 +68,7 @@ def test_parses_datman_subject_id_as_datman_identifier():
 
 
 def test_parses_datman_pha_id_as_datman_identifier():
-    dm_pha = "DTI01_CMH_PHA_H001"
+    dm_pha = "DTI01_CMH_PHA_FBN0001"
     ident = scanid.parse(dm_pha)
     assert isinstance(ident, scanid.DatmanIdentifier)
 
@@ -138,6 +147,12 @@ def test_get_kcni_identifier_from_datman_pha_str():
     kcni_ident = scanid.get_kcni_identifier("ABC01_CMH_PHA_FBN0001")
     assert isinstance(kcni_ident, scanid.KCNIIdentifier)
     assert kcni_ident.orig_id == "ABC01_CMH_FBNPHA_0001_MR"
+
+
+def test_get_kcni_identifier_from_datman_date_based_pha_str():
+    kcni_ident = scanid.get_kcni_identifier("OPT01_UTO_PHA_FBN190603")
+    assert isinstance(kcni_ident, scanid.KCNIIdentifier)
+    assert kcni_ident.orig_id == "OPT01_UTO_FBNPHA_190603_MR"
 
 
 def test_get_kcni_identifier_from_datman_ident():
