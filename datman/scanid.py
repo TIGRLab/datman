@@ -79,7 +79,7 @@ class DatmanIdentifier(Identifier):
     pha_re = (
         "(?P<id>(?P<study>[^_]+)_"
         "(?P<site>[^_]+)_"
-        "(?P<subject>PHA_[^_]+)"
+        "(?P<subject>PHA_(?P<type>[A-Z]{3})(?P<num>[0-9]{4,6}))"
         "(?P<timepoint>)(?P<session>))"
     )  # empty tp + session
 
@@ -149,7 +149,7 @@ class KCNIIdentifier(Identifier):
         "(?P<id>(?P<study>[A-Z]{3}[0-9]{2})_"
         "(?P<site>[A-Z]{3})_"
         "(?P<pha_type>[A-Z]{3})PHA_"
-        "(?P<subject>[0-9]{4})_MR"
+        "(?P<subject>[0-9]{4,6})_MR"
         "(?P<timepoint>)(?P<session>))"
     )  # empty
 
@@ -586,10 +586,11 @@ def get_kcni_identifier(identifier, settings=None):
         )
         return KCNIIdentifier(kcni, settings)
 
-    # Break apart datman's phantom subject ID
-    pattern = re.compile("^PHA_(?P<type>[A-Z]{3})(?P<num>[0-9]{4})$")
-    match = pattern.match(ident.subject)
-    if not match:
+    try:
+        pha_type = ident._match_groups.group("type")
+        num = ident._match_groups.group("num")
+    except IndexError:
         raise ParseException(f"Can't parse datman phantom {ident} to KCNI ID")
-    subject = f"{match.group('type')}PHA_{match.group('num')}"
+    subject = f"{pha_type}PHA_{num}"
+
     return KCNIIdentifier(f"{study}_{site}_{subject}_MR", settings)
