@@ -1526,8 +1526,9 @@ class XNATExperiment(XNATObject):
         if not self.experiment:
             raise ValueError(f"No data found for {self.name}")
 
-        resources_list = self.scan_resource_IDs
+        resources_list = list(self.scan_resource_IDs)
         resources_list.extend(self.misc_resource_IDs)
+        resource_list.extend(self.resource_IDs)
 
         if not resources_list:
             raise ValueError(f"No scans or resources found for {self.name}")
