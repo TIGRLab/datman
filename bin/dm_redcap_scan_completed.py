@@ -87,7 +87,7 @@ def add_session_redcap(record, record_key):
             logger.error('Invalid session: {}, skipping'.format(subject_id))
             return
     try:
-        ident = datman.scanid.parse(subject_id)
+        ident = parse_id(subject_id)
     except datman.scanid.ParseException:
         logger.error('Invalid session: {}, skipping'.format(subject_id))
         return
@@ -122,6 +122,35 @@ def add_session_redcap(record, record_key):
     except Exception:
         logger.error('Failed adding REDCap info for session {} to '
                      'dashboard'.format(ident))
+
+
+def parse_id(subject_id):
+    """Parse the ID from the redcap form into datman convention.
+
+    Args:
+        subject_id (:obj:`str`): A string subject ID
+
+    Raises:
+        datman.scanid.ParseException: When an ID can't be converted to a
+            valid datman ID.
+
+    Returns:
+        datman.scanid.Identifier
+    """
+    ident = datman.scanid.parse(subject_id)
+
+    if isinstance(ident, datman.scanid.DatmanIdentifier):
+        return ident
+
+    # If the redcap form contained a KCNI ID, fields may need to be mapped to
+    # the datman version.
+    try:
+        id_map = cfg.get_key('ID_MAP')
+    except datman.config.UndefinedSetting:
+        # KCNI site and study fields match the datman fields.
+        return ident
+
+    return datman.scanid.parse(subject_id, settings=id_map)
 
 
 def main():
