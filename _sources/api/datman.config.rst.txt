@@ -1,0 +1,7 @@
+datman.config module
+====================
+
+.. automodule:: datman.config
+   :members:
+   :undoc-members:
+   :show-inheritance:

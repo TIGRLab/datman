@@ -1,0 +1,413 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>datman.config module &mdash; datman 0.2.0rc1 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/banner.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="datman.dashboard module" href="datman.dashboard.html" />
+    <link rel="prev" title="datman package" href="datman.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home" alt="Documentation Home"> datman
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.2.0rc1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../api.html">Library API (application program interface)</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="datman.html">datman package</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="datman.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l4 current"><a class="current reference internal" href="#">datman.config module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.dashboard.html">datman.dashboard module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.exceptions.html">datman.exceptions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.fs_log_scraper.html">datman.fs_log_scraper module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.header_checks.html">datman.header_checks module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.scan.html">datman.scan module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.scan_list.html">datman.scan_list module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.scanid.html">datman.scanid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.utils.html">datman.utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.xnat.html">datman.xnat module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../changes.html">What’s new?</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">datman</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="../api.html">Library API (application program interface)</a> &raquo;</li>
+        
+          <li><a href="datman.html">datman package</a> &raquo;</li>
+        
+      <li>datman.config module</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/api/datman.config.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  
+
+
+
+
+
+<div class="section" id="module-datman.config">
+<span id="datman-config-module"></span><h1>datman.config module<a class="headerlink" href="#module-datman.config" title="Permalink to this headline">¶</a></h1>
+<p>Return the site wide config file and project config files</p>
+<p>By default the system_config.yaml file is location is read from the
+environment variable <code class="docutils literal notranslate"><span class="pre">os.environ['DM_CONFIG']</span></code></p>
+<p>The system is identified from <code class="docutils literal notranslate"><span class="pre">os.environ['DM_SYSTEM']</span></code> and can be used to
+switch between multiple installations of datman or different computing systems.</p>
+<p>These can both be overridden at <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code></p>
+<dl class="class">
+<dt id="datman.config.TagInfo">
+<em class="property">class </em><code class="sig-prename descclassname">datman.config.</code><code class="sig-name descname">TagInfo</code><span class="sig-paren">(</span><em class="sig-param">export_settings</em>, <em class="sig-param">site_settings=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.config.TagInfo" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dl class="method">
+<dt id="datman.config.TagInfo.get">
+<code class="sig-name descname">get</code><span class="sig-paren">(</span><em class="sig-param">tag</em>, <em class="sig-param">field=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.config.TagInfo.get" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="datman.config.TagInfo.keys">
+<code class="sig-name descname">keys</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#datman.config.TagInfo.keys" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="datman.config.TagInfo.series_map">
+<em class="property">property </em><code class="sig-name descname">series_map</code><a class="headerlink" href="#datman.config.TagInfo.series_map" title="Permalink to this definition">¶</a></dt>
+<dd><p>Maps the ‘pattern’ fields onto the expected tags. If multiple patterns
+exist, they’re joined with ‘|’.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="datman.config.config">
+<em class="property">class </em><code class="sig-prename descclassname">datman.config.</code><code class="sig-name descname">config</code><span class="sig-paren">(</span><em class="sig-param">filename=None</em>, <em class="sig-param">system=None</em>, <em class="sig-param">study=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.config.config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dl class="method">
+<dt id="datman.config.config.get_key">
+<code class="sig-name descname">get_key</code><span class="sig-paren">(</span><em class="sig-param">key</em>, <em class="sig-param">site=None</em>, <em class="sig-param">ignore_defaults=False</em>, <em class="sig-param">defaults_only=False</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.config.config.get_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Searches the configuration from most specific settings to least to
+allow overrides + additional settings to be discovered.</p>
+<p>Searches from site (if given) -&gt; study -&gt; local system -&gt; system wide</p>
+<p>If ‘defaults_only’ is used the search will restrict itself to system
+wide settings and local system settings (i.e. settings from the main
+config file)</p>
+<p>If ‘ignore_defaults’ is set the search is restricted to only site (if
+site was given) or only the current study (if site was not).</p>
+<p>Raises UndefinedSetting if no value is found</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="datman.config.config.get_path">
+<code class="sig-name descname">get_path</code><span class="sig-paren">(</span><em class="sig-param">path_type</em>, <em class="sig-param">study=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.config.config.get_path" title="Permalink to this definition">¶</a></dt>
+<dd><p>returns the absolute path to a folder type</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="datman.config.config.get_sites">
+<code class="sig-name descname">get_sites</code><span class="sig-paren">(</span><em class="sig-param">study=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.config.config.get_sites" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="datman.config.config.get_study_base">
+<code class="sig-name descname">get_study_base</code><span class="sig-paren">(</span><em class="sig-param">study=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.config.config.get_study_base" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the base directory for a study</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="datman.config.config.get_study_tags">
+<code class="sig-name descname">get_study_tags</code><span class="sig-paren">(</span><em class="sig-param">study=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.config.config.get_study_tags" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a dictionary of study tags mapped to the sites defined for
+that tag.</p>
+<p>If a study has not been set then an exception is raised</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="datman.config.config.get_tags">
+<code class="sig-name descname">get_tags</code><span class="sig-paren">(</span><em class="sig-param">site=None</em>, <em class="sig-param">study=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.config.config.get_tags" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a TagInfo instance.</p>
+<p>If you get the tags without a study set or without specifying a site
+you get the configuration of all defined tags from ‘ExportSettings’ in
+the system config file.</p>
+<p>If you specify a site, you get the configuration for that site merged
+with the configuration of ‘ExportSettings’ for the tags matching that
+site. If there’s a key conflict between ‘ExportInfo’ (study config) and
+‘ExportSettings’ (system config) the values in ‘ExportInfo’ will
+override the values in ‘ExportSettings’.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="datman.config.config.get_xnat_projects">
+<code class="sig-name descname">get_xnat_projects</code><span class="sig-paren">(</span><em class="sig-param">study=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.config.config.get_xnat_projects" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="datman.config.config.install_config">
+<code class="sig-name descname">install_config</code><em class="property"> = None</em><a class="headerlink" href="#datman.config.config.install_config" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="datman.config.config.load_yaml">
+<code class="sig-name descname">load_yaml</code><span class="sig-paren">(</span><em class="sig-param">filename</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.config.config.load_yaml" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="datman.config.config.map_xnat_archive_to_project">
+<code class="sig-name descname">map_xnat_archive_to_project</code><span class="sig-paren">(</span><em class="sig-param">filename</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.config.config.map_xnat_archive_to_project" title="Permalink to this definition">¶</a></dt>
+<dd><p>Maps the XNAT tag (e.g. SPN01) to the project name e.g. SPINS
+Can either supply a full filename in which case only the first part
+is considered or just a tag.</p>
+<p>By default the project tag is extracted from the filename and matched
+to the “STUDY_TAG” in the study config file. If a study has used
+multiple site tags (e.g. SPN01, SPINS) these can be defined in the
+site specific [SITE_TAGS] key.</p>
+<p>One project tag (DTI) is shared between two xnat archives (DTI15T and
+DTI3T), the site is used to differentiate between them. As a result, if
+only a ‘DTI’ project tag is given this function raises an exception.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="datman.config.config.set_study">
+<code class="sig-name descname">set_study</code><span class="sig-paren">(</span><em class="sig-param">study_name</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.config.config.set_study" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function can take just the study ID for every study except DTI. So
+where possible, please give it an exact match to a project name or a
+full session ID.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="datman.config.config.study_config">
+<code class="sig-name descname">study_config</code><em class="property"> = None</em><a class="headerlink" href="#datman.config.config.study_config" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="datman.config.config.study_config_file">
+<code class="sig-name descname">study_config_file</code><em class="property"> = None</em><a class="headerlink" href="#datman.config.config.study_config_file" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="datman.config.config.study_name">
+<code class="sig-name descname">study_name</code><em class="property"> = None</em><a class="headerlink" href="#datman.config.config.study_name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="datman.config.config.system_config">
+<code class="sig-name descname">system_config</code><em class="property"> = None</em><a class="headerlink" href="#datman.config.config.system_config" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.config.study_required">
+<code class="sig-prename descclassname">datman.config.</code><code class="sig-name descname">study_required</code><span class="sig-paren">(</span><em class="sig-param">wrapper=None</em>, <em class="sig-param">enabled=None</em>, <em class="sig-param">adapter=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.config.study_required" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="datman.dashboard.html" class="btn btn-neutral float-right" title="datman.dashboard module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="datman.html" class="btn btn-neutral float-left" title="datman package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright Copyright 2019, The TIGRLab
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+        <span class="fa fa-book"> Other Versions</span>
+        v: master
+        <span class="fa fa-caret-down"></span>
+    </span>
+    <div class="rst-other-versions">
+        <dl>
+            <dt>Branches</dt>
+            <dd><a href="../master/api/datman.config.html">master</a></dd>
+        </dl>
+    </div>
+</div>
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

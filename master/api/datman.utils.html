@@ -1,0 +1,672 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>datman.utils module &mdash; datman 0.2.0rc1 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/banner.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="datman.xnat module" href="datman.xnat.html" />
+    <link rel="prev" title="datman.scanid module" href="datman.scanid.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home" alt="Documentation Home"> datman
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.2.0rc1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../api.html">Library API (application program interface)</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="datman.html">datman package</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="datman.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="datman.config.html">datman.config module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.dashboard.html">datman.dashboard module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.exceptions.html">datman.exceptions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.fs_log_scraper.html">datman.fs_log_scraper module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.header_checks.html">datman.header_checks module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.scan.html">datman.scan module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.scan_list.html">datman.scan_list module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.scanid.html">datman.scanid module</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">datman.utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.xnat.html">datman.xnat module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../changes.html">What’s new?</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">datman</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="../api.html">Library API (application program interface)</a> &raquo;</li>
+        
+          <li><a href="datman.html">datman package</a> &raquo;</li>
+        
+      <li>datman.utils module</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/api/datman.utils.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  
+
+
+
+
+
+<div class="section" id="module-datman.utils">
+<span id="datman-utils-module"></span><h1>datman.utils module<a class="headerlink" href="#module-datman.utils" title="Permalink to this headline">¶</a></h1>
+<p>A collection of utilities for generally munging imaging data.</p>
+<dl class="class">
+<dt id="datman.utils.XNATConnection">
+<em class="property">class </em><code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">XNATConnection</code><span class="sig-paren">(</span><em class="sig-param">xnat_url</em>, <em class="sig-param">user_name</em>, <em class="sig-param">password</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.XNATConnection" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="datman.utils.cd">
+<em class="property">class </em><code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">cd</code><span class="sig-paren">(</span><em class="sig-param">path</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.cd" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>A context manager for changing directory. Since best practices dictate
+returning to the original directory, saves the original directory and
+returns to it after the block has exited.</p>
+<p>May raise OSError if the given path doesn’t exist (or the current directory
+is deleted before switching back)</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.check_dependency_configured">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">check_dependency_configured</code><span class="sig-paren">(</span><em class="sig-param">program_name</em>, <em class="sig-param">shell_cmd=None</em>, <em class="sig-param">env_vars=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.check_dependency_configured" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>&lt;program_name&gt;      Name to add to the exception message if the program is</dt><dd><p>not correctly configured.</p>
+</dd>
+<dt>&lt;shell_cmd&gt;         A command line command that will be put into ‘which’,</dt><dd><p>to check whether the shell can find it.</p>
+</dd>
+<dt>&lt;env_vars&gt;          A list of shell variables that are expected to be set.</dt><dd><p>Doesnt verify the value of these vars, only that they
+are all set.</p>
+</dd>
+</dl>
+<p>Raises EnvironmentError if the command is not findable or if any
+environment variable isnt configured.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.check_returncode">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">check_returncode</code><span class="sig-paren">(</span><em class="sig-param">returncode</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.check_returncode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.define_folder">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">define_folder</code><span class="sig-paren">(</span><em class="sig-param">path</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.define_folder" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets a variable to be the path to a folder. Also, if the folder does not
+exist, this makes it so, unless we lack the permissions to do so, which
+leads to a graceful exit.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.filter_niftis">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">filter_niftis</code><span class="sig-paren">(</span><em class="sig-param">candidates</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.filter_niftis" title="Permalink to this definition">¶</a></dt>
+<dd><p>Takes a list and returns all items that contain the extensions
+‘.nii’ or ‘.nii.gz’.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.get_all_headers_in_folder">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">get_all_headers_in_folder</code><span class="sig-paren">(</span><em class="sig-param">path</em>, <em class="sig-param">recurse=False</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.get_all_headers_in_folder" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get DICOM headers for all files in the given path.</p>
+<p>Returns a dictionary mapping path-&gt;headers for <em>all</em> files (headers == None
+for files that are not dicoms).</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.get_archive_headers">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">get_archive_headers</code><span class="sig-paren">(</span><em class="sig-param">path</em>, <em class="sig-param">stop_after_first=False</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.get_archive_headers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get dicom headers from a scan archive.</p>
+<p>Path can be a path to a tarball or zip of dicom folders, or a folder. It is
+assumed that this archive contains the dicoms from a single exam, organized
+into folders for each series.</p>
+<p>The entire archive is scanned and dicom headers from a single file in each
+folder are returned as a dictionary that maps path-&gt;headers.</p>
+<p>If stop_after_first == True only a single set of dicom headers are
+returned for the entire archive, which is useful if you only care about the
+exam details.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.get_extension">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">get_extension</code><span class="sig-paren">(</span><em class="sig-param">path</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.get_extension" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the filename extension on this path.</p>
+<p>This is a slightly more sophisticated version of os.path.splitext in that
+this will correctly return the extension for ‘.tar.gz’ files, for example.
+:D</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.get_files_with_tag">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">get_files_with_tag</code><span class="sig-paren">(</span><em class="sig-param">parentdir</em>, <em class="sig-param">tag</em>, <em class="sig-param">fuzzy=False</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.get_files_with_tag" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list of files that have the specified tag.</p>
+<p>Filenames must conform to the datman naming convention (see
+scanid.parse_filename) in order to be considered.</p>
+<p>If fuzzy == True, then filenames are matched if the given tag is found
+within the filename’s tag.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.get_folder_headers">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">get_folder_headers</code><span class="sig-paren">(</span><em class="sig-param">path</em>, <em class="sig-param">stop_after_first=False</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.get_folder_headers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate a dictionary of subfolders and dicom headers.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.get_loaded_modules">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">get_loaded_modules</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.get_loaded_modules" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a space separated list of loaded modules</p>
+<p>These are modules loaded by the environment-modules system. This function
+just looks in the LOADEDMODULES environment variable for the list.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.get_relative_source">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">get_relative_source</code><span class="sig-paren">(</span><em class="sig-param">source</em>, <em class="sig-param">target</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.get_relative_source" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.get_resources">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">get_resources</code><span class="sig-paren">(</span><em class="sig-param">open_zipfile</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.get_resources" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.get_subject_metadata">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">get_subject_metadata</code><span class="sig-paren">(</span><em class="sig-param">config=None</em>, <em class="sig-param">study=None</em>, <em class="sig-param">allow_partial=False</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.get_subject_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns all QC’d session IDs mapped to any blacklisted scans they have</p>
+<p>This will collect and organize all checklist and blacklist data for a
+study. Sessions that do not have a completed checklist entry will have
+their blacklist entries ommitted from the output unless the ‘allow_partial’
+flag is used. This is done so that partially QC’d subjects do not
+accidentally get processed by downstream pipelines.</p>
+<p>Either a study name or a datman config object must be supplied to
+find the checklist and blacklist contents.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>config</strong> (<a class="reference internal" href="datman.config.html#datman.config.config" title="datman.config.config"><code class="xref py py-obj docutils literal notranslate"><span class="pre">datman.config.config</span></code></a>, optional) – A datman config object
+with the study set to the study of interest.</p></li>
+<li><p><strong>study</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>, optional) – A datman study name</p></li>
+<li><p><strong>allow_partial</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><em>bool</em></a><em>, </em><em>optional</em>) – Whether to include blacklist entries
+if the subject has not been fully QC’d (i.e. if they dont have
+a completed checklist entry yet). Defaults to False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A dictionary with any QC’d subject ID mapped to a list of
+blacklisted scan names that have been mangled to drop the series
+description and the file extension.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.8)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.get_tarfile_headers">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">get_tarfile_headers</code><span class="sig-paren">(</span><em class="sig-param">path</em>, <em class="sig-param">stop_after_first=False</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.get_tarfile_headers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get headers for dicom files within a tarball</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.get_xnat_credentials">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">get_xnat_credentials</code><span class="sig-paren">(</span><em class="sig-param">config</em>, <em class="sig-param">xnat_cred</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.get_xnat_credentials" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.get_zipfile_headers">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">get_zipfile_headers</code><span class="sig-paren">(</span><em class="sig-param">path</em>, <em class="sig-param">stop_after_first=False</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.get_zipfile_headers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get headers for a dicom file within a zipfile</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.has_permissions">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">has_permissions</code><span class="sig-paren">(</span><em class="sig-param">path</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.has_permissions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks for write access to submitted path.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.is_dicom">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">is_dicom</code><span class="sig-paren">(</span><em class="sig-param">fileobj</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.is_dicom" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.is_named_like_a_dicom">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">is_named_like_a_dicom</code><span class="sig-paren">(</span><em class="sig-param">path</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.is_named_like_a_dicom" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.locate_metadata">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">locate_metadata</code><span class="sig-paren">(</span><em class="sig-param">filename</em>, <em class="sig-param">study=None</em>, <em class="sig-param">subject=None</em>, <em class="sig-param">config=None</em>, <em class="sig-param">path=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.locate_metadata" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.make_temp_directory">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">make_temp_directory</code><span class="sig-paren">(</span><em class="sig-param">suffix=''</em>, <em class="sig-param">prefix='tmp'</em>, <em class="sig-param">path=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.make_temp_directory" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.make_zip">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">make_zip</code><span class="sig-paren">(</span><em class="sig-param">source_dir</em>, <em class="sig-param">dest_zip</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.make_zip" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.makedirs">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">makedirs</code><span class="sig-paren">(</span><em class="sig-param">path</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.makedirs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Make the directory (including parent directories) if they don’t exist</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.nifti_basename">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">nifti_basename</code><span class="sig-paren">(</span><em class="sig-param">fpath</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.nifti_basename" title="Permalink to this definition">¶</a></dt>
+<dd><p>return basename without extension (either .nii.gz or .nii)</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.read_blacklist">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">read_blacklist</code><span class="sig-paren">(</span><em class="sig-param">study=None</em>, <em class="sig-param">scan=None</em>, <em class="sig-param">subject=None</em>, <em class="sig-param">config=None</em>, <em class="sig-param">path=None</em>, <em class="sig-param">bids_ses=None</em>, <em class="sig-param">use_bids=False</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.read_blacklist" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function is used to look up blacklisted scans. If the dashboard is
+found it ONLY checks the dashboard database. Otherwise it expects a datman
+style ‘blacklist’ file on the filesystem.</p>
+<dl class="simple">
+<dt>This function can accept:</dt><dd><ul class="simple">
+<li><p>A study name (nickname, not study tag)</p></li>
+<li><p>A datman scan name (may include the full path and extension)</p></li>
+<li><p>A BIDS scan name (set the use_bids option to ‘True’)</p></li>
+<li><p>A subject ID</p></li>
+<li><p>A datman config object, initialized to the study being worked with</p></li>
+<li><dl class="simple">
+<dt>A full path directly to a blacklist file. If given, this will</dt><dd><p>circumvent any dashboard database checks and ignore any datman
+config files.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p>A dictionary of scan names mapped to the comment provided when they
+were blacklisted (Note: If reading from the filesystem, commas
+contained in comments will be removed)</p></li>
+<li><p>OR a dictionary of the same format containing only entries
+for a single subject if a specific subject ID was given</p></li>
+<li><p>OR the comment for a specific scan if a scan is given</p></li>
+<li><p>OR ‘None’ if a scan is given but not found in the blacklist</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.read_checklist">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">read_checklist</code><span class="sig-paren">(</span><em class="sig-param">study=None</em>, <em class="sig-param">subject=None</em>, <em class="sig-param">config=None</em>, <em class="sig-param">path=None</em>, <em class="sig-param">bids_id=None</em>, <em class="sig-param">bids_ses=None</em>, <em class="sig-param">use_bids=False</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.read_checklist" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function is used to look-up QC checklist entries. If the dashboard is
+found it will ONLY check the dashboard database, otherwise it expects a
+datman style ‘checklist’ file on the filesystem.</p>
+<dl class="simple">
+<dt>This function can accept either:</dt><dd><ol class="arabic simple">
+<li><p>A study name (nickname, not the study tag) or subject ID (Including
+a session number and may use BIDS ID instead of datman ID)</p></li>
+<li><p>A datman config object, initialized to the study being worked with</p></li>
+<li><p>A full path directly to a checklist file (Will circumvent the
+dashboard database check and ignore any datman config files)</p></li>
+</ol>
+</dd>
+</dl>
+<p>Set use_bids=True to return an entire study’s checklist organized by BIDS
+name instead of datman name. This option only works with dashboard
+integration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p>A dictionary of subject IDs mapped to their comment / name of the
+person who signed off on their data</p></li>
+<li><p>OR the comment for a specific subject if a subject ID is given</p></li>
+<li><p>OR ‘None’ if a specific subject ID is given and they’re not found
+in the list</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.read_credentials">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">read_credentials</code><span class="sig-paren">(</span><em class="sig-param">cred_file</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.read_credentials" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.remove_empty_files">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">remove_empty_files</code><span class="sig-paren">(</span><em class="sig-param">path</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.remove_empty_files" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.run">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">run</code><span class="sig-paren">(</span><em class="sig-param">cmd</em>, <em class="sig-param">dryrun=False</em>, <em class="sig-param">specialquote=True</em>, <em class="sig-param">verbose=True</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Runs the command in default shell, returning STDOUT and a return code.
+The return code uses the python convention of 0 for success, non-zero for
+failure</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.run_dummy_q">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">run_dummy_q</code><span class="sig-paren">(</span><em class="sig-param">list_of_names</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.run_dummy_q" title="Permalink to this definition">¶</a></dt>
+<dd><p>This holds the script until all of the queued items are done.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.split_path">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">split_path</code><span class="sig-paren">(</span><em class="sig-param">path</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.split_path" title="Permalink to this definition">¶</a></dt>
+<dd><p>Splits a path into all the component parts, returns a list</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">split_path</span><span class="p">(</span><span class="s1">&#39;a/b/c/d.txt&#39;</span><span class="p">)</span>
+<span class="go">[&#39;a&#39;, &#39;b&#39;, &#39;c&#39;, &#39;d.txt&#39;]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.splitext">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">splitext</code><span class="sig-paren">(</span><em class="sig-param">path</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.splitext" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function that will remove extension, including specially-defined extensions
+that fool os.path.splitext</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.submit_job">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">submit_job</code><span class="sig-paren">(</span><em class="sig-param">cmd</em>, <em class="sig-param">job_name</em>, <em class="sig-param">log_dir</em>, <em class="sig-param">system='other'</em>, <em class="sig-param">cpu_cores=1</em>, <em class="sig-param">walltime='2:00:00'</em>, <em class="sig-param">dryrun=False</em>, <em class="sig-param">partition=None</em>, <em class="sig-param">argslist=''</em>, <em class="sig-param">workdir='/tmp'</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.submit_job" title="Permalink to this definition">¶</a></dt>
+<dd><p>submits a job or joblist the queue depending on the system</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Command</strong><strong> or </strong><strong>list of commands to submit</strong> (<em>cmd</em>) – </p></li>
+<li><p><strong>The name for the job</strong> (<em>job_name</em>) – </p></li>
+<li><p><strong>Path to where the job logs should go</strong> (<em>log_dir</em>) – </p></li>
+<li><p><strong>Current system running</strong><strong> (</strong><strong>similar to</strong> (<em>system</em>) – DM_SYSTEM) [default=other]</p></li>
+<li><p><strong>Number of cores to allocate for</strong> (<em>cpu_cores</em>) – job [default=1]</p></li>
+<li><p><strong>Real clock time for job</strong><strong> [</strong><strong>default=2</strong> (<em>walltime</em>) – 00:00]</p></li>
+<li><p><strong>Set to true if you want job to not</strong> (<em>dryrun</em>) – submit [default=False]</p></li>
+<li><p><strong>Slurm partition. If none specified the</strong> (<em>partition</em>) – default queue will be used</p></li>
+<li><p><strong>String of additional slurm arguments</strong><strong> (</strong><strong>etc</strong> (<em>argslist</em>) – –mem X –verbose …) [default=None]</p></li>
+<li><p><strong>Location for slurm to use as the work</strong> (<em>workdir</em>) – dir [default=’/tmp’]</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.update_blacklist">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">update_blacklist</code><span class="sig-paren">(</span><em class="sig-param">entries</em>, <em class="sig-param">study=None</em>, <em class="sig-param">config=None</em>, <em class="sig-param">path=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.update_blacklist" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.update_checklist">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">update_checklist</code><span class="sig-paren">(</span><em class="sig-param">entries</em>, <em class="sig-param">study=None</em>, <em class="sig-param">config=None</em>, <em class="sig-param">path=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.update_checklist" title="Permalink to this definition">¶</a></dt>
+<dd><p>Handles QC checklist updates. Will preferentially update the dashboard
+(ignoring any ‘checklist.csv’ files) unless the dashboard is not installed
+or a specific path is given to a file.</p>
+<p>&lt;entries&gt; should be a dictionary with subject IDs (minus session/repeat) as
+the keys and qc entries as the value (with an empty string for new/blank
+QC entries)</p>
+<p>This will raise a MetadataException if any part of the update fails for
+any entry.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.validate_subject_id">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">validate_subject_id</code><span class="sig-paren">(</span><em class="sig-param">subject_id</em>, <em class="sig-param">config</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.validate_subject_id" title="Permalink to this definition">¶</a></dt>
+<dd><p>Ensures subject ID correctness based on configuration settings.</p>
+<dl class="simple">
+<dt>This checks that a given ID:</dt><dd><ol class="arabic simple">
+<li><p>Matches a supported naming convention</p></li>
+<li><p>Matches a study tag that’s defined in the configuration file for
+the current study</p></li>
+<li><p>Matches a site that is defined for the study tag</p></li>
+</ol>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>subject_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – A subject ID to check.</p></li>
+<li><p><strong>config</strong> (<a class="reference internal" href="datman.config.html#datman.config.config" title="datman.config.config"><code class="xref py py-obj docutils literal notranslate"><span class="pre">datman.config.config</span></code></a>) – A datman config instance that
+has been initialized to the study the subject ID should belong to.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><a class="reference internal" href="datman.exceptions.html#datman.exceptions.ParseException" title="datman.exceptions.ParseException"><strong>ParseException</strong></a> – When an ID is given that does not match any supported
+    convention or that contains incorrect fields for the current study.</p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><dl class="simple">
+<dt>A parsed datman identifier matching</dt><dd><p>subject_id</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="datman.scanid.html#datman.scanid.Identifier" title="datman.scanid.Identifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">datman.scanid.Identifier</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.utils.write_metadata">
+<code class="sig-prename descclassname">datman.utils.</code><code class="sig-name descname">write_metadata</code><span class="sig-paren">(</span><em class="sig-param">lines</em>, <em class="sig-param">path</em>, <em class="sig-param">retry=3</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.utils.write_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Repeatedly attempts to write lines to &lt;path&gt;. The destination file
+will be overwritten with &lt;lines&gt; so any contents you wish to preserve
+should be contained within the list.</p>
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="datman.xnat.html" class="btn btn-neutral float-right" title="datman.xnat module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="datman.scanid.html" class="btn btn-neutral float-left" title="datman.scanid module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright Copyright 2019, The TIGRLab
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+        <span class="fa fa-book"> Other Versions</span>
+        v: master
+        <span class="fa fa-caret-down"></span>
+    </span>
+    <div class="rst-other-versions">
+        <dl>
+            <dt>Branches</dt>
+            <dd><a href="datman.utils.html">master</a></dd>
+        </dl>
+    </div>
+</div>
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

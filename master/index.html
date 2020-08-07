@@ -1,0 +1,403 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>datman &mdash; datman 0.2.0rc1 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/banner.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Installation" href="installation.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="#" class="icon icon-home" alt="Documentation Home"> datman
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.2.0rc1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">Library API (application program interface)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changes.html">What’s new?</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">datman</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="#" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>datman</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  
+
+
+
+
+
+<div class="section" id="datman">
+<h1>datman<a class="headerlink" href="#datman" title="Permalink to this headline">¶</a></h1>
+<a class="reference external image-reference" href="https://zenodo.org/badge/latestdoi/29540972"><img alt="https://zenodo.org/badge/29540972.svg" src="https://zenodo.org/badge/29540972.svg" /></a>
+<p>A set of python scripts we use for three major functions:</p>
+<ul class="simple">
+<li><p>Managing data in our XNAT database: <a class="reference external" href="https://xnat.imaging-genetics.camh.ca">https://xnat.imaging-genetics.camh.ca</a></p></li>
+<li><p>Quality control of this data</p></li>
+<li><p>Running this data through the myriad of analytic pipelines that exist today.</p></li>
+</ul>
+<p><strong>links</strong></p>
+<ul class="simple">
+<li><p>[Introduction](#introduction)</p></li>
+<li><p>[Datman Overview](#datman-overview)</p></li>
+<li><p>[Quality Control](#quality-control)</p></li>
+<li><p>[XNAT Database](<a class="reference external" href="http://imaging-genetics.camh.ca/database/">http://imaging-genetics.camh.ca/database/</a>)</p></li>
+</ul>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p><strong>definitions</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Exam/Scan: A series of MRI acquisitions completed in one sitting.</p></li>
+<li><p>Series/Acquisition: A single image of a subject in one modality</p></li>
+<li><p>Exam archive: The raw data taken during an exam. For MRI, this could be a
+folder structure of DICOM images, or a tarball/zipfile of that same data,</p></li>
+<li><p>Type tag: A short, keyword that distinguishes a kind of acquisition from
+other kinds in a study. For instance, T1, DTI, REST. These type tags are
+used in the file naming and follow-on processing scripts to identify
+acquisitions without having to parse their headers/description/etc…</p></li>
+</ul>
+</div></blockquote>
+<p><strong>dependencies</strong></p>
+<ul class="simple">
+<li><p>[scipy stack](<a class="reference external" href="http://www.scipy.org/stackspec.html">http://www.scipy.org/stackspec.html</a>) for general analysis.</p></li>
+<li><p>[NiBabel](<a class="reference external" href="http://nipy.org/nibabel/">http://nipy.org/nibabel/</a>) for NIFTI reading/writing.</p></li>
+<li><p>[qcmon](<a class="reference external" href="https://github.com/josephdviviano/qcmon">https://github.com/josephdviviano/qcmon</a>) for running QC metrics.</p></li>
+</ul>
+<p><strong>setup</strong></p>
+<p>Datman requires that each project in XNAT’s <cite>Define Prearchive Settings</cite> under <cite>Manage</cite> be set to ‘All image data will be placed into the archive automatically and will overwrite existing files. Data which doesn’t match a pre-existing project will be placed in an ‘Unassigned’ project.’</p>
+<p>To setup the datman python package:</p>
+<blockquote>
+<div><p>git clone <a class="reference external" href="https://github.com/tigrlab/datman">https://github.com/tigrlab/datman</a>
+cd datman
+conda env create &amp;&amp; . activate datman-env      # only if you are using anaconda
+python setup.py install</p>
+</div></blockquote>
+<p>Your environment needs to be set up as so:</p>
+<ul class="simple">
+<li><p>Set <cite>DATMAN_ASSETS</cite> to point to datman/assets.</p></li>
+<li><p>Add datman/assets to your PYTHONPATH`and <cite>MATLABPATH</cite>.</p></li>
+</ul>
+</div>
+<div class="section" id="datman-overview">
+<h2>Datman Overview<a class="headerlink" href="#datman-overview" title="Permalink to this headline">¶</a></h2>
+<p>![](assets/imgs/data_flow.png)</p>
+</div>
+<div class="section" id="quality-control">
+<h2>Quality Control<a class="headerlink" href="#quality-control" title="Permalink to this headline">¶</a></h2>
+<p>Datman runs a standard QC pipeline on all major datatypes. It largely does this using the [qcmon](<a class="reference external" href="https://github.com/josephdviviano/qcmon">https://github.com/josephdviviano/qcmon</a>) project.</p>
+<p>We QC the data at two levels: single subject, and chronologically. When QCing a single subject, we’re looking for major artifacts in the data, or problems with the subject (tumors, strokes, etc). When we are QCing chronologically, we’re looking for things in one subject that look rather different from all of the others (or most of the others). This is a good practice when you don’t know of a good ‘cut-off’. For example, no one know what SNR number is so low that the data becomes corrupted.</p>
+<p>The report generator also runs all of the QC metrics on our data. These files are placed (for each subject) in:</p>
+<p><cite>/archive/data/${project}/qc/${subject}</cite></p>
+<p>A single-subject report will be generated here:</p>
+<p><cite>/archive/data/${project}/qc/${subject}/qc_${subject}.html</cite>.</p>
+<p>All other files are used for chronological analysis. They will have a ‘prefix’ being the nifti file it was generated from. So <cite>SPN01_ZHH_0018_01_01_RST_06_Resting-State-212_spectra.csv</cite> is the spectra of <cite>SPN01_ZHH_0018_01_01_RST_06_Resting-State-212.nii.gz</cite></p>
+<p><strong>human fmri metrics</strong></p>
+<ul class="simple">
+<li><dl class="simple">
+<dt><cite>${prefix}_stats.csv</cite></dt><dd><ul>
+<li><p>mean_fd: average framewise displacement (instantaneous head motion) across the whole run.</p></li>
+<li><p>n_bad_fd: number of FD measures above 0.2 mm.</p></li>
+<li><p>%_bad_fd: % of the run that are ‘bad’ FD measures.</p></li>
+<li><p>global_corr: takes the average of the average correlation of each voxel with the rest of the brain.</p></li>
+<li><p>mean_sfnr: average signal fluctuation to noise ratio measure across the brain.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p><cite>${prefix}_spectra.csv</cite>: average and standard deviation of the BOLD timeseries spectra across the brain.</p></li>
+<li><p><cite>${prefix}_scanlength.csv</cite>: number of TRs in the obtained scan.</p></li>
+<li><dl class="simple">
+<dt><cite>${prefix}_qascripts_bold.csv</cite>: a collection of QA measures from the qascripts package</dt><dd><ul>
+<li><p>tsnr: temporal signal to noise ratio</p></li>
+<li><p>gmean: global mean intensity</p></li>
+<li><p>drift: linear drift of signal over time</p></li>
+<li><p>driftpercent: ?</p></li>
+<li><p>outmax / outmin / outcount: outlier measuresments</p></li>
+<li><p>meanABSrms, meanRELrms, maxABSrms, maxRELrms: average/maximum, absolute/relative root-mean-square of ? calculated during head motion correction.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p><cite>${prefix}_fd.csv</cite>: framewise displacement vector (instantaneous head motion, per TR).</p></li>
+<li><p><cite>${prefix}_corr.nii.gz</cite>: per-voxel correlation of each voxel with the rest of the brain.</p></li>
+<li><p><cite>${prefix}_sfnr.nii.gz</cite>: per-voxel signal fluctuation to noise ratio.</p></li>
+</ul>
+<p><strong>human dti metrics</strong></p>
+<ul class="simple">
+<li><dl class="simple">
+<dt><cite>${prefix}_stats.csv</cite>:</dt><dd><ul>
+<li><p>ndirs: number of encoding directions</p></li>
+<li><p>nb0s: number of b0 images</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>${prefix}_qascripts_dti.csv</cite>:</dt><dd><ul>
+<li><p>tsnr_bX: temporal signal to noise ratio of the encoding directions</p></li>
+<li><p>gmean_bX: global mean of the encoding directions</p></li>
+<li><p>drift_bX: drift of the encoding directions</p></li>
+<li><p>driftpercent: ?</p></li>
+<li><p>outmax_bX / outmean_bX / outcount_bX: outlier measuresments</p></li>
+<li><p>meanABSrms, meanRELrms, maxABSrms, maxRELrms: average/maximum, absolute/relative root-mean-square of ? calculated during head motion correction.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+<p><strong>phantom ADNI metrics</strong></p>
+<p>This tracks the T1 weighted value across the 5 primary ROIs in the ADNI phantom, and the T1 ratios between each of the higher ones with the lowest one. For more information, please see <a class="reference external" href="http://www.phantomlab.com/library/pdf/magphan_adni_manual.pdf">http://www.phantomlab.com/library/pdf/magphan_adni_manual.pdf</a>.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>mean s1, s2, s3, s4, s5</p></li>
+<li><p>intensitiy ratios: s2/s1, s3/s1, s4/s1, s5/s1</p></li>
+</ul>
+</div></blockquote>
+<p><strong>phantom fBIRN fMRI</strong></p>
+<p>This uses the fBIRN pipeline to define % signal fluctuation, linear drift, signal to noise ratio, signal-to-fluctuation noise ratio, and radius of decorrelation. For more information, please see [1], <a class="reference external" href="http://www.ncbi.nlm.nih.gov/pubmed/16649196">http://www.ncbi.nlm.nih.gov/pubmed/16649196</a>.</p>
+<p><strong>phantom fBRIN DTI</strong></p>
+<p>A pipeline designed by Sofia Chavez to assess the performance of DTI protocols.</p>
+<p><strong>further reading</strong></p>
+<p>&gt; [1] Spurious but systematic correlations in functional connectivity MRI networks arise from subject motion. Jonathan D. Power et al. 2011. Neuroimage 59:3.
+&gt; [2] Report on a multicenter fMRI quality assurance protocol. Friedman L et al. 2006. J Magn Reson Imaging 23(6).</p>
+</div>
+<div class="section" id="contents">
+<h2>Contents<a class="headerlink" href="#contents" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#required-variables">Required Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#optional-variables">Optional Variables</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#configuration-files">Configuration Files</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">Library API (application program interface)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/datman.html">datman package</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="changes.html">What’s new?</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="changes.html#rc1-january-02-2020">0.2.0rc1 (January 02, 2020)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changes.html#december-11-2019">0.1.0 (December 11, 2019)</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="indices-and-tables">
+<h2>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="installation.html" class="btn btn-neutral float-right" title="Installation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright Copyright 2019, The TIGRLab
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+        <span class="fa fa-book"> Other Versions</span>
+        v: master
+        <span class="fa fa-caret-down"></span>
+    </span>
+    <div class="rst-other-versions">
+        <dl>
+            <dt>Branches</dt>
+            <dd><a href="index.html">master</a></dd>
+        </dl>
+    </div>
+</div>
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

@@ -1,0 +1,592 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>datman.scanid module &mdash; datman 0.2.0rc1 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/banner.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="datman.utils module" href="datman.utils.html" />
+    <link rel="prev" title="datman.scan_list module" href="datman.scan_list.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home" alt="Documentation Home"> datman
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.2.0rc1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../api.html">Library API (application program interface)</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="datman.html">datman package</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="datman.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="datman.config.html">datman.config module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.dashboard.html">datman.dashboard module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.exceptions.html">datman.exceptions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.fs_log_scraper.html">datman.fs_log_scraper module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.header_checks.html">datman.header_checks module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.scan.html">datman.scan module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.scan_list.html">datman.scan_list module</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">datman.scanid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.utils.html">datman.utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.xnat.html">datman.xnat module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../changes.html">What’s new?</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">datman</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="../api.html">Library API (application program interface)</a> &raquo;</li>
+        
+          <li><a href="datman.html">datman package</a> &raquo;</li>
+        
+      <li>datman.scanid module</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/api/datman.scanid.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  
+
+
+
+
+
+<div class="section" id="module-datman.scanid">
+<span id="datman-scanid-module"></span><h1>datman.scanid module<a class="headerlink" href="#module-datman.scanid" title="Permalink to this headline">¶</a></h1>
+<p>Manages name conventions and functions to ensure that IDs conform to them.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>While multiple ID conventions are supported (Datman, KCNI, BIDS)
+the datman convention is the ‘base’/default convention used. As a result
+all conventions get parsed into datman fields and return datman IDs when
+get_full_subjectid and other similar methods are called. The original ID
+in its native convention can always be retrieved from ‘orig_id’.</p>
+</div>
+<dl class="class">
+<dt id="datman.scanid.BIDSFile">
+<em class="property">class </em><code class="sig-prename descclassname">datman.scanid.</code><code class="sig-name descname">BIDSFile</code><span class="sig-paren">(</span><em class="sig-param">subject</em>, <em class="sig-param">session</em>, <em class="sig-param">suffix</em>, <em class="sig-param">task=None</em>, <em class="sig-param">acq=None</em>, <em class="sig-param">ce=None</em>, <em class="sig-param">dir=None</em>, <em class="sig-param">rec=None</em>, <em class="sig-param">run=None</em>, <em class="sig-param">echo=None</em>, <em class="sig-param">mod=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.BIDSFile" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="datman.scanid.DatmanIdentifier">
+<em class="property">class </em><code class="sig-prename descclassname">datman.scanid.</code><code class="sig-name descname">DatmanIdentifier</code><span class="sig-paren">(</span><em class="sig-param">identifier</em>, <em class="sig-param">settings=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.DatmanIdentifier" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#datman.scanid.Identifier" title="datman.scanid.Identifier"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.scanid.Identifier</span></code></a></p>
+<p>Parses a datman-style ID into fields.</p>
+<p>The datman convention is detailed
+<a class="reference external" href="https://github.com/TIGRLab/documentation/wiki/Data-Naming">here</a></p>
+<dl class="method">
+<dt id="datman.scanid.DatmanIdentifier.get_xnat_experiment_id">
+<code class="sig-name descname">get_xnat_experiment_id</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.DatmanIdentifier.get_xnat_experiment_id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="datman.scanid.DatmanIdentifier.get_xnat_subject_id">
+<code class="sig-name descname">get_xnat_subject_id</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.DatmanIdentifier.get_xnat_subject_id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="datman.scanid.DatmanIdentifier.pha_pattern">
+<code class="sig-name descname">pha_pattern</code><em class="property"> = re.compile('^(?P&lt;id&gt;(?P&lt;study&gt;[^_]+)_(?P&lt;site&gt;[^_]+)_(?P&lt;subject&gt;PHA_(?P&lt;type&gt;[A-Z]{3})(?P&lt;num&gt;[0-9]{4,6}))(?P&lt;timepoint&gt;)(?P&lt;session&gt;))$')</em><a class="headerlink" href="#datman.scanid.DatmanIdentifier.pha_pattern" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="datman.scanid.DatmanIdentifier.pha_re">
+<code class="sig-name descname">pha_re</code><em class="property"> = '(?P&lt;id&gt;(?P&lt;study&gt;[^_]+)_(?P&lt;site&gt;[^_]+)_(?P&lt;subject&gt;PHA_(?P&lt;type&gt;[A-Z]{3})(?P&lt;num&gt;[0-9]{4,6}))(?P&lt;timepoint&gt;)(?P&lt;session&gt;))'</em><a class="headerlink" href="#datman.scanid.DatmanIdentifier.pha_re" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="datman.scanid.DatmanIdentifier.scan_pattern">
+<code class="sig-name descname">scan_pattern</code><em class="property"> = re.compile('^(?P&lt;id&gt;(?P&lt;study&gt;[^_]+)_(?P&lt;site&gt;[^_]+)_(?P&lt;subject&gt;[^_]+)(?&lt;!PHA)_(?P&lt;timepoint&gt;[^_]+)_(?!MR)(?!SE)(?P&lt;session&gt;[^_]+))$')</em><a class="headerlink" href="#datman.scanid.DatmanIdentifier.scan_pattern" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="datman.scanid.DatmanIdentifier.scan_re">
+<code class="sig-name descname">scan_re</code><em class="property"> = '(?P&lt;id&gt;(?P&lt;study&gt;[^_]+)_(?P&lt;site&gt;[^_]+)_(?P&lt;subject&gt;[^_]+)(?&lt;!PHA)_(?P&lt;timepoint&gt;[^_]+)_(?!MR)(?!SE)(?P&lt;session&gt;[^_]+))'</em><a class="headerlink" href="#datman.scanid.DatmanIdentifier.scan_re" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="datman.scanid.DatmanIdentifier.session">
+<em class="property">property </em><code class="sig-name descname">session</code><a class="headerlink" href="#datman.scanid.DatmanIdentifier.session" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="datman.scanid.Identifier">
+<em class="property">class </em><code class="sig-prename descclassname">datman.scanid.</code><code class="sig-name descname">Identifier</code><a class="headerlink" href="#datman.scanid.Identifier" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">abc.ABC</span></code></a></p>
+<dl class="method">
+<dt id="datman.scanid.Identifier.get_bids_name">
+<code class="sig-name descname">get_bids_name</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.Identifier.get_bids_name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="datman.scanid.Identifier.get_full_subjectid">
+<code class="sig-name descname">get_full_subjectid</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.Identifier.get_full_subjectid" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="datman.scanid.Identifier.get_full_subjectid_with_timepoint">
+<code class="sig-name descname">get_full_subjectid_with_timepoint</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.Identifier.get_full_subjectid_with_timepoint" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="datman.scanid.Identifier.get_full_subjectid_with_timepoint_session">
+<code class="sig-name descname">get_full_subjectid_with_timepoint_session</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.Identifier.get_full_subjectid_with_timepoint_session" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="datman.scanid.Identifier.get_xnat_experiment_id">
+<em class="property">abstract </em><code class="sig-name descname">get_xnat_experiment_id</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.Identifier.get_xnat_experiment_id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="datman.scanid.Identifier.get_xnat_subject_id">
+<em class="property">abstract </em><code class="sig-name descname">get_xnat_subject_id</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.Identifier.get_xnat_subject_id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="datman.scanid.Identifier.match">
+<code class="sig-name descname">match</code><span class="sig-paren">(</span><em class="sig-param">identifier</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.Identifier.match" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="datman.scanid.KCNIIdentifier">
+<em class="property">class </em><code class="sig-prename descclassname">datman.scanid.</code><code class="sig-name descname">KCNIIdentifier</code><span class="sig-paren">(</span><em class="sig-param">identifier</em>, <em class="sig-param">settings=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.KCNIIdentifier" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#datman.scanid.Identifier" title="datman.scanid.Identifier"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.scanid.Identifier</span></code></a></p>
+<p>Parses a KCNI style ID into datman-style fields.</p>
+<p>The KCNI convention is detailed
+<a class="reference external" href="http://neurowiki.camh.ca/mediawiki/index.php/XNATNamingConvention">here.</a></p>
+<dl class="method">
+<dt id="datman.scanid.KCNIIdentifier.get_xnat_experiment_id">
+<code class="sig-name descname">get_xnat_experiment_id</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.KCNIIdentifier.get_xnat_experiment_id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="datman.scanid.KCNIIdentifier.get_xnat_subject_id">
+<code class="sig-name descname">get_xnat_subject_id</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.KCNIIdentifier.get_xnat_subject_id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="datman.scanid.KCNIIdentifier.pha_pattern">
+<code class="sig-name descname">pha_pattern</code><em class="property"> = re.compile('^(?P&lt;id&gt;(?P&lt;study&gt;[A-Z]{3}[0-9]{2})_(?P&lt;site&gt;[A-Z]{3})_(?P&lt;pha_type&gt;[A-Z]{3})PHA_(?P&lt;subject&gt;[0-9]{4,6})_MR(?P&lt;timepoint&gt;)(?P&lt;session&gt;))$')</em><a class="headerlink" href="#datman.scanid.KCNIIdentifier.pha_pattern" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="datman.scanid.KCNIIdentifier.pha_re">
+<code class="sig-name descname">pha_re</code><em class="property"> = '(?P&lt;id&gt;(?P&lt;study&gt;[A-Z]{3}[0-9]{2})_(?P&lt;site&gt;[A-Z]{3})_(?P&lt;pha_type&gt;[A-Z]{3})PHA_(?P&lt;subject&gt;[0-9]{4,6})_MR(?P&lt;timepoint&gt;)(?P&lt;session&gt;))'</em><a class="headerlink" href="#datman.scanid.KCNIIdentifier.pha_re" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="datman.scanid.KCNIIdentifier.scan_pattern">
+<code class="sig-name descname">scan_pattern</code><em class="property"> = re.compile('^(?P&lt;id&gt;(?P&lt;study&gt;[A-Z]{3}[0-9]{2})_(?P&lt;site&gt;[A-Z]{3})_(?P&lt;subject&gt;[A-Z0-9]{4,8})_(?P&lt;timepoint&gt;[0-9]{2})_SE(?P&lt;session&gt;[0-9]{2})_MR)$')</em><a class="headerlink" href="#datman.scanid.KCNIIdentifier.scan_pattern" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="datman.scanid.KCNIIdentifier.scan_re">
+<code class="sig-name descname">scan_re</code><em class="property"> = '(?P&lt;id&gt;(?P&lt;study&gt;[A-Z]{3}[0-9]{2})_(?P&lt;site&gt;[A-Z]{3})_(?P&lt;subject&gt;[A-Z0-9]{4,8})_(?P&lt;timepoint&gt;[0-9]{2})_SE(?P&lt;session&gt;[0-9]{2})_MR)'</em><a class="headerlink" href="#datman.scanid.KCNIIdentifier.scan_re" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.scanid.get_field">
+<code class="sig-prename descclassname">datman.scanid.</code><code class="sig-name descname">get_field</code><span class="sig-paren">(</span><em class="sig-param">match</em>, <em class="sig-param">field</em>, <em class="sig-param">settings=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.get_field" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find the value of an ID field, allowing for user specified changes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>match</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">re.Match</span></code>) – A match object created from a valid ID</p></li>
+<li><p><strong>field</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – An ID field name. This is lower case and
+corresponds to the match groups of valid (supported) ID (e.g.
+study, site, subject)</p></li>
+<li><p><strong>settings</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code></a>, optional) – User settings to specify fields that
+should be modified and how to modify them. See the settings
+description in <a class="reference internal" href="#datman.scanid.parse" title="datman.scanid.parse"><code class="xref py py-func docutils literal notranslate"><span class="pre">parse()</span></code></a> for more info. Defaults to None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>The value of the field based on the re.Match groups and user</dt><dd><p>settings.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.scanid.get_kcni_identifier">
+<code class="sig-prename descclassname">datman.scanid.</code><code class="sig-name descname">get_kcni_identifier</code><span class="sig-paren">(</span><em class="sig-param">identifier</em>, <em class="sig-param">settings=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.get_kcni_identifier" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get a KCNIIdentifier from a valid string or an identifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>identifier</strong> (<a class="reference external" href="https://docs.python.org/3/library/string.html#module-string" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">string</span></code></a>) – A string matching a supported naming
+convention.</p></li>
+<li><p><strong>settings</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code></a>, optional) – A settings dictionary matching the
+format described in <a class="reference internal" href="#datman.scanid.parse" title="datman.scanid.parse"><code class="xref py py-func docutils literal notranslate"><span class="pre">parse()</span></code></a>. Defaults to None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><a class="reference internal" href="datman.exceptions.html#datman.exceptions.ParseException" title="datman.exceptions.ParseException"><strong>ParseException</strong></a> – When an ID that doesnt match any supported convention
+    is given or when a valid ID can’t be converted to KCNI format.</p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><dl class="simple">
+<dt>An instance of a KCNI identifier with any field</dt><dd><p>mappings applied.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#datman.scanid.KCNIIdentifier" title="datman.scanid.KCNIIdentifier">KCNIIdentifier</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.scanid.get_session_num">
+<code class="sig-prename descclassname">datman.scanid.</code><code class="sig-name descname">get_session_num</code><span class="sig-paren">(</span><em class="sig-param">ident</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.get_session_num" title="Permalink to this definition">¶</a></dt>
+<dd><p>For those times when you always want a numeric session (including
+for phantoms who are technically always session ‘1’)</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.scanid.is_phantom">
+<code class="sig-prename descclassname">datman.scanid.</code><code class="sig-name descname">is_phantom</code><span class="sig-paren">(</span><em class="sig-param">identifier</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.is_phantom" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="datman.scanid.is_scanid">
+<code class="sig-prename descclassname">datman.scanid.</code><code class="sig-name descname">is_scanid</code><span class="sig-paren">(</span><em class="sig-param">identifier</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.is_scanid" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="datman.scanid.is_scanid_with_session">
+<code class="sig-prename descclassname">datman.scanid.</code><code class="sig-name descname">is_scanid_with_session</code><span class="sig-paren">(</span><em class="sig-param">identifier</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.is_scanid_with_session" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="datman.scanid.make_filename">
+<code class="sig-prename descclassname">datman.scanid.</code><code class="sig-name descname">make_filename</code><span class="sig-paren">(</span><em class="sig-param">ident</em>, <em class="sig-param">tag</em>, <em class="sig-param">series</em>, <em class="sig-param">description</em>, <em class="sig-param">ext=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.make_filename" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="datman.scanid.parse">
+<code class="sig-prename descclassname">datman.scanid.</code><code class="sig-name descname">parse</code><span class="sig-paren">(</span><em class="sig-param">identifier</em>, <em class="sig-param">settings=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.parse" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse a subject ID matching a supported naming convention.</p>
+<p>The ‘settings’ flag can be used to exclude any IDs that do not match the
+specified convention, or to translate certain ID fields to maintain
+consistency within a single naming convention.</p>
+<dl class="simple">
+<dt>Accepted keys include:</dt><dd><dl class="simple">
+<dt>‘ID_TYPE’: Restricts parsing to one naming convention (e.g. ‘DATMAN’</dt><dd><p>or ‘KCNI’)</p>
+</dd>
+<dt>‘STUDY’: Allows the ‘study’ field of an ID to be mapped from another</dt><dd><p>convention’s study code to a datman study code.</p>
+</dd>
+<dt>‘SITE’: Allows the ‘site’ field of an ID to be translated from another</dt><dd><p>convention’s site code to a datman site code.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>All ‘settings’ keys must be uppercase.</p>
+</div>
+<p>Using the settings from the below example will cause parse to reject any
+IDs that are not KCNI format, will translate any valid IDs containing
+‘DTI01’ to the study code ‘DTI’, and will translate any valid IDs
+containing the site ‘UTO’ to the site ‘UT1’.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">settings</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;ID_TYPE&#39;</span><span class="p">:</span> <span class="s1">&#39;KCNI&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;STUDY&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;DTI01&#39;</span><span class="p">:</span> <span class="s1">&#39;DTI&#39;</span>
+    <span class="p">},</span>
+    <span class="s1">&#39;SITE&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;UTO&#39;</span><span class="p">:</span> <span class="s1">&#39;UT2&#39;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>identifier</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – A string that might be a valid subject ID.</p></li>
+<li><p><strong>settings</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code></a>, optional) – A dictionary of settings to use when
+parsing the ID. Defaults to None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><a class="reference internal" href="datman.exceptions.html#datman.exceptions.ParseException" title="datman.exceptions.ParseException"><strong>ParseException</strong></a> – If identifier does not match any supported naming
+    convention.</p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><dl class="simple">
+<dt>An instance of a subclass of Identifier for the</dt><dd><p>matched naming convention.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">Identifer</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="datman.scanid.parse_bids_filename">
+<code class="sig-prename descclassname">datman.scanid.</code><code class="sig-name descname">parse_bids_filename</code><span class="sig-paren">(</span><em class="sig-param">path</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.parse_bids_filename" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="datman.scanid.parse_filename">
+<code class="sig-prename descclassname">datman.scanid.</code><code class="sig-name descname">parse_filename</code><span class="sig-paren">(</span><em class="sig-param">path</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.parse_filename" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse a datman style file name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – A file name or full path to parse</p>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><a class="reference internal" href="datman.exceptions.html#datman.exceptions.ParseException" title="datman.exceptions.ParseException"><strong>ParseException</strong></a> – If the file name does not match the datman convention.</p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><p>A tuple containing:</p>
+<blockquote>
+<div><ul class="simple">
+<li><dl class="simple">
+<dt>ident (<a class="reference internal" href="#datman.scanid.DatmanIdentifier" title="datman.scanid.DatmanIdentifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DatmanIdentifier</span></code></a>): The parsed subject ID portion of</dt><dd><p>the path.</p>
+</dd>
+</dl>
+</li>
+<li><p>tag (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>): The scan tag that identifies the acquisition.</p></li>
+<li><p>series (int): The series number.</p></li>
+<li><dl class="simple">
+<dt>description (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>): The series description. Should be</dt><dd><p>identical to the SeriesDescription field of the dicom headers
+(aside from some mangling to non-alphanumeric characters).</p>
+</dd>
+</dl>
+</li>
+</ul>
+</div></blockquote>
+</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>(<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.8)">tuple</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="datman.utils.html" class="btn btn-neutral float-right" title="datman.utils module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="datman.scan_list.html" class="btn btn-neutral float-left" title="datman.scan_list module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright Copyright 2019, The TIGRLab
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+        <span class="fa fa-book"> Other Versions</span>
+        v: master
+        <span class="fa fa-caret-down"></span>
+    </span>
+    <div class="rst-other-versions">
+        <dl>
+            <dt>Branches</dt>
+            <dd><a href="../master/api/datman.scanid.html">master</a></dd>
+        </dl>
+    </div>
+</div>
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

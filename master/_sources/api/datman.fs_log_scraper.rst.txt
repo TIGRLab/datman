@@ -1,0 +1,7 @@
+datman.fs\_log\_scraper module
+==============================
+
+.. automodule:: datman.fs_log_scraper
+   :members:
+   :undoc-members:
+   :show-inheritance:

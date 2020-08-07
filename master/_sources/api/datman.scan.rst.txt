@@ -1,0 +1,7 @@
+datman.scan module
+==================
+
+.. automodule:: datman.scan
+   :members:
+   :undoc-members:
+   :show-inheritance:

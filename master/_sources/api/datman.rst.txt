@@ -1,0 +1,23 @@
+datman package
+==============
+
+.. automodule:: datman
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Submodules
+----------
+
+.. toctree::
+
+   datman.config
+   datman.dashboard
+   datman.exceptions
+   datman.fs_log_scraper
+   datman.header_checks
+   datman.scan
+   datman.scan_list
+   datman.scanid
+   datman.utils
+   datman.xnat

@@ -1,0 +1,7 @@
+datman.dashboard module
+=======================
+
+.. automodule:: datman.dashboard
+   :members:
+   :undoc-members:
+   :show-inheritance:

@@ -1,0 +1,7 @@
+datman.exceptions module
+========================
+
+.. automodule:: datman.exceptions
+   :members:
+   :undoc-members:
+   :show-inheritance:
