@@ -166,7 +166,7 @@ class KCNIIdentifier(Identifier):
         self.study = get_field(match, "study", settings=settings)
         self.site = get_field(match, "site", settings=settings)
 
-        self.subject = match.group("subject")
+        self.subject = get_subid(match.group("subject"), settings=settings)
         try:
             self.pha_type = match.group("pha_type")
         except IndexError:
@@ -506,9 +506,8 @@ def get_field(match, field, settings=None):
 
     Args:
         match (:obj:`re.Match`): A match object created from a valid ID
-        field (:obj:`str`): An ID field name. This is lower case and
-            corresponds to the match groups of valid (supported) ID (e.g.
-            study, site, subject)
+        field (:obj:`str`): An ID field name. This corresponds to the match
+            groups of valid (supported) ID (e.g. study, site, subject)
         settings (:obj:`dict`, optional): User settings to specify fields that
             should be modified and how to modify them. See the settings
             description in :py:func:`parse` for more info. Defaults to None.
@@ -520,16 +519,32 @@ def get_field(match, field, settings=None):
     """
 
     if not settings or field.upper() not in settings:
-        return match.group(field)
+        return match.group(field.lower())
 
     mapping = settings[field.upper()]
-    current_field = match.group(field)
+    current_field = match.group(field.lower())
     try:
         new_field = mapping[current_field]
     except KeyError:
         new_field = current_field
 
     return new_field
+
+
+def get_subid(current_subid, settings=None):
+    if not settings or "SUBJECT" not in settings:
+        return current_subid
+
+    mapping = settings["SUBJECT"]
+
+    for pair in mapping:
+        regex_str, replacement = pair.split("->")
+        regex = re.compile(regex_str)
+        match = regex.match(current_subid)
+        if match:
+            return re.sub(regex_str, replacement, current_subid)
+
+    return current_subid
 
 
 def get_kcni_identifier(identifier, settings=None):
@@ -578,10 +593,11 @@ def get_kcni_identifier(identifier, settings=None):
 
     study = get_field(ident._match_groups, "study", reverse)
     site = get_field(ident._match_groups, "site", reverse)
+    subject = get_subid(ident._match_groups.group("subject"), reverse)
 
     if not is_phantom(ident):
         kcni = (
-            f"{study}_{site}_{ident.subject.zfill(4)}_"
+            f"{study}_{site}_{subject.zfill(4)}_"
             f"{ident.timepoint}_SE{ident.session}_MR"
         )
         return KCNIIdentifier(kcni, settings)
