@@ -152,6 +152,7 @@ def test_kcni_subid_field_is_modified_when_settings_given():
     ident = scanid.parse(kcni_id, settings=settings)
     assert ident.subject == '100004'
 
+
 def test_get_kcni_identifier_from_datman_str():
     kcni_ident = scanid.get_kcni_identifier("ABC01_UTO_12345678_01_02")
     assert isinstance(kcni_ident, scanid.KCNIIdentifier)
