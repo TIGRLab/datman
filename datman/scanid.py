@@ -102,6 +102,7 @@ class DatmanIdentifier(Identifier):
         self.site = match.group("site")
         self.subject = match.group("subject")
         self.timepoint = match.group("timepoint")
+        self.modality = 'MR'
         # Bug fix: spaces were being left after the session number leading to
         # broken file name
         self._session = match.group("session").strip()
@@ -142,14 +143,14 @@ class KCNIIdentifier(Identifier):
         "(?P<site>[A-Z]{3})_"
         "(?P<subject>[A-Z0-9]{4,8})_"
         "(?P<timepoint>[0-9]{2})_"
-        "SE(?P<session>[0-9]{2})_MR)"
+        "SE(?P<session>[0-9]{2})_(?P<modality>[A-Z]{2,4}))"
     )
 
     pha_re = (
         "(?P<id>(?P<study>[A-Z]{3}[0-9]{2})_"
         "(?P<site>[A-Z]{3})_"
         "(?P<pha_type>[A-Z]{3})PHA_"
-        "(?P<subject>[0-9]{4,6})_MR"
+        "(?P<subject>[0-9]{4,6})_(?P<modality>[A-Z]{2,4})"
         "(?P<timepoint>)(?P<session>))"
     )  # empty
 
@@ -177,6 +178,7 @@ class KCNIIdentifier(Identifier):
 
         self.timepoint = match.group("timepoint")
         self.session = match.group("session")
+        self.modality = match.group("modality")
 
     def get_xnat_subject_id(self):
         study = self._match_groups.group("study")

@@ -451,6 +451,19 @@ def test_parse_filename_PHA_2():
     assert description == 'EPI-3x3x4xTR2'
 
 
+def test_kcni_id_with_non_mr_modality_is_valid():
+    ident = scanid.parse("ABC01_CMH_0001_01_SE01_EEG")
+    assert ident.modality == "EEG"
+
+
+def test_datman_ids_assigned_mr_modality():
+    ident = scanid.parse("ABC01_CMH_0001_01_01")
+    assert ident.modality == "MR"
+
+    ident = scanid.parse("ABC01_CMH_PHA_FBN0001")
+    assert ident.modality == "MR"
+
+
 def test_parse_filename_with_path():
     ident, tag, series, description = scanid.parse_filename(
         '/data/DTI_CMH_H001_01_01_T1_02_description.nii.gz')
