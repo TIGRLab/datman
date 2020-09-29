@@ -227,6 +227,8 @@ def collect_all_experiments(config):
                                  "Reason - Not a phantom, but missing session "
                                  "number".format(exper_id, project))
                     continue
+                if ident.modality != "MR":
+                    continue
                 experiments.append((xnat, project, ident))
 
     return experiments

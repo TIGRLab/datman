@@ -137,6 +137,22 @@ def test_kcni_site_field_is_modified_when_settings_given():
     assert str(ident) == 'ABC01_UT2_12345678_01_02'
 
 
+def test_kcni_subid_field_is_modified_when_settings_given():
+    settings = {
+        'SUBJECT': {
+            '^(100001|100002)->H\\1': '^H([0-9]+)->\\1'
+        }
+    }
+
+    kcni_id = 'PAC01_CMH_100001_01_SE01_MR'
+    ident = scanid.parse(kcni_id, settings=settings)
+    assert ident.subject == 'H100001'
+
+    kcni_id = 'PAC01_CMH_100004_01_SE03_MR'
+    ident = scanid.parse(kcni_id, settings=settings)
+    assert ident.subject == '100004'
+
+
 def test_get_kcni_identifier_from_datman_str():
     kcni_ident = scanid.get_kcni_identifier("ABC01_UTO_12345678_01_02")
     assert isinstance(kcni_ident, scanid.KCNIIdentifier)
@@ -190,6 +206,22 @@ def test_get_kcni_identifier_from_datman_with_field_changes():
     assert kcni_pha.orig_id == "AND01_UTO_FBNPHA_0023_MR"
 
 
+def test_get_kcni_identifier_correctly_reverses_subject_field_changes():
+    settings = {
+        'SUBJECT': {
+            '(100001|100002)->H\\1': '^H([0-9]+)->\\1'
+        }
+    }
+
+    kcni = scanid.get_kcni_identifier("ABC01_CMH_H100001_01_01", settings)
+    assert kcni.subject == "H100001"
+    assert kcni.orig_id == "ABC01_CMH_100001_01_SE01_MR"
+
+    kcni = scanid.get_kcni_identifier("ABC01_CMH_PHA_FBN201013", settings)
+    assert kcni.subject == "PHA_FBN201013"
+    assert kcni.orig_id == "ABC01_CMH_FBNPHA_201013_MR"
+
+
 def test_get_kcni_identifier_handles_already_kcni():
     kcni = "ABC01_UTO_12345678_01_SE02_MR"
     kcni_ident = scanid.parse(kcni)
@@ -231,10 +263,13 @@ def test_id_field_changes_correct_for_repeat_conversions():
         },
         'SITE': {
             'UTO': 'CMH'
+        },
+        'SUBJECT': {
+            '^(0001|0002)->H\\1': '^H([0-9]+)->\\1'
         }
     }
     correct_kcni = "AND01_UTO_0001_01_SE01_MR"
-    correct_datman = "ANDT_CMH_0001_01_01"
+    correct_datman = "ANDT_CMH_H0001_01_01"
 
     # KCNI to datman and back
     kcni_ident = scanid.parse(correct_kcni, settings)
@@ -414,6 +449,19 @@ def test_parse_filename_PHA_2():
     assert tag == 'RST'
     assert series == '04'
     assert description == 'EPI-3x3x4xTR2'
+
+
+def test_kcni_id_with_non_mr_modality_is_valid():
+    ident = scanid.parse("ABC01_CMH_0001_01_SE01_EEG")
+    assert ident.modality == "EEG"
+
+
+def test_datman_ids_assigned_mr_modality():
+    ident = scanid.parse("ABC01_CMH_0001_01_01")
+    assert ident.modality == "MR"
+
+    ident = scanid.parse("ABC01_CMH_PHA_FBN0001")
+    assert ident.modality == "MR"
 
 
 def test_parse_filename_with_path():
