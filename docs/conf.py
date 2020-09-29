@@ -15,10 +15,10 @@ import re
 import sys
 from packaging.version import Version
 
-from datman import __packagename__, __version__,__copyright__
+from datman import __packagename__, __version__, __copyright__
 
 sys.path.append(os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "sphinxext")))
+    os.path.join(os.path.dirname(__file__), 'sphinxext')))
 from github_link import make_linkcode_resolve
 
 
@@ -49,7 +49,6 @@ extensions = [
     'sphinx.ext.linkcode',
     'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
-    'sphinxarg.ext',
     'sphinxcontrib.apidoc'
 ]
 
@@ -59,7 +58,6 @@ templates_path = ['_templates']
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
-# source_suffix = ['.rst', '.md']
 source_suffix = '.rst'
 
 # The master toctree document.

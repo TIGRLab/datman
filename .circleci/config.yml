@@ -16,7 +16,7 @@ docs_deploy: &docs
           git config user.name "ci-build"
     - add_ssh_keys:
         fingerprints:
-          - "64:8f:b5:92:aa:6a:8b:d2:cc:9a:d8:49:4f:ae:d3:f6"
+          - "f8:e7:ce:ec:9b:82:92:8d:af:81:9e:d2:de:59:f6:e6"
     - run:
         name: Deploy docs to gh-pages branch
         command: gh-pages --dotfiles --message "doc(update) [skip ci]" --dist docs/_build/html
