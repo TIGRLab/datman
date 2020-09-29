@@ -132,9 +132,10 @@ def download_subjects(xnat, xnat_project, destination):
             continue
 
         if len(exp_names) > 1:
-            logger.error("Found {} experiments for subject {}. Only one was "
-                         "expected. Skipping subject.".format(
-                            len(exp_names), subject.name))
+            logger.error(
+                f"Found {len(exp_names)} experiments for subject "
+                f"{subject.name}. Only one was expected. Skipping subject."
+            )
             continue
 
         experiment = subject.experiments[exp_names[0]]
