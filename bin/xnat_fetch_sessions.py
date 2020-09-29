@@ -112,7 +112,10 @@ def download_subjects(xnat, xnat_project, destination):
     try:
         current_zips = os.listdir(destination)
     except FileNotFoundError:
-        os.mkdir(destination)
+        if DRYRUN:
+            logger.info(f"DRYRUN - Skipping creation of {destination}")
+        else:
+            os.mkdir(destination)
 
     for subject_id in xnat.get_subject_ids(xnat_project):
         try:
@@ -129,8 +132,9 @@ def download_subjects(xnat, xnat_project, destination):
             continue
 
         if len(exp_names) > 1:
-            logger.error("Found {} experiments for subject {}".format(
-                len(exp_names), subject.name))
+            logger.error("Found {} experiments for subject {}. Only one was "
+                         "expected. Skipping subject.".format(
+                            len(exp_names), subject.name))
             continue
 
         experiment = subject.experiments[exp_names[0]]
