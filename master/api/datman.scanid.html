@@ -306,22 +306,22 @@ in its native convention can always be retrieved from ‘orig_id’.</p>
 
 <dl class="attribute">
 <dt id="datman.scanid.KCNIIdentifier.pha_pattern">
-<code class="sig-name descname">pha_pattern</code><em class="property"> = re.compile('^(?P&lt;id&gt;(?P&lt;study&gt;[A-Z]{3}[0-9]{2})_(?P&lt;site&gt;[A-Z]{3})_(?P&lt;pha_type&gt;[A-Z]{3})PHA_(?P&lt;subject&gt;[0-9]{4,6})_MR(?P&lt;timepoint&gt;)(?P&lt;session&gt;))$')</em><a class="headerlink" href="#datman.scanid.KCNIIdentifier.pha_pattern" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">pha_pattern</code><em class="property"> = re.compile('^(?P&lt;id&gt;(?P&lt;study&gt;[A-Z]{3}[0-9]{2})_(?P&lt;site&gt;[A-Z]{3})_(?P&lt;pha_type&gt;[A-Z]{3})PHA_(?P&lt;subject&gt;[0-9]{4,6})_(?P&lt;modality&gt;[A-Z]{2,4})(?P&lt;timepoint&gt;)(?P&lt;session&gt;))$')</em><a class="headerlink" href="#datman.scanid.KCNIIdentifier.pha_pattern" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="datman.scanid.KCNIIdentifier.pha_re">
-<code class="sig-name descname">pha_re</code><em class="property"> = '(?P&lt;id&gt;(?P&lt;study&gt;[A-Z]{3}[0-9]{2})_(?P&lt;site&gt;[A-Z]{3})_(?P&lt;pha_type&gt;[A-Z]{3})PHA_(?P&lt;subject&gt;[0-9]{4,6})_MR(?P&lt;timepoint&gt;)(?P&lt;session&gt;))'</em><a class="headerlink" href="#datman.scanid.KCNIIdentifier.pha_re" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">pha_re</code><em class="property"> = '(?P&lt;id&gt;(?P&lt;study&gt;[A-Z]{3}[0-9]{2})_(?P&lt;site&gt;[A-Z]{3})_(?P&lt;pha_type&gt;[A-Z]{3})PHA_(?P&lt;subject&gt;[0-9]{4,6})_(?P&lt;modality&gt;[A-Z]{2,4})(?P&lt;timepoint&gt;)(?P&lt;session&gt;))'</em><a class="headerlink" href="#datman.scanid.KCNIIdentifier.pha_re" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="datman.scanid.KCNIIdentifier.scan_pattern">
-<code class="sig-name descname">scan_pattern</code><em class="property"> = re.compile('^(?P&lt;id&gt;(?P&lt;study&gt;[A-Z]{3}[0-9]{2})_(?P&lt;site&gt;[A-Z]{3})_(?P&lt;subject&gt;[A-Z0-9]{4,8})_(?P&lt;timepoint&gt;[0-9]{2})_SE(?P&lt;session&gt;[0-9]{2})_MR)$')</em><a class="headerlink" href="#datman.scanid.KCNIIdentifier.scan_pattern" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">scan_pattern</code><em class="property"> = re.compile('^(?P&lt;id&gt;(?P&lt;study&gt;[A-Z]{3}[0-9]{2})_(?P&lt;site&gt;[A-Z]{3})_(?P&lt;subject&gt;[A-Z0-9]{4,8})_(?P&lt;timepoint&gt;[0-9]{2})_SE(?P&lt;session&gt;[0-9]{2})_(?P&lt;modality&gt;[A-Z]{2,4}))$')</em><a class="headerlink" href="#datman.scanid.KCNIIdentifier.scan_pattern" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="datman.scanid.KCNIIdentifier.scan_re">
-<code class="sig-name descname">scan_re</code><em class="property"> = '(?P&lt;id&gt;(?P&lt;study&gt;[A-Z]{3}[0-9]{2})_(?P&lt;site&gt;[A-Z]{3})_(?P&lt;subject&gt;[A-Z0-9]{4,8})_(?P&lt;timepoint&gt;[0-9]{2})_SE(?P&lt;session&gt;[0-9]{2})_MR)'</em><a class="headerlink" href="#datman.scanid.KCNIIdentifier.scan_re" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">scan_re</code><em class="property"> = '(?P&lt;id&gt;(?P&lt;study&gt;[A-Z]{3}[0-9]{2})_(?P&lt;site&gt;[A-Z]{3})_(?P&lt;subject&gt;[A-Z0-9]{4,8})_(?P&lt;timepoint&gt;[0-9]{2})_SE(?P&lt;session&gt;[0-9]{2})_(?P&lt;modality&gt;[A-Z]{2,4}))'</em><a class="headerlink" href="#datman.scanid.KCNIIdentifier.scan_re" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -334,9 +334,8 @@ in its native convention can always be retrieved from ‘orig_id’.</p>
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>match</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">re.Match</span></code>) – A match object created from a valid ID</p></li>
-<li><p><strong>field</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – An ID field name. This is lower case and
-corresponds to the match groups of valid (supported) ID (e.g.
-study, site, subject)</p></li>
+<li><p><strong>field</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – An ID field name. This corresponds to the match
+groups of valid (supported) ID (e.g. study, site, subject)</p></li>
 <li><p><strong>settings</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code></a>, optional) – User settings to specify fields that
 should be modified and how to modify them. See the settings
 description in <a class="reference internal" href="#datman.scanid.parse" title="datman.scanid.parse"><code class="xref py py-func docutils literal notranslate"><span class="pre">parse()</span></code></a> for more info. Defaults to None.</p></li>
@@ -391,6 +390,11 @@ format described in <a class="reference internal" href="#datman.scanid.parse" ti
 <dd><p>For those times when you always want a numeric session (including
 for phantoms who are technically always session ‘1’)</p>
 </dd></dl>
+
+<dl class="function">
+<dt id="datman.scanid.get_subid">
+<code class="sig-prename descclassname">datman.scanid.</code><code class="sig-name descname">get_subid</code><span class="sig-paren">(</span><em class="sig-param">current_subid</em>, <em class="sig-param">settings=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.get_subid" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="function">
 <dt id="datman.scanid.is_phantom">
