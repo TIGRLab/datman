@@ -36,7 +36,7 @@ import datman.utils
 
 import bin.dm_link_project_scans as link_scans
 import datman.dashboard as dashboard
-from datman.exceptions import InputException
+from datman.exceptions import InputException, UndefinedSetting
 
 DRYRUN = False
 
@@ -96,7 +96,12 @@ def get_redcap_records(config, redcap_cred):
     current_study = config.get_key('STUDY_TAG')
 
     try:
-        project_records = parse_records(response, current_study)
+        id_map = config.get_key('ID_MAP')
+    except UndefinedSetting:
+        id_map = None
+
+    try:
+        project_records = parse_records(response, current_study, id_map)
     except ValueError as e:
         logger.error("Couldnt parse redcap records for server response {}. "
                      "Reason: {}".format(response.content, e))
@@ -121,10 +126,10 @@ def get_token(config, redcap_cred):
     return token
 
 
-def parse_records(response, study):
+def parse_records(response, study, id_map):
     records = []
     for item in response.json():
-        record = Record(item)
+        record = Record(item, id_map)
         if record.id is None:
             logger.debug(
                 f"Record with ID {item['record_id']} has malformed subject ID "
@@ -195,12 +200,12 @@ def share_redcap_record(session, shared_record):
 
 
 class Record(object):
-    def __init__(self, record_dict):
+    def __init__(self, record_dict, id_map=None):
         self.record_id = record_dict['record_id']
-        self.id = self.__get_datman_id(record_dict['par_id'])
+        self.id = self.__get_datman_id(record_dict['par_id'], id_map)
         self.study = self.__get_study()
         self.comment = record_dict['cmts']
-        self.shared_ids = self.__get_shared_ids(record_dict)
+        self.shared_ids = self.__get_shared_ids(record_dict, id_map)
 
     def matches_study(self, study_tag):
         if study_tag == self.study:
@@ -212,7 +217,7 @@ class Record(object):
             return None
         return self.id.study
 
-    def __get_shared_ids(self, record_dict):
+    def __get_shared_ids(self, record_dict, id_map):
         keys = list(record_dict)
         shared_id_fields = []
         for key in keys:
@@ -225,16 +230,16 @@ class Record(object):
             if not value:
                 # No shared id for this field.
                 continue
-            subject_id = self.__get_datman_id(value)
+            subject_id = self.__get_datman_id(value, id_map)
             if subject_id is None:
                 # Badly named shared id value. Skip it.
                 continue
-            shared_ids.append(value)
+            shared_ids.append(str(subject_id))
         return shared_ids
 
-    def __get_datman_id(self, subid):
+    def __get_datman_id(self, subid, id_map):
         try:
-            subject_id = datman.scanid.parse(subid)
+            subject_id = datman.scanid.parse(subid, id_map)
         except datman.scanid.ParseException:
             logger.error("REDCap record with record_id {} contains non-datman "
                          "ID {}.".format(self.record_id, subid))
