@@ -1221,9 +1221,8 @@ class xnat(object):
                                     "dicom upload fail?")
             else:
                 raise XnatException("An unknown error occured uploading data."
-                                    "Status code: {}, reason: {}"
-                                    .format(response.status_code,
-                                            reply))
+                                    f"Status code: {response.status_code}, "
+                                    f"reason: {reply}")
         return reply
 
     def _make_xnat_delete(self, url, retries=3):
