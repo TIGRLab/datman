@@ -103,7 +103,7 @@ def get_redcap_records(config, redcap_cred):
     try:
         project_records = parse_records(response, current_study, id_map)
     except ValueError as e:
-        logger.error("Couldnt parse redcap records for server response {}. "
+        logger.error("Couldn't parse redcap records for server response {}. "
                      "Reason: {}".format(response.content, e))
         project_records = []
 
