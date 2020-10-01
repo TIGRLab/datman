@@ -1,20 +1,14 @@
 #!/usr/bin/env python
 """
-Finds REDCap records for the given study and if a scan has multiple IDs (i.e.
-it is shared with another study) updates xnat to reflect this information and
-tries to create a links from the exported original data to its pseudonyms. If
-the original data set has been signed off on or has blacklist entries this
-information will be shared with the newly linked ID.
-
-The XNAT and REDCap URLs are read from the site config file (shell variable
-'DM_CONFIG' by default).
+Finds REDCap records for the given study and if a session has multiple IDs
+(i.e. it is shared with another study) updates the dashboard and tries to
+create links from the exported original data to its pseudonyms.
 
 Usage:
     dm_link_shared_ids.py [options] <project>
 
 Arguments:
-    <project>           The name of a project defined in the site config file
-                        that may have multiple IDs for some of its subjects.
+    <project>           The name of a project defined in the site config file.
 
 Options:
     --redcap FILE       A path to a text file containing a redcap token to
@@ -35,7 +29,6 @@ import logging
 
 from docopt import docopt
 import requests
-import pyxnat as xnat
 
 import datman.config
 import datman.scanid
@@ -43,17 +36,15 @@ import datman.utils
 
 import bin.dm_link_project_scans as link_scans
 import datman.dashboard as dashboard
-from datman.exceptions import InputException
+from datman.exceptions import InputException, UndefinedSetting
 
 DRYRUN = False
 
-# use of stream handler over basic config allows log format to change to more
-# descriptive format later if needed while also ensure a consistent default
+logging.basicConfig(
+    level=logging.WARN,
+    format="[%(name)s] %(levelname)s: %(message)s"
+)
 logger = logging.getLogger(os.path.basename(__file__))
-log_handler = logging.StreamHandler()
-logger.addHandler(log_handler)
-log_handler.setFormatter(logging.Formatter('[%(name)s] %(levelname)s : '
-                                           '%(message)s'))
 
 
 def main():
@@ -67,45 +58,27 @@ def main():
     quiet = arguments['--quiet']
     DRYRUN = arguments['--dry-run']
 
-    # Set log format
-    log_handler.setFormatter(logging.Formatter('[%(name)s] %(levelname)s - '
-                                               '{study}: %(message)s'
-                                               ''.format(study=project)))
-    log_level = logging.WARN
-
     if verbose:
-        log_level = logging.INFO
+        logger.setLevel(logging.INFO)
+        link_scans.logger.setLevel(logging.INFO)
     if debug:
-        log_level = logging.DEBUG
+        logger.setLevel(logging.DEBUG)
+        link_scans.logger.setLevel(logging.DEBUG)
     if quiet:
-        log_level = logging.ERROR
-
-    logger.setLevel(log_level)
-    # Needed to see log messages from dm_link_project_scans
-    link_scans.logger.setLevel(log_level)
+        logger.setLevel(logging.ERROR)
+        link_scans.logger.setLevel(logging.ERROR)
 
     config = datman.config.config(filename=site_config, study=project)
 
-    user_name, password = os.environ["XNAT_USER"], os.environ["XNAT_PASS"]
-    xnat_url = get_xnat_url(config)
-
-    scan_complete_records = get_project_redcap_records(config, redcap_cred)
-
-    with datman.utils.XNATConnection(xnat_url, user_name,
-                                     password) as connection:
-        for record in scan_complete_records:
-            link_shared_ids(config, connection, record)
+    scan_complete_records = get_redcap_records(config, redcap_cred)
+    for record in scan_complete_records:
+        if not record.shared_ids:
+            continue
+        make_links(record)
 
 
-def get_xnat_url(config):
-    url = config.get_key('XNATSERVER')
-    if 'https' not in url:
-        url = "https://" + url
-    return url
-
-
-def get_project_redcap_records(config, redcap_cred):
-    token = get_redcap_token(config, redcap_cred)
+def get_redcap_records(config, redcap_cred):
+    token = get_token(config, redcap_cred)
     redcap_url = config.get_key('REDCAPAPI')
 
     logger.debug("Accessing REDCap API at {}".format(redcap_url))
@@ -123,16 +96,21 @@ def get_project_redcap_records(config, redcap_cred):
     current_study = config.get_key('STUDY_TAG')
 
     try:
-        project_records = parse_records(response, current_study)
+        id_map = config.get_key('ID_MAP')
+    except UndefinedSetting:
+        id_map = None
+
+    try:
+        project_records = parse_records(response, current_study, id_map)
     except ValueError as e:
-        logger.error("Couldnt parse redcap records for server response {}. "
+        logger.error("Couldn't parse redcap records for server response {}. "
                      "Reason: {}".format(response.content, e))
         project_records = []
 
     return project_records
 
 
-def get_redcap_token(config, redcap_cred):
+def get_token(config, redcap_cred):
     if not redcap_cred:
         token = os.getenv('REDCAP_TOKEN')
         if not token:
@@ -148,103 +126,41 @@ def get_redcap_token(config, redcap_cred):
     return token
 
 
-def parse_records(response, study):
+def parse_records(response, study, id_map):
     records = []
     for item in response.json():
-        record = Record(item)
+        record = Record(item, id_map)
         if record.id is None:
+            logger.debug(
+                f"Record with ID {item['record_id']} has malformed subject ID "
+                f"{item['par_id']}"
+            )
             continue
         if record.matches_study(study):
             records.append(record)
     return records
 
 
-def link_shared_ids(config, connection, record):
-    try:
-        xnat_archive = config.get_key('XNAT_Archive', site=record.id.site)
-    except datman.config.UndefinedSetting:
-        logger.error("Can't find XNAT_Archive for subject {}"
-                     "".format(record.id))
-        return
-    project = connection.select.project(xnat_archive)
-    subject = project.subject(str(record.id))
-    experiment = get_experiment(subject)
-
-    if not experiment:
-        logger.error("Redcap or XNAT record may be misnamed - no "
-                     "matching experiments found on XNAT for redcap subject "
-                     "{}. Skipping".format(record.id))
-        return
-
-    logger.debug("Working on subject {} in project {}".format(record.id,
-                                                              xnat_archive))
-
-    if record.comment and not DRYRUN:
-        update_xnat_comment(experiment, subject, record)
-
-    if record.shared_ids and not DRYRUN:
-        update_xnat_shared_ids(subject, record)
-        make_links(record)
-
-
-def get_experiment(subject):
-    experiment_names = subject.experiments().get()
-
-    if not experiment_names:
-        logger.debug("{} does not have any MR scans".format(subject))
-        return None
-    elif len(experiment_names) > 1:
-        logger.error("{} has more than one MR scan. Updating only the "
-                     "first".format(subject))
-
-    return subject.experiment(experiment_names[0])
-
-
-def update_xnat_comment(experiment, subject, record):
-    logger.debug("Subject {} has comment: \n {}".format(record.id,
-                                                        record.comment))
-    try:
-        experiment.attrs.set("note", record.comment)
-        subject.attrs.set(
-            "xnat:subjectData/fields/field[name='comments']/field",
-            "See MR Scan notes")
-    except xnat.core.errors.DatabaseError:
-        logger.error(
-            "Cannot write record {} comment to xnat. Adding note to "
-            "check redcap record instead".format(record.id))
-        subject.attrs.set(
-            "xnat:subjectData/fields/field[name='comments']/field",
-            "Refer to REDCap record.")
-
-
-def update_xnat_shared_ids(subject, record):
-    logger.debug("{} has alternate id(s) {}".format(record.id,
-                                                    record.shared_ids))
-    try:
-        subject.attrs.set(
-            "xnat:subjectData/fields/field[name='sharedids']/field",
-            ", ".join(record.shared_ids))
-    except xnat.core.errors.DatabaseError:
-        logger.error(
-            "{} shared ids cannot be added to XNAT. Adding note "
-            "to check REDCap record instead.".format(record.id))
-        subject.attrs.set(
-            "xnat:subjectData/fields/field[name='sharedids']/field",
-            "Refer to REDCap record.")
-
-
 def make_links(record):
     source = record.id
     for target in record.shared_ids:
-        logger.info("Making links from source {} to target {}".format(source,
-                                                                      target))
+        logger.info(
+            f"Making links from source {source} to target {target}"
+        )
         target_cfg = datman.config.config(study=target)
         try:
-            target_tags = list(target_cfg.get_tags(site=record.id.site))
+            target_tags = list(target_cfg.get_tags(site=source.site))
         except Exception:
             target_tags = []
 
         target_tags = ",".join(target_tags)
+
+        if DRYRUN:
+            logger.info(
+                "DRYRUN - would have made links from source ID "
+                f"{source} to target ID {target} for tags {target_tags}"
+            )
+            continue
 
         link_scans.create_linked_session(str(source), str(target), target_tags)
         if dashboard.dash_found:
@@ -252,21 +168,23 @@ def make_links(record):
 
 
 def share_redcap_record(session, shared_record):
-    logger.debug("Sharing redcap record {} from participant {} with ID "
-                 "{}".format(shared_record.record_id,
-                             shared_record.id,
-                             session))
+    logger.debug(
+        f"Sharing redcap record {shared_record.record_id} from participant "
+        f"{shared_record.id} with ID {session}"
+    )
 
     target_session = dashboard.get_session(session)
     if not target_session:
-        logger.error("Can't link redcap record in dashboard. Participant {} "
-                     "not found".format(session))
+        logger.error(
+            f"Can't link redcap record in dashboard. {session} not found"
+        )
         return
 
     if target_session.redcap_record:
-        logger.debug("Session {} already has record {}".format(
-                            target_session,
-                            target_session.redcap_record))
+        logger.debug(
+            f"Session {target_session} already has record "
+            f"{target_session.redcap_record}"
+        )
         return
 
     source_session = dashboard.get_session(shared_record.id)
@@ -278,16 +196,16 @@ def share_redcap_record(session, shared_record):
     try:
         source_session.redcap_record.share_record(target_session)
     except Exception as e:
-        logger.error("Failed to link redcap record. Reason: {}".format(e))
+        logger.error(f"Failed to link redcap record. Reason: {e}")
 
 
 class Record(object):
-    def __init__(self, record_dict):
+    def __init__(self, record_dict, id_map=None):
         self.record_id = record_dict['record_id']
-        self.id = self.__get_datman_id(record_dict['par_id'])
+        self.id = self.__get_datman_id(record_dict['par_id'], id_map)
         self.study = self.__get_study()
         self.comment = record_dict['cmts']
-        self.shared_ids = self.__get_shared_ids(record_dict)
+        self.shared_ids = self.__get_shared_ids(record_dict, id_map)
 
     def matches_study(self, study_tag):
         if study_tag == self.study:
@@ -299,7 +217,7 @@ class Record(object):
             return None
         return self.id.study
 
-    def __get_shared_ids(self, record_dict):
+    def __get_shared_ids(self, record_dict, id_map):
         keys = list(record_dict)
         shared_id_fields = []
         for key in keys:
@@ -312,21 +230,24 @@ class Record(object):
             if not value:
                 # No shared id for this field.
                 continue
-            subject_id = self.__get_datman_id(value)
+            subject_id = self.__get_datman_id(value, id_map)
             if subject_id is None:
                 # Badly named shared id value. Skip it.
                 continue
-            shared_ids.append(value)
+            shared_ids.append(str(subject_id))
         return shared_ids
 
-    def __get_datman_id(self, subid):
+    def __get_datman_id(self, subid, id_map):
         try:
-            subject_id = datman.scanid.parse(subid)
+            subject_id = datman.scanid.parse(subid, id_map)
         except datman.scanid.ParseException:
             logger.error("REDCap record with record_id {} contains non-datman "
                          "ID {}.".format(self.record_id, subid))
             return None
         return subject_id
+
+    def __repr__(self):
+        return f"<Record {self.id}>"
 
 
 if __name__ == '__main__':
