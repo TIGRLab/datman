@@ -225,12 +225,17 @@ def block_scores(ratings_dict,combo):
                         else:
                             numerator=999999 #add error here
 
+                    if (row.event_type != 'last_row' ):
+                        ratings.append({'start':start,'end':end,'row_time':row.rating_duration, 'row_start': row.onset, 'block_length':block_length,'rating':row.participant_value, 'time_held':numerator})#, 'start': start, 'end':end})
+
+                        #participant rating
+                        nums=[float(d['rating']) for d in ratings]
+                        
+                        times=[float(d['time_held'])/block_length for d in ratings]
+                    
+                        avg=np.sum(np.multiply(nums,times))
+                        
                     last_row=row.participant_value
-                    #okay so i want to change this to actually create the beginnings of an important row in our df!
-                    ratings.append({'start':start,'end':end,'row_time':row.rating_duration, 'row_start': row.onset, 'block_length':block_length,'rating':row.participant_value, 'time_held':numerator})#, 'start': start, 'end':end})
-                    nums=[float(d['rating']) for d in ratings]
-                    times=[float(d['time_held'])/block_length for d in ratings]
-                    avg=np.sum(np.multiply(nums,times))
             else:
                 avg=last_row
 
