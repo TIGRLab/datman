@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 """
 This copies and converts files in nii folder to a bids folder in BIDS format
 
@@ -45,14 +44,17 @@ import datman.dashboard as dashboard
 
 from datman.bids.check_bids import BIDSEnforcer
 
+from collections import namedtuple
+from itertools import groupby
+
 # Set up logger
-logging.basicConfig(
-    level=logging.WARN, format="[% (name)s % (levelname)s:" "%(message)s]"
-)
+logging.basicConfig(level=logging.WARN,
+                    format="[% (name)s % (levelname)s:"
+                    "%(message)s]")
 logger = logging.getLogger(os.path.basename(__file__))
 YAML = os.path.abspath(
-        os.path.join(os.path.dirname(__file__),
-                     "../assets/bids/requirements.yaml"))
+    os.path.join(os.path.dirname(__file__),
+                 "../assets/bids/requirements.yaml"))
 
 
 class BIDSFile(object):
@@ -109,8 +111,8 @@ class BIDSFile(object):
 
     @property
     def rel_path(self):
-        return os.path.join(self.session,
-                            self.bids_type, self.bids + ".nii.gz")
+        return os.path.join(self.session, self.bids_type,
+                            self.bids + ".nii.gz")
 
     @property
     def dest_nii(self):
@@ -121,15 +123,17 @@ class BIDSFile(object):
         Create an identical instance
         """
 
-        return BIDSFile(
-            self.sub, self.ses, self.series,
-            self.dest_dir, self.bids, self.spec
-        )
+        return BIDSFile(self.sub, self.ses, self.series, self.dest_dir,
+                        self.bids, self.spec)
 
     def transfer_files(self):
         """
         Perform data transformation from DATMAN into BIDS
         """
+
+        # Make destination directory
+        os.makedirs(self.dest_dir, exist_ok=True)
+
         # Copy over NIFTI file and transform into BIDS name
         copyfile(self.source, self.dest_nii)
 
@@ -170,25 +174,34 @@ class BIDSFile(object):
         # Process each alternative
         alts = []
         for d in alt:
+            '''
+            Allow "self" to propogate itself if the tag itself
+            in addition its derivatives need to be converted into BIDS
+            i.e SBRef for registration and SBRef for TOPUP
+            '''
+            if d.get('type') == self.series.tag:
+                alts.append(self)
+                continue
 
             alt_template = Template(d["template"]).substitute(template_dict)
             alt_type = d["type"]
-            match_file = glob.glob(
-                "{proj}/{template}".format(
-                    proj=cfg.get_study_base(), template=alt_template
-                )
-            )
+            match_file = glob.glob("{proj}/{template}".format(
+                proj=cfg.get_study_base(), template=alt_template))
 
             try:
                 new_source = match_file[0]
             except IndexError:
-                return None
+                logger.info(f"Could not find derivative for {self}!")
+                continue
 
             # Produce copy of self
             derivsfile = self.copy()
 
             # Get bids specification for file and assign to copy
-            new_spec = get_tag_bids_spec(cfg, alt_type)
+            new_spec = {
+                **get_tag_bids_spec(cfg, alt_type),
+                **d.get("inherit", {})
+            }
             derivsfile.spec = new_spec
 
             # Update with additional subject/session metadata
@@ -202,6 +215,10 @@ class BIDSFile(object):
             derivsfile.source = new_source
             derivsfile.bids = new_bids
             derivsfile.json = derivsfile._load_json(new_json)
+            derivsfile.dest_dir = os.path.abspath(
+                os.path.join(derivsfile.dest_dir, os.pardir,
+                             derivsfile.spec['class']))
+
             alts.append(derivsfile)
 
         return alts
@@ -221,7 +238,6 @@ class BIDSFile(object):
         return j
 
     def add_json_list(self, spec, value):
-
         """
         To internal dictionary add a list type json value to spec
         If non-existant make a new list, otherwise append to current
@@ -233,8 +249,7 @@ class BIDSFile(object):
             self.json[spec] = [value]
         return
 
-    def get_spec(self, *args):
-
+    def get_spec(self, *args, return_default=False, default=None):
         """
         Iteratively enter dictionary by sequence of keys in order
         """
@@ -244,7 +259,10 @@ class BIDSFile(object):
             for a in args:
                 tmp = tmp[a]
         except KeyError:
-            raise
+            if not return_default:
+                raise
+            else:
+                return default
 
         return tmp
 
@@ -305,10 +323,8 @@ def get_tag_bids_spec(cfg, tag):
     try:
         bids = cfg.system_config["ExportSettings"][tag]["bids"].copy()
     except KeyError:
-        logger.error(
-            "No BIDS tag available for scan type:"
-            "{}, skipping conversion".format(tag)
-        )
+        logger.error("No BIDS tag available for scan type:"
+                     "{}, skipping conversion".format(tag))
         return None
 
     return bids
@@ -327,7 +343,6 @@ def pair_fmaps(series_list):
         results in a lone fmap
 
     """
-
     def pair_on(x):
         return x.get_spec("pair", "label")
 
@@ -386,7 +401,6 @@ def pair_fmaps(series_list):
 
 
 def calculate_average_series(series_list):
-
     """
     For each iterable of BIDSFiles calculate the average series number
     """
@@ -406,7 +420,7 @@ def is_fieldmap_candidate(scan, scan_type):
     except KeyError:
         use_fieldmaps = True
 
-    match_type = scan.bids_type == scan_type
+    match_type = scan.bids_type in scan_type
 
     if use_fieldmaps and match_type:
         return True
@@ -414,8 +428,7 @@ def is_fieldmap_candidate(scan, scan_type):
         return False
 
 
-def process_intended_fors(coupled_fmaps, non_fmaps):
-
+def process_intended_fors(grouped_fmaps, non_fmaps):
     """
     Derive intended fors using series value matching
 
@@ -427,23 +440,26 @@ def process_intended_fors(coupled_fmaps, non_fmaps):
         4. Calculate distances and minimizes
         5. Done
     """
+    '''
+    #TODO: Modifications required
 
-    # Get the list of tuples associated
-    fmap_types = [k[0].get_spec("intended_for") for k in coupled_fmaps]
+    First we need to feed in the iterator of group/fmap pairs
+    Then we can look through the group keys --> pull intended fors
+    '''
 
-    # Flatten to unique types of fmaps
-    fmap_types = set([i for l in fmap_types for i in l])
+    # For each acq/intended tuple
+    series_list = non_fmaps
+    for g, l in grouped_fmaps:
 
-    # For each type... dwi/func
-    for t in fmap_types:
+        intended_for = g.intended_for
 
         # Get candidate list of scans to match on
-        candidate_scans = [s for s in non_fmaps if is_fieldmap_candidate(s, t)]
-
-        # Get candidate list of fmaps to match on
-        candidate_fmaps = [
-            f for f in coupled_fmaps if t in f[0].get_spec("intended_for")
+        candidate_scans = [
+            s for s in non_fmaps if is_fieldmap_candidate(s, intended_for)
         ]
+
+        # We already have the list of candidate fmaps!
+        candidate_fmaps = list(l)
 
         # Calculate distances to each candidate fmap set
         for c in candidate_scans:
@@ -461,13 +477,13 @@ def process_intended_fors(coupled_fmaps, non_fmaps):
                 for s in candidate_fmaps[min_ind]
             ]
 
-    # Concatenate entire list of scans
-    flat_fmaps = [i for l in coupled_fmaps for i in l]
-    return non_fmaps + flat_fmaps
+        # Add processed fmaps to series list
+        series_list += [i for k in candidate_fmaps for i in k]
+
+    return series_list
 
 
 def prepare_fieldmaps(series_list):
-
     """
     Args:
         series_list                     A list of BIDSFile objects
@@ -480,6 +496,21 @@ def prepare_fieldmaps(series_list):
 
     """
 
+    Fmap_ID = namedtuple('Fmap_ID', ['acq', 'intended_for'])
+
+    def group_fmaps(x):
+        '''
+        Returns unique grouping keys for fieldmaps
+
+        Rule:
+        If fieldmaps share the same intended for, then we
+        differentiate their application based on their acquisition
+        parameter. This allows us to collect multiple fieldmap types
+        for a single given sequence/set of sequences.
+        '''
+        return Fmap_ID(x.get_spec('acq', return_default=True),
+                       x.get_spec('intended_for'))
+
     # Filter out non_fmap files
     fmaps = [s for s in series_list if s.bids_type == "fmap"]
 
@@ -491,8 +522,9 @@ def prepare_fieldmaps(series_list):
     # Pair up fmaps
     pair_list = pair_fmaps(fmaps)
 
-    # Do intended fors
-    series_list = process_intended_fors(pair_list, non_fmaps)
+    # Split fmaps based on type
+    groupings = groupby(pair_list, lambda x: group_fmaps(x[0]))
+    series_list = process_intended_fors(groupings, non_fmaps)
 
     return series_list
 
@@ -522,7 +554,6 @@ def make_bids_template(bids_dir, subject, session):
 
 
 def make_dataset_description(bids_dir, study_name, version):
-
     """
     Make boilerplate dataset_description.json file
     """
@@ -533,7 +564,12 @@ def make_dataset_description(bids_dir, study_name, version):
     p_dataset_desc = os.path.join(bids_dir, "dataset_description.json")
     if not os.path.isfile(p_dataset_desc):
         with open(p_dataset_desc, "w") as f:
-            json.dump({"Name": study_name, "BIDSVersion": version}, f, indent=3)
+            json.dump({
+                "Name": study_name,
+                "BIDSVersion": version
+            },
+                      f,
+                      indent=3)
 
     return
 
@@ -562,12 +598,8 @@ def prioritize_scans(series_list):
                 continue
 
             if f_label == on:
-                logger.info(
-                    "{priority} is prioritized over \
-                    {scan}, not copying {scan}".format(
-                        priority=s, scan=f
-                    )
-                )
+                logger.info("{priority} is prioritized over \
+                    {scan}, not copying {scan}".format(priority=s, scan=f))
                 to_filt.add(f)
 
     # Remove object in filt list from series_list
@@ -583,8 +615,7 @@ def process_subject(subject, cfg, be, bids_dir, rewrite):
     subscan = scan.Scan(subject, cfg)
     bids_sub = ident.get_bids_name()
     bids_ses = ident.timepoint
-    exp_path = make_bids_template(bids_dir,
-                                  "sub-" + bids_sub,
+    exp_path = make_bids_template(bids_dir, "sub-" + bids_sub,
                                   "ses-" + bids_ses)
 
     dm_to_bids = []
@@ -594,7 +625,8 @@ def process_subject(subject, cfg, be, bids_dir, rewrite):
         db_subject.add_bids(bids_sub, bids_ses)
 
     # Construct initial BIDS transformation info
-    for series in sort_by_series(subscan.niftis):
+    scan_list = list(sort_by_series(subscan.niftis))
+    for i, series in enumerate(scan_list):
 
         # Construct bids name
         logger.info("Processing {}".format(series))
@@ -603,26 +635,27 @@ def process_subject(subject, cfg, be, bids_dir, rewrite):
             continue
         bids_dict.update({"sub": bids_sub, "ses": bids_ses})
 
-        bids_prefix = be.construct_bids_name(bids_dict)
+        # Deal with reference scans
+        if bids_dict.get('is_ref', False):
+            target_dict = get_tag_bids_spec(cfg, scan_list[i + 1].tag)
+            bids_dict.update({'task': target_dict['task']})
 
-        # Make required directories
+        bids_prefix = be.construct_bids_name(bids_dict)
         class_path = os.path.join(exp_path, bids_dict["class"])
-        make_directory(class_path)
 
         # Make dm2bids transformation file, update source if applicable
-        bidsfile = BIDSFile(
-            bids_sub, bids_ses, series, class_path, bids_prefix, bids_dict
-        ).update_source(cfg, be)
+        bidsfiles = BIDSFile(bids_sub, bids_ses, series, class_path,
+                             bids_prefix, bids_dict).update_source(cfg, be)
 
-        if bidsfile is None:
+        if bidsfiles is None:
             logger.error("Cannot find derivative of {}".format(series))
             logger.warning("Skipping!")
             continue
 
-        if isinstance(bidsfile, list):
-            dm_to_bids.extend(bidsfile)
+        if isinstance(bidsfiles, list):
+            dm_to_bids.extend(bidsfiles)
         else:
-            dm_to_bids.append(bidsfile)
+            dm_to_bids.append(bidsfiles)
 
     # Apply prioritization calls
     dm_to_bids = prioritize_scans(dm_to_bids)
