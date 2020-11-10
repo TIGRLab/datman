@@ -17,13 +17,9 @@ Options:
     --debug                     Debug logging
 
 Info on FMAP matching algorithm:
-There are two key assumptions here:
 
-1.  There exists only ONE KIND of fmap type scan for a given session. If this
-    assumption is broken for whatever reason then an additional heuristic is
-    needed to separate out fmaps by type prior to running the pairing algorithm
-
-2.  Pairing fmaps are collected sequentially in order. If order is
+    The one key assumption bidsify makes is that pairing fmaps
+    are collected sequentially in order. If order is
     non-sequential then algorithm will crash. A more sophisticated routine
     will be needed.
 """
@@ -435,17 +431,11 @@ def process_intended_fors(grouped_fmaps, non_fmaps):
     Considerations:
         1. When matching should first scrape the kind of data you can
         apply fmaps to
-        2. Then loop through modalities
+        2. Then loop through acquisitions
         3. Filter scans
         4. Calculate distances and minimizes
         5. Done
     """
-    '''
-    #TODO: Modifications required
-
-    First we need to feed in the iterator of group/fmap pairs
-    Then we can look through the group keys --> pull intended fors
-    '''
 
     # For each acq/intended tuple
     series_list = non_fmaps
