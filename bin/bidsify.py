@@ -557,9 +557,7 @@ def make_dataset_description(bids_dir, study_name, version):
             json.dump({
                 "Name": study_name,
                 "BIDSVersion": version
-            },
-                      f,
-                      indent=3)
+            }, f, indent=3)
 
     return
 
