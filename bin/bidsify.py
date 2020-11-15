@@ -41,7 +41,8 @@ import datman.dashboard as dashboard
 from datman.bids.check_bids import BIDSEnforcer
 
 from collections import namedtuple
-from itertools import groupby
+from itertools import groupby, product
+from operator import attrgetter
 
 # Set up logger
 logging.basicConfig(level=logging.WARN,
@@ -80,7 +81,7 @@ class BIDSFile(object):
 
     @property
     def series_num(self):
-        return self.series.series_num
+        return int(self.series.series_num)
 
     @property
     def source(self):
@@ -396,12 +397,12 @@ def pair_fmaps(series_list):
     return pair_list
 
 
-def calculate_average_series(series_list):
+def get_first_series(series_list):
     """
     For each iterable of BIDSFiles calculate the average series number
     """
 
-    return sum([float(s.series_num) for s in series_list]) / len(series_list)
+    return min(series_list, key=lambda x: x.series_num).series_num
 
 
 def is_fieldmap_candidate(scan, scan_type):
@@ -435,12 +436,49 @@ def process_intended_fors(grouped_fmaps, non_fmaps):
         3. Filter scans
         4. Calculate distances and minimizes
         5. Done
+
+    Patch 2020-11-12
+    ------------------------
+    Naive minimization of the series metric may result in
+    EPIs meant to be grouped together to be associated with
+    different fmaps.
+
+    To remove this bug while maintaining bidirectional matching
+    of fmaps the candidate scans are chunked based on their containment within
+    2 pairs of fmaps of a (acq, intended_for) tuple and assigned their
+    min(series) key for matching.
+
     """
+
+    EpiChunk = namedtuple("EpiChunk", ['series', 'chunk'])
+
+    def chunk_epis(epis, series_blocks):
+        '''
+        Implement chunking with series_blocks as
+        bounds for each chunk
+        '''
+
+        # Loop through series blocks and chunk
+        chunks = []
+        edges = [0, *series_blocks, 1e10]
+        for i in range(0, len(edges) - 1):
+
+            chunk = [
+                e for e in epis
+                if e.series_num >= edges[i] and e.series_num < edges[i + 1]
+            ]
+
+            if chunk:
+                min_ser = min(chunk, key=lambda x: x.series_num)
+                chunks.append(EpiChunk(min_ser.series_num, chunk))
+
+        return chunks
 
     # For each acq/intended tuple
     series_list = non_fmaps
     for g, l in grouped_fmaps:
 
+        candidate_fmaps = list(l)
         intended_for = g.intended_for
 
         # Get candidate list of scans to match on
@@ -448,23 +486,21 @@ def process_intended_fors(grouped_fmaps, non_fmaps):
             s for s in non_fmaps if is_fieldmap_candidate(s, intended_for)
         ]
 
-        # We already have the list of candidate fmaps!
-        candidate_fmaps = list(l)
+        # 2020-11-12 patch
+        cfmaps_sers = [get_first_series(f) for f in candidate_fmaps]
+        chunks = chunk_epis(candidate_scans, cfmaps_sers)
 
-        # Calculate distances to each candidate fmap set
-        for c in candidate_scans:
+        # Minimize over chunks
+        for c in chunks:
 
             # Calc dists and get minimum index
-            dists = [
-                abs(calculate_average_series(f) - float(c.series_num))
-                for f in candidate_fmaps
-            ]
+            dists = [abs(f - c.series) for f in cfmaps_sers]
             min_ind = dists.index(min(dists))
 
-            # Add intended for to each fmap selected
+            # Add each scan in chunk to each grouped fmap
             [
-                s.add_json_list("IntendedFor", c.rel_path)
-                for s in candidate_fmaps[min_ind]
+                f.add_json_list("IntendedFor", s.rel_path)
+                for f, s in product(candidate_fmaps[min_ind], c.chunk)
             ]
 
         # Add processed fmaps to series list
@@ -498,7 +534,7 @@ def prepare_fieldmaps(series_list):
         parameter. This allows us to collect multiple fieldmap types
         for a single given sequence/set of sequences.
         '''
-        return Fmap_ID(x.get_spec('acq', return_default=True),
+        return Fmap_ID(x.get_spec('acq', return_default=True, default=''),
                        x.get_spec('intended_for'))
 
     # Filter out non_fmap files
@@ -511,6 +547,7 @@ def prepare_fieldmaps(series_list):
 
     # Pair up fmaps
     pair_list = pair_fmaps(fmaps)
+    pair_list.sort(key=lambda x: group_fmaps(x[0]))
 
     # Split fmaps based on type
     groupings = groupby(pair_list, lambda x: group_fmaps(x[0]))
@@ -557,7 +594,9 @@ def make_dataset_description(bids_dir, study_name, version):
             json.dump({
                 "Name": study_name,
                 "BIDSVersion": version
-            }, f, indent=3)
+            },
+                      f,
+                      indent=3)
 
     return
 
