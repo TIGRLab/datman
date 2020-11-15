@@ -42,7 +42,6 @@ from datman.bids.check_bids import BIDSEnforcer
 
 from collections import namedtuple
 from itertools import groupby, product
-from operator import attrgetter
 
 # Set up logger
 logging.basicConfig(level=logging.WARN,
@@ -594,9 +593,7 @@ def make_dataset_description(bids_dir, study_name, version):
             json.dump({
                 "Name": study_name,
                 "BIDSVersion": version
-            },
-                      f,
-                      indent=3)
+            }, f, indent=3)
 
     return
 
