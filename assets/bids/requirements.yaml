@@ -69,7 +69,7 @@ func:
                         description: "Task label, free-form string"
                 contrast_label:
                         description: 'Type of contrast'
-                        constraint: {IN: ['bold','cbv','phase']}
+                        constraint: {IN: ['bold','cbv','phase','sbref']}
         optional:
 
                 ce: {}
