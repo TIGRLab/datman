@@ -171,7 +171,7 @@ class BIDSFile(object):
         alts = []
         for d in alt:
             '''
-            Allow "self" to propogate itself if the tag itself
+            Allow self to propogate itself if the tag itself
             in addition its derivatives need to be converted into BIDS
             i.e SBRef for registration and SBRef for TOPUP
             '''
@@ -398,7 +398,7 @@ def pair_fmaps(series_list):
 
 def get_first_series(series_list):
     """
-    For each iterable of BIDSFiles calculate the average series number
+    For each iterable of BIDSFiles get the minimum series number
     """
 
     return min(series_list, key=lambda x: x.series_num).series_num
@@ -468,8 +468,7 @@ def process_intended_fors(grouped_fmaps, non_fmaps):
             ]
 
             if chunk:
-                min_ser = min(chunk, key=lambda x: x.series_num)
-                chunks.append(EpiChunk(min_ser.series_num, chunk))
+                chunks.append(EpiChunk(get_first_series(chunk), chunk))
 
         return chunks
 
