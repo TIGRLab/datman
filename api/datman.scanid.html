@@ -199,7 +199,7 @@ in its native convention can always be retrieved from ‘orig_id’.</p>
 <dl class="class">
 <dt id="datman.scanid.BIDSFile">
 <em class="property">class </em><code class="sig-prename descclassname">datman.scanid.</code><code class="sig-name descname">BIDSFile</code><span class="sig-paren">(</span><em class="sig-param">subject</em>, <em class="sig-param">session</em>, <em class="sig-param">suffix</em>, <em class="sig-param">task=None</em>, <em class="sig-param">acq=None</em>, <em class="sig-param">ce=None</em>, <em class="sig-param">dir=None</em>, <em class="sig-param">rec=None</em>, <em class="sig-param">run=None</em>, <em class="sig-param">echo=None</em>, <em class="sig-param">mod=None</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.BIDSFile" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 </dd></dl>
 
 <dl class="class">
@@ -249,7 +249,7 @@ in its native convention can always be retrieved from ‘orig_id’.</p>
 <dl class="class">
 <dt id="datman.scanid.Identifier">
 <em class="property">class </em><code class="sig-prename descclassname">datman.scanid.</code><code class="sig-name descname">Identifier</code><a class="headerlink" href="#datman.scanid.Identifier" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">abc.ABC</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">abc.ABC</span></code></a></p>
 <dl class="method">
 <dt id="datman.scanid.Identifier.get_bids_name">
 <code class="sig-name descname">get_bids_name</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#datman.scanid.Identifier.get_bids_name" title="Permalink to this definition">¶</a></dt>
@@ -334,9 +334,9 @@ in its native convention can always be retrieved from ‘orig_id’.</p>
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>match</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">re.Match</span></code>) – A match object created from a valid ID</p></li>
-<li><p><strong>field</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – An ID field name. This corresponds to the match
+<li><p><strong>field</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – An ID field name. This corresponds to the match
 groups of valid (supported) ID (e.g. study, site, subject)</p></li>
-<li><p><strong>settings</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code></a>, optional) – User settings to specify fields that
+<li><p><strong>settings</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code></a>, optional) – User settings to specify fields that
 should be modified and how to modify them. See the settings
 description in <a class="reference internal" href="#datman.scanid.parse" title="datman.scanid.parse"><code class="xref py py-func docutils literal notranslate"><span class="pre">parse()</span></code></a> for more info. Defaults to None.</p></li>
 </ul>
@@ -349,7 +349,7 @@ description in <a class="reference internal" href="#datman.scanid.parse" title="
 </p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)">str</a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)">str</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -361,9 +361,9 @@ description in <a class="reference internal" href="#datman.scanid.parse" title="
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>identifier</strong> (<a class="reference external" href="https://docs.python.org/3/library/string.html#module-string" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">string</span></code></a>) – A string matching a supported naming
+<li><p><strong>identifier</strong> (<a class="reference external" href="https://docs.python.org/3/library/string.html#module-string" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">string</span></code></a>) – A string matching a supported naming
 convention.</p></li>
-<li><p><strong>settings</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code></a>, optional) – A settings dictionary matching the
+<li><p><strong>settings</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code></a>, optional) – A settings dictionary matching the
 format described in <a class="reference internal" href="#datman.scanid.parse" title="datman.scanid.parse"><code class="xref py py-func docutils literal notranslate"><span class="pre">parse()</span></code></a>. Defaults to None.</p></li>
 </ul>
 </dd>
@@ -456,8 +456,8 @@ containing the site ‘UTO’ to the site ‘UT1’.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>identifier</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – A string that might be a valid subject ID.</p></li>
-<li><p><strong>settings</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code></a>, optional) – A dictionary of settings to use when
+<li><p><strong>identifier</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – A string that might be a valid subject ID.</p></li>
+<li><p><strong>settings</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code></a>, optional) – A dictionary of settings to use when
 parsing the ID. Defaults to None.</p></li>
 </ul>
 </dd>
@@ -489,7 +489,7 @@ parsing the ID. Defaults to None.</p></li>
 <dd><p>Parse a datman style file name.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – A file name or full path to parse</p>
+<dd class="field-odd"><p><strong>path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – A file name or full path to parse</p>
 </dd>
 <dt class="field-even">Raises</dt>
 <dd class="field-even"><p><a class="reference internal" href="datman.exceptions.html#datman.exceptions.ParseException" title="datman.exceptions.ParseException"><strong>ParseException</strong></a> – If the file name does not match the datman convention.</p>
@@ -503,10 +503,10 @@ parsing the ID. Defaults to None.</p></li>
 </dd>
 </dl>
 </li>
-<li><p>tag (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>): The scan tag that identifies the acquisition.</p></li>
+<li><p>tag (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>): The scan tag that identifies the acquisition.</p></li>
 <li><p>series (int): The series number.</p></li>
 <li><dl class="simple">
-<dt>description (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>): The series description. Should be</dt><dd><p>identical to the SeriesDescription field of the dicom headers
+<dt>description (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>): The series description. Should be</dt><dd><p>identical to the SeriesDescription field of the dicom headers
 (aside from some mangling to non-alphanumeric characters).</p>
 </dd>
 </dl>
@@ -516,7 +516,7 @@ parsing the ID. Defaults to None.</p></li>
 </p>
 </dd>
 <dt class="field-even">Return type</dt>
-<dd class="field-even"><p>(<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.8)">tuple</a>)</p>
+<dd class="field-even"><p>(<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.9)">tuple</a>)</p>
 </dd>
 </dl>
 </dd></dl>
