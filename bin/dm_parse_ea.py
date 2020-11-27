@@ -65,7 +65,8 @@ def get_blocks(log, vid_info):
         lambda x: "circle_block" if "cvid" in x else "EA_block")
     # add durations and convert them into the units used here
     df['duration'] = df['movie_name'].apply(
-        lambda x: int(vid_info[x]['duration']) * 10000 if x in vid_info else "n/a")
+        lambda x: int(vid_info[x]['duration']) * 10000 if
+        x in vid_info else "n/a")
     # adds names of stim_files, according to the vid_info spreadsheet
     df['stim_file'] = df['movie_name'].apply(
         lambda x: vid_info[x]['stim_file'] if x in vid_info else "n/a")
@@ -122,15 +123,13 @@ def combine_dfs(blocks, ratings):
     mask = pd.notnull(combo['trial_type'])
     combo['space_b4_prev'] = combo['onset'].diff(periods=1)
     combo['first_button_press'] = combo['duration'].shift() > 0
-    combo2 = (combo.drop(combo[(combo['space_b4_prev'] < 1000) &
-              (combo['first_button_press'] == True)].index).reset_index(
-                drop=True))
+    combo2 = combo.drop(combo[
+        (combo['space_b4_prev'] < 1000) & (combo['first_button_press'] is True)
+    ].index).reset_index(drop=True)
 
     mask = pd.notnull(combo2['trial_type'])
 
     block_start_locs = combo2[mask].index.values
-
-    onsets = pd.Series(combo2.onset)
 
     last_block = combo2.iloc[block_start_locs[len(block_start_locs) - 1]]
 
@@ -148,22 +147,22 @@ def combine_dfs(blocks, ratings):
     block_start_locs = combo2[mask].index.values
 
     combo2['rating_duration'] = (
-        combo2['onset'].shift(-1) - combo2['onset'].where(mask == False))
+        combo2['onset'].shift(-1) - combo2['onset'].where(mask is False))
 
     # this ends up not assigning a value for the final button press - there
     # must be a more elegant way to do all this
     for i in range(len(block_start_locs)):
         if block_start_locs[i] != 0:
             # maybe i should calculate these vars separately for clarity
-            combo2.rating_duration[block_start_locs[i-1]] = (
-                combo2.end[block_start_locs[i-1]] -
-                combo2.onset[block_start_locs[i-1]])
+            combo2.rating_duration[block_start_locs[i - 1]] = (
+                combo2.end[block_start_locs[i - 1]] -
+                combo2.onset[block_start_locs[i - 1]])
 
     # adds rows that contain the 5 second at the beginning default value
     for i in block_start_locs:
         new_row = {
             'onset': combo2.onset[i],
-            'rating_duration': combo2.onset[i+1] - combo2.onset[i],
+            'rating_duration': combo2.onset[i + 1] - combo2.onset[i],
             'event_type': 'default_rating',
             'duration': 0,
             'participant_value': 5}
@@ -191,28 +190,28 @@ def block_scores(ratings_dict, combo):
         # df['trial_type']=df['movie_name'].apply(
         # lambda x: "circle_block" if "cvid" in x else "EA_block")
 
-        block_start = combo.onset[block_start_locs[idx-1]]
-        block_end = combo.end[block_start_locs[idx-1]]
+        block_start = combo.onset[block_start_locs[idx - 1]]
+        block_end = combo.end[block_start_locs[idx - 1]]
 
         # selects the rows between the start and the end that contain button
         # presses should just change this to select the rows, idk why not lol
 
-        block = combo.iloc[block_start_locs[idx-1]:block_start_locs[idx]][
+        block = combo.iloc[block_start_locs[idx - 1]:block_start_locs[idx]][
             pd.notnull(combo.event_type)]  # between is inclusive by default
         block_name = combo.movie_name.iloc[
-            block_start_locs[idx-1]:block_start_locs[idx]][
+            block_start_locs[idx - 1]:block_start_locs[idx]][
             pd.notnull(combo.movie_name)].reset_index(drop=True).astype(
             str).get(0)
 
         gold = get_series_standard(ratings_dict, block_name)
 
         if "cvid" in block_name:
-            interval = np.arange(combo.onset[block_start_locs[idx-1]],
-                                 combo.end[block_start_locs[idx-1]],
+            interval = np.arange(combo.onset[block_start_locs[idx - 1]],
+                                 combo.end[block_start_locs[idx - 1]],
                                  step=40000)
         else:
-            interval = np.arange(combo.onset[block_start_locs[idx-1]],
-                                 combo.end[block_start_locs[idx-1]],
+            interval = np.arange(combo.onset[block_start_locs[idx - 1]],
+                                 combo.end[block_start_locs[idx - 1]],
                                  step=20000)
 
         if len(gold) < len(interval):
@@ -241,7 +240,6 @@ def block_scores(ratings_dict, combo):
             block_length = end - start
             if len(sub_block) != 0:
                 ratings = []
-                last_val = sub_block.participant_value.iloc[[-1]]
                 for index, row in sub_block.iterrows():
                     # for rows that are in the thing
                     if (row.onset < start):
@@ -286,7 +284,7 @@ def block_scores(ratings_dict, combo):
                 {'event_type': 'running_avg',
                  'participant_value': float(avg),
                  'onset': start,
-                 'duration': end-start,
+                 'duration': end - start,
                  'gold_std': gold[x]}
             )
             # removed block_name from above
@@ -298,7 +296,7 @@ def block_scores(ratings_dict, combo):
             {key: {'n_button_press': int(n_button_press),
                    'block_score': block_score,
                    'onset': block_start,
-                   'duration': block_end-block_start}}
+                   'duration': block_end - block_start}}
         )
 
     return list_of_rows, summary_vals
@@ -384,8 +382,8 @@ def parse_task(ident, log_file, dest_dir, length_file, timing_file):
             'stim_file']
     combo = combo[cols]
     # converts timestamps to seconds
-    combo['onset'] = combo.onset/10000.0
-    combo.duration = combo.duration/10000.0
+    combo['onset'] = combo.onset / 10000.0
+    combo.duration = combo.duration / 10000.0
     # by sorting it makes the fill down accurate instead of mis-labeling
     # (should possibly do this in a better way in future)
     combo.stim_file = combo.stim_file.ffill(axis=0)
@@ -393,8 +391,6 @@ def parse_task(ident, log_file, dest_dir, length_file, timing_file):
     # gets rid of that helper row
     combo = combo[combo.event_type != "final_row"]
     combo.to_csv(output_path, sep='\t', na_rep='n/a', index=False)
-
-    EA_mask = combo.ix[combo.trial_type == "EA_block"]
 
 
 def main():
