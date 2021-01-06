@@ -114,11 +114,11 @@ def add_session_redcap(record, record_key):
         event_id = None
 
     try:
-        session.add_redcap(record_id, redcap_project, redcap_url, instrument,
-                           date=session_date,
-                           comment=record_comment,
-                           event_id=event_id,
-                           version=redcap_version)
+        session.add_redcap(
+            record_id, session_date, project=redcap_project, url=redcap_url,
+            instrument=instrument, comment=record_comment, event_id=event_id,
+            redcap_version=redcap_version
+        )
     except Exception:
         logger.error('Failed adding REDCap info for session {} to '
                      'dashboard'.format(ident))
