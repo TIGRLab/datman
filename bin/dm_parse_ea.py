@@ -9,7 +9,7 @@ Arguments:
     <study>                     A datman study to parse task data for.
 
 Options:
-    --subject <subject>         Single datman session to generate TSVs for
+    --experiment <experiment>   Single datman session to generate TSVs for
     --timings <timing_path>     The full path to the EA timings file.
                                 Defaults to the 'EA-timing.csv' file in
                                 the assets folder.
@@ -390,7 +390,7 @@ def parse_task(ident, log_file, dest_dir, length_file, timing_file):
 def main():
     arguments = docopt(__doc__)
     study = arguments["<study>"]
-    subject = arguments["--subject"]
+    experiment = arguments["--experiment"]
     length_file = arguments["--lengths"]
     timing_file = arguments["--timings"]
     task_regex = arguments["--regex"]
@@ -416,30 +416,30 @@ def main():
     task_path = config.get_path("task")
     nii_path = config.get_path("nii")
 
-    if not subject:
-        subjects = os.listdir(task_path)
+    if not experiment:
+         experiments = os.listdir(task_path)
     else:
-        subjects = [subject]
-        logger.info(f"Running EA parsing for {subject}")
+        experiments = [experiment]
+        logger.info(f"Running EA parsing for {experiment}")
 
-    for subject in subjects:
-        logger.info(f"Parsing {subject}...")
+    for experiment in experiments:
+        logger.info(f"Parsing {experiment}...")
         try:
-            ident = datman.scanid.parse(subject)
+            ident = datman.scanid.parse(experiment)
         except datman.scanid.ParseException:
-            logger.error(f"Skipping task folder with malformed ID {subject}")
+            logger.error(f"Skipping task folder with malformed ID {experiment}")
             continue
 
-        sub_dir = os.path.join(task_path, subject)
+        exp_task_dir = os.path.join(task_path, experiment)
         sub_nii = os.path.join(nii_path,
                                ident.get_full_subjectid_with_timepoint())
 
-        if not os.path.isdir(sub_dir):
+        if not os.path.isdir(exp_task_dir):
             logger.warning(
-                f"{subject} has no task directory {sub_dir}, skipping")
+                    f"{experiment} has no task directory {exp_task_dir}, skipping")
             continue
 
-        for task_file in glob.glob(os.path.join(sub_dir, task_regex)):
+        for task_file in glob.glob(os.path.join(exp_task_dir, task_regex)):
             parse_task(ident, task_file, sub_nii, length_file, timing_file)
 
 
