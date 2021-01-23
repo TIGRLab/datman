@@ -15,6 +15,10 @@ Options:
     -y PATH, --yaml PATH        YAML path for BIDS specification constraints
     -r, --rewrite               Overwrite existing BIDS outputs
     --debug                     Debug logging
+    -i, --allow-incomplete      Allow incomplete fmaps to be mapped to
+                                BIDS format. Only use this option if
+                                deviations from the expected protocol
+                                are allowed
 
 Info on FMAP matching algorithm:
 
@@ -22,6 +26,14 @@ Info on FMAP matching algorithm:
     are collected sequentially in order. If order is
     non-sequential then algorithm will crash. A more sophisticated routine
     will be needed.
+
+Info on allow-incomplete:
+
+    Allow-incomplete should only ever be used if protocol deviations (from those
+    specified in config) should be mapped to BIDS specification.
+
+    By default any incomplete fieldmaps WILL NOT be mapped into the BIDS specification
+    since they are by default deemed unusable
 """
 
 import os
@@ -42,6 +54,7 @@ from datman.bids.check_bids import BIDSEnforcer
 
 from collections import namedtuple
 from itertools import groupby, product
+from dataclasses import dataclass, field, InitVar
 
 # Set up logger
 logging.basicConfig(level=logging.WARN,
@@ -195,7 +208,7 @@ class BIDSFile(object):
 
             # Get bids specification for file and assign to copy
             new_spec = {
-                **get_tag_bids_spec(cfg, alt_type),
+                **get_tag_bids_spec(cfg, alt_type, self.series.site),
                 **d.get("inherit", {})
             }
             derivsfile.spec = new_spec
@@ -271,8 +284,106 @@ class BIDSFile(object):
         else:
             return True
 
+@dataclass
+class FMapMatch:
+    '''
+    Dataclass to record handling of Fmap files for the
+    pairing algorithm
+    '''
+    intended_for: str = None
+    match_key: str = None
+    remaining_matches: set = None
+    fmaps: list = field(default_factory=list)
+    bidsfile: InitVar[BIDSFile] = None
 
-# SCRIPT DEFINITIONS
+    def __post_init__(self, bidsfile):
+        self.intended_for = bidsfile.get_spec("intended_for")
+        self.match_key = bidsfile.get_spec("pair", "label")
+        self.remaining_matches = set(bidsfile.get_spec("pair","with"))
+        self.fmaps.append(bidsfile)
+
+
+def match_fmaps(series_list):
+    """
+    Matching heuristic for associating fieldmaps with each other
+
+    Method:
+        For each BIDSFile get the pairing key and the associated values allowed
+        When another file with an associated value is found, get the
+        intersection of the allowed values
+        This yields the left over requirements that needs to be fulfilled
+        If the other file is not matching (case of lone TOPUP) then a mismatch
+        results in a lone fmap
+
+    """
+
+    def pair_with(x):
+        return x.get_spec("pair","with")
+
+    def handle_incomplete(fmapmatch, fmapmatches):
+        '''
+        Handles case in which incomplete fmap list is found
+        Uses global read-only variable ALLOW_INCOMPLETE
+        '''
+        logger.warning("Incomplete fieldmap matches for: "
+                f"{' '.join(fmapmatch.fmaps)}")
+        logger.warning("Missing the following fields: "
+                f"{' '.join(fmapmatch.remaining_matches)}")
+
+        if ALLOW_INCOMPLETE:
+            logger.warning("Incomplete fmaps allowed with --allow-incomplete"
+                           " allowing bids conversion")
+            fmapmatches.append(stored)
+        else:
+            logger.warning("Incomplete fmaps not allowed! "
+                            "Use --allow-incomplete to allow for "
+                            "incomplete fmaps")
+        return fmapmatches
+
+
+    lone = []
+    fmapmatches = []
+    stored = None
+    for s in series_list:
+
+        if not s.is_spec("pair"):
+            lone.append(s)
+
+            if stored and stored.remaining_matches:
+                fmapmatches = handle_incomplete(stored, fmapmatches)
+                stored = None
+            continue
+
+        if not stored:
+            stored = FMapMatch(bidsfile=s)
+            continue
+
+        try:
+            match_val = s.get_spec(stored.match_key)
+        except KeyError:
+            logger.error("Mismatch of fieldmap types breaking key assumption!")
+            logger.error("This functionality is not yet supported!")
+            raise
+
+        match_found = match_val in stored.remaining_matches
+        matched_intention = stored.intended_for == s.get_spec("intended_for")
+        if match_found and matched_intention:
+            stored.fmaps.append(s)
+            stored.remaining_matches = stored.remaining_matches & set(s.get_spec("pair","with"))
+
+            if not stored.remaining_matches:
+                fmapmatches.append(stored)
+                stored = None
+        else:
+            fmapmatches = handle_incomplete(stored, fmapmatches)
+            stored = FMapMatch(bidsfile=s)
+
+    if stored is not None:
+        fmapmatches = handle_incomplete(stored, fmapmatches)
+
+    match_list = [f.fmaps for f in fmapmatches]
+    match_list.append(lone)
+    return match_list
 
 
 def make_directory(path, suppress=False):
@@ -309,15 +420,13 @@ def get_json(nifti_path):
     return nifti_path.replace(".nii.gz", ".json").replace(".nii", ".json")
 
 
-def get_tag_bids_spec(cfg, tag):
+def get_tag_bids_spec(cfg, tag, site):
     """
     Retrieve the BIDS specifications for a Tag defined in datman config
     """
 
-    # Copy is being used here since python passes by reference and any
-    # downstream updates modify the original data which is bad
     try:
-        bids = cfg.system_config["ExportSettings"][tag]["bids"].copy()
+        bids = cfg.get_key("ExportSettings", site=site)[tag]['bids'].copy()
     except KeyError:
         logger.error("No BIDS tag available for scan type:"
                      "{}, skipping conversion".format(tag))
@@ -326,74 +435,6 @@ def get_tag_bids_spec(cfg, tag):
     return bids
 
 
-def pair_fmaps(series_list):
-    """
-    Pairing heuristic for associating fieldmaps with each other
-
-    Method:
-        For each BIDSFile get the pairing key and the associated values allowed
-        When another file with an associated value is found, get the
-        intersection of the allowed values
-        This yields the left over requirements that needs to be fulfilled
-        If the other file is not matching (case of lone TOPUP) then a mismatch
-        results in a lone fmap
-
-    """
-    def pair_on(x):
-        return x.get_spec("pair", "label")
-
-    def pair_with(x):
-        return set(x.get_spec("pair", "with"))
-
-    pair_list = []
-    lone = []
-    stored = []
-    pairs2go = []
-    for s in series_list:
-
-        # If fmap is not intended to be paired
-        if not s.is_spec("pair"):
-            lone.append(s)
-            continue
-
-        # Get the image if nothing is being used as a comparator
-        if not stored:
-            stored = s
-            pairs2go = pair_with(s)
-            pair_spec = pair_on(s)
-            pairs = [s]
-            continue
-
-        # If stored is available then in the next fmap type check!
-        try:
-            pairing_val = s.get_spec(pair_spec)
-        except KeyError:
-            logger.error("Mismatch of fieldmap types breaking key assumption!")
-            logger.error("This functionality is not yet supported!")
-            raise
-
-        # If match then add on and intersect to cut down requirements list
-        if pairing_val in pairs2go:
-            pairs.append(s)
-            pairs2go = pairs2go & pair_with(s)
-
-            # If after intersection pairs2go is empty that means no more
-            # matches required for set of fmaps
-            if not pairs2go:
-                pair_list.append(pairs)
-                pairs = []
-                stored = None
-        # Otherwise it's a lonely fmap, use next as comparator
-        else:
-            lone.append([stored])
-            stored = s
-
-    # Residuals loners go here
-    if stored is not None:
-        lone.append([stored])
-
-    pair_list.extend(lone)
-    return pair_list
 
 
 def get_first_series(series_list):
@@ -544,7 +585,7 @@ def prepare_fieldmaps(series_list):
     non_fmaps = [s for s in series_list if s.bids_type != "fmap"]
 
     # Pair up fmaps
-    pair_list = pair_fmaps(fmaps)
+    pair_list = match_fmaps(fmaps)
     pair_list.sort(key=lambda x: group_fmaps(x[0]))
 
     # Split fmaps based on type
@@ -653,14 +694,14 @@ def process_subject(subject, cfg, be, bids_dir, rewrite):
 
         # Construct bids name
         logger.info("Processing {}".format(series))
-        bids_dict = get_tag_bids_spec(cfg, series.tag)
+        bids_dict = get_tag_bids_spec(cfg, series.tag, series.site)
         if not bids_dict:
             continue
         bids_dict.update({"sub": bids_sub, "ses": bids_ses})
 
         # Deal with reference scans
         if bids_dict.get('is_ref', False):
-            target_dict = get_tag_bids_spec(cfg, scan_list[i + 1].tag)
+            target_dict = get_tag_bids_spec(cfg, scan_list[i + 1].tag, series.site)
             bids_dict.update({'task': target_dict['task']})
 
         bids_prefix = be.construct_bids_name(bids_dict)
@@ -712,6 +753,9 @@ def main():
     yml = arguments["--yaml"] or YAML
     rewrite = arguments["--rewrite"]
     debug = arguments["--debug"]
+
+    global ALLOW_INCOMPLETE
+    ALLOW_INCOMPLETE = arguments["--allow-incomplete"]
 
     be = BIDSEnforcer(yml)
 
