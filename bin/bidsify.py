@@ -32,8 +32,8 @@ Info on allow-incomplete:
     Allow-incomplete should only ever be used if protocol deviations (from those
     specified in config) should be mapped to BIDS specification.
 
-    By default any incomplete fieldmaps WILL NOT be mapped into the BIDS specification
-    since they are by default deemed unusable
+    By default any incomplete fieldmaps WILL NOT be mapped into
+    the BIDS specification since they are by default deemed unusable
 """
 
 import os
@@ -284,6 +284,7 @@ class BIDSFile(object):
         else:
             return True
 
+
 @dataclass
 class FMapMatch:
     '''
@@ -299,7 +300,7 @@ class FMapMatch:
     def __post_init__(self, bidsfile):
         self.intended_for = bidsfile.get_spec("intended_for")
         self.match_key = bidsfile.get_spec("pair", "label")
-        self.remaining_matches = set(bidsfile.get_spec("pair","with"))
+        self.remaining_matches = set(bidsfile.get_spec("pair", "with"))
         self.fmaps.append(bidsfile)
 
 
@@ -316,19 +317,15 @@ def match_fmaps(series_list):
         results in a lone fmap
 
     """
-
-    def pair_with(x):
-        return x.get_spec("pair","with")
-
     def handle_incomplete(fmapmatch, fmapmatches):
         '''
         Handles case in which incomplete fmap list is found
         Uses global read-only variable ALLOW_INCOMPLETE
         '''
         logger.warning("Incomplete fieldmap matches for: "
-                f"{' '.join(fmapmatch.fmaps)}")
+                       f"{' '.join(fmapmatch.fmaps)}")
         logger.warning("Missing the following fields: "
-                f"{' '.join(fmapmatch.remaining_matches)}")
+                       f"{' '.join(fmapmatch.remaining_matches)}")
 
         if ALLOW_INCOMPLETE:
             logger.warning("Incomplete fmaps allowed with --allow-incomplete"
@@ -336,10 +333,9 @@ def match_fmaps(series_list):
             fmapmatches.append(stored)
         else:
             logger.warning("Incomplete fmaps not allowed! "
-                            "Use --allow-incomplete to allow for "
-                            "incomplete fmaps")
+                           "Use --allow-incomplete to allow for "
+                           "incomplete fmaps")
         return fmapmatches
-
 
     lone = []
     fmapmatches = []
@@ -369,7 +365,8 @@ def match_fmaps(series_list):
         matched_intention = stored.intended_for == s.get_spec("intended_for")
         if match_found and matched_intention:
             stored.fmaps.append(s)
-            stored.remaining_matches = stored.remaining_matches & set(s.get_spec("pair","with"))
+            stored.remaining_matches = stored.remaining_matches & set(
+                s.get_spec("pair", "with"))
 
             if not stored.remaining_matches:
                 fmapmatches.append(stored)
@@ -434,8 +431,6 @@ def get_tag_bids_spec(cfg, tag, site):
         return None
 
     return bids
-
-
 
 
 def get_first_series(series_list):
@@ -702,7 +697,8 @@ def process_subject(subject, cfg, be, bids_dir, rewrite):
 
         # Deal with reference scans
         if bids_dict.get('is_ref', False):
-            target_dict = get_tag_bids_spec(cfg, scan_list[i + 1].tag, series.site)
+            target_dict = get_tag_bids_spec(cfg, scan_list[i + 1].tag,
+                                            series.site)
             bids_dict.update({'task': target_dict['task']})
 
         bids_prefix = be.construct_bids_name(bids_dict)
