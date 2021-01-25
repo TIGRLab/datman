@@ -382,7 +382,8 @@ def match_fmaps(series_list):
         fmapmatches = handle_incomplete(stored, fmapmatches)
 
     match_list = [f.fmaps for f in fmapmatches]
-    match_list.append(lone)
+    if lone:
+        match_list.append(lone)
     return match_list
 
 
