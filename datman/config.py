@@ -115,7 +115,7 @@ class config(object):
 
         self.study_name = study_name
 
-        config_path = self.get_key("CONFIG_DIR")
+        config_path = self.get_key("ConfigDir")
         projects = self.get_key("Projects")
 
         try:
@@ -130,7 +130,7 @@ class config(object):
     def get_study_base(self, study=None):
         """Return the base directory for a study"""
 
-        proj_dir = self.get_key("DATMAN_PROJECTSDIR")
+        proj_dir = self.get_key("DatmanProjectsDir")
 
         if study:
             self.set_study(study)

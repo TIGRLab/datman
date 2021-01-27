@@ -79,7 +79,7 @@ def main():
 
 def get_redcap_records(config, redcap_cred):
     token = get_token(config, redcap_cred)
-    redcap_url = config.get_key('REDCAPAPI')
+    redcap_url = config.get_key('RedcapApi')
 
     logger.debug("Accessing REDCap API at {}".format(redcap_url))
 

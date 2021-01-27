@@ -255,7 +255,7 @@ def get_scanid(archivefile):
     ident = datman.scanid.parse(scanid, settings=id_settings)
 
     try:
-        convention = CFG.get_key("XNAT_CONVENTION", site=ident.site).upper()
+        convention = CFG.get_key("XnatConvention", site=ident.site).upper()
     except datman.config.UndefinedSetting:
         convention = "DATMAN"
 

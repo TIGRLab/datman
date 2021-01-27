@@ -245,9 +245,9 @@ def get_credentials(credentials_path):
 
 def add_server_handler(config):
     try:
-        server_ip = config.get_key('LOGSERVER')
+        server_ip = config.get_key('LogServer')
     except datman.config.UndefinedSetting:
-        raise KeyError("\'LOGSERVER\' not defined in site config file.")
+        raise KeyError("\'LogServer\' not defined in site config file.")
     server_handler = logging.handlers.SocketHandler(
                                 server_ip,
                                 logging.handlers.DEFAULT_TCP_LOGGING_PORT)

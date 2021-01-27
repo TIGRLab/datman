@@ -205,8 +205,8 @@ def main():
     instrument = cfg.get_key('REDCAP_INSTRUMENT')
     date_field = cfg.get_key('REDCAP_DATE')
     status_field = cfg.get_key('REDCAP_STATUS')
-    status_val = cfg.get_key('REDCAP_STATUS_VALUE')
-    record_key = cfg.get_key('REDCAP_RECORD_KEY')
+    status_val = cfg.get_key('RedcapStatusValue')
+    record_key = cfg.get_key('RedcapRecordKey')
 
     # make status_val into a list
     if not (isinstance(status_val, list)):

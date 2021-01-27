@@ -104,7 +104,7 @@ def main():
 def get_server_config(cfg):
     server_config = {}
 
-    default_mrserver = cfg.get_key('FTPSERVER')
+    default_mrserver = cfg.get_key('FtpServer')
     try:
         server_config[default_mrserver] = read_config(cfg)
     except datman.config.UndefinedSetting as e:
@@ -114,7 +114,7 @@ def get_server_config(cfg):
     # Sites may override the study defaults. If they dont, the defaults will
     # be returned and should NOT be re-added to the config
     for site in cfg.get_sites():
-        site_server = cfg.get_key('FTPSERVER', site=site)
+        site_server = cfg.get_key('FtpServer', site=site)
 
         if site_server in server_config:
             continue

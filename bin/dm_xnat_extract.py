@@ -171,7 +171,7 @@ def collect_experiment(user_exper, study, cfg):
     ident = datman.utils.validate_subject_id(user_exper, cfg)
 
     try:
-        convention = cfg.get_key("XNAT_CONVENTION", site=ident.site)
+        convention = cfg.get_key("XnatConvention", site=ident.site)
     except datman.config.UndefinedSetting:
         convention = "DATMAN"
 
@@ -506,7 +506,7 @@ def get_export_formats(ident, file_stem, tags, tag):
         return
 
     try:
-        export_formats = tags.get(tag)['formats']
+        export_formats = tags.get(tag)['Formats']
     except KeyError:
         logger.error("Export settings for tag: {} not found for "
                      "study: {}".format(tag, cfg.study_name))

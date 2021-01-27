@@ -16,7 +16,7 @@ logging.disable(logging.CRITICAL)
 class TestGetPortStr(unittest.TestCase):
     def _set_config_port(self, port):
         self.mock_config.get_key.side_effect = lambda key: {
-            'XNATPORT': port
+            'XnatPort': port
         }[key]
 
     def setUp(self):
@@ -73,9 +73,9 @@ class TestGetPortStr(unittest.TestCase):
 
 class TestGetServer(unittest.TestCase):
     def _set_server_config(self, url, port=None):
-        config_dict = {'XNATSERVER': url}
+        config_dict = {'XnatServer': url}
         if port:
-            config_dict['XNATPORT'] = port
+            config_dict['XnatPort'] = port
         self.mock_config.get_key.side_effect = lambda key: config_dict[key]
 
     def setUp(self):
