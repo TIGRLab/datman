@@ -323,7 +323,7 @@ def match_fmaps(series_list):
         Uses global read-only variable ALLOW_INCOMPLETE
         '''
         logger.warning("Incomplete fieldmap matches for: "
-                       f"{' '.join(fmapmatch.fmaps)}")
+                f"{' '.join([str(f.series) for f in fmapmatch.fmaps])}")
         logger.warning("Missing the following fields: "
                        f"{' '.join(fmapmatch.remaining_matches)}")
 
