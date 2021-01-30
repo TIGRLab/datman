@@ -59,12 +59,12 @@ Details:
 
      Sites:
        site1:
-         XNAT_Archive: '/path/to/arc001'
+         XnatArchive: '/path/to/arc001'
          ExportInfo:
            - T1:  {Pattern: {'regex1', 'regex2'}, Count: n_expected}
            - DTI: {Pattern: {'regex1', 'regex2'}, Count: n_expected}
        site2 :
-         XNAT_Archive: '/path/to/arc001'
+         XnatArchive: '/path/to/arc001'
          ExportInfo:
            - T1:  {Pattern: {'regex1', 'regex2'}, Count: n_expected}
            - DTI: {Pattern: {'regex1', 'regex2'}, Count: n_expected}
@@ -588,12 +588,12 @@ def find_tech_notes(path):
 
 def notes_expected(site, study_name):
     """
-    Grabs 'USES_TECHNOTES' key in study config file to determine
+    Grabs 'UsesTechNotes' key in study config file to determine
     whether technotes are expected
     """
 
     try:
-        technotes = config.get_key('USES_TECHNOTES', site=site)
+        technotes = config.get_key('UsesTechNotes', site=site)
     except datman.config.UndefinedSetting:
         technotes = False
     return technotes

@@ -139,7 +139,7 @@ class config(object):
             logger.warning("Study not set")
             return proj_dir
 
-        return os.path.join(proj_dir, self.get_key("PROJECTDIR"))
+        return os.path.join(proj_dir, self.get_key("ProjectDir"))
 
     def map_xnat_archive_to_project(self, filename):
         """Maps the XNAT tag (e.g. SPN01) to the project name e.g. SPINS
@@ -147,9 +147,9 @@ class config(object):
         is considered or just a tag.
 
         By default the project tag is extracted from the filename and matched
-        to the "STUDY_TAG" in the study config file. If a study has used
+        to the "StudyTag" in the study config file. If a study has used
         multiple site tags (e.g. SPN01, SPINS) these can be defined in the
-        site specific [SITE_TAGS] key.
+        site specific [SiteTags] key.
 
         One project tag (DTI) is shared between two xnat archives (DTI15T and
         DTI3T), the site is used to differentiate between them. As a result, if
@@ -205,12 +205,12 @@ class config(object):
 
             for key, site_config in self.get_key("Sites").items():
                 try:
-                    add_tags = [t.lower() for t in site_config["SITE_TAGS"]]
+                    add_tags = [t.lower() for t in site_config["SiteTags"]]
                 except KeyError:
                     add_tags = []
                 site_tags.extend(add_tags)
 
-            site_tags.append(self.study_config["STUDY_TAG"].lower())
+            site_tags.append(self.study_config["StudyTag"].lower())
 
             if tag.lower() in site_tags:
                 # Hack to deal with DTI not being a unique tag :(
@@ -436,7 +436,7 @@ class config(object):
     @study_required
     def get_xnat_projects(self, study=None):
         xnat_projects = [
-            self.get_key("XNAT_Archive", site=item) for item in self.get_sites()
+            self.get_key("XnatArchive", site=item) for item in self.get_sites()
         ]
         return list(set(xnat_projects))
 
@@ -459,7 +459,7 @@ class config(object):
         If a study has not been set then an exception is raised
         """
         try:
-            default_tag = self.get_key("STUDY_TAG")
+            default_tag = self.get_key("StudyTag")
         except UndefinedSetting:
             logger.info(f"No default study tag defined for {self.study_name}")
             default_tag = None
@@ -473,7 +473,7 @@ class config(object):
             tags[default_tag].append(site)
 
             try:
-                site_tags = site_config["SITE_TAGS"]
+                site_tags = site_config["SiteTags"]
             except KeyError:
                 continue
 

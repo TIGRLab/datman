@@ -83,7 +83,7 @@ class TestValidateSubjectID:
         }
 
         def get_key(key):
-            if key == "ID_MAP":
+            if key == "IdMap":
                 return id_settings
             raise datman.config.UndefinedSetting
 

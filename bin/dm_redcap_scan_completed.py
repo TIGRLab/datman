@@ -78,7 +78,7 @@ def get_version(api_url, token):
 
 def add_session_redcap(record, record_key):
     record_id = record[record_key]
-    subject_id = record[cfg.get_key('REDCAP_SUBJ')].upper()
+    subject_id = record[cfg.get_key('RedcapSubj')].upper()
     if not datman.scanid.is_scanid(subject_id):
         subject_id = subject_id + '_01'
         try:
@@ -92,7 +92,7 @@ def add_session_redcap(record, record_key):
         logger.error('Invalid session: {}, skipping'.format(subject_id))
         return
 
-    session_date = record[cfg.get_key('REDCAP_DATE')]
+    session_date = record[cfg.get_key('RedcapDate')]
 
     try:
         session = dashboard.get_session(ident, date=session_date, create=True)
@@ -102,11 +102,11 @@ def add_session_redcap(record, record_key):
         return
 
     try:
-        record_comment = record[cfg.get_key('REDCAP_COMMENTS')]
-        event_id = cfg.get_key('REDCAP_EVENTID')[record['redcap_event_name']]
+        record_comment = record[cfg.get_key('RedcapComments')]
+        event_id = cfg.get_key('RedcapEventId')[record['redcap_event_name']]
     except (datman.config.UndefinedSetting, datman.config.ConfigException):
         logger.error("Can't add REDCap session info. Verify that "
-                     "values 'REDCAP_COMMENTS' and 'REDCAP_EVENTID' are "
+                     "values 'RedcapComments' and 'RedcapEventId' are "
                      "correctly defined in the config file")
         return
     except KeyError:
@@ -145,7 +145,7 @@ def parse_id(subject_id):
     # If the redcap form contained a KCNI ID, fields may need to be mapped to
     # the datman version.
     try:
-        id_map = cfg.get_key('ID_MAP')
+        id_map = cfg.get_key('IdMap')
     except datman.config.UndefinedSetting:
         # KCNI site and study fields match the datman fields.
         return ident
@@ -195,16 +195,16 @@ def main():
     dir_meta = cfg.get_path('meta')
 
     # configure redcap variables
-    api_url = cfg.get_key('REDCAP_URL')
+    api_url = cfg.get_key('RedcapUrl')
     redcap_url = api_url.replace('/api/', '/')
 
-    token_path = os.path.join(dir_meta, cfg.get_key('REDCAP_TOKEN'))
+    token_path = os.path.join(dir_meta, cfg.get_key('RedcapToken'))
     token = read_token(token_path)
 
-    redcap_project = cfg.get_key('REDCAP_PROJECTID')
-    instrument = cfg.get_key('REDCAP_INSTRUMENT')
-    date_field = cfg.get_key('REDCAP_DATE')
-    status_field = cfg.get_key('REDCAP_STATUS')
+    redcap_project = cfg.get_key('RedcapProjectId')
+    instrument = cfg.get_key('RedcapInstrument')
+    date_field = cfg.get_key('RedcapDate')
+    status_field = cfg.get_key('RedcapStatus')
     status_val = cfg.get_key('RedcapStatusValue')
     record_key = cfg.get_key('RedcapRecordKey')
 

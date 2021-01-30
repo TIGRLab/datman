@@ -93,10 +93,10 @@ def get_redcap_records(config, redcap_cred):
         logger.error("Cannot access redcap data at URL {}".format(redcap_url))
         sys.exit(1)
 
-    current_study = config.get_key('STUDY_TAG')
+    current_study = config.get_key('StudyTag')
 
     try:
-        id_map = config.get_key('ID_MAP')
+        id_map = config.get_key('IdMap')
     except UndefinedSetting:
         id_map = None
 

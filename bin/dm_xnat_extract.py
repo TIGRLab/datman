@@ -177,7 +177,7 @@ def collect_experiment(user_exper, study, cfg):
 
     if convention == "KCNI":
         try:
-            settings = cfg.get_key("ID_MAP")
+            settings = cfg.get_key("IdMap")
         except datman.config.UndefinedSetting:
             settings = None
         ident = datman.scanid.get_kcni_identifier(ident, settings)
@@ -246,7 +246,7 @@ def get_projects(config):
     """
     projects = {}
     for site in config.get_sites():
-        xnat_project = config.get_key("XNAT_Archive", site=site)
+        xnat_project = config.get_key("XnatArchive", site=site)
         projects.setdefault(xnat_project, set()).add(site)
     return projects
 

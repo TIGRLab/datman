@@ -324,14 +324,14 @@ def parse(identifier, settings=None):
     consistency within a single naming convention.
 
     Accepted keys include:
-        'ID_TYPE': Restricts parsing to one naming convention (e.g. 'DATMAN'
+        'IdType': Restricts parsing to one naming convention (e.g. 'DATMAN'
             or 'KCNI')
-        'STUDY': Allows the 'study' field of an ID to be mapped from another
+        'Study': Allows the 'study' field of an ID to be mapped from another
             convention's study code to a datman study code.
-        'SITE': Allows the 'site' field of an ID to be translated from another
+        'Site': Allows the 'site' field of an ID to be translated from another
             convention's site code to a datman site code.
 
-    .. note:: All 'settings' keys must be uppercase.
+    .. note:: All 'settings' keys are case-sensitive.
 
     Using the settings from the below example will cause parse to reject any
     IDs that are not KCNI format, will translate any valid IDs containing
@@ -341,11 +341,11 @@ def parse(identifier, settings=None):
     .. code-block:: python
 
         settings = {
-            'ID_TYPE': 'KCNI',
-            'STUDY': {
+            'IdType': 'KCNI',
+            'Study': {
                 'DTI01': 'DTI'
             },
-            'SITE': {
+            'Site': {
                 'UTO': 'UT2'
             }
         }
@@ -369,8 +369,8 @@ def parse(identifier, settings=None):
         # ID may need to be reparsed based on settings
         identifier = identifier.orig_id
 
-    if settings and "ID_TYPE" in settings:
-        id_type = settings["ID_TYPE"]
+    if settings and "IdType" in settings:
+        id_type = settings["IdType"]
     else:
         id_type = "DETECT"
 
@@ -534,10 +534,10 @@ def get_field(match, field, settings=None):
 
 
 def get_subid(current_subid, settings=None):
-    if not settings or "SUBJECT" not in settings:
+    if not settings or "Subject" not in settings:
         return current_subid
 
-    mapping = settings["SUBJECT"]
+    mapping = settings["Subject"]
 
     for pair in mapping:
         regex_str, replacement = pair.split("->")
