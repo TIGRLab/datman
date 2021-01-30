@@ -54,10 +54,10 @@ class TestRecord(unittest.TestCase):
 
     def test_correctly_handles_kcni_main_id(self):
         id_map = {
-            'STUDY': {
+            'Study': {
                 'STU01': 'STUDY',
             },
-            'SITE': {
+            'Site': {
                 'ABC': 'SITE'
             }
         }
@@ -68,10 +68,10 @@ class TestRecord(unittest.TestCase):
 
     def test_correctly_handles_kcni_shared_ids(self):
         id_map = {
-            'STUDY': {
+            'Study': {
                 'STU02': 'STUDY2',
             },
-            'SITE': {
+            'Site': {
                 'ABC': 'SITE'
             }
         }

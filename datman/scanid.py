@@ -164,8 +164,8 @@ class KCNIIdentifier(Identifier):
 
         self._match_groups = match
         self.orig_id = match.group("id")
-        self.study = get_field(match, "study", settings=settings)
-        self.site = get_field(match, "site", settings=settings)
+        self.study = get_field(match, "Study", settings=settings)
+        self.site = get_field(match, "Site", settings=settings)
 
         self.subject = get_subid(match.group("subject"), settings=settings)
         try:
@@ -520,10 +520,10 @@ def get_field(match, field, settings=None):
 
     """
 
-    if not settings or field.upper() not in settings:
+    if not settings or field not in settings:
         return match.group(field.lower())
 
-    mapping = settings[field.upper()]
+    mapping = settings[field]
     current_field = match.group(field.lower())
     try:
         new_field = mapping[current_field]
@@ -586,15 +586,15 @@ def get_kcni_identifier(identifier, settings=None):
         # KCNI convention is used in KCNIIdentifer.orig_id
         reverse = {}
         for entry in settings:
-            if entry == "ID_TYPE" or not isinstance(settings[entry], dict):
+            if entry == "IdType" or not isinstance(settings[entry], dict):
                 reverse[entry] = settings[entry]
                 continue
             reverse[entry] = {val: key for key, val in settings[entry].items()}
     else:
         reverse = None
 
-    study = get_field(ident._match_groups, "study", reverse)
-    site = get_field(ident._match_groups, "site", reverse)
+    study = get_field(ident._match_groups, "Study", reverse)
+    site = get_field(ident._match_groups, "Site", reverse)
     subject = get_subid(ident._match_groups.group("subject"), reverse)
 
     if not is_phantom(ident):

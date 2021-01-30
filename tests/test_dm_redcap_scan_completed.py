@@ -32,7 +32,7 @@ class TestParseID:
             if key != 'IdMap':
                 raise datman.config.UndefinedSetting
             settings = {
-                'SITE': {
+                'Site': {
                     'XYZ': 'DEF'
                 }
             }

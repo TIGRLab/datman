@@ -73,7 +73,7 @@ class TestValidateSubjectID:
         config = MagicMock(spec=datman.config.config)
 
         id_settings = {
-            "STUDY": {
+            "Study": {
                 "AND01": "ANDT"
             }
         }
