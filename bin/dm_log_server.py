@@ -8,9 +8,9 @@ Usage:
 
 Options:
     --log-dir PATH  The directory to store all logs. Default is the value
-                    stored as SERVER_LOG_DIR in the site config file
+                    stored as ServerLogDir in the site config file
     --host STR      The ip address to bind the server to. Default is the value
-                    stored as LOGSERVER in the site config file
+                    stored as LogServer in the site config file
     --port STR      The port to listen to. Default is the default logging TCP
                     port.
 """
@@ -103,10 +103,10 @@ def main():
     config = datman.config.config()
 
     if LOG_DIR is None:
-        LOG_DIR = config.get_key('SERVER_LOG_DIR')
+        LOG_DIR = config.get_key('ServerLogDir')
 
     if host is None:
-        host = config.get_key('LOGSERVER')
+        host = config.get_key('LogServer')
 
     if port is None:
         port = logging.handlers.DEFAULT_TCP_LOGGING_PORT

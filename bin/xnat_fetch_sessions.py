@@ -7,11 +7,11 @@ xnat server and store it in the data/zips folder for later upload to our server.
 If this script is provided with only the study the datman configuration files
 will be searched for the following configuration:
 
-    - XNAT_source : URL of the server to pull from
-    - XNAT_source_archive: Name of the XNAT project on XNAT_source to pull from
-    - XNAT_source_credentials: Name of the file in metadata (or the full
+    - XnatSource : URL of the server to pull from
+    - XnatSourceArchive: Name of the XNAT project on XnatSource to pull from
+    - XnatSourceCredentials: Name of the file in metadata (or the full
       path to a file stored elsewhere) that contains the username and password
-      (separated by a newline) to use to log in to XNAT_source
+      (separated by a newline) to use to log in to XnatSource
 
 These variables can be added at the project level or the site level (or both if
 a site overrides some project default).
@@ -245,9 +245,9 @@ def get_credentials(credentials_path):
 
 def add_server_handler(config):
     try:
-        server_ip = config.get_key('LOGSERVER')
+        server_ip = config.get_key('LogServer')
     except datman.config.UndefinedSetting:
-        raise KeyError("\'LOGSERVER\' not defined in site config file.")
+        raise KeyError("\'LogServer\' not defined in site config file.")
     server_handler = logging.handlers.SocketHandler(
                                 server_ip,
                                 logging.handlers.DEFAULT_TCP_LOGGING_PORT)
@@ -256,13 +256,13 @@ def add_server_handler(config):
 
 def get_xnat_config(config, site):
     try:
-        cred_file = config.get_key('XNAT_source_credentials', site=site)
-        server = config.get_key('XNAT_source', site=site)
-        archive = config.get_key('XNAT_source_archive', site=site)
+        cred_file = config.get_key('XnatSourceCredentials', site=site)
+        server = config.get_key('XnatSource', site=site)
+        archive = config.get_key('XnatSourceArchive', site=site)
     except datman.config.UndefinedSetting:
         raise KeyError("Missing configuration. Please ensure study or site "
-                       "configuration defines all needed values: XNAT_source, "
-                       "XNAT_source_credentials, XNAT_source_archive. See "
+                       "configuration defines all needed values: XnatSource, "
+                       "XnatSourceCredentials, XnatSourceArchive. See "
                        "help string for more details.")
 
     destination = config.get_path('zips')
@@ -274,7 +274,7 @@ def get_xnat_config(config, site):
         credentials_path = os.path.join(config.get_path('meta'), cred_file)
         if not os.path.exists(credentials_path):
             logger.critical("Can't find credentials file at {} or {}. Please "
-                            "check that 'XNAT_source_credentials' is set "
+                            "check that 'XnatSourceCredentials' is set "
                             "correctly.".format(cred_file, credentials_path))
             sys.exit(1)
 

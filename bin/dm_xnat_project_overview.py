@@ -100,7 +100,7 @@ def set_output_name(output_loc, config):
 
 
 def get_xnat_url(config):
-    url = config.get_key('XNATSERVER')
+    url = config.get_key('XnatServer')
     if 'https' not in url:
         url = "https://" + url
     return url

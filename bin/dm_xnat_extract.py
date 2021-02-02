@@ -171,13 +171,13 @@ def collect_experiment(user_exper, study, cfg):
     ident = datman.utils.validate_subject_id(user_exper, cfg)
 
     try:
-        convention = cfg.get_key("XNAT_CONVENTION", site=ident.site)
+        convention = cfg.get_key("XnatConvention", site=ident.site)
     except datman.config.UndefinedSetting:
         convention = "DATMAN"
 
     if convention == "KCNI":
         try:
-            settings = cfg.get_key("ID_MAP")
+            settings = cfg.get_key("IdMap")
         except datman.config.UndefinedSetting:
             settings = None
         ident = datman.scanid.get_kcni_identifier(ident, settings)
@@ -246,7 +246,7 @@ def get_projects(config):
     """
     projects = {}
     for site in config.get_sites():
-        xnat_project = config.get_key("XNAT_Archive", site=site)
+        xnat_project = config.get_key("XnatArchive", site=site)
         projects.setdefault(xnat_project, set()).add(site)
     return projects
 
@@ -506,7 +506,7 @@ def get_export_formats(ident, file_stem, tags, tag):
         return
 
     try:
-        export_formats = tags.get(tag)['formats']
+        export_formats = tags.get(tag)['Formats']
     except KeyError:
         logger.error("Export settings for tag: {} not found for "
                      "study: {}".format(tag, cfg.study_name))
