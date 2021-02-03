@@ -164,8 +164,8 @@ class KCNIIdentifier(Identifier):
 
         self._match_groups = match
         self.orig_id = match.group("id")
-        self.study = get_field(match, "study", settings=settings)
-        self.site = get_field(match, "site", settings=settings)
+        self.study = get_field(match, "Study", settings=settings)
+        self.site = get_field(match, "Site", settings=settings)
 
         self.subject = get_subid(match.group("subject"), settings=settings)
         try:
@@ -324,14 +324,14 @@ def parse(identifier, settings=None):
     consistency within a single naming convention.
 
     Accepted keys include:
-        'ID_TYPE': Restricts parsing to one naming convention (e.g. 'DATMAN'
+        'IdType': Restricts parsing to one naming convention (e.g. 'DATMAN'
             or 'KCNI')
-        'STUDY': Allows the 'study' field of an ID to be mapped from another
+        'Study': Allows the 'study' field of an ID to be mapped from another
             convention's study code to a datman study code.
-        'SITE': Allows the 'site' field of an ID to be translated from another
+        'Site': Allows the 'site' field of an ID to be translated from another
             convention's site code to a datman site code.
 
-    .. note:: All 'settings' keys must be uppercase.
+    .. note:: All 'settings' keys are case-sensitive.
 
     Using the settings from the below example will cause parse to reject any
     IDs that are not KCNI format, will translate any valid IDs containing
@@ -341,11 +341,11 @@ def parse(identifier, settings=None):
     .. code-block:: python
 
         settings = {
-            'ID_TYPE': 'KCNI',
-            'STUDY': {
+            'IdType': 'KCNI',
+            'Study': {
                 'DTI01': 'DTI'
             },
-            'SITE': {
+            'Site': {
                 'UTO': 'UT2'
             }
         }
@@ -369,8 +369,8 @@ def parse(identifier, settings=None):
         # ID may need to be reparsed based on settings
         identifier = identifier.orig_id
 
-    if settings and "ID_TYPE" in settings:
-        id_type = settings["ID_TYPE"]
+    if settings and "IdType" in settings:
+        id_type = settings["IdType"]
     else:
         id_type = "DETECT"
 
@@ -520,10 +520,10 @@ def get_field(match, field, settings=None):
 
     """
 
-    if not settings or field.upper() not in settings:
+    if not settings or field not in settings:
         return match.group(field.lower())
 
-    mapping = settings[field.upper()]
+    mapping = settings[field]
     current_field = match.group(field.lower())
     try:
         new_field = mapping[current_field]
@@ -534,10 +534,10 @@ def get_field(match, field, settings=None):
 
 
 def get_subid(current_subid, settings=None):
-    if not settings or "SUBJECT" not in settings:
+    if not settings or "Subject" not in settings:
         return current_subid
 
-    mapping = settings["SUBJECT"]
+    mapping = settings["Subject"]
 
     for pair in mapping:
         regex_str, replacement = pair.split("->")
@@ -586,15 +586,15 @@ def get_kcni_identifier(identifier, settings=None):
         # KCNI convention is used in KCNIIdentifer.orig_id
         reverse = {}
         for entry in settings:
-            if entry == "ID_TYPE" or not isinstance(settings[entry], dict):
+            if entry == "IdType" or not isinstance(settings[entry], dict):
                 reverse[entry] = settings[entry]
                 continue
             reverse[entry] = {val: key for key, val in settings[entry].items()}
     else:
         reverse = None
 
-    study = get_field(ident._match_groups, "study", reverse)
-    site = get_field(ident._match_groups, "site", reverse)
+    study = get_field(ident._match_groups, "Study", reverse)
+    site = get_field(ident._match_groups, "Site", reverse)
     subject = get_subid(ident._match_groups.group("subject"), reverse)
 
     if not is_phantom(ident):

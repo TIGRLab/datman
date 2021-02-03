@@ -424,7 +424,7 @@ def get_tag_bids_spec(cfg, tag, site):
     """
 
     try:
-        bids = cfg.get_key("ExportSettings", site=site)[tag]['bids'].copy()
+        bids = cfg.get_key("ExportSettings", site=site)[tag]['Bids'].copy()
     except KeyError:
         logger.error("No BIDS tag available for scan type:"
                      "{}, skipping conversion".format(tag))

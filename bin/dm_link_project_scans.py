@@ -200,7 +200,7 @@ def link_files(tags, src_session, trg_session, src_data_dir, trg_data_dir):
 def get_file_types_for_tag(tag_settings, tag):
     """Check which file types should be processed for each tag"""
     try:
-        return tag_settings.get(tag, 'formats')
+        return tag_settings.get(tag, 'Formats')
     except KeyError:
         return []
 

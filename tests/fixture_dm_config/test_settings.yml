@@ -3,4 +3,4 @@ paths:
 
 Sites:
   CMH:
-    XNAT_Archive: TEST/arc001
+    XnatArchive: TEST/arc001
