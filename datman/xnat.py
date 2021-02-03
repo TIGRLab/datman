@@ -32,7 +32,7 @@ def get_server(config=None, url=None, port=None):
         use_port = True
 
     if not url:
-        url = config.get_key("XNATSERVER")
+        url = config.get_key("XnatServer")
 
     # Check for 'http' and NOT https, because checking for https could mangle a
     # url into https://http<restof>
@@ -46,7 +46,7 @@ def get_server(config=None, url=None, port=None):
         port_str = get_port_str(config, port)
     except KeyError:
         logger.debug(
-            f"XNATPORT undefined in config. Omitting port number for {url}"
+            f"XnatPort undefined in config. Omitting port number for {url}"
         )
         port_str = ""
 
@@ -63,7 +63,7 @@ def get_port_str(config=None, port=None):
     """
     Returns a port string of the format :portnum
 
-    Will raise KeyError if port is None and config file doesn't define XNATPORT
+    Will raise KeyError if port is None and config file doesn't define XnatPort
     """
     if not config and not port:
         raise XnatException(
@@ -71,7 +71,7 @@ def get_port_str(config=None, port=None):
             "datman.config.config instance or a port number"
         )
     if port is None:
-        port = config.get_key("XNATPORT")
+        port = config.get_key("XnatPort")
 
     if not str(port).startswith(":"):
         port = f":{port}"
@@ -139,7 +139,7 @@ def get_connection(config, site=None, url=None, auth=None, server_cache=None):
         :obj:`datman.xnat.xnat`: A connection to the required XNAT server.
     """
     if not url:
-        url = config.get_key("XNATSERVER", site=site)
+        url = config.get_key("XnatServer", site=site)
 
     if server_cache:
         try:
@@ -153,7 +153,7 @@ def get_connection(config, site=None, url=None, auth=None, server_cache=None):
         connection = xnat(server_url, auth[0], auth[1])
     else:
         try:
-            auth_file = config.get_key("XNAT_CREDENTIALS", site=site)
+            auth_file = config.get_key("XnatCredentials", site=site)
         except UndefinedSetting:
             auth_file = None
         else:

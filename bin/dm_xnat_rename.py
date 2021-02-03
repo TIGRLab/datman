@@ -16,7 +16,7 @@ Arguments:
 Options:
     --server,-s <server>        The URL of the xnat server to rename a session
                                 on. If unset, it will be read from the
-                                'XNATSERVER' environment var
+                                'XnatServer' config var
 
     --user,-u <user>            The username to log in with. If unset, it will
                                 be read from the 'XNAT_USER' environment var.

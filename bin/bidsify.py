@@ -317,7 +317,7 @@ def get_tag_bids_spec(cfg, tag):
     # Copy is being used here since python passes by reference and any
     # downstream updates modify the original data which is bad
     try:
-        bids = cfg.system_config["ExportSettings"][tag]["bids"].copy()
+        bids = cfg.system_config["ExportSettings"][tag]["Bids"].copy()
     except KeyError:
         logger.error("No BIDS tag available for scan type:"
                      "{}, skipping conversion".format(tag))

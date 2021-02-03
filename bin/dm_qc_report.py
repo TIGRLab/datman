@@ -59,12 +59,12 @@ Details:
 
      Sites:
        site1:
-         XNAT_Archive: '/path/to/arc001'
+         XnatArchive: '/path/to/arc001'
          ExportInfo:
            - T1:  {Pattern: {'regex1', 'regex2'}, Count: n_expected}
            - DTI: {Pattern: {'regex1', 'regex2'}, Count: n_expected}
        site2 :
-         XNAT_Archive: '/path/to/arc001'
+         XnatArchive: '/path/to/arc001'
          ExportInfo:
            - T1:  {Pattern: {'regex1', 'regex2'}, Count: n_expected}
            - DTI: {Pattern: {'regex1', 'regex2'}, Count: n_expected}
@@ -449,7 +449,7 @@ def add_header_qc(nifti, qc_html, header_diffs):
 
 def write_report_body(report, expected_files, subject, header_diffs,
                       tag_settings):
-    # List of qc functions available mapped to 'qc_type' from user settings
+    # List of qc functions available mapped to 'QcType' from user settings
     handlers = {
         "anat": anat_qc,
         "fmri": fmri_qc,
@@ -474,9 +474,9 @@ def write_report_body(report, expected_files, subject, header_diffs,
             continue
 
         try:
-            qc_type = tag_settings.get(series.tag, "qc_type")
+            qc_type = tag_settings.get(series.tag, "QcType")
         except KeyError:
-            logger.info("qc_type not defined for tag {}. Skipping.".format(
+            logger.info("QcType not defined for tag {}. Skipping.".format(
                     series.tag))
             continue
 
@@ -588,12 +588,12 @@ def find_tech_notes(path):
 
 def notes_expected(site, study_name):
     """
-    Grabs 'USES_TECHNOTES' key in study config file to determine
+    Grabs 'UsesTechNotes' key in study config file to determine
     whether technotes are expected
     """
 
     try:
-        technotes = config.get_key('USES_TECHNOTES', site=site)
+        technotes = config.get_key('UsesTechNotes', site=site)
     except datman.config.UndefinedSetting:
         technotes = False
     return technotes
@@ -831,7 +831,7 @@ def get_scan_name(series):
 
 def needs_bval_check(settings, series):
     try:
-        qc_type = settings.get(series.tag, "qc_type")
+        qc_type = settings.get(series.tag, "QcType")
     except KeyError:
         logger.error("'qc_type' for tag {} not defined. If it's DTI the "
                      "bval check will be skipped.".format(series.tag))
@@ -977,10 +977,10 @@ def qc_phantom(subject, config):
 
     Phantom pipeline setup:
     Each pipeline has it's own dictionary entry in gather_input_reqs within
-    input_spec. Config 'qc_pha' keys in ExportSettings indicate which pipeline
-    to use. 'qc_pha' set to 'default' will refer to the qc_type.
+    input_spec. Config 'QcPha' keys in ExportSettings indicate which pipeline
+    to use. 'QcPha' set to 'default' will refer to the QcType.
 
-    So qc_pha is used to indicate custom pipelines that are non-standard.
+    So QcPha is used to indicate custom pipelines that are non-standard.
     """
 
     export_tags = config.get_tags(site=subject.site)
@@ -996,13 +996,13 @@ def qc_phantom(subject, config):
 
 def get_pha_qc_type(export_tags, nii_tag):
     try:
-        tag = export_tags.get(nii_tag, 'qc_pha')
+        tag = export_tags.get(nii_tag, 'QcPha')
     except KeyError:
-        logger.info('qc_pha not set for tag {}, using qc_type default '
+        logger.info('QcPha not set for tag {}, using QcType default '
                     'instead'.format(nii_tag))
         tag = 'default'
     if tag == 'default':
-        tag = export_tags.get(nii_tag, 'qc_type')
+        tag = export_tags.get(nii_tag, 'QcType')
     return tag
 
 
@@ -1113,7 +1113,7 @@ def get_config(study):
 
 
 def add_server_handler(config):
-    server_ip = config.get_key('LOGSERVER')
+    server_ip = config.get_key('LogServer')
     server_handler = logging.handlers.SocketHandler(
                             server_ip,
                             logging.handlers.DEFAULT_TCP_LOGGING_PORT)

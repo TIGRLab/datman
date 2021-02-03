@@ -104,7 +104,7 @@ def main():
 def get_server_config(cfg):
     server_config = {}
 
-    default_mrserver = cfg.get_key('FTPSERVER')
+    default_mrserver = cfg.get_key('FtpServer')
     try:
         server_config[default_mrserver] = read_config(cfg)
     except datman.config.UndefinedSetting as e:
@@ -114,7 +114,7 @@ def get_server_config(cfg):
     # Sites may override the study defaults. If they dont, the defaults will
     # be returned and should NOT be re-added to the config
     for site in cfg.get_sites():
-        site_server = cfg.get_key('FTPSERVER', site=site)
+        site_server = cfg.get_key('FtpServer', site=site)
 
         if site_server in server_config:
             continue
@@ -130,15 +130,15 @@ def read_config(cfg, site=None):
     logger.debug("Getting MR sftp server config for site: {}".format(
             site if site else "default"))
 
-    mrusers = cfg.get_key('MRUSER', site=site)
-    mrfolders = cfg.get_key('MRFOLDER', site=site)
+    mrusers = cfg.get_key('MrUser', site=site)
+    mrfolders = cfg.get_key('MrFolder', site=site)
 
     try:
-        pass_file = cfg.get_key('MRFTPPASS', site=site)
+        pass_file = cfg.get_key('MrFtpPass', site=site)
     except datman.config.UndefinedSetting:
         pass_file = 'mrftppass.txt'
     try:
-        server_port = cfg.get_key('FTPPORT', site=site)
+        server_port = cfg.get_key('FtpPort', site=site)
     except datman.config.UndefinedSetting:
         server_port = 22
 

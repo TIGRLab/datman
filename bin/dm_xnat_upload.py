@@ -193,7 +193,7 @@ def get_xnat_subject(ident, xnat):
     """
     # get the expected xnat project name from the config filename
     try:
-        xnat_project = CFG.get_key("XNAT_Archive",
+        xnat_project = CFG.get_key("XnatArchive",
                                    site=ident.site)
     except datman.config.UndefinedSetting:
         logger.warning("Study {}, Site {}, xnat archive not defined in config"
@@ -248,14 +248,14 @@ def get_scanid(archivefile):
     scanid = archivefile[:-len(datman.utils.get_extension(archivefile))]
 
     try:
-        id_settings = CFG.get_key("ID_MAP")
+        id_settings = CFG.get_key("IdMap")
     except datman.config.UndefinedSetting:
         id_settings = None
 
     ident = datman.scanid.parse(scanid, settings=id_settings)
 
     try:
-        convention = CFG.get_key("XNAT_CONVENTION", site=ident.site).upper()
+        convention = CFG.get_key("XnatConvention", site=ident.site).upper()
     except datman.config.UndefinedSetting:
         convention = "DATMAN"
 

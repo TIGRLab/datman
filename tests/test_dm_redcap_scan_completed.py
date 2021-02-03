@@ -29,10 +29,10 @@ class TestParseID:
 
     def test_kcni_id_with_diff_site_code_parsed_correctly(self, config):
         def mock_get_key(key):
-            if key != 'ID_MAP':
+            if key != 'IdMap':
                 raise datman.config.UndefinedSetting
             settings = {
-                'SITE': {
+                'Site': {
                     'XYZ': 'DEF'
                 }
             }

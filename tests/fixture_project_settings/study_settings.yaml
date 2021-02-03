@@ -1,17 +1,17 @@
-MRUSER: STUDY                               # MR Unit FTP user
-MRFOLDER: STUDY*                            # MR ftp folders
-PROJECTDIR: STUDY  # Directory inside data-2.0
+MrUser: STUDY                               # MR Unit FTP user
+MrFolder: STUDY*                            # MR ftp folders
+ProjectDir: STUDY  # Directory inside data-2.0
 # The STUDY_ID tag that should be used to identify the study, site specific
 # tags can be added to a SITE_IDS: [] key under the specific site
-STUDY_TAG: STUDY
+StudyTag: STUDY
 FullName: Full study name goes here
 Description: Description goes here
 PrimaryContact: PI name goes here
 
 Sites:
    CMH:
-      SITE_TAGS: ['STUDY']
-      XNAT_Archive: 'ARC01'
+      SiteTags: ['STUDY']
+      XnatArchive: 'ARC01'
       ExportInfo:
          T1:         { Pattern: ['T1','BRAVO'],      Count: 1}
          FMAP-6.5:   { Pattern: ['TE6.5','TE65'],    Count: 2}
@@ -24,7 +24,7 @@ Sites:
          PDT2:       { Pattern: ['T2.DE', 'T2DE'],   Count: 1}
          FLAIR:      { Pattern: 'FLAIR',             Count: 1}
    SITE:
-      XNAT_Archive: 'ARC02'
+      XnatArchive: 'ARC02'
       ExportInfo:
          T1:         { Pattern: 'FSPGR',       Count: 1}
          RST:        { Pattern: 'Resting',     Count: 1}

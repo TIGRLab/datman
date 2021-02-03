@@ -103,17 +103,17 @@ def test_parse_exception_when_kcni_session_malformed():
 def test_user_settings_id_type_respected():
     # Datman IDs should be rejected if user says to parse only KCNI IDs
     with pytest.raises(scanid.ParseException):
-        scanid.parse("DTI01_CMH_H001_01_02", settings={'ID_TYPE': 'KCNI'})
+        scanid.parse("DTI01_CMH_H001_01_02", settings={'IdType': 'KCNI'})
 
     # KCNI IDs should be rejected if the user says to parse only Datman IDs
     with pytest.raises(scanid.ParseException):
         scanid.parse("DTI01_CMH_H001_01_SE02_MR",
-                     settings={'ID_TYPE': 'DATMAN'})
+                     settings={'IdType': 'DATMAN'})
 
 
 def test_kcni_study_field_is_modified_when_settings_given():
     settings = {
-        'STUDY': {
+        'Study': {
             'DTI01': 'DTI'
         }
     }
@@ -126,7 +126,7 @@ def test_kcni_study_field_is_modified_when_settings_given():
 
 def test_kcni_site_field_is_modified_when_settings_given():
     settings = {
-        'SITE': {
+        'Site': {
             'UTO': 'UT2'
         }
     }
@@ -139,7 +139,7 @@ def test_kcni_site_field_is_modified_when_settings_given():
 
 def test_kcni_subid_field_is_modified_when_settings_given():
     settings = {
-        'SUBJECT': {
+        'Subject': {
             '^(100001|100002)->H\\1': '^H([0-9]+)->\\1'
         }
     }
@@ -187,10 +187,10 @@ def test_get_kcni_identifier_from_datman_pha_ident():
 
 def test_get_kcni_identifier_from_datman_with_field_changes():
     settings = {
-        "STUDY": {
+        "Study": {
             "AND01": "ANDT"
         },
-        "SITE": {
+        "Site": {
             "UTO": "CMH"
         }
     }
@@ -208,7 +208,7 @@ def test_get_kcni_identifier_from_datman_with_field_changes():
 
 def test_get_kcni_identifier_correctly_reverses_subject_field_changes():
     settings = {
-        'SUBJECT': {
+        'Subject': {
             '(100001|100002)->H\\1': '^H([0-9]+)->\\1'
         }
     }
@@ -258,13 +258,13 @@ def test_kcni_converted_to_datman_and_back_is_unmodified():
 
 def test_id_field_changes_correct_for_repeat_conversions():
     settings = {
-        'STUDY': {
+        'Study': {
             'AND01': 'ANDT'
         },
-        'SITE': {
+        'Site': {
             'UTO': 'CMH'
         },
-        'SUBJECT': {
+        'Subject': {
             '^(0001|0002)->H\\1': '^H([0-9]+)->\\1'
         }
     }
@@ -290,7 +290,7 @@ def test_id_field_changes_correct_for_repeat_conversions():
 
 def test_kcni_get_xnat_subject_id_not_affected_by_field_translation():
     settings = {
-        "STUDY": {
+        "Study": {
             "ABC01": "ABCD"
         }
     }
@@ -306,7 +306,7 @@ def test_kcni_get_xnat_subject_id_not_affected_by_field_translation():
 
 def test_kcni_get_xnat_experiment_id_not_affected_by_field_translations():
     settings = {
-        "STUDY": {
+        "Study": {
             "ABC01": "ABCD"
         }
     }

@@ -1169,7 +1169,7 @@ def validate_subject_id(subject_id, config):
             subject_id
     """
     try:
-        settings = config.get_key("ID_MAP")
+        settings = config.get_key("IdMap")
     except datman.config.UndefinedSetting:
         settings = None
 
