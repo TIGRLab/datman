@@ -430,29 +430,29 @@ specified convention, or to translate certain ID fields to maintain
 consistency within a single naming convention.</p>
 <dl class="simple">
 <dt>Accepted keys include:</dt><dd><dl class="simple">
-<dt>‘ID_TYPE’: Restricts parsing to one naming convention (e.g. ‘DATMAN’</dt><dd><p>or ‘KCNI’)</p>
+<dt>‘IdType’: Restricts parsing to one naming convention (e.g. ‘DATMAN’</dt><dd><p>or ‘KCNI’)</p>
 </dd>
-<dt>‘STUDY’: Allows the ‘study’ field of an ID to be mapped from another</dt><dd><p>convention’s study code to a datman study code.</p>
+<dt>‘Study’: Allows the ‘study’ field of an ID to be mapped from another</dt><dd><p>convention’s study code to a datman study code.</p>
 </dd>
-<dt>‘SITE’: Allows the ‘site’ field of an ID to be translated from another</dt><dd><p>convention’s site code to a datman site code.</p>
+<dt>‘Site’: Allows the ‘site’ field of an ID to be translated from another</dt><dd><p>convention’s site code to a datman site code.</p>
 </dd>
 </dl>
 </dd>
 </dl>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>All ‘settings’ keys must be uppercase.</p>
+<p>All ‘settings’ keys are case-sensitive.</p>
 </div>
 <p>Using the settings from the below example will cause parse to reject any
 IDs that are not KCNI format, will translate any valid IDs containing
 ‘DTI01’ to the study code ‘DTI’, and will translate any valid IDs
 containing the site ‘UTO’ to the site ‘UT1’.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">settings</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s1">&#39;ID_TYPE&#39;</span><span class="p">:</span> <span class="s1">&#39;KCNI&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;STUDY&#39;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s1">&#39;IdType&#39;</span><span class="p">:</span> <span class="s1">&#39;KCNI&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Study&#39;</span><span class="p">:</span> <span class="p">{</span>
         <span class="s1">&#39;DTI01&#39;</span><span class="p">:</span> <span class="s1">&#39;DTI&#39;</span>
     <span class="p">},</span>
-    <span class="s1">&#39;SITE&#39;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s1">&#39;Site&#39;</span><span class="p">:</span> <span class="p">{</span>
         <span class="s1">&#39;UTO&#39;</span><span class="p">:</span> <span class="s1">&#39;UT2&#39;</span>
     <span class="p">}</span>
 <span class="p">}</span>
