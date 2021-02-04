@@ -50,7 +50,7 @@ jobs:
       - run:
           name: Set up installation and cache
           command: |
-            pyenv global 3.6.5
+            pyenv global 3.7.0
             pip install -e .[all]
       - save_cache:
           key: datman-v1-{{ .Branch }}-{{ checksum "setup.cfg" }}
@@ -63,7 +63,7 @@ jobs:
       - run:
           name: Run pytest and output junit xml for codecov
           command: |
-            pyenv global 3.6.5
+            pyenv global 3.7.0
             pytest tests/ --junitxml=tests/results/junit-{envname}.xml --cov . \
               --cov-report term-missing --cov-report xml
       - codecov/upload:
@@ -73,7 +73,7 @@ jobs:
   test_deploy_pypi:
     working_directory: /tmp/src/datman
     docker:
-      - image: "python:3.6.5"
+      - image: "python:3.7.0"
     steps:
       - checkout
       - run:
@@ -143,7 +143,7 @@ jobs:
   deployable:
     working_directory: /tmp/src/datman
     docker:
-      - image: "python:3.6.5"
+      - image: "python:3.7.0"
     steps:
       - run:
           command: |
@@ -152,7 +152,7 @@ jobs:
   deploy_pypi:
     working_directory: /tmp/src/datman
     docker:
-      - image: "python:3.6.5"
+      - image: "python:3.7.0"
     steps:
       - checkout
       - run:
@@ -185,7 +185,7 @@ jobs:
   build_docs:
     working_directory: /tmp/src/datman
     docker:
-      - image: "python:3.6.5"
+      - image: "python:3.7.0"
     steps:
       - restore_cache:
           keys:
