@@ -485,6 +485,11 @@ class config(object):
 
         return tags
 
+    def __repr__(self):
+        if self.study_name:
+            return f"<datman.config.config {self.study_name}>"
+        return "<datman.config.config DEFAULTS>"
+
 
 class TagInfo(object):
     def __init__(self, export_settings, site_settings=None):
