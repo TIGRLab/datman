@@ -64,7 +64,7 @@ def read_link_file(link_file):
         f.readline()
         for line in f:
             # Doing it this way so the file can be human readable
-            line = re.split('\\s*', line)
+            line = [item for item in re.split('\\s', line) if item]
             line = line[0:3]
             if not line == LINK_FILE_HEADERS:
                 yield(line)
