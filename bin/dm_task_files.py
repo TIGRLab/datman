@@ -28,8 +28,7 @@ def main():
     study = args['<study>']
 
     config = datman.config.config(study=study)
-    subjects = datman.dashboard.get_study_subjects(study)
-    resources_dir = config.get_path('resources')
+    resources = get_resources_dirs(config)
     out_dir = config.get_path('task')
     regex = get_regex(config)
 
@@ -38,32 +37,47 @@ def main():
     except OSError:
         pass
 
-    for subject in subjects:
+    for resource_folder in resources:
+        task_files = get_task_files(regex, resource_folder)
 
-        sessions = glob.glob(os.path.join(resources_dir, subject + '_*'))
-
-        if not sessions:
+        if not task_files:
             continue
 
-        for resource_folder in sessions:
-            task_files = get_task_files(regex, resource_folder)
+        session = os.path.basename(resource_folder)
+        dest_folder = os.path.join(out_dir, session)
+        try:
+            os.mkdir(dest_folder)
+        except OSError:
+            pass
 
-            if not task_files:
-                continue
+        renamed_files = resolve_duplicate_names(task_files)
 
-            session = os.path.basename(resource_folder)
-            dest_folder = os.path.join(out_dir, session)
-            try:
-                os.mkdir(dest_folder)
-            except OSError:
-                pass
+        for fname in renamed_files:
+            dest_path = os.path.join(dest_folder, fname)
+            link_task_file(renamed_files[fname], dest_path)
+            add_to_dashboard(session, dest_path)
 
-            renamed_files = resolve_duplicate_names(task_files)
 
-            for fname in renamed_files:
-                dest_path = os.path.join(dest_folder, fname)
-                link_task_file(renamed_files[fname], dest_path)
-                add_to_dashboard(session, dest_path)
+def get_resources_dirs(config):
+    resources_dir = config.get_path('resources')
+    if dashboard.dash_found:
+        subjects = datman.dashboard.get_study_subjects(study)
+        sessions = []
+        for subject in subjects:
+            found_sessions = glob.glob(
+                os.path.join(resources_dir, subject + '_*')
+            )
+            if found_sessions:
+                sessions.extend(found_sessions)
+    else:
+        # Grabbing everything in resources comes with a small risk of
+        # non-session folders being explored.
+        sessions = [
+            item for item in  glob.glob(os.path.join(resources_dir, '*'))
+            if os.path.isdir(item)
+        ]
+
+    return sessions
 
 
 def get_regex(config):
