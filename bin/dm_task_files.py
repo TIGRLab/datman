@@ -61,7 +61,7 @@ def main():
 def get_resources_dirs(config):
     resources_dir = config.get_path('resources')
     if dashboard.dash_found:
-        subjects = datman.dashboard.get_study_subjects(study)
+        subjects = datman.dashboard.get_study_subjects(config.study_name)
         sessions = []
         for subject in subjects:
             found_sessions = glob.glob(
@@ -73,8 +73,8 @@ def get_resources_dirs(config):
         # Grabbing everything in resources comes with a small risk of
         # non-session folders being explored.
         sessions = [
-            item for item in  glob.glob(os.path.join(resources_dir, '*'))
-            if os.path.isdir(item)
+            item for item in glob.glob(os.path.join(resources_dir, '*'))
+            if os.path.isdir(item) and '_PHA_' not in os.path.basename(item)
         ]
 
     return sessions
