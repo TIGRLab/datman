@@ -225,7 +225,7 @@ class config(object):
                 self.set_study(project)
                 return project
         # didn't find a match throw a warning
-        logger.warn(f"Failed to find a valid project for xnat id: {tag}")
+        logger.warning(f"Failed to find a valid project for xnat id: {tag}")
         raise ValueError
 
     def _search_site_conf(self, site, key):

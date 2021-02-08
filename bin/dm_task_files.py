@@ -84,7 +84,7 @@ def get_regex(config):
     try:
         regex = config.get_key('TaskRegex')
     except datman.config.UndefinedSetting:
-        logger.warn("'TaskRegex' not defined in settings, using default "
+        logger.warning("'TaskRegex' not defined in settings, using default "
                     "regex to locate task files.")
         regex = 'behav|\.edat2'  # noqa: W605
     return regex
