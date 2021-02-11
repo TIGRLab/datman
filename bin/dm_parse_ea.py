@@ -33,8 +33,9 @@ from docopt import docopt
 import datman.config
 import datman.scanid
 
-logging.basicConfig(level=logging.WARN,
-                    format="[%(name)s] %(levelname)s: %(message)s")
+logging.basicConfig(
+    level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s"
+)
 logger = logging.getLogger(os.path.basename(__file__))
 
 
@@ -48,24 +49,74 @@ def read_in_logfile(path):
     return log_file
 
 
+def clean_logfile(log_file):
+    # Remove the button press registered during scanner responses
+    scan_response = ["101", "104"]
+    indexes_to_drop = []
+
+    for index, row in log_file.iterrows():
+        if ("rating" in log_file["Code"][index]) and any(
+            resp in log_file["Code"][index - 2] for resp in scan_response
+        ):
+            indexes_to_drop.append(index)
+            indexes_to_drop.append(index - 2)
+
+    if len(indexes_to_drop) == 0:
+        log_file_cleaned = log_file
+    else:
+        log_file_cleaned = log_file.drop(log_file.index[indexes_to_drop])
+        log_file_cleaned = log_file_cleaned.reset_index(drop=True)
+        logger.warning(
+            "Removed registered rating occurred before or after actual rating"
+        )
+
+    indexes_to_drop_1 = []
+
+    for index, row in log_file_cleaned.iterrows():
+        if ("rating" in log_file_cleaned["Code"][index]) and any(
+            resp in log_file_cleaned["Code"][index - 1]
+            for resp in scan_response
+        ):
+            indexes_to_drop_1.append(index)
+            indexes_to_drop_1.append(index - 1)
+
+    if len(indexes_to_drop_1) == 0:
+        final_log_file = log_file_cleaned
+    else:
+        final_log_file = log_file_cleaned.drop(
+            log_file_cleaned.index[indexes_to_drop_1]
+        )
+        final_log_file = final_log_file.reset_index(drop=True)
+        logger.warning("Removed rating registered followed scanner responses")
+
+    return final_log_file
+
+
 # Grabs the starts of blocks and returns rows for them
 def get_blocks(log, vid_info):
     # identifies the video trial types (as opposed to button press events etc)
     mask = ["vid" in log["Code"][i] for i in range(0, log.shape[0])]
 
-    df = pd.DataFrame({
-        "onset": log.loc[mask]["Time"],
-        "trial_type": log.loc[mask]["Event Type"],
-        "movie_name": log.loc[mask]["Code"],
-    })
+    df = pd.DataFrame(
+        {
+            "onset": log.loc[mask]["Time"],
+            "trial_type": log.loc[mask]["Event Type"],
+            "movie_name": log.loc[mask]["Code"],
+        }
+    )
 
-    df["trial_type"] = df["movie_name"].apply(lambda x: "circle_block"
-                                              if "cvid" in x else "EA_block")
-    df["duration"] = df["movie_name"].apply(lambda x: int(vid_info[x][
-        "duration"]) * 10000 if x in vid_info else "n/a")
+    df["trial_type"] = df["movie_name"].apply(
+        lambda x: "circle_block" if "cvid" in x else "EA_block"
+    )
+    df["duration"] = df["movie_name"].apply(
+        lambda x: int(vid_info[x]["duration"]) * 10000
+        if x in vid_info
+        else "n/a"
+    )
 
-    df["stim_file"] = df["movie_name"].apply(lambda x: vid_info[x]["stim_file"]
-                                             if x in vid_info else "n/a")
+    df["stim_file"] = df["movie_name"].apply(
+        lambda x: vid_info[x]["stim_file"] if x in vid_info else "n/a"
+    )
     df["end"] = df["onset"] + df["duration"]
     return df
 
@@ -92,12 +143,14 @@ def get_ratings(log):
 
     rating_mask = ["rating" in log["Code"][i] for i in range(0, log.shape[0])]
 
-    df = pd.DataFrame({
-        "onset": log["Time"].loc[rating_mask].values,
-        "participant_value": log.loc[rating_mask]["Code"].values,
-        "event_type": "button_press",
-        "duration": 0,
-    })
+    df = pd.DataFrame(
+        {
+            "onset": log["Time"].loc[rating_mask].values,
+            "participant_value": log.loc[rating_mask]["Code"].values,
+            "event_type": "button_press",
+            "duration": 0,
+        }
+    )
 
     # Pull rating value from formatted string
     df["participant_value"] = df["participant_value"].str.strip().str[-1]
@@ -113,9 +166,11 @@ def combine_dfs(blocks, ratings):
     combo["space_b4_prev"] = combo["onset"].diff(periods=1)
     combo["first_button_press"] = combo["duration"].shift() > 0
     combo2 = combo.drop(
-        combo[(combo["space_b4_prev"] < 1000)
-              & (combo["first_button_press"] is True)].index).reset_index(
-                  drop=True)
+        combo[
+            (combo["space_b4_prev"] < 1000)
+            & (combo["first_button_press"] is True)
+        ].index
+    ).reset_index(drop=True)
 
     mask = pd.notnull(combo2["trial_type"])
 
@@ -137,15 +192,19 @@ def combine_dfs(blocks, ratings):
 
     block_start_locs = combo2[mask].index.values
 
-    combo2["rating_duration"] = combo2["onset"].shift(
-            -1) - combo2["onset"].where(mask == False)  # noqa: E712
+    combo2["rating_duration"] = combo2["onset"].shift(-1) - combo2[
+        "onset"
+    ].where(
+        mask == False
+    )  # noqa: E712
 
     for i in range(len(block_start_locs)):
         if block_start_locs[i] != 0:
 
             combo2.rating_duration[block_start_locs[i - 1]] = (
-                combo2.end[block_start_locs[i - 1]] -
-                combo2.onset[block_start_locs[i - 1]])
+                combo2.end[block_start_locs[i - 1]]
+                - combo2.onset[block_start_locs[i - 1]]
+            )
 
     for i in block_start_locs:
         new_row = {
@@ -157,8 +216,9 @@ def combine_dfs(blocks, ratings):
         }
         combo2 = combo2.append(new_row, ignore_index=True)
 
-    combo2 = combo2.sort_values(by=["onset", "event_type"],
-                                na_position="first").reset_index(drop=True)
+    combo2 = combo2.sort_values(
+        by=["onset", "event_type"], na_position="first"
+    ).reset_index(drop=True)
 
     return combo2
 
@@ -173,22 +233,26 @@ def block_scores(ratings_dict, combo):
 
     mask = pd.notnull(combo["trial_type"])
     block_start_locs = combo[mask].index.values
-    block_start_locs = np.append(block_start_locs,
-                                 combo.tail(1).index.values,
-                                 axis=None)
+    block_start_locs = np.append(
+        block_start_locs, combo.tail(1).index.values, axis=None
+    )
 
     for idx in range(1, len(block_start_locs)):
 
         block_start = combo.onset[block_start_locs[idx - 1]]
         block_end = combo.end[block_start_locs[idx - 1]]
 
-        block = combo.iloc[block_start_locs[idx - 1]:block_start_locs[idx]][
-            pd.notnull(combo.event_type)]
+        block = combo.iloc[block_start_locs[idx - 1] : block_start_locs[idx]][
+            pd.notnull(combo.event_type)
+        ]
         block_name = (
-            combo.movie_name.iloc[block_start_locs[idx -
-                                                   1]:block_start_locs[idx]]
-            [pd.notnull(
-                combo.movie_name)].reset_index(drop=True).astype(str).get(0))
+            combo.movie_name.iloc[
+                block_start_locs[idx - 1] : block_start_locs[idx]
+            ][pd.notnull(combo.movie_name)]
+            .reset_index(drop=True)
+            .astype(str)
+            .get(0)
+        )
 
         gold = get_series_standard(ratings_dict, block_name)
 
@@ -206,14 +270,14 @@ def block_scores(ratings_dict, combo):
             )
 
         if len(gold) < len(interval):
-            interval = interval[:len(gold)]
+            interval = interval[: len(gold)]
             logger.warning(
                 "gold standard is shorter than the number of pt "
                 f"ratings. pt ratings truncated, block: {block_name}",
             )
 
         if len(interval) < len(gold):
-            gold = gold[:len(interval)]
+            gold = gold[: len(interval)]
             logger.warning(
                 "number of pt ratings is shorter than the number "
                 f"of gold std, gold std truncated, block: {block_name}",
@@ -227,8 +291,10 @@ def block_scores(ratings_dict, combo):
         for x in range(len(interval) - 1):
             start = interval[x]
             end = interval[x + 1]
-            sub_block = block[block["onset"].between(start, end)
-                              | block["onset"].between(start, end).shift(-1)]
+            sub_block = block[
+                block["onset"].between(start, end)
+                | block["onset"].between(start, end).shift(-1)
+            ]
             block_length = end - start
             if len(sub_block) != 0:
                 ratings = []
@@ -244,15 +310,17 @@ def block_scores(ratings_dict, combo):
                             numerator = 999999  # add error here
 
                     if row.event_type != "last_row":
-                        ratings.append({
-                            "start": start,
-                            "end": end,
-                            "row_time": row.rating_duration,
-                            "row_start": row.onset,
-                            "block_length": block_length,
-                            "rating": row.participant_value,
-                            "time_held": numerator,
-                        })
+                        ratings.append(
+                            {
+                                "start": start,
+                                "end": end,
+                                "row_time": row.rating_duration,
+                                "row_start": row.onset,
+                                "block_length": block_length,
+                                "rating": row.participant_value,
+                                "time_held": numerator,
+                            }
+                        )
 
                         nums = [float(d["rating"]) for d in ratings]
 
@@ -268,25 +336,29 @@ def block_scores(ratings_dict, combo):
                 avg = last_row
 
             two_s_avg.append(float(avg))
-            list_of_rows.append({
-                "event_type": "running_avg",
-                "participant_value": float(avg),
-                "onset": start,
-                "duration": end - start,
-                "gold_std": gold[x],
-            })
+            list_of_rows.append(
+                {
+                    "event_type": "running_avg",
+                    "participant_value": float(avg),
+                    "onset": start,
+                    "duration": end - start,
+                    "gold_std": gold[x],
+                }
+            )
 
         n_button_press = len(block[block.event_type == "button_press"].index)
         block_score = np.corrcoef(gold, two_s_avg)[1][0]
         key = str(block_name)
-        summary_vals.update({
-            key: {
-                "n_button_press": int(n_button_press),
-                "block_score": block_score,
-                "onset": block_start,
-                "duration": block_end - block_start,
+        summary_vals.update(
+            {
+                key: {
+                    "n_button_press": int(n_button_press),
+                    "block_score": block_score,
+                    "onset": block_start,
+                    "duration": block_end - block_start,
+                }
             }
-        })
+        )
 
     return list_of_rows, summary_vals
 
@@ -296,13 +368,17 @@ def outputs_exist(log_file, output_path):
         return False
 
     if os.path.getmtime(output_path) < os.path.getmtime(log_file):
-        logger.error("Output file is less recently modified than its task file"
-                     f" {log_file}. Output will be deleted and regenerated.")
+        logger.error(
+            "Output file is less recently modified than its task file"
+            f" {log_file}. Output will be deleted and regenerated."
+        )
         try:
             os.remove(output_path)
         except Exception as e:
-            logger.error(f"Failed to remove output file {output_path}, cannot "
-                         f"regenerate. Reason - {e}")
+            logger.error(
+                f"Failed to remove output file {output_path}, cannot "
+                f"regenerate. Reason - {e}"
+            )
             return True
         return False
 
@@ -317,8 +393,10 @@ def get_output_path(ident, log_file, dest_dir):
 
     part = re.findall(r"((?:part|RUN)\d).log", log_file)
     if not part:
-        logger.error(f"Can't detect which part task file {log_file} "
-                     "corresponds to. Ignoring file.")
+        logger.error(
+            f"Can't detect which part task file {log_file} "
+            "corresponds to. Ignoring file."
+        )
         return
     else:
         part = part[0]
@@ -332,17 +410,18 @@ def parse_task(ident, log_file, dest_dir, length_file, timing_file):
     if outputs_exist(log_file, output_path):
         return
 
-    # Reads in the log, skipping the first three preamble lines
+    # Reads in and clean the log, skipping the first three preamble lines
     try:
         log = read_in_logfile(log_file)
+        log_cleaned = clean_logfile(log)
     except TypeError:
         logger.error(f"Cannot parse {log_file}! File may be corrupt! Skipping")
         return
 
     vid_in = pd.read_csv(length_file)
     vid_info = format_vid_info(vid_in)
-    blocks = get_blocks(log, vid_info)
-    ratings = get_ratings(log)
+    blocks = get_blocks(log_cleaned, vid_info)
+    ratings = get_ratings(log_cleaned)
 
     combo = combine_dfs(blocks, ratings)
     ratings_dict = read_in_standard(timing_file)
@@ -351,17 +430,20 @@ def parse_task(ident, log_file, dest_dir, length_file, timing_file):
     combo["block_score"] = np.nan
     combo["n_button_press"] = np.nan
 
-    combo = (combo.append(two_s_chunks).sort_values("onset").reset_index(
-        drop=True))
+    combo = (
+        combo.append(two_s_chunks).sort_values("onset").reset_index(drop=True)
+    )
 
     test = combo.loc[pd.notnull(combo["stim_file"])]
 
     # adds in scores, button presses, etc
     for index, row in test.iterrows():
-        combo.loc[index,
-                  "block_score"] = scores[row["movie_name"]]["block_score"]
-        combo.loc[index, "n_button_press"] = scores[
-            row["movie_name"]]["n_button_press"]
+        combo.loc[index, "block_score"] = scores[row["movie_name"]][
+            "block_score"
+        ]
+        combo.loc[index, "n_button_press"] = scores[row["movie_name"]][
+            "n_button_press"
+        ]
         combo.loc[index, "event_type"] = "block_summary"
 
     cols = [
@@ -417,7 +499,7 @@ def main():
     nii_path = config.get_path("nii")
 
     if not experiment:
-         experiments = os.listdir(task_path)
+        experiments = os.listdir(task_path)
     else:
         experiments = [experiment]
         logger.info(f"Running EA parsing for {experiment}")
@@ -431,12 +513,14 @@ def main():
             continue
 
         exp_task_dir = os.path.join(task_path, experiment)
-        sub_nii = os.path.join(nii_path,
-                               ident.get_full_subjectid_with_timepoint())
+        sub_nii = os.path.join(
+            nii_path, ident.get_full_subjectid_with_timepoint()
+        )
 
         if not os.path.isdir(exp_task_dir):
             logger.warning(
-                    f"{experiment} has no task directory {exp_task_dir}, skipping")
+                f"{experiment} has no task directory {exp_task_dir}, skipping"
+            )
             continue
 
         for task_file in glob.glob(os.path.join(exp_task_dir, task_regex)):
