@@ -462,9 +462,8 @@ def parse_task(ident, log_file, dest_dir, length_file, timing_file):
     # converts timestamps to seconds
     combo["onset"] = combo.onset / 10000.0
     combo.duration = combo.duration / 10000.0
-
-    combo.stim_file = combo.stim_file.ffill(axis=0)
     combo = combo.sort_values(by=["onset", "event_type"])
+    combo.stim_file = combo.stim_file.ffill(axis=0)
     combo = combo[combo.event_type != "final_row"]
     combo.to_csv(output_path, sep="\t", na_rep="n/a", index=False)
 
@@ -509,7 +508,9 @@ def main():
         try:
             ident = datman.scanid.parse(experiment)
         except datman.scanid.ParseException:
-            logger.error(f"Skipping task folder with malformed ID {experiment}")
+            logger.error(
+                f"Skipping task folder with malformed ID {experiment}"
+            )
             continue
 
         exp_task_dir = os.path.join(task_path, experiment)
