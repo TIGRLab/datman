@@ -4,20 +4,44 @@
 Installation
 ------------
 
-Some environment variables need to be added to your shell to run certain datman scripts. You can add these to your shell with ``export VARNAME=VARVALUE`` for each one. For convenience you could also define a bash script full of these export commands and source the script instead or set up an environment module.
+.. code-block:: shell
 
-Required Variables
-~~~~~~~~~~~~~~~~~~
+  git clone https://github.com/TIGRLab/datman.git
+  cd datman
+  pip install .
 
-``DM_CONFIG``: Should be the full path to the site-wide datman config file.
-``DM_SYSTEM``: Should be set to a system name from the SystemSettings in the datman site config file
+Note that if you want to use the command line utilities (the scripts in
+datman's bin folder) you will also need to update your path, as shown below.
 
-Optional Variables
-~~~~~~~~~~~~~~~~~~
+.. code-block:: shell
 
-If you're running any script that interacts with XNAT you must set:
+  # <root dir> should be replaced with the full path to your cloned datman copy
+  export PATH=${PATH}:<root dir>/datman/bin
 
-``XNAT_USER``: The user name to log in with
-``XNAT_PASS``: The password to use
+You'll also need to create some configuration files for datman, as
+described :ref:`here. <datman-conf>`
 
-If you're interacting with a redcap server you should set ``REDCAP_TOKEN`` to your token.
+Once your configuration files have been created, make your settings
+available to datman by setting the DM_CONFIG env var to the full path to your
+main config file and setting DM_SYSTEM to your system name.
+
+.. code-block:: shell
+
+  export DM_CONFIG=<full path to your main config file>
+  export DM_SYSTEM=<name of a system within the config file>
+
+**Optional Configuration**
+
+If you plan to use the XNAT integration you'll also need to provide your
+XNAT credentials
+
+.. code-block:: shell
+
+  export XNAT_USER=<your username>
+  export XNAT_PASS=<your password>
+
+Using the redcap integration requires providing a redcap token
+
+.. code-block:: shell
+
+  export REDCAP_TOKEN=<your token here>

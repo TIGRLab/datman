@@ -11,6 +11,7 @@ datman
    :maxdepth: 2
 
    installation
+   datman_conf
    usage
    api
    changes

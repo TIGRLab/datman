@@ -1,0 +1,74 @@
+# ---------------------------------
+# Datman Study Configuration File
+# ---------------------------------
+
+# This file is in yaml format. See here for an overview of
+# yaml: https://learnxinyminutes.com/docs/yaml/
+
+# Any values enclosed in '<' and '>' indicate that the user should replace
+# the entry entirely with their own setting. (eg: '<username>' replaced with
+# 'myusername' NOT '<myusername>')
+
+# This file controls the settings datman will use for a specific study.
+# Almost every setting described in the main configuration can be defined here
+# (or within a site's configuration block) to override a default or enable
+# a feature only for the study/site (rather than for all datman studies).
+
+ProjectDir: <study folder>       # The name to give the study's folder
+                                 # (note: case-sensitive)
+StudyTag: <tag>                  # The value every session in the study should
+                                 # use for the study field of the ID
+                                 # (note: case-sensitive)
+                                 # For datman's convention this is the first
+                                 # field of the ID
+                                 # (i.e. STUDY_SITE_ID_TIMEPOINT_REPEAT)
+
+FullName: <name>                 # The full name of the study (not shorthand)
+Description: <short description>
+PrimaryContact: <name>
+
+# TaskRegex: 'behav|\.edat2'     # A regex used by dm_task_files.py to find
+                                 # behavioural files that might exist in the
+                                 # study's resources folder. (Optional).
+                                 # Default: 'behav|\.edat2'
+
+# IdMap:                         # Settings to use when converting study
+                                 # IDs between datman and KCNI convention.
+                                 # (Optional).
+#   Study:
+#     <KCNISTUDY>: <DMSTUDY>     # The expected KCNI study field mapped to
+                                 # the expected datman study field.
+#   Site:
+#     <KCNISITE>: <DMSITE>       # An entry for each KCNI site code mapped
+                                 # to its datman equivalent.
+#   Subject:
+#     'kcniregex->dmregex': 'dmregex->kcniregex' # Two pairs of python regexes
+                                                 # to mangle a subject ID field
+                                                 # from KCNI to datman
+                                                 # convention and back again
+                                                 # (e.g. '0(P?[0-9]+)->\1': '(P?[0-9]+)->0\1'
+                                                 # to drop a prepended zero
+                                                 # when converting to datman
+                                                 # and re-add it when
+                                                 # converting back to KCNI)
+
+Sites:                           # Configuration for each scan site
+  <site tag>:                    # <site tag> should be replaced with a
+                                 # case-sensitive tag for each scan site.
+    # UsesTechNotes: False       # Indicate whether tech notes are expected
+                                 # for this scan site. Default: False
+    ExportInfo:
+      <tag>:                     # A case-sensitive tag for each scan type.
+                                 # Each tag should already be defined in
+                                 # the main config file.
+        Pattern:
+          SeriesDescription: <regex>  # A python regex (or list of regexes) to
+                                      # match the dicom header series
+                                      # description of scans that should have
+                                      # this tag.
+          # ImageType: <regex>   # A python regex to match the image type of
+                                 # of the dicom header. Used to distinguish
+                                 # between different image types when the
+                                 # series description is identical (Optional)
+        Count: <num>             # The number of series expected to match this
+                                 # tag.
