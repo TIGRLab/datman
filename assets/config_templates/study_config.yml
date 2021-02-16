@@ -27,11 +27,6 @@ FullName: <name>                 # The full name of the study (not shorthand)
 Description: <short description>
 PrimaryContact: <name>
 
-# TaskRegex: 'behav|\.edat2'     # A regex used by dm_task_files.py to find
-                                 # behavioural files that might exist in the
-                                 # study's resources folder. (Optional).
-                                 # Default: 'behav|\.edat2'
-
 # IdMap:                         # Settings to use when converting study
                                  # IDs between datman and KCNI convention.
                                  # (Optional).
@@ -55,8 +50,6 @@ PrimaryContact: <name>
 Sites:                           # Configuration for each scan site
   <site tag>:                    # <site tag> should be replaced with a
                                  # case-sensitive tag for each scan site.
-    # UsesTechNotes: False       # Indicate whether tech notes are expected
-                                 # for this scan site. Default: False
     ExportInfo:
       <tag>:                     # A case-sensitive tag for each scan type.
                                  # Each tag should already be defined in
@@ -70,5 +63,7 @@ Sites:                           # Configuration for each scan site
                                  # of the dicom header. Used to distinguish
                                  # between different image types when the
                                  # series description is identical (Optional)
+          # EchoNumber: <num>    # The echo number to use when multiple exist
+                                 # within an acquisition. (Optional)
         Count: <num>             # The number of series expected to match this
                                  # tag.

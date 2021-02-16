@@ -39,100 +39,6 @@ SystemSettings:
                                  # Accepted values: 'slurm', 'gridengine'
 
 
-###### FTP Configuration ##############
-# These settings configure the FTP server for scripts like dm_sftp.py
-
-FtpServer: <servername>          # The FTP server domain name or IP address
-# FtpPort: 22                    # The port to use. Default: 22
-# MrFtpPass: 'mrftppass.txt'     # The password file to search for in each
-                                 # study's metadata folder.
-                                 # Default: 'mrftppass.txt'
-MrUser: <uname>                  # The username to log in to the server with.
-                                 # If not specified here, must be set in
-                                 # every study's config file.
-MrFolder: <folder>               # A folder name (or python regex) to use
-                                 # when searching for scans on the FTP server.
-                                 # If not specified here, must be set in
-                                 # every study's config file.
-
-
-###### XNAT Configuration ##############
-# Configure the XNAT server for scripts like dm_xnat_extract.py and
-# dm_xnat_upload.py
-
-XnatServer: <xnaturl>            # The XNAT server url to use
-# XnatPort: 443                  # The port to connect to on the XNAT server.
-                                 # Default: 443
-XnatArchive: <project>           # The project on the XNAT server to work with.
-                                 # If not specified here, must be set in
-                                 # every study's config file.
-# XnatConvention: DATMAN         # The naming convention to use on the XNAT
-                                 # server. Default: 'DATMAN'.
-                                 # Accepted values: 'KCNI', 'DATMAN'
-# XnatCredentials: 'fname'       # The name of the credentials file to search
-                                 # for in each study's metadata folder. This
-                                 # file should contain the username and
-                                 # password (on one line each).
-                                 # If this value is provided it will override
-                                 # the environment variables XNAT_USER and
-                                 # XNAT_PASS
-# XnatSource: <server>           # The domain name or IP address of the
-                                 # XNAT server to pull zip files from.
-                                 # (Optional). Note that the XnatSource*
-                                 # settings are only used by
-                                 # xnat_fetch_sessions.py and only when an
-                                 # XNAT server is to be treated as a source
-                                 # for MR zips instead of an SFTP server.
-# XnatSourceArchive: <name>      # The name of the XNAT archive to pull zip
-                                 # files from.
-                                 # Must be provided if XnatSource is set.
-# XnatSourceCredentials: <fname> # The name of the file in each study's
-                                 # metadata folder that will hold the username
-                                 # and password for the XnatSource server.
-                                 # Must be provided if XnatSource is set.
-
-
-###### REDCap Configuration ##############
-# Configure the REDCap server for scripts like dm_redcap_scan_completed.py
-
-# UsesRedcap: False              # Whether or not to expect a REDCap scan
-                                 # completed survey for each MR session.
-                                 # Default: False
-# RedcapApi: <api url>           # The API URL for the REDCap server.
-# RedcapUrl: <redcap url>        # The URL for the REDCap server.
-# RedcapToken: <filename>        # The name of the file in each study's
-                                 # metadata folder that contains the REDCap
-                                 # token to use.
-                                 # If this value is provided it will override
-                                 # the REDCAP_TOKEN environment variable.
-# RedcapProjectId: <id>          # The project ID to use when getting records
-# RedcapInstrument: <name>       # The instrument to retrieve records for.
-# RedcapEventId: {'name': num}   # A dictionary of event names mapped to their
-                                 # IDs.
-# RedcapSubj: <fieldname>        # The name of the field holding the session ID.
-# RedcapDate: <fieldname>        # The name of the field holding the date that
-                                 # the survey was completed.
-# RedcapStatus: <fieldname>      # The name of the field that indicates whether
-                                 # a form is complete.
-# RedcapStatusValue: [<values>]  # A list of values that, if found in the
-                                 # RedcapStatus field, indicate a survey is
-                                 # complete.
-# RedcapRecordKey: <fieldname>   # The name of the field that contains the
-                                 # unique record ID.
-# RedcapComments: <fieldname>    # The name of field that holds RA comments.
-
-
-###### Log Server Configuration ##############
-# Provide settings for datman's log server (dm_log_server.py). The log server
-# is helpful for collecting log messages from datman scripts that might be
-# submitted to a queue (like dm_qc_report.py).
-
-# LogServer: <server>            # The domain name or IP address of the
-                                 # server that dm_log_server will listen on.
-# ServerLogDir: <path>           # The full path to the folder to store
-                                 # received log messages in.
-
-
 ###### Project Configuration ##############
 # Configure studies to be managed by datman.
 Projects:
@@ -200,6 +106,95 @@ ExportSettings:
     }
 
 
+###### FTP Configuration ##############
+# These settings configure the FTP server for scripts like dm_sftp.py
+
+# FtpServer: <servername>        # The FTP server domain name or IP address
+# FtpPort: 22                    # The port to use. Default: 22
+# MrFtpPass: 'mrftppass.txt'     # The password file to search for in each
+                                 # study's metadata folder.
+                                 # Default: 'mrftppass.txt'
+# MrUser: <uname>                # The username to log in to the server with.
+# MrFolder: <folder>             # A folder name (or python regex, or list of
+                                 # folders) to use when searching for scans
+                                 # on the FTP server.
+
+
+###### XNAT Configuration ##############
+# Configure the XNAT server for scripts like dm_xnat_extract.py and
+# dm_xnat_upload.py
+
+# XnatServer: <xnaturl>          # The XNAT server url to use
+# XnatPort: 443                  # The port to connect to on the XNAT server.
+                                 # Default: 443
+# XnatArchive: <project>         # The project on the XNAT server to work with.
+# XnatConvention: DATMAN         # The naming convention to use on the XNAT
+                                 # server. Default: 'DATMAN'.
+                                 # Accepted values: 'KCNI', 'DATMAN'
+# XnatCredentials: 'fname'       # The name of the credentials file to search
+                                 # for in each study's metadata folder. This
+                                 # file should contain the username and
+                                 # password (on one line each).
+                                 # If this value is provided it will override
+                                 # the environment variables XNAT_USER and
+                                 # XNAT_PASS
+# XnatSource: <server>           # The domain name or IP address of the
+                                 # XNAT server to pull zip files from.
+                                 # (Optional). Note that the XnatSource*
+                                 # settings are only used by
+                                 # xnat_fetch_sessions.py and only when an
+                                 # XNAT server is to be treated as a source
+                                 # for MR zips instead of an SFTP server.
+# XnatSourceArchive: <name>      # The name of the XNAT archive to pull zip
+                                 # files from.
+                                 # Must be provided if XnatSource is set.
+# XnatSourceCredentials: <fname> # The name of the file in each study's
+                                 # metadata folder that will hold the username
+                                 # and password for the XnatSource server.
+                                 # Must be provided if XnatSource is set.
+
+
+###### REDCap Configuration ##############
+# Configure the REDCap server for scripts like dm_redcap_scan_completed.py
+
+# UsesRedcap: False              # Whether or not to expect a REDCap scan
+                                 # completed survey for each MR session.
+                                 # Default: False
+# RedcapApi: <api url>           # The API URL for the REDCap server.
+# RedcapUrl: <redcap url>        # The URL for the REDCap server.
+# RedcapToken: <filename>        # The name of the file in each study's
+                                 # metadata folder that contains the REDCap
+                                 # token to use.
+                                 # If this value is provided it will override
+                                 # the REDCAP_TOKEN environment variable.
+# RedcapProjectId: <id>          # The project ID to use when getting records
+# RedcapInstrument: <name>       # The instrument to retrieve records for.
+# RedcapEventId: {'name': num}   # A dictionary of event names mapped to their
+                                 # IDs.
+# RedcapSubj: <fieldname>        # The name of the field holding the session ID.
+# RedcapDate: <fieldname>        # The name of the field holding the date that
+                                 # the survey was completed.
+# RedcapStatus: <fieldname>      # The name of the field that indicates whether
+                                 # a form is complete.
+# RedcapStatusValue: [<values>]  # A list of values that, if found in the
+                                 # RedcapStatus field, indicate a survey is
+                                 # complete.
+# RedcapRecordKey: <fieldname>   # The name of the field that contains the
+                                 # unique record ID.
+# RedcapComments: <fieldname>    # The name of field that holds RA comments.
+
+
+###### Log Server Configuration ##############
+# Provide settings for datman's log server (dm_log_server.py). The log server
+# is helpful for collecting log messages from datman scripts that might be
+# submitted to a queue (like dm_qc_report.py).
+
+# LogServer: <server>            # The domain name or IP address of the
+                                 # server that dm_log_server will listen on.
+# ServerLogDir: <path>           # The full path to the folder to store
+                                 # received log messages in.
+
+
 ###### Gold Standard Comparison Configuration ##############
 # Settings used when comparing dicom headers to gold standards.
 
@@ -217,3 +212,14 @@ IgnoreHeaderFields:              # Dicom Header fields to exclude from gold
                                  # dicom field names exactly.
  - AcquisitionTime
  - SeriesNumber
+
+
+###### Misc. Configuration ##############
+
+# UsesTechNotes: False           # Indicate whether tech notes are expected
+                                 # in each session's resources folder.
+                                 # Default: False
+# TaskRegex: 'behav|\.edat2'     # A regex used by dm_task_files.py to find
+                                 # behavioural files that might exist in the
+                                 # study's resources folder. (Optional).
+                                 # Default: 'behav|\.edat2'
