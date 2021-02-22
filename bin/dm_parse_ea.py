@@ -182,7 +182,7 @@ def combine_dfs(blocks, ratings):
     combo2 = combo.drop(
         combo[
             (combo["space_b4_prev"] < 1000)
-            & (combo["first_button_press"] is True)
+            & (combo["first_button_press"] == True)
         ].index
     ).reset_index(drop=True)
 
@@ -428,10 +428,12 @@ def parse_task(ident, log_file, dest_dir, length_file, timing_file):
     try:
         log = read_in_logfile(log_file)
         log_cleaned = clean_logfile(log)
-    except TypeError:
-        logger.error(f"Cannot parse {log_file}! File may be corrupt! Skipping")
+    except Exception as e:
+        logger.error(
+            f"Cannot parse {log_file}! File maybe corrupted! Skipping"
+        )
         return
-
+    
     vid_in = pd.read_csv(length_file)
     vid_info = format_vid_info(vid_in)
     blocks = get_blocks(log_cleaned, vid_info)
