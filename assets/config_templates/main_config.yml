@@ -36,7 +36,7 @@ SystemSettings:
                                  # folder containing your study config files
     Queue: slurm                 # The name of the job-scheduling software in
                                  # use. (Optional)
-                                 # Accepted values: 'slurm', 'gridengine'
+                                 # Accepted values: 'slurm', 'sge'
 
 
 ###### Project Configuration ##############
@@ -70,18 +70,6 @@ Paths:
   dicom: data/dicom/
   zips: data/zips/
   resources: data/RESOURCES/
-  jsons: data/modified_jsons/
-  dtiprep: pipelines/dtiprep/
-  fmri: pipelines/fmri/
-  hcp:  pipelines/hcp/
-  hcp_fs: pipelines/hcp_freesurfer/
-  freesurfer: pipelines/freesurfer/
-  unring: pipelines/unring/
-  feenics: pipelines/feenics/
-  fmriprep: pipelines/bids_apps/fmriprep
-  ciftify: pipelines/bids_apps/ciftify
-  dmriprep: pipelines/bids_apps/dmriprep
-  mriqc: pipelines/bids_apps/mriqc
 
 
 ###### Tag Configuration ##############
