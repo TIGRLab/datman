@@ -26,6 +26,9 @@ StudyTag: <tag>                  # The value every session in the study should
 FullName: <name>                 # The full name of the study (not shorthand)
 Description: <short description>
 PrimaryContact: <name>
+# IsOpen: True                   # Whether the study is still collecting data.
+                                 # Default: True
+
 
 # IdMap:                         # Settings to use when converting study
                                  # IDs between datman and KCNI convention.
