@@ -12,6 +12,7 @@ Arguments:
 Options:
     --debug         Set log level to debug
     --output-dir    Specify an alternate output directory 
+    --dry-run       Don't actually write any output
 
 Outputs the trial number, onset time, accurracy, and reaction time values for each trial.
 Originally written by Ella Wiljer, 2018
@@ -125,9 +126,13 @@ def main():
     session = arguments['<session>']
     study = arguments['<study>']
     debug = arguments["--debug"]
+    dryrun = arguments["--dry-run"]
 
     if debug:
         logger.setLevel(logging.DEBUG)
+
+    if dryrun:
+        logger.info("Dry run - will not write any output")
 
     config = datman.config.config(study=study)
 
@@ -225,9 +230,11 @@ def main():
             if not os.path.exists(os.path.dirname(file_name)):
                 os.makedirs(os.path.dirname(file_name))
             
-            logger.info(f"Saving output to {file_name}")
-            data.to_csv(file_name, sep='\t', index=False)
-            
+            if not dryrun:
+                logger.info(f"Saving output to {file_name}")
+                data.to_csv(file_name, sep='\t', index=False)
+            else:
+                logger.info(f"Dry run - would save to {file_name}")
 
 if __name__ == '__main__':
     main()
