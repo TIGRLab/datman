@@ -120,8 +120,6 @@ def map_response(x):
 def main():
 
     arguments = docopt(__doc__)
-#    eprimefile = arguments['<eprime_filename>']
-#    destination = arguments['<destination>']
     out_dir = arguments['--output-dir']
     session = arguments['<session>']
     study = arguments['<study>']
