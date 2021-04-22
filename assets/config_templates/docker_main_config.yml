@@ -1,0 +1,206 @@
+# ---------------------------------
+# Datman Main Configuration File
+# ---------------------------------
+
+# This file is in yaml format. See here for an overview of
+# yaml: https://learnxinyminutes.com/docs/yaml/
+
+# Any values enclosed in '<' and '>' indicate that the user should replace
+# the entry entirely with their own setting. (eg: '<username>' replaced with
+# 'myusername' NOT '<myusername>')
+
+# This file controls the default settings used by datman. To get datman
+# to read it you must set the DM_CONFIG environment variable its full path.
+# You must also set DM_SYSTEM to the name of one of your configured
+# systems (see System Configuration).
+
+# Note: Almost all settings can be overridden for a single study or for a
+# single site within a study by setting them in the study config file. Aside
+# from the SystemSettings block (which MUST be defined), this file just
+# defines default settings.
+
+
+###### System Configuration ##############
+# These settings configure local installations of datman. You can have datman
+# installed in multiple places (or have data managed in multiple locations)
+# by defining each instance here. At least one system must be configured.
+
+SystemSettings:
+  docker:
+    DatmanProjectsDir: /data
+    DatmanAssetsDir: /datman/assets
+    ConfigDir: /config
+
+
+###### Project Configuration ##############
+# Configure studies to be managed by datman.
+Projects:
+  <NICKNAME>: <config>          # Each study managed needs an entry here.
+                                # <NICKNAME> is the name used on the command
+                                # line when running datman scripts on the study.
+                                # '<config>' should be the name of the study
+                                # config file stored in ConfigDir. Note that
+                                # this just the file name, NOT the full path.
+
+
+###### Path Configuration ##############
+# Configure the folder names for required paths. The keys can't be changed
+# (these are required by datman scripts) but the values (folder names) can
+# be modified if desired. Paths are relative to the study folder.
+
+Paths:
+  meta: metadata/
+  std:  metadata/standards/
+  qc:   qc/
+  task: task/
+  log:  logs/
+  data: data/
+  dcm:  data/dcm/
+  nii:  data/nii/
+  bids: data/bids/
+  mnc:  data/mnc/
+  nrrd: data/nrrd/
+  dicom: data/dicom/
+  zips: data/zips/
+  resources: data/RESOURCES/
+
+
+###### Tag Configuration ##############
+# Configure default settings for each acquisition tag here. Note that to
+# prevent typos and duplications a tag MUST be defined here first before it
+# can be used by any study config file. Below is a blank template to use when
+# constructing your own tags.
+
+ExportSettings:
+  <TAG>: {
+    Formats: ['nii', 'dcm']      # List of formats to export all scans
+                                 # with this tag to. At least one
+                                 # required.
+                                 # Accepted values: 'nii', 'dcm' , 'mnc'
+    QcType: ignore               # The type of QC metrics to generate
+                                 # for this tag.
+                                 # Accepted values: 'ignore', 'anat', 'dti',
+                                 # 'fmri'
+    Bids: {
+                                 # Configuration for exporting to bids.
+                                 # See bin/bidsify.py for more info.
+    }
+
+
+###### FTP Configuration ##############
+# These settings configure the FTP server for scripts like dm_sftp.py
+
+# FtpServer: <servername>        # The FTP server domain name or IP address
+# FtpPort: 22                    # The port to use. Default: 22
+# MrFtpPass: 'mrftppass.txt'     # The password file to search for in each
+                                 # study's metadata folder.
+                                 # Default: 'mrftppass.txt'
+# MrUser: <uname>                # The username to log in to the server with.
+# MrFolder: <folder>             # A folder name (or python regex, or list of
+                                 # folders) to use when searching for scans
+                                 # on the FTP server.
+
+
+###### XNAT Configuration ##############
+# Configure the XNAT server for scripts like dm_xnat_extract.py and
+# dm_xnat_upload.py
+
+# XnatServer: <xnaturl>          # The XNAT server url to use
+# XnatPort: 443                  # The port to connect to on the XNAT server.
+                                 # Default: 443
+# XnatArchive: <project>         # The project on the XNAT server to work with.
+# XnatConvention: DATMAN         # The naming convention to use on the XNAT
+                                 # server. Default: 'DATMAN'.
+                                 # Accepted values: 'KCNI', 'DATMAN'
+# XnatCredentials: 'fname'       # The name of the credentials file to search
+                                 # for in each study's metadata folder. This
+                                 # file should contain the username and
+                                 # password (on one line each).
+                                 # If this value is provided it will override
+                                 # the environment variables XNAT_USER and
+                                 # XNAT_PASS
+# XnatSource: <server>           # The domain name or IP address of the
+                                 # XNAT server to pull zip files from.
+                                 # (Optional). Note that the XnatSource*
+                                 # settings are only used by
+                                 # xnat_fetch_sessions.py and only when an
+                                 # XNAT server is to be treated as a source
+                                 # for MR zips instead of an SFTP server.
+# XnatSourceArchive: <name>      # The name of the XNAT archive to pull zip
+                                 # files from.
+                                 # Must be provided if XnatSource is set.
+# XnatSourceCredentials: <fname> # The name of the file in each study's
+                                 # metadata folder that will hold the username
+                                 # and password for the XnatSource server.
+                                 # Must be provided if XnatSource is set.
+
+
+###### REDCap Configuration ##############
+# Configure the REDCap server for scripts like dm_redcap_scan_completed.py
+
+# UsesRedcap: False              # Whether or not to expect a REDCap scan
+                                 # completed survey for each MR session.
+                                 # Default: False
+# RedcapApi: <api url>           # The API URL for the REDCap server.
+# RedcapUrl: <redcap url>        # The URL for the REDCap server.
+# RedcapToken: <filename>        # The name of the file in each study's
+                                 # metadata folder that contains the REDCap
+                                 # token to use.
+                                 # If this value is provided it will override
+                                 # the REDCAP_TOKEN environment variable.
+# RedcapProjectId: <id>          # The project ID to use when getting records
+# RedcapInstrument: <name>       # The instrument to retrieve records for.
+# RedcapEventId: {'name': num}   # A dictionary of event names mapped to their
+                                 # IDs.
+# RedcapSubj: <fieldname>        # The name of the field holding the session ID.
+# RedcapDate: <fieldname>        # The name of the field holding the date that
+                                 # the survey was completed.
+# RedcapStatus: <fieldname>      # The name of the field that indicates whether
+                                 # a form is complete.
+# RedcapStatusValue: [<values>]  # A list of values that, if found in the
+                                 # RedcapStatus field, indicate a survey is
+                                 # complete.
+# RedcapRecordKey: <fieldname>   # The name of the field that contains the
+                                 # unique record ID.
+# RedcapComments: <fieldname>    # The name of field that holds RA comments.
+
+
+###### Log Server Configuration ##############
+# Provide settings for datman's log server (dm_log_server.py). The log server
+# is helpful for collecting log messages from datman scripts that might be
+# submitted to a queue (like dm_qc_report.py).
+
+# LogServer: <server>            # The domain name or IP address of the
+                                 # server that dm_log_server will listen on.
+# ServerLogDir: <path>           # The full path to the folder to store
+                                 # received log messages in.
+
+
+###### Gold Standard Comparison Configuration ##############
+# Settings used when comparing dicom headers to gold standards.
+
+# HeaderFieldTolerance:          # Set tolerances for flagging differences
+                                 # when a dicom header and its gold standard
+                                 # don't match. Any header field not listed
+                                 # here will expect an exact match.
+  # <dicom field>: <value>       # <dicom field> is a case-sensitive dicom
+                                 # field name and <value> is the amount of
+                                 # difference to tolerate (e.g. EchoTime: 0.005)
+
+IgnoreHeaderFields:              # Dicom Header fields to exclude from gold
+                                 # standard comparisons. Note that fields
+                                 # are case-sensitive and must match the
+                                 # dicom field names exactly.
+ - AcquisitionTime
+ - SeriesNumber
+
+
+###### Misc. Configuration ##############
+
+# UsesTechNotes: False           # Indicate whether tech notes are expected
+                                 # in each session's resources folder.
+                                 # Default: False
+# TaskRegex: 'behav|\.edat2'     # A regex used by dm_task_files.py to find
+                                 # behavioural files that might exist in the
+                                 # study's resources folder. (Optional).
+                                 # Default: 'behav|\.edat2'
