@@ -84,10 +84,20 @@ def main():
         for iloc in range(len(mrusers)):
             mruser = mrusers[iloc]
             password = passwords[iloc]
+            host_keys, options = get_host_keys(mrserver)
             with pysftp.Connection(mrserver,
                                    username=mruser,
                                    password=password,
-                                   port=port) as sftp:
+                                   port=port,
+                                   cnopts=options) as sftp:
+                if host_keys is not None:
+                    logger.debug(f"Connecting to new host, caching host key.")
+                    host_keys.add(
+                        mrserver,
+                        sftp.remote_server_key.get_name(),
+                        sftp.remote_server_key
+                    )
+                    host_keys.save(pysftp.helpers.known_hosts())
 
                 valid_dirs = get_valid_remote_dirs(sftp, mrfolders)
                 if len(valid_dirs) < 1:
@@ -143,6 +153,18 @@ def read_config(cfg, site=None):
         server_port = 22
 
     return (mrusers, mrfolders, pass_file, server_port)
+
+
+def get_host_keys(server):
+    """Get existing host keys.
+    """
+    options = pysftp.CnOpts()
+    keys = None
+
+    if cnopts.hostkeys.lookup(server) is None:
+        keys = cnopts.hostkeys
+        cnopts.hostkeys = None
+    return keys, options
 
 
 def read_password(pass_file):
