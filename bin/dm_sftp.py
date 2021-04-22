@@ -61,7 +61,7 @@ def main():
         logger.warning('Zips directory: {} not found; creating.'
                        .format(zips_path))
         if not dryrun:
-            os.mkdir(zips_path)
+            os.makedirs(zips_path, exist_ok=True)
 
     server_config = get_server_config(cfg)
 
