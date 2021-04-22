@@ -10,20 +10,20 @@ Installation
   cd datman
   pip install .
 
-Note that if you want to use the command line utilities (the scripts in
-datman's bin folder) you will also need to update your path, as shown below.
+You'll also want to update your path to make datman's command line utilities
+(the scripts in datman's bin folder) accessible without having to type out
+the full path, as shown below.
 
 .. code-block:: shell
 
-  # <root dir> should be replaced with the full path to your cloned datman copy
-  export PATH=${PATH}:<root dir>/datman/bin
+  # $ROOTDIR should be replaced with the full path to your cloned datman copy
+  export PATH=${PATH}:$ROOTDIR/datman/bin
 
-You'll also need to create some configuration files for datman, as
-described :ref:`here. <datman-conf>`
-
-Once your configuration files have been created, make your settings
-available to datman by setting the DM_CONFIG env var to the full path to your
-main config file and setting DM_SYSTEM to your system name.
+Datman requires some configuration files to run, as described
+:ref:`here. <datman-conf>` Once your configuration files have been created,
+make your settings available to datman by setting the DM_CONFIG environment
+variable to the full path to your main config file and setting DM_SYSTEM to
+your system name.
 
 .. code-block:: shell
 

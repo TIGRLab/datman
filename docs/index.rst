@@ -12,7 +12,6 @@ datman
 
    installation
    datman_conf
-   usage
    api
    changes
 
