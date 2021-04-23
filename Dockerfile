@@ -33,4 +33,5 @@ ENV PATH="${PATH}:/datman/bin"
 ENV DM_CONFIG=/config/main_config.yml
 ENV DM_SYSTEM=docker
 
+WORKDIR /
 CMD ["/bin/bash"]
