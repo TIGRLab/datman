@@ -83,20 +83,6 @@ what settings are used for each of the three defined sites in StudyB.
 Glossary
 --------
 
-## Misc. Settings
-There are a few site wide settings that are not part of any configuration block and that are only needed for a few datman scripts. These are documented here, along with the name of the scripts that use these values.
-
-* **REDCAPAPI**
-  * Description: The full URL to the site's REDCap server where 'scan completed' forms are stored
-  * Used by:
-    * dm_link_shared_ids.py - Reads shared IDs / session aliases from this server
-
-
-
-
-
-
-
 ExportSettings
 **************
 This block defines the expected scan tags. Each tag has its own dictionary of
