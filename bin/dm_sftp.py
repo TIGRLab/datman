@@ -161,9 +161,9 @@ def get_host_keys(server):
     options = pysftp.CnOpts()
     keys = None
 
-    if cnopts.hostkeys.lookup(server) is None:
-        keys = cnopts.hostkeys
-        cnopts.hostkeys = None
+    if options.hostkeys.lookup(server) is None:
+        keys = options.hostkeys
+        options.hostkeys = None
     return keys, options
 
 
