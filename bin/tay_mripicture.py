@@ -19,44 +19,47 @@ Options:
 import os
 import glob
 import matplotlib.pyplot as plt
+import nibabel as nib
+import numpy as np
 from docopt import docopt
 
 import datman.config
 
 
 def image_cropping(imgpath):
-    img = plt.imread(imgpath)[800:1290, :, :]
-    img[:, 0:10, :] = 0
-    img[:, 205:220, :] = 0
-    img[:, 410:425, :] = 0
-    img[:, 620:635, :] = 0
-    img[:, 830:845, :] = 0
-    img[:, 1040:1055, :] = 0
-    img[:, 1245:1260, :] = 0
+    t1_data = nib.load(imgpath).get_fdata()
+    idx = list(range(80, 101, 10))
+    t1_slices = t1_data[idx, :, :]
+    img = np.transpose(t1_slices, (0, 2, 1))
+    img = np.moveaxis(img, 0, 1)
+    img = np.reshape(img, (256, -1))
     return img
 
 
 def get_all_subjects(config):
-    qc_dir = config.get_path('qc')
+    qc_dir = config.get_path('nii')
     subject_qc_dirs = glob.glob(os.path.join(qc_dir, '*'))
     all_subs = [os.path.basename(path) for path in subject_qc_dirs]
     return all_subs
 
 
 def main():
-
     arguments = docopt(__doc__)
     study = arguments['<study>']
     participant = arguments['<participant>']
     output = arguments['<output>']
 
     config = datman.config.config(study=study)
-    outdir = '/external/mgmt3/imaging/home/kimel/jwong/Tshirt'
+    outdir = '/projects/jwong/tshirt'
 
     if participant:
         subs = [participant]
+        print('Creating brain pictures for subject', participant,
+              'from', study, 'project.')
     else:
         subs = get_all_subjects(config)
+        print('Creating brain pictures for all subjects for',
+              study, 'project.')
 
     if output:
         outdir = output
@@ -67,20 +70,22 @@ def main():
     for subject in subs:
 
         # Set Path
-        qc_dir = config.get_path('qc')
-        png_dir = os.path.join(qc_dir, subject, '/*Sag-MPRAGE-T1.png')
-        imgpath = glob.glob(png_dir)[0]
-        outpath = os.path.join(outdir, ''.join(subject, '_T1.png'))
+        nii_dir = config.get_path('nii')
+        nii_dir = os.path.join(nii_dir, subject, '*Sag-MPRAGE-T1.nii*')
+        imgpath = glob.glob(nii_dir)[0]
+        outpath = os.path.join(outdir, subject + '_T1.pdf')
 
         # Crop Image and Remove Direction Label
         img = image_cropping(imgpath)
 
         # Output Image
-        plt.figure(num=None, figsize=(10, 10), dpi=300,
+        plt.figure(num=None, figsize=(5, 15), dpi=600,
                    facecolor='w', edgecolor='k')
         plt.axis('off')
-        plt.imshow(img)
+        plt.imshow(img[::-1], cmap='gray', vmin=100, vmax=1100)
         plt.savefig(outpath, bbox_inches='tight', pad_inches=0)
+
+    print('Saved all output at', outdir)
 
 
 if __name__ == "__main__":
