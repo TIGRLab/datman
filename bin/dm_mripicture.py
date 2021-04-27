@@ -3,13 +3,15 @@
 Creates MRI axial pictures for custom T-shirt.
 
 Usage:
-    mripicture.py [options]... <study>
+    mripicture.py [options] <study>
+    mripicture.py [options] <study> [-s <subject>]...
+    mripicture.py [options] <study> [-s <subject>]... [-t <tag>]
 
 Arguments:
     <study>             Nickname of the study to process
 
 Options:
-    -s --subject ...    Subjects
+    -s --subject        Subjects
     -o --output=FOLDER  Output directory
     -t --tag=TAG        Scan tag [default: T1]
     -h --help           Show this screen
@@ -17,7 +19,6 @@ Options:
 
 import os
 import glob
-import matplotlib.pyplot as plt
 from nilearn import plotting
 import numpy as np
 from docopt import docopt
@@ -37,17 +38,17 @@ def main():
     arguments = docopt(__doc__)
     study = arguments['<study>']
     outdir = arguments['--output']
-    subs = arguments['--subject']
-    tag = arguments['--tag'][0]
+    subs = arguments['<subject>']
+    tag = arguments['--tag']
     config = datman.config.config(study=study)
 
     if subs:
         print('Creating brain pictures for subjects [', ', '.join(subs),
-              '] from', study, 'project.')
+              '] from', study, 'project using', tag, 'scans.')
     else:
         subs = get_all_subjects(config)
-        print('Creating brain pictures for all subjects for',
-              study, 'project.')
+        print('Creating brain pictures for all subjects from',
+              study, 'project using', tag, 'scans.')
 
     if not outdir:
         outdir = os.path.join(config.get_path('data'), 'tshirt')
@@ -65,11 +66,11 @@ def main():
         outpath = os.path.join(outdir, subject + '_T1.pdf')
 
         # Output Image
-        plotting.plot_anat(imgpath, cut_coords=(-20, -10, 2), display_mode='x',
-                           annotate=False, draw_cross=False, vmin=100,
-                           vmax=1100, threshold='auto')
-        plt.savefig(outpath, bbox_inches='tight', pad_inches=0,
-                    dpi=1000, facecolor='w', edgecolor='k')
+        t1_pic = plotting.plot_anat(imgpath, cut_coords=(-20, -10, 2),
+                                    display_mode='x', annotate=False,
+                                    draw_cross=False, vmin=100,
+                                    vmax=1100, threshold='auto')
+        t1_pic.savefig(outpath, dpi=1000)
 
     print('Saved all output to', outdir)
 
