@@ -3,89 +3,75 @@
 Creates MRI axial pictures for custom T-shirt.
 
 Usage:
-    mripicture.py [options] <study>
-    mripicture.py [options] <study> <participant>
-    mripicture.py [options] <study> <participant> <output>
+    mripicture.py [options]... <study>
 
 Arguments:
     <study>             Nickname of the study to process
-    <participant>       Full ID of the participant
-    <output>            Output Directory
 
 Options:
+    -s --subject ...    Subjects
+    -o --output=FOLDER  Output directory
+    -t --tag=TAG        Scan tag [default: T1]
     -h --help           Show this screen
 """
 
 import os
 import glob
 import matplotlib.pyplot as plt
-import nibabel as nib
+from nilearn import plotting
 import numpy as np
 from docopt import docopt
 
 import datman.config
-
-
-def image_cropping(imgpath):
-    t1_data = nib.load(imgpath).get_fdata()
-    idx = list(range(80, 101, 10))
-    t1_slices = t1_data[idx, :, :]
-    img = np.transpose(t1_slices, (0, 2, 1))
-    img = np.moveaxis(img, 0, 1)
-    img = np.reshape(img, (256, -1))
-    return img
+import datman.scan
 
 
 def get_all_subjects(config):
-    qc_dir = config.get_path('nii')
-    subject_qc_dirs = glob.glob(os.path.join(qc_dir, '*'))
-    all_subs = [os.path.basename(path) for path in subject_qc_dirs]
+    nii_dir = config.get_path('nii')
+    subject_nii_dirs = glob.glob(os.path.join(nii_dir, '*'))
+    all_subs = [os.path.basename(path) for path in subject_nii_dirs]
     return all_subs
 
 
 def main():
     arguments = docopt(__doc__)
     study = arguments['<study>']
-    participant = arguments['<participant>']
-    output = arguments['<output>']
-
+    outdir = arguments['--output']
+    subs = arguments['--subject']
+    tag = arguments['--tag'][0]
     config = datman.config.config(study=study)
-    outdir = '/projects/jwong/tshirt'
 
-    if participant:
-        subs = [participant]
-        print('Creating brain pictures for subject', participant,
-              'from', study, 'project.')
+    if subs:
+        print('Creating brain pictures for subjects [', ', '.join(subs),
+              '] from', study, 'project.')
     else:
         subs = get_all_subjects(config)
         print('Creating brain pictures for all subjects for',
               study, 'project.')
 
-    if output:
-        outdir = output
+    if not outdir:
+        outdir = os.path.join(config.get_path('data'), 'tshirt')
 
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
+    os.makedirs(outdir, exist_ok=True)
 
     for subject in subs:
 
+        scan = datman.scan.Scan(subject, config)
+        tagged_scan = scan.get_tagged_nii(tag)
+        idx = np.argmax([ss.series_num for ss in tagged_scan])
+
         # Set Path
-        nii_dir = config.get_path('nii')
-        nii_dir = os.path.join(nii_dir, subject, '*Sag-MPRAGE-T1.nii*')
-        imgpath = glob.glob(nii_dir)[0]
+        imgpath = tagged_scan[idx].path
         outpath = os.path.join(outdir, subject + '_T1.pdf')
 
-        # Crop Image and Remove Direction Label
-        img = image_cropping(imgpath)
-
         # Output Image
-        plt.figure(num=None, figsize=(5, 15), dpi=600,
-                   facecolor='w', edgecolor='k')
-        plt.axis('off')
-        plt.imshow(img[::-1], cmap='gray', vmin=100, vmax=1100)
-        plt.savefig(outpath, bbox_inches='tight', pad_inches=0)
+        plotting.plot_anat(imgpath, cut_coords=(-20, -10, 2), display_mode='x',
+                           annotate=False, draw_cross=False, vmin=100,
+                           vmax=1100, threshold='auto')
+        plt.savefig(outpath, bbox_inches='tight', pad_inches=0,
+                    dpi=1000, facecolor='w', edgecolor='k')
 
-    print('Saved all output at', outdir)
+    print('Saved all output to', outdir)
 
 
 if __name__ == "__main__":
