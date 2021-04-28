@@ -4,7 +4,8 @@
 <html class="writer-html5" lang="en" >
 <head>
   <meta charset="utf-8" />
-  
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <title>datman &mdash; datman 0.2.0rc1 documentation</title>
@@ -167,7 +168,7 @@
 
 
 
-<div class="section" id="datman">
+<section id="datman">
 <h1>datman<a class="headerlink" href="#datman" title="Permalink to this headline">¶</a></h1>
 <a class="reference external image-reference" href="https://zenodo.org/badge/latestdoi/29540972"><img alt="https://zenodo.org/badge/29540972.svg" src="https://zenodo.org/badge/29540972.svg" /></a>
 <p>A set of python scripts we use for three major functions:</p>
@@ -183,7 +184,7 @@
 <li><p>[Quality Control](#quality-control)</p></li>
 <li><p>[XNAT Database](<a class="reference external" href="http://imaging-genetics.camh.ca/database/">http://imaging-genetics.camh.ca/database/</a>)</p></li>
 </ul>
-<div class="section" id="introduction">
+<section id="introduction">
 <h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
 <p><strong>definitions</strong></p>
 <blockquote>
@@ -218,12 +219,12 @@ python setup.py install</p>
 <li><p>Set <cite>DATMAN_ASSETS</cite> to point to datman/assets.</p></li>
 <li><p>Add datman/assets to your PYTHONPATH`and <cite>MATLABPATH</cite>.</p></li>
 </ul>
-</div>
-<div class="section" id="datman-overview">
+</section>
+<section id="datman-overview">
 <h2>Datman Overview<a class="headerlink" href="#datman-overview" title="Permalink to this headline">¶</a></h2>
 <p>![](assets/imgs/data_flow.png)</p>
-</div>
-<div class="section" id="quality-control">
+</section>
+<section id="quality-control">
 <h2>Quality Control<a class="headerlink" href="#quality-control" title="Permalink to this headline">¶</a></h2>
 <p>Datman runs a standard QC pipeline on all major datatypes. It largely does this using the [qcmon](<a class="reference external" href="https://github.com/josephdviviano/qcmon">https://github.com/josephdviviano/qcmon</a>) project.</p>
 <p>We QC the data at two levels: single subject, and chronologically. When QCing a single subject, we’re looking for major artifacts in the data, or problems with the subject (tumors, strokes, etc). When we are QCing chronologically, we’re looking for things in one subject that look rather different from all of the others (or most of the others). This is a good practice when you don’t know of a good ‘cut-off’. For example, no one know what SNR number is so low that the data becomes corrupted.</p>
@@ -301,8 +302,8 @@ python setup.py install</p>
 <p><strong>further reading</strong></p>
 <p>&gt; [1] Spurious but systematic correlations in functional connectivity MRI networks arise from subject motion. Jonathan D. Power et al. 2011. Neuroimage 59:3.
 &gt; [2] Report on a multicenter fMRI quality assurance protocol. Friedman L et al. 2006. J Magn Reson Imaging 23(6).</p>
-</div>
-<div class="section" id="contents">
+</section>
+<section id="contents">
 <h2>Contents<a class="headerlink" href="#contents" title="Permalink to this headline">¶</a></h2>
 <div class="toctree-wrapper compound">
 <ul>
@@ -326,16 +327,16 @@ python setup.py install</p>
 </li>
 </ul>
 </div>
-</div>
-<div class="section" id="indices-and-tables">
+</section>
+<section id="indices-and-tables">
 <h2>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
 <li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
 <li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
 </ul>
-</div>
-</div>
+</section>
+</section>
 
 
            </div>
