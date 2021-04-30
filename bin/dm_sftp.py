@@ -33,11 +33,11 @@ logger = logging.getLogger(os.path.basename(__file__))
 
 def main():
     arguments = docopt(__doc__)
-    verbose = arguments['--verbose']
-    debug = arguments['--debug']
-    dryrun = arguments['--dry-run']
-    quiet = arguments['--quiet']
-    study = arguments['<study>']
+    verbose = arguments["--verbose"]
+    debug = arguments["--debug"]
+    dryrun = arguments["--dry-run"]
+    quiet = arguments["--quiet"]
+    study = arguments["<study>"]
 
     # setup logging
     log_level = logging.WARN
@@ -54,11 +54,11 @@ def main():
     # setup the config object
     cfg = datman.config.config(study=study)
 
-    zips_path = cfg.get_path('zips')
-    meta_path = cfg.get_path('meta')
+    zips_path = cfg.get_path("zips")
+    meta_path = cfg.get_path("meta")
     # Check the local project zips dir exists, create if not
     if not os.path.isdir(zips_path):
-        logger.warning('Zips directory: {} not found; creating.'
+        logger.warning("Zips directory: {} not found; creating."
                        .format(zips_path))
         if not dryrun:
             os.makedirs(zips_path, exist_ok=True)
@@ -79,7 +79,7 @@ def main():
 
         # actually do the copying
         assert len(passwords) == len(mrusers), \
-            'Each mruser in config should have and entry in the password file'
+            "Each mruser in config should have and entry in the password file"
 
         for iloc in range(len(mrusers)):
             mruser = mrusers[iloc]
@@ -91,7 +91,7 @@ def main():
                                    port=port,
                                    cnopts=options) as sftp:
                 if host_keys is not None:
-                    logger.debug(f"Connecting to new host, caching host key.")
+                    logger.debug("Connecting to new host, caching host key.")
                     host_keys.add(
                         mrserver,
                         sftp.remote_server_key.get_name(),
@@ -101,12 +101,12 @@ def main():
 
                 valid_dirs = get_valid_remote_dirs(sftp, mrfolders)
                 if len(valid_dirs) < 1:
-                    logger.error('Source folders {} not found'
-                                 ''.format(mrfolders))
+                    logger.error("Source folders {} not found"
+                                 "".format(mrfolders))
 
                 for valid_dir in valid_dirs:
                     #  process each folder in turn
-                    logger.debug('Copying from:{}  to:{}'
+                    logger.debug("Copying from:{}  to:{}"
                                  .format(valid_dir, zips_path))
                     process_dir(sftp, valid_dir, zips_path)
 
@@ -114,7 +114,7 @@ def main():
 def get_server_config(cfg):
     server_config = {}
 
-    default_mrserver = cfg.get_key('FtpServer')
+    default_mrserver = cfg.get_key("FtpServer")
     try:
         server_config[default_mrserver] = read_config(cfg)
     except datman.config.UndefinedSetting as e:
@@ -124,7 +124,7 @@ def get_server_config(cfg):
     # Sites may override the study defaults. If they dont, the defaults will
     # be returned and should NOT be re-added to the config
     for site in cfg.get_sites():
-        site_server = cfg.get_key('FtpServer', site=site)
+        site_server = cfg.get_key("FtpServer", site=site)
 
         if site_server in server_config:
             continue
@@ -140,15 +140,15 @@ def read_config(cfg, site=None):
     logger.debug("Getting MR sftp server config for site: {}".format(
             site if site else "default"))
 
-    mrusers = cfg.get_key('MrUser', site=site)
-    mrfolders = cfg.get_key('MrFolder', site=site)
+    mrusers = cfg.get_key("MrUser", site=site)
+    mrfolders = cfg.get_key("MrFolder", site=site)
 
     try:
-        pass_file = cfg.get_key('MrFtpPass', site=site)
+        pass_file = cfg.get_key("MrFtpPass", site=site)
     except datman.config.UndefinedSetting:
-        pass_file = 'mrftppass.txt'
+        pass_file = "mrftppass.txt"
     try:
-        server_port = cfg.get_key('FtpPort', site=site)
+        server_port = cfg.get_key("FtpPort", site=site)
     except datman.config.UndefinedSetting:
         server_port = 22
 
@@ -169,11 +169,11 @@ def get_host_keys(server):
 
 def read_password(pass_file):
     if not os.path.isfile(pass_file):
-        logger.error('Password file: {} not found'. format(pass_file))
+        logger.error("Password file: {} not found". format(pass_file))
         raise IOError
 
     passwords = []
-    with open(pass_file, 'r') as pass_file:
+    with open(pass_file, "r") as pass_file:
         for password in pass_file:
             password = password.strip()
             if password:
@@ -213,7 +213,7 @@ def process_dir(connection, directory, zips_path):
             files = connection.listdir()
         except IOError:
             # can get this if user doesn't have permission to enter the folder
-            logger.debug('Cant access remote folder:{}, skipping.'
+            logger.debug("Cant access remote folder:{}, skipping."
                          .format(directory))
             return
         for file_name in files:
@@ -234,7 +234,7 @@ def get_folder(connection, folder_name, dst_path):
         connection.get_r(folder_name, temp_dir, preserve_mtime=True)
         source = os.path.join(temp_dir, folder_name)
         dest = os.path.join(dst_path, folder_name)
-        new_zip = shutil.make_archive(dest, 'zip', source)
+        new_zip = shutil.make_archive(dest, "zip", source)
         logger.info("Copied remote file {} to {}".format(folder_name,
                                                          new_zip))
 
@@ -242,7 +242,7 @@ def get_folder(connection, folder_name, dst_path):
 def get_file(connection, file_name, zips_path):
     target = os.path.join(zips_path, file_name)
     if download_needed(connection, file_name, target):
-        logger.info('Copying new remote file: {}'.format(file_name))
+        logger.info("Copying new remote file: {}".format(file_name))
         connection.get(file_name, target, preserve_mtime=True)
     else:
         logger.debug("File: {} already exists, skipping".format(file_name))
@@ -265,5 +265,5 @@ def download_needed(sftp, filename, target):
     return False
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
