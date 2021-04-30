@@ -25,6 +25,7 @@ RUN cd / && \
 
 # Fix for dm_sftp.py's pysftp hostkey issues
 RUN mkdir /.ssh && \
+    ln -s /.ssh /root/.ssh && \
     chmod 777 /.ssh && \
     ssh-keyscan github.com >> /.ssh/known_hosts && \
     chmod 666 /.ssh/known_hosts
