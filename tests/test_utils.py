@@ -128,7 +128,7 @@ class TestValidateSubjectID:
 class TestUpdateChecklist:
     def test_entry_with_repeat_num_doesnt_crash_when_updating_file(
             self, mock_dash, mock_locate, mock_read, mock_write
-        ):
+    ):
         mock_dash.dash_found = False
         mock_locate.return_value = '/some/path/checklist.csv'
         mock_read.return_value = {}
