@@ -18,18 +18,19 @@ import datman.config
 import datman.utils
 import datman.dashboard as dashboard
 
-logging.basicConfig(level=logging.WARN,
-                    format="[%(name)s] %(levelname)s: %(message)s")
+logging.basicConfig(
+    level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s"
+)
 logger = logging.getLogger(os.path.basename(__file__))
 
 
 def main():
     args = docopt(__doc__)
-    study = args['<study>']
+    study = args["<study>"]
 
     config = datman.config.config(study=study)
     resources = get_resources_dirs(config)
-    out_dir = config.get_path('task')
+    out_dir = config.get_path("task")
     regex = get_regex(config)
 
     try:
@@ -59,13 +60,13 @@ def main():
 
 
 def get_resources_dirs(config):
-    resources_dir = config.get_path('resources')
+    resources_dir = config.get_path("resources")
     if dashboard.dash_found:
         subjects = datman.dashboard.get_study_subjects(config.study_name)
         sessions = []
         for subject in subjects:
             found_sessions = glob.glob(
-                os.path.join(resources_dir, subject + '_*')
+                os.path.join(resources_dir, subject + "_*")
             )
             if found_sessions:
                 sessions.extend(found_sessions)
@@ -73,8 +74,9 @@ def get_resources_dirs(config):
         # Grabbing everything in resources comes with a small risk of
         # non-session folders being explored.
         sessions = [
-            item for item in glob.glob(os.path.join(resources_dir, '*'))
-            if os.path.isdir(item) and '_PHA_' not in os.path.basename(item)
+            item
+            for item in glob.glob(os.path.join(resources_dir, "*"))
+            if os.path.isdir(item) and "_PHA_" not in os.path.basename(item)
         ]
 
     return sessions
@@ -82,15 +84,17 @@ def get_resources_dirs(config):
 
 def get_regex(config):
     try:
-        regex = config.get_key('TaskRegex')
+        regex = config.get_key("TaskRegex")
     except datman.config.UndefinedSetting:
-        logger.warning("'TaskRegex' not defined in settings, using default "
-                    "regex to locate task files.")
-        regex = 'behav|\.edat2'  # noqa: W605
+        logger.warn(
+            "'TaskRegex' not defined in settings, using default "
+            "regex to locate task files."
+        )
+        regex = "behav|\.edat2"  # noqa: W605
     return regex
 
 
-def get_task_files(regex, resource_folder, ignore='.pdf|tech'):
+def get_task_files(regex, resource_folder, ignore=".pdf|tech"):
     task_files = []
     for path, subdir, files in os.walk(resource_folder):
         if re.search(regex, path, re.IGNORECASE):
@@ -104,9 +108,8 @@ def get_task_files(regex, resource_folder, ignore='.pdf|tech'):
             continue
         for item in files:
             if re.search(regex, item, re.IGNORECASE) and not re.search(
-                                                            ignore,
-                                                            item,
-                                                            re.IGNORECASE):
+                ignore, item, re.IGNORECASE
+            ):
                 task_files.append(os.path.join(path, item))
     return task_files
 
@@ -117,8 +120,10 @@ def link_task_file(src_path, dest_path):
         os.symlink(src, dest_path)
     except OSError as e:
         if e.errno == 13:
-            logger.error("Can't symlink task file {} to {} - Permission"
-                         " denied.".format(src, dest_path))
+            logger.error(
+                "Can't symlink task file {} to {} - Permission"
+                " denied.".format(src, dest_path)
+            )
         elif e.errno == 17:
             pass
         else:
@@ -156,14 +161,14 @@ def morph_name(file_path, common_prefix):
     Returns a unique name by finding the unique part of a file's path and
     combining it into a hyphen separated file name
     """
-    unique_part = file_path.replace(common_prefix, '')
-    dir_levels = unique_part.count('/')
+    unique_part = file_path.replace(common_prefix, "")
+    dir_levels = unique_part.count("/")
     if dir_levels == 0:
         new_name = unique_part
     else:
         # Common prefix may have split a directory name, so derive the new name
         # from the original path instead to ensure full names are used
-        new_name = "-".join(file_path.split('/')[-(dir_levels + 1):])
+        new_name = "-".join(file_path.split("/")[-(dir_levels + 1) :])
     return new_name
 
 
@@ -173,16 +178,20 @@ def add_to_dashboard(session, task_file):
 
     db_session = dashboard.get_session(session)
     if not db_session:
-        logger.info("{} not yet in dashboard database. Cannot add task file "
-                    "{}".format(session, task_file))
+        logger.info(
+            "{} not yet in dashboard database. Cannot add task file "
+            "{}".format(session, task_file)
+        )
         return
 
     task = db_session.add_task(task_file)
     if not task:
-        logger.error("Failed to add task file {} to dashboard "
-                     "database".format(task_file))
+        logger.error(
+            "Failed to add task file {} to dashboard "
+            "database".format(task_file)
+        )
     return
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

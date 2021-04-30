@@ -7,6 +7,9 @@
 import datman.config
 
 from .__about__ import __copyright__, __credits__, __packagename__, __version__
+import logging
+
+logging.getLogger('datman').setLevel(logging.WARN)
 
 __all__ = [
     "__version__",
