@@ -13,15 +13,11 @@ RUN cd /tmp && \
     wget https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20210317/dcm2niix_lnx.zip && \
     unzip -d /usr/bin/ dcm2niix_lnx.zip
 
-RUN cd / && \
-    git clone https://github.com/DESm1th/datman.git && \
-    cd datman && \
-    git checkout easybake_datman && \
-    pip install .
-
 # Uncomment this when finished testing
-# RUN cd / && git clone https://github.com/TIGRLab/datman.git && \
-#     cd datman && pip install .
+RUN cd / && \
+    git clone https://github.com/TIGRLab/datman.git && \
+    cd datman && \
+    pip install .
 
 # Fix for dm_sftp.py's pysftp hostkey issues
 RUN mkdir /.ssh && \
