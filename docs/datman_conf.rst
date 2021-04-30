@@ -5,7 +5,7 @@ Configuration Files
 -------------------
 
 Datman requires a main configuration file to run. This can be constructed from
-the template file ``main_config.yml`` found in datman's
+the template file ``main_config.yml`` found in Datman's
 ``assets/config_templates/`` folder. Datman also requires a study config file
 for each study it manages. You can use ``study_config.yml``, found in the same
 folder, to construct these.
@@ -24,11 +24,12 @@ Overriding Settings
 Defining a setting in a 'more specific' context will override any setting
 defined in a less specific block.
 
-From **most** specific settings to **least** it goes:
+From **most** specific definition to **least** it goes:
 
-1. Settings within a 'Sites' block in a study config file
-2. Settings outside of all 'Sites' blocks in the same study config file
-3. Settings within the main config file
+1. Defining a setting within a 'Sites' block in a study config file (site level)
+2. Defining a setting inside a study config file but outside of all 'Sites'
+   blocks (study level).
+3. Defining a setting within the main config file (global)
 
 As an example, assume you have a main config file with the following
 xnat configuration:
@@ -48,7 +49,7 @@ configuration file:
 
 When you run xnat scripts (like dm_xnat_extract.py) on StudyA the scripts will
 find 'xnat.com' for XnatServer and will use 'StudyA' for the XnatArchive
-(instead of the default 'MyProject').
+(instead of 'MyProject' from the main config file).
 
 Assume you have another study, StudyB, with the following in its study
 configuration file:
@@ -83,50 +84,84 @@ what settings are used for each of the three defined sites in StudyB.
 Glossary
 --------
 
+ExportInfo
+**********
+This setting belongs in the site settings within a study config file. It
+describes which data to export from XNAT and what tags to assign the exported
+series. Note that each tag defined here must also exist within ExportSettings
+in the main configuration file.
+
+Required
+^^^^^^^^
+These settings must exist for each tag that is defined.
+
+* **Pattern**: Describes fields from the dicom headers that must be matched for
+  the current tag to be assigned. See the `Pattern`_ section for more info.
+
+* **Count**: Indicates the number of series that should match this tag for
+  each session. Note that if more series are found than expected they will
+  still be tagged and downloaded correctly, this number is just used to
+  report that more were found than expected (or fewer) during QC.
+
+Example
+^^^^^^^
+.. code-block:: yaml
+
+  ExportInfo:
+    # Example tags. These can be named anything, but should be defined in
+    # ExportSettings in the main config file first.
+    T1:
+      Pattern:
+        ...
+      Count: 1
+    T2:
+      Pattern:
+        ...
+      Count: 1
+    RST:
+      Pattern:
+        ...
+      Count: 3
+
 ExportSettings
 **************
 This block defines the expected scan tags. Each tag has its own dictionary of
 config values that defines which formats to convert to, which QC function to
-use for human data, which QC function to use for phantoms with that tag, and
+use for human data, which QC function to use for phantoms, and
 any bids export settings (if converting to bids format).
 
-**NOTE:** Any settings from this block can be overridden by the 'ExportInfo'
+**NOTE:** Any settings from this block can be overridden by the `ExportInfo`_
 block in a study config file.
-
-
-
-******************** REPLACE 'ExportInfo' WITH REFERENCE***************
-
-
 
 Required
 ^^^^^^^^
-The following settings must be defined to set defaults for each tag that exists
+The following settings should be defined in the main configuration file and act
+as defaults for each tag that studies will use. The benefit of pre-defining tags
+this way is that it helps detect typos in a study config file, and helps prevent
+different studies from tagging the same type of acquisition in different ways.
 
 * **Formats**
 
-  * Description: This should be a list of formats to convert any series
-    matching this tag to.
-  * Accepted values: 'nii', 'dcm', 'mnc', 'nrrd'
+  * Description: This should be a list of formats that any series
+    matching the tag should be exported to.
+  * Accepted values: a list which may contain any of these data formats 'nii',
+    'dcm', 'mnc', 'nrrd'
 * **QcType**
 
-  * Description: This defines the QC function to use in dm_qc_report.py to
-    process human data that is assigned this scan tag.
+  * Description: This defines what type of QC metrics dm_qc_report.py should
+    try to generate for human data that matches the tag.
   * Accepted values: 'anat', 'fmri', 'dti', 'ignore'
-* **QcPha**
-
-  * Description: This setting defines the QC function to use in dm_qc_report.py
-    to process phantom data that is assigned this tag.
-  * Accepted values: 'qa_dti', 'abcd_fmri', or 'default'. You can also omit
-    'QcPha' entirely and it will be treated as though 'default' as set.
 
 Optional
 ^^^^^^^^
-Default values can optionally be set for any of the keys usually set in
-ExportInfo. To see available keys and advice for setting them see the
-[ExportInfo section in 'Sites Block'.](#sites-block)
+* **QcPha**
 
-*************************** REPLACE ExportInfo reference**********************
+  * Description: This defines what type of QC metrics dm_qc_report.py should
+    try to generate for phantom data that matches the tag.
+  * Accepted values: 'qa_dti', 'abcd_fmri', or 'default'.
+  * Default value: If omitted, it will be treated as being set to 'default'
+* Any settings usually provided in `ExportInfo`_ can also be set here to
+  provide a global default for a tag.
 
 Example
 ^^^^^^^
@@ -151,11 +186,8 @@ their ExportInfo can override this by including their own 'Pattern' setting.
 
 FTP
 ***
-These settings manage SFTP access and are needed by scripts like dm_sftp.py
-that attempt to access one or more SFTP servers. **NOTE:** The SFTP server
-settings do NOT need to be defined in the main config file, but if you don't
-set defaults there you will have to ensure that the settings are provided
-in each study config file to avoid exceptions.
+These settings manage SFTP access and are needed by scripts, like dm_sftp.py,
+that interact with sftp servers.
 
 Required
 ^^^^^^^^
@@ -185,8 +217,9 @@ Optional
 
 * **MrFtpPass**
 
-  * Description: The name of the file in the each study's metadata folder to get the SFTP
-    password from. If omitted, a file named 'mrftppass.txt' is searched for.
+  * Description: The name of the file in the study metadata folder to
+    get the SFTP password from. If omitted, a file named 'mrftppass.txt' is
+    searched for.
   * Default: 'mrftppass.txt'
 
 Example
@@ -213,16 +246,17 @@ Optional
 ^^^^^^^^
 * **Study**:
 
-  * Description: Maps the expected value for the KCNI study field to the
-    expected value for the Datman study field.
+  * Description: Maps the expected value for the KCNI study ID field to the
+    expected value for the Datman study ID field.
 * **Site**:
 
-  * Description: Maps the expected value for the KCNI site field to the
-    expected value for the Datman site field.
+  * Description: Maps the expected value for the KCNI site ID field to the
+    expected value for the Datman site ID field.
 * **Subject**:
 
-  * Description: Converting subject IDs between naming conventions is
-    more complicated. It requires two pairs of
+  * Description: Describes how to convert the subject ID field from KCNI
+    convention to Datman convention and back again. This is more complicated.
+    It requires two pairs of
     `python style regexes <https://docs.python.org/3/howto/regex.html>`_. The
     first pair matches the portion of the KCNI subject ID that must be
     preserved for the Datman subject ID field and shows how to mangle this
@@ -237,9 +271,9 @@ Example
 .. code-block:: yaml
 
   IdMap:
-    # Any of the below sections can be omitted if the field doesnt change
-    # between conventions.
-    # Left side (keys) are KCNI convention, right side (values) Datman convention.
+    # Any of the below sections can be omitted if the field doesn't change
+    # between naming conventions.
+    # Left side (keys) are KCNI convention, right side (values) are Datman convention.
     #
     # KCNI ID                               Datman ID
     # STU01_UTO_10001_01_SE01_MR  becomes   STUDY1_UT2_ABC0001_01_01
@@ -260,13 +294,13 @@ Required
 * **LogServer**
 
   * Description: The domain name or IP address of the machine that the log
-    server (dm_log_server.py) will listen on. This is also read by scripts
+    server (dm_log_server.py) will be listening on. This is also read by scripts
     that output log messages to find the log server.
 * **ServerLogDir**
 
   * Description: The full path to the directory where dm_log_server.py should
     store all logs. This directory should be accessible to the machine running
-    the log server (i.e. a path local on that machine or an NFS directory
+    the log server (i.e. a path local to that machine or an NFS directory
     mounted to it). Only needed if LogServer is set.
 
 Example
@@ -278,9 +312,8 @@ Example
 
 Paths
 *****
-This block determines the structure of each Datman managed study. Each time a
-new pipeline folder or other resource is added to your projects a new entry
-needs to be added to the list. The keys are a short descriptive name for the
+This block determines the structure for the contents of each Datman managed
+study folder. The keys are a short descriptive name for the
 folder and the values are the relative path the folder should be given within
 configured studies.
 
@@ -298,7 +331,7 @@ listed here.
   series is stored here
 * **dicom**: The folder that will hold raw zip files of dicoms before the
   site naming convention is applied
-* **zips**: The folder that holds correctly named links that point to the raw
+* **zips**: The folder that holds the name-corrected links that point to the raw
   zip files in the 'dicom'
 * **resources**: The folder that holds all non-dicom data that was present in
   the raw zip files
@@ -318,8 +351,8 @@ omitted otherwise
 
   * Description: Points to the folder that will hold gold standards to be used
     when comparing dicom header parameters. These gold standards should be
-    stored as json files with the expected values for important DICOM header
-    fields.
+    stored as json files containing the expected values for important DICOM
+    header fields.
   * Used by:
 
     *  dm_qc_report.py - Reads from this folder
@@ -347,6 +380,7 @@ Example
 This example is a subset of all keys available.
 
 .. code-block:: yaml
+
    Paths:
       # The paths on the right can be modified as preferred
       meta: metadata/
@@ -358,8 +392,8 @@ This example is a subset of all keys available.
       qc:   qc/
       log:  logs/
 
-Assuming a configuration where the `DatmanProjectsDir` is set to
-`/archive/data` (as it is in ours) and a `ProjectDir` of `SPINS` the above
+Assuming a configuration where the ``DatmanProjectsDir`` is set to
+``/archive/data`` (as it is in ours) and a ``ProjectDir`` of ``SPINS`` the above
 settings would generate a project with the following folder structure:
 
 ::
@@ -382,14 +416,80 @@ settings would generate a project with the following folder structure:
                      │
                      └─── logs
 
+Pattern
+*******
+This setting should be defined for each tag inside `ExportInfo`_. It describes
+how to assign a tag to each series based on the dicom header fields.
+
+Required
+^^^^^^^^
+* **SeriesDescription**:
+
+  * Description: A python regex that will match the series description field
+    in the dicom headers for any series that should receive the current tag.
+  * Accepted values: `A python regex <https://docs.python.org/3/howto/regex.html>`_
+    or list of regexes.
+
+Optional
+^^^^^^^^
+* **ImageType**:
+
+  * Description: A python regex to match the image type of the dicom header.
+    Used to distinguish between different image types when the series
+    description is identical.
+  * Accepted values: `A python regex. <https://docs.python.org/3/howto/regex.html>`_
+* **EchoNumber**:
+
+  * Description: The echo number to apply the tag to when multiple exist within
+    a single acquisition.
+  * Accepted values: an integer.
+
+Example
+^^^^^^^
+.. code-block:: yaml
+
+  ExportInfo:
+    T1:
+      Pattern:
+        SeriesDescription: 'Sag.?T1.BRAVO'
+      Count: 1
+    DTI60-1000:
+      Pattern:
+        # A list of regexes is also allowed
+        SeriesDescription: ['ep2d','DTI.60Dir*GRAPPA$']
+      Count: 2
+    # These two entries give an example of using echo number to split multiple
+    # echoes out of an acquisition.
+    MAG1:
+      Pattern:
+        SeriesDescription: 'field'
+        EchoNumber: 1
+      Count: 1
+    MAG2:
+      Pattern:
+        SeriesDescription: 'field'
+        EchoNumber: 2
+      Count: 1
+    # These two entries give an example of using ImageType to apply different
+    # tags to series with the same SeriesDescription
+    T2:
+      Pattern:
+        SeriesDescription: 'T2w_SPC_vNav$'
+        ImageType: 'ORIGINAL.*ND$'
+      Count: 1
+    T2-NORM:
+      Pattern:
+        SeriesDescription: 'T2w_SPC_vNav$'
+        ImageType: 'ORIGINAL.*ND.*NORM$'
+      Count: 1
 
 Projects
 ********
 The projects block contains a list of short-hand codes for each study that
 Datman is expected to manage. Each code **must** be unique and is
 case-sensitive. Each defined project should map to the name of that study's
-config file. These files will be searched for in the ConfigDir
-for the current system (as set by the shell variable DM_SYSTEM).
+config file. These files will be searched for in the ConfigDir (from the
+`SystemSettings`_) for the current system.
 
 Example
 ^^^^^^^
@@ -406,8 +506,8 @@ Example
 REDCap
 ******
 Any settings needed to use REDCap integrations are described below. These
-settings are used by scripts like `dm_redcap_scan_complete.py`,
-`dm_link_shared_ids.py`.
+settings are used by scripts like ``dm_redcap_scan_complete.py``,
+``dm_link_shared_ids.py``.
 
 Required
 ^^^^^^^^
@@ -439,10 +539,11 @@ Required
 
 Optional
 ^^^^^^^^
-* **RedcapSubj**:
+* **RedcapComments**:
 
-  * Description: The name of the survey field that holds the session ID
-  * Default: 'par_id'
+  * Description: The name of the survey field that holds comments from the
+    RA who attended the scan.
+  * Default: 'cmts'
 * **RedcapDate**:
 
   * Description: The name of the survey field that holds the date the survey
@@ -459,20 +560,18 @@ Optional
     indicate that the form is complete.
   * Accepted values: a list of strings or a string.
   * Default: '2'
-* **RedcapComments**:
+* **RedcapSubj**:
 
-  * Description: The name of the survey field that holds comments from the
-    RA who attended the scan.
-  * Default: 'cmts'
+  * Description: The name of the survey field that holds the session ID
+  * Default: 'par_id'
 * **RedcapToken**:
 
   * Description: The name of the file that will hold the token to access
     REDCap's API. The file should be stored in the study metadata folder and
     be readable to the user(s) who will run any of datman's redcap scripts.
-    If undefined the environment variable REDCAP_TOKEN will be used instead.
+    If undefined, the environment variable REDCAP_TOKEN will be used instead.
     Note that, unlike the RedcapToken setting, the REDCAP_TOKEN variable should
     contain the token itself and not the name of a file to read a token from.
-
 * **UsesRedcap**:
 
   * Description: Indicates whether to expect a redcap 'scan completed' survey
@@ -485,7 +584,7 @@ Example
 .. code-block:: yaml
 
   UsesRedcap: True    # if unset, is treated as False
-  RedcapApi: myredcapserver.com/api
+  RedcapApi: myredcapserver.com/api # These two can refer to different servers
   RedcapUrl: myredcapserver.com
   RedcapToken: 'mytoken.txt'  # Should exist in $STUDY/metadata,
                               # if unset, REDCAP_TOKEN env var is read
@@ -502,6 +601,46 @@ Example
   RedcapRecordKey: 'record_id_field'
   RedcapComments: 'comment_field' # If unset, 'cmts' is used
 
+Sites
+*****
+Each scan site collecting data for a study needs its own configuration
+block in the study config file. Any site-specific configuration should
+be placed in this block to override study or global defaults.
+
+Required
+^^^^^^^^
+* **ExportInfo**:
+
+  * Description: A block of configuration describing which scans to download
+    and how to apply scan tags to them. See `ExportInfo`_ for more info.
+* **Site codes**:
+
+  * Description: One unique code per scan site that will collect scans for the
+    study. Each site code will be matched to the site tag portion of a
+    `Datman style ID. <https://github.com/TIGRLab/documentation/wiki/Data-Naming>`_
+
+Example
+^^^^^^^
+.. code-block:: yaml
+
+  Sites:
+      # Your site codes may be whatever you like, but they should fit
+      # Datman's convention of being no more than three characters and
+      # only containing letters and numbers.
+      CMH:
+        # Site specific settings can go here
+        ExportInfo:
+          ...
+      UT1:
+        # As an example, a site can upload to a different XNAT project
+        # by redefining XnatArchive here
+        XnatArchive: MYSTUDY_UT1
+        ExportInfo:
+          ...
+      ...
+      XXX:
+        ExportInfo:
+          ...
 
 Study Metadata
 **************
@@ -522,20 +661,20 @@ Required
 
 Optional
 ^^^^^^^^
-* **FullName**:
-
-  * Description: The full name of the study.
 * **Description**:
 
   * Description: A freeform description of the study and the data it contains.
-* **PrimaryContact**:
+* **FullName**:
 
-  * Description: The name of the contact for the study.
+  * Description: The full name of the study.
 * **IsOpen**:
 
   * Description: Whether the study is still collecting data.
   * Default: True
   * Accepted values: A python boolean.
+* **PrimaryContact**:
+
+  * Description: The name of the contact for the study.
 
 Example
 ^^^^^^^
@@ -558,13 +697,13 @@ of the systems defined here (DM_SYSTEM is case-sensitive).
 
 Required
 ^^^^^^^^
+* **ConfigDir**: The full path to the folder where all configuration files are
+  stored. For example, on our system this is `/archive/code/config/`
+* **DatmanAssetsDir**: The full path to datman's assets folder. For example, on our
+  local system this is `/archive/code/datman/assets/`
 * **DatmanProjectsDir**: Must be the full path to the folder where a set of datman
   managed projects will be kept. For example, on our local system this is
   `/archive/data/`
-* **DatmanAssetsDir**: The full path to datman's assets folder. For example, on our
-  local system this is `/archive/code/datman/assets/`
-* **ConfigDir**: The full path to the folder where all configuration files are
-  stored. For example, on our system this is `/archive/code/config/`
 
 Optional
 ^^^^^^^^
@@ -659,187 +798,3 @@ Example
   XnatSource: otherxnat.ca
   XnatSourceArchive: RemoteProjectID
   XnatSourceCredentials: remotelogin.txt  # Should exist in the study metadata folder
-
-
-
-
-
-
-## Sites Block
-Each scan site for a study needs its own 'site block' of configuration. This section takes the form
-```
-Sites:
-   SITE1:
-        <site1 config>
-   SITE2:
-        <site2 config here>
-   ...
-   SITEN:
-        <siteN config here>
-```
-where SITEX should match the 'site' tag from the [Datman style ID](https://github.com/TIGRLab/documentation/wiki/Data-Naming).
-
-### Expected Settings
-These settings should be defined for each defined site.
-
-* **XNAT_Archive**: This should contain the name of the archive on XNAT where this scan site's data will be stored. That is, it should match XNAT's 'Project ID' field for the project this site will upload to / download from.
-* **ExportInfo**: This should hold one entry for each tag this site will use. Entries take the form `TAG: {setting1: X, setting2: X, ... settingN: X}`. The tag from the [Datman style file name](https://github.com/TIGRLab/documentation/wiki/Data-Naming#naming-scans-within-exams) acts as the 'TAG' field and at least the settings below must be defined for each entry. In addition, [defaults from the ExportSettings](https://github.com/TIGRLab/datman/wiki/Site-Config#exportsettings-block) for that tag can be overridden here by being included in the tag's settings.
-  * Pattern: A string or [a python style regex](https://docs.python.org/2/library/re.html#regular-expression-syntax) that will match the series description field in the DICOM headers for all scans intended to receive this tag. For example, a 'DTI60-1000' tag meant to be assigned to scans with a series description of 'somethingDTI-60something' might have a pattern set to 'DTI.60' or even just 'DTI' if that is unique enough not to match other series descriptions. If there are multiple different values the series descriptions might take for a single tag a list of strings / regexes can be used in place of a single one.
-  * Count: The number of matching series expected for each session at this site. e.g. if a session is expected to collect one T1 for set `Count: 1` for the T1 tag, if three DTI60-1000s are taken set `Count: 3` for that tag, etc.
-
-### Optional Site Settings
-#### Unique Site SFTP Server
-Including these tags in a site block will let you configure a different sftp server just for a site:
- * **FTPSERVER**: This overrides the default server that is usually set in the [site wide config](https://github.com/TIGRLab/datman/wiki/Site-Config#misc-settings).
- * **FTPPORT**: An optional setting that allows a site to use a a non-standard port for the sftp server
- * **MRFTPPASS**: This should be set to the name of the file in the metadata folder that will hold this site's sftp account password. A full path can be provided if the file is stored outside of the metadata folder.
- * **MRUSER**: Overrides the default MRUSER for the study. See [the section on study metadata for more](#study-metadata-block)
- * **MRFOLDER**: Overrides the default MRFOLDER for the study. See [the section on study metadata for more](#study-metadata-block)
-
-#### Fetching Site Data from an External XNAT Server
-Including these tags will allow you to use xnat_fetch_remote.py to pull in data from an external XNAT server for a site:
- * **XNAT_source**: The URL for the remote XNAT server to pull from
- * **XNAT_source_archive**: The Project ID on the XNAT server that holds this site's data
- * **XNAT_source_credentials**: The name of the text file in the metadata folder that will hold the username and password on separate lines (in that order).
-
-#### Overriding the Study Tag
-Due to historical reasons, to override the study tag for a site you have to use a unique tag instead of just re-declaring the same key with a different value. This can be done by including the `SITE_TAGS` setting in a site block and must be set to a list even if there is only one alternate tag that a site uses (again because of ancient design decisions, sorry). Note that this doesn't completely override the study tag. Data from a site that defines `SITE_TAGS` may have study tags matching those tags OR the study's tag defined in `STUDY_TAG`.
-
-#### Configuring Additional Redcap Servers
-If a site uses a different redcap server to host its 'Scan Completed' surveys (or any other surveys that you may need to pull in) you can add the ['REDCAPAPI' setting](https://github.com/TIGRLab/datman/wiki/Site-Config#misc-settings) to a site block to declare a new server just for that site.
-
-### Example Sites Block
-Below is an example of two scan sites named 'CMH' and 'UT1'. Specific things to notice in this example:
-  * CMH is overriding the study tag and indicating data from this site may have a study tag of 'STUDY02' instead
-  * CMH has an example of a list of regexes for its PDT2 and is overriding `qc_type` from [ExportSettings](https://github.com/TIGRLab/datman/wiki/Site-Config#exportsettings-block) to ignore this series for QC purposes.
-  * CMH has enclosed its RST pattern in a list. In this instance a list isn't needed, but doing so is OK even for a single pattern.
-  * CMH is configuring an external XNAT server to pull data from
-  * UT1 has configured a [non-default sftp server](#unique-site-sftp-server)
-  * UT1 is overriding the default formats from [ExportSettings](https://github.com/TIGRLab/datman/wiki/Site-Config#exportsettings-block) for its 'OBS' series
-  * UT1 is setting its own redcap server
-
-```
-Sites:
-  CMH:
-    SITE_TAGS: ['STUDY02']
-    XNAT_Archive: STUDY1_CMH
-    XNAT_source: https://xnat.remoteserver.ca
-    XNAT_source_archive: camh_scans
-    XNAT_source_credentials: camh_login_creds.txt
-    ExportInfo:
-      T1:         { Pattern: 'T1w_MPR_vNav$',         Count: 2}
-      RST:        { Pattern: ['(?i)Rest'],            Count: 1}
-      PDT2:       { Pattern: ['T2.DE','T2DE'],        Count: 1,      qc_type: ignore}
-  UT1:
-     XNAT_Archive: STUDY1_UT1
-     REDCAPAPI: https://ut1redcapserver.ca/redcap/api/
-     MRUSER: exampleuser
-     MRFOLDER: 'DICOMS/STUDY1'
-     FTPSERVER: exampleserver.ca
-     FTPPORT: 18777
-     MRFTPPASS: my_passfile_name.txt
-     ExportInfo:
-       T1:         { Pattern: 'T1w_MPR_vNav$',         Count: 1}
-       OBS:        { Pattern: 'Observ',                Count: 3,     formats: ['nii']}
-```
-
-## Pipeline Config
-This section documents any configuration that must be set in the study config for various nightly pipelines to run.
-
-### FreeSurfer
-Settings for freesurfer must be inside a block that starts with 'freesurfer:'.
-
-#### Required settings:
-  * **tags**: This should be the tag name assigned to T1 scans, or a list of the tag names if there is more than one type of T1 tag used in this study. This setting is used to locate anatomical scans to be fed into recon-all with the '-i' argument.
-    * Example: `tags: 'MYT1TAG'` or `tags: ['MYT1TAG1', 'MYT1TAG2', ..., 'MYT1TAGN']`
-
-#### Optional settings:
-  * **T2**: This provides the tag (or tags) assigned to T2 scans for this study. If this option is set recon-all will use any T2 anatomical scans it finds for a subject in addition to the T1s.
-    * Example: `T2: 'MYT2TAG'` or `T2: ['MYT2TAG1', 'MYT2TAG2', ..., 'MYT2TAGN']`
-  * **FLAIR**: This provides the tag (or tags) assigned to FLAIR scans for this study. If this option is set recon-all will use any FLAIR scans it finds for a subject in addition to the T1s.
-    * Example: `FLAIR: 'MYFLAIRTAG'` or `FLAIR: ['MYFLAIRTAG1', 'MYFLAIRTAG2', ..., 'MYFLAIRTAGN']`
-  * **nu_iter**: This should be a dictionary that contains the value to set FreeSurfer's 'nu_iter' to for each site.
-     * Example: Assuming sites 'CMH' and 'MRP' are defined `nu_iter: {CMH: 4, MRP: 8}`
-
-#### Example
-Assuming a study where T1 scans are tagged with `T1-Bravo', T2 scans tagged with `T2-TSE` and FLAIR scans just tagged `FLAIR`, and assuming a single site named 'CMH' that wants nu_iter set to 6 the following freesurfer configuration could be used.
-```
-freesurfer:
-    tags: 'T1-Bravo'
-    FLAIR: 'FLAIR'
-    T2: 'T2-TSE'
-    nu_iter: {CMH: 6}
-```
-
-### fMRI pipeline
-These settings are used for the [epitome / script-it](https://github.com/TIGRLab/epitome) fMRI pipeline. All settings should be inside of a block named 'fmri:' and within this block specific fMRI 'experiment' pipelines are configured. For example, if a study had imitate observe task data and resting state data that study might use something like:
-```
-fmri:
-    imob:
-        <imitate and observe settings here>
-    rest:
-        <resting state settings here>
-```
-The name of each block inside 'fmri:' will then become the name of an output folder nested within the destination path set for 'fmri'.
-
-#### Required Settings
-* **export**: This should be set to a list of strings to look for in output file names to verify that the pipeline has run correctly.
-  * Example: If the Datman assets script task.sh is run this might be set to ```['filtered', 'scaled', 'T1', 'MNI-nonlin', 'volsmooth']```, in which case dm_proc_fmri.py will look for files in the output directory containing each of these strings and consider outputs incomplete if it does not find a match for all items in the list.
-* **pipeline**: This specifies one of the script-it scripts stored in Datman's assets folder to run. Currently accepted options are: 'task.sh', 'rest.sh', 'rest-sprl.sh'
-  * Example: If task data (e.g. imitate observe) is being configured `pipeline: 'task.sh'`
-* **tags**: This should contain the tag (or a list of tags) to search for when locating input files.
-  * Example: If configuring an imitate-observe pipeline with scans tagged 'IMI' and 'OBS' respectively, settings would be `tags: ['IMI', 'OBS']`. Or for a resting state pipeline with only the 'RST' tag, `tags: 'RST'`
-* **del**: Sets the number of TRs to remove from the beginning of each run.
-  * Example: `del: 4` will delete the first 4 TRs
-* **tr**: Length of the TRs in seconds (Decimals allowed)
-  * Example: `tr: 2`
-* **dims**: Isotropic voxel dimensions of MNI space data
-  * Example: `dims: 3`
-* **conn**: This specifies a list of tags used to identify connectivity files. This setting is read by `dm_proc_rest.py`. Usually just set it to `MNI-nonlin`.
-  * Example: `conn: ['MNI-nonlin']`
-* **glm**: This specifies a list of tags used to identify input files for `dm_proc_ea.py` and `dm_proc_imob.py`. Usually just set it to `volsmooth`
-  * Example: `glm: ['volsmooth']`
-
-#### Example
-Assuming that the task pipeline needed to be configured for empathic accuracy files with a tag of 'EMP' and the rest pipeline for resting state data with a tag of 'RST' the following settings might be used:
-```
-fmri:
-    ea:
-        export: ['filtered', 'scaled', 'T1', 'MNI-nonlin', 'volsmooth']
-        pipeline: 'task.sh'
-        tags: 'EMP'
-        del: 4
-        tr: 2
-        dims: 3
-        conn: ['MNI-nonlin']
-        glm: ['volsmooth']
-    rest:
-        export: ['lowpass', 'T1', 'MNI-nonlin', 'volsmooth']
-        pipeline: 'rest.sh'
-        tags: 'RST'
-        del: 4
-        tr: 2
-        dims: 3
-        conn: ['MNI-nonlin']
-```
-### Unring
-Settings for the Unring pipeline must be inside a block that starts with `unring:`
-
-#### Required Settings
-* **tags**: This should contain a list of scan tags to search for in the nrrd folder. Any scan that matches one of these tags will be run through Unring.
-
-#### Example
-Assuming only scans tagged 'DTI60-1000' needed to run through the pipeline, the following could be used:
-```
-unring:
-    tags: ['DTI60-1000']
-```
-### Overriding Paths for a Study
-If a ['Paths' block](https://github.com/TIGRLab/datman/wiki/Site-Config#paths-block) is declared inside a study config file it will completely replace the site wide defaults, allowing you to restructure individual studies. Unfortunately, even if only one or two paths need to be changed the other paths will still need to be declared here too since the 'Paths' set here will completely hide the 'Paths' for the site wide config.
-
-For example, if you only wanted to change the location of the nifti folder for a study adding this to your study config does not work:
-```
-Paths:
-  nii: some/other/place
-```
-Because Datman will no longer be able to see the settings for the other expected paths. To fix this, just copy the other path settings into the study's 'Path' block so it can find them again.

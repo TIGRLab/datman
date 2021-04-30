@@ -60,9 +60,9 @@ listed below.
 ----------------
 Docker Container
 ----------------
-Rather than installing datman locally you can run it in a docker container.
-Note that the docker container does not contain the dependencies to allow
-dm_qc_report.py to run (largely due to matlab license issues). All other
+Rather than installing Datman directly you can run it in a docker container.
+Note that the docker container does not contain the dependencies
+dm_qc_report.py needs to run (largely due to matlab license issues). All other
 scripts will run correctly, though.
 
 .. code-block:: shell
@@ -70,11 +70,14 @@ scripts will run correctly, though.
   # Run interactively
   docker run -it -v ${data_dir}:/data -v ${conf_dir}:/config tigrlab/datman
 
+  # Run just a single script (e.g. dm_sftp.py)
+  docker run -v ${data_dir}:/data -v ${conf_dir}:/config tigrlab/datman dm_sftp.py $STUDY_NICKNAME
+
 ``data_dir`` should be the path to the directory that will hold all managed
-studies. ``conf_dir`` should be the path to the directory containing the datman
+studies. ``conf_dir`` should be the path to the directory containing the Datman
 configuration files.
 
-You'll still need to create the datman configuration files as described
+You'll still need to create the Datman configuration files as described
 :ref:`here. <datman-conf>` The main configuration file should be named
 ``main_config.yml`` for the container to detect it. You'll also need to add
 this system configuration to your ``SystemSettings`` block.
@@ -88,12 +91,15 @@ this system configuration to your ``SystemSettings`` block.
 
 **Running as a specific user**
 
-If you don't want container outputs to be root owned you can run it as a local
-user by including the ``--user flag``. On Linux you can retrieve a user's ID with
-``$(id -u $USER)`` or ``$(id -u)`` for the current user.
+If you don't want outputs from running the container to be root owned you can
+run it as a local user by including the ``--user flag``. On Linux you can
+retrieve a user's ID with ``$(id -u $USER)`` or ``$(id -u)`` for the current
+user.
 
 .. code-block:: shell
 
+  # Any datman scripts run this way will generate outputs owned by
+  # the user who ran the container instead of root.
   docker run -it -v ${data_dir}:/data -v ${conf_dir}:/config --user $(id -u) tigrlab/datman
 
 **Providing credentials for XNAT / REDCap**
