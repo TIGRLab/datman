@@ -1,5 +1,6 @@
 .. include:: links.rst
 .. _datman-conf:
+
 -------------------
 Configuration Files
 -------------------

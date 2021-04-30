@@ -38,6 +38,7 @@ Datman requires that each project in XNAT's `Define Prearchive Settings` under `
 
 To setup the datman python package:
 ::
+
    git clone https://github.com/tigrlab/datman
    cd datman
    conda env create && . activate datman-env      # only if you are using anaconda
