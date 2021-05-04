@@ -1,4 +1,4 @@
-FROM ubuntu:focal
+FROM ubuntu:focal-20210416
 
 # Install dependencies
 RUN apt update && \
