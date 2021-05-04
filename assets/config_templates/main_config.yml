@@ -10,7 +10,7 @@
 # 'myusername' NOT '<myusername>')
 
 # This file controls the default settings used by datman. To get datman
-# to read it you must set the DM_CONFIG environment variable its full path.
+# to read it you must set the DM_CONFIG environment variable to this file's full path.
 # You must also set DM_SYSTEM to the name of one of your configured
 # systems (see System Configuration).
 
