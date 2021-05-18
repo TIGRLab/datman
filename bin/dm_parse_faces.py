@@ -3,18 +3,23 @@
 
 Converts eprime text file for FACES task into BIDS .tsv files.
 
-Usage: dm_parse_faces.py [options] <study> [<session>] [--output-dir=<out_dir>] 
+Usage: 
+    dm_parse_faces.py [options] <study> [<session>]  
+    dm_parse_faces.py [options] <study> [<session>] 
+    dm_parse_faces.py [options] <study> [<session>] [--output-dir=<out_dir>] 
 
 Arguments:
     <study>     Name of the study to process e.g. OPT
     <session>   Datman name of session to process e.g. OPT01_UP1_UP10044_02_03
 
 Options:
-    --debug         Set log level to debug
-    --output-dir    Specify an alternate output directory 
-    --dry-run       Don't actually write any output
+    --debug                 Set log level to debug
+    --output-dir=<out_dir>  Specify an alternate output directory 
+    --dry-run               Don't actually write any output
 
-Outputs the trial number, onset time, accurracy, and reaction time values for each trial.
+Outputs the trial number, onset time, accurracy, and reaction time values 
+for each trial.
+
 Originally written by Ella Wiljer, 2018
 BIDS-ified by Gabi Herman, 21 Nov 2018
 """
@@ -31,14 +36,16 @@ import glob
 import datman.config
 import datman.scanid
 
-logging.basicConfig(
-        level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s"
-        )
+logging.basicConfig(level=logging.WARN,
+                    format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
 _to_esc = re.compile(r'\s|()')
+
+
 def _esc_fname(match):
     return '\\' + match.group(0)
+
 
 # function to read the eprime file
 def read_eprime(eprimefile):
@@ -136,7 +143,7 @@ def main():
 
     task_path = config.get_path("task")
     nii_path = config.get_path("nii")
-    
+
     if not session:
         sessions = os.listdir(task_path)
 
@@ -150,12 +157,16 @@ def main():
         try:
             ident = datman.scanid.parse(ses)
         except datman.scanid.ParseException:
-            logger.error(
-                f"Skipping task folder with malformed ID {ses}"
-            )
+            logger.error(f"Skipping task folder with malformed ID {ses}")
             continue
-        ses_path = os.path.join(task_path, ses)	
-        for eprimefile in glob.glob(ses_path + '/*.txt'):
+        ses_path = os.path.join(task_path, ses)
+
+        task_files = glob.glob(ses_path + '/*.txt')
+        if not task_files:
+            logger.info(f"No .txt files found for {ses}, skipping.")
+            continue
+
+        for eprimefile in task_files:
             logger.info(f"Found file: {eprimefile}")
             try:
                 eprime = read_eprime(eprimefile)
@@ -164,24 +175,26 @@ def main():
                 continue
             # tag the trials to obtain the data for each trial
             taglist = find_all_data(eprime, "Procedure: TrialsPROC\r\n")
-            
+
             if not taglist:
                 logger.error(f"No trials found for {ses} - skipping")
                 continue
 
             trial_start = np.empty([len(taglist)], dtype=int)
             trial_end = np.empty([len(taglist)], dtype=int)
-            
+
             for i, ind_trial_proc in enumerate(taglist):
                 if (i < (len(taglist)) - 1):
                     trial_end[i] = taglist[i + 1][0]
                 elif (i == (len(taglist)) - 1):
                     trial_end[i] = len(eprime) - 1
-        
+
                 trial_start[i] = ind_trial_proc[0]
-        
-            trial_blocks = [eprime[s:e] for s, e in zip(trial_start, trial_end)]
-        
+
+            trial_blocks = [
+                eprime[s:e] for s, e in zip(trial_start, trial_end)
+            ]
+
             entries = []
             for b in trial_blocks:
                 entries.append({
@@ -200,7 +213,7 @@ def main():
                     'participant_response':
                     map_response(get_event_value(b, 'StimSlide.RESP:'))
                 })
-        
+
             data = pd.DataFrame.from_dict(entries).astype({
                     "onset": np.float,
                     "duration": np.float,
@@ -214,25 +227,25 @@ def main():
                         "participant_response": "Int64",
                         "accuracy": "Int64"
                     })
-        
+
             log_head, log_tail = os.path.split(eprimefile)
-        
+
             sub_id = os.path.basename(log_head)
-            
+
             if not out_dir:
-                out_dir = os.path.join(nii_path, 
-                            ident.get_full_subjectid_with_timepoint() 
-                          )
-        
-            file_name = os.path.join(out_dir, f"{ses}_FACES.tsv") 
+                out_dir = os.path.join(
+                    nii_path, ident.get_full_subjectid_with_timepoint())
+
+            file_name = os.path.join(out_dir, f"{ses}_FACES.tsv")
             if not os.path.exists(os.path.dirname(file_name)):
                 os.makedirs(os.path.dirname(file_name))
-            
+
             if not dryrun:
                 logger.info(f"Saving output to {file_name}")
                 data.to_csv(file_name, sep='\t', index=False)
             else:
                 logger.info(f"Dry run - would save to {file_name}")
+
 
 if __name__ == '__main__':
     main()
