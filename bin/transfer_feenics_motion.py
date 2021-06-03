@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 """
 Helper script for transferring motion files generated from feenics over to
 fMRIPREP (version >= 1.3.2)
@@ -23,6 +22,7 @@ Optional:
 
 from datman.config import config as dm_cfg
 from datman import scanid
+from datman.exceptions import ParseException
 from bids import BIDSLayout
 from docopt import docopt
 import numpy as np
@@ -31,8 +31,8 @@ import os
 from shutil import copyfile
 import logging
 
-
-logging.basicConfig(level=logging.WARN, format="[%(name)s %(levelname)s :\
+logging.basicConfig(level=logging.WARN,
+                    format="[%(name)s %(levelname)s :\
                                                 %(message)s]")
 logger = logging.getLogger(os.path.basename(__file__))
 
@@ -93,7 +93,9 @@ def combine_confounds(confound, motion):
     def fd(x):
         return x.abs().sum()
 
-    motion_df["framewise_displacement"] = motion_df[cols].apply(fd, axis=1)
+    motion_df["framewise_displacement"] = motion_df[cols].diff().apply(fd,
+                                                                       axis=1)
+    motion_df.loc[0, "framewise_displacement"] = np.nan
 
     # Append to dataframe
     df = df.join(motion_df)
@@ -152,12 +154,12 @@ def main():
     # Step 1: Loop through subjects available in the feenics pipeline directory
     if not subjects:
         subjects = [
-            s
-            for s in os.listdir(feenics_dir)
+            s for s in os.listdir(feenics_dir)
             if os.path.isdir(os.path.join(feenics_dir, s))
         ]
 
     # Step 1a: Get BIDS subjects
+    logging.info("Constructing BIDS index of data")
     layout = BIDSLayout(fmriprep, validate=False)
     confounds = layout.get(suffix=["confounds", "regressors"], extension="tsv")
     confounds = [c for c in confounds if filter_for_sprl(c)]
@@ -171,17 +173,20 @@ def main():
         # Get subject BIDS name and session
         logger.info("Processing {}".format(s))
 
-        ident = scanid.parse(s)
+        try:
+            ident = scanid.parse(s)
+        except ParseException:
+            logger.error(f"{s} is not a valid identifier!")
+            continue
         bids = ident.get_bids_name()
         ses = ident.timepoint
 
         # Get confound file if exists
         try:
             confound = [
-                c.path
-                for c in confounds
-                if (c.entities["subject"] == bids) and
-                (c.entities["session"] == ses)
+                c.path for c in confounds
+                if (c.entities["subject"] == bids) and (
+                    c.entities["session"] == ses)
             ][0]
         except IndexError:
             logger.info("Could not find confound file for {}".format(bids))
@@ -193,12 +198,8 @@ def main():
             motion_comb = proc_subject(s, feenics_dir)
         except IOError:
             # Copy over
-            logger.info(
-                "Missing FeenICS motion confound files,\
-                        using fmriprep confound: {}".format(
-                    bids
-                )
-            )
+            logger.info("Missing FeenICS motion confound files,\
+                        using fmriprep confound: {}".format(bids))
             copyfile(confound, confound_out)
             confound_df = pd.read_csv(confound, delimiter="\t")
         else:
@@ -211,12 +212,12 @@ def main():
             scan_name = os.path.basename(confound)\
                                .replace('desc-confounds_regressors.tsv',
                                         'bold')
-            sub2meanfd.append(
-                {
-                    "bids_name": scan_name,
-                    "mean_fd": confound_df["framewise_displacement"].mean(),
-                }
-            )
+            sub2meanfd.append({
+                "bids_name":
+                scan_name,
+                "mean_fd":
+                confound_df["framewise_displacement"].mean(),
+            })
 
     # Generate mean FD dataframe
     meanfd_file = os.path.join(output, "mean_FD.tsv")
