@@ -38,6 +38,8 @@ logging.basicConfig(level=logging.WARN,
                                                 %(message)s]")
 logger = logging.getLogger(os.path.basename(__file__))
 
+HEAD_RADIUS = 50
+
 
 def combine_sprl_motion(sprl_in, sprl_out):
 
@@ -95,8 +97,10 @@ def combine_confounds(confound, motion):
     def fd(x):
         return x.abs().sum()
 
-    motion_df["framewise_displacement"] = motion_df[cols].diff().apply(fd,
-                                                                       axis=1)
+    # Compute derivative and update rotational parameters to mm
+    dt_mot = motion_df[cols].diff()
+    dt_mot.loc[:, rots] *= HEAD_RADIUS
+    motion_df["framewise_displacement"] = dt_mot[cols].apply(fd, axis=1)
     motion_df.loc[0, "framewise_displacement"] = np.nan
 
     # Append to dataframe
@@ -164,8 +168,9 @@ def main():
 
     # Step 1a: Get BIDS subjects
     logging.info("Constructing BIDS index of data")
-    layout = BIDSLayout(fmriprep, validate=False)
-    confounds = layout.get(suffix=["confounds", "regressors"], extension="tsv")
+    layout = BIDSLayout(fmriprep, validate=False, index_metadata=False)
+    confounds = layout.get(suffix=["confounds", "regressors"],
+                           extension="tsv")
     confounds = [c for c in confounds if filter_for_sprl(c)]
 
     # Create dictionary to deal with summary mean FD tables
