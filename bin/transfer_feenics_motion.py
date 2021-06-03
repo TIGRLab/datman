@@ -15,6 +15,8 @@ Optional:
     -s, --subject SUBJECT        Repeatable list of subjects
     -f, --fmriprep FMRIPREP      fMRIPREP derivatives directory
                                  (default is PROJECT_DIR/pipelines/feenics)
+    --fd THRESHOLD               FD threshold to use when calculating
+                                 amount of usable data and percent usable
     -d, --debug                  Debug level logging
     -v, --verbose                Verbose level logging
     -q, --quiet                  Quiet mode
@@ -145,6 +147,8 @@ def main():
     fmriprep = arguments["--fmriprep"] or cfg.get_path("fmriprep")
     subjects = arguments["--subject"]
 
+    fd_thres = arguments["--fd"] or 0.5
+
     debug = arguments["--debug"]
     verbose = arguments["--verbose"]
     quiet = arguments["--quiet"]
@@ -212,11 +216,21 @@ def main():
             scan_name = os.path.basename(confound)\
                                .replace('desc-confounds_regressors.tsv',
                                         'bold')
+
+            # Calculate amount of data loss
+            vol_usable = confound_df["framewise_displacement"] < 0.5
+            perc_usable = vol_usable.sum() / len(vol_usable)
             sub2meanfd.append({
                 "bids_name":
                 scan_name,
                 "mean_fd":
                 confound_df["framewise_displacement"].mean(),
+                "usable_trs":
+                vol_usable.sum(),
+                "perc_usable":
+                perc_usable,
+                "fd_thres":
+                fd_thres
             })
 
     # Generate mean FD dataframe
