@@ -17,6 +17,7 @@ Optional:
                                  (default is PROJECT_DIR/pipelines/feenics)
     --fd THRESHOLD               FD threshold to use when calculating
                                  amount of usable data and percent usable
+                                 [Default: 0.5]
     -d, --debug                  Debug level logging
     -v, --verbose                Verbose level logging
     -q, --quiet                  Quiet mode
