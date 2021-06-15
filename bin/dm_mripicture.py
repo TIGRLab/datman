@@ -14,7 +14,7 @@ Options:
     -s --subject        Subjects
     -o --output=FOLDER  Output directory
     -t --tag=TAG        Scan tag [default: T1]
-    -r --replace        Replace existing files [default: False]
+    -f --force          Force overwrite of output files [default: False]
     -h --help           Show this screen
     -q, --quiet         Show minimal output
     -d, --debug         Show debug messages
@@ -22,6 +22,7 @@ Options:
 """
 
 import os
+import sys
 import glob
 import logging
 from nilearn import plotting
@@ -32,53 +33,69 @@ import datman.config
 import datman.scan
 
 
-logging.basicConfig(level=logging.WARN,
-                    format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
 
 def get_all_subjects(config):
-    nii_dir = config.get_path('nii')
-    subject_nii_dirs = glob.glob(os.path.join(nii_dir, '*'))
+    nii_dir = config.get_path("nii")
+    subject_nii_dirs = glob.glob(os.path.join(nii_dir, "*"))
     all_subs = [os.path.basename(path) for path in subject_nii_dirs]
     return all_subs
 
 
 def main():
     arguments = docopt(__doc__)
-    study = arguments['<study>']
-    outdir = arguments['--output']
-    subs = arguments['<subject>']
-    tag = arguments['--tag']
-    overwrite = arguments['--replace']
-    quiet = arguments['--quiet']
-    debug = arguments['--debug']
-    verbose = arguments['--verbose']
+    study = arguments["<study>"]
+    outdir = arguments["--output"]
+    subs = arguments["<subject>"]
+    tag = arguments["--tag"]
+    force = arguments["--force"]
+    quiet = arguments["--quiet"]
+    debug = arguments["--debug"]
+    verbose = arguments["--verbose"]
     config = datman.config.config(study=study)
 
-    if verbose:
-        logger.setLevel(logging.INFO)
-    if debug:
-        logger.setLevel(logging.DEBUG)
+    # setup logging
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.WARN)
+    logger.setLevel(logging.WARN)
+
     if quiet:
         logger.setLevel(logging.ERROR)
+        ch.setLevel(logging.ERROR)
+    if verbose:
+        logger.setLevel(logging.INFO)
+        ch.setLevel(logging.INFO)
+    if debug:
+        logger.setLevel(logging.DEBUG)
+        ch.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter(
+        f"%(asctime)s - %(name)s - {study} - %(levelname)s - %(message)s"
+    )
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
 
     if subs:
-        logger.info('Creating pictures for subjects [ {} ] from {} project '
-                    'using {} scans.'.format(', '.join(subs), study, tag))
+        logger.info(
+            f"Creating pictures for subjects [ {', '.join(subs)} ] from "
+            f"{study} project using {tag} scans."
+        )
     else:
         subs = get_all_subjects(config)
-        logger.info('Creating pictures for all {} subjects from {} project '
-                    'using {} scans.'.format(len(subs), study, tag))
+        logger.info(
+            f"Creating pictures for all {len(subs)} subjects from {study} "
+            f"project using {tag} scans."
+        )
 
     if not outdir:
-        outdir = os.path.join(config.get_path('data'), 'tshirt')
+        outdir = os.path.join(config.get_path("data"), "tshirt")
 
     os.makedirs(outdir, exist_ok=True)
-    logger.debug('Output location set to: {}'.format(outdir))
+    logger.debug(f"Output location set to: {outdir}")
 
-    if overwrite:
-        logger.info('Overwriting existing files')
+    if force:
+        logger.info("Overwriting existing files")
 
     for subject in subs:
 
@@ -88,22 +105,30 @@ def main():
 
         # Set Path
         imgpath = tagged_scan[idx].path
-        outpath = os.path.join(outdir, subject + '_T1.pdf')
+        outpath = os.path.join(outdir, subject + "_T1.pdf")
 
-        if os.path.isfile(outpath) and not overwrite:
-            logger.debug('Skipping subject {} as files already exist.'
-                         .format(subject))
+        if os.path.isfile(outpath) and not force:
+            logger.debug(f"Skipping subject {subject} as files already exist.")
+
         else:
             # Output Image
-            t1_pic = plotting.plot_anat(imgpath, cut_coords=(-20, -10, 2),
-                                        display_mode='x', annotate=False,
-                                        draw_cross=False, vmin=100,
-                                        vmax=1100, threshold='auto')
+            t1_pic = plotting.plot_anat(
+                imgpath,
+                cut_coords=(-20, -10, 2),
+                display_mode="x",
+                annotate=False,
+                draw_cross=False,
+                vmin=100,
+                vmax=1100,
+                threshold="auto",
+            )
             t1_pic.savefig(outpath, dpi=1000)
-            logger.debug('Created new brain pictures for subject {} from file '
-                         '{} and saved as {}'.format(subject, imgpath, outpath))
+            logger.debug(
+                f"Created new brain pictures for subject {subject} from file "
+                f"{imgpath} and saved as {outpath}"
+            )
 
-    logger.info('Saved all output to: {}'.format(outdir))
+    logger.info(f"Saved all output to: {outdir}")
 
 
 if __name__ == "__main__":
