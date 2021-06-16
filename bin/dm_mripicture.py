@@ -12,7 +12,7 @@ Arguments:
 
 Options:
     -s --subject        Subjects
-    -o --output=FOLDER  Output directory
+    -o --output=FOLDER  Output directory (default: /archive/data/{study}/data/tshirt)
     -t --tag=TAG        Scan tag [default: T1]
     -f --force          Force overwrite of output files [default: False]
     -h --help           Show this screen
@@ -22,7 +22,6 @@ Options:
 """
 
 import os
-import sys
 import glob
 import logging
 from nilearn import plotting
@@ -33,6 +32,8 @@ import datman.config
 import datman.scan
 
 
+logging.basicConfig(level=logging.WARN,
+                    format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
 
@@ -56,25 +57,12 @@ def main():
     config = datman.config.config(study=study)
 
     # setup logging
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.WARN)
-    logger.setLevel(logging.WARN)
-
     if quiet:
         logger.setLevel(logging.ERROR)
-        ch.setLevel(logging.ERROR)
     if verbose:
         logger.setLevel(logging.INFO)
-        ch.setLevel(logging.INFO)
     if debug:
         logger.setLevel(logging.DEBUG)
-        ch.setLevel(logging.DEBUG)
-
-    formatter = logging.Formatter(
-        f"%(asctime)s - %(name)s - {study} - %(levelname)s - %(message)s"
-    )
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
 
     if subs:
         logger.info(
