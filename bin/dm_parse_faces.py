@@ -203,7 +203,7 @@ def main():
                     'onset':
                     get_event_value(b, 'StimSlide.OnsetTime:'),
                     'duration':
-                    get_event_value(b, 'StimSlideOnsetToOnsetTime:'),
+                    get_event_value(b, 'StimSlide.OnsetToOnsetTime:'),
                     'trial_type':
                     'Shapes' if 'Shape' in str(b) else 'Faces',
                     'response_time':
