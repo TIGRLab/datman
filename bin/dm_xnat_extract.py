@@ -443,12 +443,6 @@ def process_scans(xnat, ident, xnat_experiment):
                            "exist".format(scan.series, xnat_experiment.name))
             continue
 
-        if scan.is_derived():
-            logger.warning("Series {} in session {} is a derived scan. "
-                           "Skipping.".format(
-                               scan.series, xnat_experiment.name))
-            continue
-
         if not scan.description:
             logger.error("Can't find description for series {} from session {}"
                          .format(scan.series, xnat_experiment.name))
@@ -462,6 +456,12 @@ def process_scans(xnat, ident, xnat_experiment):
                                                    xnat_experiment.name,
                                                    type(e).__name__,
                                                    e))
+            continue
+
+        if scan.is_derived():
+            logger.warning("Series {} in session {} is a derived scan. "
+                           "Skipping.".format(
+                               scan.series, xnat_experiment.name))
             continue
 
         if len(scan.tags) > 1 and not scan.multiecho:
