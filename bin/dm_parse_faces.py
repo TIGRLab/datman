@@ -40,6 +40,7 @@ logging.basicConfig(level=logging.WARN,
                     format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
+
 def read_eprime(eprimefile):
     '''
     Read in ePrime file with appropriate encoding
@@ -158,7 +159,7 @@ def main():
         sessions = [sessions]
 
     print_sessions = "\n".join(sessions)
-    logger.debug(f"Running FACES parser for session(s):")
+    logger.debug("Running FACES parser for session(s):")
     logger.debug(f"{print_sessions}")
 
     for ses in sessions:
