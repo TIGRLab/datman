@@ -40,9 +40,6 @@ logging.basicConfig(level=logging.WARN,
                     format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
-_to_esc = re.compile(r'\s|()')
-
-
 def read_eprime(eprimefile):
     '''
     Read in ePrime file with appropriate encoding
