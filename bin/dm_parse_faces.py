@@ -5,7 +5,7 @@ Converts eprime text file for FACES task into BIDS .tsv files.
 
 Usage:
     dm_parse_faces.py [options] <study>
-    dm_parse_faces.py [options] <study> [<session>]
+    dm_parse_faces.py [options] <study> [<session>]...
 
 Arguments:
     <study>     Name of the study to process e.g. OPT
@@ -15,7 +15,9 @@ Options:
     --output-dir OUT_DIR    Specify an alternate output directory
                             [Default:
                             $DATMAN_PROJECTSDIR/{study}/data/nii/{session}]
+    --verbose               Set log level to display INFO messages
     --debug                 Set log level to debug
+    --quiet                 Do not output logging messages
     --dry-run               Perform a run but do not create outputs
 
 Outputs the trial number, onset time, accurracy, and reaction time values
@@ -131,13 +133,19 @@ def main():
 
     arguments = docopt(__doc__)
     out_dir = arguments['--output-dir']
-    session = arguments['<session>']
+    sessions = arguments['<session>']
     study = arguments['<study>']
+    verbose = arguments["--verbose"]
     debug = arguments["--debug"]
+    quiet = arguments["--quiet"]
     dryrun = arguments["--dry-run"]
 
+    if verbose:
+        logger.seLevel(logging.INFO)
     if debug:
         logger.setLevel(logging.DEBUG)
+    if quiet:
+        logger.setLevel(logging.ERROR)
 
     if dryrun:
         logger.info("Dry run - will not write any output")
@@ -147,11 +155,14 @@ def main():
     task_path = config.get_path("task")
     nii_path = config.get_path("nii")
 
-    if not session:
+    if not sessions:
         sessions = os.listdir(task_path)
-    else:
-        sessions = [session]
-        logger.info(f"Running FACES parser for session {session}")
+    elif not isinstance(sessions, list):
+        sessions = [sessions]
+
+    print_sessions = "\n".join(sessions)
+    logger.debug(f"Running FACES parser for session(s):")
+    logger.debug(f"{print_sessions}")
 
     for ses in sessions:
         logger.info(f"Parsing {ses}...")
@@ -165,7 +176,7 @@ def main():
 
         task_files = glob.glob(ses_path + '/*.txt')
         if not task_files:
-            logger.info(f"No .txt files found for {ses}, skipping.")
+            logger.warning(f"No .txt files found for {ses}, skipping.")
             continue
 
         for eprimefile in task_files:
@@ -238,10 +249,10 @@ def main():
                     nii_path, ident.get_full_subjectid_with_timepoint())
 
             file_name = os.path.join(out_dir, f"{ses}_FACES.tsv")
-            os.makedirs(os.path.dirname(file_name), exist_ok=True)
 
             if not dryrun:
                 logger.info(f"Saving output to {file_name}")
+                os.makedirs(os.path.dirname(file_name), exist_ok=True)
                 data.to_csv(file_name, sep='\t', index=False)
             else:
                 logger.info(f"Dry run - would save to {file_name}")
