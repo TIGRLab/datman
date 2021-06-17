@@ -1600,9 +1600,9 @@ class XNATScan(XNATObject):
         if not self.image_type:
             logger.warning(
                 f"Image type could not be found for series {self.series}. "
-                "Assuming it's derived."
+                "Assuming it's not derived."
             )
-            return True
+            return False
         if "DERIVED" in self.image_type:
             return True
         return False
