@@ -430,6 +430,7 @@ def process_scans(xnat, ident, xnat_experiment):
 
     # load the export info from the site config files
     tags = cfg.get_tags(site=ident.site)
+    scan_exception = cfg.get_key('ScanException', site=ident.site)
 
     if not tags.series_map:
         logger.error("Failed to get export info for study {} at site {}"
@@ -449,10 +450,11 @@ def process_scans(xnat, ident, xnat_experiment):
             continue
 
         if (scan.description, scan.series) in scan_exception:
-            scan.change_description(scan_exception[(scan.description, scan.series)])
+            scan.change_description(
+                scan_exception[(scan.description, scan.series)])
             logger.info(
                 "Renamed series {} to {}".format(
-                    scan.series, scan_exception[(scan.description, scan.series)]
+                    scan.series, scan.description
                 )
             )
 
@@ -467,9 +469,10 @@ def process_scans(xnat, ident, xnat_experiment):
             continue
 
         if scan.is_derived() and scan.tags[0] not in tags.keys():
-            logger.warning("Series {} in session {} is an unwanted derived scan. "
-                           "Skipping.".format(
-                               scan.series, xnat_experiment.name))
+            logger.warning(
+                "Series {} in session {} is an unwanted derived "
+                "scan. Skipping.".format(scan.series, xnat_experiment.name)
+            )
             continue
 
         if len(scan.tags) > 1 and not scan.multiecho:
