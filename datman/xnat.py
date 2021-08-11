@@ -1607,6 +1607,9 @@ class XNATScan(XNATObject):
             return True
         return False
 
+    def change_description(self, new_desc):
+        self.description = new_desc
+
     def set_tag(self, tag_map):
         matches = {}
         for tag, pattern in tag_map.items():

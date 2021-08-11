@@ -448,6 +448,14 @@ def process_scans(xnat, ident, xnat_experiment):
                          .format(scan.series, xnat_experiment.name))
             continue
 
+        if (scan.description, scan.series) in scan_exception:
+            scan.change_description(scan_exception[(scan.description, scan.series)])
+            logger.info(
+                "Renamed series {} to {}".format(
+                    scan.series, scan_exception[(scan.description, scan.series)]
+                )
+            )
+
         try:
             scan.set_datman_name(str(ident), tags.series_map)
         except Exception as e:
@@ -458,8 +466,8 @@ def process_scans(xnat, ident, xnat_experiment):
                                                    e))
             continue
 
-        if scan.is_derived():
-            logger.warning("Series {} in session {} is a derived scan. "
+        if scan.is_derived() and scan.tags[0] not in tags.keys():
+            logger.warning("Series {} in session {} is an unwanted derived scan. "
                            "Skipping.".format(
                                scan.series, xnat_experiment.name))
             continue
