@@ -51,6 +51,25 @@ class TestParseID:
         with pytest.raises(ParseException):
             rc.parse_id(bad_id)
 
+    def test_sites_dont_get_modified_if_study_field_unchanged(self, config):
+        def mock_get_key(key):
+            if key != 'IdMap':
+                raise datman.config.UndefinedSetting
+            settings = {
+                'Study': {
+                    'SPN31': 'SPN30'
+                },
+                'Site': {
+                    'CMH': 'CMP'
+                }
+            }
+            return settings
+        config.get_key.side_effect = mock_get_key
+        rc.cfg = config
+
+        parsed = rc.parse_id('SPN30_CMH_0001_01_SE01_MR')
+        assert str(parsed) == 'SPN30_CMH_0001_01_01'
+
     @pytest.fixture
     def config(self):
         conf = Mock(spec=datman.config.config)
