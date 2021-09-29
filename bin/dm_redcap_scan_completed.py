@@ -150,6 +150,11 @@ def parse_id(subject_id):
         # KCNI site and study fields match the datman fields.
         return ident
 
+    # Avoid modifying the ID if the study happens to match the destination
+    # study, otherwise duplicate records may be made
+    if 'Study' in id_map and ident.study in id_map['Study'].values():
+        return ident
+
     return datman.scanid.parse(subject_id, settings=id_map)
 
 

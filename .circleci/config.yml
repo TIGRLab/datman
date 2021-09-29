@@ -51,6 +51,7 @@ jobs:
           name: Set up installation and cache
           command: |
             pyenv global 3.7.0
+            pip install --upgrade pip
             pip install -e .[all]
       - save_cache:
           key: datman-v1-{{ .Branch }}-{{ checksum "setup.cfg" }}
