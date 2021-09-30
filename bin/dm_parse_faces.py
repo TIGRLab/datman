@@ -3,25 +3,25 @@
 
 Converts eprime text file for FACES task into BIDS .tsv files.
 
-Usage: 
-    dm_parse_faces.py [options] <study> [<session>]  
-    dm_parse_faces.py [options] <study> [<session>] 
-    dm_parse_faces.py [options] <study> [<session>] [--output-dir=<out_dir>] 
+Usage:
+    dm_parse_faces.py [options] <study>
+    dm_parse_faces.py [options] <study> [<session>]...
 
 Arguments:
     <study>     Name of the study to process e.g. OPT
-    <session>   Datman name of session to process e.g. OPT01_UP1_UP10044_02_03
+    <session>   Datman name of session to process e.g. OPT01_UP1_UP10044_02_01
 
 Options:
+    --output-dir OUT_DIR    Specify an alternate output directory
+                            [Default:
+                            $DATMAN_PROJECTSDIR/{study}/data/nii/{session}]
+    --verbose               Set log level to display INFO messages
     --debug                 Set log level to debug
-    --output-dir=<out_dir>  Specify an alternate output directory 
-    --dry-run               Don't actually write any output
+    --quiet                 Do not output logging messages
+    --dry-run               Perform a run but do not create outputs
 
-Outputs the trial number, onset time, accurracy, and reaction time values 
+Outputs the trial number, onset time, accurracy, and reaction time values
 for each trial.
-
-Originally written by Ella Wiljer, 2018
-BIDS-ified by Gabi Herman, 21 Nov 2018
 """
 
 from docopt import docopt
@@ -40,15 +40,11 @@ logging.basicConfig(level=logging.WARN,
                     format="[%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(os.path.basename(__file__))
 
-_to_esc = re.compile(r'\s|()')
 
-
-def _esc_fname(match):
-    return '\\' + match.group(0)
-
-
-# function to read the eprime file
 def read_eprime(eprimefile):
+    '''
+    Read in ePrime file with appropriate encoding
+    '''
     eprime = codecs.open(eprimefile, "r", encoding="utf-16", errors="strict")
     lines = []
     for line in eprime:
@@ -56,18 +52,38 @@ def read_eprime(eprimefile):
     return lines
 
 
-# find all data entries in one dataset
 def find_all_data(eprime, tag):
+    '''
+    Identify line numbers and content containing {tag}
+    '''
     dataset = [(i, s) for i, s in enumerate(eprime) if tag in s]
     return dataset
 
 
 def findnum(ln):
     try:
-        txtnum = re.findall('(\d+)\r\n', ln)
+        txtnum = re.findall('(\d+)\r\n', ln)  # noqa: W605
         return float(txtnum[0])
     except ValueError:
         return txtnum[0]
+    except IndexError:
+        logger.error("Found unexpected empty line in ePrime file!")
+        logger.error(
+            "Please check ePrime file for corrupted and/or empty lines!")
+        raise
+
+
+def findalphanum(ln):
+
+    if event_is_empty(ln):
+        return np.nan
+    try:
+        txtnum = re.findall('(?<=: )[A-Za-z0-9]+', ln)[0]
+    except IndexError:
+        logger.error("Expected alphanumeric values!")
+        logger.error(f"Value found is unexpected!: {ln}")
+        raise
+    return txtnum
 
 
 def get_event_value(eprime, event):
@@ -82,26 +98,13 @@ def get_event_value(eprime, event):
     return findalphanum(events[0][1])
 
 
-def event_is_empty(e):
-    return e.strip().endswith(':')
-
-
-def findalphanum(ln):
-
-    # Check if any values exist
-    if event_is_empty(ln):
-        return np.nan
-    try:
-        txtnum = re.findall('(?<=: )[A-Za-z0-9]+', ln)[0]
-    except IndexError:
-        logger.error(f"Value found is unexpected!: {ln}")
-        raise
-    return txtnum
-
-
 def get_event_response(eprime, rsp_event):
     resp = get_event_value(eprime, rsp_event)
     return map_response(resp)
+
+
+def event_is_empty(e):
+    return e.strip().endswith(':')
 
 
 def map_response(x):
@@ -119,7 +122,7 @@ def map_response(x):
     try:
         res = int(mapdict[x])
     except KeyError:
-        logger.error(f"Value \'{x}\' is not numeric or matches 'c or d'")
+        logger.error(f"Value \'{x}\' is neither numeric nor matches 'c or d'")
 
     return res
 
@@ -128,13 +131,19 @@ def main():
 
     arguments = docopt(__doc__)
     out_dir = arguments['--output-dir']
-    session = arguments['<session>']
+    sessions = arguments['<session>']
     study = arguments['<study>']
+    verbose = arguments["--verbose"]
     debug = arguments["--debug"]
+    quiet = arguments["--quiet"]
     dryrun = arguments["--dry-run"]
 
+    if verbose:
+        logger.seLevel(logging.INFO)
     if debug:
         logger.setLevel(logging.DEBUG)
+    if quiet:
+        logger.setLevel(logging.ERROR)
 
     if dryrun:
         logger.info("Dry run - will not write any output")
@@ -144,12 +153,14 @@ def main():
     task_path = config.get_path("task")
     nii_path = config.get_path("nii")
 
-    if not session:
+    if not sessions:
         sessions = os.listdir(task_path)
+    elif not isinstance(sessions, list):
+        sessions = [sessions]
 
-    else:
-        sessions = [session]
-        logger.info(f"Running FACES parser for session {session}")
+    print_sessions = "\n".join(sessions)
+    logger.debug("Running FACES parser for session(s):")
+    logger.debug(f"{print_sessions}")
 
     for ses in sessions:
         logger.info(f"Parsing {ses}...")
@@ -163,7 +174,7 @@ def main():
 
         task_files = glob.glob(ses_path + '/*.txt')
         if not task_files:
-            logger.info(f"No .txt files found for {ses}, skipping.")
+            logger.warning(f"No .txt files found for {ses}, skipping.")
             continue
 
         for eprimefile in task_files:
@@ -186,14 +197,13 @@ def main():
                 init_start[i] = ind_init[0]
 
             init_blocks = [ eprime[s:e] for s, e in zip(init_start, init_end) ]
-            
+
             syncOT = float('nan')
             for b in init_blocks:
                 new_syncOT = get_event_value(b, 'SyncSlide.OnsetTime:')
                 stim = get_event_value(b, 'Stimulus:')
                 if not np.isnan(int(new_syncOT)) and stim=='4':
                     syncOT = new_syncOT
-
             # tag the trials to obtain the data for each trial
             taglist = find_all_data(eprime, "Procedure: TrialsPROC\r\n")
 
@@ -219,12 +229,13 @@ def main():
             entries = []
             for b in trial_blocks:
                 stimOT = get_event_value(b, 'StimSlide.OnsetTime:')
-                rel_stimOT = (float(stimOT) - float(syncOT))/1000 # convert from ms to seconds
+                # Convert from ms to seconds
+                rel_stimOT = (float(stimOT) - float(syncOT))/1000 
                 entries.append({
                     'onset':
                     rel_stimOT,
                     'duration':
-                    get_event_value(b, 'StimSlideOnsetToOnsetTime:'),
+                    get_event_value(b, 'StimSlide.OnsetToOnsetTime:'),
                     'trial_type':
                     'Shapes' if 'Shape' in str(b) else 'Faces',
                     'response_time':
@@ -237,34 +248,32 @@ def main():
                     map_response(get_event_value(b, 'StimSlide.RESP:'))
                 })
 
-            data = pd.DataFrame.from_dict(entries).astype({
+            data = pd.DataFrame.from_dict(entries)\
+                .astype({
                     "onset": np.float,
                     "duration": np.float,
                     "response_time": np.float,
                     "accuracy": np.float,
                     "correct_response": np.float,
                     "participant_response": np.float
-                    })\
-                    .astype({
-                        "correct_response": "Int64",
-                        "participant_response": "Int64",
-                        "accuracy": "Int64"
-                    })
+                })\
+                .astype({
+                    "correct_response": "Int64",
+                    "participant_response": "Int64",
+                    "accuracy": "Int64"
+                })
 
             log_head, log_tail = os.path.split(eprimefile)
-
-            sub_id = os.path.basename(log_head)
 
             if not out_dir:
                 out_dir = os.path.join(
                     nii_path, ident.get_full_subjectid_with_timepoint())
 
             file_name = os.path.join(out_dir, f"{ses}_FACES.tsv")
-            if not os.path.exists(os.path.dirname(file_name)):
-                os.makedirs(os.path.dirname(file_name))
 
             if not dryrun:
                 logger.info(f"Saving output to {file_name}")
+                os.makedirs(os.path.dirname(file_name), exist_ok=True)
                 data.to_csv(file_name, sep='\t', index=False)
             else:
                 logger.info(f"Dry run - would save to {file_name}")
