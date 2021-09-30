@@ -430,7 +430,14 @@ def process_scans(xnat, ident, xnat_experiment):
 
     # load the export info from the site config files
     tags = cfg.get_tags(site=ident.site)
-    scan_exception = cfg.get_key('ScanException', site=ident.site)
+    
+    try:
+        scan_exception_raw = cfg.get_key('ScanException', site=ident.site)
+        scan_exception = {eval(k): v for k, v in scan_exception_raw.items()}
+        check_exception = True
+    except:
+        check_exception = False
+        logger.info('No Scan Exception')
 
     if not tags.series_map:
         logger.error("Failed to get export info for study {} at site {}"
@@ -448,15 +455,16 @@ def process_scans(xnat, ident, xnat_experiment):
             logger.error("Can't find description for series {} from session {}"
                          .format(scan.series, xnat_experiment.name))
             continue
-
-        if (scan.description, scan.series) in scan_exception:
-            scan.change_description(
-                scan_exception[(scan.description, scan.series)])
-            logger.info(
-                "Renamed series {} to {}".format(
-                    scan.series, scan.description
+        
+        if check_exception == True:
+            if (scan.description, scan.series) in scan_exception:
+                scan.change_description(
+                    scan_exception[(scan.description, scan.series)])
+                logger.info(
+                    "Renamed series {} to {}".format(
+                        scan.series, scan.description
+                    )
                 )
-            )
 
         try:
             scan.set_datman_name(str(ident), tags.series_map)
