@@ -191,18 +191,18 @@ def main():
 
             for i, ind_init in enumerate(init_tag):
                 if i < len(init_tag) - 1:
-                    init_end[i] = init_tag[i+1][0]
-                elif i==len(init_tag)-1:
+                    init_end[i] = init_tag[i + 1][0]
+                elif i == len(init_tag) - 1:
                     init_end[i] = len(eprime) - 1
                 init_start[i] = ind_init[0]
 
-            init_blocks = [ eprime[s:e] for s, e in zip(init_start, init_end) ]
+            init_blocks = [eprime[s:e] for s, e in zip(init_start, init_end)]
 
             syncOT = float('nan')
             for b in init_blocks:
                 new_syncOT = get_event_value(b, 'SyncSlide.OnsetTime:')
                 stim = get_event_value(b, 'Stimulus:')
-                if not np.isnan(int(new_syncOT)) and stim=='4':
+                if not np.isnan(int(new_syncOT)) and stim == '4':
                     syncOT = new_syncOT
             # tag the trials to obtain the data for each trial
             taglist = find_all_data(eprime, "Procedure: TrialsPROC\r\n")
@@ -230,7 +230,7 @@ def main():
             for b in trial_blocks:
                 stimOT = get_event_value(b, 'StimSlide.OnsetTime:')
                 # Convert from ms to seconds
-                rel_stimOT = (float(stimOT) - float(syncOT))/1000 
+                rel_stimOT = (float(stimOT) - float(syncOT)) / 1000
                 entries.append({
                     'onset':
                     rel_stimOT,
