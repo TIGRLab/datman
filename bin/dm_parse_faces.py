@@ -231,15 +231,17 @@ def main():
                 stimOT = get_event_value(b, 'StimSlide.OnsetTime:')
                 # Convert from ms to seconds
                 rel_stimOT = (float(stimOT) - float(syncOT)) / 1000
+                duration = float(get_event_value(b, 'StimSlide.OnsetToOnsetTime:')) / 1000
+                response_time = float(get_event_value(b, 'StimSlide.RT:')) / 1000
                 entries.append({
                     'onset':
                     rel_stimOT,
                     'duration':
-                    get_event_value(b, 'StimSlide.OnsetToOnsetTime:'),
+                    duration, 
                     'trial_type':
                     'Shapes' if 'Shape' in str(b) else 'Faces',
                     'response_time':
-                    get_event_value(b, 'StimSlide.RT:'),
+                    response_time,
                     'accuracy':
                     get_event_value(b, 'StimSlide.ACC:'),
                     'correct_response':
