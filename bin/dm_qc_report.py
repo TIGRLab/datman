@@ -1099,7 +1099,7 @@ def get_config(study):
                      "".format(study))
         sys.exit(1)
 
-    required_paths = ['dcm', 'nii', 'qc', 'std', 'meta']
+    required_paths = ['nii', 'qc', 'std', 'meta']
 
     for path in required_paths:
         try:
