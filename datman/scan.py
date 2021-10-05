@@ -22,13 +22,11 @@ class DatmanNamed(object):
         ident: A datman.scanid.Identifier instance
 
     """
-
     def __init__(self, ident):
         self._ident = ident
         self.full_id = ident.get_full_subjectid_with_timepoint()
         self.id_plus_session = (
-            ident.get_full_subjectid_with_timepoint_session()
-        )  # noqa: E501
+            ident.get_full_subjectid_with_timepoint_session())  # noqa: E501
         self.study = ident.study
         self.site = ident.site
         self.subject = ident.subject
@@ -47,7 +45,6 @@ class Series(DatmanNamed):
     datman naming convention.
 
     """
-
     def __init__(self, path):
         self.path = path
         self.ext = datman.utils.get_extension(path)
@@ -57,8 +54,7 @@ class Series(DatmanNamed):
 
         try:
             ident, tag, series, description = scanid.parse_filename(
-                path_minus_ext
-            )
+                path_minus_ext)
         except datman.scanid.ParseException:
             # re-raise the exception with a more descriptive message
             message = f"{path_minus_ext} does not match datman convention"
@@ -90,7 +86,6 @@ class Scan(DatmanNamed):
     datman naming convention
 
     """
-
     def __init__(self, subject_id, config):
 
         self.is_phantom = True if "_PHA_" in subject_id else False
@@ -112,20 +107,16 @@ class Scan(DatmanNamed):
         DatmanNamed.__init__(self, ident)
 
         self.nii_path = self.__get_path("nii", config)
-        self.dcm_path = self.__get_path("dcm", config)
         self.nrrd_path = self.__get_path("nrrd", config)
         self.mnc_path = self.__get_path("mnc", config)
         self.qc_path = self.__get_path("qc", config)
         self.resource_path = self.__get_path("resources", config, session=True)
 
         self.niftis = self.__get_series(self.nii_path, [".nii", ".nii.gz"])
-        self.dicoms = self.__get_series(self.dcm_path, [".dcm"])
 
         self.__nii_dict = self.__make_dict(self.niftis)
-        self.__dcm_dict = self.__make_dict(self.dicoms)
 
         self.nii_tags = list(self.__nii_dict.keys())
-        self.dcm_tags = list(self.__dcm_dict.keys())
 
     def get_tagged_nii(self, tag):
         try:
@@ -133,13 +124,6 @@ class Scan(DatmanNamed):
         except KeyError:
             matched_niftis = []
         return matched_niftis
-
-    def get_tagged_dcm(self, tag):
-        try:
-            matched_dicoms = self.__dcm_dict[tag]
-        except KeyError:
-            matched_dicoms = []
-        return matched_dicoms
 
     def __check_session(self, id_str):
         """
