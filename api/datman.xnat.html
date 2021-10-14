@@ -144,7 +144,7 @@ or the empty string if the pipeline is not found.</p>
 </p>
 </dd>
 <dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)">list</a></p>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.10)">list</a></p>
 </dd>
 <dt class="field-odd">Raises</dt>
 <dd class="field-odd"><p><a class="reference internal" href="datman.exceptions.html#datman.exceptions.XnatException" title="datman.exceptions.XnatException"><strong>XnatException</strong></a> – If no AutoRun.xml pipeline instance is found or
@@ -164,7 +164,7 @@ or the empty string if the pipeline is not found.</p>
 <dl class="class">
 <dt id="datman.xnat.XNATObject">
 <em class="property">class </em><code class="sig-prename descclassname">datman.xnat.</code><code class="sig-name descname">XNATObject</code><a class="headerlink" href="#datman.xnat.XNATObject" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">abc.ABC</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">abc.ABC</span></code></a></p>
 </dd></dl>
 
 <dl class="class">
@@ -217,16 +217,16 @@ or the empty string if the pipeline is not found.</p>
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>config</strong> (<a class="reference internal" href="datman.config.html#datman.config.config" title="datman.config.config"><code class="xref py py-obj docutils literal notranslate"><span class="pre">datman.config.config</span></code></a>) – A study’s configuration</p></li>
-<li><p><strong>site</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>, optional) – A valid site for the current study. If
+<li><p><strong>site</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>, optional) – A valid site for the current study. If
 given, site-specific settings will be searched for before
 defaulting to study or organization wide settings.
 Defaults to None.</p></li>
-<li><p><strong>url</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>, optional) – An XNAT server URL. If given the
+<li><p><strong>url</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>, optional) – An XNAT server URL. If given the
 configuration will NOT be consulted. Defaults to None.</p></li>
-<li><p><strong>auth</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tuple</span></code></a>, optional) – A (username, password) tuple. If given
+<li><p><strong>auth</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tuple</span></code></a>, optional) – A (username, password) tuple. If given
 configuration / environment variables will NOT be consulted.
 Defaults to None.</p></li>
-<li><p><strong>server_cache</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code></a>, optional) – A dictionary used to map URLs to
+<li><p><strong>server_cache</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code></a>, optional) – A dictionary used to map URLs to
 open XNAT connections. If given, connections will be retrieved
 from the cache as needed or added if a new URL is requested.
 Defaults to None.</p></li>
@@ -259,7 +259,7 @@ Defaults to None.</p></li>
 <dl class="class">
 <dt id="datman.xnat.xnat">
 <em class="property">class </em><code class="sig-prename descclassname">datman.xnat.</code><code class="sig-name descname">xnat</code><span class="sig-paren">(</span><em class="sig-param">server</em>, <em class="sig-param">username</em>, <em class="sig-param">password</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.xnat.xnat" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <dl class="attribute">
 <dt id="datman.xnat.xnat.auth">
 <code class="sig-name descname">auth</code><em class="property"> = None</em><a class="headerlink" href="#datman.xnat.xnat.auth" title="Permalink to this definition">¶</a></dt>
@@ -299,8 +299,8 @@ dismiss the pipeline for.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>subject_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The subject to search for.</p></li>
-<li><p><strong>projects</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code></a>, optional) – A list of projects to restrict
+<li><p><strong>subject_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The subject to search for.</p></li>
+<li><p><strong>projects</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code></a>, optional) – A list of projects to restrict
 the search to. Defaults to None.</p></li>
 </ul>
 </dd>
@@ -313,7 +313,7 @@ first match is returned.</p>
 </p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)">str</a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)">str</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -325,8 +325,8 @@ first match is returned.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – An XNAT project to search.</p></li>
-<li><p><strong>exper_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The experiment to find the parent ID for.</p></li>
+<li><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – An XNAT project to search.</p></li>
+<li><p><strong>exper_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The experiment to find the parent ID for.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -339,7 +339,7 @@ convention.</p>
 </p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)">str</a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)">str</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -360,10 +360,10 @@ for cleaning up any created tempfiles</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The XNAT project to search within.</p></li>
-<li><p><strong>subject_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The XNAT subject to search.</p></li>
-<li><p><strong>exper_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The name of the experiment to retrieve.</p></li>
-<li><p><strong>create</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a><em>, </em><em>optional</em>) – Whether to create an experiment matching
+<li><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The XNAT project to search within.</p></li>
+<li><p><strong>subject_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The XNAT subject to search.</p></li>
+<li><p><strong>exper_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The name of the experiment to retrieve.</p></li>
+<li><p><strong>create</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.10)"><em>bool</em></a><em>, </em><em>optional</em>) – Whether to create an experiment matching
 exper_id if a match is not found. Defaults to False.</p></li>
 </ul>
 </dd>
@@ -391,8 +391,8 @@ exper_id if a match is not found. Defaults to False.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – An XNAT project ID.</p></li>
-<li><p><strong>subject</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>, optional) – An existing XNAT subject within
+<li><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – An XNAT project ID.</p></li>
+<li><p><strong>subject</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>, optional) – An existing XNAT subject within
 ‘project’ to restrict the search to. Defaults to ‘’.</p></li>
 </ul>
 </dd>
@@ -403,7 +403,7 @@ exper_id if a match is not found. Defaults to False.</p></li>
 <dd class="field-odd"><p>A list of string experiment IDs belonging to ‘subject’.</p>
 </dd>
 <dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)">list</a></p>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.10)">list</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -414,7 +414,7 @@ exper_id if a match is not found. Defaults to False.</p></li>
 <dd><p>Query the XNAT server for project metadata.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a><em>, </em><em>optional</em>) – The name of an XNAT project to search for.
+<dd class="field-odd"><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a><em>, </em><em>optional</em>) – The name of an XNAT project to search for.
 If unset, metadata from all accessible projects on the server
 will be returned. Defaults to the empty string.</p>
 </dd>
@@ -432,7 +432,7 @@ This is a consequence of XNAT’s API.</p>
 </p>
 </dd>
 <dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)">list</a></p>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.10)">list</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -475,10 +475,10 @@ returns a list of dicts, mostly interested in ID and name</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The XNAT project to search within.</p></li>
-<li><p><strong>subject_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The XNAT subject to search.</p></li>
-<li><p><strong>exper_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The XNAT experiment to search.</p></li>
-<li><p><strong>scan_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The ID of the scan to retrieve.</p></li>
+<li><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The XNAT project to search within.</p></li>
+<li><p><strong>subject_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The XNAT subject to search.</p></li>
+<li><p><strong>exper_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The XNAT experiment to search.</p></li>
+<li><p><strong>scan_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The ID of the scan to retrieve.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Raises</dt>
@@ -505,9 +505,9 @@ returns a list of dicts, mostly interested in ID and name</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – An XNAT project ID.</p></li>
-<li><p><strong>subject</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – An existing subject within ‘project’.</p></li>
-<li><p><strong>experiment</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – An existing experiment within ‘subject’.</p></li>
+<li><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – An XNAT project ID.</p></li>
+<li><p><strong>subject</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – An existing subject within ‘project’.</p></li>
+<li><p><strong>experiment</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – An existing experiment within ‘subject’.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Raises</dt>
@@ -517,7 +517,7 @@ returns a list of dicts, mostly interested in ID and name</p>
 <dd class="field-odd"><p>A list of scan IDs belonging to ‘experiment’.</p>
 </dd>
 <dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)">list</a></p>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.10)">list</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -529,9 +529,9 @@ returns a list of dicts, mostly interested in ID and name</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The XNAT project to search within.</p></li>
-<li><p><strong>subject_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The XNAT subject to retrieve.</p></li>
-<li><p><strong>create</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a><em>, </em><em>optional</em>) – Whether to create a subject matching
+<li><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The XNAT project to search within.</p></li>
+<li><p><strong>subject_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The XNAT subject to retrieve.</p></li>
+<li><p><strong>create</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.10)"><em>bool</em></a><em>, </em><em>optional</em>) – Whether to create a subject matching
 subject_id if a match is not found. Defaults to False.</p></li>
 </ul>
 </dd>
@@ -558,7 +558,7 @@ subject_id if a match is not found. Defaults to False.</p></li>
 <dd><p>Retrieve the IDs for all subjects within an XNAT project.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The ‘Project ID’ for a project on XNAT.</p>
+<dd class="field-odd"><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The ‘Project ID’ for a project on XNAT.</p>
 </dd>
 <dt class="field-even">Raises</dt>
 <dd class="field-even"><p><a class="reference internal" href="datman.exceptions.html#datman.exceptions.XnatException" title="datman.exceptions.XnatException"><strong>XnatException</strong></a> – If the project does not exist or access fails.</p>
@@ -567,7 +567,7 @@ subject_id if a match is not found. Defaults to False.</p></li>
 <dd class="field-odd"><p>A list of string subject IDs found within the project.</p>
 </dd>
 <dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)">list</a></p>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.10)">list</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -584,9 +584,9 @@ subject_id if a match is not found. Defaults to False.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The ‘Project ID’ of an existing XNAT project.</p></li>
-<li><p><strong>subject</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The subject that should own the experiment.</p></li>
-<li><p><strong>experiment</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The ID to create the new experiment under.</p></li>
+<li><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The ‘Project ID’ of an existing XNAT project.</p></li>
+<li><p><strong>subject</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The subject that should own the experiment.</p></li>
+<li><p><strong>experiment</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The ID to create the new experiment under.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Raises</dt>
@@ -602,8 +602,8 @@ subject_id if a match is not found. Defaults to False.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The ‘Project ID’ of an existing XNAT project.</p></li>
-<li><p><strong>subject</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The ID to create the new subject under.</p></li>
+<li><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The ‘Project ID’ of an existing XNAT project.</p></li>
+<li><p><strong>subject</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The ID to create the new subject under.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Raises</dt>
@@ -647,12 +647,12 @@ filename: archive to upload</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The name of the project the experiment
+<li><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The name of the project the experiment
 can be found in.</p></li>
-<li><p><strong>subject</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The ID of the subject this experiment
+<li><p><strong>subject</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The ID of the subject this experiment
 belongs to.</p></li>
-<li><p><strong>old_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The current experiment name.</p></li>
-<li><p><strong>new_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The new name to give the experiment.</p></li>
+<li><p><strong>old_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The current experiment name.</p></li>
+<li><p><strong>new_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The new name to give the experiment.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Raises</dt>
@@ -675,12 +675,12 @@ belongs to.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The name of the XNAT project that the subject
+<li><p><strong>project</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The name of the XNAT project that the subject
 belongs to.</p></li>
-<li><p><strong>old_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The current name on XNAT of the subject to
+<li><p><strong>old_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The current name on XNAT of the subject to
 be renamed.</p></li>
-<li><p><strong>new_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The new name to apply.</p></li>
-<li><p><strong>rename_exp</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a><em>, </em><em>optional</em>) – Also change the experiment name to
+<li><p><strong>new_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – The new name to apply.</p></li>
+<li><p><strong>rename_exp</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.10)"><em>bool</em></a><em>, </em><em>optional</em>) – Also change the experiment name to
 the new subject name. Obviously, this should NOT be used when
 subjects and experiments are meant to use different naming
 conventions. Defaults to False.</p></li>
