@@ -39,8 +39,7 @@ class GetConfig(unittest.TestCase):
 
         with pytest.raises(SystemExit):
             mock_config.return_value.get_path.side_effect = lambda path: \
-                {'dcm': '',
-                 'nii': ''}[path]
+                {'nii': ''}[path]
             qc.get_config("STUDY")
 
 

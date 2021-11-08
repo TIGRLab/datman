@@ -78,11 +78,9 @@ class TestScan(unittest.TestCase):
         subject = datman.scan.Scan(self.good_name, self.config)
 
         expected_nii = self.config.get_path('nii') + self.good_name
-        expected_dcm = self.config.get_path('dcm') + self.good_name
         expected_qc = self.config.get_path('qc') + self.good_name
 
         assert subject.nii_path == expected_nii
-        assert subject.dcm_path == expected_dcm
         assert subject.qc_path == expected_qc
 
     def test_niftis_and_dicoms_set_to_empty_list_when_broken_path(self):
@@ -124,23 +122,6 @@ class TestScan(unittest.TestCase):
             datman.scan.Scan(self.good_name, self.config)
 
     @patch('glob.glob')
-    def test_dicoms_lists_only_dicom_files(self, mock_glob):
-        dicom1 = "{}_01_T1_02_SagT1-BRAVO.dcm".format(self.good_name)
-        dicom2 = "{}_01_DTI60-1000_05_Ax-DTI-60.dcm".format(self.good_name)
-        nifti = "{}_01_T1_02_SagT1-BRAVO.nii".format(self.good_name)
-        wrong_ext = "{}_01_DTI60-1000_05_Ax-DTI-60.bvec".format(self.good_name)
-
-        dcm_list = [dicom1, nifti, dicom2, wrong_ext]
-        mock_glob.return_value = dcm_list
-
-        subject = datman.scan.Scan(self.good_name, self.config)
-
-        found_dicoms = [series.path for series in subject.dicoms]
-        expected = [dicom1, dicom2]
-
-        assert sorted(found_dicoms) == sorted(expected)
-
-    @patch('glob.glob')
     def test_nii_tags_lists_all_tags(self, mock_glob):
         T1 = "STUDY_CAMH_9999_01_01_T1_02_SagT1-BRAVO.nii"
         DTI = "STUDY_CAMH_9999_01_01_DTI60-1000_05_Ax-DTI-60.nii"
@@ -150,19 +131,7 @@ class TestScan(unittest.TestCase):
         subject = datman.scan.Scan(self.good_name, self.config)
 
         assert sorted(subject.nii_tags) == sorted(['T1', 'DTI60-1000'])
-        assert subject.dcm_tags == []
 
-    @patch('glob.glob')
-    def test_dcm_tags_lists_all_tags(self, mock_glob):
-        T1 = "STUDY_CAMH_9999_01_01_T1_02_SagT1-BRAVO.dcm"
-        DTI = "STUDY_CAMH_9999_01_01_DTI60-1000_05_Ax-DTI-60.dcm"
-
-        mock_glob.return_value = [T1, DTI]
-
-        subject = datman.scan.Scan(self.good_name, self.config)
-
-        assert sorted(subject.dcm_tags) == sorted(['T1', 'DTI60-1000'])
-        assert subject.nii_tags == []
 
     @patch('glob.glob')
     def test_get_tagged_nii_finds_all_matching_series(self, mock_glob):
@@ -183,32 +152,12 @@ class TestScan(unittest.TestCase):
         assert actual_DTIs == expected
 
     @patch('glob.glob')
-    def test_get_tagged_dcm_finds_all_matching_series(self, mock_glob):
-        T1_1 = "STUDY_CAMH_9999_01_01_T1_02_SagT1-BRAVO.dcm"
-        T1_2 = "STUDY_CAMH_9999_01_01_T1_03_SagT1-BRAVO.dcm"
-        DTI = "STUDY_CAMH_9999_01_01_DTI_05_Ax-DTI-60.dcm"
-
-        mock_glob.return_value = [T1_1, DTI, T1_2]
-
-        subject = datman.scan.Scan(self.good_name, self.config)
-
-        actual_T1s = [series.path for series in subject.get_tagged_dcm('T1')]
-        expected = [T1_1, T1_2]
-        assert sorted(actual_T1s) == sorted(expected)
-
-        actual_DTIs = [series.path for series in subject.get_tagged_dcm('DTI')]
-        expected = [DTI]
-        assert actual_DTIs == expected
-
-    @patch('glob.glob')
     def test_get_tagged_X_returns_empty_list_when_no_tag_files(self,
                                                                mock_glob):
         nifti = "STUDY_CAMH_9999_01_01_T1_03_SagT1-BRAVO.nii.gz"
-        dicom = "STUDY_CAMH_9999_01_01_DTI_05_Ax-DTI-60.dcm"
 
-        mock_glob.return_value = [nifti, dicom]
+        mock_glob.return_value = [nifti]
 
         subject = datman.scan.Scan(self.good_name, self.config)
 
         assert subject.get_tagged_nii('DTI') == []
-        assert subject.get_tagged_dcm('T1') == []
