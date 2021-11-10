@@ -138,10 +138,13 @@ class RunHeaderQC(unittest.TestCase):
 
     @patch('bin.dm_qc_report.get_standards')
     @patch('datman.header_checks.construct_diffs')
-    def test_doesnt_crash_with_empty_dicom_dir(self, mock_make_diffs,
+    def test_doesnt_crash_without_dicom_dir(self, mock_make_diffs,
                                                mock_standards):
         subject = datman.scan.Scan('STUDY_SITE_ID_01', config)
-        assert subject.dicoms == []
+        try:
+            subject.dicoms
+        except AttributeError:
+            pass
 
         mock_standards.return_value = [
             'STUDY_CMH_0001_01_01_T1_02_SagT1-BRAVO.json'
