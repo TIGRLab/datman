@@ -75,7 +75,6 @@ def remove_blacklisted_items(metadata, config):
 def remove_blacklisted(scan, entries):
     for entry in entries:
         remove_matches(scan.nii_path, entry)
-        remove_matches(scan.dcm_path, entry)
         remove_matches(scan.nrrd_path, entry)
         remove_matches(scan.mnc_path, entry)
         remove_matches(scan.resource_path, entry)

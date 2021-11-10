@@ -79,8 +79,8 @@ def force_json_name(json_filename, sub_dir):
                  if (json_base in f) and ('.json' in f)][0]
 
     if candidate != json_base:
-        logger.warning('dcm2niix added suffix!\nShould be {}\n'
-                       'Found {}'.format(json_filename, candidate))
+        logger.warn('dcm2niix added suffix!\nShould be {}\n'
+                    'Found {}'.format(json_filename, candidate))
         src = os.path.join(sub_dir, candidate)
         dst = os.path.join(sub_dir, json_filename)
         os.rename(src, dst)
