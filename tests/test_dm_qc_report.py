@@ -139,7 +139,7 @@ class RunHeaderQC(unittest.TestCase):
     @patch('bin.dm_qc_report.get_standards')
     @patch('datman.header_checks.construct_diffs')
     def test_doesnt_crash_without_dicom_dir(self, mock_make_diffs,
-                                               mock_standards):
+                                            mock_standards):
         subject = datman.scan.Scan('STUDY_SITE_ID_01', config)
         try:
             subject.dicoms
