@@ -188,6 +188,7 @@ jobs:
     docker:
       - image: "python:3.7.0"
     steps:
+      - checkout
       - restore_cache:
           keys:
             - datman-v1-{{ .Branch }}-{{ checksum "setup.cfg" }}
@@ -196,7 +197,6 @@ jobs:
             - datman-v1-
           paths:
             - ./docs/_build/_html
-      - checkout
       - run:
           name: Install deps
           command: pip install --no-cache-dir -r docs/requirements.txt
