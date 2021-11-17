@@ -12,6 +12,7 @@ FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 
 site_config = os.path.join(FIXTURE + "site_config.yaml")
+
 system = 'local'
 study = 'STUDY'
 
@@ -83,11 +84,10 @@ class TestScan(unittest.TestCase):
         assert subject.nii_path == expected_nii
         assert subject.qc_path == expected_qc
 
-    def test_niftis_and_dicoms_set_to_empty_list_when_broken_path(self):
+    def test_niftis_set_to_empty_list_when_broken_path(self):
         subject = datman.scan.Scan(self.good_name, self.config)
 
         assert subject.niftis == []
-        assert subject.dicoms == []
 
     @patch('glob.glob')
     def test_niftis_with_either_extension_type_found(self, mock_glob):
