@@ -2,81 +2,97 @@
 """
 Defaces anatomical data in the BIDS folder.
 
-Usage:
-    dm_deface.py [options] <study> [--bids-filter-suffix <bids_suffix>]... [--skip-bids-validation]
-    dm_deface.py [options] <bids_dir> [--bids-filter-suffix <bids_suffix>]... [--bids-database-dir <bids_db>] [--skip-bids-validation=<BOOL>]
-
-Arguments:
-    <study>                  Nickname of the study to process
-    <bids_dir>               BIDS folder to process
-
-Options:
-    -v --verbose             Show intermediate steps
-    -d --debug               Show debug messages
-    -q --quiet               Show minimal output
-    -n --dry-run             Do nothing
-    ---bids-filter-suffix bids_suffix,...         List of scan tags to download
-    --bids-database-dir      Path to a PyBids database folder for faster indexing
-    --skip-bids-validation=BOOL   Assumes the input dataset is BIDS compliant and skip validation [default: False]
-
 DEPENDENCIES
     FSL 6.0.1
     pydeface
 
 """
 
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import json
 import logging
 import subprocess
 from pathlib import Path
 
 from bids import BIDSLayout
-from docopt import docopt
 
 import datman.config
 
-logging.basicConfig(level=logging.WARN, format="[%(name)s %(levelname)s: %(message)s")
+logging.basicConfig(
+    level=logging.WARN, format="[%(name)s %(levelname)s: %(message)s"
+)
 logger = logging.getLogger(Path(__file__).name)
-
-DRYRUN = False
-bids_dir = None
-bids_db = None
-bids_suffix = ["T1w"]
-skip_validation=False
 
 
 def main():
-    global DRYRUN
-    global bids_dir
-    global bids_db
-    global bids_suffix
-    global skip_validation
+    parser = ArgumentParser(
+        description="Deface anatomical data in the BIDS folder",
+        formatter_class=ArgumentDefaultsHelpFormatter,
+    )
 
-    arguments = docopt(__doc__)
-    study = arguments["<study"]
-    bids_dir = arguments["<bids_dir>"]
-    bids_db = arguments["--bids-database-dir"]
-    bids_suffix=arguments["--bids-filter-suffix"]
-    skip_validation=arguments["--skip-bids-validation"]
-    verbose = arguments["--verbose"]
-    debug = arguments["--debug"]
-    quiet = arguments["--quiet"]
-    DRYRUN = arguments["--dry-run"]
+    g_required = parser.add_mutually_exclusive_group(required=True)
+    g_required.add_argument(
+        "--study", action="store", help="Nickname of the study to process"
+    )
+    g_required.add_argument(
+        "--bids-dir",
+        action="store",
+        metavar="DIR",
+        type=lambda x: Path(x).isdir(),
+        help="The root folder of the BIDS dataset to process",
+    )
 
-    if verbose:
+    g_bids = parser.add_argument_group("Options for filtering BIDS queries")
+    g_bids.add_argument(
+        "-s",
+        "--suffix-id",
+        action="store",
+        nargs="+",
+        default=["T1w"],
+        help="Select a specific BIDS suffix to be processed",
+    )
+    g_bids.add_argument(
+        "--skip-bids-validation",
+        action="store_true",
+        default=False,
+        help="Assume the input dataset is BIDS compatible and skip validation",
+    )
+    g_bids.add_argument(
+        "--bids-database-dir",
+        metavar="DIR",
+        type=lambda x: Path(x).isdir(),
+        help="Path to a PyBIDS database folder for faster indexing",
+    )
+
+    g_perfm = parser.add_argument_group("Options for logging and debugging")
+    g_perfm.add_argument(
+        "--quiet", action="store_true", default=False, help="Minimal logging"
+    )
+    g_perfm.add_argument(
+        "--verbose", action="store_true", default=False, help="Maximal logging"
+    )
+    g_perfm.add_argument(
+        "--dry-run", action="store_true", default=False, help="Do nothing"
+    )
+
+    args = parser.parse_args()
+
+    if args.verbose:
         logger.setLevel(logging.INFO)
-    if debug:
-        logger.setLevel(logging.DEBUG)
-    if quiet:
+    if args.quiet:
         logger.setLevel(logging.ERROR)
 
-    if not bids_dir:
-        config = datman.config.config(study=study)
+    if not args.bids_dir:
+        config = datman.config.config(study=args.study)
         bids_dir = config.get_path("bids")
 
-    layout = BIDSLayout(bids_dir, validate=skip_validation, database_path=bids_db)
+    layout = BIDSLayout(
+        bids_dir,
+        validate=args.skip_bids_validation,
+        database_path=args.bids_database_dir,
+    )
 
-    anat_list = layout.get(suffix=bids_suffix, extension=[".nii.gz"])
+    anat_list = layout.get(suffix=args.suffix_id, extension=[".nii.gz"])
     keys_to_extract = [
         "subject",
         "session",
@@ -89,8 +105,13 @@ def main():
 
     for anat in anat_list:
 
-        entities = {key: anat.entities.get(key, None) for key in keys_to_extract}
-        if entities["acquisition"] is not None and "defaced" in entities["acquisition"]:
+        entities = {
+            key: anat.entities.get(key, None) for key in keys_to_extract
+        }
+        if (
+            entities["acquisition"] is not None
+            and "defaced" in entities["acquisition"]
+        ):
             continue
         if entities["acquisition"] is not None:
             entities["acquisition"] = entities["acquisition"] + "defaced"
@@ -100,14 +121,19 @@ def main():
         output_file = Path(bids_dir, layout.build_path(entities))
 
         if not output_file.exists():
-            anat_metadata = anat.get_metadata()
-            deface_cmd = f"pydeface {anat.path} --outfile {output_file.path}"
+            deface_cmd = f"pydeface {anat.path} --outfile {str(output_file)}"
 
-            if DRYRUN:
+            if args.dry_run:
                 logger.info(f"DRYRUN would have executed <{deface_cmd}>")
                 continue
 
-            anat_metadata["DefaceCmd"] = deface_cmd
             subprocess.call(deface_cmd, shell=True)
-            with open(str(output_file).replace(".nii.gz", ".json")) as f:
-                json.dump(anat_metadata, f)
+
+            anat_metadata = anat.get_metadata()
+            anat_metadata["DefaceCmd"] = deface_cmd
+            with open(str(output_file).replace(".nii.gz", ".json"), "w+") as f:
+                json.dump(anat_metadata, f, indent=4)
+
+
+if __name__ == "__main__":
+    main()
