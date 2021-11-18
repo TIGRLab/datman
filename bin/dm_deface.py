@@ -1,20 +1,19 @@
 #!/usr/bin/env python
 """
-Defaces anatomical data in the BIDS folder.
+Defaces anatomical data in a BIDS dataset.
 
 DEPENDENCIES
     FSL 6.0.1
-    pydeface
 
 """
 
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import json
 import logging
-import subprocess
+from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from pathlib import Path
 
 from bids import BIDSLayout
+from pydeface.utils import deface_image
 
 import datman.config
 
@@ -24,9 +23,16 @@ logging.basicConfig(
 logger = logging.getLogger(Path(__file__).name)
 
 
+def _is_dir(path, parser):
+    """Ensure a given directory exists."""
+    if path is None or not Path(path).is_dir():
+        raise parser.error(f"Directory does not exist: <{path}>")
+    return Path(path).absolute()
+
+
 def main():
     parser = ArgumentParser(
-        description="Deface anatomical data in the BIDS folder",
+        description="Defaces anatomical data in a BIDS dataset",
         formatter_class=ArgumentDefaultsHelpFormatter,
     )
 
@@ -38,8 +44,8 @@ def main():
         "--bids-dir",
         action="store",
         metavar="DIR",
-        type=lambda x: Path(x).isdir(),
-        help="The root folder of the BIDS dataset to process",
+        type=lambda x: _is_dir(x, parser),
+        help="The root directory of the BIDS dataset to process",
     )
 
     g_bids = parser.add_argument_group("Options for filtering BIDS queries")
@@ -59,9 +65,9 @@ def main():
     )
     g_bids.add_argument(
         "--bids-database-dir",
-        metavar="DIR",
-        type=lambda x: Path(x).isdir(),
-        help="Path to a PyBIDS database folder for faster indexing",
+        action="store",
+        type=lambda x: _is_dir(x, parser),
+        help="Path to a PyBIDS database directory for faster indexing",
     )
 
     g_perfm = parser.add_argument_group("Options for logging and debugging")
@@ -82,9 +88,11 @@ def main():
     if args.quiet:
         logger.setLevel(logging.ERROR)
 
-    if not args.bids_dir:
+    if args.study:
         config = datman.config.config(study=args.study)
         bids_dir = config.get_path("bids")
+    else:
+        bids_dir = args.bids_dir
 
     layout = BIDSLayout(
         bids_dir,
@@ -92,7 +100,7 @@ def main():
         database_path=args.bids_database_dir,
     )
 
-    anat_list = layout.get(suffix=args.suffix_id, extension=[".nii.gz"])
+    anat_list = layout.get(suffix=args.suffix_id, extension=[".nii", ".nii.gz"])
     keys_to_extract = [
         "subject",
         "session",
@@ -121,16 +129,24 @@ def main():
         output_file = Path(bids_dir, layout.build_path(entities))
 
         if not output_file.exists():
-            deface_cmd = f"pydeface {anat.path} --outfile {str(output_file)}"
-
             if args.dry_run:
-                logger.info(f"DRYRUN would have executed <{deface_cmd}>")
+                logger.info(
+                    f"DRYRUN would have executed defacing on <{anat.path}> "
+                    f"and output to <{output_file}>"
+                )
                 continue
 
-            subprocess.call(deface_cmd, shell=True)
+            try:
+                deface_image(infile=anat.path, outfile=str(output_file))
+            except Exception as e:
+                logger.error(
+                    f"Defacing failed to run on <{anat.path}> for "
+                    f"reason {e}"
+                )
+                return
 
             anat_metadata = anat.get_metadata()
-            anat_metadata["DefaceCmd"] = deface_cmd
+            anat_metadata["DefaceSoftware"] = "pydeface"
             with open(str(output_file).replace(".nii.gz", ".json"), "w+") as f:
                 json.dump(anat_metadata, f, indent=4)
 
