@@ -26,11 +26,11 @@ Options:
                              login used should be valid for all servers.
     --dont-update-dashboard  Dont update the dashboard database
     -t --tag tag,...         List of scan tags to download
-    --use-dcm2bids               Pull xnat data and convert to bids using dcm2bids
+    --use-dcm2bids           Pull xnat data and convert to bids using dcm2bids
     --keep-dcm               Keep raw dcm pulled from xnat in temp folder
     --dcm-config CONFIG      Path to dcm2bids config file
     --bids-out BIDS_OUT      Path to output bids folder
-    --forceDcm2niix          Force dcm2niix to be rerun in dcm2bids
+    --force-dcm2niix         Force dcm2niix to be rerun in dcm2bids
     --clobber                Clobber previous bids data
 
 OUTPUT FOLDERS
@@ -112,7 +112,7 @@ keep_dcm = False
 dcm2bids_config = None
 use_dcm2bids = False
 bids_out = None
-forceDcm2niix = False
+force_dcm2niix = False
 clobber = False
 
 def main():
@@ -139,9 +139,9 @@ def main():
     keep_dcm = arguments['--keep-dcm']
     dcm2bids_config = arguments['--dcm-config']
     bids_out = arguments['--bids-out']
-    forceDcm2niix = arguments['--forceDcm2niix']
+    force_dcm2niix = arguments['--force-dcm2niix']
     clobber = arguments['--clobber']
-
+    
     if arguments['--dry-run']:
         DRYRUN = True
         db_ignore = True
@@ -162,24 +162,12 @@ def main():
 
     for xnat, project, experiment in experiments:
         if (use_dcm2bids):
-            # Ensure the config is available
-            if dcm2bids_config is None:
-                try:
-                    dcm2bids_config = datman.utils.locate_metadata("dcm2bids.json", config=cfg)
-                except datman.scanid.ParseException:
-                    logger.error("No config file available for study {}."
-                                 "".format(study))
-            # Ensure the bids output is available
-            if bids_out is None:
-                bids_out = cfg.get_path("bids")
-            xnat_to_bids(xnat, 
-                        project, 
-                        experiment,
-                        keep_dcm=keep_dcm,
-                        dcm2bids_config=dcm2bids_config,
-                        bids_out=bids_out,
-                        forceDcm2niix=forceDcm2niix,
-                        clobber=clobber)
+            dcm2bids_opt = Dcm2BidsConfig(keep_dcm=keep_dcm,
+                                          dcm2bids_config=dcm2bids_config,
+                                          bids_out=bids_out,
+                                          force_dcm2niix=force_dcm2niix,
+                                          clobber=clobber)
+            xnat_to_bids(xnat, project, experiment, dcm2bids_opt)
         else:
             process_experiment(xnat, project, experiment)
 
@@ -323,11 +311,34 @@ def process_experiment(xnat, project, ident):
         process_scans(xnat, ident, xnat_experiment)
 
 
-def xnat_to_bids(xnat, project, ident, 
-                keep_dcm=keep_dcm, dcm2bids_config=dcm2bids_config,
-                bids_out=bids_out, forceDcm2niix=forceDcm2niix, clobber=clobber):
+class Dcm2BidsConfig(object):
+    def __init__(self, keep_dcm=False, bids_out=None, force_dcm2niix=False, clobber=False, dcm2bids_config=None):
+        self.keep_dcm = keep_dcm
+        self.force_dcm2niix = force_dcm2niix
+        self.clobber = clobber
+        self.dcm2bids_config = dcm2bids_config
+        self.bids_out = bids_out
+        if dcm2bids_config is None:
+            try:
+                self.dcm2bids_config = datman.utils.locate_metadata("dcm2bids.json", config=cfg)
+            except FileNotFoundError:
+                logger.error("No config file available for study {}."
+                                "".format(study))
+        if bids_out is None:
+            self.bids_out = cfg.get_path("bids")
 
-    # Get the identifying subject data
+    def run(self, input_dir, sub_id, ses_id=None, log_level="INFO"):
+        try:
+            dcm2bids_app = Dcm2bids(input_dir, sub_id, self.dcm2bids_config, output_dir=self.bids_out, session=ses_id, 
+                                    clobber=self.clobber, forceDcm2niix=self.force_dcm2niix, log_level=log_level)
+            dcm2bids_app.run()
+        except Exception as e:
+            logger.error("Dcm2Bids failed to run for experiment {}. "
+                            "{}: {}".format(experiment_label, type(e).__name__, e))
+            return
+
+
+def xnat_to_bids(xnat, project, ident, dcm2bids_opt):
     bids_sub = ident.get_bids_name()
     bids_ses = ident.timepoint
     experiment_label = ident.get_xnat_experiment_id()
@@ -335,31 +346,21 @@ def xnat_to_bids(xnat, project, ident,
     try:
         xnat_experiment = xnat.get_experiment(
             project, ident.get_xnat_subject_id(), experiment_label)
-    except Exception as e:
+    except datman.exceptions.XnatException as e:
         logger.error("Unable to retrieve experiment {} from XNAT server. "
                      "{}: {}".format(experiment_label, type(e).__name__, e))
         return
 
-    # Make temporary folder for this subject
     with datman.utils.make_temp_directory(prefix='xnat_to_bids_') as tempdir:
-        # Pull each of the scans from the subject's experiment
         for scan in xnat_experiment.scans:
-            scanTemp = get_dicom_archive_from_xnat(xnat, scan, tempdir)
-            if not scanTemp:
+            scan_temp = get_dicom_archive_from_xnat(xnat, scan, tempdir)
+            if not scan_temp:
                 logger.error("Failed getting series {} for experiment {} from XNAT"
                             .format(scan.series, scan.experiment))
                 return
         
-        # Once all the scans are downloaded, run dcm2bids on the pulled data
-        subDcmDir = os.path.join(tempdir, experiment_label, "scans")
-        try:
-            dcm2bids_app = Dcm2bids(subDcmDir, bids_sub, dcm2bids_config, output_dir=bids_out, session=bids_ses, 
-                                clobber=clobber, forceDcm2niix=forceDcm2niix, log_level="INFO")
-            dcm2bids_app.run()
-        except Exception as e:
-            logger.error("Dcm2Bids failed to run for experiment {}. "
-                            "{}: {}".format(experiment_label, type(e).__name__, e))
-            return
+        sub_dcm_dir = os.path.join(tempdir, experiment_label, "scans")
+        dcm2bids_opt.run(sub_dcm_dir, bids_sub, ses_id=bids_ses, log_level=log_level)
 
 
 def set_date(session, experiment):
