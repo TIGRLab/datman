@@ -118,9 +118,9 @@ def _is_dir(path, parser):
 
 
 def _is_file(path, parser):
-    """Ensure a given directory exists."""
+    """Ensure a given file exists."""
     if path is None or not Path(path).is_file():
-        raise parser.error(f"Directory does not exist: <{path}>")
+        raise parser.error(f"File does not exist: <{path}>")
     return Path(path).absolute()
 
 
@@ -144,6 +144,7 @@ def main():
     g_main.add_argument(
         "study",
         action="store",
+        required=True,
         help="Nickname of the study to process",
     )
     g_main.add_argument(
@@ -154,7 +155,7 @@ def main():
     )
     g_main.add_argument(
         "--blacklist", action="store", metavar="FILE",
-        type=lambda x: Path(x).isfile(),
+        type=lambda x: _is_file(x, parser),
         help="Table listing series to ignore override the "
              "default metadata/blacklist.csv"
     )
