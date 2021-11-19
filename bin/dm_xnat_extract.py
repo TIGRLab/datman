@@ -216,6 +216,10 @@ def main():
     quiet = args.quiet
     verbose = args.verbose
 
+    if (not args.use_dcm2bids) and (args.keep_dcm or args.dcm_config
+        or args.bids_out or args.force_dcm2niix or args.clobber):
+        parser.error("dcm2bids configuration requires --use-dcm2bids")
+
     if args.dry_run:
         DRYRUN = True
         db_ignore = True
