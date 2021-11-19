@@ -2,37 +2,6 @@
 """
 Extracts data from XNAT archive folders into a few well-known formats.
 
-Usage:
-    dm_xnat_extract.py [options] <study> [-t <tag>]...
-    dm_xnat_extract.py [options] <study> <experiment> [-t <tag>]...
-
-Arguments:
-    <study>                  Nickname of the study to process
-    <experiment>             Full ID of the experiment to process
-
-Options:
-    --blacklist FILE         Table listing series to ignore override the
-                             default metadata/blacklist.csv
-    -v --verbose             Show intermediate steps
-    -d --debug               Show debug messages
-    -q --quiet               Show minimal output
-    -n --dry-run             Do nothing
-    --server URL             XNAT server to connect to, overrides the server
-                             defined in the configuration files.
-    -u --username USER       XNAT username. If specified then the environment
-                             variables (or any credential files) are ignored
-                             and you are prompted for a password. Note that if
-                             multiple servers are configured for a study the
-                             login used should be valid for all servers.
-    --dont-update-dashboard  Dont update the dashboard database
-    -t --tag tag,...         List of scan tags to download
-    --use-dcm2bids           Pull xnat data and convert to bids using dcm2bids
-    --keep-dcm               Keep raw dcm pulled from xnat in temp folder
-    --dcm-config CONFIG      Path to dcm2bids config file
-    --bids-out BIDS_OUT      Path to output bids folder
-    --force-dcm2niix         Force dcm2niix to be rerun in dcm2bids
-    --clobber                Clobber previous bids data
-
 OUTPUT FOLDERS
     Each dicom series will be converted and placed into a subfolder of the
     datadir named according to the converted filetype and subject ID, e.g.
@@ -95,7 +64,6 @@ import datman.scanid
 import datman.exceptions
 
 from dcm2bids import Dcm2bids
-from pathlib import Path
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 logger = logging.getLogger(os.path.basename(__file__))
@@ -112,16 +80,16 @@ wanted_tags = None
 
 def _is_dir(path, parser):
     """Ensure a given directory exists."""
-    if path is None or not Path(path).is_dir():
+    if path is None or not os.path.isdir(path):
         raise parser.error(f"Directory does not exist: <{path}>")
-    return Path(path).absolute()
+    return os.path.abspath(path)
 
 
 def _is_file(path, parser):
     """Ensure a given file exists."""
-    if path is None or not Path(path).is_file():
+    if path is None or not os.path.isfile(path):
         raise parser.error(f"File does not exist: <{path}>")
-    return Path(path).absolute()
+    return os.path.abspath(path)
 
 
 def main():
@@ -144,13 +112,12 @@ def main():
     g_main.add_argument(
         "study",
         action="store",
-        required=True,
         help="Nickname of the study to process",
     )
     g_main.add_argument(
         "experiment",
         action="store",
-        nargs="?",
+        nargs='?',
         help="Full ID of the experiment to process",
     )
     g_main.add_argument(
@@ -184,13 +151,13 @@ def main():
         nargs="?",
         help="List of scan tags to download"
     )
+    g_main.add_argument(
+        "--use-dcm2bids", action="store_true", default=False,
+        help="Pull xnat data and convert to bids using dcm2bids"
+    )
 
     g_dcm2bids = parser.add_argument_group(
         "Options for using dcm2bids"
-    )
-    g_dcm2bids.add_argument(
-        "--use-dcm2bids", action="store_true", default=False,
-        help="Pull xnat data and convert to bids using dcm2bids"
     )
     g_dcm2bids.add_argument(
         "--bids-out", action="store", metavar="DIR",
@@ -238,9 +205,6 @@ def main():
     )
 
     args = parser.parse_args()
-    verbose = args.verbose
-    debug = args.debug
-    quiet = args.quiet
     study = args.study
     experiment = args.experiment
     wanted_tags = args.tag
@@ -248,6 +212,9 @@ def main():
     db_ignore = args.dont_update_dashboard
     SERVER_OVERRIDE = args.server
     use_dcm2bids = args.use_dcm2bids
+    debug = args.debug
+    quiet = args.quiet
+    verbose = args.verbose
 
     if args.dry_run:
         DRYRUN = True
