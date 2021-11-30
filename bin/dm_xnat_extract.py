@@ -2,31 +2,6 @@
 """
 Extracts data from XNAT archive folders into a few well-known formats.
 
-Usage:
-    dm_xnat_extract.py [options] <study> [-t <tag>]...
-    dm_xnat_extract.py [options] <study> <experiment> [-t <tag>]...
-
-Arguments:
-    <study>                  Nickname of the study to process
-    <experiment>             Full ID of the experiment to process
-
-Options:
-    --blacklist FILE         Table listing series to ignore override the
-                             default metadata/blacklist.csv
-    -v --verbose             Show intermediate steps
-    -d --debug               Show debug messages
-    -q --quiet               Show minimal output
-    -n --dry-run             Do nothing
-    --server URL             XNAT server to connect to, overrides the server
-                             defined in the configuration files.
-    -u --username USER       XNAT username. If specified then the environment
-                             variables (or any credential files) are ignored
-                             and you are prompted for a password. Note that if
-                             multiple servers are configured for a study the
-                             login used should be valid for all servers.
-    --dont-update-dashboard  Dont update the dashboard database
-    -t --tag tag,...         List of scan tags to download
-
 OUTPUT FOLDERS
     Each dicom series will be converted and placed into a subfolder of the
     datadir named according to the converted filetype and subject ID, e.g.
@@ -78,7 +53,6 @@ import sys
 import re
 import zipfile
 
-from docopt import docopt
 import pydicom as dicom
 
 import datman.dashboard as dashboard
@@ -88,6 +62,9 @@ import datman.utils
 import datman.scan
 import datman.scanid
 import datman.exceptions
+
+from dcm2bids import Dcm2bids
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 logger = logging.getLogger(os.path.basename(__file__))
 
@@ -101,6 +78,20 @@ db_ignore = False  # if True dont update the dashboard db
 wanted_tags = None
 
 
+def _is_dir(path, parser):
+    """Ensure a given directory exists."""
+    if path is None or not os.path.isdir(path):
+        raise parser.error(f"Directory does not exist: <{path}>")
+    return os.path.abspath(path)
+
+
+def _is_file(path, parser):
+    """Ensure a given file exists."""
+    if path is None or not os.path.isfile(path):
+        raise parser.error(f"File does not exist: <{path}>")
+    return os.path.abspath(path)
+
+
 def main():
     global AUTH
     global SERVER_OVERRIDE
@@ -109,18 +100,127 @@ def main():
     global wanted_tags
     global db_ignore
 
-    arguments = docopt(__doc__)
-    verbose = arguments['--verbose']
-    debug = arguments['--debug']
-    quiet = arguments['--quiet']
-    study = arguments['<study>']
-    experiment = arguments['<experiment>']
-    wanted_tags = arguments['--tag']
-    username = arguments['--username']
-    db_ignore = arguments['--dont-update-dashboard']
-    SERVER_OVERRIDE = arguments['--server']
+    parser = ArgumentParser(
+        description="Extracts data from XNAT archive folders into a "
+                    "few well-known formats.",
+        formatter_class=ArgumentDefaultsHelpFormatter,
+    )
 
-    if arguments['--dry-run']:
+    g_main = parser.add_argument_group(
+        "Options for choosing data from XNAT to extract"
+    )
+    g_main.add_argument(
+        "study",
+        action="store",
+        help="Nickname of the study to process",
+    )
+    g_main.add_argument(
+        "experiment",
+        action="store",
+        nargs='?',
+        help="Full ID of the experiment to process",
+    )
+    g_main.add_argument(
+        "--blacklist", action="store", metavar="FILE",
+        type=lambda x: _is_file(x, parser),
+        help="Table listing series to ignore override the "
+             "default metadata/blacklist.csv"
+    )
+    g_main.add_argument(
+        "--server", action="store", metavar="URL",
+        help="XNAT server to connect to, overrides the server "
+             "defined in the configuration files."
+    )
+    g_main.add_argument(
+        "-u", "--username", action="store", metavar="USER",
+        help="XNAT username. If specified then the environment "
+             "variables (or any credential files) are ignored "
+             "and you are prompted for a password. Note that if "
+             "multiple servers are configured for a study the "
+             "login used should be valid for all servers.."
+    )
+    g_main.add_argument(
+        "--dont-update-dashboard", action="store_true", default=False,
+        help="Dont update the dashboard database"
+    )
+    g_main.add_argument(
+        "-t",
+        "--tag",
+        action="store",
+        metavar="tag,...",
+        nargs="?",
+        help="List of scan tags to download"
+    )
+    g_main.add_argument(
+        "--use-dcm2bids", action="store_true", default=False,
+        help="Pull xnat data and convert to bids using dcm2bids"
+    )
+
+    g_dcm2bids = parser.add_argument_group(
+        "Options for using dcm2bids"
+    )
+    g_dcm2bids.add_argument(
+        "--bids-out", action="store", metavar="DIR",
+        type=lambda x: _is_dir(x, parser),
+        help="Path to output bids folder"
+    )
+    g_dcm2bids.add_argument(
+        "--dcm-config", action="store", metavar="FILE",
+        type=lambda x: _is_file(x, parser),
+        help="Path to dcm2bids config file"
+    )
+    g_dcm2bids.add_argument(
+        "--keep-dcm", action="store_true", default=False,
+        help="Keep raw dcm pulled from xnat in temp folder"
+    )
+    g_dcm2bids.add_argument(
+        "--force-dcm2niix", action="store_true", default=False,
+        help="Force dcm2niix to be rerun in dcm2bids"
+    )
+    g_dcm2bids.add_argument(
+        "--clobber", action="store_true", default=False,
+        help="Clobber previous bids data"
+    )
+
+    g_perfm = parser.add_argument_group("Options for logging and debugging")
+    g_perfm.add_argument(
+        "-d", "--debug", action="store_true",
+        default=False,
+        help="Show debug messages"
+    )
+    g_perfm.add_argument(
+        "-q", "--quiet", action="store_true",
+        default=False,
+        help="Minimal logging"
+    )
+    g_perfm.add_argument(
+        "-v", "--verbose", action="store_true",
+        default=False,
+        help="Maximal logging"
+    )
+    g_perfm.add_argument(
+        "-n", "--dry-run", action="store_true",
+        default=False,
+        help="Do nothing"
+    )
+
+    args = parser.parse_args()
+    study = args.study
+    experiment = args.experiment
+    wanted_tags = args.tag
+    username = args.username
+    db_ignore = args.dont_update_dashboard
+    SERVER_OVERRIDE = args.server
+    use_dcm2bids = args.use_dcm2bids
+    debug = args.debug
+    quiet = args.quiet
+    verbose = args.verbose
+
+    if (not args.use_dcm2bids) and (args.keep_dcm or args.dcm_config
+        or args.bids_out or args.force_dcm2niix or args.clobber):
+        parser.error("dcm2bids configuration requires --use-dcm2bids")
+
+    if args.dry_run:
         DRYRUN = True
         db_ignore = True
 
@@ -139,7 +239,15 @@ def main():
         len(experiments), study))
 
     for xnat, project, experiment in experiments:
-        process_experiment(xnat, project, experiment)
+        if (use_dcm2bids):
+            dcm2bids_opt = Dcm2BidsConfig(keep_dcm=args.keep_dcm,
+                                          dcm2bids_config=args.dcm_config,
+                                          bids_out=args.bids_out,
+                                          force_dcm2niix=args.force_dcm2niix,
+                                          clobber=args.clobber)
+            xnat_to_bids(xnat, project, experiment, dcm2bids_opt)
+        else:
+            process_experiment(xnat, project, experiment)
 
 
 def configure_logging(study, quiet=None, verbose=None, debug=None):
@@ -279,6 +387,63 @@ def process_experiment(xnat, project, ident):
         process_resources(xnat, ident, xnat_experiment)
     if xnat_experiment.scans:
         process_scans(xnat, ident, xnat_experiment)
+
+
+class Dcm2BidsConfig(object):
+    def __init__(self, keep_dcm=False, bids_out=None,
+                 force_dcm2niix=False, clobber=False, dcm2bids_config=None):
+        self.keep_dcm = keep_dcm
+        self.force_dcm2niix = force_dcm2niix
+        self.clobber = clobber
+        self.dcm2bids_config = dcm2bids_config
+        self.bids_out = bids_out
+        if dcm2bids_config is None:
+            try:
+                self.dcm2bids_config = datman.utils.locate_metadata(
+                    "dcm2bids.json", config=cfg
+                )
+            except FileNotFoundError:
+                logger.error("No config file available for study {}."
+                             "".format(cfg.study_name))
+        if bids_out is None:
+            self.bids_out = cfg.get_path("bids")
+
+
+def xnat_to_bids(xnat, project, ident, dcm2bids_opt):
+    bids_sub = ident.get_bids_name()
+    bids_ses = ident.timepoint
+    experiment_label = ident.get_xnat_experiment_id()
+
+    try:
+        xnat_experiment = xnat.get_experiment(
+            project, ident.get_xnat_subject_id(), experiment_label)
+    except datman.exceptions.XnatException as e:
+        logger.error("Unable to retrieve experiment {} from XNAT server. "
+                     "{}: {}".format(experiment_label, type(e).__name__, e))
+        return
+
+    with datman.utils.make_temp_directory(prefix='xnat_to_bids_') as tempdir:
+        for scan in xnat_experiment.scans:
+            scan_temp = get_dicom_archive_from_xnat(xnat, scan, tempdir)
+            if not scan_temp:
+                logger.error("Failed getting series {} for experiment {} "
+                             "from XNAT".format(scan.series, scan.experiment))
+                return
+
+        sub_dcm_dir = os.path.join(tempdir, experiment_label, "scans")
+        try:
+            dcm2bids_app = Dcm2bids(sub_dcm_dir, bids_sub,
+                                    dcm2bids_opt.dcm2bids_config,
+                                    output_dir=dcm2bids_opt.bids_out,
+                                    session=bids_ses,
+                                    clobber=dcm2bids_opt.clobber,
+                                    forceDcm2niix=dcm2bids_opt.force_dcm2niix,
+                                    log_level="INFO")
+            dcm2bids_app.run()
+        except Exception as e:
+            logger.error("Dcm2Bids failed to run for experiment {}. {}:"
+                         " {}".format(experiment_label, type(e).__name__, e))
+            return
 
 
 def set_date(session, experiment):
