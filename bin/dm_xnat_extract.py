@@ -63,11 +63,17 @@ import datman.scan
 import datman.scanid
 import datman.exceptions
 
-from dcm2bids import Dcm2bids
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 logger = logging.getLogger(os.path.basename(__file__))
 
+try:
+    from dcm2bids import Dcm2bids
+except ImportError:
+    dcm2bids_found = False
+    logger.error("Dcm2Bids not found, proceeding without it.")
+else:
+    dcm2bids_found = True
 
 SERVERS = {}
 SERVER_OVERRIDE = None
@@ -240,6 +246,10 @@ def main():
 
     for xnat, project, experiment in experiments:
         if (use_dcm2bids):
+            if not dcm2bids_found:
+                logger.error("Failed to find Dcm2Bids to import while using "
+                             "--use-dcm2bids flag. Exiting dcm2bids conversion")
+                return
             dcm2bids_opt = Dcm2BidsConfig(keep_dcm=args.keep_dcm,
                                           dcm2bids_config=args.dcm_config,
                                           bids_out=args.bids_out,
