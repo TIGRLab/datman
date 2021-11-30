@@ -247,8 +247,9 @@ def main():
     for xnat, project, experiment in experiments:
         if (use_dcm2bids):
             if not dcm2bids_found:
-                logger.error("Failed to find Dcm2Bids to import while using "
-                             "--use-dcm2bids flag. Exiting dcm2bids conversion")
+                logger.error("Failed to import Dcm2Bids. Ensure that "
+                             "Dcm2Bids is installed when using the "
+                             "--use-dcm2bids flag.  Exiting conversion")
                 return
             dcm2bids_opt = Dcm2BidsConfig(keep_dcm=args.keep_dcm,
                                           dcm2bids_config=args.dcm_config,
