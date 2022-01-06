@@ -45,12 +45,22 @@ def read_eprime(eprimefile):
     '''
     Read in ePrime file with appropriate encoding
     '''
-    eprime = codecs.open(eprimefile, "r", encoding="utf-16", errors="strict")
-    lines = []
-    for line in eprime:
-        lines.append(str(line))
-    return lines
+    encodings = ['utf-16', 'utf-16-be', 'utf-16-le']
 
+    for enc in encodings:
+        try:
+            eprime = codecs.open(eprimefile, "r", encoding=enc, errors="strict")
+            lines = []
+            for line in eprime:
+                lines.append(str(line))
+            if lines and 'Header Start' in lines[0]:
+               return lines
+        
+        except UnicodeError as e:
+            logging.info(f"Failed to read {eprimefile} with {enc} encoding.")
+            continue
+
+    raise UnicodeError(f'Unable to find appropriate encoding')
 
 def find_all_data(eprime, tag):
     '''
