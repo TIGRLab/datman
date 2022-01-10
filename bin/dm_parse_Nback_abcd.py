@@ -45,11 +45,21 @@ def read_eprime(eprimefile):
     '''
     Read in ePrime file with appropriate encoding
     '''
-    eprime = codecs.open(eprimefile, "r", encoding="utf-16", errors="strict")
-    lines = []
-    for line in eprime:
-        lines.append(str(line))
-    return lines
+    encodings = ['utf-16', 'utf-16-be', 'utf-16-le']
+
+    for enc in encodings:
+        try:
+            eprime = codecs.open(eprimefile, "r", encoding=enc, errors="strict")
+            lines = []
+            for line in eprime:
+                lines.append(str(line))
+            if lines and 'Header Start' in lines[0]:
+                return lines
+        except UnicodeError:
+            logging.info(f"Failed to read {eprimefile} with {enc} encoding.")
+            continue
+
+    raise UnicodeError('Unable to find appropriate encoding')
 
 
 def find_all_data(eprime, tag):
@@ -118,11 +128,11 @@ def map_response(x):
     if x.isdigit():
         return x
 
-    mapdict = {'a': 1, 'b': 2, 'c': 3, 'd': 4} 
+    mapdict = {'a': 1, 'b': 2, 'c': 3, 'd': 4}
     try:
         res = int(mapdict[x])
     except KeyError:
-        logger.error(f"Value \'{x}\' is neither numeric nor matches 'a or b or c or d'")
+        logger.error(f"Value \'{x}\' is neither numeric nor matches 'a-d'")
 
     return res
 
@@ -139,7 +149,7 @@ def main():
     dryrun = arguments["--dry-run"]
 
     if verbose:
-        logger.seLevel(logging.INFO)
+        logger.setLevel(logging.INFO)
     if debug:
         logger.setLevel(logging.DEBUG)
     if quiet:
@@ -158,9 +168,8 @@ def main():
     elif not isinstance(sessions, list):
         sessions = [sessions]
 
-    print_sessions = "\n".join(sessions)
-    logger.debug("Running ABCD Nback parser for session(s):")
-    logger.debug(f"{print_sessions}")
+    logger.debug(f"Running ABCD Nback parser for {len(sessions)} session(s):")
+    logger.debug(f"Out dir: {out_dir}")
 
     for ses in sessions:
         logger.info(f"Parsing {ses}...")
@@ -223,7 +232,8 @@ def main():
                 stimOT = get_event_value(b, 'Stim.OnsetTime:')
                 # Convert from ms to seconds
                 rel_stimOT = float(stimOT) / 1000
-                duration = float(get_event_value(b, 'Stim.OnsetToOnsetTime:')) / 1000
+                duration = float(get_event_value(
+                    b, 'Stim.OnsetToOnsetTime:')) / 1000
                 response_time = float(get_event_value(b, 'Stim.RT:')) / 1000
                 entries.append({
                     'onset':
@@ -231,7 +241,8 @@ def main():
                     'duration':
                     duration,
                     'run_type':
-                    'Run1' if 'Run1' in str(b) else 'Run2' if 'Run2' in str(b) else np.nan,
+                    'Run1' if 'Run1' in str(b) else 'Run2' if 'Run2' in str(b)
+                        else np.nan,
                     'trial_type':
                     get_event_value(b, "BlockType:"),
                     'response_time':
@@ -258,16 +269,16 @@ def main():
                     "participant_response": "Int64",
                     "accuracy": "Int64"
                 })
-            
+
             data['run_type'].fillna(method='ffill', inplace=True)
 
-            log_head, log_tail = os.path.split(eprimefile)
-
             if not out_dir:
-                out_dir = os.path.join(
+                out_path = os.path.join(
                     nii_path, ident.get_full_subjectid_with_timepoint())
+            else:
+                out_path = out_dir
 
-            file_name = os.path.join(out_dir, f"{ses}_Nback_abcd.tsv")
+            file_name = os.path.join(out_path, f"{ses}_Nback_abcd.tsv")
 
             if not dryrun:
                 logger.info(f"Saving output to {file_name}")
