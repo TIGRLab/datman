@@ -54,13 +54,15 @@ def read_eprime(eprimefile):
             for line in eprime:
                 lines.append(str(line))
             if lines and 'Header Start' in lines[0]:
-               return lines
-        
+                return lines
+
         except UnicodeError as e:
-            logging.info(f"Failed to read {eprimefile} with {enc} encoding.")
+            logging.info(f"Failed to read {eprimefile} "
+                         f"with {enc} encoding: {e}")
             continue
 
-    raise UnicodeError(f'Unable to find appropriate encoding')
+    raise UnicodeError("Unable to find appropriate encoding")
+
 
 def find_all_data(eprime, tag):
     '''
@@ -246,7 +248,7 @@ def main():
                     'onset':
                     rel_stimOT,
                     'duration':
-                    duration, 
+                    duration,
                     'trial_type':
                     'Shapes' if 'Shape' in str(b) else 'Faces',
                     'response_time':
@@ -283,7 +285,7 @@ def main():
                 out_path = out_dir
 
             file_name = os.path.join(out_path, f"{ses}_FACES.tsv")
-            
+
             if not dryrun:
                 logger.info(f"Saving output to {file_name}")
                 os.makedirs(os.path.dirname(file_name), exist_ok=True)
