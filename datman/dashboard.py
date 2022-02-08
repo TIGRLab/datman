@@ -125,7 +125,7 @@ def filename_required(f):
 
 @dashboard_required
 def set_study_status(name, is_open):
-    studies = queries.get_study(name=name)
+    studies = queries.get_studies(name=name)
     if not studies:
         raise DashboardException(
             f"ID {name} contains invalid study / site combination"
@@ -177,7 +177,7 @@ def get_bids_subject(bids_name, bids_session, study=None):
 @dashboard_required
 @scanid_required
 def add_subject(name):
-    studies = queries.get_study(tag=name.study, site=name.site)
+    studies = queries.get_studies(tag=name.study, site=name.site)
     if not studies:
         raise DashboardException(
             f"ID {name} contains invalid study / site combination"
@@ -301,7 +301,7 @@ def get_bids_scan(name):
 @filename_required
 def add_scan(name, tag=None, series=None, description=None, source_id=None):
     session = get_session(name, create=True)
-    studies = queries.get_study(tag=name.study, site=name.site)
+    studies = queries.get_studies(tag=name.study, site=name.site)
     scan_name = _get_scan_name(name, tag, series)
 
     if len(studies) != 1:
@@ -336,7 +336,7 @@ def get_project(name=None, tag=None, site=None):
             "Can't locate a study without the study nickname or a study tag"
         )
 
-    studies = queries.get_study(name=name, tag=tag, site=site)
+    studies = queries.get_studies(name=name, tag=tag, site=site)
     search_term = name or tag
     if len(studies) == 0:
         raise DashboardException(
