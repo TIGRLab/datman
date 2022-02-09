@@ -188,7 +188,7 @@ def add_subject(name):
             "records found for that study / site "
             "combination"
         )
-    study = studies[0].study
+    study = studies[0]
 
     return study.add_timepoint(name)
 
@@ -309,7 +309,7 @@ def add_scan(name, tag=None, series=None, description=None, source_id=None):
             f"Can't identify study to add scan {scan_name} to. {len(studies)} "
             "matches found."
         )
-    study = studies[0].study
+    study = studies[0]
     allowed_tags = [st.tag for st in study.scantypes]
 
     if tag not in allowed_tags:
@@ -347,7 +347,7 @@ def get_project(name=None, tag=None, site=None):
             f"{search_term} does not uniquely identify a project"
         )
     if not name:
-        return studies[0].study
+        return studies[0]
     return studies[0]
 
 
