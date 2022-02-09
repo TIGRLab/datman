@@ -1525,9 +1525,6 @@ class XNATExperiment(XNATObject):
                 set the zip name will be session.name
 
         """
-        if not self.experiment:
-            raise ValueError(f"No data found for {self.name}")
-
         resources_list = list(self.scan_resource_IDs)
         resources_list.extend(self.misc_resource_IDs)
         resources_list.extend(self.resource_IDs)
