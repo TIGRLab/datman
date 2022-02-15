@@ -31,7 +31,7 @@ jobs:
   build:
     working_directory: /tmp/src/datman
     machine:
-      image: ubuntu-1604:201903-01
+      image: ubuntu-2004:202111-02
     steps:
       - checkout
       - run:
@@ -50,7 +50,7 @@ jobs:
       - run:
           name: Set up installation and cache
           command: |
-            pyenv global 3.7.0
+            pyenv global 3.9.7
             pip install --upgrade pip
             pip install -e .[all]
       - save_cache:
@@ -64,7 +64,7 @@ jobs:
       - run:
           name: Run pytest and output junit xml for codecov
           command: |
-            pyenv global 3.7.0
+            pyenv global 3.9.7
             pytest tests/ --junitxml=tests/results/junit-{envname}.xml --cov . \
               --cov-report term-missing --cov-report xml
       - codecov/upload:
@@ -74,7 +74,7 @@ jobs:
   test_deploy_pypi:
     working_directory: /tmp/src/datman
     docker:
-      - image: "python:3.7.0"
+      - image: "python:3.9.0"
     steps:
       - checkout
       - run:
@@ -144,7 +144,7 @@ jobs:
   deployable:
     working_directory: /tmp/src/datman
     docker:
-      - image: "python:3.7.0"
+      - image: "python:3.9.0"
     steps:
       - run:
           command: |
@@ -153,7 +153,7 @@ jobs:
   deploy_pypi:
     working_directory: /tmp/src/datman
     docker:
-      - image: "python:3.7.0"
+      - image: "python:3.9.0"
     steps:
       - checkout
       - run:
@@ -186,7 +186,7 @@ jobs:
   build_docs:
     working_directory: /tmp/src/datman
     docker:
-      - image: "python:3.7.0"
+      - image: "python:3.9.0"
     steps:
       - checkout
       - restore_cache:
