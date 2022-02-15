@@ -310,7 +310,7 @@ def add_scan(name, tag=None, series=None, description=None, source_id=None):
             "matches found."
         )
     study = studies[0]
-    allowed_tags = [st.tag for st in study.scantypes]
+    allowed_tags = [st.scantype_id for st in study.scantypes[name.site]]
 
     if tag not in allowed_tags:
         raise DashboardException(
