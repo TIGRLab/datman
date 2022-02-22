@@ -4,17 +4,18 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>datman.scan_list module &mdash; datman 0.2.0rc1 documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <title>datman.scan_list module &mdash; datman 0.2.0rc1 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="../_static/banner.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
         <script src="../_static/doctools.js"></script>
-        <script src="../_static/language_data.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -98,7 +99,7 @@
 
 
 <section id="module-datman.scan_list">
-<span id="datman-scan-list-module"></span><h1>datman.scan_list module<a class="headerlink" href="#module-datman.scan_list" title="Permalink to this headline">¶</a></h1>
+<span id="datman-scan-list-module"></span><h1>datman.scan_list module<a class="headerlink" href="#module-datman.scan_list" title="Permalink to this headline"></a></h1>
 <p>This script contains code to generate a scans.csv for instances where the
 subject ID in the dicom headers is wrong in a systematic way. That is,
 this script can be used when the dicom headers and/or file name contains enough
@@ -124,20 +125,20 @@ return datman_id</p>
 metadata_path)</p>
 </dd>
 </dl>
-<dl class="class">
-<dt id="datman.scan_list.ScanEntryABC">
-<em class="property">class </em><code class="sig-prename descclassname">datman.scan_list.</code><code class="sig-name descname">ScanEntryABC</code><span class="sig-paren">(</span><em class="sig-param">scan_path</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.ScanEntryABC" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="datman.scan_list.ScanEntryABC">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.scan_list.</span></span><span class="sig-name descname"><span class="pre">ScanEntryABC</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scan_path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.ScanEntryABC" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<dl class="method">
-<dt id="datman.scan_list.ScanEntryABC.get_target_name">
-<em class="property">abstract </em><code class="sig-name descname">get_target_name</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.ScanEntryABC.get_target_name" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.scan_list.ScanEntryABC.get_target_name">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_target_name</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.ScanEntryABC.get_target_name" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
-<dl class="function">
-<dt id="datman.scan_list.generate_scan_list">
-<code class="sig-prename descclassname">datman.scan_list.</code><code class="sig-name descname">generate_scan_list</code><span class="sig-paren">(</span><em class="sig-param">scan_entry_class</em>, <em class="sig-param">zip_files</em>, <em class="sig-param">dest_dir</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.generate_scan_list" title="Permalink to this definition">¶</a></dt>
+<dl class="py function">
+<dt class="sig sig-object py" id="datman.scan_list.generate_scan_list">
+<span class="sig-prename descclassname"><span class="pre">datman.scan_list.</span></span><span class="sig-name descname"><span class="pre">generate_scan_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scan_entry_class</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zip_files</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest_dir</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.generate_scan_list" title="Permalink to this definition"></a></dt>
 <dd><p>Use this function to generate a scans.csv file of the expected format.</p>
 <dl class="simple">
 <dt>scan_entry_class:       A subclass of ScanEntryABC that will be used to</dt><dd><p>generate each entry in scans.csv</p>
@@ -147,24 +148,24 @@ metadata_path)</p>
 <p>dest_dir:               The directory where scans.csv will be saved</p>
 </dd></dl>
 
-<dl class="function">
-<dt id="datman.scan_list.get_scan_list_contents">
-<code class="sig-prename descclassname">datman.scan_list.</code><code class="sig-name descname">get_scan_list_contents</code><span class="sig-paren">(</span><em class="sig-param">scans_csv</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.get_scan_list_contents" title="Permalink to this definition">¶</a></dt>
+<dl class="py function">
+<dt class="sig sig-object py" id="datman.scan_list.get_scan_list_contents">
+<span class="sig-prename descclassname"><span class="pre">datman.scan_list.</span></span><span class="sig-name descname"><span class="pre">get_scan_list_contents</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scans_csv</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.get_scan_list_contents" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
-<dl class="function">
-<dt id="datman.scan_list.make_new_entries">
-<code class="sig-prename descclassname">datman.scan_list.</code><code class="sig-name descname">make_new_entries</code><span class="sig-paren">(</span><em class="sig-param">processed_scans</em>, <em class="sig-param">zip_files</em>, <em class="sig-param">EntryClass</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.make_new_entries" title="Permalink to this definition">¶</a></dt>
+<dl class="py function">
+<dt class="sig sig-object py" id="datman.scan_list.make_new_entries">
+<span class="sig-prename descclassname"><span class="pre">datman.scan_list.</span></span><span class="sig-name descname"><span class="pre">make_new_entries</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">processed_scans</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zip_files</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">EntryClass</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.make_new_entries" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
-<dl class="function">
-<dt id="datman.scan_list.start_new_scan_list">
-<code class="sig-prename descclassname">datman.scan_list.</code><code class="sig-name descname">start_new_scan_list</code><span class="sig-paren">(</span><em class="sig-param">output</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.start_new_scan_list" title="Permalink to this definition">¶</a></dt>
+<dl class="py function">
+<dt class="sig sig-object py" id="datman.scan_list.start_new_scan_list">
+<span class="sig-prename descclassname"><span class="pre">datman.scan_list.</span></span><span class="sig-name descname"><span class="pre">start_new_scan_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.start_new_scan_list" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
-<dl class="function">
-<dt id="datman.scan_list.update_scans_csv">
-<code class="sig-prename descclassname">datman.scan_list.</code><code class="sig-name descname">update_scans_csv</code><span class="sig-paren">(</span><em class="sig-param">output</em>, <em class="sig-param">new_entries</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.update_scans_csv" title="Permalink to this definition">¶</a></dt>
+<dl class="py function">
+<dt class="sig sig-object py" id="datman.scan_list.update_scans_csv">
+<span class="sig-prename descclassname"><span class="pre">datman.scan_list.</span></span><span class="sig-name descname"><span class="pre">update_scans_csv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_entries</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.update_scans_csv" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 </section>

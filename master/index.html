@@ -4,17 +4,18 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>datman &mdash; datman 0.2.0rc1 documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <title>datman &mdash; datman 0.2.0rc1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="_static/banner.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
         <script src="_static/doctools.js"></script>
-        <script src="_static/language_data.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -77,7 +78,7 @@
 
 
 <section id="datman">
-<h1>datman<a class="headerlink" href="#datman" title="Permalink to this headline">¶</a></h1>
+<h1>datman<a class="headerlink" href="#datman" title="Permalink to this headline"></a></h1>
 <a class="reference external image-reference" href="https://zenodo.org/badge/latestdoi/29540972"><img alt="https://zenodo.org/badge/29540972.svg" src="https://zenodo.org/badge/29540972.svg" /></a>
 <p>A set of python scripts we use for three major functions:</p>
 <ul class="simple">
@@ -93,7 +94,7 @@
 <li><p>[XNAT Database](<a class="reference external" href="http://imaging-genetics.camh.ca/database/">http://imaging-genetics.camh.ca/database/</a>)</p></li>
 </ul>
 <section id="introduction">
-<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline"></a></h2>
 <p><strong>definitions</strong></p>
 <blockquote>
 <div><ul class="simple">
@@ -129,11 +130,11 @@ python setup.py install</p>
 </ul>
 </section>
 <section id="datman-overview">
-<h2>Datman Overview<a class="headerlink" href="#datman-overview" title="Permalink to this headline">¶</a></h2>
+<h2>Datman Overview<a class="headerlink" href="#datman-overview" title="Permalink to this headline"></a></h2>
 <p>![](assets/imgs/data_flow.png)</p>
 </section>
 <section id="quality-control">
-<h2>Quality Control<a class="headerlink" href="#quality-control" title="Permalink to this headline">¶</a></h2>
+<h2>Quality Control<a class="headerlink" href="#quality-control" title="Permalink to this headline"></a></h2>
 <p>Datman runs a standard QC pipeline on all major datatypes. It largely does this using the [qcmon](<a class="reference external" href="https://github.com/josephdviviano/qcmon">https://github.com/josephdviviano/qcmon</a>) project.</p>
 <p>We QC the data at two levels: single subject, and chronologically. When QCing a single subject, we’re looking for major artifacts in the data, or problems with the subject (tumors, strokes, etc). When we are QCing chronologically, we’re looking for things in one subject that look rather different from all of the others (or most of the others). This is a good practice when you don’t know of a good ‘cut-off’. For example, no one know what SNR number is so low that the data becomes corrupted.</p>
 <p>The report generator also runs all of the QC metrics on our data. These files are placed (for each subject) in:</p>
@@ -212,7 +213,7 @@ python setup.py install</p>
 &gt; [2] Report on a multicenter fMRI quality assurance protocol. Friedman L et al. 2006. J Magn Reson Imaging 23(6).</p>
 </section>
 <section id="contents">
-<h2>Contents<a class="headerlink" href="#contents" title="Permalink to this headline">¶</a></h2>
+<h2>Contents<a class="headerlink" href="#contents" title="Permalink to this headline"></a></h2>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a><ul>
@@ -237,7 +238,7 @@ python setup.py install</p>
 </div>
 </section>
 <section id="indices-and-tables">
-<h2>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h2>
+<h2>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline"></a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
 <li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>

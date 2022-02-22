@@ -4,17 +4,18 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>datman.scan module &mdash; datman 0.2.0rc1 documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <title>datman.scan module &mdash; datman 0.2.0rc1 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="../_static/banner.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
         <script src="../_static/doctools.js"></script>
-        <script src="../_static/language_data.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -98,15 +99,15 @@
 
 
 <section id="module-datman.scan">
-<span id="datman-scan-module"></span><h1>datman.scan module<a class="headerlink" href="#module-datman.scan" title="Permalink to this headline">¶</a></h1>
+<span id="datman-scan-module"></span><h1>datman.scan module<a class="headerlink" href="#module-datman.scan" title="Permalink to this headline"></a></h1>
 <p>A class to make access to all information about a single scan easy
 and uniform.</p>
 <p>WARNING: This class currently assumes the contents of the directories
 does not change after the object is created. Certain attribute values may
 become out of date if this is not true.</p>
-<dl class="class">
-<dt id="datman.scan.DatmanNamed">
-<em class="property">class </em><code class="sig-prename descclassname">datman.scan.</code><code class="sig-name descname">DatmanNamed</code><span class="sig-paren">(</span><em class="sig-param">ident</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan.DatmanNamed" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="datman.scan.DatmanNamed">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.scan.</span></span><span class="sig-name descname"><span class="pre">DatmanNamed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ident</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan.DatmanNamed" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>A parent class for all classes that will obey the datman naming scheme</p>
 <dl class="field-list simple">
@@ -116,9 +117,9 @@ become out of date if this is not true.</p>
 </dl>
 </dd></dl>
 
-<dl class="class">
-<dt id="datman.scan.Scan">
-<em class="property">class </em><code class="sig-prename descclassname">datman.scan.</code><code class="sig-name descname">Scan</code><span class="sig-paren">(</span><em class="sig-param">subject_id</em>, <em class="sig-param">config</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan.Scan" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="datman.scan.Scan">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.scan.</span></span><span class="sig-name descname"><span class="pre">Scan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subject_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan.Scan" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#datman.scan.DatmanNamed" title="datman.scan.DatmanNamed"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.scan.DatmanNamed</span></code></a></p>
 <p>Holds all information for a single scan (session).</p>
 <dl class="field-list simple">
@@ -133,16 +134,16 @@ if missing.</p></li>
 </dl>
 <p>May raise a ParseException if the given subject_id does not match the
 datman naming convention</p>
-<dl class="method">
-<dt id="datman.scan.Scan.get_tagged_nii">
-<code class="sig-name descname">get_tagged_nii</code><span class="sig-paren">(</span><em class="sig-param">tag</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan.Scan.get_tagged_nii" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.scan.Scan.get_tagged_nii">
+<span class="sig-name descname"><span class="pre">get_tagged_nii</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan.Scan.get_tagged_nii" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="datman.scan.Series">
-<em class="property">class </em><code class="sig-prename descclassname">datman.scan.</code><code class="sig-name descname">Series</code><span class="sig-paren">(</span><em class="sig-param">path</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan.Series" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="datman.scan.Series">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.scan.</span></span><span class="sig-name descname"><span class="pre">Series</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan.Series" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#datman.scan.DatmanNamed" title="datman.scan.DatmanNamed"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.scan.DatmanNamed</span></code></a></p>
 <p>Holds all information about a series file of any format (e.g. nifti).</p>
 <dl class="field-list simple">

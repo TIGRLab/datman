@@ -4,17 +4,18 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>datman.fs_log_scraper module &mdash; datman 0.2.0rc1 documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <title>datman.fs_log_scraper module &mdash; datman 0.2.0rc1 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="../_static/banner.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
         <script src="../_static/doctools.js"></script>
-        <script src="../_static/language_data.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -98,78 +99,78 @@
 
 
 <section id="module-datman.fs_log_scraper">
-<span id="datman-fs-log-scraper-module"></span><h1>datman.fs_log_scraper module<a class="headerlink" href="#module-datman.fs_log_scraper" title="Permalink to this headline">¶</a></h1>
+<span id="datman-fs-log-scraper-module"></span><h1>datman.fs_log_scraper module<a class="headerlink" href="#module-datman.fs_log_scraper" title="Permalink to this headline"></a></h1>
 <p>Scrapes the ‘scripts’ log files in a freesurfer output folder for information
 about a run and reports any differences between the subjects and the expected
 parameters.</p>
 <p>The FSLog class aggregates/parses the most useful details from the log files.</p>
-<dl class="class">
-<dt id="datman.fs_log_scraper.FSLog">
-<em class="property">class </em><code class="sig-prename descclassname">datman.fs_log_scraper.</code><code class="sig-name descname">FSLog</code><span class="sig-paren">(</span><em class="sig-param">freesurfer_folder</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.FSLog" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="datman.fs_log_scraper.FSLog">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.fs_log_scraper.</span></span><span class="sig-name descname"><span class="pre">FSLog</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">freesurfer_folder</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.FSLog" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<dl class="method">
-<dt id="datman.fs_log_scraper.FSLog.get_args">
-<em class="property">static </em><code class="sig-name descname">get_args</code><span class="sig-paren">(</span><em class="sig-param">cmd_args</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.FSLog.get_args" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.fs_log_scraper.FSLog.get_args">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_args</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cmd_args</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.FSLog.get_args" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
-<dl class="method">
-<dt id="datman.fs_log_scraper.FSLog.get_date">
-<code class="sig-name descname">get_date</code><span class="sig-paren">(</span><em class="sig-param">date_str</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.FSLog.get_date" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.fs_log_scraper.FSLog.get_date">
+<span class="sig-name descname"><span class="pre">get_date</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">date_str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.FSLog.get_date" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
-<dl class="method">
-<dt id="datman.fs_log_scraper.FSLog.get_kernel">
-<code class="sig-name descname">get_kernel</code><span class="sig-paren">(</span><em class="sig-param">log_uname</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.FSLog.get_kernel" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.fs_log_scraper.FSLog.get_kernel">
+<span class="sig-name descname"><span class="pre">get_kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">log_uname</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.FSLog.get_kernel" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
-<dl class="method">
-<dt id="datman.fs_log_scraper.FSLog.get_niftis">
-<em class="property">static </em><code class="sig-name descname">get_niftis</code><span class="sig-paren">(</span><em class="sig-param">cmd_args</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.FSLog.get_niftis" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.fs_log_scraper.FSLog.get_niftis">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_niftis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cmd_args</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.FSLog.get_niftis" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
-<dl class="method">
-<dt id="datman.fs_log_scraper.FSLog.get_subject">
-<code class="sig-name descname">get_subject</code><span class="sig-paren">(</span><em class="sig-param">subject_field</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.FSLog.get_subject" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.fs_log_scraper.FSLog.get_subject">
+<span class="sig-name descname"><span class="pre">get_subject</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subject_field</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.FSLog.get_subject" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
-<dl class="method">
-<dt id="datman.fs_log_scraper.FSLog.parse_recon_done">
-<code class="sig-name descname">parse_recon_done</code><span class="sig-paren">(</span><em class="sig-param">recon_done</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.FSLog.parse_recon_done" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.fs_log_scraper.FSLog.parse_recon_done">
+<span class="sig-name descname"><span class="pre">parse_recon_done</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">recon_done</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.FSLog.parse_recon_done" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
-<dl class="method">
-<dt id="datman.fs_log_scraper.FSLog.read_log">
-<code class="sig-name descname">read_log</code><span class="sig-paren">(</span><em class="sig-param">path</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.FSLog.read_log" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.fs_log_scraper.FSLog.read_log">
+<span class="sig-name descname"><span class="pre">read_log</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.FSLog.read_log" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
-<dl class="function">
-<dt id="datman.fs_log_scraper.check_diff">
-<code class="sig-prename descclassname">datman.fs_log_scraper.</code><code class="sig-name descname">check_diff</code><span class="sig-paren">(</span><em class="sig-param">log_field</em>, <em class="sig-param">standards_field</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.check_diff" title="Permalink to this definition">¶</a></dt>
+<dl class="py function">
+<dt class="sig sig-object py" id="datman.fs_log_scraper.check_diff">
+<span class="sig-prename descclassname"><span class="pre">datman.fs_log_scraper.</span></span><span class="sig-name descname"><span class="pre">check_diff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">log_field</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">standards_field</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.check_diff" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
-<dl class="function">
-<dt id="datman.fs_log_scraper.choose_standard_sub">
-<code class="sig-prename descclassname">datman.fs_log_scraper.</code><code class="sig-name descname">choose_standard_sub</code><span class="sig-paren">(</span><em class="sig-param">subject_logs</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.choose_standard_sub" title="Permalink to this definition">¶</a></dt>
+<dl class="py function">
+<dt class="sig sig-object py" id="datman.fs_log_scraper.choose_standard_sub">
+<span class="sig-prename descclassname"><span class="pre">datman.fs_log_scraper.</span></span><span class="sig-name descname"><span class="pre">choose_standard_sub</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subject_logs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.choose_standard_sub" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
-<dl class="function">
-<dt id="datman.fs_log_scraper.make_standards">
-<code class="sig-prename descclassname">datman.fs_log_scraper.</code><code class="sig-name descname">make_standards</code><span class="sig-paren">(</span><em class="sig-param">standard_log</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.make_standards" title="Permalink to this definition">¶</a></dt>
+<dl class="py function">
+<dt class="sig sig-object py" id="datman.fs_log_scraper.make_standards">
+<span class="sig-prename descclassname"><span class="pre">datman.fs_log_scraper.</span></span><span class="sig-name descname"><span class="pre">make_standards</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">standard_log</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.make_standards" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
-<dl class="function">
-<dt id="datman.fs_log_scraper.scrape_logs">
-<code class="sig-prename descclassname">datman.fs_log_scraper.</code><code class="sig-name descname">scrape_logs</code><span class="sig-paren">(</span><em class="sig-param">fs_output_folders</em>, <em class="sig-param">standards=None</em>, <em class="sig-param">col_headers=False</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.scrape_logs" title="Permalink to this definition">¶</a></dt>
+<dl class="py function">
+<dt class="sig sig-object py" id="datman.fs_log_scraper.scrape_logs">
+<span class="sig-prename descclassname"><span class="pre">datman.fs_log_scraper.</span></span><span class="sig-name descname"><span class="pre">scrape_logs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fs_output_folders</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">standards</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">col_headers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.scrape_logs" title="Permalink to this definition"></a></dt>
 <dd><p>Takes a list of paths to freesurfer output folders and generates a list of
 log lines containing differences relative to a ‘standard’ subject.</p>
 <p>A field will be left empty if no differences are found</p>
 </dd></dl>
 
-<dl class="function">
-<dt id="datman.fs_log_scraper.verify_standards">
-<code class="sig-prename descclassname">datman.fs_log_scraper.</code><code class="sig-name descname">verify_standards</code><span class="sig-paren">(</span><em class="sig-param">standards_dict</em>, <em class="sig-param">expected_keys</em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.verify_standards" title="Permalink to this definition">¶</a></dt>
+<dl class="py function">
+<dt class="sig sig-object py" id="datman.fs_log_scraper.verify_standards">
+<span class="sig-prename descclassname"><span class="pre">datman.fs_log_scraper.</span></span><span class="sig-name descname"><span class="pre">verify_standards</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">standards_dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expected_keys</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.fs_log_scraper.verify_standards" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 </section>
