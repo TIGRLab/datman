@@ -5,12 +5,11 @@ RUN apt update && \
     apt install -y wget unzip git python3.8 python3-pip && \
     cd /usr/bin/ && \
     ln -s python3.8 python && \
-    ln -s pip3 pip && \
     pip install --upgrade pip
 
-# Install dcm2niix/v1.0.20210317
+# Install dcm2niix/v1.0.20211006
 RUN cd /tmp && \
-    wget https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20210317/dcm2niix_lnx.zip && \
+    wget https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20211006/dcm2niix_lnx.zip && \
     unzip -d /usr/bin/ dcm2niix_lnx.zip
 
 RUN cd / && \
