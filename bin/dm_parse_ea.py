@@ -49,61 +49,69 @@ def read_in_logfile(path):
     return log_file
 
 
-# Remove the rating when there is a scanner response during the task instead of just at the start
-def clean_logfile(log_file):
-    scan_response = ["101", "104"]
+def is_rating_after_response(current_row, previous_row):
 
-    # 1st list of indexes to remove scan responses and ratings in the dataframe
-    indexes_to_drop = []
+    SCAN_RESPONSE = ["101", "104"]
+    try:
+        is_rating = "rating" in current_row.Code
+    except TypeError:
+        is_rating = False
 
-    # Remove the rating that come after the scan response when there is a 102/103 response right before or after
-    # Also remove the rating that come after scan response and carry over to the next video
-    # The rating is always registered two indexes after the scan response
+    after_scan_resp = any(resp in previous_row.Code for resp in SCAN_RESPONSE)
+
+    return is_rating and after_scan_resp
+
+
+def remove_scan_response_ratings(log_file, indices_behind):
+    '''
+    Check if the current rating is after a scan response
+    which occurs <indices_behind> rows prior to the rating code
+    '''
+
+    drop_indices = []
     for index, row in log_file.iterrows():
-        if ("rating" in log_file["Code"][index]) and any(
-            resp in log_file["Code"][index - 2] for resp in scan_response
-        ):
-            # index to select the rating to drop
-            indexes_to_drop.append(index)
-            # index - 2 to select the scan response to drop
-            indexes_to_drop.append(index - 2)
 
-    if len(indexes_to_drop) == 0:
+        try:
+            previous_row = log_file.loc[index - indices_behind]
+        except KeyError:
+            continue
+
+        # Drop rating and scan response
+        if is_rating_after_response(row, previous_row):
+            drop_indices.append(index)
+            drop_indices.append(index - indices_behind)
+
+    if len(drop_indices) == 0:
         log_file_cleaned = log_file
     else:
-        log_file_cleaned = log_file.drop(log_file.index[indexes_to_drop])
+        log_file_cleaned = log_file.drop(log_file.index[drop_indices])
         log_file_cleaned = log_file_cleaned.reset_index(drop=True)
-        logger.warning(
-            f"Removed {len(indexes_to_drop)/2} registered rating occurred before or after actual rating"
-        )
 
-    # 2nd list of indexes to drop the remaining scan responses and ratings
-    indexes_to_drop_1 = []
+    return log_file_cleaned, len(drop_indices) / 2
 
-    # Remove the remaining rating response come right after scan response
-    # The rating is registered one index after the scan response
-    for index, row in log_file_cleaned.iterrows():
-        if ("rating" in log_file_cleaned["Code"][index]) and any(
-            resp in log_file_cleaned["Code"][index - 1]
-            for resp in scan_response
-        ):
-            # index to select the remaining rating to drop
-            indexes_to_drop_1.append(index)
-            # index - 1 select the remaing scan response to drop
-            indexes_to_drop_1.append(index - 1)
 
-    if len(indexes_to_drop_1) == 0:
-        final_log_file = log_file_cleaned
-    else:
-        final_log_file = log_file_cleaned.drop(
-            log_file_cleaned.index[indexes_to_drop_1]
-        )
-        final_log_file = final_log_file.reset_index(drop=True)
-        logger.warning(
-            f"Removed {len(indexes_to_drop_1)/2} rating registered followed scanner responses"
-        )
+# Remove the rating when there is a scanner response
+# during the task instead of just at the start
+def clean_logfile(log_file):
 
-    return final_log_file
+    # 1st list of indexes to remove scan responses and ratings in the dataframe
+    """
+    Remove the rating that come after the scan response when there
+    is a 102/103 response right before or after. Also remove the rating
+    that come after scan response and carry over to the next video
+    The rating is always registered two indexes after the scan response
+    """
+    log_file, indices_dropped = remove_scan_response_ratings(log_file, 2)
+    if indices_dropped > 0:
+        logger.warning(f"Removed {indices_dropped} registered "
+                       "rating occurred before or after actual rating")
+
+    log_file, indices_dropped = remove_scan_response_ratings(log_file, 1)
+    if indices_dropped > 0:
+        logger.warning(f"Removed {indices_dropped} rating registered "
+                       "followed scanner responses")
+
+    return log_file
 
 
 # Grabs the starts of blocks and returns rows for them
