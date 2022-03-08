@@ -110,9 +110,10 @@ def clean_logfile(log_file):
         logger.warning(f"Removed {indices_dropped} rating registered "
                        "followed scanner responses")
 
-    last_entry = log_file.loc[log_file.shape[0] - 1]
+    last_ind = log_file.shape[0] - 1
+    last_entry = log_file.loc[last_ind]
     if last_entry['Event Type'] == 'Quit':
-        log_file = log_file.drop(last_entry)
+        log_file = log_file.drop(last_ind)
         logger.error("Quit signal detected in log file! "
                      "Task may have ended early!")
 
