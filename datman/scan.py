@@ -110,7 +110,7 @@ class Scan(DatmanNamed):
         self.nrrd_path = self.__get_path("nrrd", config)
         self.mnc_path = self.__get_path("mnc", config)
         self.qc_path = self.__get_path("qc", config)
-        self.resource_path = self.__get_path("resources", config, session=True)
+        self.resources = self._get_resources(config)
 
         self.niftis = self.__get_series(self.nii_path, [".nii", ".nii.gz"])
 
@@ -124,6 +124,20 @@ class Scan(DatmanNamed):
         except KeyError:
             matched_niftis = []
         return matched_niftis
+
+    def _get_resources(self, config):
+        search_path = os.path.join(config.get_path("resources"),
+                                   self.full_id + "*")
+        valid_paths = []
+        for found_path in glob.glob(search_path):
+            try:
+                ident = datman.scanid.parse(os.path.basename(found_path))
+            except datman.scanid.ParseException:
+                continue
+            if ident.session:
+                # ignore folders missing a session, this is an error.
+                valid_paths.append(found_path)
+        return valid_paths
 
     def __check_session(self, id_str):
         """

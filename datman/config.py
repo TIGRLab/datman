@@ -18,7 +18,8 @@ import yaml
 
 import datman.dashboard as dashboard
 import datman.scanid
-from datman.exceptions import ConfigException, UndefinedSetting
+from datman.exceptions import (ConfigException, UndefinedSetting,
+                               DashboardException)
 
 logger = logging.getLogger(__name__)
 
@@ -164,14 +165,19 @@ class config(object):
             # full ID. Check for this case, exit if it's just a bad ID
             parts = filename.split("_")
             if len(parts) > 1:
-                raise datman.scanid.ParseException(f"Malformed ID: {filename}")
+                raise ConfigException("Can't determine study from malformed "
+                                      f"ID: {filename}")
             tag = parts[0]
             site = None
         else:
             tag = parts.study
             site = parts.site
 
-        project = dashboard.get_project(tag=tag, site=site)
+        try:
+            project = dashboard.get_project(tag=tag, site=site)
+        except DashboardException:
+            project = None
+
         if project:
             return project.id
 
@@ -180,7 +186,7 @@ class config(object):
         if tag == "DTI" and not isinstance(parts, datman.scanid.Identifier):
             # if parts isnt a datman scanid, only the study tag was given. Cant
             # be sure which DTI study is correct without site info
-            raise RuntimeError(
+            raise ConfigException(
                 "Cannot determine if DTI15T or DTI3T based on "
                 f"input: {filename}"
             )
@@ -226,7 +232,7 @@ class config(object):
                 return project
         # didn't find a match throw a warning
         logger.warn(f"Failed to find a valid project for xnat id: {tag}")
-        raise ValueError
+        raise ConfigException(f"Can't locate study {filename}")
 
     def _search_site_conf(self, site, key):
         """
