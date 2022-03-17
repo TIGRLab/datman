@@ -405,3 +405,19 @@ PHA_QC_FUNC = {
     "abcd_fmri": ABCDPHAMetrics,
     "ignore": IgnoreMetrics
 }
+
+
+def get_handlers(subject):
+    """Returns the set of QC functions to use for a subject.
+
+    Args:
+        subject (:obj:`datman.scan.Scan`): The session that metrics must be
+            generated for.
+
+    Returns:
+        :obj:`dict`: A dictionary of string QC 'types' mapped to the function
+            used to generate QC metrics for it.
+    """
+    if subject.is_phantom:
+        return PHA_QC_FUNC
+    return QC_FUNC
