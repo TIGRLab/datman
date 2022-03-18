@@ -33,7 +33,7 @@ class TestGetConfig:
         with pytest.raises(datman.exceptions.ConfigException):
             qc.get_config(study="madeupcode")
 
-    @patch('datman.config.config')
+    @patch("datman.config.config")
     def test_exits_gracefully_when_paths_missing_from_config(
             self, mock_config):
         def mock_get_path(key):
