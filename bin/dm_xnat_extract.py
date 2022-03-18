@@ -551,7 +551,9 @@ def process_resources(xnat, ident, xnat_experiment):
                 return
             notes = datman.utils.find_tech_notes(base_path)
             if notes:
-                session.tech_notes = notes
+                # Store only the path relative to the resources dir
+                session.tech_notes = notes.replace(
+                    cfg.get_path("resources"), "").lstrip("/")
                 session.save()
 
 
