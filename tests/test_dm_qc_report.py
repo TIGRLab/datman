@@ -12,8 +12,8 @@ logging.disable(logging.CRITICAL)
 
 qc = importlib.import_module("bin.dm_qc_report")
 
-FIXTURE_SETTINGS="tests/fixture_project_settings/site_config.yaml"
-FIXTURE_SYSTEM="local"
+FIXTURE_SETTINGS = "tests/fixture_project_settings/site_config.yaml"
+FIXTURE_SYSTEM = "local"
 
 config = datman.config.config(
     filename=FIXTURE_SETTINGS,
@@ -23,8 +23,7 @@ config = datman.config.config(
 
 
 @patch.dict(os.environ, {"DM_CONFIG": FIXTURE_SETTINGS,
-                         "DM_SYSTEM": FIXTURE_SYSTEM}
-)
+                         "DM_SYSTEM": FIXTURE_SYSTEM})
 class TestGetConfig:
 
     @patch("os.path.exists")
@@ -104,7 +103,6 @@ class TestMakeQCCommand:
         assert result == f"{qc.__file__} {self.study} {self.subid}"
 
 
-
 class TestPrepareScan:
     subid = "STUDY_SITE_ID_01"
     in_dir = os.path.join(config.get_path("nii"), subid)
@@ -142,6 +140,7 @@ class TestAddScanLength:
     @patch("bin.dm_qc_report.nib")
     def test_database_updated_with_length(self, mock_nib):
         shape = [1, 1, 1, 999]
+
         def mock_load(path):
             if path == self.nii_path:
                 data = Mock()
@@ -157,6 +156,7 @@ class TestAddScanLength:
     @patch("bin.dm_qc_report.nib")
     def test_scan_without_fourth_dimension_gets_length_na(self, mock_nib):
         shape = [1, 1, 1]
+
         def mock_load(path):
             if path == self.nii_path:
                 data = Mock()
