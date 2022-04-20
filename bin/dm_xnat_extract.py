@@ -446,6 +446,17 @@ def xnat_to_bids(xnat, project, ident, dcm2bids_opt):
 
     with datman.utils.make_temp_directory(prefix='xnat_to_bids_') as tempdir:
         for scan in xnat_experiment.scans:
+            if not scan.raw_dicoms_exist():
+                logger.warning("Skipping series {} for session {}."
+                               "No RAW dicoms exist"
+                               "".format(scan.series, xnat_experiment.name))
+                continue
+
+            if not scan.description:
+                logger.error("Can't find description for"
+                             " series {} from session {}"
+                             "".format(scan.series, xnat_experiment.name))
+                continue
             scan_temp = get_dicom_archive_from_xnat(xnat, scan, tempdir)
             if not scan_temp:
                 logger.error("Failed getting series {} for experiment {} "
