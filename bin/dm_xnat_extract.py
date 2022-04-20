@@ -433,7 +433,8 @@ def xnat_to_bids(xnat, project, ident, dcm2bids_opt):
                      "{}: {}".format(experiment_label, type(e).__name__, e))
         return
 
-    bids_dest = os.path.join(dcm2bids_opt.bids_out, 'sub-' + bids_sub, 'ses-' + bids_ses)
+    bids_dest = os.path.join(dcm2bids_opt.bids_out,
+                            'sub-' + bids_sub, 'ses-' + bids_ses)
     if (os.path.exists(bids_dest)):
         logger.info("{} already exists".format(bids_dest))
 
