@@ -433,6 +433,16 @@ def xnat_to_bids(xnat, project, ident, dcm2bids_opt):
                      "{}: {}".format(experiment_label, type(e).__name__, e))
         return
 
+    bids_dest = os.path.join(dcm2bids_opt.bids_out, 'sub-' + bids_sub, 'ses-' + bids_ses)
+    if (os.path.exists(bids_dest)):
+        logger.info("{} already exists".format(bids_dest))
+
+        if (dcm2bids_opt.clobber):
+            logger.info("Overwriting because of --clobber")
+        else:
+            logger.info("(Use --clobber to overwrite)")
+            return
+
     with datman.utils.make_temp_directory(prefix='xnat_to_bids_') as tempdir:
         for scan in xnat_experiment.scans:
             scan_temp = get_dicom_archive_from_xnat(xnat, scan, tempdir)
