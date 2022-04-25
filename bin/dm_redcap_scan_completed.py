@@ -78,7 +78,7 @@ def get_version(api_url, token):
 
 def add_session_redcap(record, record_key):
     record_id = record[record_key]
-    subject_id = record[cfg.get_key('RedcapSubj')].upper()
+    subject_id = record[get_setting('RedcapSubj', default='par_id')].upper()
     if not datman.scanid.is_scanid(subject_id):
         subject_id = subject_id + '_01'
         try:
@@ -92,7 +92,7 @@ def add_session_redcap(record, record_key):
         logger.error('Invalid session: {}, skipping'.format(subject_id))
         return
 
-    session_date = record[cfg.get_key('RedcapDate')]
+    session_date = record[get_setting('RedcapDate', default='date')]
 
     try:
         session = dashboard.get_session(ident, date=session_date, create=True)
@@ -102,7 +102,7 @@ def add_session_redcap(record, record_key):
         return
 
     try:
-        record_comment = record[cfg.get_key('RedcapComments')]
+        record_comment = record[get_setting('RedcapComments', default='cmts')]
         event_id = cfg.get_key('RedcapEventId')[record['redcap_event_name']]
     except (datman.config.UndefinedSetting, datman.config.ConfigException):
         logger.error("Can't add REDCap session info. Verify that "
@@ -158,6 +158,15 @@ def parse_id(subject_id):
     return datman.scanid.parse(subject_id, settings=id_map)
 
 
+def get_setting(key, default=None):
+    try:
+        return cfg.get_key(key)
+    except datman.config.UndefinedSetting as e:
+        if not default:
+            raise e
+        return default
+
+
 def main():
     global cfg
     global redcap_url
@@ -208,9 +217,11 @@ def main():
 
     redcap_project = cfg.get_key('RedcapProjectId')
     instrument = cfg.get_key('RedcapInstrument')
-    date_field = cfg.get_key('RedcapDate')
-    status_field = cfg.get_key('RedcapStatus')
-    status_val = cfg.get_key('RedcapStatusValue')
+    date_field = get_setting('RedcapDate', default='date')
+    status_field = get_setting(
+        'RedcapStatus', default='tigrlab_scan_completed_complete'
+    )
+    status_val = get_setting('RedcapStatusValue', default='2')
     record_key = cfg.get_key('RedcapRecordKey')
 
     # make status_val into a list

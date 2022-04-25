@@ -261,7 +261,7 @@ def get_archive_headers(archive_path):
                                                   stop_after_first=True)
         header = list(header.values())[0]
     except Exception:
-        logger.warn("Archive: {} contains no DICOMs".format(archive_path))
+        logger.warning("Archive: {} contains no DICOMs".format(archive_path))
     return header
 
 
@@ -287,7 +287,7 @@ def get_scanid_from_header(archive_path, scanid_field):
                      .format(archive_path, scanid_field, scanid))
         return scanid
     else:
-        logger.warn("{}: {} (header {}) not valid scan ID"
+        logger.warning("{}: {} (header {}) not valid scan ID"
                     .format(archive_path, scanid, scanid_field))
         return None
 

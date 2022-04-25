@@ -277,7 +277,7 @@ def resource_data_exists(xnat_resources, archive):
                                if zf.read(item)]
     empty_files = list(set(local_resources) - set(local_resources_mod))
     if empty_files:
-        logger.warn("Cannot upload empty resource files {}, omitting."
+        logger.warning("Cannot upload empty resource files {}, omitting."
                     "".format(", ".join(empty_files)))
     # paths in xnat are url encoded. Need to fix local paths to match
     local_resources_mod = [urllib.request.pathname2url(p)

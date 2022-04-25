@@ -365,7 +365,12 @@ def get_projects(config):
     """
     projects = {}
     for site in config.get_sites():
-        xnat_project = config.get_key("XnatArchive", site=site)
+        try:
+            xnat_project = config.get_key("XnatArchive", site=site)
+        except datman.config.UndefinedSetting:
+            logger.warning(f"{site} doesnt define an XnatArchive to pull "
+                           "from. Ignoring.")
+            continue
         projects.setdefault(xnat_project, set()).add(site)
     return projects
 
@@ -433,8 +438,30 @@ def xnat_to_bids(xnat, project, ident, dcm2bids_opt):
                      "{}: {}".format(experiment_label, type(e).__name__, e))
         return
 
+    bids_dest = os.path.join(dcm2bids_opt.bids_out,
+                             'sub-' + bids_sub, 'ses-' + bids_ses)
+    if (os.path.exists(bids_dest)):
+        logger.info("{} already exists".format(bids_dest))
+
+        if (dcm2bids_opt.clobber):
+            logger.info("Overwriting because of --clobber")
+        else:
+            logger.info("(Use --clobber to overwrite)")
+            return
+
     with datman.utils.make_temp_directory(prefix='xnat_to_bids_') as tempdir:
         for scan in xnat_experiment.scans:
+            if not scan.raw_dicoms_exist():
+                logger.warning("Skipping series {} for session {}."
+                               "No RAW dicoms exist"
+                               "".format(scan.series, xnat_experiment.name))
+                continue
+
+            if not scan.description:
+                logger.error("Can't find description for"
+                             " series {} from session {}"
+                             "".format(scan.series, xnat_experiment.name))
+                continue
             scan_temp = get_dicom_archive_from_xnat(xnat, scan, tempdir)
             if not scan_temp:
                 logger.error("Failed getting series {} for experiment {} "

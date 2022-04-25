@@ -50,11 +50,11 @@ import datman.dashboard as dashboard
 DRYRUN = False
 LINK_FILE_HEADERS = ['subject', 'target_subject', 'tags']
 
+logging.basicConfig(
+    level=logging.WARN,
+    format="[%(name)s] %(levelname)s: %(message)s"
+)
 logger = logging.getLogger(os.path.basename(__file__))
-log_handler = logging.StreamHandler()
-logger.addHandler(log_handler)
-log_handler.setFormatter(logging.Formatter('[%(name)s] %(levelname)s : '
-                                           '%(message)s'))
 
 
 def read_link_file(link_file):
@@ -64,7 +64,7 @@ def read_link_file(link_file):
         f.readline()
         for line in f:
             # Doing it this way so the file can be human readable
-            line = re.split('\\s*', line)
+            line = [item for item in re.split('\\s', line) if item]
             line = line[0:3]
             if not line == LINK_FILE_HEADERS:
                 yield(line)

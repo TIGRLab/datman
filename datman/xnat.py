@@ -203,7 +203,7 @@ class xnat(object):
         response = s.post(url, auth=self.auth)
 
         if not response.status_code == requests.codes.ok:
-            logger.warn(
+            logger.warning(
                 f"Failed connecting to xnat server {self.server} "
                 f"with response code {response.status_code}"
             )
@@ -1182,7 +1182,7 @@ class xnat(object):
             response = self.session.put(url, timeout=30)
 
         if response.status_code not in [200, 201]:
-            logger.warn(
+            logger.warning(
                 f"http client error at folder creation: {response.status_code}"
             )
             response.raise_for_status()
@@ -1207,7 +1207,7 @@ class xnat(object):
                 time.sleep(30)
                 self._make_xnat_post(url, data, retries=retries - 1)
             else:
-                logger.warn("xnat server timed out, giving up")
+                logger.warning("xnat server timed out, giving up")
                 response.raise_for_status()
 
         elif response.status_code != 200:
@@ -1238,7 +1238,7 @@ class xnat(object):
             response = self.session.delete(url, timeout=30)
 
         if response.status_code not in [200, 201]:
-            logger.warn(
+            logger.warning(
                 f"http client error deleting resource: {response.status_code}"
             )
             response.raise_for_status()

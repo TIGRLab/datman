@@ -272,17 +272,25 @@ def _parse_checklist(checklist, subject=None):
 
 
 def update_checklist(entries, study=None, config=None, path=None):
-    """
-    Handles QC checklist updates. Will preferentially update the dashboard
-    (ignoring any 'checklist.csv' files) unless the dashboard is not installed
-    or a specific path is given to a file.
+    """Add or update QC checklist entries.
 
-    <entries> should be a dictionary with subject IDs (minus session/repeat) as
-    the keys and qc entries as the value (with an empty string for new/blank
-    QC entries)
+    This will preferentially update the dashboard database (ignoring any
+    'checklist.csv' files) unless the dashboard is not installed or a specific
+    path is given to a file.
 
-    This will raise a MetadataException if any part of the update fails for
-    any entry.
+    Args:
+        entries (:obj:`dict`): A dictionary of subject IDs mapped to the
+            comment to add / update. Use an empty string to indicate sign off.
+        study (:obj:`str`, optional): the name of the study the subject(s)
+            belong to.
+        config (:obj:`datman.config.config`, optional): the configuration
+            for the study the subject(s) belong to.
+        path (:obj:`str`): The full path to the checklist.csv file to update.
+            Passing the full path will cause the dashboard database to be
+            by-passed even if the QC dashboard is installed.
+
+    Raises:
+        MetadataException: When update fails for any subject in 'entries'.
     """
     if not isinstance(entries, dict):
         raise MetadataException(
@@ -305,13 +313,12 @@ def update_checklist(entries, study=None, config=None, path=None):
     # Merge with existing list
     for subject in entries:
         try:
-            ident = scanid.parse(subject)
+            i = scanid.parse(subject)
         except scanid.ParseException:
             raise MetadataException(
                 f"Attempt to add invalid subject ID {subject} to QC checklist"
             )
-        subject = ident.get_full_subjectid_with_timepoint()
-        old_entries[subject] = entries[subject]
+        old_entries[i.get_full_subjectid_with_timepoint()] = entries[subject]
 
     # Reformat to expected checklist line format
     lines = [f"qc_{sub}.html {old_entries[sub]}\n" for sub in old_entries]

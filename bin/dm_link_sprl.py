@@ -49,7 +49,6 @@ def main():
     session = arguments['<session>']
 
     # setup logging
-    logging.basicConfig()
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.WARN)
     logger.setLevel(logging.WARN)
