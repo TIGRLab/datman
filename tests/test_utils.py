@@ -119,3 +119,20 @@ class TestValidateSubjectID:
         with pytest.raises(ParseException):
             bad_site = "AND01_UFO_0408_01_SE01_MR"
             utils.validate_subject_id(bad_site, dm_config)
+
+
+@patch('datman.utils.write_metadata')
+@patch('datman.utils.read_checklist')
+@patch('datman.utils.locate_metadata')
+@patch('datman.utils.dashboard')
+class TestUpdateChecklist:
+    def test_entry_with_repeat_num_doesnt_crash_when_updating_file(
+            self, mock_dash, mock_locate, mock_read, mock_write
+    ):
+        mock_dash.dash_found = False
+        mock_locate.return_value = '/some/path/checklist.csv'
+        mock_read.return_value = {}
+
+        utils.update_checklist(
+            {'STUDY_SITE_SUB001_01_01': 'comment'}, study='STUDY'
+        )

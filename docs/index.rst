@@ -1,17 +1,22 @@
+======
+datman
+======
+
+.. image:: https://zenodo.org/badge/29540972.svg
+   :target: https://zenodo.org/badge/latestdoi/29540972
+
 .. include:: links.rst
-.. include:: ../README.rst
-
-
-Contents
---------
 
 .. toctree::
    :maxdepth: 2
 
    installation
-   usage
+   datman_conf
    api
    changes
+
+
+.. include:: ../README.rst
 
 
 Indices and tables

@@ -57,7 +57,7 @@ def create_symlink(src, target_name, dest):
     datman.utils.define_folder(dest)
     target_path = os.path.join(dest, target_name)
     if os.path.isfile(target_path):
-        logger.warn('{} already exists. Not linking.'.format(target_path))
+        logger.warning('{} already exists. Not linking.'.format(target_path))
         return
     with datman.utils.cd(dest):
         rel_path = os.path.relpath(src, dest)
@@ -89,7 +89,7 @@ def force_json_name(json_filename, sub_dir):
 def create_json_sidecar(scan_filename, session_nii_dir, session_dcm_dir):
     json_filename = os.path.splitext(scan_filename)[0] + '.json'
     if os.path.isfile(os.path.join(session_nii_dir, json_filename)):
-        logger.warn('JSON sidecar {} already exists. '
+        logger.warning('JSON sidecar {} already exists. '
                     'Not creating.'.format(json_filename))
         return
     logger.info('Creating JSON sidecar {}'.format(json_filename))
