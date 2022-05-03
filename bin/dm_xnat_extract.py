@@ -388,16 +388,7 @@ def process_experiment(xnat, project, ident):
                      "{}: {}".format(experiment_label, type(e).__name__, e))
         return
 
-    if not db_ignore:
-        logger.debug("Adding session {} to dashboard".format(experiment_label))
-        try:
-            db_session = dashboard.get_session(ident, create=True)
-        except dashboard.DashboardException as e:
-            logger.error("Failed adding session {}. Reason: {}".format(
-                experiment_label, e))
-        else:
-            set_alt_ids(db_session, ident)
-            set_date(db_session, xnat_experiment)
+    add_session_to_db(ident, experiment, no_db=db_ignore)
 
     if xnat_experiment.resource_files:
         process_resources(xnat, ident, xnat_experiment)
@@ -437,6 +428,8 @@ def xnat_to_bids(xnat, project, ident, dcm2bids_opt):
         logger.error("Unable to retrieve experiment {} from XNAT server. "
                      "{}: {}".format(experiment_label, type(e).__name__, e))
         return
+
+    add_session_to_db(ident, xnat_experiment, no_db=db_ignore)
 
     bids_dest = os.path.join(dcm2bids_opt.bids_out,
                              'sub-' + bids_sub, 'ses-' + bids_ses)
@@ -484,6 +477,23 @@ def xnat_to_bids(xnat, project, ident, dcm2bids_opt):
             return
 
 
+def add_session_to_db(ident, experiment, no_db=False):
+    exp_label = ident.get_xnat_experiment_id()
+    if db_ignore:
+        logger.info(
+            f"Ignoring dashboard database, {exp_label} will not be added.")
+        return
+
+    try:
+        db_session = dashboard.get_session(ident, create=True)
+    except dashboard.DashboardException as e:
+        logger.error(f"Failed adding session {exp_label}. Reason {e}")
+        return
+
+    set_alt_ids(db_session, ident)
+    set_date(db_session, experiment)
+
+
 def set_date(session, experiment):
     if not experiment.date:
         logger.debug("No scanning date found for {}, leaving blank.".format(
@@ -505,7 +515,11 @@ def set_date(session, experiment):
 
 
 def set_alt_ids(session, ident):
-    if not isinstance(ident, datman.scanid.KCNIIdentifier):
+    session.timepoint.bids_name = ident.get_bids_name()
+    session.timepoint.bids_session = ident.timepoint
+    session.save()
+
+    if isinstance(ident, datman.scanid.KCNIIdentifier):
         return
     session.timepoint.kcni_name = ident.get_xnat_subject_id()
     session.kcni_name = ident.get_xnat_experiment_id()
