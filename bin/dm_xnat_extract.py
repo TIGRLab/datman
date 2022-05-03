@@ -431,6 +431,9 @@ def xnat_to_bids(xnat, project, ident, dcm2bids_opt):
 
     add_session_to_db(ident, xnat_experiment, no_db=db_ignore)
 
+    if xnat_experiment.resource_files:
+        process_resources(xnat, ident, xnat_experiment)
+
     bids_dest = os.path.join(dcm2bids_opt.bids_out,
                              'sub-' + bids_sub, 'ses-' + bids_ses)
     if (os.path.exists(bids_dest)):
