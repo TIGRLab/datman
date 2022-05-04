@@ -388,7 +388,7 @@ def process_experiment(xnat, project, ident):
                      "{}: {}".format(experiment_label, type(e).__name__, e))
         return
 
-    add_session_to_db(ident, experiment, no_db=db_ignore)
+    add_session_to_db(ident, experiment)
 
     if xnat_experiment.resource_files:
         process_resources(xnat, ident, xnat_experiment)
@@ -429,7 +429,7 @@ def xnat_to_bids(xnat, project, ident, dcm2bids_opt):
                      "{}: {}".format(experiment_label, type(e).__name__, e))
         return
 
-    add_session_to_db(ident, xnat_experiment, no_db=db_ignore)
+    add_session_to_db(ident, xnat_experiment)
 
     if xnat_experiment.resource_files:
         process_resources(xnat, ident, xnat_experiment)
@@ -480,7 +480,287 @@ def xnat_to_bids(xnat, project, ident, dcm2bids_opt):
             return
 
 
-def add_session_to_db(ident, experiment, no_db=False):
+def link_nii(ident, experiment, bids_dir):
+    """Make datman-style nifti files and add files to the dashboard database.
+
+    Args:
+        ident (:obj:`datman.scanid.Identifier`): The datman identifier for
+            the session to create links for.
+        experiment (:obj:`datman.xnat.XNATExperiment`): The XNAT experiment
+            for the session.
+        bids_dir (:obj:`str`): The full path to the BIDS session folder.
+    """
+    tags = cfg.get_tags(site=ident.site)
+
+    if not tags.series_map:
+        logger.error(f"Failed to get scan tags for {cfg.study_name}"
+                     f" and site {ident.site}. Can't assign datman names.")
+        return
+
+    session = datman.scan.Scan(ident.get_full_subjectid_with_timpoint(), cfg)
+    try:
+        os.makedirs(session.nii_path)
+    except FileExistsError:
+        pass
+
+    dm_names = get_datman_names(ident, experiment, tags)
+    bids_names = get_bids_niftis(bids_dir)
+    matches = match_dm_to_bids(dm_names, bids_names, tags)
+    # Perhaps exit here if all files exist
+    for fname in matches:
+        if not db_ignore:
+            add_scan_to_db(fname, matches[fname])
+        make_link(fname, matches[fname], session)
+
+
+def get_bids_niftis(bids_dir):
+    """Get all nifti files from a session.
+
+    Args:
+        bids_dir (:obj:`str`): The full path to a BIDS session.
+
+    Returns:
+        list: A list of full paths (minus the file extension) to each
+            nifti file in the session.
+    """
+    bids_niftis = []
+    for path, dirs, files in os.walk(sess_dir):
+        niftis = datman.utils.filter_niftis(files)
+        for item in niftis:
+            basename = item.replace(datman.utils.get_extension(item), "")
+            bids_niftis.append(os.path.join(path, basename))
+    return bids_niftis
+
+
+def get_datman_names(ident, experiment, tags):
+    """Construct a datman name for all scans to be exported from XNAT.
+
+    Args:
+        ident (:obj:`datman.scanid.Identifier`): The datman identifier for
+            the session.
+        experiment (:obj:`datman.xnat.XNATExperiment`): The XNAT experiment
+            for the session.
+        tags (:obj:`datman.config.TagInfo`): The tag settings for the study
+            the session belongs to.
+
+    Returns:
+        list: A list of datman names for every scan that should be
+            exported from XNAT.
+    """
+    datman_names = {}
+    for scan in experiment.scans:
+        if not scan.raw_dicoms_exist():
+            logger.warning(f"Ignoring {scan.series} for session "
+                           f"{experiment.name}. No RAW dicoms exist")
+            continue
+
+        if not scan.description:
+            logger.error(f"Can't find description for series {scan.series} "
+                         f"from session {experiment.name}. Datman name can't "
+                         "be assigned.")
+            continue
+
+        try:
+            scan.set_datman_name(str(ident), tags.series_map)
+        except Exception as e:
+            logger.info("Failed to make datman file name for series "
+                        f"{scan.series} in session {experiment.name}. "
+                        f"Reason {type(e).__name__}: {e}")
+            continue
+
+        if scan.is_derived():
+            logger.warning(f"Series {scan.series} in session "
+                           f"{experiment.name} is a derived scan. Ignoring.")
+            continue
+
+        if len(scan.tags) > 1 and not scan.multiecho:
+            logger.error(
+                f"Multiple export patterns match for {experiment.name}, "
+                f"descr: {scan.description}, tags: {scan.tags}")
+            continue
+
+        for name in scan.names:
+            _, tag, _, _ = datman.scanid.parse_filename(name)
+            datman_names.setdefault(tag, []).append(name)
+
+    return datman_names
+
+
+def match_dm_to_bids(dm_names, bids_names, tags):
+    """Match each datman file name to its BIDS equivalent.
+
+    Args:
+        dm_names (:obj:`list`): A list of datman file names for a session.
+        bids_names (:obj:`list`): A list of BIDS files that exist for
+            a session.
+        tags (:obj:`datman.config.TagInfo`): The tag settings for the
+            study the session belongs to.
+    """
+    name_map = {}
+    for tag in dm_names:
+        try:
+            bids_conf = tags.get(tag)['Bids']
+        except KeyError:
+            logger.info(f'No bids config for tag {tag}. No links will be '
+                        'made for these scans.')
+            continue
+
+        matches = find_matching_files(bids_names, bids_conf)
+
+        dm_files = sorted(
+            dm_names[tag],
+            key=lambda x: int(datman.scanid.parse_filename(x)[2])
+        )
+
+        matches = sorted(
+            matches,
+            key=lambda x: int(datman.scanid.parse_bids_filename(x).run)
+        )
+
+        for idx, item in enumerate(dm_files):
+            if idx >= len(matches):
+                continue
+            name_map[item] = matches[idx]
+
+    return name_map
+
+
+def find_matching_files(bids_names, bids_conf):
+    """Find all BIDS file names that match the settings for a tag.
+
+    This attempts to work backwards using the BIDS tag configuration to
+    guess which files would get that tag if they were exported to datman
+    format.
+
+    Args:
+        bids_names (:obj:`list`): A list of bids file names from a session.
+        bids_conf (:obj:`dict`): A dictionary of BIDS configuration settings
+            associated with a datman tag.
+
+    Returns:
+        list: A list of BIDS filenames.
+    """
+    matches = filter_bids(
+        bids_names, bids_conf.get('class'), par_dir=True)
+    matches = filter_bids(matches, bids_conf.get(get_label_key(bids_conf)))
+    matches = filter_bids(matches, bids_conf.get('intended_for'))
+    matches = filter_bids(matches, bids_conf.get('task'))
+    return matches
+
+
+def get_label_key(bids_conf):
+    """Get the 'label' key used in this tag's BIDS config.
+
+    This setting has different names depending on the class of BIDs file.
+
+    Args:
+        bids_conf (:obj:`dict`): A dictionary of BIDS configuration settings
+            associated with a datman tag.
+
+    Returns:
+        str: A string key for the bids configuration or None if the field
+            is not defined.
+    """
+    for key in bids_conf:
+        if 'label' in key:
+            return key
+
+
+def filter_bids(niftis, search_term, par_dir=False):
+    """Find the subset of file names that matches a search string.
+
+    Args:
+        niftis (:obj:`list`): A list of nifti file names to search through.
+        search_term (:obj:`str`): A search term to use to reduce the list size.
+        par_dir (bool, optional): Restricts the search to the nifti file's
+            parent directory, if full paths were given.
+
+    Returns:
+        list: A list of all files that match the search term.
+
+    """
+    if not search_term:
+        return niftis.copy()
+
+    if not isinstance(search_term, list):
+        search_term = [search_term]
+
+    result = []
+    for item in niftis:
+        if par_dir:
+            fname = os.path.split(os.path.dirname(item))[1]
+        else:
+            fname = os.path.basename(item)
+
+        for term in search_term:
+            if term in fname:
+                result.append(item)
+    return result
+
+
+def add_scan_to_db(dm_name, bids_name=None):
+    """Add a datman scan to the dashboard's database.
+
+    Args:
+        dm_name (:obj:`str`): A datman style scan name.
+        bids_name (:obj:`str`, optional): A BIDS style scan name.
+    """
+    logger.info("Adding scan {dm_name} to dashboard")
+    try:
+        scan = dashboard.get_scan(dm_name, create=True)
+    except Exception as e:
+        logger.error(f"Failed adding scan {dm_name} to dashboard with "
+                     f"error: {e}")
+        return
+
+    if not bids_name:
+        return
+
+    try:
+        bids_ident = datman.scanid.parse_bids_filename(bids_name)
+    except datman.scanid.ParseException:
+        return
+
+    scan.add_bids(str(bids_ident))
+
+
+def make_link(dm_file, bids_file, session):
+    """Create a relative link from bids_file named dm_file.
+
+    Args:
+        dm_file (:obj:`str`): A datman file name.
+        bids_file (:obj:`str`): A BIDS file name. This file should already
+            exist.
+        session (:obj:`datman.scan.Scan`): The datman session that this
+            scan belongs to.
+    """
+    base_target = os.path.join(session.nii_path, dm_file)
+    if datman.utils.read_blacklist(scan=base_target, config=CFG):
+        logger.debug(f"Ignoring blacklisted scan {base_target}")
+        return
+
+    source_files = glob.glob(bids_file + '*')
+    for source in source_files:
+        ext = datman.utils.get_extension(source)
+        target = base_target + ext
+        rel_source = datman.utils.get_relative_source(source, target)
+        try:
+            os.symlink(rel_source, target)
+        except FileExistsError:
+            pass
+        except Exception as e:
+            logger.error(f"Failed to create {target}. Reason - {e}")
+
+
+def add_session_to_db(ident, experiment):
+    """Add a session and it's metadata to the dashboard's database.
+
+    Args:
+        ident (:obj:`datman.scanid.Identifier`): A datman identifier for the
+            session to add.
+        experiment (:obj:`datman.xnat.XNATExperiment`): The XNAT experiment
+            for the session.
+    """
     exp_label = ident.get_xnat_experiment_id()
     if db_ignore:
         logger.info(
@@ -522,7 +802,7 @@ def set_alt_ids(session, ident):
     session.timepoint.bids_session = ident.timepoint
     session.save()
 
-    if isinstance(ident, datman.scanid.KCNIIdentifier):
+    if not isinstance(ident, datman.scanid.KCNIIdentifier):
         return
     session.timepoint.kcni_name = ident.get_xnat_subject_id()
     session.kcni_name = ident.get_xnat_experiment_id()
