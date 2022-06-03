@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 """
 Helper script for transferring motion files generated from feenics over to
 fMRIPREP (version >= 1.3.2)
@@ -16,6 +15,9 @@ Optional:
     -s, --subject SUBJECT        Repeatable list of subjects
     -f, --fmriprep FMRIPREP      fMRIPREP derivatives directory
                                  (default is PROJECT_DIR/pipelines/feenics)
+    --fd THRESHOLD               FD threshold to use when calculating
+                                 amount of usable data and percent usable
+                                 [Default: 0.5]
     -d, --debug                  Debug level logging
     -v, --verbose                Verbose level logging
     -q, --quiet                  Quiet mode
@@ -23,6 +25,7 @@ Optional:
 
 from datman.config import config as dm_cfg
 from datman import scanid
+from datman.exceptions import ParseException
 from bids import BIDSLayout
 from docopt import docopt
 import numpy as np
@@ -31,10 +34,12 @@ import os
 from shutil import copyfile
 import logging
 
-
-logging.basicConfig(level=logging.WARN, format="[%(name)s %(levelname)s :\
+logging.basicConfig(level=logging.WARN,
+                    format="[%(name)s %(levelname)s :\
                                                 %(message)s]")
 logger = logging.getLogger(os.path.basename(__file__))
+
+HEAD_RADIUS = 50
 
 
 def combine_sprl_motion(sprl_in, sprl_out):
@@ -93,7 +98,11 @@ def combine_confounds(confound, motion):
     def fd(x):
         return x.abs().sum()
 
-    motion_df["framewise_displacement"] = motion_df[cols].apply(fd, axis=1)
+    # Compute derivative and update rotational parameters to mm
+    dt_mot = motion_df[cols].diff()
+    dt_mot.loc[:, rots] *= HEAD_RADIUS
+    motion_df["framewise_displacement"] = dt_mot[cols].apply(fd, axis=1)
+    motion_df.loc[0, "framewise_displacement"] = np.nan
 
     # Append to dataframe
     df = df.join(motion_df)
@@ -143,6 +152,8 @@ def main():
     fmriprep = arguments["--fmriprep"] or cfg.get_path("fmriprep")
     subjects = arguments["--subject"]
 
+    fd_thres = arguments["--fd"] or 0.5
+
     debug = arguments["--debug"]
     verbose = arguments["--verbose"]
     quiet = arguments["--quiet"]
@@ -152,14 +163,15 @@ def main():
     # Step 1: Loop through subjects available in the feenics pipeline directory
     if not subjects:
         subjects = [
-            s
-            for s in os.listdir(feenics_dir)
+            s for s in os.listdir(feenics_dir)
             if os.path.isdir(os.path.join(feenics_dir, s))
         ]
 
     # Step 1a: Get BIDS subjects
-    layout = BIDSLayout(fmriprep, validate=False)
-    confounds = layout.get(suffix=["confounds", "regressors"], extension="tsv")
+    logging.info("Constructing BIDS index of data")
+    layout = BIDSLayout(fmriprep, validate=False, index_metadata=False)
+    confounds = layout.get(suffix=["confounds", "regressors"],
+                           extension="tsv")
     confounds = [c for c in confounds if filter_for_sprl(c)]
 
     # Create dictionary to deal with summary mean FD tables
@@ -171,17 +183,20 @@ def main():
         # Get subject BIDS name and session
         logger.info("Processing {}".format(s))
 
-        ident = scanid.parse(s)
+        try:
+            ident = scanid.parse(s)
+        except ParseException:
+            logger.error(f"{s} is not a valid identifier!")
+            continue
         bids = ident.get_bids_name()
         ses = ident.timepoint
 
         # Get confound file if exists
         try:
             confound = [
-                c.path
-                for c in confounds
-                if (c.entities["subject"] == bids) and
-                (c.entities["session"] == ses)
+                c.path for c in confounds
+                if (c.entities["subject"] == bids) and (
+                    c.entities["session"] == ses)
             ][0]
         except IndexError:
             logger.info("Could not find confound file for {}".format(bids))
@@ -193,12 +208,8 @@ def main():
             motion_comb = proc_subject(s, feenics_dir)
         except IOError:
             # Copy over
-            logger.info(
-                "Missing FeenICS motion confound files,\
-                        using fmriprep confound: {}".format(
-                    bids
-                )
-            )
+            logger.info("Missing FeenICS motion confound files,\
+                        using fmriprep confound: {}".format(bids))
             copyfile(confound, confound_out)
             confound_df = pd.read_csv(confound, delimiter="\t")
         else:
@@ -211,12 +222,22 @@ def main():
             scan_name = os.path.basename(confound)\
                                .replace('desc-confounds_regressors.tsv',
                                         'bold')
-            sub2meanfd.append(
-                {
-                    "bids_name": scan_name,
-                    "mean_fd": confound_df["framewise_displacement"].mean(),
-                }
-            )
+
+            # Calculate amount of data loss
+            vol_usable = confound_df["framewise_displacement"] < 0.5
+            perc_usable = vol_usable.sum() / len(vol_usable)
+            sub2meanfd.append({
+                "bids_name":
+                scan_name,
+                "mean_fd":
+                confound_df["framewise_displacement"].mean(),
+                "usable_trs":
+                vol_usable.sum(),
+                "perc_usable":
+                perc_usable,
+                "fd_thres":
+                fd_thres
+            })
 
     # Generate mean FD dataframe
     meanfd_file = os.path.join(output, "mean_FD.tsv")
