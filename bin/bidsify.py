@@ -323,7 +323,7 @@ def match_fmaps(series_list):
         Uses global read-only variable ALLOW_INCOMPLETE
         '''
         logger.warning("Incomplete fieldmap matches for: "
-                f"{' '.join([str(f.series) for f in fmapmatch.fmaps])}")
+                       f"{' '.join([str(f.series) for f in fmapmatch.fmaps])}")
         logger.warning("Missing the following fields: "
                        f"{' '.join(fmapmatch.remaining_matches)}")
 
@@ -400,12 +400,12 @@ def sort_by_series(scans_list):
     Sort scans by their series number
     """
 
-    sorted_scans = sorted(scans_list, key=lambda s: s.series_num)
+    sorted_scans = sorted(scans_list, key=lambda s: (s.session, s.series_num))
     seen = []
 
     def unique(series):
-        if (series.tag, series.series_num) not in seen:
-            seen.append((series.tag, series.series_num))
+        if (series.tag, series.session, series.series_num) not in seen:
+            seen.append((series.tag, series.session, series.series_num))
             return series
 
     return filter(unique, sorted_scans)
@@ -484,6 +484,12 @@ def process_intended_fors(grouped_fmaps, non_fmaps):
     2 pairs of fmaps of a (acq, intended_for) tuple and assigned their
     min(series) key for matching.
 
+    Patch 2021-09-07
+    -----------------------
+    Re-label series value for chunks based on the session #. The series
+    values from session > 0 will be labelled based on max(series)
+    This allows for cross-session fmap matching if needed
+
     """
 
     EpiChunk = namedtuple("EpiChunk", ['series', 'chunk'])
@@ -518,7 +524,8 @@ def process_intended_fors(grouped_fmaps, non_fmaps):
 
         # Get candidate list of scans to match on
         candidate_scans = [
-            s for s in non_fmaps if is_fieldmap_candidate(s, intended_for)
+            s for s in non_fmaps if (is_fieldmap_candidate(s, intended_for)
+                                     and s.series.session == g.session)
         ]
 
         # 2020-11-12 patch
@@ -557,7 +564,7 @@ def prepare_fieldmaps(series_list):
 
     """
 
-    Fmap_ID = namedtuple('Fmap_ID', ['acq', 'intended_for'])
+    Fmap_ID = namedtuple('Fmap_ID', ['acq', 'intended_for', 'session'])
 
     def group_fmaps(x):
         '''
@@ -570,7 +577,7 @@ def prepare_fieldmaps(series_list):
         for a single given sequence/set of sequences.
         '''
         return Fmap_ID(x.get_spec('acq', return_default=True, default=''),
-                       x.get_spec('intended_for'))
+                       x.get_spec('intended_for'), x.series.session)
 
     # Filter out non_fmap files
     fmaps = [s for s in series_list if s.bids_type == "fmap"]
