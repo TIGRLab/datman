@@ -2,6 +2,9 @@
 """
 Defaces anatomical data in a BIDS dataset.
 
+This script is a wrapper around pydeface
+(https://github.com/poldracklab/pydeface).
+
 DEPENDENCIES
     FSL 6.0.1
 
@@ -10,6 +13,7 @@ DEPENDENCIES
 import json
 import logging
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
+from collections import OrderedDict
 from pathlib import Path
 
 from bids import BIDSLayout
@@ -30,6 +34,61 @@ def _is_dir(path, parser):
     return Path(path).absolute()
 
 
+def get_to_deface(layout, suffix_list):
+    scan_list = layout.get(suffix=suffix_list, extension=[".nii", ".nii.gz"])
+    defaced_list = layout.get(
+        suffix=suffix_list,
+        Defaced=True,
+        extension=[".nii", ".nii.gz"],
+        invalid_filters="allows",
+    )
+    to_deface = list(set(scan_list) - set(defaced_list))
+    return to_deface
+
+
+def get_metadata(scan_sidecar):
+    with open(scan_sidecar, "r+") as f:
+        metadata = OrderedDict(json.load(f))
+    return metadata
+
+
+def define_output_file(scan, layout, clobber):
+    if clobber:
+        return (scan.path, scan.path.replace(".nii.gz", ".json"))
+    else:
+        keys_to_extract = [
+            "subject",
+            "session",
+            "acquisition",
+            "ceagent",
+            "reconstruction",
+            "run",
+            "suffix",
+        ]
+
+        entities = {
+            key: scan.entities.get(key, None) for key in keys_to_extract
+        }
+        if entities["acquisition"] is not None:
+            entities["acquisition"] = entities["acquisition"] + "defaced"
+        else:
+            entities["acquisition"] = "defaced"
+        output_file = str(Path(layout.root, layout.build_path(entities)))
+        return (output_file, output_file.replace(".nii.gz", ".json"))
+
+
+def update_metadata(metadata):
+    metadata["Defaced"] = True
+    metadata.move_to_end("ConversionSoftware")
+    metadata.move_to_end("ConversionSoftwareVersion")
+    return metadata
+
+
+def write_json(metadata, output_file):
+    with open(output_file, "w+") as f:
+        json.dump(metadata, f, indent=4)
+
+
 def main():
     parser = ArgumentParser(
         description="Defaces anatomical data in a BIDS dataset",
@@ -48,10 +107,17 @@ def main():
         help="The root directory of the BIDS dataset to process",
     )
 
+    parser.add_argument(
+        "--separate",
+        action="store_false",
+        default=True,
+        help="Replace the original images with the defaced images",
+    )
+
     g_bids = parser.add_argument_group("Options for filtering BIDS queries")
     g_bids.add_argument(
         "-s",
-        "--suffix-id",
+        "--suffix_id",
         action="store",
         nargs="+",
         default=["T1w"],
@@ -94,61 +160,40 @@ def main():
     else:
         bids_dir = args.bids_dir
 
+    clobber = args.separate
+
     layout = BIDSLayout(
         bids_dir,
         validate=args.skip_bids_validation,
         database_path=args.bids_database_dir,
     )
 
-    anat_list = layout.get(suffix=args.suffix_id, extension=[".nii", ".nii.gz"])
-    keys_to_extract = [
-        "subject",
-        "session",
-        "acquisition",
-        "ceagent",
-        "reconstruction",
-        "run",
-        "suffix",
-    ]
+    suffix_list = args.suffix_id
 
-    for anat in anat_list:
+    to_deface = get_to_deface(layout, suffix_list)
 
-        entities = {
-            key: anat.entities.get(key, None) for key in keys_to_extract
-        }
-        if (
-            entities["acquisition"] is not None
-            and "defaced" in entities["acquisition"]
-        ):
+    for scan in to_deface:
+        scan_sidecar = scan.path.replace(".nii.gz", ".json")
+        scan_metadata = get_metadata(scan_sidecar)
+        output_file, output_sidecar = define_output_file(scan, layout, clobber)
+
+        if args.dry_run:
+            logger.info(
+                f"DRYRUN would have executed defacing on <{scan.path}> "
+                f"and output to <{output_file}>"
+            )
             continue
-        if entities["acquisition"] is not None:
-            entities["acquisition"] = entities["acquisition"] + "defaced"
-        else:
-            entities["acquisition"] = "defaced"
 
-        output_file = Path(bids_dir, layout.build_path(entities))
+        try:
+            deface_image(infile=scan.path, outfile=output_file, force=clobber)
+        except Exception as e:
+            logger.error(
+                f"Defacing failed to run on <{scan.path}> for reason {e}"
+            )
+            return
 
-        if not output_file.exists():
-            if args.dry_run:
-                logger.info(
-                    f"DRYRUN would have executed defacing on <{anat.path}> "
-                    f"and output to <{output_file}>"
-                )
-                continue
-
-            try:
-                deface_image(infile=anat.path, outfile=str(output_file))
-            except Exception as e:
-                logger.error(
-                    f"Defacing failed to run on <{anat.path}> for "
-                    f"reason {e}"
-                )
-                return
-
-            anat_metadata = anat.get_metadata()
-            anat_metadata["DefaceSoftware"] = "pydeface"
-            with open(str(output_file).replace(".nii.gz", ".json"), "w+") as f:
-                json.dump(anat_metadata, f, indent=4)
+        new_scan_metadata = update_metadata(scan_metadata)
+        write_json(new_scan_metadata, output_sidecar)
 
 
 if __name__ == "__main__":
