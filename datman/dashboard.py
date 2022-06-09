@@ -324,7 +324,7 @@ def add_scan(name, tag=None, series=None, description=None, source_id=None):
 
 
 @dashboard_required
-def get_project(name=None, tag=None, site=None):
+def get_project(name=None, tag=None, site=None, create=False):
     """
     Return a study from the dashboard database that either matches the
     study name (e.g. 'SPINS') or matches a study tag (e.g. 'SPN01') + an
@@ -336,7 +336,7 @@ def get_project(name=None, tag=None, site=None):
             "Can't locate a study without the study nickname or a study tag"
         )
 
-    studies = queries.get_studies(name=name, tag=tag, site=site)
+    studies = queries.get_studies(name=name, tag=tag, site=site, create=create)
     search_term = name or tag
     if len(studies) == 0:
         raise DashboardException(
@@ -346,8 +346,6 @@ def get_project(name=None, tag=None, site=None):
         raise DashboardException(
             f"{search_term} does not uniquely identify a project"
         )
-    if not name:
-        return studies[0]
     return studies[0]
 
 

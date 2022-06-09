@@ -46,3 +46,7 @@ class ConfigException(Exception):
 
 class UndefinedSetting(Exception):
     pass
+
+
+class QCException(Exception):
+    pass

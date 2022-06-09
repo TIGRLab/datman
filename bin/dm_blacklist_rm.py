@@ -77,7 +77,8 @@ def remove_blacklisted(scan, entries):
         remove_matches(scan.nii_path, entry)
         remove_matches(scan.nrrd_path, entry)
         remove_matches(scan.mnc_path, entry)
-        remove_matches(scan.resource_path, entry)
+        for sub_dir in scan.resources:
+            remove_matches(sub_dir, entry)
 
 
 def remove_matches(path, fname):

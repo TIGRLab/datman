@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
+import os
 import unittest
 import logging
+from random import randint
 
 import pytest
 from mock import patch, MagicMock
@@ -119,6 +121,71 @@ class TestValidateSubjectID:
         with pytest.raises(ParseException):
             bad_site = "AND01_UFO_0408_01_SE01_MR"
             utils.validate_subject_id(bad_site, dm_config)
+
+
+class FindTechNotes(unittest.TestCase):
+    notes = "TechNotes.pdf"
+    other_pdf1 = "SomeFile.pdf"
+    other_pdf2 = "otherFile.pdf"
+    path = "./resources"
+
+    def test_doesnt_crash_with_broken_path(self):
+        found_file = utils.find_tech_notes(self.path)
+        assert not found_file
+
+    @patch('os.walk', autospec=True)
+    def test_doesnt_crash_when_no_tech_notes_exist(self, mock_walk):
+        mock_walk.return_value = self.__mock_file_system(
+            randint(1, 10), add_notes=False)
+
+        found_file = utils.find_tech_notes(self.path)
+
+        assert not found_file
+
+    @patch('os.walk', autospec=True)
+    def test_tech_notes_found_regardless_of_depth(self, mock_walk):
+        mock_walk.return_value = self.__mock_file_system(randint(1, 10))
+
+        found_file = utils.find_tech_notes(self.path)
+
+        assert os.path.basename(found_file) == self.notes
+
+    @patch('os.walk', autospec=True)
+    def test_returns_tech_notes_when_multiple_pdfs_present(self, mock_walk):
+        mock_walk.return_value = self.__mock_file_system(
+            randint(1, 10), add_pdf=True)
+
+        found_file = utils.find_tech_notes(self.path)
+
+        assert os.path.basename(found_file) == self.notes
+
+    @patch('os.walk', autospec=True)
+    def test_first_file_returned_when_multiple_pdfs_but_no_tech_notes(
+            self, mock_walk):
+        mock_walk.return_value = self.__mock_file_system(
+            randint(1, 10), add_notes=False, add_pdf=True)
+
+        found_file = utils.find_tech_notes(self.path)
+
+        assert os.path.basename(found_file) == self.other_pdf1
+
+    def __mock_file_system(self, depth, add_notes=True, add_pdf=False):
+        walk_list = []
+        cur_path = self.path
+        file_list = ["file1.txt", "file2"]
+        if add_pdf:
+            file_list.extend([self.other_pdf1, self.other_pdf2])
+        if add_notes:
+            file_list.append(self.notes)
+        for num in range(1, depth + 1):
+            cur_path = cur_path + "/dir{}".format(num)
+            dirs = ("dir{}".format(num + 1), )
+            files = ("file1.txt", "file2")
+            if num == depth:
+                files = tuple(file_list)
+            level = (cur_path, dirs, files)
+            walk_list.append(level)
+        return walk_list
 
 
 @patch('datman.utils.write_metadata')

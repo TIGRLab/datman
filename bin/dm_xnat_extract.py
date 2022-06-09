@@ -572,6 +572,17 @@ def process_resources(xnat, ident, xnat_experiment):
                                   resource['URI'],
                                   resource_path)
 
+        if not db_ignore:
+            session = dashboard.get_session(ident)
+            if session.tech_notes or not session.expects_notes():
+                return
+            notes = datman.utils.find_tech_notes(base_path)
+            if notes:
+                # Store only the path relative to the resources dir
+                session.tech_notes = notes.replace(
+                    cfg.get_path("resources"), "").lstrip("/")
+                session.save()
+
 
 def download_resource(xnat, xnat_experiment, xnat_resource_id,
                       xnat_resource_uri, target_path):

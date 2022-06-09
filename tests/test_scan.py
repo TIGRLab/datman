@@ -66,14 +66,58 @@ class TestScan(unittest.TestCase):
         assert not subject.is_phantom
         assert phantom.is_phantom
 
+    @patch('glob.glob')
     @patch('os.path.exists')
-    def test_resources_paths_uses_full_id_plus_session(self, mock_exists):
+    def test_resources_paths_uses_full_id_plus_session(
+            self, mock_exists, mock_glob):
+        expected_path = os.path.join(
+            self.config.get_path('resources'),
+            "STUDY_CMH_9999_01_01"
+        )
+
         mock_exists.return_value = True
+        mock_glob.return_value = [expected_path]
+
         subject = datman.scan.Scan(self.good_name, self.config)
 
-        expected_path = self.config.get_path('resources') + \
-            "STUDY_CMH_9999_01_01"
-        assert subject.resource_path == expected_path
+        assert subject.resources == [expected_path]
+
+    @patch("glob.glob")
+    @patch("os.path.exists")
+    def test_all_resource_folders_found_when_repeats_exist(
+            self, mock_exists, mock_glob):
+        mock_exists.return_value = True
+        repeats = ["STUDY_CMH_9999_01_01", "STUDY_CMH_9999_01_02",
+                   "STUDY_CMH_9999_01_99"]
+        expected_files = [
+            os.path.join(self.config.get_path("resources"), folder)
+            for folder in repeats
+        ]
+        mock_glob.return_value = expected_files
+
+        subject = datman.scan.Scan(self.good_name, self.config)
+
+        assert subject.resources == expected_files
+
+    @patch("glob.glob")
+    @patch("os.path.exists")
+    def test_resources_ignores_malformed_resource_folders(self, mock_exists,
+                                                          mock_glob):
+        mock_exists.return_value = True
+        malformed = "STUDY_CMH_9999_01"
+        repeats = ["STUDY_CMH_9999_01_01", "STUDY_CMH_9999_01_02",
+                   "STUDY_CMH_9999_01_99", "STUDY_CMH_9999_01_abcd"]
+        repeats.append(malformed)
+
+        mock_glob.return_value = [
+            os.path.join(self.config.get_path("resources"), folder)
+            for folder in repeats]
+
+        subject = datman.scan.Scan(self.good_name, self.config)
+
+        for folder in subject.resources:
+            assert os.path.basename(folder) != malformed
+            assert os.path.basename(folder) in repeats
 
     def test_returns_expected_subject_paths(self):
         subject = datman.scan.Scan(self.good_name, self.config)
