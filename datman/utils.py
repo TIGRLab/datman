@@ -1328,3 +1328,34 @@ def make_zip(source_dir, dest_zip):
                 item_path = os.path.join(current_dir, item)
                 archive_path = item_path.replace(source_dir + "/", "")
                 zip_handle.write(item_path, archive_path)
+
+
+def find_tech_notes(folder):
+    """Find any technotes located within a folder.
+
+    If only one PDF is found it is assumed to be the tech notes. If multiple
+    are found, unless one contains the string 'TechNotes', the first pdf is
+    guessed to be the tech notes.
+
+    Args:
+        folder (str): A full path to a folder to search.
+
+    Returns:
+        path (str): The full path to the tech notes or an empty string if
+            none have been found.
+    """
+    pdf_list = []
+    for root, dirs, files in os.walk(folder):
+        for fname in files:
+            if ".pdf" in fname:
+                pdf_list.append(os.path.join(root, fname))
+
+    if not pdf_list:
+        return ""
+    elif len(pdf_list) > 1:
+        for pdf in pdf_list:
+            file_name = os.path.basename(pdf)
+            if 'technotes' in file_name.lower():
+                return pdf
+
+    return pdf_list[0]
