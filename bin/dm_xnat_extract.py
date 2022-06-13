@@ -316,7 +316,7 @@ def collect_experiment(user_exper, study, cfg):
     if not xnat_project:
         logger.error("Failed to find experiment {}. Ensure it matches an "
                      "existing experiment ID in XNAT.".format(user_exper))
-        return
+        return []
 
     return [(xnat, xnat_project, ident)]
 
