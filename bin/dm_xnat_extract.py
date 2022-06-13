@@ -524,7 +524,7 @@ def get_bids_niftis(bids_dir):
             nifti file in the session.
     """
     bids_niftis = []
-    for path, dirs, files in os.walk(sess_dir):
+    for path, dirs, files in os.walk(bids_dir):
         niftis = datman.utils.filter_niftis(files)
         for item in niftis:
             basename = item.replace(datman.utils.get_extension(item), "")
@@ -685,7 +685,7 @@ def filter_bids(niftis, search_term, par_dir=False):
     if not isinstance(search_term, list):
         search_term = [search_term]
 
-    result = []
+    result = set()
     for item in niftis:
         if par_dir:
             fname = os.path.split(os.path.dirname(item))[1]
@@ -694,8 +694,8 @@ def filter_bids(niftis, search_term, par_dir=False):
 
         for term in search_term:
             if term in fname:
-                result.append(item)
-    return result
+                result.add(item)
+    return list(result)
 
 
 def add_scan_to_db(dm_name, bids_name=None):
