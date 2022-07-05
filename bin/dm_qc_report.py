@@ -40,7 +40,7 @@ import datman.utils
 import datman.scan
 import datman.dashboard
 import datman.metrics
-from datman.exceptions import InputException, ParseException
+from datman.exceptions import InputException, ParseException, QCException
 
 logging.basicConfig(level=logging.WARN,
                     format="[%(name)s] %(levelname)s: %(message)s")
@@ -241,6 +241,9 @@ def needs_qc(subject_id, config):
             logger.error(
                 f"Invalid qc type {scan.qc_type} found for {nii.file_name}"
             )
+            continue
+        except QCException as e:
+            logger.error(e)
             continue
 
         if not metric.exists():
