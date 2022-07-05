@@ -199,6 +199,7 @@ def make_command(subject_id):
     return " ".join(command)
 
 
+@datman.dashboard.release_db
 def needs_qc(subject_id, config):
     """Check if any QC metrics are missing for a subject.
 
@@ -311,22 +312,22 @@ def make_metrics(subject, config):
             logger.error(f"Failed to generate metrics for {nii.file_name}. "
                          f"Reason - {e}")
 
-        make_scan_metrics(metric, db_record, ignored_fields, field_tolerances)
+        update_dashboard(nii.file_name, ignored_fields, field_tolerances)
+        make_scan_metrics(metric)
 
 
-def make_scan_metrics(metric, db_record, header_ignore=None,
-                      header_tolerance=None):
-    """Generate all metrics for a single scan.
+@datman.dashboard.release_db
+def update_dashboard(nii_path, header_ignore=None, header_tolerance=None):
+    """Update dashboard records for a scan.
 
     Args:
-        metric (:obj:`datman.metrics.Metric`): A QC metric to generate.
-        db_record (:obj:`dashboard.models.Scan`): A scan database record.
+        nii_path (:obj:`str`): The full path to a nifti file.
         header_ignore (:obj:`list`, optional): Header fields to ignore during
             header checks. Defaults to None.
         header_tolerance (:obj:`dict`, optional): Header field tolerances to
             use during header checks. Defaults to None.
     """
-    file_name = os.path.basename(metric.input)
+    db_record = datman.dashboard.get_scan(nii_path)
 
     if REMAKE or db_record.is_outdated_header_diffs():
         try:
@@ -339,11 +340,19 @@ def make_scan_metrics(metric, db_record, header_ignore=None,
             )
 
     if REMAKE or not db_record.length:
-        add_scan_length(metric.input, db_record)
+        add_scan_length(nii_path, db_record)
 
+
+def make_scan_metrics(metric):
+    """Generate all metrics for a single scan.
+
+    Args:
+        metric (:obj:`datman.metrics.Metric`): A QC metric to generate.
+    """
     if metric.exists() and not REMAKE:
         return
 
+    file_name = os.path.basename(metric.input)
     if not metric.is_runnable():
         logger.error(
             f"Can't make QC metrics for {file_name}. Software missing, "
@@ -369,7 +378,6 @@ def make_scan_metrics(metric, db_record, header_ignore=None,
 
 def add_scan_length(nii_path, scan):
     """Find the length of a scan and it to the database.
-
     Args:
         nii_path (:obj:`str`): The full path to a nifti file.
         scan (:obj:`dashboard.models.Scan`): A scan database record.
