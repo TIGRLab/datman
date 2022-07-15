@@ -497,7 +497,7 @@ def link_nii(ident, experiment, bids_dir):
                      f" and site {ident.site}. Can't assign datman names.")
         return
 
-    session = datman.scan.Scan(ident.get_full_subjectid_with_timpoint(), cfg)
+    session = datman.scan.Scan(ident.get_full_subjectid_with_timepoint(), cfg)
     try:
         os.makedirs(session.nii_path)
     except FileExistsError:
@@ -580,7 +580,18 @@ def get_datman_names(ident, experiment, tags):
             continue
 
         for name in scan.names:
-            _, tag, _, _ = datman.scanid.parse_filename(name)
+            try:
+                _, tag, _, _ = datman.scanid.parse_filename(name)
+            except datman.scanid.ParseException:
+                logger.error(f"Malformed scan name: {name}. Skipping.")
+                continue
+            if datman.utils.read_blacklist(scan=name, config=cfg):
+                # If blacklisted scans ARENT deleted from the bids folder
+                # then ignoring blacklisted scan names here is a mistake.
+                # In that case, the blacklist check should happen before
+                # making a link but not before matching dm -> bids.
+                logger.debug(f"Ignoring blacklisted scan: {name}")
+                continue
             datman_names.setdefault(tag, []).append(name)
 
     return datman_names
@@ -735,11 +746,11 @@ def make_link(dm_file, bids_file, session):
             scan belongs to.
     """
     base_target = os.path.join(session.nii_path, dm_file)
-    if datman.utils.read_blacklist(scan=base_target, config=CFG):
+    if datman.utils.read_blacklist(scan=base_target, config=cfg):
         logger.debug(f"Ignoring blacklisted scan {base_target}")
         return
 
-    source_files = glob.glob(bids_file + '*')
+    source_files = glob(bids_file + '*')
     for source in source_files:
         ext = datman.utils.get_extension(source)
         target = base_target + ext
