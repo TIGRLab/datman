@@ -123,6 +123,25 @@ def filename_required(f):
     return decorated_function
 
 
+def release_db(f):
+    """This decorator ensures that transactions are ended after exit.
+
+    Read operations on the database open a transaction. This transaction
+    isnt terminated until a rollback or commit happens or until the
+    script terminates. This decorator ensures that database connections don't
+    get stuck in the 'idle in transaction' state while waiting for long
+    running work to be completed by a script.
+    """
+
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        result = f(*args, **kwargs)
+        queries.db.session.rollback()
+        return result
+
+    return decorated_function
+
+
 @dashboard_required
 def set_study_status(name, is_open):
     studies = queries.get_studies(name=name)
