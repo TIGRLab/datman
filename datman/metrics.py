@@ -351,9 +351,9 @@ class QAPHAMetrics(MetricDTI):
             # SNRPlots-PAR.jpg missing
             "StdPlotsHist-PAR.jpg": QCOutput(9),
             "Section2.3.1_SNR_ADC.csv": None,
-            "Section2.3.2_B0DistortionRation.csv": None,  # missing
+            "Section2.3.2_B0DistortionRatio.csv": None,
             "Section2.3.3_EddyCurrentDistortions.csv": None,
-            "Section2.3.4_AveNyqRation.csv": None,  # missing
+            "Section2.3.4_AveNyqRatio.csv": None,
             "Section2.3.5_FAvalues.csv": None
         }
     }
