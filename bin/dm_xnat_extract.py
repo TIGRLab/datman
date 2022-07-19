@@ -710,13 +710,16 @@ def filter_bids(niftis, search_term, par_dir=False):
 def organize_bids(bids_names):
     """Sort and pad the list of bids names so datman names match correct runs.
     """
-    parsed = [datman.scanid.parse_bids_filename(x) for x in bids_names]
-    by_run = sorted(parsed, key=lambda x: int(x.run))
+    by_run = sorted(
+        bids_names,
+        key=lambda x: int(datman.scanid.parse_bids_filename(x).run)
+    )
 
     cur_run = 1
     padded = []
     for scan in by_run:
-        while cur_run < int(scan.run):
+        fname = datman.scanid.parse_bids_filename(scan)
+        while cur_run < int(fname.run):
             padded.append("N/A")
             cur_run += 1
         padded.append(scan)
