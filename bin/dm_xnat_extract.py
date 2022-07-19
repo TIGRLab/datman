@@ -388,7 +388,7 @@ def process_experiment(xnat, project, ident):
                      "{}: {}".format(experiment_label, type(e).__name__, e))
         return
 
-    add_session_to_db(ident, experiment)
+    add_session_to_db(ident, xnat_experiment)
 
     if xnat_experiment.resource_files:
         process_resources(xnat, ident, xnat_experiment)
@@ -617,19 +617,17 @@ def match_dm_to_bids(dm_names, bids_names, tags):
             continue
 
         matches = find_matching_files(bids_names, bids_conf)
+        matches = organize_bids(matches)
 
         dm_files = sorted(
             dm_names[tag],
             key=lambda x: int(datman.scanid.parse_filename(x)[2])
         )
 
-        matches = sorted(
-            matches,
-            key=lambda x: int(datman.scanid.parse_bids_filename(x).run)
-        )
-
         for idx, item in enumerate(dm_files):
             if idx >= len(matches):
+                continue
+            if matches[idx] == "N/A":
                 continue
             name_map[item] = matches[idx]
 
@@ -707,6 +705,23 @@ def filter_bids(niftis, search_term, par_dir=False):
             if term in fname:
                 result.add(item)
     return list(result)
+
+
+def organize_bids(bids_names):
+    """Sort and pad the list of bids names so datman names match correct runs.
+    """
+    parsed = [datman.scanid.parse_bids_filename(x) for x in bids_names]
+    by_run = sorted(parsed, key=lambda x: int(x.run))
+
+    cur_run = 1
+    padded = []
+    for scan in by_run:
+        while cur_run < int(scan.run):
+            padded.append("N/A")
+            cur_run += 1
+        padded.append(scan)
+        cur_run += 1
+    return padded
 
 
 def add_scan_to_db(dm_name, bids_name=None):
