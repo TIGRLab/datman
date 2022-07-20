@@ -316,7 +316,7 @@ def make_metrics(subject, config):
             logger.error(f"Failed to generate metrics for {nii.file_name}. "
                          f"Reason - {e}")
 
-        update_dashboard(nii.file_name, ignored_fields, field_tolerances)
+        update_dashboard(nii.path, ignored_fields, field_tolerances)
         make_scan_metrics(metric)
 
 
@@ -389,7 +389,7 @@ def add_scan_length(nii_path, scan):
     try:
         data = nib.load(nii_path)
     except Exception as e:
-        logger.debug(f"Failed to read scan length for {nii_path}. Reason "
+        logger.error(f"Failed to read scan length for {nii_path}. Reason "
                      f"- {e}")
         return
 
