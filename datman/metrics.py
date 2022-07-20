@@ -46,7 +46,7 @@ class Metric(ABC):
                 return
             orig = self.read_json()
         else:
-            orig = {}
+            orig = None
 
         manifest = self.make_manifest()
 

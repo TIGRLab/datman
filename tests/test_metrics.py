@@ -48,6 +48,20 @@ class TestMetric:
         assert mock_fh.call_count == 1
         assert str(mock_fh.call_args) == expected_call
 
+    @patch("datman.metrics.open")
+    @patch("os.path.exists")
+    def test_manifest_written_even_if_no_imgs_to_display(
+            self, mock_exists, mock_fh):
+        pha_anat = datman.metrics.AnatPHAMetrics(
+            self.nii_input, self.output_dir)
+        manifest = pha_anat.manifest_path
+        mock_exists.side_effect = lambda x: x != manifest
+        pha_anat.write_manifest()
+
+        expected_call = f"call('{manifest}', 'w')"
+        assert mock_fh.call_count == 1
+        assert str(mock_fh.call_args) == expected_call
+
     @patch("os.path.exists")
     def test_exists_is_false_when_at_least_one_file_missing(self, mock_exist):
         fmri = datman.metrics.FMRIMetrics(self.nii_input, self.output_dir)
