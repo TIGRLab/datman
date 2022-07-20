@@ -336,6 +336,7 @@ def update_dashboard(nii_path, header_ignore=None, header_tolerance=None):
     if REMAKE or db_record.is_outdated_header_diffs():
         try:
             db_record.update_header_diffs(
+                standard=db_record.gold_standards[0],
                 ignore=header_ignore, tolerance=header_tolerance)
         except Exception as e:
             logger.error(
