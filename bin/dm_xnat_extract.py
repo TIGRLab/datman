@@ -478,6 +478,7 @@ def xnat_to_bids(xnat, project, ident, dcm2bids_opt):
             logger.error("Dcm2Bids failed to run for experiment {}. {}:"
                          " {}".format(experiment_label, type(e).__name__, e))
             return
+        link_nii(ident, xnat_experiment, bids_dest)
 
 
 def link_nii(ident, experiment, bids_dir):
@@ -585,13 +586,6 @@ def get_datman_names(ident, experiment, tags):
             except datman.scanid.ParseException:
                 logger.error(f"Malformed scan name: {name}. Skipping.")
                 continue
-            if datman.utils.read_blacklist(scan=name, config=cfg):
-                # If blacklisted scans ARENT deleted from the bids folder
-                # then ignoring blacklisted scan names here is a mistake.
-                # In that case, the blacklist check should happen before
-                # making a link but not before matching dm -> bids.
-                logger.debug(f"Ignoring blacklisted scan: {name}")
-                continue
             datman_names.setdefault(tag, []).append(name)
 
     return datman_names
@@ -617,8 +611,13 @@ def match_dm_to_bids(dm_names, bids_names, tags):
             continue
 
         matches = find_matching_files(bids_names, bids_conf)
-        matches = organize_bids(matches)
 
+        if bids_conf['class'] == 'fmap' and bids_conf.get('match_str'):
+            add_fmap_names(dm_names[tag], matches, bids_conf.get('match_str'),
+                name_map)
+            continue
+
+        matches = organize_bids(matches)
         dm_files = sorted(
             dm_names[tag],
             key=lambda x: int(datman.scanid.parse_filename(x)[2])
@@ -652,7 +651,6 @@ def find_matching_files(bids_names, bids_conf):
     matches = filter_bids(
         bids_names, bids_conf.get('class'), par_dir=True)
     matches = filter_bids(matches, bids_conf.get(get_label_key(bids_conf)))
-    matches = filter_bids(matches, bids_conf.get('intended_for'))
     matches = filter_bids(matches, bids_conf.get('task'))
     return matches
 
@@ -725,6 +723,43 @@ def organize_bids(bids_names):
         padded.append(scan)
         cur_run += 1
     return padded
+
+
+def add_fmap_names(dm_fmaps, bids_fmaps, match_map, name_map):
+    mangled_dm = split_fmap_description(dm_fmaps)
+    temp_matches = {}
+    for fmap in bids_fmaps:
+        ident = datman.scanid.parse_bids_filename(fmap)
+        if ident.acq not in match_map:
+            logger.debug("Tag settings can't match bids acquisition to datman "
+                f"name for: {ident}")
+            continue
+        for search_str in match_map[ident.acq]:
+            for nii_file in mangled_dm:
+                if search_str in mangled_dm[nii_file]:
+                    temp_matches.setdefault(nii_file, []).append(fmap)
+
+    for nii_root in temp_matches:
+        for found_bids in temp_matches[nii_root]:
+            ident = datman.scanid.parse_bids_filename(found_bids)
+            new_nii_root = [nii_root]
+            if ident.dir:
+                new_nii_root.append(f"dir-{ident.dir}")
+            if ident.run:
+                new_nii_root.append(f"run-{ident.run}")
+            if ident.suffix:
+                new_nii_root.append(ident.suffix)
+            new_fname = "-".join(new_nii_root)
+            name_map[new_fname] = found_bids
+
+
+def split_fmap_description(fmaps):
+    no_descr = {}
+    for fmap in fmaps:
+        ident, tag, series, descr = datman.scanid.parse_filename(fmap)
+        truncated_name = "_".join([str(ident), tag, series])
+        no_descr[truncated_name] = descr
+    return no_descr
 
 
 def add_scan_to_db(dm_name, bids_name=None):
