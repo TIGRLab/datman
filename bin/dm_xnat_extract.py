@@ -43,68 +43,106 @@ DEPENDENCIES
     dcm2nii
 
 """
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from datetime import datetime
 from glob import glob
 import logging
 import os
 import platform
+import re
 import shutil
 import sys
-import re
 import zipfile
 
 import pydicom as dicom
 
-import datman.dashboard as dashboard
 import datman.config
-import datman.xnat
-import datman.utils
+from datman import dashboard
+import datman.exceptions
 import datman.scan
 import datman.scanid
-import datman.exceptions
-
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+import datman.utils
+import datman.xnat
 
 logger = logging.getLogger(os.path.basename(__file__))
 
 try:
     from dcm2bids import Dcm2bids
 except ImportError:
-    dcm2bids_found = False
+    DCM2BIDS_FOUND = False
     logger.error("Dcm2Bids not found, proceeding without it.")
 else:
-    dcm2bids_found = True
+    DCM2BIDS_FOUND = True
 
 SERVERS = {}
 SERVER_OVERRIDE = None
 AUTH = None
-cfg = None
+CFG = None
 DRYRUN = False
-db_ignore = False  # if True dont update the dashboard db
-wanted_tags = None
-
-
-def _is_dir(path, parser):
-    """Ensure a given directory exists."""
-    if path is None or not os.path.isdir(path):
-        raise parser.error(f"Directory does not exist: <{path}>")
-    return os.path.abspath(path)
-
-
-def _is_file(path, parser):
-    """Ensure a given file exists."""
-    if path is None or not os.path.isfile(path):
-        raise parser.error(f"File does not exist: <{path}>")
-    return os.path.abspath(path)
+IGNORE_DB = False  # if True dont update the dashboard db
+WANTED_TAGS = None
 
 
 def main():
     global AUTH
     global SERVER_OVERRIDE
-    global cfg
+    global CFG
     global DRYRUN
-    global wanted_tags
-    global db_ignore
+    global WANTED_TAGS
+    global IGNORE_DB
+
+    args = read_args()
+    WANTED_TAGS = args.tag
+    IGNORE_DB = args.dont_update_dashboard
+    SERVER_OVERRIDE = args.server
+    if args.dry_run:
+        DRYRUN = True
+        IGNORE_DB = True
+
+    configure_logging(args.study, args.quiet, args.verbose, args.debug)
+
+    if args.use_dcm2bids and not DCM2BIDS_FOUND:
+        logger.error("Failed to import Dcm2Bids. Ensure that "
+                     "Dcm2Bids is installed when using the "
+                     "--use-dcm2bids flag.  Exiting conversion")
+        return
+
+    CFG = datman.config.config(study=args.study)
+    if args.username:
+        AUTH = datman.xnat.get_auth(args.username)
+
+    if args.experiment:
+        experiments = collect_experiment(args.experiment, args.study, CFG)
+    else:
+        experiments = collect_all_experiments(CFG)
+
+    logger.info(f"Found {len(experiments)} experiments for study {args.study}")
+
+    for xnat, project, experiment in experiments:
+        if args.use_dcm2bids:
+            dcm2bids_opt = Dcm2BidsConfig(keep_dcm=args.keep_dcm,
+                                          dcm2bids_config=args.dcm_config,
+                                          bids_out=args.bids_out,
+                                          force_dcm2niix=args.force_dcm2niix,
+                                          clobber=args.clobber)
+            xnat_to_bids(xnat, project, experiment, dcm2bids_opt)
+        else:
+            process_experiment(xnat, project, experiment)
+
+
+def read_args():
+    def _is_dir(path, parser):
+        """Ensure a given directory exists."""
+        if path is None or not os.path.isdir(path):
+            raise parser.error(f"Directory does not exist: <{path}>")
+        return os.path.abspath(path)
+
+
+    def _is_file(path, parser):
+        """Ensure a given file exists."""
+        if path is None or not os.path.isfile(path):
+            raise parser.error(f"File does not exist: <{path}>")
+        return os.path.abspath(path)
 
     parser = ArgumentParser(
         description="Extracts data from XNAT archive folders into a "
@@ -211,54 +249,13 @@ def main():
     )
 
     args = parser.parse_args()
-    study = args.study
-    experiment = args.experiment
-    wanted_tags = args.tag
-    username = args.username
-    db_ignore = args.dont_update_dashboard
-    SERVER_OVERRIDE = args.server
-    use_dcm2bids = args.use_dcm2bids
-    debug = args.debug
-    quiet = args.quiet
-    verbose = args.verbose
 
-    if (not args.use_dcm2bids) and (args.keep_dcm or args.dcm_config
-        or args.bids_out or args.force_dcm2niix or args.clobber):
+    bids_opts = [args.keep_dcm, args.dcm_config, args.bids_out,
+                 args.force_dcm2niix, args.clobber]
+    if not args.use_dcm2bids and any(bids_opts):
         parser.error("dcm2bids configuration requires --use-dcm2bids")
 
-    if args.dry_run:
-        DRYRUN = True
-        db_ignore = True
-
-    configure_logging(study, quiet, verbose, debug)
-
-    cfg = datman.config.config(study=study)
-    if username:
-        AUTH = datman.xnat.get_auth(username)
-
-    if experiment:
-        experiments = collect_experiment(experiment, study, cfg)
-    else:
-        experiments = collect_all_experiments(cfg)
-
-    logger.info("Found {} experiments for study {}".format(
-        len(experiments), study))
-
-    for xnat, project, experiment in experiments:
-        if (use_dcm2bids):
-            if not dcm2bids_found:
-                logger.error("Failed to import Dcm2Bids. Ensure that "
-                             "Dcm2Bids is installed when using the "
-                             "--use-dcm2bids flag.  Exiting conversion")
-                return
-            dcm2bids_opt = Dcm2BidsConfig(keep_dcm=args.keep_dcm,
-                                          dcm2bids_config=args.dcm_config,
-                                          bids_out=args.bids_out,
-                                          force_dcm2niix=args.force_dcm2niix,
-                                          clobber=args.clobber)
-            xnat_to_bids(xnat, project, experiment, dcm2bids_opt)
-        else:
-            process_experiment(xnat, project, experiment)
+    return args
 
 
 def configure_logging(study, quiet=None, verbose=None, debug=None):
@@ -286,29 +283,29 @@ def configure_logging(study, quiet=None, verbose=None, debug=None):
     logging.getLogger('datman.xnat').addHandler(ch)
 
 
-def collect_experiment(user_exper, study, cfg):
-    ident = datman.utils.validate_subject_id(user_exper, cfg)
+def collect_experiment(user_exper, study, CFG):
+    ident = datman.utils.validate_subject_id(user_exper, CFG)
 
     try:
-        convention = cfg.get_key("XnatConvention", site=ident.site)
+        convention = CFG.get_key("XnatConvention", site=ident.site)
     except datman.config.UndefinedSetting:
         convention = "DATMAN"
 
     if convention == "KCNI":
         try:
-            settings = cfg.get_key("IdMap")
+            settings = CFG.get_key("IdMap")
         except datman.config.UndefinedSetting:
             settings = None
         ident = datman.scanid.get_kcni_identifier(ident, settings)
 
-    xnat = datman.xnat.get_connection(cfg,
+    xnat = datman.xnat.get_connection(CFG,
                                       site=ident.site,
                                       url=SERVER_OVERRIDE,
                                       auth=AUTH,
                                       server_cache=SERVERS)
 
     # get the list of XNAT projects linked to the datman study
-    xnat_projects = cfg.get_xnat_projects(study)
+    xnat_projects = CFG.get_xnat_projects(study)
 
     # identify which xnat project the subject is in
     xnat_project = xnat.find_project(ident.get_xnat_subject_id(),
@@ -375,17 +372,24 @@ def get_projects(config):
     return projects
 
 
-def process_experiment(xnat, project, ident):
+def get_xnat_experiment(xnat, project, ident):
     experiment_label = ident.get_xnat_experiment_id()
 
-    logger.info("Processing experiment: {}".format(experiment_label))
+    logger.info(f"Retrieving experiment: {experiment_label}")
 
     try:
         xnat_experiment = xnat.get_experiment(
             project, ident.get_xnat_subject_id(), experiment_label)
     except Exception as e:
-        logger.error("Unable to retrieve experiment {} from XNAT server. "
-                     "{}: {}".format(experiment_label, type(e).__name__, e))
+        logger.error(f"Unable to retrieve experiment {experiment_label} from "
+                     f"XNAT server. {type(e).__name__}: {e}")
+        return
+    return xnat_experiment
+
+
+def process_experiment(xnat, project, ident):
+    xnat_experiment = get_xnat_experiment(xnat, project, ident)
+    if not xnat_experiment:
         return
 
     add_session_to_db(ident, xnat_experiment)
@@ -407,26 +411,21 @@ class Dcm2BidsConfig(object):
         if dcm2bids_config is None:
             try:
                 self.dcm2bids_config = datman.utils.locate_metadata(
-                    "dcm2bids.json", config=cfg
+                    "dcm2bids.json", config=CFG
                 )
             except FileNotFoundError:
                 logger.error("No config file available for study {}."
-                             "".format(cfg.study_name))
+                             "".format(CFG.study_name))
         if bids_out is None:
-            self.bids_out = cfg.get_path("bids")
+            self.bids_out = CFG.get_path("bids")
 
 
 def xnat_to_bids(xnat, project, ident, dcm2bids_opt):
     bids_sub = ident.get_bids_name()
     bids_ses = ident.timepoint
-    experiment_label = ident.get_xnat_experiment_id()
 
-    try:
-        xnat_experiment = xnat.get_experiment(
-            project, ident.get_xnat_subject_id(), experiment_label)
-    except datman.exceptions.XnatException as e:
-        logger.error("Unable to retrieve experiment {} from XNAT server. "
-                     "{}: {}".format(experiment_label, type(e).__name__, e))
+    xnat_experiment = get_xnat_experiment(xnat, project, ident)
+    if not xnat_experiment:
         return
 
     add_session_to_db(ident, xnat_experiment)
@@ -436,10 +435,10 @@ def xnat_to_bids(xnat, project, ident, dcm2bids_opt):
 
     bids_dest = os.path.join(dcm2bids_opt.bids_out,
                              'sub-' + bids_sub, 'ses-' + bids_ses)
-    if (os.path.exists(bids_dest)):
+    if os.path.exists(bids_dest):
         logger.info("{} already exists".format(bids_dest))
 
-        if (dcm2bids_opt.clobber):
+        if dcm2bids_opt.clobber:
             logger.info("Overwriting because of --clobber")
         else:
             logger.info("(Use --clobber to overwrite)")
@@ -447,16 +446,7 @@ def xnat_to_bids(xnat, project, ident, dcm2bids_opt):
 
     with datman.utils.make_temp_directory(prefix='xnat_to_bids_') as tempdir:
         for scan in xnat_experiment.scans:
-            if not scan.raw_dicoms_exist():
-                logger.warning("Skipping series {} for session {}."
-                               "No RAW dicoms exist"
-                               "".format(scan.series, xnat_experiment.name))
-                continue
-
-            if not scan.description:
-                logger.error("Can't find description for"
-                             " series {} from session {}"
-                             "".format(scan.series, xnat_experiment.name))
+            if not is_usable_scan(scan):
                 continue
             scan_temp = get_dicom_archive_from_xnat(xnat, scan, tempdir)
             if not scan_temp:
@@ -491,14 +481,14 @@ def link_nii(ident, experiment, bids_dir):
             for the session.
         bids_dir (:obj:`str`): The full path to the BIDS session folder.
     """
-    tags = cfg.get_tags(site=ident.site)
+    tags = CFG.get_tags(site=ident.site)
 
     if not tags.series_map:
-        logger.error(f"Failed to get scan tags for {cfg.study_name}"
+        logger.error(f"Failed to get scan tags for {CFG.study_name}"
                      f" and site {ident.site}. Can't assign datman names.")
         return
 
-    session = datman.scan.Scan(ident.get_full_subjectid_with_timepoint(), cfg)
+    session = datman.scan.Scan(ident.get_full_subjectid_with_timepoint(), CFG)
     try:
         os.makedirs(session.nii_path)
     except FileExistsError:
@@ -509,7 +499,7 @@ def link_nii(ident, experiment, bids_dir):
     matches = match_dm_to_bids(dm_names, bids_names, tags)
     # Perhaps exit here if all files exist
     for fname in matches:
-        if not db_ignore:
+        if not IGNORE_DB:
             add_scan_to_db(fname, matches[fname])
         make_link(fname, matches[fname], session)
 
@@ -550,35 +540,10 @@ def get_datman_names(ident, experiment, tags):
     """
     datman_names = {}
     for scan in experiment.scans:
-        if not scan.raw_dicoms_exist():
-            logger.warning(f"Ignoring {scan.series} for session "
-                           f"{experiment.name}. No RAW dicoms exist")
+        if not is_usable_scan(scan, no_derived=True):
             continue
 
-        if not scan.description:
-            logger.error(f"Can't find description for series {scan.series} "
-                         f"from session {experiment.name}. Datman name can't "
-                         "be assigned.")
-            continue
-
-        try:
-            scan.set_datman_name(str(ident), tags.series_map)
-        except Exception as e:
-            logger.info("Failed to make datman file name for series "
-                        f"{scan.series} in session {experiment.name}. "
-                        f"Reason {type(e).__name__}: {e}")
-            continue
-
-        if scan.is_derived():
-            logger.warning(f"Series {scan.series} in session "
-                           f"{experiment.name} is a derived scan. Ignoring.")
-            continue
-
-        if len(scan.tags) > 1 and not scan.multiecho:
-            logger.error(
-                f"Multiple export patterns match for {experiment.name}, "
-                f"descr: {scan.description}, tags: {scan.tags}")
-            continue
+        assign_datman_name(scan, str(ident), tags.series_map, WANTED_TAGS)
 
         for name in scan.names:
             try:
@@ -799,7 +764,7 @@ def make_link(dm_file, bids_file, session):
             scan belongs to.
     """
     base_target = os.path.join(session.nii_path, dm_file)
-    if datman.utils.read_blacklist(scan=base_target, config=cfg):
+    if datman.utils.read_blacklist(scan=base_target, config=CFG):
         logger.debug(f"Ignoring blacklisted scan {base_target}")
         return
 
@@ -826,7 +791,7 @@ def add_session_to_db(ident, experiment):
             for the session.
     """
     exp_label = ident.get_xnat_experiment_id()
-    if db_ignore:
+    if IGNORE_DB:
         logger.info(
             f"Ignoring dashboard database, {exp_label} will not be added.")
         return
@@ -878,7 +843,7 @@ def process_resources(xnat, ident, xnat_experiment):
     logger.info("Extracting {} resources from {}".format(
         len(xnat_experiment.resource_files), xnat_experiment.name))
 
-    base_path = os.path.join(cfg.get_path('resources'), str(ident))
+    base_path = os.path.join(CFG.get_path('resources'), str(ident))
 
     if not os.path.isdir(base_path):
         logger.info("Creating resources dir {}".format(base_path))
@@ -933,7 +898,7 @@ def process_resources(xnat, ident, xnat_experiment):
                                   resource['URI'],
                                   resource_path)
 
-        if not db_ignore:
+        if not IGNORE_DB:
             session = dashboard.get_session(ident)
             if session.tech_notes or not session.expects_notes():
                 return
@@ -941,7 +906,7 @@ def process_resources(xnat, ident, xnat_experiment):
             if notes:
                 # Store only the path relative to the resources dir
                 session.tech_notes = notes.replace(
-                    cfg.get_path("resources"), "").lstrip("/")
+                    CFG.get_path("resources"), "").lstrip("/")
                 session.save()
 
 
@@ -1004,54 +969,23 @@ def process_scans(xnat, ident, xnat_experiment):
         xnat_experiment.name))
 
     # load the export info from the site config files
-    tags = cfg.get_tags(site=ident.site)
+    tags = CFG.get_tags(site=ident.site)
 
     if not tags.series_map:
         logger.error("Failed to get export info for study {} at site {}"
-                     .format(cfg.study_name, ident.site))
+                     .format(CFG.study_name, ident.site))
         return
 
     for scan in xnat_experiment.scans:
-
-        if not scan.raw_dicoms_exist():
-            logger.warning("Skipping series {} for session {}. No RAW dicoms "
-                           "exist".format(scan.series, xnat_experiment.name))
+        if not is_usable_scan(scan, no_derived=True):
             continue
 
-        if not scan.description:
-            logger.error("Can't find description for series {} from session {}"
-                         .format(scan.series, xnat_experiment.name))
-            continue
+        assign_datman_name(scan, str(ident), tags.series_map, WANTED_TAGS)
 
-        try:
-            scan.set_datman_name(str(ident), tags.series_map)
-        except Exception as e:
-            logger.info("Failed to make file name for series {} in session "
-                        "{}. Reason {}: {}".format(scan.series,
-                                                   xnat_experiment.name,
-                                                   type(e).__name__,
-                                                   e))
-            continue
-
-        if scan.is_derived():
-            logger.warning("Series {} in session {} is a derived scan. "
-                           "Skipping.".format(
-                               scan.series, xnat_experiment.name))
-            continue
-
-        if len(scan.tags) > 1 and not scan.multiecho:
-            logger.error("Multiple export patterns match for {}, "
-                         "descr: {}, tags: {}".format(xnat_experiment.name,
-                                                      scan.description,
-                                                      scan.tags))
-            continue
-
-        if not db_ignore:
+        if not IGNORE_DB:
             update_dashboard(scan.names)
 
         for fname, tag in zip(scan.names, scan.tags):
-            if wanted_tags and (tag not in wanted_tags):
-                continue
             export_formats = get_export_formats(ident, fname, tags, tag)
             if export_formats:
                 get_scans(xnat, ident, scan, fname, export_formats)
@@ -1070,7 +1004,7 @@ def update_dashboard(scan_names):
 def get_export_formats(ident, file_stem, tags, tag):
     try:
         blacklist_entry = datman.utils.read_blacklist(scan=file_stem,
-                                                      config=cfg)
+                                                      config=CFG)
     except datman.scanid.ParseException:
         logger.error("{} is not a datman ID. Skipping.".format(file_stem))
         return
@@ -1084,7 +1018,7 @@ def get_export_formats(ident, file_stem, tags, tag):
         export_formats = tags.get(tag)['Formats']
     except KeyError:
         logger.error("Export settings for tag: {} not found for "
-                     "study: {}".format(tag, cfg.study_name))
+                     "study: {}".format(tag, CFG.study_name))
         return
 
     export_formats = series_is_processed(ident, file_stem, export_formats)
@@ -1100,7 +1034,7 @@ def series_is_processed(ident, file_stem, export_formats):
     """Returns true if exported files exist for all specified formats"""
     remaining_formats = []
     for f in export_formats:
-        outdir = os.path.join(cfg.get_path(f),
+        outdir = os.path.join(CFG.get_path(f),
                               ident.get_full_subjectid_with_timepoint())
         outfile = os.path.join(outdir, file_stem)
         # need to use wildcards here as dont really know what the
@@ -1130,7 +1064,7 @@ def get_scans(xnat, ident, xnat_scan, output_name, export_formats):
             return
 
         for export_format in export_formats:
-            target_base_dir = cfg.get_path(export_format)
+            target_base_dir = CFG.get_path(export_format)
             target_dir = os.path.join(
                 target_base_dir,
                 ident.get_full_subjectid_with_timepoint())
@@ -1421,6 +1355,54 @@ def check_create_dir(target):
         except OSError as e:
             logger.error("Failed creating dir: {}".format(target))
             raise e
+
+
+def is_usable_scan(scan, no_derived=False):
+    """Detect whether scan can potentially be downloaded.
+    """
+    if not scan.raw_dicoms_exist():
+        logger.warning(f"Ignoring {scan.series} for session "
+                       f"{experiment.name}. No RAW dicoms exist")
+        return False
+
+    if not scan.description:
+        logger.error(f"Can't find description for series {scan.series} "
+                     f"from session {experiment.name}.")
+        return False
+
+    if no_derived and scan.is_derived():
+        logger.warning(f"Series {scan.series} in session "
+                       f"{experiment.name} is a derived scan. Ignoring.")
+        return False
+    return True
+
+
+def assign_datman_name(scan, session, series_map, wanted_tags=None):
+    """Ensure the scan has a datman-style name if it's able to be downloaded.
+    """
+    try:
+        scan.set_datman_name(session, series_map)
+    except Exception as e:
+        logger.info(f"Failed to make file name for series {scan.series} "
+                    f"in session {session}. Reason {type(e).__name__}: {e}")
+        scan.names = []
+        scan.tags = []
+
+    if len(scan.tags) > 1 and not scan.multiecho:
+        logger.error(f"Multiple export patterns match for {session}, "
+                     f"descr: {scan.description}, tags: {scan.tags}")
+        scan.names = []
+        scan.tags = []
+
+    if not wanted_tags:
+        return scan
+
+    for idx, tag in enumerate(scan.tags):
+        if tag not in wanted_tags:
+            del scan.tags[idx]
+            del scan.names[idx]
+
+    return scan
 
 
 if __name__ == '__main__':
