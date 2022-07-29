@@ -421,9 +421,6 @@ class Dcm2BidsConfig(object):
 
 
 def xnat_to_bids(xnat, project, ident, dcm2bids_opt):
-    bids_sub = ident.get_bids_name()
-    bids_ses = ident.timepoint
-
     xnat_experiment = get_xnat_experiment(xnat, project, ident)
     if not xnat_experiment:
         return
@@ -433,6 +430,8 @@ def xnat_to_bids(xnat, project, ident, dcm2bids_opt):
     if xnat_experiment.resource_files:
         process_resources(xnat, ident, xnat_experiment)
 
+    bids_sub = ident.get_bids_name()
+    bids_ses = ident.timepoint
     bids_dest = os.path.join(dcm2bids_opt.bids_out,
                              'sub-' + bids_sub, 'ses-' + bids_ses)
     if os.path.exists(bids_dest):
@@ -481,18 +480,18 @@ def link_nii(ident, experiment, bids_dir):
             for the session.
         bids_dir (:obj:`str`): The full path to the BIDS session folder.
     """
+    session = datman.scan.Scan(ident.get_full_subjectid_with_timepoint(), CFG)
+    try:
+        os.makedirs(session.nii_path)
+    except FileExistsError:
+        pass
+
     tags = CFG.get_tags(site=ident.site)
 
     if not tags.series_map:
         logger.error(f"Failed to get scan tags for {CFG.study_name}"
                      f" and site {ident.site}. Can't assign datman names.")
         return
-
-    session = datman.scan.Scan(ident.get_full_subjectid_with_timepoint(), CFG)
-    try:
-        os.makedirs(session.nii_path)
-    except FileExistsError:
-        pass
 
     dm_names = get_datman_names(ident, experiment, tags)
     bids_names = get_bids_niftis(bids_dir)
