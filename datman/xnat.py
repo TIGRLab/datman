@@ -10,10 +10,12 @@ import time
 import urllib.parse
 from abc import ABC
 from xml.etree import ElementTree
+from zipfile import ZipFile
 
 import requests
 
 from datman.exceptions import ExportException, UndefinedSetting, XnatException
+from datman.utils import is_dicom
 
 logger = logging.getLogger(__name__)
 
@@ -1568,6 +1570,8 @@ class XNATScan(XNATObject):
         self.image_type = self._get_field("parameters/imageType")
         self.multiecho = self.is_multiecho()
         self.description = self._set_description()
+        self.names = []
+        self.tags = []
 
     def _set_description(self):
         series_descr = self._get_field("series_description")
@@ -1657,6 +1661,98 @@ class XNATScan(XNATObject):
         if not self.description:
             return ""
         return re.sub(r"[^a-zA-Z0-9.+]+", "-", self.description)
+
+    def is_usable(self, ignore_derived=False):
+        """Check if this is a series that should be downloaded.
+
+        Args:
+            ignore_derived (bool, optional): Whether to consider a derived
+                scan unusable. Defaults to False.
+
+        Returns:
+            bool: True if the scan should be downloaded.
+        """
+        if not self.raw_dicoms_exist():
+            logger.debug(f"Ignoring {self.series} for {self.experiment}. "
+                         f"No RAW dicoms exist.")
+            return False
+
+        if not self.description:
+            logger.error(f"Can't find description for series {self.series} "
+                         f"from session {self.experiment}.")
+            return False
+
+        if ignore_derived and self.is_derived():
+            logger.debug(
+                f"Series {self.series} in session {self.experiment} is a "
+                "derived scan. Ignoring.")
+            return False
+
+        return True
+
+    def download(self, xnat_conn, output_dir):
+        """Download all dicoms for this series.
+
+        Args:
+            xnat_conn (:obj:`datman.xnat.xnat`): An open xnat connection
+                to the server to download from.
+            output_dir (:obj:`str`): The full path to the location to
+                download all files to.
+
+        Returns:
+            str: The full path to the directory containing downloaded
+                dicoms or None if download failed.
+        """
+        logger.info(f"Downloading dicoms for {self.experiment} series: "
+                    f"{self.series}.")
+        try:
+            dicom_zip = xnat_conn.get_dicom(
+                self.project, self.subject, self.experiment, self.series)
+        except Exception as e:
+            logger.error(f"Failed to download dicom archive for {self.subject}"
+                         f" series {self.series}.")
+            return
+
+        logger.info(f"Unpacking archive {dicom_zip}")
+
+        try:
+            with ZipFile(dicom_zip, "r") as fh:
+                fh.extractall(output_dir)
+        except Exception as e:
+            logger.error("An error occurred unpacking dicom archive for "
+                         f"{self.experiment}'s series {self.series}'")
+            os.remove(dicom_zip)
+            return
+        else:
+            logger.info("Unpacking complete. Deleting archive file "
+                        f"{dicom_zip}")
+            os.remove(dicom_zip)
+
+        dicom_file = self._find_first_dicom(output_dir)
+
+        try:
+            base_dir = os.path.dirname(dicom_file)
+        except TypeError:
+            logger.warning("No valid dicom files found in XNAT session "
+                           f"{self.subject} series {self.series}.")
+            return
+        return base_dir
+
+    def _find_first_dicom(self, download_dir):
+        """Finds the first dicom (if any) in the given directory.
+
+        Args:
+            download_dir (:obj:`str`): The directory to search for dicoms.
+
+        Returns:
+            str: The full path to a dicom, or None if no readable dicoms
+                exist in the folder.
+        """
+        for root_dir, folder, files in os.walk(download_dir):
+            for item in files:
+                path = os.path.join(root_dir, item)
+                if is_dicom(path):
+                    return path
 
     def __str__(self):
         return f"<XNATScan {self.experiment} - {self.series}>"
