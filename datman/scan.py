@@ -32,6 +32,8 @@ class DatmanNamed(object):
         self.subject = ident.subject
         self.timepoint = ident.timepoint
         self.session = ident.session
+        self.bids_sub = f"sub-{ident.get_bids_name()}"
+        self.bids_ses = f"ses-{ident.timepoint}"
 
 
 class Series(DatmanNamed):
@@ -106,10 +108,10 @@ class Scan(DatmanNamed):
 
         DatmanNamed.__init__(self, ident)
 
-        self.nii_path = self.__get_path("nii", config)
-        self.nrrd_path = self.__get_path("nrrd", config)
-        self.mnc_path = self.__get_path("mnc", config)
-        self.qc_path = self.__get_path("qc", config)
+        for dir in ["nii", "nrrd", "mnc", "dcm", "qc"]:
+            setattr(self, f"{dir}_path", self.__get_path(dir, config))
+
+        self.bids_path = self.__get_bids(config)
         self.resources = self._get_resources(config)
 
         self.niftis = self.__get_series(self.nii_path, [".nii", ".nii.gz"])
@@ -154,8 +156,18 @@ class Scan(DatmanNamed):
         folder_name = self.full_id
         if session:
             folder_name = self.id_plus_session
-        path = os.path.join(config.get_path(key), folder_name)
+        try:
+            path = os.path.join(config.get_path(key), folder_name)
+        except datman.config.UndefinedSetting:
+            return ""
         return path
+
+    def __get_bids(self, config):
+        try:
+            bids = config.get_path("bids")
+        except datman.config.UndefinedSetting:
+            return ""
+        return os.path.join(bids, self.bids_sub, self.bids_ses)
 
     def __get_series(self, path, ext_list):
         """
