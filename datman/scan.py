@@ -120,6 +120,15 @@ class Scan(DatmanNamed):
 
         self.nii_tags = list(self.__nii_dict.keys())
 
+    def find_files(self, file_stem, format="nii"):
+        try:
+            base_path = getattr(self, f"{format}_path")
+        except AttributeError:
+            return []
+        if not os.path.exists(base_path):
+            return []
+        return glob.glob(os.path.join(base_path, file_stem + "*"))
+
     def get_tagged_nii(self, tag):
         try:
             matched_niftis = self.__nii_dict[tag]
