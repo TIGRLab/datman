@@ -94,11 +94,14 @@ class Scan(DatmanNamed):
 
         subject_id = self.__check_session(subject_id)
 
-        try:
-            ident = scanid.parse(subject_id)
-        except datman.scanid.ParseException:
-            message = f"{subject_id} does not match datman convention"
-            raise datman.scanid.ParseException(message)
+        if isinstance(subject_id, datman.scanid.Identifier):
+            ident = subject_id
+        else:
+            try:
+                ident = scanid.parse(subject_id)
+            except datman.scanid.ParseException:
+                message = f"{subject_id} does not match datman convention"
+                raise datman.scanid.ParseException(message)
 
         try:
             self.project = config.map_xnat_archive_to_project(subject_id)
