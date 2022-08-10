@@ -79,29 +79,28 @@ class Scan(DatmanNamed):
     Holds all information for a single scan (session).
 
     Args:
-        subject_id: A subject id of the format STUDY_SITE_ID_TIMEPOINT
-            _SESSION may be included, but will be set to the default _01
-            if missing.
-        config: A config object made from a project_settings.yml file
+        subject_id (:obj:`str` or :obj:`datman.scanid.Identifier`):
+            A valid datman subject ID.
+        config (:obj:`datman.config.config`): The config object for
+            the study this session belongs to.
+        bids_root (:obj:`str`, optional): The root path where bids data
+            is stored. If given, overrides any values from the configuration
+            files.
 
     May raise a ParseException if the given subject_id does not match the
     datman naming convention
 
     """
-    def __init__(self, subject_id, config):
-
-        self.is_phantom = True if "_PHA_" in subject_id else False
-
-        subject_id = self.__check_session(subject_id)
+    def __init__(self, subject_id, config, bids_root=None):
+        self.is_phantom = datman.scanid.is_phantom(subject_id)
 
         if isinstance(subject_id, datman.scanid.Identifier):
-            ident = subject_id
+            if subject_id.session:
+                ident = subject_id
+            else:
+                ident = self._get_ident(str(subject_id))
         else:
-            try:
-                ident = scanid.parse(subject_id)
-            except datman.scanid.ParseException:
-                message = f"{subject_id} does not match datman convention"
-                raise datman.scanid.ParseException(message)
+            ident = self._get_ident(subject_id)
 
         try:
             self.project = config.map_xnat_archive_to_project(subject_id)
@@ -114,6 +113,7 @@ class Scan(DatmanNamed):
         for dir in ["nii", "nrrd", "mnc", "dcm", "qc"]:
             setattr(self, f"{dir}_path", self.__get_path(dir, config))
 
+        self.bids_root = bids_root
         self.bids_path = self.__get_bids(config)
         self.resources = self._get_resources(config)
 
@@ -122,6 +122,15 @@ class Scan(DatmanNamed):
         self.__nii_dict = self.__make_dict(self.niftis)
 
         self.nii_tags = list(self.__nii_dict.keys())
+
+    def _get_ident(self, subid):
+        subject_id = self.__check_session(subid)
+        try:
+            ident = scanid.parse(subject_id)
+        except datman.scanid.ParseException:
+            raise datman.scanid.ParseException(
+                f"{subject_id} does not match datman convention")
+        return ident
 
     def find_files(self, file_stem, format="nii"):
         try:
@@ -175,10 +184,13 @@ class Scan(DatmanNamed):
         return path
 
     def __get_bids(self, config):
-        try:
-            bids = config.get_path("bids")
-        except datman.config.UndefinedSetting:
-            return ""
+        if self.bids_root:
+            bids = self.bids_root
+        else:
+            try:
+                bids = config.get_path("bids")
+            except datman.config.UndefinedSetting:
+                return ""
         return os.path.join(bids, self.bids_sub, self.bids_ses)
 
     def __get_series(self, path, ext_list):
