@@ -611,11 +611,11 @@ class NiiExporter(SeriesExporter):
             _, log_msgs = run(f'dcm2niix -z y -b y -o {tmp} {self.input}',
                               self.dry_run)
             for tmp_file in glob(f"{tmp}/*"):
-                self.move_nifti(tmp_file)
+                self.move_file(tmp_file)
                 stem = self._get_fname(tmp_file)
                 self.report_issues(stem, str(log_msgs))
 
-    def move_nifti(self, gen_file):
+    def move_file(self, gen_file):
         fname = self._get_fname(gen_file)
 
         if not fname:
@@ -637,6 +637,9 @@ class NiiExporter(SeriesExporter):
 
         if self.echo_dict:
             stem = self._get_echo_fname(bname, ext)
+            if stem != self.fname_root:
+                # File belongs to the wrong echo, skip it
+                return ""
         else:
             stem = self.fname_root
         return stem + ext
@@ -651,7 +654,7 @@ class NiiExporter(SeriesExporter):
             return ""
 
         try:
-            echo = int(m.group(4).split('e')[-1][0])
+            echo = int(match.group(4).split('e')[-1][0])
             stem = self.echo_dict[echo]
         except Exception:
             logger.error(f"Can't parse valid echo number from {fname}")
