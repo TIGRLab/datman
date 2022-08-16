@@ -13,7 +13,7 @@ import re
 import pydicom as dicom
 
 import datman.dashboard
-from datman.exceptions import UndefinedSetting
+from datman.exceptions import ExporterException, UndefinedSetting
 from datman.scanid import (parse_filename, parse_bids_filename, ParseException,
                            KCNIIdentifier)
 from datman.utils import (run, make_temp_directory, get_extension,
@@ -37,12 +37,12 @@ def get_exporter(key, scope):
         exp_set = SESSION_EXPORTERS
 
     try:
-        Exporter = exp_set[key]
+        exporter = exp_set[key]
     except KeyError:
         logger.error(
             f"Unrecognized format {key} for {scope}, no exporters found.")
-        return
-    return Exporter
+        return None
+    return exporter
 
 
 class Exporter(ABC):
@@ -55,26 +55,47 @@ class Exporter(ABC):
         return getattr(session, f"{cls.type}_path")
 
     @abstractmethod
-    def export(self, *args, **kwargs):
+    def outputs_exist(self):
+        pass
+
+    @abstractmethod
+    def export(self, raw_data_dir, **kwargs):
         """Implement to convert input data to this exporter's output type.
         """
         pass
 
-    def __repr__(self):
-        fq_name = str(self.__class__).replace("<class '", "").replace("'>", "")
-        name = fq_name.split(".")[-1]
-        return f"<{name}>"
+    def make_output_dir(self):
+        try:
+            os.makedirs(self.output_dir)
+        except FileExistsError:
+            pass
+        except AttributeError:
+            logger.debug(f"output_dir not defined for {self}")
+            pass
+        except PermissionError:
+            logger.error(f"Failed to make output dir {self.output_dir} - "
+                         "PermissionDenied.")
+            return False
+        return True
 
 
 class SessionExporter(Exporter):
     """A base class for exporters that take an entire session as input.
     """
 
-    def __init__(self, config, session, experiment, download_dir,
-                 dry_run=False, ignore_db=False, **kwargs):
-        self.tmp_dir = download_dir
+    def __init__(self, config, session, experiment,
+                 dry_run=False, **kwargs):
+        self.experiment = experiment
         self.dry_run = dry_run
-        self.ignore_db = ignore_db
+
+    @abstractmethod
+    def needs_raw_data(self):
+        pass
+
+    def __repr__(self):
+        fq_name = str(self.__class__).replace("<class '", "").replace("'>", "")
+        name = fq_name.split(".")[-1]
+        return f"<{name} - {self.experiment.name}>"
 
 
 class SeriesExporter(Exporter):
@@ -84,70 +105,96 @@ class SeriesExporter(Exporter):
     # Subclasses should set this
     ext = None
 
-    def __init__(self, input_dir, output_dir, fname_root, echo_dict=None,
-                 dry_run=False):
-        self.input = input_dir
+    def __init__(self, output_dir, fname_root, echo_dict=None, dry_run=False,
+                 **kwargs):
         self.output_dir = output_dir
         self.fname_root = fname_root
         self.echo_dict = echo_dict
         self.dry_run = dry_run
+
+    def outputs_exist(self):
+        return os.path.exists(
+            os.path.join(self.output_dir, self.fname_root + self.ext))
+
+    def needs_raw_data(self):
+        return not self.outputs_exist()
+
+    def __repr__(self):
+        fq_name = str(self.__class__).replace("<class '", "").replace("'>", "")
+        name = fq_name.split(".")[-1]
+        return f"<{name} - {self.fname_root}>"
 
 
 class BidsExporter(SessionExporter):
 
     type = "bids"
 
-    def __init__(self, config, session, experiment, download_dir,
-                 keep_dcm=False, clobber=False, force_dcm2niix=False,
-                 log_level="INFO", dcm2bids_config=None, **kwargs):
-
-        if not dcm2bids_config:
-            try:
-                dcm2bids_config = locate_metadata(
-                    "dcm2bids.json", config=config)
-            except FileNotFoundError:
-                logger.error("No dcm2bids.json config file available for "
-                             f"{config.study_name}")
-
-        self.input = self._get_scan_dir(experiment.name, download_dir)
-        self.keep_dcm = keep_dcm
-        self.force_dcm2niix = force_dcm2niix
-        self.clobber = clobber
-        self.log_level = log_level
-        self.dcm2bids_config = dcm2bids_config
+    def __init__(self, config, session, experiment, bids_opts=None, **kwargs):
+        self.exp_label = experiment.name
         self.bids_sub = session._ident.get_bids_name()
         self.bids_ses = session._ident.timepoint
         self.bids_folder = session.bids_root
         self.output_dir = session.bids_path
-        super().__init__(config, session, experiment, download_dir, **kwargs)
+        self.keep_dcm = bids_opts.keep_dcm if bids_opts else False
+        self.force_dcm2niix = bids_opts.force_dcm2niix if bids_opts else False
+        self.clobber = bids_opts.clobber if bids_opts else False
+        self.log_level = bids_opts.log_level if bids_opts else "INFO"
+        self.dcm2bids_config = self._get_bids_config(config, bids_opts)
+        super().__init__(config, session, experiment, **kwargs)
 
-    def _get_scan_dir(self, exp_label, download_dir):
-        return os.path.join(download_dir, exp_label, "scans")
+    def _get_bids_config(self, config, bids_opts):
+        bids_conf = bids_opts.dcm2bid_config if bids_opts else None
 
-    # @property
-    # def outputs_exist(self):
-    #     # Update function name. Propery is not good (looks weird).
-    #     # Maybe rename it
-    #
-    #     # Can't get more granular than this at the moment
-    #     exists = os.path.exists(self.output_dir)
-    #     if exists:
-    #         if self.clobber:
-    #             logger.info("Overwriting because of --clobber")
-    #             return False
-    #         else:
-    #             logger.info("(Use --clobber to overwrite)")
-    #     return exists
+        if bids_conf and os.path.exists(bids_conf):
+            return bids_conf
 
-    def export(self):
+        if bids_conf:
+            raise ExporterException(
+                f"Provided dcm2bids config file does not exist: {bids_conf}")
+
+        try:
+            bids_conf = locate_metadata("dcm2bids.json", config=config)
+        except FileNotFoundError:
+            raise ExporterException(
+                "No dcm2bids config file provided and no dcm2bids.json config "
+                f"file found in metadata for {config.study_name}")
+
+        if not os.path.exists(bids_conf):
+            raise ExporterException(
+                f"Default dcm2bids.json file {bids_conf} does not exist.")
+
+        return bids_conf
+
+    def _get_scan_dir(self, download_dir):
+        return os.path.join(download_dir, self.exp_label, "scans")
+
+    def outputs_exist(self):
+        # Can't get more granular than this at the moment
+        if os.path.exists(self.output_dir):
+            if self.clobber:
+                logger.info(
+                    f"{self.output_dir} will be overwritten due to "
+                    "clobber option.")
+                return False
+            logger.info("(Use --clobber to overwrite)")
+            return True
+        return False
+
+    def needs_raw_data(self):
+        return not self.outputs_exist()
+
+    def export(self, raw_data_dir):
         if not DCM2BIDS_FOUND:
             logger.error(f"Unable to export to {self.output_dir}, "
                          "Dcm2Bids not found.")
             return
 
+        self.make_output_dir()
+
+        input = self._get_scan_dir(raw_data_dir)
         try:
             dcm2bids_app = Dcm2bids(
-                self.input,
+                input,
                 self.bids_sub,
                 self.dcm2bids_config,
                 output_dir=self.bids_folder,
@@ -167,47 +214,19 @@ class BidsExporter(SessionExporter):
 class NiiLinkExporter(SessionExporter):
 
     type = "nii_link"
+    ext = ".nii.gz"
 
-    def __init__(self, config, session, experiment, download_dir,
-                 **kwargs):
-        # Update this to save the experiment, to call assign_names if
-        #   they dont already exist (always? is it idempotent?)
-        #   Update export nii to also do this
-        #   Move the function calls for getting names to export
-        #       So they're updated in real life
-        self.nii_path = session.nii_path
+    def __init__(self, config, session, experiment, **kwargs):
+        self.output_dir = session.nii_path
+        # self.nii_path = session.nii_path
         self.config = config
         self.tags = config.get_tags(site=session.site)
-        self.experiment = experiment
-        # self.dm_names = self._get_dm_names(experiment)
         self.bids_path = session.bids_path
-        # self.bids_names = self._get_bids_niftis(session.bids_path)
-        super().__init__(config, session, experiment, download_dir, **kwargs)
+        super().__init__(config, session, experiment, **kwargs)
 
-    def export(self):
-        dm_names = self.get_dm_names()
-        bids_names = self.get_bids_niftis()
-
-        name_map = self.match_dm_to_bids(dm_names, bids_names)
-        for dm_name in name_map:
-            self.make_link(dm_name, name_map[dm_name])
-
-    def make_link(self, dm_file, bids_file):
-        base_target = os.path.join(self.nii_path, dm_file)
-        if read_blacklist(scan=base_target, config=self.config):
-            logger.debug(f"Ignoring blacklisted scan {dm_file}")
-            return
-
-        for source in glob(bids_file + '*'):
-            ext = get_extension(source)
-            target = base_target + ext
-            rel_source = get_relative_source(source, target)
-            try:
-                os.symlink(rel_source, target)
-            except FileExistsError:
-                pass
-            except Exception as e:
-                logger.error(f"Failed to create {target}. Reason - {e}")
+        self.dm_names = self.get_dm_names()
+        self.bids_names = self.get_bids_niftis()
+        self.name_map = self.match_dm_to_bids(self.dm_names, self.bids_names)
 
     def get_dm_names(self):
         name_map = {}
@@ -217,7 +236,7 @@ class NiiLinkExporter(SessionExporter):
         return name_map
 
     def get_bids_niftis(self):
-        """Get all nifti files from a session.
+        """Get all nifti files from a BIDS session.
 
         Returns:
             list: A list of full paths (minus the file extension) to each
@@ -246,14 +265,11 @@ class NiiLinkExporter(SessionExporter):
             matches = self._find_matching_files(bids_names, bids_conf)
 
             if bids_conf.get('class') == 'fmap' and bids_conf.get('match_str'):
-                self._add_fmap_names(dm_names[tag], matches,
-                    bids_conf.get('match_str'), name_map)
+                self._add_fmap_names(
+                    dm_names[tag], matches, bids_conf.get('match_str'),
+                    name_map)
                 continue
 
-            # Probably no longer needed
-            # matches = self._organize_bids(matches)
-
-            # If organize_bids is used, delete this line
             bids_files = sorted(
                 matches,
                 key=lambda x: int(parse_bids_filename(x).run)
@@ -265,36 +281,19 @@ class NiiLinkExporter(SessionExporter):
             )
 
             for idx, item in enumerate(dm_files):
-                if idx >= len(matches):
+                if idx >= len(bids_files):
                     continue
-                # Uncomment if organize_bids still needed
-                # if matches[idx] == "N/A":
-                #     continue
-                name_map[item] = matches[idx]
+                name_map[item] = bids_files[idx]
 
         return name_map
 
     def _find_matching_files(self, bids_names, bids_conf):
-        # """Find all BIDS file names that match the settings for a tag.
-        #
-        # Args:
-        #     bids_conf (:obj:`dict`): A dictionary of BIDS configuration settings
-        #         associated with a datman tag.
-        #
-        # Returns:
-        #     list: A list of BIDS filenames that match the given config.
-        # """
         matches = self._filter_bids(
             bids_names, bids_conf.get('class'), par_dir=True)
-        matches = self._filter_bids(matches, bids_conf.get(
-            self._get_label_key(bids_conf)))
+        matches = self._filter_bids(
+            matches, bids_conf.get(self._get_label_key(bids_conf)))
         matches = self._filter_bids(matches, bids_conf.get('task'))
         return matches
-
-    def _get_label_key(self, bids_conf):
-        for key in bids_conf:
-            if 'label' in key:
-                return key
 
     def _filter_bids(self, niftis, search_term, par_dir=False):
         """Find the subset of file names that matches a search string.
@@ -326,6 +325,11 @@ class NiiLinkExporter(SessionExporter):
                     result.add(item)
         return list(result)
 
+    def _get_label_key(self, bids_conf):
+        for key in bids_conf:
+            if 'label' in key:
+                return key
+
     def _add_fmap_names(self, dm_fmaps, bids_fmaps, match_map, name_map):
         matches = self._get_matching_fmaps(dm_fmaps, bids_fmaps, match_map)
 
@@ -333,32 +337,6 @@ class NiiLinkExporter(SessionExporter):
             for found_bids in matches[dm_root]:
                 dm_name = self._modify_dm_name(dm_root, found_bids)
                 name_map[dm_name] = found_bids
-        # mangled_dm = self._split_fmap_description(dm_fmaps)
-        # temp_matches = {}
-        # for fmap in bids_fmaps:
-        #     ident = parse_bids_filename(fmap)
-        #     if ident.acq not in match_map:
-        #         logger.debug(
-        #             "Tag settings can't match bids acquisition to datman "
-        #             f"name for: {ident}")
-        #         continue
-        #     for search_str in match_map[ident.acq]:
-        #         for nii_file in mangled_dm:
-        #             if search_str in mangled_dm[nii_file]:
-        #                 temp_matches.setdefault(nii_file, []).append(fmap)
-        #
-        # for nii_root in temp_matches:
-        #     for found_bids in temp_matches[nii_root]:
-        #         ident = parse_bids_filename(found_bids)
-        #         new_nii_root = [nii_root]
-        #         if ident.dir:
-        #             new_nii_root.append(f"dir-{ident.dir}")
-        #         if ident.run:
-        #             new_nii_root.append(f"run-{ident.run}")
-        #         if ident.suffix:
-        #             new_nii_root.append(ident.suffix)
-        #         new_fname = "_".join(new_nii_root)
-        #         name_map[new_fname] = found_bids
 
     def _get_matching_fmaps(self, dm_fmaps, bids_fmaps, match_map):
         matches = {}
@@ -391,42 +369,51 @@ class NiiLinkExporter(SessionExporter):
             new_descr.append(ident.suffix)
         return dm_name + "_".join(new_descr)
 
-    # def _split_fmap_description(self, fmaps):
-    #     no_descr = {}
-    #     for fmap in fmaps:
-    #         ident, tag, series, descr = parse_filename(fmap)
-    #         truncated_name = "_".join([str(ident), tag, series])
-    #         no_descr[truncated_name] = descr
-    #     return no_descr
+    @classmethod
+    def get_output_dir(cls, session):
+        return session.nii_path
 
-    # def _organize_bids(bids_names):
-    #     This shouldnt be needed for newly generated bids sessions.
-    #     and pre-existing arent meant to be linked.
-    #
-    #     """Sort and pad the list of bids names so datman names match correct runs.
-    #     """
-    #     by_run = sorted(
-    #         bids_names,
-    #         key=lambda x: int(parse_bids_filename(x).run)
-    #     )
-    #
-    #     cur_run = 1
-    #     padded = []
-    #     for scan in by_run:
-    #         fname = parse_bids_filename(scan)
-    #         while cur_run < int(fname.run):
-    #             padded.append("N/A")
-    #             cur_run += 1
-    #         padded.append(scan)
-    #         cur_run += 1
-    #     return padded
+    def outputs_exist(self):
+        for dm_name in self.name_map:
+            bl_entry = read_blacklist(scan=dm_name, config=self.config)
+            if bl_entry:
+                continue
+            full_path = os.path.join(self.output_dir, dm_name + self.ext)
+            if not os.path.exists(full_path):
+                return False
+        return True
+
+    def needs_raw_data(self):
+        return False
+
+    def export(self, *args):
+        self.make_output_dir()
+        for dm_name in self.name_map:
+            self.make_link(dm_name, self.name_map[dm_name])
+
+    def make_link(self, dm_file, bids_file):
+        base_target = os.path.join(self.output_dir, dm_file)
+        if read_blacklist(scan=base_target, config=self.config):
+            logger.debug(f"Ignoring blacklisted scan {dm_file}")
+            return
+
+        for source in glob(bids_file + '*'):
+            ext = get_extension(source)
+            target = base_target + ext
+            rel_source = get_relative_source(source, target)
+            try:
+                os.symlink(rel_source, target)
+            except FileExistsError:
+                pass
+            except Exception as e:
+                logger.error(f"Failed to create {target}. Reason - {e}")
 
 
 class DBExporter(SessionExporter):
 
     type = "db"
 
-    def __init__(self, config, session, experiment, download_dir, **kwargs):
+    def __init__(self, config, session, experiment, **kwargs):
         try:
             study_resource_dir = config.get_path("resources")
         except UndefinedSetting:
@@ -445,17 +432,34 @@ class DBExporter(SessionExporter):
         self.study_resource_path = study_resource_dir
         self.resources_path = resources_dir
         self.date = experiment.date
-        self.names = self._get_scan_names(session, experiment)
-        super().__init__(config, session, experiment, download_dir, **kwargs)
+        self.names = self.get_scan_names(session, experiment)
+        super().__init__(config, session, experiment, **kwargs)
 
-    def _get_scan_names(self, session, experiment):
+    def get_scan_names(self, session, experiment):
         names = {}
+        # use experiment.scans, so dashboard can report scans that didnt export
         for scan in experiment.scans:
-            for name in scan.names:
-                names[name] = self._get_bids_name(name, session)
+            # If outputs exist, get the mangled name instead.
+            for name in self.get_final_names(scan):
+                names[name] = self.get_bids_name(name, session)
         return names
 
-    def _get_bids_name(self, dm_name, session):
+    def get_final_names(self, scan):
+        # Return the actual names that sessions were exported to
+        altered_names = []
+        for name in scan.names:
+            found = glob(os.path.join(self.nii_path, name + "*.nii.gz"))
+            if not found:
+                altered_names.append(name)
+            else:
+                for full_path in found:
+                    fname = os.path.basename(full_path)
+                    stem = fname.replace(get_extension(fname), "")
+                    altered_names.append(stem)
+
+        return altered_names
+
+    def get_bids_name(self, dm_name, session):
         found = [item for item in session.find_files(dm_name)
                  if ".nii.gz" in item]
         if not found or not os.path.islink(found[0]):
@@ -464,8 +468,8 @@ class DBExporter(SessionExporter):
         bids_name = os.path.basename(bids_src)
         return bids_name.replace(get_extension(bids_name), "")
 
-    def export(self):
-        if self.dry_run or self.ignore_db:
+    def export(self, *args):
+        if self.dry_run:
             logger.debug(f"Skipping database update for {str(self.ident)}")
             return
 
@@ -481,6 +485,18 @@ class DBExporter(SessionExporter):
 
         for file_stem in self.names:
             self.make_scan(file_stem)
+
+    def outputs_exist(self):
+        # Always return False, it's fast and safe to repeatedly update records
+        # to keep them in line with the filesystem
+        return False
+
+    @classmethod
+    def get_output_dir(cls, session):
+        return None
+
+    def needs_raw_data(self):
+        return False
 
     def make_session(self):
         logger.debug(f"Adding session {str(self.ident)} to dashboard.")
@@ -559,7 +575,7 @@ class DBExporter(SessionExporter):
 
         try:
             bids_ident = parse_bids_filename(bids_stem)
-        except ParseException as e:
+        except ParseException:
             logger.debug(f"Failed to parse bids file name {bids_stem}")
             return
         scan.add_bids(str(bids_ident))
@@ -577,11 +593,11 @@ class DBExporter(SessionExporter):
                          f"record for {side_car}. Reason - {e}")
 
     def _add_conversion_errors(self, scan, file_stem):
-         convert_errors = self._get_file(file_stem, ".err")
-         if not convert_errors:
-             return
-         message = self._read_file(convert_errors)
-         scan.add_error(message)
+        convert_errors = self._get_file(file_stem, ".err")
+        if not convert_errors:
+            return
+        message = self._read_file(convert_errors)
+        scan.add_error(message)
 
     def _get_file(self, fname, ext):
         found = os.path.join(self.nii_path, fname + ext)
@@ -595,7 +611,7 @@ class DBExporter(SessionExporter):
             with open(fpath, "r") as fh:
                 message = fh.readlines()
         except Exception as e:
-            logger.debug(f"Can't read file {fh}")
+            logger.debug(f"Can't read file {fh} - {e}")
             return
         return message
 
@@ -606,9 +622,13 @@ class NiiExporter(SeriesExporter):
 
     type = "nii"
 
-    def export(self):
+    def export(self, raw_data_dir):
+        if self.outputs_exist():
+            logger.debug(f"Outputs exist for {self.fname_root}, skipping.")
+            return
+
         with make_temp_directory(prefix="export_nifti_") as tmp:
-            _, log_msgs = run(f'dcm2niix -z y -b y -o {tmp} {self.input}',
+            _, log_msgs = run(f'dcm2niix -z y -b y -o {tmp} {raw_data_dir}',
                               self.dry_run)
             for tmp_file in glob(f"{tmp}/*"):
                 self.move_file(tmp_file)
@@ -688,10 +708,10 @@ class NrrdExporter(SeriesExporter):
     type = "nrrd"
     ext = ".nrrd"
 
-    def export(self, dry_run=False):
+    def export(self, raw_dir):
         nrrd_script = self._locate_script()
-        run(f"{nrrd_script} {self.input} {self.fname_root} {self.output_dir}",
-            dry_run)
+        run(f"{nrrd_script} {raw_dir} {self.fname_root} {self.output_dir}",
+            self.dry_run)
 
     def _locate_script(self):
         datman_dir = os.path.split(os.path.dirname(__file__))[0]
@@ -710,7 +730,7 @@ class DcmExporter(SeriesExporter):
 
     def export(self, dry_run=False):
         if self.echo_dict:
-            _export_multi_echo(dry_run)
+            self._export_multi_echo(dry_run)
             return
 
         dcm_file = self._find_dcm()
@@ -745,7 +765,8 @@ class DcmExporter(SeriesExporter):
             if len(dcm_dict) == len(self.echo_dict):
                 break
 
-        for echo_num, dcm_echo_num in zip(echo_dict.keys(), dcm_dict.keys()):
+        for echo_num, dcm_echo_num in zip(self.echo_dict.keys(),
+                                          dcm_dict.keys()):
             output_file = os.path.join(self.output_dir,
                                        self.echo_dict[echo_num] + self.ext)
             logger.debug(f"Exporting a dcm file from {self.input} to "
