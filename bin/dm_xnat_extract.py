@@ -673,12 +673,16 @@ def is_blacklisted(scan_name, config):
     return False
 
 
-def needs_export(session_exporters):
+def needs_raw(session_exporters):
     return any([exp.needs_raw_data() for exp in session_exporters])
 
 
+def needs_export(session_exporters):
+    return any([not exp.outputs_exist() for exp in session_exporters])
+
+
 def needs_download(scan, session_exporters, series_exporters):
-    if needs_export(session_exporters) and scan.is_usable():
+    if needs_raw(session_exporters) and scan.is_usable():
         return True
     if scan in series_exporters:
         return True
