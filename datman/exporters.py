@@ -188,7 +188,7 @@ class BidsExporter(SessionExporter):
         super().__init__(config, session, experiment, **kwargs)
 
     def _get_bids_config(self, config, bids_opts):
-        bids_conf = bids_opts.dcm2bid_config if bids_opts else None
+        bids_conf = bids_opts.dcm2bids_config if bids_opts else None
 
         if bids_conf and os.path.exists(bids_conf):
             return bids_conf
@@ -505,7 +505,7 @@ class NiiLinkExporter(SessionExporter):
     def needs_raw_data(self):
         return False
 
-    def export(self, *_, **_):
+    def export(self, *args, **kwargs):
         if self.dry_run:
             logger.info("Dry run: Skipping making nii folder links for "
                         f"mapping {self.name_map}")
@@ -624,7 +624,7 @@ class DBExporter(SessionExporter):
         bids_name = os.path.basename(bids_src)
         return bids_name.replace(get_extension(bids_name), "")
 
-    def export(self, *_, **_):
+    def export(self, *args, **kwargs):
         if self.dry_run:
             logger.info("Dry run: Skipping database update for "
                         f"{str(self.ident)}")
@@ -848,7 +848,7 @@ class NiiExporter(SeriesExporter):
 
     type = "nii"
 
-    def export(self, raw_data_dir, **_):
+    def export(self, raw_data_dir, **kwargs):
         if self.outputs_exist():
             logger.debug(f"Outputs exist for {self.fname_root}, skipping.")
             return
@@ -856,6 +856,8 @@ class NiiExporter(SeriesExporter):
         if self.dry_run:
             logger.info(f"Dry run: Skipping export of {self.fname_root}")
             return
+
+        self.make_output_dir()
 
         with make_temp_directory(prefix="export_nifti_") as tmp:
             _, log_msgs = run(f'dcm2niix -z y -b y -o {tmp} {raw_data_dir}',
@@ -879,7 +881,7 @@ class NiiExporter(SeriesExporter):
 
         out_file = os.path.join(self.output_dir, fname)
         if os.path.exists(out_file):
-            logger.error(f"Output {out_file} already exists. Skipping.")
+            logger.info(f"Output {out_file} already exists. Skipping.")
             return
 
         return_code, _ = run(f"mv {gen_file} {out_file}", self.dry_run)
@@ -978,7 +980,7 @@ class NrrdExporter(SeriesExporter):
     type = "nrrd"
     ext = ".nrrd"
 
-    def export(self, raw_dir, **_):
+    def export(self, raw_dir, **kwargs):
         nrrd_script = self._locate_script()
         run(f"{nrrd_script} {raw_dir} {self.fname_root} {self.output_dir}",
             self.dry_run)
@@ -1005,7 +1007,7 @@ class DcmExporter(SeriesExporter):
         # always return False and reportedly export.
         return False
 
-    def export(self, raw_data_dir, **_):
+    def export(self, raw_data_dir, **kwargs):
         if self.echo_dict:
             self._export_multi_echo(raw_data_dir)
             return
@@ -1075,7 +1077,7 @@ class MncExporter(SeriesExporter):
     type = "mnc"
     ext = ".mnc"
 
-    def export(self, raw_data_dir, **_):
+    def export(self, raw_data_dir, **kwargs):
         cmd = (f"dcm2mnc -fname {self.fname_root} -dname '' {raw_data_dir}/* "
                f"{self.output_dir}")
         run(cmd, self.dry_run)
