@@ -545,7 +545,8 @@ def export_scans(config, xnat, xnat_experiment, session, bids_opts,
     xnat_experiment.assign_scan_names(config, session._ident)
 
     session_exporters = make_session_exporters(
-        config, session, xnat_experiment, bids_opts, ignore_db=ignore_db)
+        config, session, xnat_experiment, bids_opts, ignore_db=ignore_db,
+        dry_run=dry_run)
 
     series_exporters = make_all_series_exporters(
         config, session, xnat_experiment, use_bids=bids_opts.use_bids,
