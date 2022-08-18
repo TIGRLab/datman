@@ -1,6 +1,7 @@
 """Module to interact with the xnat server"""
 
 import getpass
+import glob
 import json
 import logging
 import os
@@ -14,7 +15,7 @@ from zipfile import ZipFile
 
 import requests
 
-from datman.exceptions import ExportException, UndefinedSetting, XnatException
+from datman.exceptions import UndefinedSetting, XnatException, ParseException
 from datman.utils import is_dicom
 
 logger = logging.getLogger(__name__)
@@ -1328,9 +1329,7 @@ class XNATExperiment(XNATObject):
             return scans
         xnat_scans = []
         for scan_json in scans[0]:
-            xnat_scans.append(
-                XNATScan(self.project, self.subject, self.name, scan_json)
-            )
+            xnat_scans.append(XNATScan(self, scan_json))
         return xnat_scans
 
     def _get_scan_UIDs(self):
@@ -1552,6 +1551,35 @@ class XNATExperiment(XNATObject):
 
         return output_path
 
+    def assign_scan_names(self, config, ident):
+        """Assign a datman style name to each scan in this experiment.
+
+        This will populate the XnatScan.names and XnatScan.tags fields
+        for any scan that matches the study's export configuration.
+
+        Args:
+            config (:obj:`datman.config.config`): A config object for the
+                study this experiment belongs to.
+            ident (:obj:`datman.scanid.Identifier`): A valid ID to apply
+                to this experiment's data.
+        """
+        tags = config.get_tags(site=ident.site)
+        if not tags.series_map:
+            logger.error(
+                f"Failed to get tag export info for study {config.study_name}"
+                f" and site {ident.site}")
+            return
+
+        for scan in self.scans:
+            try:
+                scan.set_datman_name(str(ident), tags)
+            except Exception as e:
+                logger.info(
+                    f"Failed to make file name for series {scan.series} "
+                    f"in session {str(ident)}. Reason {type(e).__name__}: "
+                    f"{e}")
+
+
     def __str__(self):
         return f"<XNATExperiment {self.name}>"
 
@@ -1560,11 +1588,11 @@ class XNATExperiment(XNATObject):
 
 
 class XNATScan(XNATObject):
-    def __init__(self, project, subject_name, experiment_name, scan_json):
+    def __init__(self, experiment, scan_json):
+        self.project = experiment.project
+        self.subject = experiment.subject
+        self.experiment = experiment.name
         self.raw_json = scan_json
-        self.project = project
-        self.subject = subject_name
-        self.experiment = experiment_name
         self.uid = self._get_field("UID")
         self.series = self._get_field("ID")
         self.image_type = self._get_field("parameters/imageType")
@@ -1572,6 +1600,7 @@ class XNATScan(XNATObject):
         self.description = self._set_description()
         self.names = []
         self.tags = []
+        self.download_dir = None
 
     def _set_description(self):
         series_descr = self._get_field("series_description")
@@ -1636,12 +1665,12 @@ class XNATScan(XNATObject):
         self.tags = list(matches.keys())
         return matches
 
-    def set_datman_name(self, base_name, tag_map):
+    def set_datman_name(self, base_name, tags):
         mangled_descr = self._mangle_descr()
         padded_series = self.series.zfill(2)
-        tag_settings = self.set_tag(tag_map)
+        tag_settings = self.set_tag(tags.series_map)
         if not tag_settings:
-            raise ExportException(
+            raise ParseException(
                 f"Can't identify tag for series {self.series}"
             )
         names = []
@@ -1654,6 +1683,13 @@ class XNATScan(XNATObject):
                     self.echo_dict[echo_num] = name
             names.append(name)
 
+        if len(self.tags) > 1 and not self.multiecho:
+            logger.error(
+                f"Multiple export patterns match for {str(ident)}, "
+                f"descr: {self.description}, tags: {self.tags}")
+            names = []
+            scan.tags = []
+
         self.names = names
         return names
 
@@ -1662,16 +1698,7 @@ class XNATScan(XNATObject):
             return ""
         return re.sub(r"[^a-zA-Z0-9.+]+", "-", self.description)
 
-    def is_usable(self, ignore_derived=False):
-        """Check if this is a series that should be downloaded.
-
-        Args:
-            ignore_derived (bool, optional): Whether to consider a derived
-                scan unusable. Defaults to False.
-
-        Returns:
-            bool: True if the scan should be downloaded.
-        """
+    def is_usable(self, strict=False):
         if not self.raw_dicoms_exist():
             logger.debug(f"Ignoring {self.series} for {self.experiment}. "
                          f"No RAW dicoms exist.")
@@ -1682,16 +1709,25 @@ class XNATScan(XNATObject):
                          f"from session {self.experiment}.")
             return False
 
-        if ignore_derived and self.is_derived():
+        if not strict:
+            return True
+
+        if self.is_derived():
             logger.debug(
                 f"Series {self.series} in session {self.experiment} is a "
                 "derived scan. Ignoring.")
+            return False
+
+        if not self.names:
             return False
 
         return True
 
     def download(self, xnat_conn, output_dir):
         """Download all dicoms for this series.
+
+        This will download all files in the series, and if successful,
+        set the download_dir attribute to the destination folder.
 
         Args:
             xnat_conn (:obj:`datman.xnat.xnat`): An open xnat connection
@@ -1700,18 +1736,23 @@ class XNATScan(XNATObject):
                 download all files to.
 
         Returns:
-            str: The full path to the directory containing downloaded
-                dicoms or None if download failed.
+            bool: True if the series was downloaded, False otherwise.
         """
         logger.info(f"Downloading dicoms for {self.experiment} series: "
                     f"{self.series}.")
+
+        if self.download_dir:
+            logger.debug(
+                "Data has been previously downloaded, skipping redownload.")
+            return True
+
         try:
             dicom_zip = xnat_conn.get_dicom(
                 self.project, self.subject, self.experiment, self.series)
         except Exception as e:
             logger.error(f"Failed to download dicom archive for {self.subject}"
                          f" series {self.series}.")
-            return
+            return False
 
         logger.info(f"Unpacking archive {dicom_zip}")
 
@@ -1722,7 +1763,7 @@ class XNATScan(XNATObject):
             logger.error("An error occurred unpacking dicom archive for "
                          f"{self.experiment}'s series {self.series}'")
             os.remove(dicom_zip)
-            return
+            return False
         else:
             logger.info("Unpacking complete. Deleting archive file "
                         f"{dicom_zip}")
@@ -1731,15 +1772,15 @@ class XNATScan(XNATObject):
         dicom_file = self._find_first_dicom(output_dir)
 
         try:
-            base_dir = os.path.dirname(dicom_file)
+            self.download_dir = os.path.dirname(dicom_file)
         except TypeError:
             logger.warning("No valid dicom files found in XNAT session "
                            f"{self.subject} series {self.series}.")
-            return
-        return base_dir
+            return False
+        return True
 
     def _find_first_dicom(self, download_dir):
-        """Finds the first dicom (if any) in the given directory.
+        """Finds a dicom from the series (if any) in the given directory.
 
         Args:
             download_dir (:obj:`str`): The directory to search for dicoms.
@@ -1748,11 +1789,32 @@ class XNATScan(XNATObject):
             str: The full path to a dicom, or None if no readable dicoms
                 exist in the folder.
         """
-        for root_dir, folder, files in os.walk(download_dir):
+        search_dir = self._find_series_dir(download_dir)
+        for root_dir, folder, files in os.walk(search_dir):
             for item in files:
                 path = os.path.join(root_dir, item)
                 if is_dicom(path):
                     return path
+
+    def _find_series_dir(self, search_dir):
+        """Find the directory a series was downloaded to, if any.
+
+        If multiple series are downloaded to the same temporary directory
+        this will search for the expected downloaded path of this scan.
+
+        Args:
+            search_dir (:obj:`str`): The full path to a directory to search.
+
+        Returns:
+            str: The full path to this scan's download location.
+        """
+        expected_path = os.path.join(search_dir, self.experiment, "scans")
+        found = glob.glob(os.path.join(expected_path, f"{self.series}-*"))
+        if not found:
+            return search_dir
+        if not os.path.exists(found[0]):
+            return search_dir
+        return found[0]
 
     def __str__(self):
         return f"<XNATScan {self.experiment} - {self.series}>"
