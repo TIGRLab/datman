@@ -113,8 +113,16 @@ class Scan(DatmanNamed):
         for dir in ["nii", "nrrd", "mnc", "dcm", "qc"]:
             setattr(self, f"{dir}_path", self.__get_path(dir, config))
 
+        if bids_root:
+            self.bids_root = bids_root
+        else:
+            try:
+                bids_root = config.get_path("bids")
+            except datman.config.UndefinedSetting:
+                bids_root = ""
+
         self.bids_root = bids_root
-        self.bids_path = self.__get_bids(config)
+        self.bids_path = self.__get_bids()
         self.resources = self._get_resources(config)
 
         self.niftis = self.__get_series(self.nii_path, [".nii", ".nii.gz"])
@@ -147,6 +155,15 @@ class Scan(DatmanNamed):
         except KeyError:
             matched_niftis = []
         return matched_niftis
+
+    def get_resource_dir(self, session):
+        for resource_dir in self.resources:
+            ident = scanid.parse(os.path.basename(resource_dir))
+            if int(ident.session) != int(session):
+                continue
+            if os.path.exists(resource_dir):
+                return resource_dir
+        return
 
     def _get_resources(self, config):
         search_path = os.path.join(config.get_path("resources"),
@@ -183,15 +200,10 @@ class Scan(DatmanNamed):
             return ""
         return path
 
-    def __get_bids(self, config):
-        if self.bids_root:
-            bids = self.bids_root
-        else:
-            try:
-                bids = config.get_path("bids")
-            except datman.config.UndefinedSetting:
-                return ""
-        return os.path.join(bids, self.bids_sub, self.bids_ses)
+    def __get_bids(self):
+        if not self.bids_root:
+            return ""
+        return os.path.join(self.bids_root, self.bids_sub, self.bids_ses)
 
     def __get_series(self, path, ext_list):
         """
