@@ -19,7 +19,8 @@ import re
 import pydicom as dicom
 
 import datman.dashboard
-from datman.exceptions import ExporterException, UndefinedSetting
+from datman.exceptions import (ExporterException, UndefinedSetting,
+                               DashboardException)
 from datman.scanid import (parse_filename, parse_bids_filename, ParseException,
                            KCNIIdentifier)
 from datman.utils import (run, make_temp_directory, get_extension,
@@ -235,7 +236,7 @@ class BidsExporter(SessionExporter):
             return
 
         if self.dry_run:
-            logger.error(f"Dry run: Skipping bids export to {self.output_dir}")
+            logger.info(f"Dry run: Skipping bids export to {self.output_dir}")
             return
 
         self.make_output_dir()
@@ -644,9 +645,24 @@ class DBExporter(SessionExporter):
             self.make_scan(file_stem)
 
     def outputs_exist(self):
-        # Always return False, it's fast and safe to repeatedly update records
-        # to keep them in line with the filesystem
-        return False
+        try:
+            session = datman.dashboard.get_session(self.ident)
+        except DashboardException:
+            return False
+
+        if not session:
+            return False
+
+        for name in self.names:
+            try:
+                scan = datman.dashboard.get_scan(name)
+            except DashboardException:
+                return False
+
+            if not scan:
+                return False
+
+        return True
 
     @classmethod
     def get_output_dir(cls, session):
@@ -780,6 +796,11 @@ class DBExporter(SessionExporter):
             file_stem (:obj:`str`): A valid datman-style file name. Used to
                 find the json side car file.
         """
+        nii_file = self._get_file(file_stem, ".nii.gz")
+        if not nii_file:
+            # File exists on xnat but hasnt been generated.
+            return
+
         side_car = self._get_file(file_stem, ".json")
         if not side_car:
             logger.error(f"Missing json side car for {file_stem}")
@@ -849,12 +870,12 @@ class NiiExporter(SeriesExporter):
     type = "nii"
 
     def export(self, raw_data_dir, **kwargs):
-        if self.outputs_exist():
-            logger.debug(f"Outputs exist for {self.fname_root}, skipping.")
-            return
-
         if self.dry_run:
             logger.info(f"Dry run: Skipping export of {self.fname_root}")
+            return
+
+        if self.outputs_exist():
+            logger.debug(f"Outputs exist for {self.fname_root}, skipping.")
             return
 
         self.make_output_dir()
