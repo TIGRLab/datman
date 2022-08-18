@@ -66,10 +66,9 @@ class BidsOptions:
     """Helper class that holds options that only matter if exporting to bids.
     """
 
-    def __init__(self, config, use_bids=False, keep_dcm=False, bids_out=None,
+    def __init__(self, config, keep_dcm=False, bids_out=None,
                  force_dcm2niix=False, clobber=False, dcm2bids_config=None,
                  log_level="INFO"):
-        self.use_bids = use_bids
         self.keep_dcm = keep_dcm
         self.force_dcm2niix = force_dcm2niix
         self.clobber = clobber
@@ -128,15 +127,17 @@ def main():
         return
 
     config = datman.config.config(study=args.study)
-    bids_opts = BidsOptions(
-        config,
-        use_bids=args.use_dcm2bids,
-        keep_dcm=args.keep_dcm,
-        force_dcm2niix=args.keep_dcm2niix,
-        clobber=args.clobber,
-        dcm2bids_config=args.dcm2bids_config,
-        bids_out=args.bids_out
-    )
+    if args.use_dcm2bids:
+        bids_opts = BidsOptions(
+            config,
+            keep_dcm=args.keep_dcm,
+            force_dcm2niix=args.keep_dcm2niix,
+            clobber=args.clobber,
+            dcm2bids_config=args.dcm2bids_config,
+            bids_out=args.bids_out
+        )
+    else:
+        bids_opts = None
 
     if args.username:
         auth = datman.xnat.get_auth(args.username)
@@ -155,7 +156,7 @@ def main():
         if not xnat_experiment:
             continue
 
-        session = datman.scan.Scan(ident, config, bids_root=bids_opts.bids_out)
+        session = datman.scan.Scan(ident, config, bids_root=args.bids_out)
 
         if xnat_experiment.resource_files:
             export_resources(
@@ -165,8 +166,8 @@ def main():
                 dry_run=args.dry_run)
 
         if xnat_experiment.scans:
-            export_scans(config, xnat, xnat_experiment, session, bids_opts,
-                         dry_run=args.dry_run,
+            export_scans(config, xnat, xnat_experiment, session,
+                         bids_opts=bids_opts, dry_run=args.dry_run,
                          ignore_db=args.ignore_db,
                          wanted_tags=args.wanted_tags)
 
@@ -538,18 +539,18 @@ def download_resource(xnat, xnat_experiment, xnat_resource_id,
     return target_path
 
 
-def export_scans(config, xnat, xnat_experiment, session, bids_opts,
+def export_scans(config, xnat, xnat_experiment, session, bids_opts=None,
                  wanted_tags=None, ignore_db=False, dry_run=False):
     logger.info(f"Processing scans in experiment {xnat_experiment.name}")
 
     xnat_experiment.assign_scan_names(config, session._ident)
 
     session_exporters = make_session_exporters(
-        config, session, xnat_experiment, bids_opts, ignore_db=ignore_db,
-        dry_run=dry_run)
+        config, session, xnat_experiment, bids_opts=bids_opts,
+        ignore_db=ignore_db, dry_run=dry_run)
 
     series_exporters = make_all_series_exporters(
-        config, session, xnat_experiment, use_bids=bids_opts.use_bids,
+        config, session, xnat_experiment, bids_opts=bids_opts,
         wanted_tags=wanted_tags, dry_run=dry_run
     )
 
@@ -569,10 +570,10 @@ def export_scans(config, xnat, xnat_experiment, session, bids_opts,
             exporter.export(temp_dir)
 
 
-def make_session_exporters(config, session, experiment, bids_opts,
+def make_session_exporters(config, session, experiment, bids_opts=None,
                            ignore_db=False, dry_run=False):
-    formats = get_session_formats(use_bids=bids_opts.use_bids,
-                                  ignore_db=ignore_db)
+    formats = get_session_formats(bids_opts=bids_opts, ignore_db=ignore_db)
+
     exporters = []
     for exp_format in formats:
         Exporter = datman.exporters.get_exporter(exp_format, scope="session")
@@ -583,9 +584,9 @@ def make_session_exporters(config, session, experiment, bids_opts,
     return exporters
 
 
-def get_session_formats(use_bids=False, ignore_db=False):
+def get_session_formats(bids_opts=None, ignore_db=False):
     formats = []
-    if use_bids:
+    if bids_opts:
         formats.append("bids")
         formats.append("nii_link")
     if not ignore_db:
@@ -593,9 +594,9 @@ def get_session_formats(use_bids=False, ignore_db=False):
     return formats
 
 
-def make_all_series_exporters(config, session, experiment, use_bids=False,
+def make_all_series_exporters(config, session, experiment, bids_opts=None,
                               wanted_tags=None, dry_run=False):
-    if use_bids:
+    if bids_opts:
         return {}
 
     tag_config = get_tag_settings(config, session.site)
