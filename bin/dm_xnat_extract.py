@@ -57,9 +57,63 @@ import datman.scan
 import datman.scanid
 import datman.xnat
 from datman.utils import (validate_subject_id, define_folder,
-                          make_temp_directory)
+                          make_temp_directory, locate_metadata, read_blacklist)
 
 logger = logging.getLogger(os.path.basename(__file__))
+
+
+class BidsOptions:
+    """Helper class that holds options that only matter if exporting to bids.
+    """
+
+    def __init__(self, config, use_bids=False, keep_dcm=False, bids_out=None,
+                 force_dcm2niix=False, clobber=False, dcm2bids_config=None,
+                 log_level="INFO"):
+        self.use_bids = use_bids
+        self.keep_dcm = keep_dcm
+        self.force_dcm2niix = force_dcm2niix
+        self.clobber = clobber
+        self.bids_out = bids_out
+        self.log_level = log_level
+        self.dcm2bids_config = self.get_bids_config(
+            config, bids_conf=dcm2bids_config, use_bids=use_bids)
+
+    def get_bids_config(self, config, bids_conf=None, use_bids=False):
+        """Find the path to a valid dcm2bids config file.
+
+        Args:
+            config (:obj:`datman.config.config`): The datman configuration.
+            bids_conf (:obj:`str`, optional): The user provided path to
+                the config file. Defaults to None.
+            use_bids (bool, optional): Whether the user intends to run
+                bids.
+
+        Raises:
+            datman.exceptions.MetadataException if a valid file cannot
+                be found.
+
+        Returns:
+            str: The full path to a dcm2bids config file.
+        """
+        if not use_bids:
+            # Doesnt matter if config file exists
+            return bids_conf
+
+        if bids_conf:
+            path = bids_conf
+        else:
+            try:
+                path = locate_metadata("dcm2bids.json", config=config)
+            except FileNotFoundError as exc:
+                raise datman.exceptions.MetadataException(
+                    "No dcm2bids.json config file available for "
+                    f"{config.study_name}") from exc
+
+        if not os.path.exists(path):
+            raise datman.exceptions.MetadataException(
+                "No dcm2bids.json settings provided.")
+
+        return path
 
 
 def main():
@@ -74,12 +128,22 @@ def main():
         return
 
     config = datman.config.config(study=args.study)
+    bids_opts = BidsOptions(
+        config,
+        use_bids=args.use_dcm2bids,
+        keep_dcm=args.keep_dcm,
+        force_dcm2niix=args.keep_dcm2niix,
+        clobber=args.clobber,
+        dcm2bids_config=args.dcm2bids_config,
+        bids_out=args.bids_out
+    )
 
     if args.username:
         auth = datman.xnat.get_auth(args.username)
 
     if args.experiment:
-        experiments = collect_experiment(args.experiment, args.study, config)
+        experiments = collect_experiment(
+            args.experiment, args.study, config, auth=auth, url=args.server)
     else:
         experiments = collect_all_experiments(
             config, auth=auth, url=args.server)
@@ -91,23 +155,20 @@ def main():
         if not xnat_experiment:
             continue
 
-        if xnat_experiment.resource_files:
-            export_resources(config, xnat, xnat_experiment, ident)
+        session = datman.scan.Scan(ident, config, bids_root=bids_opts.bids_out)
 
-        if xnat_experiment.scans:
-            export_scans(
-                config,
+        if xnat_experiment.resource_files:
+            export_resources(
+                session.get_resource_dir(ident.session),
                 xnat,
                 xnat_experiment,
-                ident,
-                use_bids=args.use_dcm2bids,
-                bids_root=args.bids_out,
-                keep_dcm=args.keep_dcm,
-                clobber=args.clobber,
-                force_dcm2niix=args.keep_dcm2niix,
-                dcm2bids_config=args.dcm2bids_config,
-                wanted_tags=args.wanted_tags,
-                ignore_db=args.ignore_db)
+                dry_run=args.dry_run)
+
+        if xnat_experiment.scans:
+            export_scans(config, xnat, xnat_experiment, session, bids_opts,
+                         dry_run=args.dry_run,
+                         ignore_db=args.ignore_db,
+                         wanted_tags=args.wanted_tags)
 
 
 def read_args():
@@ -264,9 +325,9 @@ def configure_logging(study, quiet=None, verbose=None, debug=None):
 
 
 def collect_experiment(config, experiment_id, study, url=None, auth=None):
-    ident = get_identifier(experiment_id)
+    ident = get_identifier(config, experiment_id)
     xnat = datman.xnat.get_connection(
-        config, site=ident.site, url=None, auth=auth)
+        config, site=ident.site, url=url, auth=auth)
     xnat_project = xnat.find_project(
         ident.get_xnat_subject_id(),
         config.get_xnat_projects(study)
@@ -373,25 +434,23 @@ def get_xnat_experiment(xnat, project, ident):
     return xnat_experiment
 
 
-def export_resources(config, xnat, xnat_experiment, ident):
+def export_resources(resource_dir, xnat, xnat_experiment, dry_run=False):
     logger.info(f"Extracting {len(xnat_experiment.resource_files)} resources "
                 f"from {xnat_experiment.name}")
 
-    base_path = os.path.join(config.get_path('resources'), str(ident))
-
-    if not os.path.isdir(base_path):
-        logger.info(f"Creating resources dir {base_path}")
+    if not os.path.isdir(resource_dir):
+        logger.info(f"Creating resources dir {resource_dir}")
         try:
-            os.makedirs(base_path)
+            os.makedirs(resource_dir)
         except OSError:
-            logger.error(f"Failed creating resources dir {base_path}")
+            logger.error(f"Failed creating resources dir {resource_dir}")
             return
 
     for label in xnat_experiment.resource_IDs:
         if label == "No Label":
-            target_path = os.path.join(base_path, "MISC")
+            target_path = os.path.join(resource_dir, "MISC")
         else:
-            target_path = os.path.join(base_path, label)
+            target_path = os.path.join(resource_dir, label)
 
         try:
             target_path = define_folder(target_path)
@@ -426,7 +485,8 @@ def export_resources(config, xnat, xnat_experiment, ident):
                                   xnat_experiment,
                                   xnat_resource_id,
                                   resource['URI'],
-                                  resource_path)
+                                  resource_path,
+                                  dry_run=dry_run)
 
 
 def download_resource(xnat, xnat_experiment, xnat_resource_id,
@@ -435,6 +495,10 @@ def download_resource(xnat, xnat_experiment, xnat_resource_id,
     Download a single resource file from XNAT. Target path should be
     full path to store the file, including filename
     """
+    if dry_run:
+        logger.info(f"DRY RUN: Skipping download of {xnat_resource_uri} to "
+                    f"{target_path}")
+        return
 
     try:
         source = xnat.get_resource(xnat_experiment.project,
@@ -474,77 +538,151 @@ def download_resource(xnat, xnat_experiment, xnat_resource_id,
     return target_path
 
 
-def export_scans(config, xnat, xnat_experiment, ident, use_bids=False,
-                 bids_root=None, keep_dcm=False, clobber=False,
-                 force_dcm2niix=False, dcm2bids_config=None, wanted_tags=None,
-                 ignore_db=False, dry_run=False):
+def export_scans(config, xnat, xnat_experiment, session, bids_opts,
+                 wanted_tags=None, ignore_db=False, dry_run=False):
     logger.info(f"Processing scans in experiment {xnat_experiment.name}")
 
-    session = datman.scan.Scan(ident, config, bids_root=bids_root)
+    xnat_experiment.assign_scan_names(config, session._ident)
 
-    if use_bids and os.path.exists(session.bids_path):
-        logger.info(f"{session.bids_path} already exists")
-        if clobber:
-            logger.info("Overwriting because of --clobber")
-        else:
-            logger.info("(Use --clobber to overwrite)")
-            return
+    session_exporters = make_session_exporters(
+        config, session, xnat_experiment, bids_opts, ignore_db=ignore_db)
 
-    xnat_experiment.set_export_formats(
-        use_bids=use_bids,
-        ignore_db=ignore_db
+    series_exporters = make_all_series_exporters(
+        config, session, xnat_experiment, use_bids=bids_opts.use_bids,
+        wanted_tags=wanted_tags, dry_run=dry_run
     )
 
-    xnat_experiment.assign_scan_names(
-        config,
-        ident,
-        wanted_tags=wanted_tags,
-        ignore_blacklist=use_bids
-    )
+    if not needs_export(session_exporters) and not series_exporters:
+        logger.debug(f"Session {xnat_experiment} already extracted. Skipping.")
+        return
 
     with make_temp_directory(prefix="dm_xnat_extract_") as temp_dir:
         for scan in xnat_experiment.scans:
-            if not scan.needs_download(session):
-                continue
+            if needs_download(scan, session_exporters, series_exporters):
+                scan.download(xnat, temp_dir)
 
-            scan.download(xnat, temp_dir)
-            for exporter in make_series_exporters(session, scan,
-                                                  dry_run=dry_run):
-                exporter.export()
+            for exporter in series_exporters.get(scan, []):
+                exporter.export(scan.download_dir)
 
-        for format in xnat_experiment.formats:
-            Exporter = datman.exporters.get_exporter(format, "session")
-
-            if not Exporter:
-                continue
-
-            exporter = Exporter(config, session, xnat_experiment, temp_dir,
-                                keep_dcm=keep_dcm, clobber=clobber,
-                                force_dcm2niix=force_dcm2niix,
-                                dcm2bids_config=dcm2bids_config)
-            exporter.export()
+        for exporter in session_exporters:
+            exporter.export(temp_dir)
 
 
-def make_series_exporters(session, scan, dry_run=False):
+def make_session_exporters(config, session, experiment, bids_opts,
+                           ignore_db=False, dry_run=False):
+    formats = get_session_formats(use_bids=bids_opts.use_bids,
+                                  ignore_db=ignore_db)
+    exporters = []
+    for exp_format in formats:
+        Exporter = datman.exporters.get_exporter(exp_format, scope="session")
+        exporters.append(
+            Exporter(config, session, experiment, bids_opts=bids_opts,
+                     ignore_db=ignore_db, dry_run=dry_run)
+        )
+    return exporters
+
+
+def get_session_formats(use_bids=False, ignore_db=False):
+    formats = []
+    if use_bids:
+        formats.append("bids")
+        formats.append("nii_link")
+    if not ignore_db:
+        formats.append("db")
+    return formats
+
+
+def make_all_series_exporters(config, session, experiment, use_bids=False,
+                              wanted_tags=None, dry_run=False):
+    if use_bids:
+        return {}
+
+    tag_config = get_tag_settings(config, session.site)
+    if not tag_config:
+        return {}
+
+    series_exporters = {}
+    for scan in experiment.scans:
+        if not scan.is_usable(datman_format=True):
+            continue
+
+        exporters = make_series_exporters(
+            session, scan, tag_config, config, wanted_tags=wanted_tags,
+            dry_run=dry_run)
+
+        if exporters:
+            series_exporters[scan] = exporters
+
+    return series_exporters
+
+
+def get_tag_settings(config, site):
+    try:
+        tags = config.get_tags(site=site)
+    except datman.exceptions.UndefinedSetting:
+        logger.error(f"Can't locate tag settings for site {site}")
+        return None
+    return tags
+
+
+def make_series_exporters(session, scan, tag_config, config, wanted_tags=None,
+                          dry_run=False):
+    exporters = []
     for idx, tag in enumerate(scan.tags):
+        if wanted_tags and tag not in wanted_tags:
+            continue
+
         try:
-            formats = scan.formats[tag]
+            formats = tag_config.get(tag)["Formats"]
         except KeyError:
             formats = []
 
-        for format in formats:
-            Exporter = datman.exporters.get_exporter(format, "series")
+        if is_blacklisted(scan.names[idx], config):
+            formats = []
+
+        logger.debug(f"Found export formats {formats} for {scan}")
+        for exp_format in formats:
+            Exporter = datman.exporters.get_exporter(
+                exp_format, scope="series")
 
             if not Exporter:
                 continue
 
-            yield Exporter(
-                scan.download_dir,
+            exporter = Exporter(
                 Exporter.get_output_dir(session),
                 scan.names[idx],
                 echo_dict=scan.echo_dict,
                 dry_run=dry_run
             )
+
+            if not exporter.outputs_exist():
+                exporters.append(exporter)
+
+    return exporters
+
+
+def is_blacklisted(scan_name, config):
+    try:
+        blacklist_entry = read_blacklist(scan=scan_name, config=config)
+    except datman.scanid.ParseException:
+        logger.error(f"{scan_name} is not a datman ID, cannot check blacklist")
+        return False
+
+    if blacklist_entry:
+        return True
+    return False
+
+
+def needs_export(session_exporters):
+    return any([exp.needs_raw_data() for exp in session_exporters])
+
+
+def needs_download(scan, session_exporters, series_exporters):
+    if needs_export(session_exporters) and scan.is_usable():
+        return True
+    if scan in series_exporters:
+        return True
+    return False
 
 
 if __name__ == '__main__':
