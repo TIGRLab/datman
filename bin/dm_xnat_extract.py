@@ -63,7 +63,7 @@ logger = logging.getLogger(os.path.basename(__file__))
 
 
 class BidsOptions:
-    """Helper class that holds options that only matter if exporting to bids.
+    """Helper class for options related to exporting to BIDS format.
     """
 
     def __init__(self, config, keep_dcm=False, bids_out=None,
@@ -75,17 +75,15 @@ class BidsOptions:
         self.bids_out = bids_out
         self.log_level = log_level
         self.dcm2bids_config = self.get_bids_config(
-            config, bids_conf=dcm2bids_config, use_bids=use_bids)
+            config, bids_conf=dcm2bids_config)
 
-    def get_bids_config(self, config, bids_conf=None, use_bids=False):
+    def get_bids_config(self, config, bids_conf=None):
         """Find the path to a valid dcm2bids config file.
 
         Args:
             config (:obj:`datman.config.config`): The datman configuration.
             bids_conf (:obj:`str`, optional): The user provided path to
                 the config file. Defaults to None.
-            use_bids (bool, optional): Whether the user intends to run
-                bids.
 
         Raises:
             datman.exceptions.MetadataException if a valid file cannot
@@ -94,10 +92,6 @@ class BidsOptions:
         Returns:
             str: The full path to a dcm2bids config file.
         """
-        if not use_bids:
-            # Doesnt matter if config file exists
-            return bids_conf
-
         if bids_conf:
             path = bids_conf
         else:
@@ -541,6 +535,27 @@ def download_resource(xnat, xnat_experiment, xnat_resource_id,
 
 def export_scans(config, xnat, xnat_experiment, session, bids_opts=None,
                  wanted_tags=None, ignore_db=False, dry_run=False):
+    """Export all XNAT data for a session to desired formats.
+
+    Args:
+        config (:obj:`datman.config.config`): A datman config object for
+            the study the experiment belongs to.
+        xnat (:obj:`datman.xnat.xnat`): An XNAT connection for the server
+            the experiment resides on.
+        xnat_experiment (:obj:`datman.xnat.XNATExperiment`): The experiment
+            to download, extract and export.
+        session (:obj:`datman.scan.Scan`): The datman session this experiment
+            belongs to.
+        bids_opts (:obj:`BidsOptions`, optional): dcm2bids settings to be
+            used if exporting to BIDS format. Defaults to None.
+        wanted_tags (:obj:`list`, optional): A list of datman style tags.
+            If provided, only scans that match the given tags will be
+            exported. Defaults to None.
+        ignore_db (bool, optional): If True, datman's QC dashboard will not
+            be updated. Defaults to False.
+        dry_run (bool, optional): If True, no outputs will be made. Defaults
+            to False.
+    """
     logger.info(f"Processing scans in experiment {xnat_experiment.name}")
 
     xnat_experiment.assign_scan_names(config, session._ident)
@@ -572,6 +587,26 @@ def export_scans(config, xnat, xnat_experiment, session, bids_opts=None,
 
 def make_session_exporters(config, session, experiment, bids_opts=None,
                            ignore_db=False, dry_run=False):
+    """Creates exporters that take an entire session as input.
+
+    Args:
+        config (:obj:`datman.config.config`): A datman config object for
+            the study the experiment belongs to.
+        session (:obj:`datman.scan.Scan`): The datman session this experiment
+            belongs to.
+        experiment (:obj:`datman.xnat.XNATExperiment`): The experiment
+            to create exporters for.
+        bids_opts (:obj:`BidsOptions`, optional): dcm2bids settings to be
+            used if exporting to BIDS format. Defaults to None.
+        ignore_db (bool, optional): If True, datman's QC dashboard will not
+            be updated. Defaults to False.
+        dry_run (bool, optional): If True, no outputs will be made. Defaults
+            to False.
+
+    Returns:
+        list: Returns a list of :obj:`datman.exporters.Exporter` for the
+            desired session export formats.
+    """
     formats = get_session_formats(bids_opts=bids_opts, ignore_db=ignore_db)
 
     exporters = []
@@ -585,6 +620,17 @@ def make_session_exporters(config, session, experiment, bids_opts=None,
 
 
 def get_session_formats(bids_opts=None, ignore_db=False):
+    """Get the string identifiers for all session exporters that are needed.
+
+    Args:
+        bids_opts (:obj:`BidsOptions`, optional): dcm2bids settings to be
+            used if exporting to BIDS format. Defaults to None.
+        ignore_db (bool, optional): If True, datman's QC dashboard will not
+            be updated. Defaults to False.
+
+    Returns:
+        list: a list of string keys that should be used to make exporters.
+    """
     formats = []
     if bids_opts:
         formats.append("bids")
@@ -596,6 +642,23 @@ def get_session_formats(bids_opts=None, ignore_db=False):
 
 def make_all_series_exporters(config, session, experiment, bids_opts=None,
                               wanted_tags=None, dry_run=False):
+    """Create series exporters for all scans in an experiment.
+
+    Args:
+        config (:obj:`datman.config.config`): A datman config object for
+            the study the experiment belongs to.
+        session (:obj:`datman.scan.Scan`): The datman session this experiment
+            belongs to.
+        experiment (:obj:`datman.xnat.XNATExperiment`): The experiment
+            to create series exporters for.
+        bids_opts (:obj:`BidsOptions`, optional): dcm2bids settings to be
+            used if exporting to BIDS format. Defaults to None.
+        wanted_tags (:obj:`list`, optional): A list of datman style tags.
+            If provided, only scans that match the given tags will have
+            exporters created for them. Defaults to None.
+        dry_run (bool, optional): If True, no outputs will be made. Defaults
+            to False.
+    """
     if bids_opts:
         return {}
 
@@ -605,7 +668,7 @@ def make_all_series_exporters(config, session, experiment, bids_opts=None,
 
     series_exporters = {}
     for scan in experiment.scans:
-        if not scan.is_usable(datman_format=True):
+        if not scan.is_usable(strict=True):
             continue
 
         exporters = make_series_exporters(
@@ -629,6 +692,23 @@ def get_tag_settings(config, site):
 
 def make_series_exporters(session, scan, tag_config, config, wanted_tags=None,
                           dry_run=False):
+    """Create series exporters for a single scan.
+
+    Args:
+        session (:obj:`datman.scan.Scan`): The datman session this experiment
+            belongs to.
+        scan (:obj:`datman.xnat.XNATScan`): The scan to create scan exporters
+            for.
+        tag_config (:obj:`datman.config.TagInfo`): The tag configuration
+            of all tags for the data's study and site.
+        config (:obj:`datman.config.config`): A datman config object for
+            the study the experiment belongs to.
+        wanted_tags (:obj:`list`, optional): A list of datman style tags.
+            If provided, only scans that match the given tags will have
+            exporters created for them. Defaults to None.
+        dry_run (bool, optional): If True, no outputs will be made. Defaults
+            to False.
+    """
     exporters = []
     for idx, tag in enumerate(scan.tags):
         if wanted_tags and tag not in wanted_tags:
@@ -664,6 +744,8 @@ def make_series_exporters(session, scan, tag_config, config, wanted_tags=None,
 
 
 def is_blacklisted(scan_name, config):
+    """Returns True if the given scan has been blacklisted.
+    """
     try:
         blacklist_entry = read_blacklist(scan=scan_name, config=config)
     except datman.scanid.ParseException:
@@ -676,14 +758,20 @@ def is_blacklisted(scan_name, config):
 
 
 def needs_raw(session_exporters):
+    """Returns true if raw data is needed to run any session exporters.
+    """
     return any([exp.needs_raw_data() for exp in session_exporters])
 
 
 def needs_export(session_exporters):
+    """Returns True if any session exporters need to be run.
+    """
     return any([not exp.outputs_exist() for exp in session_exporters])
 
 
 def needs_download(scan, session_exporters, series_exporters):
+    """Returns True if the given scan needs to be downloaded.
+    """
     if needs_raw(session_exporters) and scan.is_usable():
         return True
     if scan in series_exporters:

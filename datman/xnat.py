@@ -1579,7 +1579,6 @@ class XNATExperiment(XNATObject):
                     f"in session {str(ident)}. Reason {type(e).__name__}: "
                     f"{e}")
 
-
     def __str__(self):
         return f"<XNATExperiment {self.name}>"
 
@@ -1685,10 +1684,10 @@ class XNATScan(XNATObject):
 
         if len(self.tags) > 1 and not self.multiecho:
             logger.error(
-                f"Multiple export patterns match for {str(ident)}, "
+                f"Multiple export patterns match for {base_name}, "
                 f"descr: {self.description}, tags: {self.tags}")
             names = []
-            scan.tags = []
+            self.tags = []
 
         self.names = names
         return names
@@ -1751,7 +1750,7 @@ class XNATScan(XNATObject):
                 self.project, self.subject, self.experiment, self.series)
         except Exception as e:
             logger.error(f"Failed to download dicom archive for {self.subject}"
-                         f" series {self.series}.")
+                         f" series {self.series}. Reason - {e}")
             return False
 
         logger.info(f"Unpacking archive {dicom_zip}")
@@ -1761,7 +1760,7 @@ class XNATScan(XNATObject):
                 fh.extractall(output_dir)
         except Exception as e:
             logger.error("An error occurred unpacking dicom archive for "
-                         f"{self.experiment}'s series {self.series}'")
+                         f"{self.experiment}'s series {self.series}' - {e}")
             os.remove(dicom_zip)
             return False
         else:
