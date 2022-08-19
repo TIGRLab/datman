@@ -230,6 +230,9 @@ class BidsExporter(SessionExporter):
         return not self.outputs_exist()
 
     def export(self, raw_data_dir, **kwargs):
+        if self.outputs_exist():
+            return
+
         if not DCM2BIDS_FOUND:
             logger.info(f"Unable to export to {self.output_dir}, "
                         "Dcm2Bids not found.")
@@ -1022,11 +1025,6 @@ class DcmExporter(SeriesExporter):
 
     type = "dcm"
     ext = ".dcm"
-
-    def output_exists(self):
-        # Need to override the default because otherwise multiechos will
-        # always return False and reportedly export.
-        return False
 
     def export(self, raw_data_dir, **kwargs):
         if self.echo_dict:
