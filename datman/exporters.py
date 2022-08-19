@@ -19,13 +19,12 @@ import re
 import pydicom as dicom
 
 import datman.dashboard
-from datman.exceptions import (ExporterException, UndefinedSetting,
-                               DashboardException)
+from datman.exceptions import UndefinedSetting, DashboardException
 from datman.scanid import (parse_filename, parse_bids_filename, ParseException,
                            KCNIIdentifier)
 from datman.utils import (run, make_temp_directory, get_extension,
-                          filter_niftis, locate_metadata, find_tech_notes,
-                          read_blacklist, get_relative_source)
+                          filter_niftis, find_tech_notes, read_blacklist,
+                          get_relative_source)
 
 try:
     from dcm2bids import Dcm2bids
@@ -185,31 +184,8 @@ class BidsExporter(SessionExporter):
         self.force_dcm2niix = bids_opts.force_dcm2niix if bids_opts else False
         self.clobber = bids_opts.clobber if bids_opts else False
         self.log_level = bids_opts.log_level if bids_opts else "INFO"
-        self.dcm2bids_config = self._get_bids_config(config, bids_opts)
+        self.dcm2bids_config = bids_opts.dcm2bids_config if bids_opts else None
         super().__init__(config, session, experiment, **kwargs)
-
-    def _get_bids_config(self, config, bids_opts):
-        bids_conf = bids_opts.dcm2bids_config if bids_opts else None
-
-        if bids_conf and os.path.exists(bids_conf):
-            return bids_conf
-
-        if bids_conf:
-            raise ExporterException(
-                f"Provided dcm2bids config file does not exist: {bids_conf}")
-
-        try:
-            bids_conf = locate_metadata("dcm2bids.json", config=config)
-        except FileNotFoundError as exc:
-            raise ExporterException(
-                "No dcm2bids config file provided and no dcm2bids.json config "
-                f"file found in metadata for {config.study_name}") from exc
-
-        if not os.path.exists(bids_conf):
-            raise ExporterException(
-                f"Default dcm2bids.json file {bids_conf} does not exist.")
-
-        return bids_conf
 
     def _get_scan_dir(self, download_dir):
         return os.path.join(download_dir, self.exp_label, "scans")
@@ -510,6 +486,10 @@ class NiiLinkExporter(SessionExporter):
         return False
 
     def export(self, *args, **kwargs):
+        # Re run this before exporting, in case new BIDS files exist.
+        self.bids_names = self.get_bids_niftis()
+        self.name_map = self.match_dm_to_bids(self.dm_names, self.bids_names)
+
         if self.dry_run:
             logger.info("Dry run: Skipping making nii folder links for "
                         f"mapping {self.name_map}")
