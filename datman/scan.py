@@ -123,7 +123,13 @@ class Scan(DatmanNamed):
 
         self.bids_root = bids_root
         self.bids_path = self.__get_bids()
+
+        # This one lists all existing resource folders for the timepoint.
         self.resources = self._get_resources(config)
+        # This one lists the intended location of the sessions' resource dir
+        # The session num will be assumed to be 01 if one wasnt provided.
+        self.resource_path = self.__get_path(
+            "resources", config, session=True)
 
         self.niftis = self.__get_series(self.nii_path, [".nii", ".nii.gz"])
 
