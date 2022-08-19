@@ -125,20 +125,19 @@ def main():
         bids_opts = BidsOptions(
             config,
             keep_dcm=args.keep_dcm,
-            force_dcm2niix=args.keep_dcm2niix,
+            force_dcm2niix=args.force_dcm2niix,
             clobber=args.clobber,
-            dcm2bids_config=args.dcm2bids_config,
+            dcm2bids_config=args.dcm_config,
             bids_out=args.bids_out
         )
     else:
         bids_opts = None
 
-    if args.username:
-        auth = datman.xnat.get_auth(args.username)
+    auth = datman.xnat.get_auth(args.username) if args.username else None
 
     if args.experiment:
         experiments = collect_experiment(
-            args.experiment, args.study, config, auth=auth, url=args.server)
+            config, args.experiment, args.study, auth=auth, url=args.server)
     else:
         experiments = collect_all_experiments(
             config, auth=auth, url=args.server)
@@ -153,17 +152,14 @@ def main():
         session = datman.scan.Scan(ident, config, bids_root=args.bids_out)
 
         if xnat_experiment.resource_files:
-            export_resources(
-                session.get_resource_dir(ident.session),
-                xnat,
-                xnat_experiment,
-                dry_run=args.dry_run)
+            export_resources(session.resource_path, xnat, xnat_experiment,
+                             dry_run=args.dry_run)
 
         if xnat_experiment.scans:
             export_scans(config, xnat, xnat_experiment, session,
                          bids_opts=bids_opts, dry_run=args.dry_run,
-                         ignore_db=args.ignore_db,
-                         wanted_tags=args.wanted_tags)
+                         ignore_db=args.dont_update_dashboard,
+                         wanted_tags=args.tag)
 
 
 def read_args():
@@ -225,10 +221,10 @@ def read_args():
     g_main.add_argument(
         "-t",
         "--tag",
-        action="store",
+        action="append",
         metavar="tag,...",
         nargs="?",
-        help="List of scan tags to download"
+        help="A scan tag to download. Can repeat option for multiple tags."
     )
     g_main.add_argument(
         "--use-dcm2bids", action="store_true", default=False,
