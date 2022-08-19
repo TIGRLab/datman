@@ -1007,6 +1007,8 @@ class DcmExporter(SeriesExporter):
     ext = ".dcm"
 
     def export(self, raw_data_dir, **kwargs):
+        self.make_output_dir()
+
         if self.echo_dict:
             self._export_multi_echo(raw_data_dir)
             return
@@ -1018,8 +1020,8 @@ class DcmExporter(SeriesExporter):
 
         logger.debug(f"Exporting a dcm file from {raw_data_dir} to "
                      f"{self.output_dir}")
-        for output in self.output_files:
-            run(f"cp {dcm_file} {output}", self.dry_run)
+        output = os.path.join(self.output_dir, self.fname_root + self.ext)
+        run(f"cp {dcm_file} {output}", self.dry_run)
 
     def _find_dcm(self, raw_data_dir):
         """Find the path to a valid dicom in the given directory.
