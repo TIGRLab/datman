@@ -316,7 +316,7 @@ def make_metrics(subject, config):
             logger.error(f"Failed to generate metrics for {nii.file_name}. "
                          f"Reason - {e}")
 
-        update_dashboard(nii.file_name, ignored_fields, field_tolerances)
+        update_dashboard(nii.path, ignored_fields, field_tolerances)
         make_scan_metrics(metric)
 
 
@@ -336,6 +336,7 @@ def update_dashboard(nii_path, header_ignore=None, header_tolerance=None):
     if REMAKE or db_record.is_outdated_header_diffs():
         try:
             db_record.update_header_diffs(
+                standard=db_record.gold_standards[0],
                 ignore=header_ignore, tolerance=header_tolerance)
         except Exception as e:
             logger.error(
@@ -389,7 +390,7 @@ def add_scan_length(nii_path, scan):
     try:
         data = nib.load(nii_path)
     except Exception as e:
-        logger.debug(f"Failed to read scan length for {nii_path}. Reason "
+        logger.error(f"Failed to read scan length for {nii_path}. Reason "
                      f"- {e}")
         return
 
