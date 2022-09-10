@@ -1,2 +1,99 @@
 [build-system]
-requires = ["setuptools >= 40.8.0", "wheel"]
+requires = ["setuptools >= 45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["datman*"]
+
+[tool.setuptools_scm]
+
+[project]
+name = "datman"
+requires-python = ">=3.7"
+description = "Datman is a set of scripts for managing MRI data in XNAT, metadata in REDCap, and for performing visual quality control."
+license = {text = "Apache-2.0"}
+readme = "README.md"
+maintainers = [
+    {name = "TIGRLab", email = "tigrlabcamh@gmail.com"},
+    {name = "Dawn Smith", email = "Dawn.Smith@camh.ca"}
+]
+
+keywords = ["neuroimaging", "mri", "fmri"]
+classifiers = [
+    "Topic :: Scientific/Engineering :: Image Recognition",
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8"
+]
+
+dependencies = [
+    "docopt ~= 0.6.2",
+    "nibabel ~= 3.0.0",
+    "nilearn ~= 0.7.1",
+    "numpy ~= 1.18.0",
+    "pandas ~= 1.0.3",
+    "pybids ~= 0.14.0",
+    "pydeface ~= 2.0.0",
+    "pydicom ~= 1.3.0",
+    "pysftp ~= 0.2.9",
+    "pyxnat ~= 1.2.1.0.post3",
+    "pyyaml ~= 5.2",
+    "requests ~= 2.22.0",
+    "urllib3",
+    "wrapt ~= 1.11.2"
+]
+
+dynamic = ["version"]
+
+[urls]
+homepage = "http://imaging-genetics.camh.ca/datman/"
+documentation = "http://imaging-genetics.camh.ca/datman/"
+repository = "https://github.com/tigrlab/datman"
+
+[project.optional-dependencies]
+test = [
+    "mock",
+    "pytest",
+    "pytest-cov"
+]
+
+docs = [
+    "nbsphinx",
+    "sphinx ~= 4.3.0",
+    "sphinx_rtd_theme",
+    "sphinxcontrib-apidoc ~= 0.3.0",
+    "sphinxcontrib-napoleon",
+    "sphinxcontrib-versioning"
+]
+
+build = [
+    "build",
+    "twine"
+]
+
+style = [
+    "flake8 ~= 3.7.0",
+    "flake8-pyproject",
+    "pycodestyle"
+]
+
+all = [
+    "datman[test]",
+    "datman[docs]",
+    "datman[style]",
+    "datman[build]"
+]
+
+[tool.flake8]
+max-line-length = 80
+doctests = false
+select = ["C", "E", "F", "W", "B"]
+extend-exclude = [
+  "*build/",
+  "docs/",
+  "*dist/"
+]
+count = true
