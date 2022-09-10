@@ -15,7 +15,7 @@ import re
 import sys
 from packaging.version import Version
 
-from datman import __packagename__, __version__, __copyright__
+from datman import __version__
 
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), 'sphinxext')))
@@ -24,8 +24,8 @@ from github_link import make_linkcode_resolve
 
 # -- Project information -----------------------------------------------------
 
-project = __packagename__
-copyright = __copyright__
+project ="Datman"
+copyright = "2016, TIGRLab"
 author = "TIGRLab"
 
 # The short X.Y version
