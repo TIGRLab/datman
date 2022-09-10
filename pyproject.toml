@@ -97,3 +97,7 @@ extend-exclude = [
   "*dist/"
 ]
 count = true
+
+[tool.pytest.ini_options]
+addopts = "-v --doctest-modules"
+testpaths = ["tests"]
