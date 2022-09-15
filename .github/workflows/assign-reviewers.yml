@@ -1,0 +1,13 @@
+name: Assign PR Reviewers
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened]
+
+jobs:
+  assign-reviewers:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Auto Assign Action
+        uses: kentaro-m/auto-assign-action@v1.2.3
