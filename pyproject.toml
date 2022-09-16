@@ -9,7 +9,7 @@ include = ["datman*"]
 
 [project]
 name = "datman"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 description = "Datman is a set of scripts for managing MRI data in XNAT, metadata in REDCap, and for performing visual quality control."
 license = {text = "Apache-2.0"}
 readme = "README.md"
@@ -33,8 +33,8 @@ dependencies = [
     "docopt ~= 0.6.2",
     "nibabel ~= 3.0.0",
     "nilearn ~= 0.7.1",
-    "numpy ~= 1.18.0",
-    "pandas ~= 1.0.3",
+    "numpy >= 1.18.0",
+    "pandas >= 1.0.3",
     "pybids ~= 0.14.0",
     "pydeface ~= 2.0.0",
     "pydicom ~= 1.3.0",
