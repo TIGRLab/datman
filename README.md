@@ -1,7 +1,13 @@
-
+[![Zenodo](https://zenodo.org/badge/29540972.svg)](https://zenodo.org/badge/latestdoi/29540972)
+[![Tests](https://github.com/TIGRLab/datman/actions/workflows/run-tests.yml/badge.svg)](https://github.com/TIGRLab/datman/actions/workflows/run-tests.yml)
+![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/DESm1th/cffe8a0a522de7697edacbf74f70a7e1/raw/datman-coverage.json)
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
 [![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
+
+Datman is a tool for managing MRI studies and performing basic quality control
+on MRI data. For more information, including installation instructions,
+[view our docs here.](http://imaging-genetics.camh.ca/datman/)
 
 ## Contributors ✨
 
