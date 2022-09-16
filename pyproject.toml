@@ -102,3 +102,12 @@ count = true
 [tool.pytest.ini_options]
 addopts = "-v --doctest-modules"
 testpaths = ["tests"]
+
+[tool.pylint.main]
+fail-under = 7
+ignore-paths = ['docs']
+
+[tool.pylint."messages control"]
+disable = [
+  "logging-format-interpolation"
+]
