@@ -78,7 +78,8 @@ build = [
 style = [
     "flake8 ~= 3.7.0",
     "flake8-pyproject",
-    "pycodestyle"
+    "pycodestyle",
+    "pylint"
 ]
 
 all = [
