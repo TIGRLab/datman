@@ -977,28 +977,6 @@ class NiiExporter(SeriesExporter):
                          f"Reason - {type(exc).__name__} {exc} ")
 
 
-class NrrdExporter(SeriesExporter):
-    """Export a scan to nrrd format.
-    """
-
-    type = "nrrd"
-    ext = ".nrrd"
-
-    def export(self, raw_dir, **kwargs):
-        nrrd_script = self._locate_script()
-        run(f"{nrrd_script} {raw_dir} {self.fname_root} {self.output_dir}",
-            self.dry_run)
-
-    def _locate_script(self):
-        """Find the dcm_to_nrrd.sh helper script on the file system.
-
-        Returns:
-            str: The full path to the helper script.
-        """
-        datman_dir = os.path.split(os.path.dirname(__file__))[0]
-        return os.path.join(datman_dir, "bin", "dcm_to_nrrd.sh")
-
-
 class DcmExporter(SeriesExporter):
     """Export a single dicom from a scan.
     """
@@ -1069,19 +1047,6 @@ class DcmExporter(SeriesExporter):
                          f"{output_file}")
             cmd = f"cp {dcm_dict[dcm_echo_num]} {output_file}"
             run(cmd, self.dry_run)
-
-
-class MncExporter(SeriesExporter):
-    """Export a series to mnc format.
-    """
-
-    type = "mnc"
-    ext = ".mnc"
-
-    def export(self, raw_data_dir, **kwargs):
-        cmd = (f"dcm2mnc -fname {self.fname_root} -dname '' {raw_data_dir}/* "
-               f"{self.output_dir}")
-        run(cmd, self.dry_run)
 
 
 SESSION_EXPORTERS = {
