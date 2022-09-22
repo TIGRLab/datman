@@ -24,6 +24,17 @@
       ]
     },
     {
+      "login": "jerdra",
+      "name": "Jerry Jeyachandra",
+      "avatar_url": "https://avatars.githubusercontent.com/u/21374425?v=4",
+      "profile": "https://github.com/jerdra",
+      "contributions": [
+        "code",
+        "maintenance",
+        "review"
+      ]
+    },
+    {
       "login": "josephmje",
       "name": "Michael Joseph",
       "avatar_url": "https://avatars.githubusercontent.com/u/22102194?v=4",
@@ -33,7 +44,7 @@
         "maintenance",
         "review"
       ]
-    }
+    },
   ],
   "contributorsPerLine": 7,
   "projectName": "datman",
