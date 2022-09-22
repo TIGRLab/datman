@@ -7,7 +7,7 @@ labels:
   - label: "breaking"
     title: "^.*!:.*"
   - label: "feature"
-    title: "(?i)^\\[enh\\].*|^feat!*:.*"
+    title: "(?i)^\\[enh\\].*|^enh!*:.*|^feat!*:.*"
   - label: "fix"
     title: "(?i)^\\[fix\\].*|^fix!*:.*"
   - label: "refactor"
