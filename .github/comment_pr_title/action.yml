@@ -40,7 +40,7 @@ runs:
           Your pull request was made with an **incorrectly formatted title**. Please
           edit it to be prefixed with one of the accepted tags:
 
-          - `[ENH]` or `feat:` for pull requests that add new features.
+          - `[ENH]` or `enh:` or `feat:` for pull requests that add new features.
           - `[FIX]` or `fix:` for PRs that fix a bug.
           - `[REF]` or `ref:` for PRs that refactor code.
           - `[TEST]` or `test:` for PRs that add or update tests.

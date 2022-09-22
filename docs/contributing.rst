@@ -19,7 +19,7 @@ accepted without a request for changes:
   
   Tags aren't case-sensitive. Below is a complete list of accepted tags:
   
-    * ``[ENH]`` or ``feat:`` for pull requests that add new features
+    * ``[ENH]`` or ``enh:`` or ``feat:`` for pull requests that add new features
     * ``[FIX]`` or ``fix:`` for pull requests that fix bugs
     * ``[REF]`` or ``ref:`` for pull requests that refactor code
     * ``[TEST]`` or ``test:`` for pull requests that add or update tests
