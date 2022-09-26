@@ -53,9 +53,9 @@ def scanid_required(f):
                 name = datman.scanid.parse(name)
             except datman.scanid.ParseException:
                 raise DashboardException(
-                    f"Expected: a valid subject ID or "
+                    "Expected: a valid subject ID or "
                     "an instance of datman.scanid.Identifier. Received: "
-                    "{name}"
+                    f"{name}"
                 )
             args = list(args)
             args[0] = name

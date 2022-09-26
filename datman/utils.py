@@ -1308,9 +1308,11 @@ def is_named_like_a_dicom(path):
 def is_dicom(fileobj):
     try:
         dcm.read_file(fileobj)
-        return True
     except dcm.filereader.InvalidDicomError:
         return False
+    except Exception:
+        return False
+    return True
 
 
 def make_zip(source_dir, dest_zip):

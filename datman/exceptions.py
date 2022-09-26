@@ -28,6 +28,11 @@ class DashboardException(Exception):
     pass
 
 
+class ExporterException(Exception):
+    """Default exception for errors exporting data from raw."""
+    pass
+
+
 class MetadataException(Exception):
     pass
 

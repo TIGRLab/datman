@@ -32,6 +32,8 @@ class DatmanNamed(object):
         self.subject = ident.subject
         self.timepoint = ident.timepoint
         self.session = ident.session
+        self.bids_sub = f"sub-{ident.get_bids_name()}"
+        self.bids_ses = f"ses-{ident.timepoint}"
 
 
 class Series(DatmanNamed):
@@ -77,26 +79,28 @@ class Scan(DatmanNamed):
     Holds all information for a single scan (session).
 
     Args:
-        subject_id: A subject id of the format STUDY_SITE_ID_TIMEPOINT
-            _SESSION may be included, but will be set to the default _01
-            if missing.
-        config: A config object made from a project_settings.yml file
+        subject_id (:obj:`str` or :obj:`datman.scanid.Identifier`):
+            A valid datman subject ID.
+        config (:obj:`datman.config.config`): The config object for
+            the study this session belongs to.
+        bids_root (:obj:`str`, optional): The root path where bids data
+            is stored. If given, overrides any values from the configuration
+            files.
 
     May raise a ParseException if the given subject_id does not match the
     datman naming convention
 
     """
-    def __init__(self, subject_id, config):
+    def __init__(self, subject_id, config, bids_root=None):
+        self.is_phantom = datman.scanid.is_phantom(subject_id)
 
-        self.is_phantom = True if "_PHA_" in subject_id else False
-
-        subject_id = self.__check_session(subject_id)
-
-        try:
-            ident = scanid.parse(subject_id)
-        except datman.scanid.ParseException:
-            message = f"{subject_id} does not match datman convention"
-            raise datman.scanid.ParseException(message)
+        if isinstance(subject_id, datman.scanid.Identifier):
+            if subject_id.session:
+                ident = subject_id
+            else:
+                ident = self._get_ident(str(subject_id))
+        else:
+            ident = self._get_ident(subject_id)
 
         try:
             self.project = config.map_xnat_archive_to_project(subject_id)
@@ -106,11 +110,26 @@ class Scan(DatmanNamed):
 
         DatmanNamed.__init__(self, ident)
 
-        self.nii_path = self.__get_path("nii", config)
-        self.nrrd_path = self.__get_path("nrrd", config)
-        self.mnc_path = self.__get_path("mnc", config)
-        self.qc_path = self.__get_path("qc", config)
+        for dir in ["nii", "nrrd", "mnc", "dcm", "qc"]:
+            setattr(self, f"{dir}_path", self.__get_path(dir, config))
+
+        if bids_root:
+            self.bids_root = bids_root
+        else:
+            try:
+                bids_root = config.get_path("bids")
+            except datman.config.UndefinedSetting:
+                bids_root = ""
+
+        self.bids_root = bids_root
+        self.bids_path = self.__get_bids()
+
+        # This one lists all existing resource folders for the timepoint.
         self.resources = self._get_resources(config)
+        # This one lists the intended location of the sessions' resource dir
+        # The session num will be assumed to be 01 if one wasnt provided.
+        self.resource_path = self.__get_path(
+            "resources", config, session=True)
 
         self.niftis = self.__get_series(self.nii_path, [".nii", ".nii.gz"])
 
@@ -118,12 +137,39 @@ class Scan(DatmanNamed):
 
         self.nii_tags = list(self.__nii_dict.keys())
 
+    def _get_ident(self, subid):
+        subject_id = self.__check_session(subid)
+        try:
+            ident = scanid.parse(subject_id)
+        except datman.scanid.ParseException:
+            raise datman.scanid.ParseException(
+                f"{subject_id} does not match datman convention")
+        return ident
+
+    def find_files(self, file_stem, format="nii"):
+        try:
+            base_path = getattr(self, f"{format}_path")
+        except AttributeError:
+            return []
+        if not os.path.exists(base_path):
+            return []
+        return glob.glob(os.path.join(base_path, file_stem + "*"))
+
     def get_tagged_nii(self, tag):
         try:
             matched_niftis = self.__nii_dict[tag]
         except KeyError:
             matched_niftis = []
         return matched_niftis
+
+    def get_resource_dir(self, session):
+        for resource_dir in self.resources:
+            ident = scanid.parse(os.path.basename(resource_dir))
+            if int(ident.session) != int(session):
+                continue
+            if os.path.exists(resource_dir):
+                return resource_dir
+        return
 
     def _get_resources(self, config):
         search_path = os.path.join(config.get_path("resources"),
@@ -154,8 +200,16 @@ class Scan(DatmanNamed):
         folder_name = self.full_id
         if session:
             folder_name = self.id_plus_session
-        path = os.path.join(config.get_path(key), folder_name)
+        try:
+            path = os.path.join(config.get_path(key), folder_name)
+        except datman.config.UndefinedSetting:
+            return ""
         return path
+
+    def __get_bids(self):
+        if not self.bids_root:
+            return ""
+        return os.path.join(self.bids_root, self.bids_sub, self.bids_ses)
 
     def __get_series(self, path, ext_list):
         """
