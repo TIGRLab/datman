@@ -441,10 +441,17 @@ class config(object):
 
     @study_required
     def get_xnat_projects(self, study=None):
-        xnat_projects = [
-            self.get_key("XnatArchive", site=item) for item in self.get_sites()
-        ]
-        return list(set(xnat_projects))
+        xnat_projects = set()
+        for site in self.get_sites():
+            try:
+                archive = self.get_key("XnatArchive", site=site)
+            except UndefinedSetting:
+                logger.info(
+                    f"'XnatArchive' undefined for site {site}. Ignoring."
+                )
+            else:
+                xnat_projects.add(archive)
+        return list(xnat_projects)
 
     @study_required
     def get_sites(self, study=None):
