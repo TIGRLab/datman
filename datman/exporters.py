@@ -632,6 +632,10 @@ class DBExporter(SessionExporter):
             session = datman.dashboard.get_session(self.ident)
         except DashboardException:
             return False
+        except ParseException:
+            logger.error(
+                f"Session name {self.ident} is not datman format. Ignoring.")
+            return True
 
         if not session:
             return False
@@ -641,6 +645,10 @@ class DBExporter(SessionExporter):
                 scan = datman.dashboard.get_scan(name)
             except DashboardException:
                 return False
+            except ParseException:
+                logger.error(
+                    f"Scan name {name} is not datman format. Ignoring.")
+                continue
 
             if not scan:
                 return False
