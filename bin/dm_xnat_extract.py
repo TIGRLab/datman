@@ -707,6 +707,12 @@ def make_series_exporters(session, scan, tag_config, config, wanted_tags=None,
     """
     exporters = []
     for idx, tag in enumerate(scan.tags):
+        try:
+            _ = datman.scanid.parse_filename(scan.names[idx])
+        except datman.scanid.ParseException:
+            logger.error(f"Invalid filename {scan.names[idx]}, ignoring scan.")
+            continue
+
         if wanted_tags and tag not in wanted_tags:
             continue
 
