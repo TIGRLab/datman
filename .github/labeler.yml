@@ -1,0 +1,22 @@
+# This is used by srvaroa/labeler to match labels to PRs
+# The regexes are parsed by Go's regex library, so refer to docs for info
+
+version: 1
+
+labels:
+  - label: "breaking"
+    title: "^.*!:.*"
+  - label: "feature"
+    title: "(?i)^\\[enh\\].*|^enh!*:.*|^feat!*:.*"
+  - label: "fix"
+    title: "(?i)^\\[fix\\].*|^fix!*:.*"
+  - label: "refactor"
+    title: "(?i)^\\[ref\\].*|^ref!*:.*"
+  - label: "tests"
+    title: "(?i)^\\[test\\].*|^test!*:.*"
+  - label: "docs"
+    title: "(?i)^\\[doc\\].*|^doc!*:.*"
+  - label: "dependencies"
+    title: "(?i)^\\[dep\\].*|^dep!*:.*"
+  - label: "ignore-for-release"
+    title: "(?i)^\\[ignore\\].*|^ignore!*:.*"

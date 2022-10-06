@@ -1,0 +1,33 @@
+# Composible action to setup the datman + dependencies
+name: Set up Datman
+description: Set up the container env for datman workflows
+
+inputs:
+    py-version:
+      description: Version of python to use
+      required: false
+      default: 3.8
+
+runs:
+  using: composite
+  steps:
+    - name: Install and cache git
+      uses: awalsh128/cache-apt-pkgs-action@latest
+      with:
+        packages: git
+        version: 1.0
+
+    - name: Setup python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ inputs.py-version }}
+        cache: pip
+        cache-dependency-path: ./pyproject.toml
+
+    - name: Install datman and base requirements
+      run: pip install .
+      shell: bash
+
+    - name: Set pythonpath
+      run: echo "PYTHONPATH=./datman:${PYTHONPATH}" >> $GITHUB_ENV
+      shell: bash

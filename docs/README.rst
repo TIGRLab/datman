@@ -28,9 +28,9 @@ Introduction
 
 **dependencies**
 
-+ `scipy stack <http://www.scipy.org/stackspec.html>`_ for general analysis.
-+ `NiBabel <http://nipy.org/nibabel/>`_ for NIFTI reading/writing.
-+ `qcmon <https://github.com/josephdviviano/qcmon>`_ for running QC metrics.
++ `scipy stack <http://www.scipy.org/stackspec.html>`__ for general analysis.
++ `NiBabel <http://nipy.org/nibabel/>`__ for NIFTI reading/writing.
++ `qcmon <https://github.com/josephdviviano/qcmon>`__ for running QC metrics.
 
 **setup**
 
@@ -56,7 +56,7 @@ Datman Overview
 Quality Control
 ---------------
 
-Datman runs a standard QC pipeline on all major datatypes. It largely does this using the `qcmon <https://github.com/tigrlab/qcmon>`_ project.
+Datman runs a standard QC pipeline on all major datatypes. It largely does this using the `qcmon <https://github.com/tigrlab/qcmon>`__ project.
 
 We QC the data at two levels: single subject, and chronologically. When QCing a single subject, we're looking for major artifacts in the data, or problems with the subject (tumors, strokes, etc). When we are QCing chronologically, we're looking for things in one subject that look rather different from all of the others (or most of the others). This is a good practice when you don't know of a good 'cut-off'. For example, no one know what SNR number is so low that the data becomes corrupted.
 

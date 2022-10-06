@@ -2,21 +2,26 @@
 addReviewers: true
 
 # Set to true to add assignees to pull requests
-addAssignees: false
-
-# A list of reviewers to be added to pull requests (GitHub user name)
-reviewers:
-  - josephmje
-  - DESm1th
-  - jerdra
-  - jskocic
-  - benselby
-  - kwitczak
+addAssignees: author
 
 # A number of reviewers added to the pull request
 # Set 0 to add all the reviewers (default: 0)
-numberOfReviewers: 3
+numberOfReviewers: 2
+
+useReviewGroups: true
+
+# A list of reviewers to be added to pull requests (GitHub user name)
+reviewGroups:
+  alwaysAssign:
+    - DESm1th
+  randomAssign:
+    - jerdra
+    - josephmje
+    - kwitczak
+    - slimnsour
 
 # A list of keywords to be skipped the process that add reviewers if pull requests include it
 # skipKeywords:
 #   - wip
+
+runOnDraft: false

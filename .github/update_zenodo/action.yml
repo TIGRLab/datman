@@ -1,0 +1,35 @@
+name: Update .zenodo.json
+description: Re-organize the creators list based on lines of code contributed
+
+inputs:
+  token:
+    description: The github secret token
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install git-extras
+      uses: awalsh128/cache-apt-pkgs-action@latest
+      with:
+        packages: git-extras
+        version: 1.0
+
+    - name: Install fuzzywuzzy
+      run: pip install fuzzywuzzy
+      shell: bash
+
+    - name: Run update_zenodo.py script
+      run: ./.github/scripts/update_zenodo.py
+      shell: bash
+
+    - name: Remove line-contributions.txt file
+      run: rm ./line-contributors.txt
+      shell: bash
+
+    - name: Commit & push changes to .zenodo.json
+      if: ${{ github.ref == 'refs/heads/main' }}
+      uses: actions-js/push@master
+      with:
+        message: Update .zenodo.json
+        github_token: ${{ inputs.token }}
