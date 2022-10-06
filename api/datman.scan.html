@@ -4,10 +4,9 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>datman.scan module &mdash; datman 0.2.0rc1 documentation</title>
+  <title>datman.scan module &mdash; Datman 0.1.dev1 documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/banner.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -20,7 +19,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="datman.scan_list module" href="datman.scan_list.html" />
-    <link rel="prev" title="datman.header_checks module" href="datman.header_checks.html" /> 
+    <link rel="prev" title="datman.metrics module" href="datman.metrics.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -28,10 +27,10 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="../index.html" class="icon icon-home"> datman
+            <a href="../index.html" class="icon icon-home"> Datman
           </a>
               <div class="version">
-                0.2.0rc1
+                0.1.dev1
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
@@ -43,15 +42,19 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html#docker-container">Docker Container</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to Datman</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../datman_conf.html">Configuration Files</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../api.html">Library API (application program interface)</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="datman.html">datman package</a><ul class="current">
 <li class="toctree-l3 current"><a class="reference internal" href="datman.html#submodules">Submodules</a><ul class="current">
 <li class="toctree-l4"><a class="reference internal" href="datman.config.html">datman.config module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="datman.dashboard.html">datman.dashboard module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="datman.exceptions.html">datman.exceptions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.exporters.html">datman.exporters module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="datman.fs_log_scraper.html">datman.fs_log_scraper module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="datman.header_checks.html">datman.header_checks module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.metrics.html">datman.metrics module</a></li>
 <li class="toctree-l4 current"><a class="current reference internal" href="#">datman.scan module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="datman.scan_list.html">datman.scan_list module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="datman.scanid.html">datman.scanid module</a></li>
@@ -72,7 +75,7 @@
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="../index.html">datman</a>
+          <a href="../index.html">Datman</a>
       </nav>
 
       <div class="wy-nav-content">
@@ -92,13 +95,7 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  
-
-
-
-
-
-<section id="module-datman.scan">
+  <section id="module-datman.scan">
 <span id="datman-scan-module"></span><h1>datman.scan module<a class="headerlink" href="#module-datman.scan" title="Permalink to this headline"></a></h1>
 <p>A class to make access to all information about a single scan easy
 and uniform.</p>
@@ -107,7 +104,7 @@ does not change after the object is created. Certain attribute values may
 become out of date if this is not true.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="datman.scan.DatmanNamed">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.scan.</span></span><span class="sig-name descname"><span class="pre">DatmanNamed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ident</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan.DatmanNamed" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.scan.</span></span><span class="sig-name descname"><span class="pre">DatmanNamed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ident</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/scan.py#L17"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.scan.DatmanNamed" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>A parent class for all classes that will obey the datman naming scheme</p>
 <dl class="field-list simple">
@@ -119,31 +116,43 @@ become out of date if this is not true.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="datman.scan.Scan">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.scan.</span></span><span class="sig-name descname"><span class="pre">Scan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subject_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan.Scan" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.scan.</span></span><span class="sig-name descname"><span class="pre">Scan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subject_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bids_root</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/scan.py#L77"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.scan.Scan" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#datman.scan.DatmanNamed" title="datman.scan.DatmanNamed"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.scan.DatmanNamed</span></code></a></p>
 <p>Holds all information for a single scan (session).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>subject_id</strong> – A subject id of the format STUDY_SITE_ID_TIMEPOINT
-_SESSION may be included, but will be set to the default _01
-if missing.</p></li>
-<li><p><strong>config</strong> – A config object made from a project_settings.yml file</p></li>
+<li><p><strong>subject_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a> or <a class="reference internal" href="datman.scanid.html#datman.scanid.Identifier" title="datman.scanid.Identifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">datman.scanid.Identifier</span></code></a>) – A valid datman subject ID.</p></li>
+<li><p><strong>config</strong> (<a class="reference internal" href="datman.config.html#datman.config.config" title="datman.config.config"><code class="xref py py-obj docutils literal notranslate"><span class="pre">datman.config.config</span></code></a>) – The config object for
+the study this session belongs to.</p></li>
+<li><p><strong>bids_root</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>, optional) – The root path where bids data
+is stored. If given, overrides any values from the configuration
+files.</p></li>
 </ul>
 </dd>
 </dl>
 <p>May raise a ParseException if the given subject_id does not match the
 datman naming convention</p>
 <dl class="py method">
+<dt class="sig sig-object py" id="datman.scan.Scan.find_files">
+<span class="sig-name descname"><span class="pre">find_files</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_stem</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">format</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'nii'</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/scan.py#L149"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.scan.Scan.find_files" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.scan.Scan.get_resource_dir">
+<span class="sig-name descname"><span class="pre">get_resource_dir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/scan.py#L165"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.scan.Scan.get_resource_dir" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="datman.scan.Scan.get_tagged_nii">
-<span class="sig-name descname"><span class="pre">get_tagged_nii</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan.Scan.get_tagged_nii" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">get_tagged_nii</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/scan.py#L158"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.scan.Scan.get_tagged_nii" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="datman.scan.Series">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.scan.</span></span><span class="sig-name descname"><span class="pre">Series</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan.Series" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.scan.</span></span><span class="sig-name descname"><span class="pre">Series</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/scan.py#L39"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.scan.Series" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#datman.scan.DatmanNamed" title="datman.scan.DatmanNamed"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.scan.DatmanNamed</span></code></a></p>
 <p>Holds all information about a series file of any format (e.g. nifti).</p>
 <dl class="field-list simple">
@@ -161,14 +170,14 @@ datman naming convention.</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="datman.header_checks.html" class="btn btn-neutral float-left" title="datman.header_checks module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="datman.metrics.html" class="btn btn-neutral float-left" title="datman.metrics module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="datman.scan_list.html" class="btn btn-neutral float-right" title="datman.scan_list module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright Copyright 2019, The TIGRLab.</p>
+    <p>&#169; Copyright 2016, TIGRLab.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
@@ -181,21 +190,7 @@ datman naming convention.</p>
       </div>
     </section>
   </div>
-  
-<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
-    <span class="rst-current-version" data-toggle="rst-current-version">
-        <span class="fa fa-book"> Other Versions</span>
-        v: master
-        <span class="fa fa-caret-down"></span>
-    </span>
-    <div class="rst-other-versions">
-        <dl>
-            <dt>Branches</dt>
-            <dd><a href="../master/api/datman.scan.html">master</a></dd>
-        </dl>
-    </div>
-</div>
-<script>
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });

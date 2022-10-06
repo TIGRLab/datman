@@ -4,10 +4,9 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>datman.scan_list module &mdash; datman 0.2.0rc1 documentation</title>
+  <title>datman.scan_list module &mdash; Datman 0.1.dev1 documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/banner.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -28,10 +27,10 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="../index.html" class="icon icon-home"> datman
+            <a href="../index.html" class="icon icon-home"> Datman
           </a>
               <div class="version">
-                0.2.0rc1
+                0.1.dev1
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
@@ -43,15 +42,19 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html#docker-container">Docker Container</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to Datman</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../datman_conf.html">Configuration Files</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../api.html">Library API (application program interface)</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="datman.html">datman package</a><ul class="current">
 <li class="toctree-l3 current"><a class="reference internal" href="datman.html#submodules">Submodules</a><ul class="current">
 <li class="toctree-l4"><a class="reference internal" href="datman.config.html">datman.config module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="datman.dashboard.html">datman.dashboard module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="datman.exceptions.html">datman.exceptions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.exporters.html">datman.exporters module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="datman.fs_log_scraper.html">datman.fs_log_scraper module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="datman.header_checks.html">datman.header_checks module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.metrics.html">datman.metrics module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="datman.scan.html">datman.scan module</a></li>
 <li class="toctree-l4 current"><a class="current reference internal" href="#">datman.scan_list module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="datman.scanid.html">datman.scanid module</a></li>
@@ -72,7 +75,7 @@
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="../index.html">datman</a>
+          <a href="../index.html">Datman</a>
       </nav>
 
       <div class="wy-nav-content">
@@ -92,13 +95,7 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  
-
-
-
-
-
-<section id="module-datman.scan_list">
+  <section id="module-datman.scan_list">
 <span id="datman-scan-list-module"></span><h1>datman.scan_list module<a class="headerlink" href="#module-datman.scan_list" title="Permalink to this headline"></a></h1>
 <p>This script contains code to generate a scans.csv for instances where the
 subject ID in the dicom headers is wrong in a systematic way. That is,
@@ -127,18 +124,18 @@ metadata_path)</p>
 </dl>
 <dl class="py class">
 <dt class="sig sig-object py" id="datman.scan_list.ScanEntryABC">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.scan_list.</span></span><span class="sig-name descname"><span class="pre">ScanEntryABC</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scan_path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.ScanEntryABC" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.scan_list.</span></span><span class="sig-name descname"><span class="pre">ScanEntryABC</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scan_path</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/scan_list.py#L122"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.scan_list.ScanEntryABC" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.scan_list.ScanEntryABC.get_target_name">
-<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_target_name</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.ScanEntryABC.get_target_name" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_target_name</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/scan_list.py#L141"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.scan_list.ScanEntryABC.get_target_name" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="datman.scan_list.generate_scan_list">
-<span class="sig-prename descclassname"><span class="pre">datman.scan_list.</span></span><span class="sig-name descname"><span class="pre">generate_scan_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scan_entry_class</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zip_files</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest_dir</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.generate_scan_list" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">datman.scan_list.</span></span><span class="sig-name descname"><span class="pre">generate_scan_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scan_entry_class</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zip_files</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest_dir</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/scan_list.py#L39"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.scan_list.generate_scan_list" title="Permalink to this definition"></a></dt>
 <dd><p>Use this function to generate a scans.csv file of the expected format.</p>
 <dl class="simple">
 <dt>scan_entry_class:       A subclass of ScanEntryABC that will be used to</dt><dd><p>generate each entry in scans.csv</p>
@@ -150,22 +147,22 @@ metadata_path)</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="datman.scan_list.get_scan_list_contents">
-<span class="sig-prename descclassname"><span class="pre">datman.scan_list.</span></span><span class="sig-name descname"><span class="pre">get_scan_list_contents</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scans_csv</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.get_scan_list_contents" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">datman.scan_list.</span></span><span class="sig-name descname"><span class="pre">get_scan_list_contents</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scans_csv</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/scan_list.py#L76"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.scan_list.get_scan_list_contents" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="datman.scan_list.make_new_entries">
-<span class="sig-prename descclassname"><span class="pre">datman.scan_list.</span></span><span class="sig-name descname"><span class="pre">make_new_entries</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">processed_scans</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zip_files</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">EntryClass</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.make_new_entries" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">datman.scan_list.</span></span><span class="sig-name descname"><span class="pre">make_new_entries</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">processed_scans</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zip_files</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">EntryClass</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/scan_list.py#L96"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.scan_list.make_new_entries" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="datman.scan_list.start_new_scan_list">
-<span class="sig-prename descclassname"><span class="pre">datman.scan_list.</span></span><span class="sig-name descname"><span class="pre">start_new_scan_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.start_new_scan_list" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">datman.scan_list.</span></span><span class="sig-name descname"><span class="pre">start_new_scan_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/scan_list.py#L70"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.scan_list.start_new_scan_list" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="datman.scan_list.update_scans_csv">
-<span class="sig-prename descclassname"><span class="pre">datman.scan_list.</span></span><span class="sig-name descname"><span class="pre">update_scans_csv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_entries</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.scan_list.update_scans_csv" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">datman.scan_list.</span></span><span class="sig-name descname"><span class="pre">update_scans_csv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_entries</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/scan_list.py#L117"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.scan_list.update_scans_csv" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 </section>
@@ -181,7 +178,7 @@ metadata_path)</p>
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright Copyright 2019, The TIGRLab.</p>
+    <p>&#169; Copyright 2016, TIGRLab.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
@@ -194,21 +191,7 @@ metadata_path)</p>
       </div>
     </section>
   </div>
-  
-<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
-    <span class="rst-current-version" data-toggle="rst-current-version">
-        <span class="fa fa-book"> Other Versions</span>
-        v: master
-        <span class="fa fa-caret-down"></span>
-    </span>
-    <div class="rst-other-versions">
-        <dl>
-            <dt>Branches</dt>
-            <dd><a href="../master/api/datman.scan_list.html">master</a></dd>
-        </dl>
-    </div>
-</div>
-<script>
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });

@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>datman.metrics module &mdash; Datman 0.1.dev1 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="datman.scan module" href="datman.scan.html" />
+    <link rel="prev" title="datman.header_checks module" href="datman.header_checks.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> Datman
+          </a>
+              <div class="version">
+                0.1.dev1
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html#docker-container">Docker Container</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to Datman</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../datman_conf.html">Configuration Files</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../api.html">Library API (application program interface)</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="datman.html">datman package</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="datman.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="datman.config.html">datman.config module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.dashboard.html">datman.dashboard module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.exceptions.html">datman.exceptions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.exporters.html">datman.exporters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.fs_log_scraper.html">datman.fs_log_scraper module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.header_checks.html">datman.header_checks module</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">datman.metrics module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.scan.html">datman.scan module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.scan_list.html">datman.scan_list module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.scanid.html">datman.scanid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.utils.html">datman.utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.xnat.html">datman.xnat module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../changes.html">What’s new?</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Datman</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../api.html">Library API (application program interface)</a> &raquo;</li>
+          <li><a href="datman.html">datman package</a> &raquo;</li>
+      <li>datman.metrics module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/datman.metrics.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-datman.metrics">
+<span id="datman-metrics-module"></span><h1>datman.metrics module<a class="headerlink" href="#module-datman.metrics" title="Permalink to this headline"></a></h1>
+<p>Classes and functions for generating QC metrics.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="datman.metrics.ABCDPHAMetrics">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.metrics.</span></span><span class="sig-name descname"><span class="pre">ABCDPHAMetrics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_nii</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L383"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.ABCDPHAMetrics" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#datman.metrics.Metric" title="datman.metrics.Metric"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.metrics.Metric</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.ABCDPHAMetrics.generate">
+<span class="sig-name descname"><span class="pre">generate</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L388"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.ABCDPHAMetrics.generate" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="datman.metrics.ABCDPHAMetrics.outputs">
+<span class="sig-name descname"><span class="pre">outputs</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'qc-abcd-fmri':</span> <span class="pre">{}}</span></em><a class="headerlink" href="#datman.metrics.ABCDPHAMetrics.outputs" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="datman.metrics.AnatMetrics">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.metrics.</span></span><span class="sig-name descname"><span class="pre">AnatMetrics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_nii</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L253"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.AnatMetrics" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#datman.metrics.Metric" title="datman.metrics.Metric"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.metrics.Metric</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.AnatMetrics.generate">
+<span class="sig-name descname"><span class="pre">generate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img_gap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1600</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L260"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.AnatMetrics.generate" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="datman.metrics.AnatMetrics.outputs">
+<span class="sig-name descname"><span class="pre">outputs</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'images':</span> <span class="pre">{'.png':</span> <span class="pre">QCOutput(order=1,</span> <span class="pre">title=None,</span> <span class="pre">caption=None)}}</span></em><a class="headerlink" href="#datman.metrics.AnatMetrics.outputs" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="datman.metrics.AnatPHAMetrics">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.metrics.</span></span><span class="sig-name descname"><span class="pre">AnatPHAMetrics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_nii</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L305"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.AnatPHAMetrics" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#datman.metrics.Metric" title="datman.metrics.Metric"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.metrics.Metric</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.AnatPHAMetrics.generate">
+<span class="sig-name descname"><span class="pre">generate</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L312"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.AnatPHAMetrics.generate" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="datman.metrics.AnatPHAMetrics.outputs">
+<span class="sig-name descname"><span class="pre">outputs</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'qc-adni':</span> <span class="pre">{'_stats.csv':</span> <span class="pre">None}}</span></em><a class="headerlink" href="#datman.metrics.AnatPHAMetrics.outputs" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="datman.metrics.DTIMetrics">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.metrics.</span></span><span class="sig-name descname"><span class="pre">DTIMetrics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nii_input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bvec</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L223"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.DTIMetrics" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#datman.metrics.MetricDTI" title="datman.metrics.MetricDTI"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.metrics.MetricDTI</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.DTIMetrics.generate">
+<span class="sig-name descname"><span class="pre">generate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img_gap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1600</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L241"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.DTIMetrics.generate" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="datman.metrics.DTIMetrics.outputs">
+<span class="sig-name descname"><span class="pre">outputs</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'images':</span> <span class="pre">{'_b0.png':</span> <span class="pre">QCOutput(order=2,</span> <span class="pre">title='b0</span> <span class="pre">Montage',</span> <span class="pre">caption=None)},</span> <span class="pre">'montage':</span> <span class="pre">{'_montage.png':</span> <span class="pre">QCOutput(order=1,</span> <span class="pre">title=None,</span> <span class="pre">caption=None)},</span> <span class="pre">'qc-dti':</span> <span class="pre">{'_directions.png':</span> <span class="pre">QCOutput(order=3,</span> <span class="pre">title='bvec</span> <span class="pre">Directions',</span> <span class="pre">caption=None),</span> <span class="pre">'_qascripts_dti.csv':</span> <span class="pre">None,</span> <span class="pre">'_stats.csv':</span> <span class="pre">None},</span> <span class="pre">'qc-spikecount':</span> <span class="pre">{'_spikecount.csv':</span> <span class="pre">None}}</span></em><a class="headerlink" href="#datman.metrics.DTIMetrics.outputs" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="datman.metrics.DTIPHAMetrics">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.metrics.</span></span><span class="sig-name descname"><span class="pre">DTIPHAMetrics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nii_input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bvec</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L330"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.DTIPHAMetrics" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#datman.metrics.MetricDTI" title="datman.metrics.MetricDTI"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.metrics.MetricDTI</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.DTIPHAMetrics.generate">
+<span class="sig-name descname"><span class="pre">generate</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L335"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.DTIPHAMetrics.generate" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="datman.metrics.DTIPHAMetrics.outputs">
+<span class="sig-name descname"><span class="pre">outputs</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'qc-fbirn-dti':</span> <span class="pre">{}}</span></em><a class="headerlink" href="#datman.metrics.DTIPHAMetrics.outputs" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="datman.metrics.FMRIMetrics">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.metrics.</span></span><span class="sig-name descname"><span class="pre">FMRIMetrics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_nii</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L264"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.FMRIMetrics" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#datman.metrics.Metric" title="datman.metrics.Metric"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.metrics.Metric</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.FMRIMetrics.generate">
+<span class="sig-name descname"><span class="pre">generate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img_gap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1600</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L287"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.FMRIMetrics.generate" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="datman.metrics.FMRIMetrics.outputs">
+<span class="sig-name descname"><span class="pre">outputs</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'images':</span> <span class="pre">{'_corr.png':</span> <span class="pre">QCOutput(order=4,</span> <span class="pre">title='Correlation</span> <span class="pre">Map',</span> <span class="pre">caption=None),</span> <span class="pre">'_raw.png':</span> <span class="pre">QCOutput(order=2,</span> <span class="pre">title='BOLD</span> <span class="pre">Montage',</span> <span class="pre">caption=None),</span> <span class="pre">'_sfnr.png':</span> <span class="pre">QCOutput(order=3,</span> <span class="pre">title='SFNR</span> <span class="pre">Map',</span> <span class="pre">caption=None)},</span> <span class="pre">'montage':</span> <span class="pre">{'_montage.png':</span> <span class="pre">QCOutput(order=1,</span> <span class="pre">title=None,</span> <span class="pre">caption=None)},</span> <span class="pre">'qc-fmri':</span> <span class="pre">{'_corr.nii.gz':</span> <span class="pre">None,</span> <span class="pre">'_fd.csv':</span> <span class="pre">None,</span> <span class="pre">'_qascripts_bold.csv':</span> <span class="pre">None,</span> <span class="pre">'_sfnr.nii.gz':</span> <span class="pre">None,</span> <span class="pre">'_spectra.csv':</span> <span class="pre">None,</span> <span class="pre">'_stats.csv':</span> <span class="pre">None},</span> <span class="pre">'qc-scanlength':</span> <span class="pre">{'_scanlengths.csv':</span> <span class="pre">None}}</span></em><a class="headerlink" href="#datman.metrics.FMRIMetrics.outputs" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="datman.metrics.FMRIPHAMetrics">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.metrics.</span></span><span class="sig-name descname"><span class="pre">FMRIPHAMetrics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_nii</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L316"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.FMRIPHAMetrics" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#datman.metrics.Metric" title="datman.metrics.Metric"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.metrics.Metric</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.FMRIPHAMetrics.generate">
+<span class="sig-name descname"><span class="pre">generate</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L325"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.FMRIPHAMetrics.generate" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="datman.metrics.FMRIPHAMetrics.outputs">
+<span class="sig-name descname"><span class="pre">outputs</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'qc-fbirn-fmri':</span> <span class="pre">{'_images.jpg':</span> <span class="pre">QCOutput(order=1,</span> <span class="pre">title=None,</span> <span class="pre">caption=None),</span> <span class="pre">'_plots.jpg':</span> <span class="pre">QCOutput(order=2,</span> <span class="pre">title=None,</span> <span class="pre">caption=None),</span> <span class="pre">'_stats.csv':</span> <span class="pre">None}}</span></em><a class="headerlink" href="#datman.metrics.FMRIPHAMetrics.outputs" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="datman.metrics.IgnoreMetrics">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.metrics.</span></span><span class="sig-name descname"><span class="pre">IgnoreMetrics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_nii</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L210"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.IgnoreMetrics" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#datman.metrics.Metric" title="datman.metrics.Metric"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.metrics.Metric</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.IgnoreMetrics.exists">
+<span class="sig-name descname"><span class="pre">exists</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L213"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.IgnoreMetrics.exists" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.IgnoreMetrics.generate">
+<span class="sig-name descname"><span class="pre">generate</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L216"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.IgnoreMetrics.generate" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="datman.metrics.IgnoreMetrics.outputs">
+<span class="sig-name descname"><span class="pre">outputs</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{}</span></em><a class="headerlink" href="#datman.metrics.IgnoreMetrics.outputs" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.IgnoreMetrics.write_manifest">
+<span class="sig-name descname"><span class="pre">write_manifest</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L219"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.IgnoreMetrics.write_manifest" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="datman.metrics.Metric">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.metrics.</span></span><span class="sig-name descname"><span class="pre">Metric</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_nii</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L19"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.Metric" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">abc.ABC</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.Metric.command_succeeded">
+<span class="sig-name descname"><span class="pre">command_succeeded</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">command_name</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L111"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.Metric.command_succeeded" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.Metric.exists">
+<span class="sig-name descname"><span class="pre">exists</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L103"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.Metric.exists" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.Metric.generate">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">generate</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L30"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.Metric.generate" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.Metric.get_requirements">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_requirements</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L74"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.Metric.get_requirements" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.Metric.is_runnable">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_runnable</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L85"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.Metric.is_runnable" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.Metric.make_image">
+<span class="sig-name descname"><span class="pre">make_image</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">img_gap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1600</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nii_input</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L141"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.Metric.make_image" title="Permalink to this definition"></a></dt>
+<dd><p>Uses FSL’s slicer function to generate a png from a nifti file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>output</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a>) – The full path to write the output image to</p></li>
+<li><p><strong>img_gap</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a><em>, </em><em>optional</em>) – Size of the “gap” to insert between
+slices. Defaults to 2.</p></li>
+<li><p><strong>width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a><em>, </em><em>optional</em>) – width (in pixels) of output image.
+Defaults to 1600.</p></li>
+<li><p><strong>nii_input</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a><em>, </em><em>optional</em>) – The nifti image to visualize. If not
+given, self.input will be used.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.Metric.make_manifest">
+<span class="sig-name descname"><span class="pre">make_manifest</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L65"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.Metric.make_manifest" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.Metric.make_montage">
+<span class="sig-name descname"><span class="pre">make_montage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L157"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.Metric.make_montage" title="Permalink to this definition"></a></dt>
+<dd><p>Uses FSL’s slicer function to generate a montage of three slices.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>output</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a>) – The full path to write the result to.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="datman.metrics.Metric.manifest_path">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">manifest_path</span></span><a class="headerlink" href="#datman.metrics.Metric.manifest_path" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.Metric.outputs">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">outputs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L26"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.Metric.outputs" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.Metric.read_manifest">
+<span class="sig-name descname"><span class="pre">read_manifest</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L60"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.Metric.read_manifest" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="datman.metrics.Metric.requires">
+<span class="sig-name descname"><span class="pre">requires</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'images':</span> <span class="pre">['slicer'],</span> <span class="pre">'montage':</span> <span class="pre">['slicer',</span> <span class="pre">'pngappend']}</span></em><a class="headerlink" href="#datman.metrics.Metric.requires" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.Metric.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">command</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L120"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.Metric.run" title="Permalink to this definition"></a></dt>
+<dd><p>Run a command if outputs are still needed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>command</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a>) – The exact string command to run.</p></li>
+<li><p><strong>output</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a>) – A command name (as defined in self.commands) or a
+full path to a single file.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><a class="reference internal" href="datman.exceptions.html#datman.exceptions.QCException" title="datman.exceptions.QCException"><strong>QCException</strong></a> – If any expected outputs haven’t been generated.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.Metric.set_outputs">
+<span class="sig-name descname"><span class="pre">set_outputs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L94"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.Metric.set_outputs" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.Metric.write_manifest">
+<span class="sig-name descname"><span class="pre">write_manifest</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L43"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.Metric.write_manifest" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="datman.metrics.MetricDTI">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.metrics.</span></span><span class="sig-name descname"><span class="pre">MetricDTI</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nii_input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bvec</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L191"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.MetricDTI" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#datman.metrics.Metric" title="datman.metrics.Metric"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.metrics.Metric</span></code></a></p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="datman.metrics.QAPHAMetrics">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.metrics.</span></span><span class="sig-name descname"><span class="pre">QAPHAMetrics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nii_input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bvec</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L340"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.QAPHAMetrics" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#datman.metrics.MetricDTI" title="datman.metrics.MetricDTI"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.metrics.MetricDTI</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.QAPHAMetrics.generate">
+<span class="sig-name descname"><span class="pre">generate</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L377"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.QAPHAMetrics.generate" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="datman.metrics.QAPHAMetrics.outputs">
+<span class="sig-name descname"><span class="pre">outputs</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'qa-dti':</span> <span class="pre">{'B0Distortion-PAR.jpg':</span> <span class="pre">QCOutput(order=1,</span> <span class="pre">title=None,</span> <span class="pre">caption=None),</span> <span class="pre">'CentralSlice-PAR.jpg':</span> <span class="pre">QCOutput(order=2,</span> <span class="pre">title=None,</span> <span class="pre">caption=None),</span> <span class="pre">'DiffImgs-PAR.jpg':</span> <span class="pre">QCOutput(order=3,</span> <span class="pre">title=None,</span> <span class="pre">caption=None),</span> <span class="pre">'DiffMasks-PAR.jpg':</span> <span class="pre">QCOutput(order=4,</span> <span class="pre">title=None,</span> <span class="pre">caption=None),</span> <span class="pre">'MaskCentralSlice-PAR.jpg':</span> <span class="pre">QCOutput(order=5,</span> <span class="pre">title=None,</span> <span class="pre">caption=None),</span> <span class="pre">'NyquistRatio-PAR.jpg':</span> <span class="pre">QCOutput(order=6,</span> <span class="pre">title=None,</span> <span class="pre">caption=None),</span> <span class="pre">'Plot-EddyCurrentDist-PAR.jpg':</span> <span class="pre">QCOutput(order=7,</span> <span class="pre">title=None,</span> <span class="pre">caption=None),</span> <span class="pre">'SNRImgs-PAR.jpg':</span> <span class="pre">QCOutput(order=8,</span> <span class="pre">title=None,</span> <span class="pre">caption=None),</span> <span class="pre">'Section2.3.1_SNR_ADC.csv':</span> <span class="pre">None,</span> <span class="pre">'Section2.3.2_B0DistortionRatio.csv':</span> <span class="pre">None,</span> <span class="pre">'Section2.3.3_EddyCurrentDistortions.csv':</span> <span class="pre">None,</span> <span class="pre">'Section2.3.4_AveNyqRatio.csv':</span> <span class="pre">None,</span> <span class="pre">'Section2.3.5_FAvalues.csv':</span> <span class="pre">None,</span> <span class="pre">'StdPlotsHist-PAR.jpg':</span> <span class="pre">QCOutput(order=9,</span> <span class="pre">title=None,</span> <span class="pre">caption=None)}}</span></em><a class="headerlink" href="#datman.metrics.QAPHAMetrics.outputs" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="datman.metrics.QAPHAMetrics.update_expected_outputs">
+<span class="sig-name descname"><span class="pre">update_expected_outputs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L367"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.QAPHAMetrics.update_expected_outputs" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="datman.metrics.QCOutput">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.metrics.</span></span><span class="sig-name descname"><span class="pre">QCOutput</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">caption</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L13"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.QCOutput" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="datman.metrics.QCOutput.caption">
+<span class="sig-name descname"><span class="pre">caption</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#datman.metrics.QCOutput.caption" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="datman.metrics.QCOutput.order">
+<span class="sig-name descname"><span class="pre">order</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">-1</span></em><a class="headerlink" href="#datman.metrics.QCOutput.order" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="datman.metrics.QCOutput.title">
+<span class="sig-name descname"><span class="pre">title</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#datman.metrics.QCOutput.title" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="datman.metrics.get_handlers">
+<span class="sig-prename descclassname"><span class="pre">datman.metrics.</span></span><span class="sig-name descname"><span class="pre">get_handlers</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subject</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/metrics.py#L410"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.metrics.get_handlers" title="Permalink to this definition"></a></dt>
+<dd><p>Returns the set of QC functions to use for a subject.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>subject</strong> (<a class="reference internal" href="datman.scan.html#datman.scan.Scan" title="datman.scan.Scan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">datman.scan.Scan</span></code></a>) – The session that metrics must be
+generated for.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>A dictionary of string QC ‘types’ mapped to the function</dt><dd><p>used to generate QC metrics for it.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="datman.header_checks.html" class="btn btn-neutral float-left" title="datman.header_checks module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="datman.scan.html" class="btn btn-neutral float-right" title="datman.scan module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2016, TIGRLab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

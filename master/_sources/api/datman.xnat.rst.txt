@@ -1,7 +1,0 @@
-datman.xnat module
-==================
-
-.. automodule:: datman.xnat
-   :members:
-   :undoc-members:
-   :show-inheritance:

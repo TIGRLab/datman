@@ -4,10 +4,9 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>datman.header_checks module &mdash; datman 0.2.0rc1 documentation</title>
+  <title>datman.header_checks module &mdash; Datman 0.1.dev1 documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/banner.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -19,7 +18,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="datman.scan module" href="datman.scan.html" />
+    <link rel="next" title="datman.metrics module" href="datman.metrics.html" />
     <link rel="prev" title="datman.fs_log_scraper module" href="datman.fs_log_scraper.html" /> 
 </head>
 
@@ -28,10 +27,10 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="../index.html" class="icon icon-home"> datman
+            <a href="../index.html" class="icon icon-home"> Datman
           </a>
               <div class="version">
-                0.2.0rc1
+                0.1.dev1
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
@@ -43,15 +42,19 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html#docker-container">Docker Container</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to Datman</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../datman_conf.html">Configuration Files</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../api.html">Library API (application program interface)</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="datman.html">datman package</a><ul class="current">
 <li class="toctree-l3 current"><a class="reference internal" href="datman.html#submodules">Submodules</a><ul class="current">
 <li class="toctree-l4"><a class="reference internal" href="datman.config.html">datman.config module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="datman.dashboard.html">datman.dashboard module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="datman.exceptions.html">datman.exceptions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.exporters.html">datman.exporters module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="datman.fs_log_scraper.html">datman.fs_log_scraper module</a></li>
 <li class="toctree-l4 current"><a class="current reference internal" href="#">datman.header_checks module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="datman.metrics.html">datman.metrics module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="datman.scan.html">datman.scan module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="datman.scan_list.html">datman.scan_list module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="datman.scanid.html">datman.scanid module</a></li>
@@ -72,7 +75,7 @@
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="../index.html">datman</a>
+          <a href="../index.html">Datman</a>
       </nav>
 
       <div class="wy-nav-content">
@@ -92,59 +95,53 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  
-
-
-
-
-
-<section id="module-datman.header_checks">
+  <section id="module-datman.header_checks">
 <span id="datman-header-checks-module"></span><h1>datman.header_checks module<a class="headerlink" href="#module-datman.header_checks" title="Permalink to this headline"></a></h1>
 <p>Utility functions for comparing nifti json header files to json gold standard
 files.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="datman.header_checks.check_bvals">
-<span class="sig-prename descclassname"><span class="pre">datman.header_checks.</span></span><span class="sig-name descname"><span class="pre">check_bvals</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">series_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">standard_path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.header_checks.check_bvals" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">datman.header_checks.</span></span><span class="sig-name descname"><span class="pre">check_bvals</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">series_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">standard_path</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/header_checks.py#L96"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.header_checks.check_bvals" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="datman.header_checks.compare_headers">
-<span class="sig-prename descclassname"><span class="pre">datman.header_checks.</span></span><span class="sig-name descname"><span class="pre">compare_headers</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">series</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">standard</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ignore</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.header_checks.compare_headers" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">datman.header_checks.</span></span><span class="sig-name descname"><span class="pre">compare_headers</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">series</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">standard</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ignore</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/header_checks.py#L42"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.header_checks.compare_headers" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="datman.header_checks.construct_diffs">
-<span class="sig-prename descclassname"><span class="pre">datman.header_checks.</span></span><span class="sig-name descname"><span class="pre">construct_diffs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">series_json</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">standard_json</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ignored_fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tolerances</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dti</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.header_checks.construct_diffs" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">datman.header_checks.</span></span><span class="sig-name descname"><span class="pre">construct_diffs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">series_json</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">standard_json</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ignored_fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tolerances</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dti</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/header_checks.py#L20"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.header_checks.construct_diffs" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="datman.header_checks.find_bvals">
-<span class="sig-prename descclassname"><span class="pre">datman.header_checks.</span></span><span class="sig-name descname"><span class="pre">find_bvals</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">json_path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.header_checks.find_bvals" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">datman.header_checks.</span></span><span class="sig-name descname"><span class="pre">find_bvals</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">json_path</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/header_checks.py#L107"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.header_checks.find_bvals" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="datman.header_checks.handle_diff">
-<span class="sig-prename descclassname"><span class="pre">datman.header_checks.</span></span><span class="sig-name descname"><span class="pre">handle_diff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expected</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.header_checks.handle_diff" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">datman.header_checks.</span></span><span class="sig-name descname"><span class="pre">handle_diff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expected</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/header_checks.py#L75"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.header_checks.handle_diff" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="datman.header_checks.parse_file">
-<span class="sig-prename descclassname"><span class="pre">datman.header_checks.</span></span><span class="sig-name descname"><span class="pre">parse_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.header_checks.parse_file" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">datman.header_checks.</span></span><span class="sig-name descname"><span class="pre">parse_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_path</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/header_checks.py#L11"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.header_checks.parse_file" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="datman.header_checks.read_json">
-<span class="sig-prename descclassname"><span class="pre">datman.header_checks.</span></span><span class="sig-name descname"><span class="pre">read_json</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">json_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.header_checks.read_json" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">datman.header_checks.</span></span><span class="sig-name descname"><span class="pre">read_json</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">json_file</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/header_checks.py#L36"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.header_checks.read_json" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="datman.header_checks.remove_fields">
-<span class="sig-prename descclassname"><span class="pre">datman.header_checks.</span></span><span class="sig-name descname"><span class="pre">remove_fields</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">json_contents</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.header_checks.remove_fields" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">datman.header_checks.</span></span><span class="sig-name descname"><span class="pre">remove_fields</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">json_contents</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/header_checks.py#L67"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.header_checks.remove_fields" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="datman.header_checks.write_diff_log">
-<span class="sig-prename descclassname"><span class="pre">datman.header_checks.</span></span><span class="sig-name descname"><span class="pre">write_diff_log</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">diffs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#datman.header_checks.write_diff_log" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">datman.header_checks.</span></span><span class="sig-name descname"><span class="pre">write_diff_log</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">diffs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_path</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/32d9b6c/datman/header_checks.py#L119"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.header_checks.write_diff_log" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 </section>
@@ -154,13 +151,13 @@ files.</p>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="datman.fs_log_scraper.html" class="btn btn-neutral float-left" title="datman.fs_log_scraper module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="datman.scan.html" class="btn btn-neutral float-right" title="datman.scan module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="datman.metrics.html" class="btn btn-neutral float-right" title="datman.metrics module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright Copyright 2019, The TIGRLab.</p>
+    <p>&#169; Copyright 2016, TIGRLab.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
@@ -173,21 +170,7 @@ files.</p>
       </div>
     </section>
   </div>
-  
-<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
-    <span class="rst-current-version" data-toggle="rst-current-version">
-        <span class="fa fa-book"> Other Versions</span>
-        v: master
-        <span class="fa fa-caret-down"></span>
-    </span>
-    <div class="rst-other-versions">
-        <dl>
-            <dt>Branches</dt>
-            <dd><a href="../master/api/datman.header_checks.html">master</a></dd>
-        </dl>
-    </div>
-</div>
-<script>
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });

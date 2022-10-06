@@ -1,7 +1,0 @@
-datman.scanid module
-====================
-
-.. automodule:: datman.scanid
-   :members:
-   :undoc-members:
-   :show-inheritance:

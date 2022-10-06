@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contributing to Datman &mdash; Datman 0.1.dev1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Configuration Files" href="datman_conf.html" />
+    <link rel="prev" title="Installation" href="installation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> Datman
+          </a>
+              <div class="version">
+                0.1.dev1
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html#docker-container">Docker Container</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Contributing to Datman</a></li>
+<li class="toctree-l1"><a class="reference internal" href="datman_conf.html">Configuration Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">Library API (application program interface)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changes.html">What’s new?</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Datman</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Contributing to Datman</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/contributing.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="contributing-to-datman">
+<h1>Contributing to Datman<a class="headerlink" href="#contributing-to-datman" title="Permalink to this headline"></a></h1>
+<p>Contributions from anyone are very welcome! Below are some helpful guidelines
+to follow when opening a pull request to maximize the chances that it is
+accepted without a request for changes:</p>
+<ul>
+<li><p>Give your PR a correctly formatted title. Your title should be prefixed
+with a tag that tells us (and our automated changelog builder) what type
+of change your PR applies.</p>
+<p>Correctly formatted tags look like <code class="docutils literal notranslate"><span class="pre">[TAG]</span></code> or <code class="docutils literal notranslate"><span class="pre">tag:</span></code>. If your PR
+introduces breaking changes (i.e. changes that may break code that uses datman)
+you can use an exclamation mark before the colon with the second tag format
+indicate this: <code class="docutils literal notranslate"><span class="pre">tag!:</span></code></p>
+<p>Tags aren’t case-sensitive. Below is a complete list of accepted tags:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">[ENH]</span></code> or <code class="docutils literal notranslate"><span class="pre">enh:</span></code> or <code class="docutils literal notranslate"><span class="pre">feat:</span></code> for pull requests that add new features</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[FIX]</span></code> or <code class="docutils literal notranslate"><span class="pre">fix:</span></code> for pull requests that fix bugs</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[REF]</span></code> or <code class="docutils literal notranslate"><span class="pre">ref:</span></code> for pull requests that refactor code</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[TEST]</span></code> or <code class="docutils literal notranslate"><span class="pre">test:</span></code> for pull requests that add or update tests</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[DOC]</span></code> or <code class="docutils literal notranslate"><span class="pre">doc:</span></code> for pull requests that update documentation</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[DEP]</span></code> or <code class="docutils literal notranslate"><span class="pre">dep:</span></code> for pull requests that update dependencies</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[IGNORE]</span></code> or <code class="docutils literal notranslate"><span class="pre">ignore:</span></code> for pull requests that should be omitted from
+release change logs.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>Follow <a class="reference external" href="https://www.python.org/dev/peps/pep-0008/">PEP8 standards</a> and
+try to write code that is readable for other people. You can check
+your PEP8 compliance and find some common readability issues using the
+commands below.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run these commands inside the datman folder</span>
+
+<span class="c1"># Install additional packages needed to check for style issues.</span>
+pip install .<span class="o">[</span>style<span class="o">]</span>
+
+<span class="c1"># Check for PEP8 issues.</span>
+flake8 &lt;path to your code here&gt;
+
+<span class="c1"># Check for common style issues.</span>
+pylint &lt;path to your code here&gt;
+</pre></div>
+</div>
+</li>
+<li><p>Ensure existing tests will continue to pass after your changes are applied.
+If any of our tests are no longer relevant after your changes, please update or
+remove them.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run these commands inside the datman folder</span>
+
+<span class="c1"># Install additional packages needed to run tests</span>
+pip install .<span class="o">[</span>test<span class="o">]</span>
+
+<span class="c1"># Run all datman tests</span>
+pytest tests/
+</pre></div>
+</div>
+</li>
+<li><p>Add unit tests whenever possible. We use <a class="reference external" href="https://docs.pytest.org">pytest</a>
+for our unit tests, please use it when writing new tests.</p></li>
+<li><p>Before adding a new package dependency to datman please ensure it is
+actually necessary.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Any changes to the dependencies (removal, addition, updated versions)
+should come with an update to the dependencies or optional-dependencies
+in datman’s <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> file.</p></li>
+<li><p>If your pull request is attempting to replace an old dependency with a new,
+more featureful one, you should update old code to completely strip the
+old dependency from datman.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="installation.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="datman_conf.html" class="btn btn-neutral float-right" title="Configuration Files" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2016, TIGRLab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

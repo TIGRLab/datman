@@ -1,0 +1,7 @@
+datman.metrics module
+=====================
+
+.. automodule:: datman.metrics
+   :members:
+   :undoc-members:
+   :show-inheritance:

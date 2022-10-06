@@ -3,10 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Index &mdash; datman 0.2.0rc1 documentation</title>
+  <title>Index &mdash; Datman 0.1.dev1 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="_static/banner.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -25,10 +24,10 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="index.html" class="icon icon-home"> datman
+            <a href="index.html" class="icon icon-home"> Datman
           </a>
               <div class="version">
-                0.2.0rc1
+                0.1.dev1
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
@@ -40,7 +39,9 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html#docker-container">Docker Container</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing to Datman</a></li>
+<li class="toctree-l1"><a class="reference internal" href="datman_conf.html">Configuration Files</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api.html">Library API (application program interface)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="changes.html">What’s new?</a></li>
 </ul>
@@ -51,7 +52,7 @@
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="index.html">datman</a>
+          <a href="index.html">Datman</a>
       </nav>
 
       <div class="wy-nav-content">
@@ -87,6 +88,7 @@
  | <a href="#N"><strong>N</strong></a>
  | <a href="#O"><strong>O</strong></a>
  | <a href="#P"><strong>P</strong></a>
+ | <a href="#Q"><strong>Q</strong></a>
  | <a href="#R"><strong>R</strong></a>
  | <a href="#S"><strong>S</strong></a>
  | <a href="#T"><strong>T</strong></a>
@@ -99,13 +101,23 @@
 <h2 id="A">A</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/datman.metrics.html#datman.metrics.ABCDPHAMetrics">ABCDPHAMetrics (class in datman.metrics)</a>
+</li>
       <li><a href="api/datman.dashboard.html#datman.dashboard.add_scan">add_scan() (in module datman.dashboard)</a>
 </li>
       <li><a href="api/datman.dashboard.html#datman.dashboard.add_session">add_session() (in module datman.dashboard)</a>
 </li>
+      <li><a href="api/datman.dashboard.html#datman.dashboard.add_subject">add_subject() (in module datman.dashboard)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/datman.dashboard.html#datman.dashboard.add_subject">add_subject() (in module datman.dashboard)</a>
+      <li><a href="api/datman.exporters.html#datman.exporters.DBExporter.add_tech_notes">add_tech_notes() (datman.exporters.DBExporter method)</a>
+</li>
+      <li><a href="api/datman.metrics.html#datman.metrics.AnatMetrics">AnatMetrics (class in datman.metrics)</a>
+</li>
+      <li><a href="api/datman.metrics.html#datman.metrics.AnatPHAMetrics">AnatPHAMetrics (class in datman.metrics)</a>
+</li>
+      <li><a href="api/datman.xnat.html#datman.xnat.XNATExperiment.assign_scan_names">assign_scan_names() (datman.xnat.XNATExperiment method)</a>
 </li>
       <li><a href="api/datman.xnat.html#datman.xnat.xnat.auth">auth (datman.xnat.xnat attribute)</a>
 </li>
@@ -115,6 +127,10 @@
 <h2 id="B">B</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/datman.exporters.html#datman.exporters.BidsExporter">BidsExporter (class in datman.exporters)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/datman.scanid.html#datman.scanid.BIDSFile">BIDSFile (class in datman.scanid)</a>
 </li>
   </ul></td>
@@ -123,6 +139,8 @@
 <h2 id="C">C</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/datman.metrics.html#datman.metrics.QCOutput.caption">caption (datman.metrics.QCOutput attribute)</a>
+</li>
       <li><a href="api/datman.utils.html#datman.utils.cd">cd (class in datman.utils)</a>
 </li>
       <li><a href="api/datman.header_checks.html#datman.header_checks.check_bvals">check_bvals() (in module datman.header_checks)</a>
@@ -136,6 +154,8 @@
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/datman.fs_log_scraper.html#datman.fs_log_scraper.choose_standard_sub">choose_standard_sub() (in module datman.fs_log_scraper)</a>
+</li>
+      <li><a href="api/datman.metrics.html#datman.metrics.Metric.command_succeeded">command_succeeded() (datman.metrics.Metric method)</a>
 </li>
       <li><a href="api/datman.header_checks.html#datman.header_checks.compare_headers">compare_headers() (in module datman.header_checks)</a>
 </li>
@@ -186,6 +206,13 @@
 </li>
       </ul></li>
       <li>
+    datman.exporters
+
+      <ul>
+        <li><a href="api/datman.exporters.html#module-datman.exporters">module</a>
+</li>
+      </ul></li>
+      <li>
     datman.fs_log_scraper
 
       <ul>
@@ -197,6 +224,13 @@
 
       <ul>
         <li><a href="api/datman.header_checks.html#module-datman.header_checks">module</a>
+</li>
+      </ul></li>
+      <li>
+    datman.metrics
+
+      <ul>
+        <li><a href="api/datman.metrics.html#module-datman.metrics">module</a>
 </li>
       </ul></li>
       <li>
@@ -240,6 +274,10 @@
 </li>
       <li><a href="api/datman.scan.html#datman.scan.DatmanNamed">DatmanNamed (class in datman.scan)</a>
 </li>
+      <li><a href="api/datman.exporters.html#datman.exporters.DBExporter">DBExporter (class in datman.exporters)</a>
+</li>
+      <li><a href="api/datman.exporters.html#datman.exporters.DcmExporter">DcmExporter (class in datman.exporters)</a>
+</li>
       <li><a href="api/datman.utils.html#datman.utils.define_folder">define_folder() (in module datman.utils)</a>
 </li>
       <li><a href="api/datman.xnat.html#datman.xnat.xnat.delete_resource">delete_resource() (datman.xnat.xnat method)</a>
@@ -247,6 +285,14 @@
       <li><a href="api/datman.xnat.html#datman.xnat.xnat.dismiss_autorun">dismiss_autorun() (datman.xnat.xnat method)</a>
 </li>
       <li><a href="api/datman.xnat.html#datman.xnat.XNATExperiment.download">download() (datman.xnat.XNATExperiment method)</a>
+
+      <ul>
+        <li><a href="api/datman.xnat.html#datman.xnat.XNATScan.download">(datman.xnat.XNATScan method)</a>
+</li>
+      </ul></li>
+      <li><a href="api/datman.metrics.html#datman.metrics.DTIMetrics">DTIMetrics (class in datman.metrics)</a>
+</li>
+      <li><a href="api/datman.metrics.html#datman.metrics.DTIPHAMetrics">DTIPHAMetrics (class in datman.metrics)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -254,8 +300,44 @@
 <h2 id="E">E</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/datman.metrics.html#datman.metrics.IgnoreMetrics.exists">exists() (datman.metrics.IgnoreMetrics method)</a>
+
+      <ul>
+        <li><a href="api/datman.metrics.html#datman.metrics.Metric.exists">(datman.metrics.Metric method)</a>
+</li>
+      </ul></li>
+      <li><a href="api/datman.exporters.html#datman.exporters.BidsExporter.export">export() (datman.exporters.BidsExporter method)</a>
+
+      <ul>
+        <li><a href="api/datman.exporters.html#datman.exporters.DBExporter.export">(datman.exporters.DBExporter method)</a>
+</li>
+        <li><a href="api/datman.exporters.html#datman.exporters.DcmExporter.export">(datman.exporters.DcmExporter method)</a>
+</li>
+        <li><a href="api/datman.exporters.html#datman.exporters.Exporter.export">(datman.exporters.Exporter method)</a>
+</li>
+        <li><a href="api/datman.exporters.html#datman.exporters.NiiExporter.export">(datman.exporters.NiiExporter method)</a>
+</li>
+        <li><a href="api/datman.exporters.html#datman.exporters.NiiLinkExporter.export">(datman.exporters.NiiLinkExporter method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/datman.exporters.html#datman.exporters.Exporter">Exporter (class in datman.exporters)</a>
+</li>
+      <li><a href="api/datman.exceptions.html#datman.exceptions.ExporterException">ExporterException</a>
+</li>
       <li><a href="api/datman.exceptions.html#datman.exceptions.ExportException">ExportException</a>
 </li>
+      <li><a href="api/datman.exporters.html#datman.exporters.DcmExporter.ext">ext (datman.exporters.DcmExporter attribute)</a>
+
+      <ul>
+        <li><a href="api/datman.exporters.html#datman.exporters.NiiExporter.ext">(datman.exporters.NiiExporter attribute)</a>
+</li>
+        <li><a href="api/datman.exporters.html#datman.exporters.NiiLinkExporter.ext">(datman.exporters.NiiLinkExporter attribute)</a>
+</li>
+        <li><a href="api/datman.exporters.html#datman.exporters.SeriesExporter.ext">(datman.exporters.SeriesExporter attribute)</a>
+</li>
+      </ul></li>
   </ul></td>
 </tr></table>
 
@@ -268,11 +350,19 @@
 </li>
       <li><a href="api/datman.header_checks.html#datman.header_checks.find_bvals">find_bvals() (in module datman.header_checks)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/datman.scan.html#datman.scan.Scan.find_files">find_files() (datman.scan.Scan method)</a>
+</li>
       <li><a href="api/datman.xnat.html#datman.xnat.xnat.find_project">find_project() (datman.xnat.xnat method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/datman.xnat.html#datman.xnat.xnat.find_subject">find_subject() (datman.xnat.xnat method)</a>
+</li>
+      <li><a href="api/datman.utils.html#datman.utils.find_tech_notes">find_tech_notes() (in module datman.utils)</a>
+</li>
+      <li><a href="api/datman.metrics.html#datman.metrics.FMRIMetrics">FMRIMetrics (class in datman.metrics)</a>
+</li>
+      <li><a href="api/datman.metrics.html#datman.metrics.FMRIPHAMetrics">FMRIPHAMetrics (class in datman.metrics)</a>
 </li>
       <li><a href="api/datman.fs_log_scraper.html#datman.fs_log_scraper.FSLog">FSLog (class in datman.fs_log_scraper)</a>
 </li>
@@ -282,6 +372,28 @@
 <h2 id="G">G</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/datman.metrics.html#datman.metrics.ABCDPHAMetrics.generate">generate() (datman.metrics.ABCDPHAMetrics method)</a>
+
+      <ul>
+        <li><a href="api/datman.metrics.html#datman.metrics.AnatMetrics.generate">(datman.metrics.AnatMetrics method)</a>
+</li>
+        <li><a href="api/datman.metrics.html#datman.metrics.AnatPHAMetrics.generate">(datman.metrics.AnatPHAMetrics method)</a>
+</li>
+        <li><a href="api/datman.metrics.html#datman.metrics.DTIMetrics.generate">(datman.metrics.DTIMetrics method)</a>
+</li>
+        <li><a href="api/datman.metrics.html#datman.metrics.DTIPHAMetrics.generate">(datman.metrics.DTIPHAMetrics method)</a>
+</li>
+        <li><a href="api/datman.metrics.html#datman.metrics.FMRIMetrics.generate">(datman.metrics.FMRIMetrics method)</a>
+</li>
+        <li><a href="api/datman.metrics.html#datman.metrics.FMRIPHAMetrics.generate">(datman.metrics.FMRIPHAMetrics method)</a>
+</li>
+        <li><a href="api/datman.metrics.html#datman.metrics.IgnoreMetrics.generate">(datman.metrics.IgnoreMetrics method)</a>
+</li>
+        <li><a href="api/datman.metrics.html#datman.metrics.Metric.generate">(datman.metrics.Metric method)</a>
+</li>
+        <li><a href="api/datman.metrics.html#datman.metrics.QAPHAMetrics.generate">(datman.metrics.QAPHAMetrics method)</a>
+</li>
+      </ul></li>
       <li><a href="api/datman.scan_list.html#datman.scan_list.generate_scan_list">generate_scan_list() (in module datman.scan_list)</a>
 </li>
       <li><a href="api/datman.config.html#datman.config.TagInfo.get">get() (datman.config.TagInfo method)</a>
@@ -296,7 +408,13 @@
 </li>
       <li><a href="api/datman.xnat.html#datman.xnat.XNATExperiment.get_autorun_ids">get_autorun_ids() (datman.xnat.XNATExperiment method)</a>
 </li>
-      <li><a href="api/datman.scanid.html#datman.scanid.Identifier.get_bids_name">get_bids_name() (datman.scanid.Identifier method)</a>
+      <li><a href="api/datman.exporters.html#datman.exporters.DBExporter.get_bids_name">get_bids_name() (datman.exporters.DBExporter method)</a>
+
+      <ul>
+        <li><a href="api/datman.scanid.html#datman.scanid.Identifier.get_bids_name">(datman.scanid.Identifier method)</a>
+</li>
+      </ul></li>
+      <li><a href="api/datman.exporters.html#datman.exporters.NiiLinkExporter.get_bids_niftis">get_bids_niftis() (datman.exporters.NiiLinkExporter method)</a>
 </li>
       <li><a href="api/datman.dashboard.html#datman.dashboard.get_bids_scan">get_bids_scan() (in module datman.dashboard)</a>
 </li>
@@ -310,15 +428,21 @@
 </li>
       <li><a href="api/datman.xnat.html#datman.xnat.xnat.get_dicom">get_dicom() (datman.xnat.xnat method)</a>
 </li>
+      <li><a href="api/datman.exporters.html#datman.exporters.NiiLinkExporter.get_dm_names">get_dm_names() (datman.exporters.NiiLinkExporter method)</a>
+</li>
       <li><a href="api/datman.xnat.html#datman.xnat.xnat.get_experiment">get_experiment() (datman.xnat.xnat method)</a>
 </li>
       <li><a href="api/datman.xnat.html#datman.xnat.xnat.get_experiment_ids">get_experiment_ids() (datman.xnat.xnat method)</a>
+</li>
+      <li><a href="api/datman.exporters.html#datman.exporters.get_exporter">get_exporter() (in module datman.exporters)</a>
 </li>
       <li><a href="api/datman.utils.html#datman.utils.get_extension">get_extension() (in module datman.utils)</a>
 </li>
       <li><a href="api/datman.scanid.html#datman.scanid.get_field">get_field() (in module datman.scanid)</a>
 </li>
       <li><a href="api/datman.utils.html#datman.utils.get_files_with_tag">get_files_with_tag() (in module datman.utils)</a>
+</li>
+      <li><a href="api/datman.exporters.html#datman.exporters.DBExporter.get_final_names">get_final_names() (datman.exporters.DBExporter method)</a>
 </li>
       <li><a href="api/datman.utils.html#datman.utils.get_folder_headers">get_folder_headers() (in module datman.utils)</a>
 </li>
@@ -327,6 +451,8 @@
       <li><a href="api/datman.scanid.html#datman.scanid.Identifier.get_full_subjectid_with_timepoint">get_full_subjectid_with_timepoint() (datman.scanid.Identifier method)</a>
 </li>
       <li><a href="api/datman.scanid.html#datman.scanid.Identifier.get_full_subjectid_with_timepoint_session">get_full_subjectid_with_timepoint_session() (datman.scanid.Identifier method)</a>
+</li>
+      <li><a href="api/datman.metrics.html#datman.metrics.get_handlers">get_handlers() (in module datman.metrics)</a>
 </li>
       <li><a href="api/datman.scanid.html#datman.scanid.get_kcni_identifier">get_kcni_identifier() (in module datman.scanid)</a>
 </li>
@@ -338,6 +464,16 @@
 </li>
       <li><a href="api/datman.fs_log_scraper.html#datman.fs_log_scraper.FSLog.get_niftis">get_niftis() (datman.fs_log_scraper.FSLog static method)</a>
 </li>
+      <li><a href="api/datman.exporters.html#datman.exporters.DBExporter.get_output_dir">get_output_dir() (datman.exporters.DBExporter class method)</a>
+
+      <ul>
+        <li><a href="api/datman.exporters.html#datman.exporters.Exporter.get_output_dir">(datman.exporters.Exporter class method)</a>
+</li>
+        <li><a href="api/datman.exporters.html#datman.exporters.NiiLinkExporter.get_output_dir">(datman.exporters.NiiLinkExporter class method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/datman.config.html#datman.config.config.get_path">get_path() (datman.config.config method)</a>
 </li>
       <li><a href="api/datman.xnat.html#datman.xnat.get_port_str">get_port_str() (in module datman.xnat)</a>
@@ -348,11 +484,13 @@
 </li>
       <li><a href="api/datman.utils.html#datman.utils.get_relative_source">get_relative_source() (in module datman.utils)</a>
 </li>
+      <li><a href="api/datman.metrics.html#datman.metrics.Metric.get_requirements">get_requirements() (datman.metrics.Metric class method)</a>
+</li>
       <li><a href="api/datman.xnat.html#datman.xnat.xnat.get_resource">get_resource() (datman.xnat.xnat method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/datman.xnat.html#datman.xnat.xnat.get_resource_archive">get_resource_archive() (datman.xnat.xnat method)</a>
+</li>
+      <li><a href="api/datman.scan.html#datman.scan.Scan.get_resource_dir">get_resource_dir() (datman.scan.Scan method)</a>
 </li>
       <li><a href="api/datman.xnat.html#datman.xnat.xnat.get_resource_ids">get_resource_ids() (datman.xnat.xnat method)</a>
 </li>
@@ -373,6 +511,8 @@
       <li><a href="api/datman.xnat.html#datman.xnat.xnat.get_scan_ids">get_scan_ids() (datman.xnat.xnat method)</a>
 </li>
       <li><a href="api/datman.scan_list.html#datman.scan_list.get_scan_list_contents">get_scan_list_contents() (in module datman.scan_list)</a>
+</li>
+      <li><a href="api/datman.exporters.html#datman.exporters.DBExporter.get_scan_names">get_scan_names() (datman.exporters.DBExporter method)</a>
 </li>
       <li><a href="api/datman.xnat.html#datman.xnat.get_server">get_server() (in module datman.xnat)</a>
 </li>
@@ -454,6 +594,8 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/datman.scanid.html#datman.scanid.Identifier">Identifier (class in datman.scanid)</a>
 </li>
+      <li><a href="api/datman.metrics.html#datman.metrics.IgnoreMetrics">IgnoreMetrics (class in datman.metrics)</a>
+</li>
       <li><a href="api/datman.exceptions.html#datman.exceptions.InputException">InputException</a>
 </li>
       <li><a href="api/datman.config.html#datman.config.config.install_config">install_config (datman.config.config attribute)</a>
@@ -470,9 +612,13 @@
 </li>
       <li><a href="api/datman.scanid.html#datman.scanid.is_phantom">is_phantom() (in module datman.scanid)</a>
 </li>
+      <li><a href="api/datman.metrics.html#datman.metrics.Metric.is_runnable">is_runnable() (datman.metrics.Metric class method)</a>
+</li>
       <li><a href="api/datman.scanid.html#datman.scanid.is_scanid">is_scanid() (in module datman.scanid)</a>
 </li>
       <li><a href="api/datman.scanid.html#datman.scanid.is_scanid_with_session">is_scanid_with_session() (in module datman.scanid)</a>
+</li>
+      <li><a href="api/datman.xnat.html#datman.xnat.XNATScan.is_usable">is_usable() (datman.xnat.XNATScan method)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -508,7 +654,21 @@
 </li>
       <li><a href="api/datman.scanid.html#datman.scanid.make_filename">make_filename() (in module datman.scanid)</a>
 </li>
+      <li><a href="api/datman.metrics.html#datman.metrics.Metric.make_image">make_image() (datman.metrics.Metric method)</a>
+</li>
+      <li><a href="api/datman.exporters.html#datman.exporters.NiiLinkExporter.make_link">make_link() (datman.exporters.NiiLinkExporter method)</a>
+</li>
+      <li><a href="api/datman.metrics.html#datman.metrics.Metric.make_manifest">make_manifest() (datman.metrics.Metric method)</a>
+</li>
+      <li><a href="api/datman.metrics.html#datman.metrics.Metric.make_montage">make_montage() (datman.metrics.Metric method)</a>
+</li>
       <li><a href="api/datman.scan_list.html#datman.scan_list.make_new_entries">make_new_entries() (in module datman.scan_list)</a>
+</li>
+      <li><a href="api/datman.exporters.html#datman.exporters.Exporter.make_output_dir">make_output_dir() (datman.exporters.Exporter method)</a>
+</li>
+      <li><a href="api/datman.exporters.html#datman.exporters.DBExporter.make_scan">make_scan() (datman.exporters.DBExporter method)</a>
+</li>
+      <li><a href="api/datman.exporters.html#datman.exporters.DBExporter.make_session">make_session() (datman.exporters.DBExporter method)</a>
 </li>
       <li><a href="api/datman.fs_log_scraper.html#datman.fs_log_scraper.make_standards">make_standards() (in module datman.fs_log_scraper)</a>
 </li>
@@ -520,16 +680,24 @@
 </li>
       <li><a href="api/datman.utils.html#datman.utils.makedirs">makedirs() (in module datman.utils)</a>
 </li>
+      <li><a href="api/datman.metrics.html#datman.metrics.Metric.manifest_path">manifest_path (datman.metrics.Metric property)</a>
+</li>
       <li><a href="api/datman.config.html#datman.config.config.map_xnat_archive_to_project">map_xnat_archive_to_project() (datman.config.config method)</a>
 </li>
       <li><a href="api/datman.scanid.html#datman.scanid.Identifier.match">match() (datman.scanid.Identifier method)</a>
 </li>
+      <li><a href="api/datman.exporters.html#datman.exporters.NiiLinkExporter.match_dm_to_bids">match_dm_to_bids() (datman.exporters.NiiLinkExporter method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/datman.exceptions.html#datman.exceptions.XnatException.message">message (datman.exceptions.XnatException attribute)</a>
 </li>
       <li><a href="api/datman.exceptions.html#datman.exceptions.MetadataException">MetadataException</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/datman.metrics.html#datman.metrics.Metric">Metric (class in datman.metrics)</a>
+</li>
+      <li><a href="api/datman.metrics.html#datman.metrics.MetricDTI">MetricDTI (class in datman.metrics)</a>
+</li>
       <li>
     module
 
@@ -542,9 +710,13 @@
 </li>
         <li><a href="api/datman.exceptions.html#module-datman.exceptions">datman.exceptions</a>
 </li>
+        <li><a href="api/datman.exporters.html#module-datman.exporters">datman.exporters</a>
+</li>
         <li><a href="api/datman.fs_log_scraper.html#module-datman.fs_log_scraper">datman.fs_log_scraper</a>
 </li>
         <li><a href="api/datman.header_checks.html#module-datman.header_checks">datman.header_checks</a>
+</li>
+        <li><a href="api/datman.metrics.html#module-datman.metrics">datman.metrics</a>
 </li>
         <li><a href="api/datman.scan.html#module-datman.scan">datman.scan</a>
 </li>
@@ -557,13 +729,33 @@
         <li><a href="api/datman.xnat.html#module-datman.xnat">datman.xnat</a>
 </li>
       </ul></li>
+      <li><a href="api/datman.exporters.html#datman.exporters.NiiExporter.move_file">move_file() (datman.exporters.NiiExporter method)</a>
+</li>
   </ul></td>
 </tr></table>
 
 <h2 id="N">N</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/datman.exporters.html#datman.exporters.BidsExporter.needs_raw_data">needs_raw_data() (datman.exporters.BidsExporter method)</a>
+
+      <ul>
+        <li><a href="api/datman.exporters.html#datman.exporters.DBExporter.needs_raw_data">(datman.exporters.DBExporter method)</a>
+</li>
+        <li><a href="api/datman.exporters.html#datman.exporters.Exporter.needs_raw_data">(datman.exporters.Exporter method)</a>
+</li>
+        <li><a href="api/datman.exporters.html#datman.exporters.NiiLinkExporter.needs_raw_data">(datman.exporters.NiiLinkExporter method)</a>
+</li>
+        <li><a href="api/datman.exporters.html#datman.exporters.SeriesExporter.needs_raw_data">(datman.exporters.SeriesExporter method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/datman.utils.html#datman.utils.nifti_basename">nifti_basename() (in module datman.utils)</a>
+</li>
+      <li><a href="api/datman.exporters.html#datman.exporters.NiiExporter">NiiExporter (class in datman.exporters)</a>
+</li>
+      <li><a href="api/datman.exporters.html#datman.exporters.NiiLinkExporter">NiiLinkExporter (class in datman.exporters)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -573,6 +765,44 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/datman.xnat.html#datman.xnat.xnat.open_session">open_session() (datman.xnat.xnat method)</a>
 </li>
+      <li><a href="api/datman.metrics.html#datman.metrics.QCOutput.order">order (datman.metrics.QCOutput attribute)</a>
+</li>
+      <li><a href="api/datman.metrics.html#datman.metrics.ABCDPHAMetrics.outputs">outputs (datman.metrics.ABCDPHAMetrics attribute)</a>
+
+      <ul>
+        <li><a href="api/datman.metrics.html#datman.metrics.AnatMetrics.outputs">(datman.metrics.AnatMetrics attribute)</a>
+</li>
+        <li><a href="api/datman.metrics.html#datman.metrics.AnatPHAMetrics.outputs">(datman.metrics.AnatPHAMetrics attribute)</a>
+</li>
+        <li><a href="api/datman.metrics.html#datman.metrics.DTIMetrics.outputs">(datman.metrics.DTIMetrics attribute)</a>
+</li>
+        <li><a href="api/datman.metrics.html#datman.metrics.DTIPHAMetrics.outputs">(datman.metrics.DTIPHAMetrics attribute)</a>
+</li>
+        <li><a href="api/datman.metrics.html#datman.metrics.FMRIMetrics.outputs">(datman.metrics.FMRIMetrics attribute)</a>
+</li>
+        <li><a href="api/datman.metrics.html#datman.metrics.FMRIPHAMetrics.outputs">(datman.metrics.FMRIPHAMetrics attribute)</a>
+</li>
+        <li><a href="api/datman.metrics.html#datman.metrics.IgnoreMetrics.outputs">(datman.metrics.IgnoreMetrics attribute)</a>
+</li>
+        <li><a href="api/datman.metrics.html#datman.metrics.QAPHAMetrics.outputs">(datman.metrics.QAPHAMetrics attribute)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/datman.metrics.html#datman.metrics.Metric.outputs">outputs() (datman.metrics.Metric method)</a>
+</li>
+      <li><a href="api/datman.exporters.html#datman.exporters.BidsExporter.outputs_exist">outputs_exist() (datman.exporters.BidsExporter method)</a>
+
+      <ul>
+        <li><a href="api/datman.exporters.html#datman.exporters.DBExporter.outputs_exist">(datman.exporters.DBExporter method)</a>
+</li>
+        <li><a href="api/datman.exporters.html#datman.exporters.Exporter.outputs_exist">(datman.exporters.Exporter method)</a>
+</li>
+        <li><a href="api/datman.exporters.html#datman.exporters.NiiLinkExporter.outputs_exist">(datman.exporters.NiiLinkExporter method)</a>
+</li>
+        <li><a href="api/datman.exporters.html#datman.exporters.SeriesExporter.outputs_exist">(datman.exporters.SeriesExporter method)</a>
+</li>
+      </ul></li>
   </ul></td>
 </tr></table>
 
@@ -612,6 +842,20 @@
   </ul></td>
 </tr></table>
 
+<h2 id="Q">Q</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/datman.metrics.html#datman.metrics.QAPHAMetrics">QAPHAMetrics (class in datman.metrics)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/datman.exceptions.html#datman.exceptions.QCException">QCException</a>
+</li>
+      <li><a href="api/datman.metrics.html#datman.metrics.QCOutput">QCOutput (class in datman.metrics)</a>
+</li>
+  </ul></td>
+</tr></table>
+
 <h2 id="R">R</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -627,6 +871,10 @@
 </li>
       <li><a href="api/datman.fs_log_scraper.html#datman.fs_log_scraper.FSLog.read_log">read_log() (datman.fs_log_scraper.FSLog method)</a>
 </li>
+      <li><a href="api/datman.metrics.html#datman.metrics.Metric.read_manifest">read_manifest() (datman.metrics.Metric method)</a>
+</li>
+      <li><a href="api/datman.dashboard.html#datman.dashboard.release_db">release_db() (in module datman.dashboard)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/datman.utils.html#datman.utils.remove_empty_files">remove_empty_files() (in module datman.utils)</a>
@@ -637,8 +885,16 @@
 </li>
       <li><a href="api/datman.xnat.html#datman.xnat.xnat.rename_subject">rename_subject() (datman.xnat.xnat method)</a>
 </li>
-      <li><a href="api/datman.utils.html#datman.utils.run">run() (in module datman.utils)</a>
+      <li><a href="api/datman.exporters.html#datman.exporters.NiiExporter.report_issues">report_issues() (datman.exporters.NiiExporter method)</a>
 </li>
+      <li><a href="api/datman.metrics.html#datman.metrics.Metric.requires">requires (datman.metrics.Metric attribute)</a>
+</li>
+      <li><a href="api/datman.metrics.html#datman.metrics.Metric.run">run() (datman.metrics.Metric method)</a>
+
+      <ul>
+        <li><a href="api/datman.utils.html#datman.utils.run">(in module datman.utils)</a>
+</li>
+      </ul></li>
       <li><a href="api/datman.utils.html#datman.utils.run_dummy_q">run_dummy_q() (in module datman.utils)</a>
 </li>
   </ul></td>
@@ -671,6 +927,8 @@
 </li>
       <li><a href="api/datman.config.html#datman.config.TagInfo.series_map">series_map (datman.config.TagInfo property)</a>
 </li>
+      <li><a href="api/datman.exporters.html#datman.exporters.SeriesExporter">SeriesExporter (class in datman.exporters)</a>
+</li>
       <li><a href="api/datman.xnat.html#datman.xnat.xnat.server">server (datman.xnat.xnat attribute)</a>
 </li>
       <li><a href="api/datman.exceptions.html#datman.exceptions.XnatException.session">session (datman.exceptions.XnatException attribute)</a>
@@ -683,7 +941,11 @@
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/datman.exporters.html#datman.exporters.SessionExporter">SessionExporter (class in datman.exporters)</a>
+</li>
       <li><a href="api/datman.xnat.html#datman.xnat.XNATScan.set_datman_name">set_datman_name() (datman.xnat.XNATScan method)</a>
+</li>
+      <li><a href="api/datman.metrics.html#datman.metrics.Metric.set_outputs">set_outputs() (datman.metrics.Metric method)</a>
 </li>
       <li><a href="api/datman.config.html#datman.config.config.set_study">set_study() (datman.config.config method)</a>
 </li>
@@ -719,6 +981,22 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/datman.config.html#datman.config.TagInfo">TagInfo (class in datman.config)</a>
 </li>
+      <li><a href="api/datman.metrics.html#datman.metrics.QCOutput.title">title (datman.metrics.QCOutput attribute)</a>
+</li>
+      <li><a href="api/datman.exporters.html#datman.exporters.BidsExporter.type">type (datman.exporters.BidsExporter attribute)</a>
+
+      <ul>
+        <li><a href="api/datman.exporters.html#datman.exporters.DBExporter.type">(datman.exporters.DBExporter attribute)</a>
+</li>
+        <li><a href="api/datman.exporters.html#datman.exporters.DcmExporter.type">(datman.exporters.DcmExporter attribute)</a>
+</li>
+        <li><a href="api/datman.exporters.html#datman.exporters.Exporter.type">(datman.exporters.Exporter attribute)</a>
+</li>
+        <li><a href="api/datman.exporters.html#datman.exporters.NiiExporter.type">(datman.exporters.NiiExporter attribute)</a>
+</li>
+        <li><a href="api/datman.exporters.html#datman.exporters.NiiLinkExporter.type">(datman.exporters.NiiLinkExporter attribute)</a>
+</li>
+      </ul></li>
   </ul></td>
 </tr></table>
 
@@ -732,6 +1010,8 @@
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/datman.utils.html#datman.utils.update_checklist">update_checklist() (in module datman.utils)</a>
+</li>
+      <li><a href="api/datman.metrics.html#datman.metrics.QAPHAMetrics.update_expected_outputs">update_expected_outputs() (datman.metrics.QAPHAMetrics method)</a>
 </li>
       <li><a href="api/datman.scan_list.html#datman.scan_list.update_scans_csv">update_scans_csv() (in module datman.scan_list)</a>
 </li>
@@ -755,6 +1035,12 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/datman.header_checks.html#datman.header_checks.write_diff_log">write_diff_log() (in module datman.header_checks)</a>
 </li>
+      <li><a href="api/datman.metrics.html#datman.metrics.IgnoreMetrics.write_manifest">write_manifest() (datman.metrics.IgnoreMetrics method)</a>
+
+      <ul>
+        <li><a href="api/datman.metrics.html#datman.metrics.Metric.write_manifest">(datman.metrics.Metric method)</a>
+</li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/datman.utils.html#datman.utils.write_metadata">write_metadata() (in module datman.utils)</a>
@@ -793,7 +1079,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright Copyright 2019, The TIGRLab.</p>
+    <p>&#169; Copyright 2016, TIGRLab.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
@@ -806,21 +1092,7 @@
       </div>
     </section>
   </div>
-  
-<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
-    <span class="rst-current-version" data-toggle="rst-current-version">
-        <span class="fa fa-book"> Other Versions</span>
-        v: master
-        <span class="fa fa-caret-down"></span>
-    </span>
-    <div class="rst-other-versions">
-        <dl>
-            <dt>Branches</dt>
-            <dd><a href="master/genindex.html">master</a></dd>
-        </dl>
-    </div>
-</div>
-<script>
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });

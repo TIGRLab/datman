@@ -1,7 +1,0 @@
-datman.utils module
-===================
-
-.. automodule:: datman.utils
-   :members:
-   :undoc-members:
-   :show-inheritance:
