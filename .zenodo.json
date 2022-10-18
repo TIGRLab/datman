@@ -2,31 +2,39 @@
   "contributors": [
     {
       "affiliation": "The Centre for Addiction and Mental Health",
+      "type": "ProjectMember",
       "name": "Calarco, Navona"
     },
     {
       "affiliation": "The Centre for Addiction and Mental Health",
+      "type": "ProjectMember",
       "name": "Witczak, Kevin J"
     },
     {
       "affiliation": "The Centre for Addiction and Mental Health",
+      "type": "ProjectMember",
       "name": "Gonzalez, Oscar"
     },
     {
       "affiliation": "The Centre for Addiction and Mental Health",
       "name": "Voineskos, Aristotle N",
+      "type": "Supervisor",
       "orcid": "0000-0003-0156-0395"
     }
   ],
   "creators": [
     {
       "affiliation": "The Centre for Addiction and Mental Health",
-      "name": "Viviano, Joseph D",
-      "orcid": "0000-0001-7016-5212"
+      "name": "Smith, Dawn E"
     },
     {
       "affiliation": "The Centre for Addiction and Mental Health",
-      "name": "Smith, Dawn E"
+      "name": "Joseph, Michael J",
+      "orcid": "0000-0002-0068-230X"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Jeyachandra, Jerrold"
     },
     {
       "affiliation": "The Centre for Addiction and Mental Health",
@@ -34,7 +42,16 @@
     },
     {
       "affiliation": "The Centre for Addiction and Mental Health",
-      "name": "Jeyachandra, Jerrold"
+      "name": "Tan, Thomas"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Viviano, Joseph D",
+      "orcid": "0000-0001-7016-5212"
+    },
+    {
+      "affiliation": "The Centre for Addiction and Mental Health",
+      "name": "Mansour, Salim"
     },
     {
       "affiliation": "The Centre for Addiction and Mental Health",
@@ -43,8 +60,7 @@
     },
     {
       "affiliation": "The Centre for Addiction and Mental Health",
-      "name": "Joseph, Michael J",
-      "orcid": "0000-0002-0068-230X"
+      "name": "Selby, Ben"
     },
     {
       "affiliation": "The Centre for Addiction and Mental Health",

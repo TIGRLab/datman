@@ -22,10 +22,10 @@ if __name__ == "__main__":
         print("WARNING: Reusing existing line-contributors.txt file.")
         lines = contrib_file.read_text().splitlines()
 
-    git_line_summary_path = shutil.which("git-line-summary")
+    git_line_summary_path = shutil.which("git-summary")
     if not lines and git_line_summary_path:
-        print("Running git-line-summary on datman repo")
-        lines = sp.check_output([git_line_summary_path]).decode().splitlines()
+        print("Running git-summary on datman repo")
+        lines = sp.check_output([git_line_summary_path, "--line"]).decode().splitlines()
         contrib_file.write_text("\n".join(lines))
 
     if not lines:
@@ -33,7 +33,7 @@ if __name__ == "__main__":
             """\
 Could not find line-contributors from git repository.%s"""
             % """ \
-git-line-summary not found, please install git-extras. """
+git-summary not found, please install git-extras. """
             * (git_line_summary_path is None)
         )
 

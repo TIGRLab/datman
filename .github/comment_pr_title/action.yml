@@ -1,0 +1,81 @@
+name: Comment on malformed PR titles
+description: If a PR's title is badly formatted, adds a comment to remind users of the formatting requirements.
+
+inputs:
+  token:
+    description: The github secret token
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Get most up to date label list
+      # This step is needed because the github.event label list doesnt update
+      # if any have been added/removed at any point in the workflow
+      uses: octokit/request-action@v2.x
+      id: get_label_list
+      with:
+        route: GET /repos/{owner-and-repo}/issues/{pull_number}/labels
+        owner-and-repo: ${{ github.repository }}
+        pull_number: ${{ github.event.pull_request.number }}
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+
+    - name: Find existing comment, if there is one
+      uses: peter-evans/find-comment@v2
+      id: bot_comment
+      with:
+        issue-number: ${{ github.event.pull_request.number }}
+        comment-author: 'github-actions[bot]'
+        body-includes: 🐯 TIGRLab Label Bot
+
+    - name: Add comment about bad title
+      if: ${{ steps.get_label_list.outputs.data == '[]' }}
+      uses: peter-evans/create-or-update-comment@v2
+      with:
+        comment-id: ${{ steps.bot_comment.outputs.comment-id }}
+        issue-number: ${{ github.event.number }}
+        edit-mode: replace
+        body: |
+          Your pull request was made with an **incorrectly formatted title**. Please
+          edit it to be prefixed with one of the accepted tags:
+
+          - `[ENH]` or `enh:` or `feat:` for pull requests that add new features.
+          - `[FIX]` or `fix:` for PRs that fix a bug.
+          - `[REF]` or `ref:` for PRs that refactor code.
+          - `[TEST]` or `test:` for PRs that add or update tests.
+          - `[DOC]` or `doc:` for PRs that add or update documentation.
+          - `[DEP]` or `dep:` for PRs that add or update package dependencies.
+
+          You may also use `[IGNORE]` or `ignore:` if you wish to exclude your pull
+          request from the change log of future releases.
+
+          These tags are case insensitive. If your pull request contains
+          changes that may break API client code please also add '!' before
+          the colon in the latter tag format, to indicate breaking changes (e.g. `feat!:`).
+
+          Thank you!
+
+          🐯 TIGRLab Label Bot
+
+    - name: Update comment if user fixed title
+      if: >- # If labels exist, and there's a comment with the error message
+        ${{
+          steps.get_label_list.outputs.data != '[]' &&
+          steps.bot_comment.outputs.comment-id != '' &&
+          contains(steps.bot_comment.outputs.comment-body, '**incorrectly formatted title**')
+        }}
+      uses: peter-evans/create-or-update-comment@v2
+      with:
+        comment-id: ${{ steps.bot_comment.outputs.comment-id }}
+        edit-mode: replace
+        issue-number: ${{ github.event.number }}
+        body: |
+          🎉🎉 **Edit:** Thank you for updating the PR title! ❤️ 🎉🎉
+
+          🐯 TIGRLab Label Bot
+
+    - name: Ensure job fails, if a valid title isnt set for PR
+      if: ${{ steps.get_label_list.outputs.data == '[]' }}
+      run: exit 1
+      shell: bash

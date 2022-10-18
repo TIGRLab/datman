@@ -1,0 +1,27 @@
+name: Add a label to a PR
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, edited, synchronize, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  label-pr:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Add a label to pull request
+        uses: srvaroa/labeler@v0.9
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+
+      - uses: actions/checkout@v2
+
+      - name: Add a comment if title is malformed
+        uses: ./.github/comment_pr_title
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

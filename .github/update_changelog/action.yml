@@ -1,0 +1,30 @@
+name: Update CHANGELOG.md
+description: Update the changelog with changes since the last release
+
+inputs:
+  token:
+    description: The github secret token
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Build changlog
+      id: make_changelog
+      uses: mikepenz/release-changelog-builder-action@v3
+      with:
+        configuration: "./.github/changelog.json"
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+
+    - name: Update changelog
+      uses: stefanzweifel/changelog-updater-action@v1
+      with:
+        latest-version: ${{  github.ref_name }}
+        release-notes: ${{ steps.make_changelog.outputs.changelog }}
+
+    - name: Commit change log
+      uses: actions-js/push@master
+      with:
+        message: Update change log
+        github_token: ${{ inputs.token }}
