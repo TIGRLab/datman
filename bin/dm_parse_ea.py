@@ -19,6 +19,8 @@ Options:
     --regex <regex>             The regex to use to find the log files to
                                 parse. [default: *UCLAEmpAcc*]
     --debug                     Set log level to debug
+    --match-series              Enforce Scan with same Series number is findable
+                                if not, skip
 """
 
 import re
@@ -32,6 +34,7 @@ from docopt import docopt
 
 import datman.config
 import datman.scanid
+from datman.scan import Scan
 
 logging.basicConfig(level=logging.WARN,
                     format="[%(name)s] %(levelname)s: %(message)s")
@@ -46,6 +49,40 @@ def read_in_logfile(path):
     log_file.Time = log_file.Time - time_to_subtract
 
     return log_file
+
+
+def get_matched_scan_name(datman_scan, log_file):
+    """
+    Extract series number from log_file and check
+    if corresponding scan exists
+    """
+
+    try:
+        session = re.search(r"(?<=SE)\d\d", log_file)[0]
+    except IndexError:
+        logger.error(f"{log_file} is improperly named!")
+        raise
+
+    try:
+        series = re.search(r"(?<=EMP_)\d+", log_file)[0]
+    except IndexError:
+        logger.error(f"{log_file} is missing a series number!")
+        return None
+
+    session = session.zfill(2)
+    series = series.zfill(2)
+
+    matched_scan = [
+        ser for ser in datman_scan.niftis
+        if session == ser.session and series == ser.series_num
+    ]
+
+    if not matched_scan:
+        logger.warning(f"No scan found for {log_file}, skipping...")
+        return None
+    else:
+        return_val = matched_scan[0].file_name.replace(".nii.gz", "")
+        return return_val
 
 
 def is_rating_after_response(current_row, previous_row):
@@ -379,7 +416,7 @@ def outputs_exist(log_file, output_path):
     return True
 
 
-def get_output_path(ident, log_file, dest_dir):
+def get_output_path(ident, log_file, dest_dir, output_base=None):
     try:
         os.makedirs(dest_dir)
     except FileExistsError:
@@ -393,11 +430,20 @@ def get_output_path(ident, log_file, dest_dir):
     else:
         part = part[0]
 
-    return os.path.join(dest_dir, f"{ident}_EAtask_{part}.tsv")
+    if output_base is None:
+        return os.path.join(dest_dir, f"{ident}_EAtask_{part}.tsv")
+    else:
+        return os.path.join(dest_dir, f"{output_base}_{part}.tsv")
 
 
-def parse_task(ident, log_file, dest_dir, length_file, timing_file):
-    output_path = get_output_path(ident, log_file, dest_dir)
+def parse_task(ident,
+               log_file,
+               dest_dir,
+               length_file,
+               timing_file,
+               output_base=None):
+
+    output_path = get_output_path(ident, log_file, dest_dir, output_base)
 
     if outputs_exist(log_file, output_path):
         return
@@ -467,6 +513,7 @@ def main():
     timing_file = arguments["--timings"]
     task_regex = arguments["--regex"]
     debug = arguments["--debug"]
+    match_series = arguments['--match-series']
 
     if debug:
         logger.setLevel(logging.DEBUG)
@@ -513,7 +560,19 @@ def main():
             continue
 
         for task_file in glob.glob(os.path.join(exp_task_dir, task_regex)):
-            parse_task(ident, task_file, sub_nii, length_file, timing_file)
+
+            if match_series:
+                matched_name = get_matched_scan_name(Scan(ident, config),
+                                                     task_file)
+                if matched_name is not None:
+                    parse_task(ident,
+                               task_file,
+                               sub_nii,
+                               length_file,
+                               timing_file,
+                               output_base=matched_name)
+            else:
+                parse_task(ident, task_file, sub_nii, length_file, timing_file)
 
 
 if __name__ == "__main__":
