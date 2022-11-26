@@ -6,12 +6,18 @@ WARNING: This is not a replacement for making sure that pipeline scripts
 respect the blacklist! It will only clean the data folder.
 
 Usage:
-    dm_blacklist_rm.py [options] [--ignore-path=KEY]... <project>
+    dm_blacklist_rm.py [options] [--path=KEY]... <project>
 
 Arguments:
     <project>           The name of a datman managed project
 
 Options:
+    --path KEY          If provided overrides the 'blacklist_rm' setting
+                        from the config files, which defines the directories
+                        to delete blacklisted items from. 'KEY' may be the name
+                        of any path defined in the main config file (e.g.
+                        'nii'). This option can be repeated to include multiple
+                        paths.
     -v --verbose
     -d --debug
     -q --quiet
@@ -40,6 +46,7 @@ def main():
     global DRYRUN
     arguments = docopt(__doc__)
     project = arguments['<project>']
+    override_paths = arguments['--path']
     verbose = arguments['--verbose']
     debug = arguments['--debug']
     quiet = arguments['--quiet']
@@ -54,37 +61,54 @@ def main():
 
     config = datman.config.config(study=project)
     metadata = datman.utils.get_subject_metadata(config, allow_partial=True)
-    remove_blacklisted_items(metadata, config)
+    base_paths = get_base_paths(config, override_paths)
+
+    remove_blacklisted_items(metadata, base_paths)
 
 
-def remove_blacklisted_items(metadata, config):
+def get_base_paths(config, user_paths):
+    """Get the full path to each base directory to search for blacklisted data.
+    """
+    if user_paths:
+        path_keys = user_paths
+    else:
+        try:
+            path_keys = config.get_key("blacklist_rm")
+        except datman.config.UndefinedSetting:
+            # Fall back to the default
+            path_keys = ['nii', 'mnc', 'nrrd', 'resources']
+
+    base_paths = []
+    for key in path_keys:
+        try:
+            found = config.get_path(key)
+        except datman.config.UndefinedSetting:
+            logger.warning(f"Given undefined path type - {key}. Ignoring.")
+            continue
+
+        if os.path.exists(found):
+            base_paths.append(found)
+
+    return base_paths
+
+
+def remove_blacklisted_items(metadata, base_paths):
     for sub in metadata:
         blacklist_entries = metadata[sub]
         if not blacklist_entries:
             continue
-        try:
-            scan = datman.scan.Scan(sub, config)
-        except ParseException as e:
-            logger.error("Couldn't retrieve session info for {}, ignoring. "
-                         "Reason - {}".format(sub, e))
-            continue
-        logger.debug("Working on {}".format(sub))
-        remove_blacklisted(scan, blacklist_entries)
 
-
-def remove_blacklisted(scan, entries):
-    for entry in entries:
-        remove_matches(scan.nii_path, entry)
-        remove_matches(scan.nrrd_path, entry)
-        remove_matches(scan.mnc_path, entry)
-        for sub_dir in scan.resources:
-            remove_matches(sub_dir, entry)
+        logger.debug(f"Working on {sub}")
+        for path in base_paths:
+            for sub_dir in glob.glob(os.path.join(path, sub + "*")):
+                for entry in blacklist_entries:
+                    remove_matches(sub_dir, entry)
 
 
 def remove_matches(path, fname):
     matches = find_files(path, fname)
     if matches:
-        logger.info("Files found for deletion: {}".format(matches))
+        logger.info(f"Files found for deletion: {matches}")
     if DRYRUN:
         return
     for item in matches:
@@ -93,7 +117,7 @@ def remove_matches(path, fname):
         except FileNotFoundError:
             pass
         except (PermissionError, IsADirectoryError):
-            logger.error("Failed to delete blacklisted item {}.".format(item))
+            logger.error(f"Failed to delete blacklisted item {item}.")
 
 
 def find_files(path, fname):
