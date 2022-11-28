@@ -2,9 +2,6 @@
 """
 Searches the file system for any data on the blacklist and deletes them.
 
-WARNING: This is not a replacement for making sure that pipeline scripts
-respect the blacklist! It will only clean the data folder.
-
 Usage:
     dm_blacklist_rm.py [options] [--path=KEY]... <project>
 
@@ -12,7 +9,7 @@ Arguments:
     <project>           The name of a datman managed project
 
 Options:
-    --path KEY          If provided overrides the 'blacklist_rm' setting
+    --path KEY          If provided overrides the 'BlacklistDel' setting
                         from the config files, which defines the directories
                         to delete blacklisted items from. 'KEY' may be the name
                         of any path defined in the main config file (e.g.
@@ -73,7 +70,7 @@ def get_base_paths(config, user_paths):
         path_keys = user_paths
     else:
         try:
-            path_keys = config.get_key("blacklist_rm")
+            path_keys = config.get_key("BlacklistDel")
         except datman.config.UndefinedSetting:
             # Fall back to the default
             path_keys = ['nii', 'mnc', 'nrrd', 'resources']

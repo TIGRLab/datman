@@ -85,6 +85,33 @@ what settings are used for each of the three defined sites in StudyB.
 Glossary
 --------
 
+Blacklist
+*********
+These settings are used by ``dm_blacklist_rm`` and any other scripts that
+read from / remove blacklisted data.
+
+Optional
+^^^^^^^^
+* **BlacklistDel**
+
+  * Description: Defines which directories to delete blacklisted data from.
+    This value is read by ``dm_blacklist_rm``.
+  * Accepted values: A list of path names, where each path name has already
+    been defined in `Paths`_.
+  * Default value: If omitted ``dm_blacklist_rm`` will delete blacklisted
+    scans from ``nii``, ``mnc``, ``nrrd``, and ``resources``, if these
+    directories exist.
+
+Example
+^^^^^^^
+.. code-block:: yaml
+
+   # To delete from the nifti, resources, and task data folders:
+   BlacklistDel: [nii, resources, task]
+
+   # Or limit deletion to the nifti folder:
+   BlacklistDel: [nii]
+
 ExportInfo
 **********
 This setting belongs in the site settings within a study config file. It
