@@ -24,7 +24,7 @@ class TestGetPortStr(unittest.TestCase):
         self.mock_config.get_key.side_effect = lambda key: {}[key]
 
     def test_raises_KeyError_when_given_port_is_None_and_config_doesnt_define(
-            self):
+        self):
         with pytest.raises(KeyError):
             datman.xnat.get_port_str(self.mock_config, None)
 
@@ -104,7 +104,7 @@ class TestGetServer(unittest.TestCase):
         assert returned_server != config_server
 
     def test_raises_KeyError_when_server_not_given_and_config_setting_missing(
-            self):
+        self):
         with pytest.raises(KeyError):
             datman.xnat.get_server(self.mock_config)
 
@@ -177,8 +177,47 @@ class TestGetAuth(unittest.TestCase):
                 datman.xnat.get_auth()
 
     def test_raises_KeyError_if_username_found_in_env_and_password_not_set(
-            self):
+        self):
         env = {'XNAT_USER': 'someuser'}
         with pytest.raises(KeyError):
             with patch.dict('os.environ', env, clear=True):
                 datman.xnat.get_auth()
+
+
+class TestXnatScan(unittest.TestCase):
+    @patch('datman.xnat.XNATExperiment')
+    def test_xnat_type_is_used_if_configured(self, mock_experiment):
+
+        scan_json = {
+            'children': [],
+            'meta': [],
+            'data_fields': {
+                'series_description': 'SERIES_DESCRIPTION',
+                'type': 'TYPE_INFO'
+            }
+        }
+
+        xnat_scan = datman.xnat.XNATScan(mock_experiment, scan_json)
+
+        tag_map = {'MOCK_TYPE': {'XnatType': 'TYPE_INFO'}}
+        xnat_scan.set_tag(tag_map)
+        assert xnat_scan.type == 'TYPE_INFO'
+        assert set(xnat_scan.tags) == set(['MOCK_TYPE'])
+
+    @patch('datman.xnat.XNATExperiment')
+    def test_series_description_is_used_if_configured(self, mock_experiment):
+
+        scan_json = {
+            'children': [],
+            'meta': [],
+            'data_fields': {
+                'series_description': 'SERIES_DESCRIPTION',
+                'type': 'TYPE_INFO'
+            }
+        }
+
+        xnat_scan = datman.xnat.XNATScan(mock_experiment, scan_json)
+
+        tag_map = {'MOCK_TYPE': {'SeriesDescription': 'SERIES_DESCRIPTION'}}
+        xnat_scan.set_tag(tag_map)
+        assert set(xnat_scan.tags) == set(['MOCK_TYPE'])
