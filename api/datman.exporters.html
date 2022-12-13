@@ -107,12 +107,12 @@ actual work of generating outputs.</p>
 unique key that can be referenced in config files (e.g. ‘nii’).</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="datman.exporters.BidsExporter">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.exporters.</span></span><span class="sig-name descname"><span class="pre">BidsExporter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiment</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bids_opts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L171"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.BidsExporter" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.exporters.</span></span><span class="sig-name descname"><span class="pre">BidsExporter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiment</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bids_opts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L171"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.BidsExporter" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#datman.exporters.SessionExporter" title="datman.exporters.SessionExporter"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.exporters.SessionExporter</span></code></a></p>
 <p>An exporter that runs dcm2bids.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.BidsExporter.export">
-<span class="sig-name descname"><span class="pre">export</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_data_dir</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L208"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.BidsExporter.export" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">export</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_data_dir</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L208"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.BidsExporter.export" title="Permalink to this definition"></a></dt>
 <dd><p>Exports raw data to the current Exporter’s format.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -124,7 +124,7 @@ downloaded raw data.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.BidsExporter.needs_raw_data">
-<span class="sig-name descname"><span class="pre">needs_raw_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L205"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.BidsExporter.needs_raw_data" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">needs_raw_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L205"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.BidsExporter.needs_raw_data" title="Permalink to this definition"></a></dt>
 <dd><p>Whether raw data must be downloaded for the Exporter.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
@@ -142,7 +142,7 @@ downloaded raw data.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.BidsExporter.outputs_exist">
-<span class="sig-name descname"><span class="pre">outputs_exist</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L193"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.BidsExporter.outputs_exist" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">outputs_exist</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L193"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.BidsExporter.outputs_exist" title="Permalink to this definition"></a></dt>
 <dd><p>Whether outputs have already been generated for this Exporter.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
@@ -163,12 +163,12 @@ downloaded raw data.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="datman.exporters.DBExporter">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.exporters.</span></span><span class="sig-name descname"><span class="pre">DBExporter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiment</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L527"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.exporters.</span></span><span class="sig-name descname"><span class="pre">DBExporter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiment</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L527"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#datman.exporters.SessionExporter" title="datman.exporters.SessionExporter"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.exporters.SessionExporter</span></code></a></p>
 <p>Add a datman-style session and its contents to datman’s QC dashboard.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.DBExporter.add_tech_notes">
-<span class="sig-name descname"><span class="pre">add_tech_notes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L728"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter.add_tech_notes" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">add_tech_notes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L728"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter.add_tech_notes" title="Permalink to this definition"></a></dt>
 <dd><p>Add the path to a scan session’s tech notes to the database.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -180,7 +180,7 @@ scan session.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.DBExporter.export">
-<span class="sig-name descname"><span class="pre">export</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L611"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter.export" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">export</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L611"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter.export" title="Permalink to this definition"></a></dt>
 <dd><p>Exports raw data to the current Exporter’s format.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -192,7 +192,7 @@ downloaded raw data.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.DBExporter.get_bids_name">
-<span class="sig-name descname"><span class="pre">get_bids_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dm_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L596"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter.get_bids_name" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">get_bids_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dm_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L596"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter.get_bids_name" title="Permalink to this definition"></a></dt>
 <dd><p>Get BIDS style scan name from a datman style nifti.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
@@ -210,7 +210,7 @@ downloaded raw data.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.DBExporter.get_final_names">
-<span class="sig-name descname"><span class="pre">get_final_names</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scan</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L572"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter.get_final_names" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">get_final_names</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scan</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L572"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter.get_final_names" title="Permalink to this definition"></a></dt>
 <dd><p>Gets the file name as it appears in ‘nii’ dir.</p>
 <p>Some files (namely field maps) undergo some mangling during export.
 This will grab the mangled names if they exist.</p>
@@ -230,13 +230,13 @@ This will grab the mangled names if they exist.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.DBExporter.get_output_dir">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_output_dir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L658"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter.get_output_dir" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_output_dir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L658"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter.get_output_dir" title="Permalink to this definition"></a></dt>
 <dd><p>Retrieve the exporter’s output dir without needing an instance.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.DBExporter.get_scan_names">
-<span class="sig-name descname"><span class="pre">get_scan_names</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiment</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L556"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter.get_scan_names" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">get_scan_names</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiment</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L556"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter.get_scan_names" title="Permalink to this definition"></a></dt>
 <dd><p>Gets list of datman-style scan names for a session.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
@@ -255,7 +255,7 @@ empty string.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.DBExporter.make_scan">
-<span class="sig-name descname"><span class="pre">make_scan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_stem</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L745"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter.make_scan" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">make_scan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_stem</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L745"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter.make_scan" title="Permalink to this definition"></a></dt>
 <dd><p>Add a single scan to datman’s QC dashboard.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -266,7 +266,7 @@ empty string.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.DBExporter.make_session">
-<span class="sig-name descname"><span class="pre">make_session</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L665"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter.make_session" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">make_session</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L665"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter.make_session" title="Permalink to this definition"></a></dt>
 <dd><p>Add the current session to datman’s QC database.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
@@ -280,7 +280,7 @@ empty string.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.DBExporter.needs_raw_data">
-<span class="sig-name descname"><span class="pre">needs_raw_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L662"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter.needs_raw_data" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">needs_raw_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L662"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter.needs_raw_data" title="Permalink to this definition"></a></dt>
 <dd><p>Whether raw data must be downloaded for the Exporter.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
@@ -298,7 +298,7 @@ empty string.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.DBExporter.outputs_exist">
-<span class="sig-name descname"><span class="pre">outputs_exist</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L630"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter.outputs_exist" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">outputs_exist</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L630"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DBExporter.outputs_exist" title="Permalink to this definition"></a></dt>
 <dd><p>Whether outputs have already been generated for this Exporter.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
@@ -319,12 +319,12 @@ empty string.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="datman.exporters.DcmExporter">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.exporters.</span></span><span class="sig-name descname"><span class="pre">DcmExporter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fname_root</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">echo_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dry_run</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L988"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DcmExporter" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.exporters.</span></span><span class="sig-name descname"><span class="pre">DcmExporter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fname_root</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">echo_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dry_run</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L988"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DcmExporter" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#datman.exporters.SeriesExporter" title="datman.exporters.SeriesExporter"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.exporters.SeriesExporter</span></code></a></p>
 <p>Export a single dicom from a scan.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.DcmExporter.export">
-<span class="sig-name descname"><span class="pre">export</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_data_dir</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L995"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DcmExporter.export" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">export</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_data_dir</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L995"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.DcmExporter.export" title="Permalink to this definition"></a></dt>
 <dd><p>Exports raw data to the current Exporter’s format.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -348,12 +348,12 @@ downloaded raw data.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="datman.exporters.Exporter">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.exporters.</span></span><span class="sig-name descname"><span class="pre">Exporter</span></span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L66"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.Exporter" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.exporters.</span></span><span class="sig-name descname"><span class="pre">Exporter</span></span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L66"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.Exporter" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">abc.ABC</span></code></a></p>
 <p>An abstract base class for all Exporters.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.Exporter.export">
-<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">export</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_data_dir</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L96"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.Exporter.export" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">export</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_data_dir</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L96"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.Exporter.export" title="Permalink to this definition"></a></dt>
 <dd><p>Exports raw data to the current Exporter’s format.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -365,13 +365,13 @@ downloaded raw data.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.Exporter.get_output_dir">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_output_dir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L73"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.Exporter.get_output_dir" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_output_dir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L73"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.Exporter.get_output_dir" title="Permalink to this definition"></a></dt>
 <dd><p>Retrieve the exporter’s output dir without needing an instance.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.Exporter.make_output_dir">
-<span class="sig-name descname"><span class="pre">make_output_dir</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L105"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.Exporter.make_output_dir" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">make_output_dir</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L105"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.Exporter.make_output_dir" title="Permalink to this definition"></a></dt>
 <dd><p>Creates the directory where the Exporter’s outputs will be stored.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
@@ -385,7 +385,7 @@ downloaded raw data.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.Exporter.needs_raw_data">
-<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">needs_raw_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L87"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.Exporter.needs_raw_data" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">needs_raw_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L87"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.Exporter.needs_raw_data" title="Permalink to this definition"></a></dt>
 <dd><p>Whether raw data must be downloaded for the Exporter.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
@@ -403,7 +403,7 @@ downloaded raw data.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.Exporter.outputs_exist">
-<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">outputs_exist</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L79"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.Exporter.outputs_exist" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">outputs_exist</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L79"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.Exporter.outputs_exist" title="Permalink to this definition"></a></dt>
 <dd><p>Whether outputs have already been generated for this Exporter.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
@@ -424,12 +424,12 @@ downloaded raw data.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="datman.exporters.NiiExporter">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.exporters.</span></span><span class="sig-name descname"><span class="pre">NiiExporter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fname_root</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">echo_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dry_run</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L855"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiExporter" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.exporters.</span></span><span class="sig-name descname"><span class="pre">NiiExporter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fname_root</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">echo_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dry_run</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L855"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiExporter" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#datman.exporters.SeriesExporter" title="datman.exporters.SeriesExporter"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.exporters.SeriesExporter</span></code></a></p>
 <p>Export a series to nifti format with datman-style names.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.NiiExporter.export">
-<span class="sig-name descname"><span class="pre">export</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_data_dir</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L863"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiExporter.export" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">export</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_data_dir</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L863"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiExporter.export" title="Permalink to this definition"></a></dt>
 <dd><p>Exports raw data to the current Exporter’s format.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -446,7 +446,7 @@ downloaded raw data.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.NiiExporter.move_file">
-<span class="sig-name descname"><span class="pre">move_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gen_file</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L882"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiExporter.move_file" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">move_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gen_file</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L882"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiExporter.move_file" title="Permalink to this definition"></a></dt>
 <dd><p>Move the temp outputs of dcm2niix to the intended output directory.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -458,7 +458,7 @@ to move.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.NiiExporter.report_issues">
-<span class="sig-name descname"><span class="pre">report_issues</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stem</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">messages</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L954"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiExporter.report_issues" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">report_issues</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stem</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">messages</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L954"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiExporter.report_issues" title="Permalink to this definition"></a></dt>
 <dd><p>Write an error log if dcm2niix had errors during conversion.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -480,12 +480,12 @@ extension).</p></li>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="datman.exporters.NiiLinkExporter">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.exporters.</span></span><span class="sig-name descname"><span class="pre">NiiLinkExporter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiment</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L243"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiLinkExporter" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.exporters.</span></span><span class="sig-name descname"><span class="pre">NiiLinkExporter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiment</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L243"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiLinkExporter" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#datman.exporters.SessionExporter" title="datman.exporters.SessionExporter"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.exporters.SessionExporter</span></code></a></p>
 <p>Populates a study’s nii folder with symlinks pointing to the bids dir.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.NiiLinkExporter.export">
-<span class="sig-name descname"><span class="pre">export</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L488"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiLinkExporter.export" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">export</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L488"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiLinkExporter.export" title="Permalink to this definition"></a></dt>
 <dd><p>Exports raw data to the current Exporter’s format.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -502,7 +502,7 @@ downloaded raw data.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.NiiLinkExporter.get_bids_niftis">
-<span class="sig-name descname"><span class="pre">get_bids_niftis</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L274"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiLinkExporter.get_bids_niftis" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">get_bids_niftis</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L274"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiLinkExporter.get_bids_niftis" title="Permalink to this definition"></a></dt>
 <dd><p>Get all nifti files from a BIDS session.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
@@ -520,7 +520,7 @@ downloaded raw data.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.NiiLinkExporter.get_dm_names">
-<span class="sig-name descname"><span class="pre">get_dm_names</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L261"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiLinkExporter.get_dm_names" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">get_dm_names</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L261"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiLinkExporter.get_dm_names" title="Permalink to this definition"></a></dt>
 <dd><p>Get the datman-style scan names for an entire XNAT experiment.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
@@ -538,13 +538,13 @@ downloaded raw data.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.NiiLinkExporter.get_output_dir">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_output_dir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L471"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiLinkExporter.get_output_dir" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_output_dir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L471"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiLinkExporter.get_output_dir" title="Permalink to this definition"></a></dt>
 <dd><p>Retrieve the exporter’s output dir without needing an instance.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.NiiLinkExporter.make_link">
-<span class="sig-name descname"><span class="pre">make_link</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dm_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bids_file</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L502"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiLinkExporter.make_link" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">make_link</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dm_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bids_file</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L502"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiLinkExporter.make_link" title="Permalink to this definition"></a></dt>
 <dd><p>Create a symlink in the datman style that points to a bids file.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -559,7 +559,7 @@ extension.)</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.NiiLinkExporter.match_dm_to_bids">
-<span class="sig-name descname"><span class="pre">match_dm_to_bids</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dm_names</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bids_names</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L289"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiLinkExporter.match_dm_to_bids" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">match_dm_to_bids</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dm_names</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bids_names</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L289"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiLinkExporter.match_dm_to_bids" title="Permalink to this definition"></a></dt>
 <dd><p>Match each datman file name to its BIDS equivalent.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
@@ -578,7 +578,7 @@ folder.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.NiiLinkExporter.needs_raw_data">
-<span class="sig-name descname"><span class="pre">needs_raw_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L485"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiLinkExporter.needs_raw_data" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">needs_raw_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L485"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiLinkExporter.needs_raw_data" title="Permalink to this definition"></a></dt>
 <dd><p>Whether raw data must be downloaded for the Exporter.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
@@ -596,7 +596,7 @@ folder.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.NiiLinkExporter.outputs_exist">
-<span class="sig-name descname"><span class="pre">outputs_exist</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L475"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiLinkExporter.outputs_exist" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">outputs_exist</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L475"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.NiiLinkExporter.outputs_exist" title="Permalink to this definition"></a></dt>
 <dd><p>Whether outputs have already been generated for this Exporter.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
@@ -617,7 +617,7 @@ folder.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="datman.exporters.SeriesExporter">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.exporters.</span></span><span class="sig-name descname"><span class="pre">SeriesExporter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fname_root</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">echo_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dry_run</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L144"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.SeriesExporter" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.exporters.</span></span><span class="sig-name descname"><span class="pre">SeriesExporter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fname_root</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">echo_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dry_run</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L144"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.SeriesExporter" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#datman.exporters.Exporter" title="datman.exporters.Exporter"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.exporters.Exporter</span></code></a></p>
 <p>A base class for exporters that take a single series as input.</p>
 <dl class="py attribute">
@@ -627,7 +627,7 @@ folder.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.SeriesExporter.needs_raw_data">
-<span class="sig-name descname"><span class="pre">needs_raw_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L162"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.SeriesExporter.needs_raw_data" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">needs_raw_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L162"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.SeriesExporter.needs_raw_data" title="Permalink to this definition"></a></dt>
 <dd><p>Whether raw data must be downloaded for the Exporter.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
@@ -645,7 +645,7 @@ folder.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="datman.exporters.SeriesExporter.outputs_exist">
-<span class="sig-name descname"><span class="pre">outputs_exist</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L158"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.SeriesExporter.outputs_exist" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">outputs_exist</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L158"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.SeriesExporter.outputs_exist" title="Permalink to this definition"></a></dt>
 <dd><p>Whether outputs have already been generated for this Exporter.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
@@ -661,7 +661,7 @@ folder.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="datman.exporters.SessionExporter">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.exporters.</span></span><span class="sig-name descname"><span class="pre">SessionExporter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiment</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dry_run</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L124"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.SessionExporter" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">datman.exporters.</span></span><span class="sig-name descname"><span class="pre">SessionExporter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiment</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dry_run</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L124"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.SessionExporter" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#datman.exporters.Exporter" title="datman.exporters.Exporter"><code class="xref py py-class docutils literal notranslate"><span class="pre">datman.exporters.Exporter</span></code></a></p>
 <p>A base class for exporters that take an entire session as input.</p>
 <p>Subclasses should override __init__ (without changing basic input args)
@@ -672,7 +672,7 @@ input arguments and set some universally needed attributes.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="datman.exporters.get_exporter">
-<span class="sig-prename descclassname"><span class="pre">datman.exporters.</span></span><span class="sig-name descname"><span class="pre">get_exporter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scope</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'series'</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5ff4010/datman/exporters.py#L39"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.get_exporter" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">datman.exporters.</span></span><span class="sig-name descname"><span class="pre">get_exporter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scope</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'series'</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/tigrlab/datman/blob/5d8379f/datman/exporters.py#L39"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#datman.exporters.get_exporter" title="Permalink to this definition"></a></dt>
 <dd><p>Find an exporter class for a given key identifier.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
