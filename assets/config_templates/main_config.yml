@@ -207,7 +207,13 @@ IgnoreHeaderFields:              # Dicom Header fields to exclude from gold
 # UsesTechNotes: False           # Indicate whether tech notes are expected
                                  # in each session's resources folder.
                                  # Default: False
+
 # TaskRegex: 'behav|\.edat2'     # A regex used by dm_task_files.py to find
                                  # behavioural files that might exist in the
                                  # study's resources folder. (Optional).
                                  # Default: 'behav|\.edat2'
+
+# BlacklistDel: [nii, mnc, nrrd, resources]   # Indicate which directories to
+                                              # delete blacklisted data from.
+                                              # Default: [nii, mnc, nrrd,
+                                              #           resources]
