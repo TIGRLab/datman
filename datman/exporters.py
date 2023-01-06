@@ -311,15 +311,28 @@ class NiiLinkExporter(SessionExporter):
                     name_map)
                 continue
 
-            bids_files = sorted(
-                matches,
-                key=lambda x: int(parse_bids_filename(x).run)
-            )
+            try:
+                bids_files = sorted(
+                    matches,
+                    key=lambda x: int(parse_bids_filename(x).run)
+                )
+            except ParseException:
+                logger.error(
+                    f"Invalid bids file name found for {self.experiment.name}."
+                    f" Skipping datman nifti links for {tag}.")
+                continue
 
-            dm_files = sorted(
-                dm_names[tag],
-                key=lambda x: int(parse_filename(x)[2])
-            )
+            try:
+                dm_files = sorted(
+                    dm_names[tag],
+                    key=lambda x: int(parse_filename(x)[2])
+                )
+            except ParseException:
+                logger.error(
+                    "Invalid datman file name found for "
+                    f"{self.experiment.name}. Skipping datman nifti links for "
+                    f"{tag}")
+                continue
 
             for idx, item in enumerate(dm_files):
                 if idx >= len(bids_files):
