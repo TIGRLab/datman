@@ -32,7 +32,7 @@ classifiers = [
 
 dependencies = [
     "docopt ~= 0.6.2",
-    "nibabel ~= 3.0.0",
+    "nibabel >= 3.0.0",
     "nilearn ~= 0.7.1",
     "numpy >= 1.18.0",
     "pandas >= 1.0.3",
