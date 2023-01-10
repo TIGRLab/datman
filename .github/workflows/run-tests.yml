@@ -11,9 +11,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  pull-requests: write
-
 jobs:
   run-tests:
     runs-on: ubuntu-20.04
@@ -42,7 +39,7 @@ jobs:
           pytest-coverage-path: /tmp/pytest-coverage.txt
           junitxml-path: /tmp/pytest.xml
           report-only-changed-files: true
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.DATMAN_COVERAGE_COMMENT }}
 
       - name: Create/update coverage badge
         if: github.event_name == 'push'
