@@ -45,7 +45,7 @@ def get_server(config=None, url=None, port=None):
 
     try:
         port_str = get_port_str(config, port)
-    except KeyError:
+    except UndefinedSetting:
         logger.debug(
             f"XnatPort undefined in config. Omitting port number for {url}")
         port_str = ""

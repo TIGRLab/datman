@@ -567,6 +567,15 @@ def test_bids_file_raises_exception_when_wrong_entities_used_for_fmap():
                                    "rec-somefield_run-1_T1w.nii.gz")
 
 
+def test_bids_file_allows_dir_to_be_used_with_task_data():
+    ident = scanid.parse_bids_filename(
+        "/some/folder/sub-CMP1111_ses-01_task-rest_dir-AP_bold")
+    assert ident.subject == 'CMP1111'
+    assert ident.session == '01'
+    assert ident.dir == 'AP'
+    assert ident.suffix == 'bold'
+
+
 def test_optional_entities_dont_get_parsed_as_suffix():
     optional_entities = "sub-CMH0001_ses-01_{}_T1w.nii.gz"
     for entity in ['run', 'acq', 'ce', 'rec', 'echo', 'ce', 'mod', 'task']:
