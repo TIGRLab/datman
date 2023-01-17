@@ -184,13 +184,13 @@ blocks (study level).</p></li>
 </ol>
 <p>As an example, assume you have a main config file with the following
 xnat configuration:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">XnatServer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">xnat.com</span><span class="w"></span>
-<span class="nt">XnatArchive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyProject</span><span class="w"></span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">XnatServer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">xnat.com</span>
+<span class="nt">XnatArchive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyProject</span>
 </pre></div>
 </div>
 <p>And you have StudyA with the following xnat configuration in its study
 configuration file:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">XnatArchive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">StudyA</span><span class="w"></span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">XnatArchive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">StudyA</span>
 </pre></div>
 </div>
 <p>When you run xnat scripts (like dm_xnat_extract.py) on StudyA the scripts will
@@ -198,15 +198,15 @@ find ‘xnat.com’ for XnatServer and will use ‘StudyA’ for the XnatArchive
 (instead of ‘MyProject’ from the main config file).</p>
 <p>Assume you have another study, StudyB, with the following in its study
 configuration file:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">XnatArchive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">StudyB</span><span class="w"></span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">XnatArchive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">StudyB</span>
 
-<span class="nt">Sites</span><span class="p">:</span><span class="w"></span>
-<span class="w">   </span><span class="nt">CMH</span><span class="p">:</span><span class="w"></span>
-<span class="w">       </span><span class="nt">XnatArchive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">StudyB_CMH</span><span class="w"></span>
-<span class="w">   </span><span class="nt">YRK</span><span class="p">:</span><span class="w"></span>
-<span class="w">       </span><span class="nt">XnatServer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">anotherxnat.com</span><span class="w"></span>
-<span class="w">   </span><span class="nt">UTO</span><span class="p">:</span><span class="w"></span>
-<span class="w">       </span><span class="c1"># This site exists for the example, but doesnt define any xnat settings</span><span class="w"></span>
+<span class="nt">Sites</span><span class="p">:</span>
+<span class="w">   </span><span class="nt">CMH</span><span class="p">:</span>
+<span class="w">       </span><span class="nt">XnatArchive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">StudyB_CMH</span>
+<span class="w">   </span><span class="nt">YRK</span><span class="p">:</span>
+<span class="w">       </span><span class="nt">XnatServer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">anotherxnat.com</span>
+<span class="w">   </span><span class="nt">UTO</span><span class="p">:</span>
+<span class="w">       </span><span class="c1"># This site exists for the example, but doesnt define any xnat settings</span>
 </pre></div>
 </div>
 <p>Running xnat scripts on StudyB will mean that the XNAT settings will
@@ -264,11 +264,11 @@ directories exist.</p></li>
 </section>
 <section id="example">
 <h4>Example<a class="headerlink" href="#example" title="Permalink to this headline"></a></h4>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># To delete from the nifti, resources, and task data folders:</span><span class="w"></span>
-<span class="nt">BlacklistDel</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">nii</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">resources</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">task</span><span class="p p-Indicator">]</span><span class="w"></span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># To delete from the nifti, resources, and task data folders:</span>
+<span class="nt">BlacklistDel</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">nii</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">resources</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">task</span><span class="p p-Indicator">]</span>
 
-<span class="c1"># Or limit deletion to the nifti folder:</span><span class="w"></span>
-<span class="nt">BlacklistDel</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">nii</span><span class="p p-Indicator">]</span><span class="w"></span>
+<span class="c1"># Or limit deletion to the nifti folder:</span>
+<span class="nt">BlacklistDel</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">nii</span><span class="p p-Indicator">]</span>
 </pre></div>
 </div>
 </section>
@@ -293,21 +293,21 @@ report that more were found than expected (or fewer) during QC.</p></li>
 </section>
 <section id="id1">
 <h4>Example<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h4>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">ExportInfo</span><span class="p">:</span><span class="w"></span>
-<span class="w">  </span><span class="c1"># Example tags. These can be named anything, but should be defined in</span><span class="w"></span>
-<span class="w">  </span><span class="c1"># ExportSettings in the main config file first.</span><span class="w"></span>
-<span class="w">  </span><span class="nt">T1</span><span class="p">:</span><span class="w"></span>
-<span class="w">    </span><span class="nt">Pattern</span><span class="p">:</span><span class="w"></span>
-<span class="w">      </span><span class="l l-Scalar l-Scalar-Plain">...</span><span class="w"></span>
-<span class="w">    </span><span class="nt">Count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w"></span>
-<span class="w">  </span><span class="nt">T2</span><span class="p">:</span><span class="w"></span>
-<span class="w">    </span><span class="nt">Pattern</span><span class="p">:</span><span class="w"></span>
-<span class="w">      </span><span class="l l-Scalar l-Scalar-Plain">...</span><span class="w"></span>
-<span class="w">    </span><span class="nt">Count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w"></span>
-<span class="w">  </span><span class="nt">RST</span><span class="p">:</span><span class="w"></span>
-<span class="w">    </span><span class="nt">Pattern</span><span class="p">:</span><span class="w"></span>
-<span class="w">      </span><span class="l l-Scalar l-Scalar-Plain">...</span><span class="w"></span>
-<span class="w">    </span><span class="nt">Count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span><span class="w"></span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">ExportInfo</span><span class="p">:</span>
+<span class="w">  </span><span class="c1"># Example tags. These can be named anything, but should be defined in</span>
+<span class="w">  </span><span class="c1"># ExportSettings in the main config file first.</span>
+<span class="w">  </span><span class="nt">T1</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">Pattern</span><span class="p">:</span>
+<span class="w">      </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+<span class="w">    </span><span class="nt">Count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">  </span><span class="nt">T2</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">Pattern</span><span class="p">:</span>
+<span class="w">      </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+<span class="w">    </span><span class="nt">Count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">  </span><span class="nt">RST</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">Pattern</span><span class="p">:</span>
+<span class="w">      </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+<span class="w">    </span><span class="nt">Count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
 </pre></div>
 </div>
 </section>
@@ -362,14 +362,14 @@ provide a global default for a tag.</p></li>
 <section id="id4">
 <h4>Example<a class="headerlink" href="#id4" title="Permalink to this headline"></a></h4>
 <p>The following is a small excerpt from our own ExportSettings</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">ExportSettings</span><span class="p">:</span><span class="w"></span>
-<span class="w">  </span><span class="nt">T1</span><span class="p">:</span><span class="w">         </span><span class="p p-Indicator">{</span><span class="nt"> Formats</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;nii&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;dcm&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;mnc&#39;</span><span class="p p-Indicator">],</span><span class="nt"> QcType</span><span class="p">:</span><span class="w"> </span><span class="nv">anat</span><span class="p p-Indicator">,</span><span class="nt"> QcPha</span><span class="p">:</span><span class="w"> </span><span class="nv">default</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"></span>
-<span class="w">  </span><span class="nt">T2</span><span class="p">:</span><span class="w">         </span><span class="p p-Indicator">{</span><span class="nt"> Formats</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;nii&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;dcm&#39;</span><span class="p p-Indicator">],</span><span class="nt"> QcType</span><span class="p">:</span><span class="w"> </span><span class="nv">anat</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"></span>
-<span class="w">  </span><span class="nt">RST</span><span class="p">:</span><span class="w">        </span><span class="p p-Indicator">{</span><span class="nt"> Formats</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;nii&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;dcm&#39;</span><span class="p p-Indicator">],</span><span class="nt"> QcType</span><span class="p">:</span><span class="w"> </span><span class="nv">fmri</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"></span>
-<span class="w">  </span><span class="nt">SPRL</span><span class="p">:</span><span class="w">       </span><span class="p p-Indicator">{</span><span class="nt"> Formats</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;nii&#39;</span><span class="p p-Indicator">],</span><span class="nt"> QcType</span><span class="p">:</span><span class="w"> </span><span class="nv">fmri</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"></span>
-<span class="w">  </span><span class="nt">DTI60-1000</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> Formats</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;nii&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;dcm&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;nrrd&#39;</span><span class="p p-Indicator">],</span><span class="nt"> QcType</span><span class="p">:</span><span class="w"> </span><span class="nv">dti</span><span class="p p-Indicator">,</span><span class="nt"> QcPha</span><span class="p">:</span><span class="w"> </span><span class="nv">qa_dti</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"></span>
-<span class="w">  </span><span class="nt">FMAP</span><span class="p">:</span><span class="w">       </span><span class="p p-Indicator">{</span><span class="nt"> Formats</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;nii&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;dcm&#39;</span><span class="p p-Indicator">],</span><span class="nt"> QcType</span><span class="p">:</span><span class="w"> </span><span class="nv">ignore</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"></span>
-<span class="w">  </span><span class="nt">DTI-ABCD</span><span class="p">:</span><span class="w">   </span><span class="p p-Indicator">{</span><span class="nt"> Formats</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;nii&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;dcm&#39;</span><span class="p p-Indicator">],</span><span class="nt"> QcType</span><span class="p">:</span><span class="w"> </span><span class="nv">dti</span><span class="p p-Indicator">,</span><span class="nt"> Pattern</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;ABCD_dMRI$&#39;</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"></span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">ExportSettings</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">T1</span><span class="p">:</span><span class="w">         </span><span class="p p-Indicator">{</span><span class="nt"> Formats</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;nii&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;dcm&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;mnc&#39;</span><span class="p p-Indicator">],</span><span class="nt"> QcType</span><span class="p">:</span><span class="w"> </span><span class="nv">anat</span><span class="p p-Indicator">,</span><span class="nt"> QcPha</span><span class="p">:</span><span class="w"> </span><span class="nv">default</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="nt">T2</span><span class="p">:</span><span class="w">         </span><span class="p p-Indicator">{</span><span class="nt"> Formats</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;nii&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;dcm&#39;</span><span class="p p-Indicator">],</span><span class="nt"> QcType</span><span class="p">:</span><span class="w"> </span><span class="nv">anat</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="nt">RST</span><span class="p">:</span><span class="w">        </span><span class="p p-Indicator">{</span><span class="nt"> Formats</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;nii&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;dcm&#39;</span><span class="p p-Indicator">],</span><span class="nt"> QcType</span><span class="p">:</span><span class="w"> </span><span class="nv">fmri</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="nt">SPRL</span><span class="p">:</span><span class="w">       </span><span class="p p-Indicator">{</span><span class="nt"> Formats</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;nii&#39;</span><span class="p p-Indicator">],</span><span class="nt"> QcType</span><span class="p">:</span><span class="w"> </span><span class="nv">fmri</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="nt">DTI60-1000</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> Formats</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;nii&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;dcm&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;nrrd&#39;</span><span class="p p-Indicator">],</span><span class="nt"> QcType</span><span class="p">:</span><span class="w"> </span><span class="nv">dti</span><span class="p p-Indicator">,</span><span class="nt"> QcPha</span><span class="p">:</span><span class="w"> </span><span class="nv">qa_dti</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="nt">FMAP</span><span class="p">:</span><span class="w">       </span><span class="p p-Indicator">{</span><span class="nt"> Formats</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;nii&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;dcm&#39;</span><span class="p p-Indicator">],</span><span class="nt"> QcType</span><span class="p">:</span><span class="w"> </span><span class="nv">ignore</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="nt">DTI-ABCD</span><span class="p">:</span><span class="w">   </span><span class="p p-Indicator">{</span><span class="nt"> Formats</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;nii&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;dcm&#39;</span><span class="p p-Indicator">],</span><span class="nt"> QcType</span><span class="p">:</span><span class="w"> </span><span class="nv">dti</span><span class="p p-Indicator">,</span><span class="nt"> Pattern</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;ABCD_dMRI$&#39;</span><span class="w"> </span><span class="p p-Indicator">}</span>
 </pre></div>
 </div>
 <p>In this example all of the tags except DTI60-1000 will use the default phantom
@@ -429,11 +429,11 @@ searched for.</p></li>
 </section>
 <section id="id7">
 <h4>Example<a class="headerlink" href="#id7" title="Permalink to this headline"></a></h4>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">FtpServer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mysftp.ca</span><span class="w"></span>
-<span class="nt">FtpPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">777</span><span class="w"></span>
-<span class="nt">MrFtpPass</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myftppass.txt</span><span class="w">   </span><span class="c1"># Should exist in $STUDY/metadata/</span><span class="w"></span>
-<span class="nt">MrUser</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myuser</span><span class="w"></span>
-<span class="nt">MrFolder</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;somefolder&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;scans*&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;myscans[1-9]&quot;</span><span class="p p-Indicator">]</span><span class="w"></span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">FtpServer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mysftp.ca</span>
+<span class="nt">FtpPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">777</span>
+<span class="nt">MrFtpPass</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myftppass.txt</span><span class="w">   </span><span class="c1"># Should exist in $STUDY/metadata/</span>
+<span class="nt">MrUser</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myuser</span>
+<span class="nt">MrFolder</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;somefolder&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;scans*&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;myscans[1-9]&quot;</span><span class="p p-Indicator">]</span>
 </pre></div>
 </div>
 <p>In the above example the MrFolder setting will cause any folders on the
@@ -480,19 +480,19 @@ begins. See the ‘Example’ section for specific examples.</p></li>
 </section>
 <section id="id9">
 <h4>Example<a class="headerlink" href="#id9" title="Permalink to this headline"></a></h4>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">IdMap</span><span class="p">:</span><span class="w"></span>
-<span class="w">  </span><span class="c1"># Any of the below sections can be omitted if the field doesn&#39;t change</span><span class="w"></span>
-<span class="w">  </span><span class="c1"># between naming conventions.</span><span class="w"></span>
-<span class="w">  </span><span class="c1"># Left side (keys) are KCNI convention, right side (values) are Datman convention.</span><span class="w"></span>
-<span class="w">  </span><span class="c1">#</span><span class="w"></span>
-<span class="w">  </span><span class="c1"># KCNI ID                               Datman ID</span><span class="w"></span>
-<span class="w">  </span><span class="c1"># STU01_UTO_10001_01_SE01_MR  becomes   STUDY1_UT2_ABC0001_01_01</span><span class="w"></span>
-<span class="w">  </span><span class="nt">Study</span><span class="p">:</span><span class="w"></span>
-<span class="w">    </span><span class="nt">STU01</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">STUDY1</span><span class="w"></span>
-<span class="w">  </span><span class="nt">Site</span><span class="p">:</span><span class="w"></span>
-<span class="w">    </span><span class="nt">UTO</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">UT2</span><span class="w"></span>
-<span class="w">  </span><span class="nt">Subject</span><span class="p">:</span><span class="w"></span>
-<span class="w">    </span><span class="s">&#39;1(P?[0-9]+)-&gt;ABC\1&#39;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="s">&#39;ABC(P?[0-9]+)-&gt;1\1&#39;</span><span class="w"></span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">IdMap</span><span class="p">:</span>
+<span class="w">  </span><span class="c1"># Any of the below sections can be omitted if the field doesn&#39;t change</span>
+<span class="w">  </span><span class="c1"># between naming conventions.</span>
+<span class="w">  </span><span class="c1"># Left side (keys) are KCNI convention, right side (values) are Datman convention.</span>
+<span class="w">  </span><span class="c1">#</span>
+<span class="w">  </span><span class="c1"># KCNI ID                               Datman ID</span>
+<span class="w">  </span><span class="c1"># STU01_UTO_10001_01_SE01_MR  becomes   STUDY1_UT2_ABC0001_01_01</span>
+<span class="w">  </span><span class="nt">Study</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">STU01</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">STUDY1</span>
+<span class="w">  </span><span class="nt">Site</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">UTO</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">UT2</span>
+<span class="w">  </span><span class="nt">Subject</span><span class="p">:</span>
+<span class="w">    </span><span class="s">&#39;1(P?[0-9]+)-&gt;ABC\1&#39;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="s">&#39;ABC(P?[0-9]+)-&gt;1\1&#39;</span>
 </pre></div>
 </div>
 </section>
@@ -523,8 +523,8 @@ mounted to it). Only needed if LogServer is set.</p></li>
 </section>
 <section id="id11">
 <h4>Example<a class="headerlink" href="#id11" title="Permalink to this headline"></a></h4>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">LogServer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">111.222.333.444</span><span class="w"></span>
-<span class="nt">LogServerDir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/var/logs/datman_logs</span><span class="w"></span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">LogServer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">111.222.333.444</span>
+<span class="nt">LogServerDir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/var/logs/datman_logs</span>
 </pre></div>
 </div>
 </section>
@@ -608,16 +608,16 @@ bids format.</p></li>
 <section id="id14">
 <h4>Example<a class="headerlink" href="#id14" title="Permalink to this headline"></a></h4>
 <p>This example is a subset of all keys available.</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">Paths</span><span class="p">:</span><span class="w"></span>
-<span class="w">   </span><span class="c1"># The paths on the right can be modified as preferred</span><span class="w"></span>
-<span class="w">   </span><span class="nt">meta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">metadata/</span><span class="w"></span>
-<span class="w">   </span><span class="nt">std</span><span class="p">:</span><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">metadata/standards/</span><span class="w"></span>
-<span class="w">   </span><span class="nt">data</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data/</span><span class="w"></span>
-<span class="w">   </span><span class="nt">dcm</span><span class="p">:</span><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">data/dcm/</span><span class="w"></span>
-<span class="w">   </span><span class="nt">nii</span><span class="p">:</span><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">data/nii/</span><span class="w"></span>
-<span class="w">   </span><span class="nt">nrrd</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data/nrrd/</span><span class="w"></span>
-<span class="w">   </span><span class="nt">qc</span><span class="p">:</span><span class="w">   </span><span class="l l-Scalar l-Scalar-Plain">qc/</span><span class="w"></span>
-<span class="w">   </span><span class="nt">log</span><span class="p">:</span><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">logs/</span><span class="w"></span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">Paths</span><span class="p">:</span>
+<span class="w">   </span><span class="c1"># The paths on the right can be modified as preferred</span>
+<span class="w">   </span><span class="nt">meta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">metadata/</span>
+<span class="w">   </span><span class="nt">std</span><span class="p">:</span><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">metadata/standards/</span>
+<span class="w">   </span><span class="nt">data</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data/</span>
+<span class="w">   </span><span class="nt">dcm</span><span class="p">:</span><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">data/dcm/</span>
+<span class="w">   </span><span class="nt">nii</span><span class="p">:</span><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">data/nii/</span>
+<span class="w">   </span><span class="nt">nrrd</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data/nrrd/</span>
+<span class="w">   </span><span class="nt">qc</span><span class="p">:</span><span class="w">   </span><span class="l l-Scalar l-Scalar-Plain">qc/</span>
+<span class="w">   </span><span class="nt">log</span><span class="p">:</span><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">logs/</span>
 </pre></div>
 </div>
 <p>Assuming a configuration where the <code class="docutils literal notranslate"><span class="pre">DatmanProjectsDir</span></code> is set to
@@ -683,40 +683,40 @@ a single acquisition.</p></li>
 </section>
 <section id="id18">
 <h4>Example<a class="headerlink" href="#id18" title="Permalink to this headline"></a></h4>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">ExportInfo</span><span class="p">:</span><span class="w"></span>
-<span class="w">  </span><span class="nt">T1</span><span class="p">:</span><span class="w"></span>
-<span class="w">    </span><span class="nt">Pattern</span><span class="p">:</span><span class="w"></span>
-<span class="w">      </span><span class="nt">SeriesDescription</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;Sag.?T1.BRAVO&#39;</span><span class="w"></span>
-<span class="w">    </span><span class="nt">Count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w"></span>
-<span class="w">  </span><span class="nt">DTI60-1000</span><span class="p">:</span><span class="w"></span>
-<span class="w">    </span><span class="nt">Pattern</span><span class="p">:</span><span class="w"></span>
-<span class="w">      </span><span class="c1"># A list of regexes is also allowed</span><span class="w"></span>
-<span class="w">      </span><span class="nt">SeriesDescription</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;ep2d&#39;</span><span class="p p-Indicator">,</span><span class="s">&#39;DTI.60Dir*GRAPPA$&#39;</span><span class="p p-Indicator">]</span><span class="w"></span>
-<span class="w">    </span><span class="nt">Count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span><span class="w"></span>
-<span class="w">  </span><span class="c1"># These two entries give an example of using echo number to split multiple</span><span class="w"></span>
-<span class="w">  </span><span class="c1"># echoes out of an acquisition.</span><span class="w"></span>
-<span class="w">  </span><span class="nt">MAG1</span><span class="p">:</span><span class="w"></span>
-<span class="w">    </span><span class="nt">Pattern</span><span class="p">:</span><span class="w"></span>
-<span class="w">      </span><span class="nt">SeriesDescription</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;field&#39;</span><span class="w"></span>
-<span class="w">      </span><span class="nt">EchoNumber</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w"></span>
-<span class="w">    </span><span class="nt">Count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w"></span>
-<span class="w">  </span><span class="nt">MAG2</span><span class="p">:</span><span class="w"></span>
-<span class="w">    </span><span class="nt">Pattern</span><span class="p">:</span><span class="w"></span>
-<span class="w">      </span><span class="nt">SeriesDescription</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;field&#39;</span><span class="w"></span>
-<span class="w">      </span><span class="nt">EchoNumber</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span><span class="w"></span>
-<span class="w">    </span><span class="nt">Count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w"></span>
-<span class="w">  </span><span class="c1"># These two entries give an example of using ImageType to apply different</span><span class="w"></span>
-<span class="w">  </span><span class="c1"># tags to series with the same SeriesDescription</span><span class="w"></span>
-<span class="w">  </span><span class="nt">T2</span><span class="p">:</span><span class="w"></span>
-<span class="w">    </span><span class="nt">Pattern</span><span class="p">:</span><span class="w"></span>
-<span class="w">      </span><span class="nt">SeriesDescription</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;T2w_SPC_vNav$&#39;</span><span class="w"></span>
-<span class="w">      </span><span class="nt">ImageType</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;ORIGINAL.*ND$&#39;</span><span class="w"></span>
-<span class="w">    </span><span class="nt">Count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w"></span>
-<span class="w">  </span><span class="nt">T2-NORM</span><span class="p">:</span><span class="w"></span>
-<span class="w">    </span><span class="nt">Pattern</span><span class="p">:</span><span class="w"></span>
-<span class="w">      </span><span class="nt">SeriesDescription</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;T2w_SPC_vNav$&#39;</span><span class="w"></span>
-<span class="w">      </span><span class="nt">ImageType</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;ORIGINAL.*ND.*NORM$&#39;</span><span class="w"></span>
-<span class="w">    </span><span class="nt">Count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w"></span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">ExportInfo</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">T1</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">Pattern</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">SeriesDescription</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;Sag.?T1.BRAVO&#39;</span>
+<span class="w">    </span><span class="nt">Count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">  </span><span class="nt">DTI60-1000</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">Pattern</span><span class="p">:</span>
+<span class="w">      </span><span class="c1"># A list of regexes is also allowed</span>
+<span class="w">      </span><span class="nt">SeriesDescription</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;ep2d&#39;</span><span class="p p-Indicator">,</span><span class="s">&#39;DTI.60Dir*GRAPPA$&#39;</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">Count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">  </span><span class="c1"># These two entries give an example of using echo number to split multiple</span>
+<span class="w">  </span><span class="c1"># echoes out of an acquisition.</span>
+<span class="w">  </span><span class="nt">MAG1</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">Pattern</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">SeriesDescription</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;field&#39;</span>
+<span class="w">      </span><span class="nt">EchoNumber</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">    </span><span class="nt">Count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">  </span><span class="nt">MAG2</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">Pattern</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">SeriesDescription</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;field&#39;</span>
+<span class="w">      </span><span class="nt">EchoNumber</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">    </span><span class="nt">Count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">  </span><span class="c1"># These two entries give an example of using ImageType to apply different</span>
+<span class="w">  </span><span class="c1"># tags to series with the same SeriesDescription</span>
+<span class="w">  </span><span class="nt">T2</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">Pattern</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">SeriesDescription</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;T2w_SPC_vNav$&#39;</span>
+<span class="w">      </span><span class="nt">ImageType</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;ORIGINAL.*ND$&#39;</span>
+<span class="w">    </span><span class="nt">Count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">  </span><span class="nt">T2-NORM</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">Pattern</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">SeriesDescription</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;T2w_SPC_vNav$&#39;</span>
+<span class="w">      </span><span class="nt">ImageType</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;ORIGINAL.*ND.*NORM$&#39;</span>
+<span class="w">    </span><span class="nt">Count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
 </pre></div>
 </div>
 </section>
@@ -730,13 +730,13 @@ config file. These files will be searched for in the ConfigDir (from the
 <a class="reference internal" href="#systemsettings">SystemSettings</a>) for the current system.</p>
 <section id="id19">
 <h4>Example<a class="headerlink" href="#id19" title="Permalink to this headline"></a></h4>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Note that &#39;Projects&#39; is CamelCase, but study codes may be whatever</span><span class="w"></span>
-<span class="c1"># case you like. You must use that same capitalization when</span><span class="w"></span>
-<span class="c1"># using any datman script on a project (e.g. dm_xnat_extract,py StUdYc)</span><span class="w"></span>
-<span class="nt">Projects</span><span class="p">:</span><span class="w"></span>
-<span class="w">  </span><span class="nt">Study1</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">study1_config.yml</span><span class="w"></span>
-<span class="w">  </span><span class="nt">STUDYB</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">STUDYB.yml</span><span class="w"></span>
-<span class="w">  </span><span class="nt">StUdYc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mystudy.yaml</span><span class="w"></span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Note that &#39;Projects&#39; is CamelCase, but study codes may be whatever</span>
+<span class="c1"># case you like. You must use that same capitalization when</span>
+<span class="c1"># using any datman script on a project (e.g. dm_xnat_extract,py StUdYc)</span>
+<span class="nt">Projects</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">Study1</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">study1_config.yml</span>
+<span class="w">  </span><span class="nt">STUDYB</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">STUDYB.yml</span>
+<span class="w">  </span><span class="nt">StUdYc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mystudy.yaml</span>
 </pre></div>
 </div>
 </section>
@@ -847,23 +847,23 @@ for sessions in a study (or site).</p></li>
 </section>
 <section id="id22">
 <h4>Example<a class="headerlink" href="#id22" title="Permalink to this headline"></a></h4>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">UsesRedcap</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span><span class="w">    </span><span class="c1"># if unset, is treated as False</span><span class="w"></span>
-<span class="nt">RedcapApi</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myredcapserver.com/api</span><span class="w"> </span><span class="c1"># These two can refer to different servers</span><span class="w"></span>
-<span class="nt">RedcapUrl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myredcapserver.com</span><span class="w"></span>
-<span class="nt">RedcapToken</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;mytoken.txt&#39;</span><span class="w">  </span><span class="c1"># Should exist in $STUDY/metadata,</span><span class="w"></span>
-<span class="w">                            </span><span class="c1"># if unset, REDCAP_TOKEN env var is read</span><span class="w"></span>
-<span class="nt">RedcapProjectId</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;1111&#39;</span><span class="w"></span>
-<span class="nt">RedcapInstrument</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;my_instrument&#39;</span><span class="w"></span>
-<span class="nt">RedcapEventId</span><span class="p">:</span><span class="w"></span>
-<span class="w">  </span><span class="nt">arm1</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">111</span><span class="w">   </span><span class="c1"># Each entry should be event label mapped to its ID</span><span class="w"></span>
-<span class="w">  </span><span class="nt">arm2</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">112</span><span class="w"></span>
-<span class="w">  </span><span class="nt">arm3</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">999</span><span class="w"></span>
-<span class="nt">RedcapSubj</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;sub_id_field&#39;</span><span class="w">      </span><span class="c1"># If unset, &#39;par_id&#39; is used</span><span class="w"></span>
-<span class="nt">RedcapDate</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;date_field&#39;</span><span class="w">        </span><span class="c1"># If unset, &#39;date&#39; is used</span><span class="w"></span>
-<span class="nt">RedcapStatus</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;is_complete&#39;</span><span class="w">     </span><span class="c1"># If unset, &#39;tigrlab_scan_completed_complete&#39; is used</span><span class="w"></span>
-<span class="nt">RedcapStatusValue</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;1&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;2&#39;</span><span class="p p-Indicator">]</span><span class="w">   </span><span class="c1"># If unset, &#39;2&#39; is used</span><span class="w"></span>
-<span class="nt">RedcapRecordKey</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;record_id_field&#39;</span><span class="w"></span>
-<span class="nt">RedcapComments</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;comment_field&#39;</span><span class="w"> </span><span class="c1"># If unset, &#39;cmts&#39; is used</span><span class="w"></span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">UsesRedcap</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span><span class="w">    </span><span class="c1"># if unset, is treated as False</span>
+<span class="nt">RedcapApi</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myredcapserver.com/api</span><span class="w"> </span><span class="c1"># These two can refer to different servers</span>
+<span class="nt">RedcapUrl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myredcapserver.com</span>
+<span class="nt">RedcapToken</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;mytoken.txt&#39;</span><span class="w">  </span><span class="c1"># Should exist in $STUDY/metadata,</span>
+<span class="w">                            </span><span class="c1"># if unset, REDCAP_TOKEN env var is read</span>
+<span class="nt">RedcapProjectId</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;1111&#39;</span>
+<span class="nt">RedcapInstrument</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;my_instrument&#39;</span>
+<span class="nt">RedcapEventId</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">arm1</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">111</span><span class="w">   </span><span class="c1"># Each entry should be event label mapped to its ID</span>
+<span class="w">  </span><span class="nt">arm2</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">112</span>
+<span class="w">  </span><span class="nt">arm3</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">999</span>
+<span class="nt">RedcapSubj</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;sub_id_field&#39;</span><span class="w">      </span><span class="c1"># If unset, &#39;par_id&#39; is used</span>
+<span class="nt">RedcapDate</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;date_field&#39;</span><span class="w">        </span><span class="c1"># If unset, &#39;date&#39; is used</span>
+<span class="nt">RedcapStatus</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;is_complete&#39;</span><span class="w">     </span><span class="c1"># If unset, &#39;tigrlab_scan_completed_complete&#39; is used</span>
+<span class="nt">RedcapStatusValue</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;1&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;2&#39;</span><span class="p p-Indicator">]</span><span class="w">   </span><span class="c1"># If unset, &#39;2&#39; is used</span>
+<span class="nt">RedcapRecordKey</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;record_id_field&#39;</span>
+<span class="nt">RedcapComments</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;comment_field&#39;</span><span class="w"> </span><span class="c1"># If unset, &#39;cmts&#39; is used</span>
 </pre></div>
 </div>
 </section>
@@ -893,24 +893,24 @@ study. Each site code will be matched to the site tag portion of a
 </section>
 <section id="id24">
 <h4>Example<a class="headerlink" href="#id24" title="Permalink to this headline"></a></h4>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">Sites</span><span class="p">:</span><span class="w"></span>
-<span class="w">    </span><span class="c1"># Your site codes may be whatever you like, but they should fit</span><span class="w"></span>
-<span class="w">    </span><span class="c1"># Datman&#39;s convention of being no more than three characters and</span><span class="w"></span>
-<span class="w">    </span><span class="c1"># only containing letters and numbers.</span><span class="w"></span>
-<span class="w">    </span><span class="nt">CMH</span><span class="p">:</span><span class="w"></span>
-<span class="w">      </span><span class="c1"># Site specific settings can go here</span><span class="w"></span>
-<span class="w">      </span><span class="nt">ExportInfo</span><span class="p">:</span><span class="w"></span>
-<span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">...</span><span class="w"></span>
-<span class="w">    </span><span class="nt">UT1</span><span class="p">:</span><span class="w"></span>
-<span class="w">      </span><span class="c1"># As an example, a site can upload to a different XNAT project</span><span class="w"></span>
-<span class="w">      </span><span class="c1"># by redefining XnatArchive here</span><span class="w"></span>
-<span class="w">      </span><span class="nt">XnatArchive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MYSTUDY_UT1</span><span class="w"></span>
-<span class="w">      </span><span class="nt">ExportInfo</span><span class="p">:</span><span class="w"></span>
-<span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">...</span><span class="w"></span>
-<span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">...</span><span class="w"></span>
-<span class="w">    </span><span class="nt">XXX</span><span class="p">:</span><span class="w"></span>
-<span class="w">      </span><span class="nt">ExportInfo</span><span class="p">:</span><span class="w"></span>
-<span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">...</span><span class="w"></span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">Sites</span><span class="p">:</span>
+<span class="w">    </span><span class="c1"># Your site codes may be whatever you like, but they should fit</span>
+<span class="w">    </span><span class="c1"># Datman&#39;s convention of being no more than three characters and</span>
+<span class="w">    </span><span class="c1"># only containing letters and numbers.</span>
+<span class="w">    </span><span class="nt">CMH</span><span class="p">:</span>
+<span class="w">      </span><span class="c1"># Site specific settings can go here</span>
+<span class="w">      </span><span class="nt">ExportInfo</span><span class="p">:</span>
+<span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+<span class="w">    </span><span class="nt">UT1</span><span class="p">:</span>
+<span class="w">      </span><span class="c1"># As an example, a site can upload to a different XNAT project</span>
+<span class="w">      </span><span class="c1"># by redefining XnatArchive here</span>
+<span class="w">      </span><span class="nt">XnatArchive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MYSTUDY_UT1</span>
+<span class="w">      </span><span class="nt">ExportInfo</span><span class="p">:</span>
+<span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+<span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+<span class="w">    </span><span class="nt">XXX</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">ExportInfo</span><span class="p">:</span>
+<span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">...</span>
 </pre></div>
 </div>
 </section>
@@ -965,11 +965,11 @@ session’s <a class="reference external" href="http://imaging-genetics.camh.ca/
 </section>
 <section id="id27">
 <h4>Example<a class="headerlink" href="#id27" title="Permalink to this headline"></a></h4>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">ProjectDir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">testing</span><span class="w"></span>
-<span class="nt">StudyTag</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TEST</span><span class="w"></span>
-<span class="nt">FullName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Test datman installation</span><span class="w"></span>
-<span class="nt">Description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">This is a temporary study used to test against.</span><span class="w"></span>
-<span class="nt">PrimaryContact</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Clevis Boxx</span><span class="w"></span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">ProjectDir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">testing</span>
+<span class="nt">StudyTag</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TEST</span>
+<span class="nt">FullName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Test datman installation</span>
+<span class="nt">Description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">This is a temporary study used to test against.</span>
+<span class="nt">PrimaryContact</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Clevis Boxx</span>
 </pre></div>
 </div>
 </section>
@@ -1002,20 +1002,20 @@ queue is available. Currently this can be either ‘sge’ or ‘slurm’.</p></
 </section>
 <section id="id30">
 <h4>Example<a class="headerlink" href="#id30" title="Permalink to this headline"></a></h4>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">SystemSettings</span><span class="p">:</span><span class="w"></span>
-<span class="w">   </span><span class="c1"># You can capitalize system names however you like but when setting</span><span class="w"></span>
-<span class="w">   </span><span class="c1"># DM_SYSTEM you must match the case exactly (e.g. DM_SYSTEM=testing)</span><span class="w"></span>
-<span class="w">   </span><span class="nt">MySystem</span><span class="p">:</span><span class="w"></span>
-<span class="w">       </span><span class="nt">DatmanProjectsDir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/archive/data</span><span class="w"></span>
-<span class="w">       </span><span class="nt">DatmanAssetsDir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/archive/code/datman/assets</span><span class="w"></span>
-<span class="w">       </span><span class="nt">ConfigDir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/archive/code/config</span><span class="w"></span>
-<span class="w">       </span><span class="nt">Queue</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slurm</span><span class="w"></span>
-<span class="w">   </span><span class="nt">testing</span><span class="p">:</span><span class="w"></span>
-<span class="w">       </span><span class="c1"># Note that &#39;testing&#39; is using the same copy of datman (i.e. datman</span><span class="w"></span>
-<span class="w">       </span><span class="c1"># is only installed once) but the data + config files are located elsewhere</span><span class="w"></span>
-<span class="w">       </span><span class="nt">DatmanProjectsDir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/tmp/data/</span><span class="w"></span>
-<span class="w">       </span><span class="nt">DatmanAssetsDir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/archive/code/datman/assets</span><span class="w"></span>
-<span class="w">       </span><span class="nt">ConfigDir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/tmp/data/config</span><span class="w"></span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">SystemSettings</span><span class="p">:</span>
+<span class="w">   </span><span class="c1"># You can capitalize system names however you like but when setting</span>
+<span class="w">   </span><span class="c1"># DM_SYSTEM you must match the case exactly (e.g. DM_SYSTEM=testing)</span>
+<span class="w">   </span><span class="nt">MySystem</span><span class="p">:</span>
+<span class="w">       </span><span class="nt">DatmanProjectsDir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/archive/data</span>
+<span class="w">       </span><span class="nt">DatmanAssetsDir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/archive/code/datman/assets</span>
+<span class="w">       </span><span class="nt">ConfigDir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/archive/code/config</span>
+<span class="w">       </span><span class="nt">Queue</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slurm</span>
+<span class="w">   </span><span class="nt">testing</span><span class="p">:</span>
+<span class="w">       </span><span class="c1"># Note that &#39;testing&#39; is using the same copy of datman (i.e. datman</span>
+<span class="w">       </span><span class="c1"># is only installed once) but the data + config files are located elsewhere</span>
+<span class="w">       </span><span class="nt">DatmanProjectsDir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/tmp/data/</span>
+<span class="w">       </span><span class="nt">DatmanAssetsDir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/archive/code/datman/assets</span>
+<span class="w">       </span><span class="nt">ConfigDir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/tmp/data/config</span>
 </pre></div>
 </div>
 </section>
@@ -1096,16 +1096,16 @@ Must be defined if XnatSource is defined.</p></li>
 </section>
 <section id="id33">
 <h4>Example<a class="headerlink" href="#id33" title="Permalink to this headline"></a></h4>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">XnatServer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myxnat.ca</span><span class="w"></span>
-<span class="nt">XnatPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">777</span><span class="w"></span>
-<span class="nt">XnatArchive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyProject</span><span class="w"></span>
-<span class="nt">XnatConvention</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KCNI</span><span class="w"></span>
-<span class="nt">XnatCredentials</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">xnatlogin.txt</span><span class="w">   </span><span class="c1"># Should exist in the study metadata folder</span><span class="w"></span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">XnatServer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myxnat.ca</span>
+<span class="nt">XnatPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">777</span>
+<span class="nt">XnatArchive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyProject</span>
+<span class="nt">XnatConvention</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KCNI</span>
+<span class="nt">XnatCredentials</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">xnatlogin.txt</span><span class="w">   </span><span class="c1"># Should exist in the study metadata folder</span>
 
-<span class="c1"># The below is only used because an XNAT server is being used as a data source</span><span class="w"></span>
-<span class="nt">XnatSource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">otherxnat.ca</span><span class="w"></span>
-<span class="nt">XnatSourceArchive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RemoteProjectID</span><span class="w"></span>
-<span class="nt">XnatSourceCredentials</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">remotelogin.txt</span><span class="w">  </span><span class="c1"># Should exist in the study metadata folder</span><span class="w"></span>
+<span class="c1"># The below is only used because an XNAT server is being used as a data source</span>
+<span class="nt">XnatSource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">otherxnat.ca</span>
+<span class="nt">XnatSourceArchive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RemoteProjectID</span>
+<span class="nt">XnatSourceCredentials</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">remotelogin.txt</span><span class="w">  </span><span class="c1"># Should exist in the study metadata folder</span>
 </pre></div>
 </div>
 </section>

@@ -75,16 +75,16 @@
              
   <section id="installation">
 <h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h1>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/TIGRLab/datman.git
-<span class="nb">cd</span> datman
-pip install .
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/TIGRLab/datman.git
+<span class="nb">cd</span><span class="w"> </span>datman
+pip<span class="w"> </span>install<span class="w"> </span>.
 </pre></div>
 </div>
 <p>You’ll also want to update your path to make datman’s command line utilities
 (the scripts in datman’s bin folder) accessible without having to type out
 the full path, as shown below.</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># $ROOTDIR should be replaced with the full path to your cloned datman copy</span>
-<span class="nb">export</span> <span class="nv">PATH</span><span class="o">=</span><span class="si">${</span><span class="nv">PATH</span><span class="si">}</span>:<span class="nv">$ROOTDIR</span>/datman/bin
+<span class="nb">export</span><span class="w"> </span><span class="nv">PATH</span><span class="o">=</span><span class="si">${</span><span class="nv">PATH</span><span class="si">}</span>:<span class="nv">$ROOTDIR</span>/datman/bin
 </pre></div>
 </div>
 <p>Datman requires some configuration files to run, as described
@@ -92,19 +92,19 @@ the full path, as shown below.</p>
 make your settings available to datman by setting the DM_CONFIG environment
 variable to the full path to your main config file and setting DM_SYSTEM to
 your system name.</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span> <span class="nv">DM_CONFIG</span><span class="o">=</span>&lt;full path to your main config file&gt;
-<span class="nb">export</span> <span class="nv">DM_SYSTEM</span><span class="o">=</span>&lt;name of a system within the config file&gt;
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DM_CONFIG</span><span class="o">=</span>&lt;full<span class="w"> </span>path<span class="w"> </span>to<span class="w"> </span>your<span class="w"> </span>main<span class="w"> </span>config<span class="w"> </span>file&gt;
+<span class="nb">export</span><span class="w"> </span><span class="nv">DM_SYSTEM</span><span class="o">=</span>&lt;name<span class="w"> </span>of<span class="w"> </span>a<span class="w"> </span>system<span class="w"> </span>within<span class="w"> </span>the<span class="w"> </span>config<span class="w"> </span>file&gt;
 </pre></div>
 </div>
 <p><strong>Optional Configuration</strong></p>
 <p>If you plan to use the XNAT integration you’ll also need to provide your
 XNAT credentials</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span> <span class="nv">XNAT_USER</span><span class="o">=</span>&lt;your username&gt;
-<span class="nb">export</span> <span class="nv">XNAT_PASS</span><span class="o">=</span>&lt;your password&gt;
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">XNAT_USER</span><span class="o">=</span>&lt;your<span class="w"> </span>username&gt;
+<span class="nb">export</span><span class="w"> </span><span class="nv">XNAT_PASS</span><span class="o">=</span>&lt;your<span class="w"> </span>password&gt;
 </pre></div>
 </div>
 <p>Using the redcap integration requires providing a redcap token</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span> <span class="nv">REDCAP_TOKEN</span><span class="o">=</span>&lt;your token here&gt;
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">REDCAP_TOKEN</span><span class="o">=</span>&lt;your<span class="w"> </span>token<span class="w"> </span>here&gt;
 </pre></div>
 </div>
 <p><strong>Software Dependencies</strong></p>
@@ -127,10 +127,10 @@ Note that the docker container does not contain the dependencies
 dm_qc_report.py needs to run (largely due to matlab license issues). All other
 scripts will run correctly, though.</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run interactively</span>
-docker run -it -v <span class="si">${</span><span class="nv">data_dir</span><span class="si">}</span>:/data -v <span class="si">${</span><span class="nv">conf_dir</span><span class="si">}</span>:/config tigrlab/datman
+docker<span class="w"> </span>run<span class="w"> </span>-it<span class="w"> </span>-v<span class="w"> </span><span class="si">${</span><span class="nv">data_dir</span><span class="si">}</span>:/data<span class="w"> </span>-v<span class="w"> </span><span class="si">${</span><span class="nv">conf_dir</span><span class="si">}</span>:/config<span class="w"> </span>tigrlab/datman
 
 <span class="c1"># Run just a single script (e.g. dm_sftp.py)</span>
-docker run -v <span class="si">${</span><span class="nv">data_dir</span><span class="si">}</span>:/data -v <span class="si">${</span><span class="nv">conf_dir</span><span class="si">}</span>:/config tigrlab/datman dm_sftp.py <span class="nv">$STUDY_NICKNAME</span>
+docker<span class="w"> </span>run<span class="w"> </span>-v<span class="w"> </span><span class="si">${</span><span class="nv">data_dir</span><span class="si">}</span>:/data<span class="w"> </span>-v<span class="w"> </span><span class="si">${</span><span class="nv">conf_dir</span><span class="si">}</span>:/config<span class="w"> </span>tigrlab/datman<span class="w"> </span>dm_sftp.py<span class="w"> </span><span class="nv">$STUDY_NICKNAME</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">data_dir</span></code> should be the path to the directory that will hold all managed
@@ -140,10 +140,10 @@ configuration files.</p>
 <a class="reference internal" href="datman_conf.html#datman-conf"><span class="std std-ref">here.</span></a> The main configuration file should be named
 <code class="docutils literal notranslate"><span class="pre">main_config.yml</span></code> for the container to detect it. You’ll also need to add
 this system configuration to your <code class="docutils literal notranslate"><span class="pre">SystemSettings</span></code> block.</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">docker</span><span class="p">:</span><span class="w"></span>
-<span class="w">  </span><span class="nt">DatmanProjectsDir</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;/data&#39;</span><span class="w"></span>
-<span class="w">  </span><span class="nt">DatmanAssetsDir</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;/datman/assets&#39;</span><span class="w"></span>
-<span class="w">  </span><span class="nt">ConfigDir</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;/config&#39;</span><span class="w"></span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">docker</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">DatmanProjectsDir</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;/data&#39;</span>
+<span class="w">  </span><span class="nt">DatmanAssetsDir</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;/datman/assets&#39;</span>
+<span class="w">  </span><span class="nt">ConfigDir</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;/config&#39;</span>
 </pre></div>
 </div>
 <p><strong>Running as a specific user</strong></p>
@@ -153,17 +153,17 @@ retrieve a user’s ID with <code class="docutils literal notranslate"><span cla
 user.</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Any datman scripts run this way will generate outputs owned by</span>
 <span class="c1"># the user who ran the container instead of root.</span>
-docker run -it -v <span class="si">${</span><span class="nv">data_dir</span><span class="si">}</span>:/data -v <span class="si">${</span><span class="nv">conf_dir</span><span class="si">}</span>:/config --user <span class="k">$(</span>id -u<span class="k">)</span> tigrlab/datman
+docker<span class="w"> </span>run<span class="w"> </span>-it<span class="w"> </span>-v<span class="w"> </span><span class="si">${</span><span class="nv">data_dir</span><span class="si">}</span>:/data<span class="w"> </span>-v<span class="w"> </span><span class="si">${</span><span class="nv">conf_dir</span><span class="si">}</span>:/config<span class="w"> </span>--user<span class="w"> </span><span class="k">$(</span>id<span class="w"> </span>-u<span class="k">)</span><span class="w"> </span>tigrlab/datman
 </pre></div>
 </div>
 <p><strong>Providing credentials for XNAT / REDCap</strong></p>
 <p>If you want to run a datman script that accesses XNAT or REDCap you can provide
 your credentials using docker’s -e flag.</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># To run dm_xnat_extract.py</span>
-docker run -v <span class="si">${</span><span class="nv">data_dir</span><span class="si">}</span>:/data -v <span class="si">${</span><span class="nv">conf_dir</span><span class="si">}</span>:/config -e <span class="s2">&quot;XNAT_USER=&lt;user&gt;&quot;</span> -e <span class="s2">&quot;XNAT_PASS=&lt;password&gt;&quot;</span> tigrlab/datman dm_xnat_extract.py &lt;STUDY&gt;
+docker<span class="w"> </span>run<span class="w"> </span>-v<span class="w"> </span><span class="si">${</span><span class="nv">data_dir</span><span class="si">}</span>:/data<span class="w"> </span>-v<span class="w"> </span><span class="si">${</span><span class="nv">conf_dir</span><span class="si">}</span>:/config<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;XNAT_USER=&lt;user&gt;&quot;</span><span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;XNAT_PASS=&lt;password&gt;&quot;</span><span class="w"> </span>tigrlab/datman<span class="w"> </span>dm_xnat_extract.py<span class="w"> </span>&lt;STUDY&gt;
 
 <span class="c1"># To run dm_redcap_scan_completed.py</span>
-docker run -v <span class="si">${</span><span class="nv">data_dir</span><span class="si">}</span>:/data -v <span class="si">${</span><span class="nv">conf_dir</span><span class="si">}</span>:/config -e <span class="s2">&quot;REDCAP_TOKEN=&lt;your token&gt;&quot;</span> tigrlab/datman dm_redcap_scan_completed.py &lt;STUDY&gt;
+docker<span class="w"> </span>run<span class="w"> </span>-v<span class="w"> </span><span class="si">${</span><span class="nv">data_dir</span><span class="si">}</span>:/data<span class="w"> </span>-v<span class="w"> </span><span class="si">${</span><span class="nv">conf_dir</span><span class="si">}</span>:/config<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;REDCAP_TOKEN=&lt;your token&gt;&quot;</span><span class="w"> </span>tigrlab/datman<span class="w"> </span>dm_redcap_scan_completed.py<span class="w"> </span>&lt;STUDY&gt;
 </pre></div>
 </div>
 </section>
