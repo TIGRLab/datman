@@ -219,15 +219,19 @@ class BIDSFile(object):
         self.run = run
         self.suffix = suffix
 
-        if echo or task:
+        if echo:
             if any([ce, dir, mod]):
+                raise ParseException("Invalid entity found for echo data")
+        if task:
+            if any([ce, mod]):
                 raise ParseException("Invalid entity found for task data")
         if ce or mod:
             if any([task, echo, dir]):
                 raise ParseException("Invalid entity found for anat data")
         if dir:
-            if any([ce, rec, mod, task, echo]):
+            if any([ce, rec, mod, echo]):
                 raise ParseException("Invalid entity found for multiphase fmap")
+
         self.task = task
         self.acq = acq
         self.ce = ce
