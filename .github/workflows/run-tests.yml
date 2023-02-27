@@ -1,5 +1,4 @@
-# Don't change this name or it'll change the text of the badge for the workflow :)
-name: Tests
+name: Prepare test results
 
 on:
   push:
@@ -32,31 +31,12 @@ jobs:
                  --cov=datman \
                  tests/ | tee /tmp/pytest-coverage.txt
 
-      - name: Add coverage comment
-        id: coverage
-        uses: MishaKav/pytest-coverage-comment@main
+      - uses: actions/upload-artifact@v3
         with:
-          pytest-coverage-path: /tmp/pytest-coverage.txt
-          junitxml-path: /tmp/pytest.xml
-          report-only-changed-files: true
-          github-token: ${{ secrets.DATMAN_COVERAGE_COMMENT }}
-
-      - name: Create/update coverage badge
-        if: github.event_name == 'push'
-        uses: schneegans/dynamic-badges-action@v1.4.0
-        with:
-          auth: ${{ secrets.GIST_TOKEN }}
-          gistID: cffe8a0a522de7697edacbf74f70a7e1
-          filename: datman-coverage.json
-          label: Coverage
-          message: ${{ steps.coverage.outputs.coverage }}
-          valColorRange: ${{ steps.coverage.outputs.coverage }}
-          maxColorRange: 100
-          minColorRange: 0
-
-      - name: Fail the check if a test has failed
-        if: ${{ steps.coverage.outputs.failures != 0 }}
-        run: exit 1
+          name: pytest
+          path: |
+            tmp/pytest.xml
+            tmp/pytest-coverage.txt
 
   test-alt-py-versions:
     runs-on: ubuntu-20.04
