@@ -35,8 +35,8 @@ jobs:
         with:
           name: pytest
           path: |
-            tmp/pytest.xml
-            tmp/pytest-coverage.txt
+            /tmp/pytest.xml
+            /tmp/pytest-coverage.txt
 
   test-alt-py-versions:
     runs-on: ubuntu-20.04
