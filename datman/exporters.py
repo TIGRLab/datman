@@ -349,7 +349,7 @@ class NiiLinkExporter(SessionExporter):
             side_car = json.load(fh)
 
         description = side_car['SeriesDescription']
-        num = self.get_series_num(side_car, description)
+        num = self.get_series_num(side_car)
 
         dm_name = make_filename(self.ident, scan_tag, num, description)
         return dm_name
