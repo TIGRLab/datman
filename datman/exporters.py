@@ -21,7 +21,7 @@ import pydicom as dicom
 
 import datman.dashboard
 from datman.exceptions import UndefinedSetting, DashboardException
-from datman.scanid import (parse_filename, parse_bids_filename, ParseException,
+from datman.scanid import (parse_bids_filename, ParseException, make_filename,
                            KCNIIdentifier)
 from datman.utils import (run, make_temp_directory, get_extension,
                           filter_niftis, find_tech_notes, read_blacklist,
@@ -291,6 +291,12 @@ class NiiLinkExporter(SessionExporter):
     def match_dm_to_bids(self, dm_names, bids_names):
         """Match each datman file name to its BIDS equivalent.
 
+        Args:
+            dm_names (:obj:`list`): A list of all valid datman scan names found
+                for this session on XNAT.
+            bids_names (:obj:`list`): A list of all bids files (minus
+                extensions) that exist for this session.
+
         Returns:
             :obj:`dict`: A dictionary matching the intended datman file name to
                 the full path (minus extension) of the same series in the bids
@@ -308,44 +314,63 @@ class NiiLinkExporter(SessionExporter):
             matches = self._find_matching_files(bids_names, bids_conf)
 
             for item in matches:
-                dm_name = self.make_datman_name(item, tag)
-                if not dm_name:
-                    logger.warning(f"Failed to assign datman-format name to {item}")
+                try:
+                    dm_name = self.make_datman_name(item, tag)
+                except Exception as e:
+                    logger.error(
+                        f"Failed to assign datman style name to {item}. "
+                        f"Reason - {e}")
                     continue
                 name_map[dm_name] = item
 
-        # Report scans that are on XNAT but dont exist in the bids folder
-        # (or couldnt be assigned a name)
+        # Report scans that are on XNAT but that dont exist in the name map,
+        # because bids export may have failed (or tag configuration may be
+        # incorrect).
         for scan in dm_names:
             if scan not in name_map:
-                logger.error(f"Expected scan {scan} not found in BIDs folder.")
+                logger.error(f"Expected scan {scan} not found in BIDS folder.")
 
         return name_map
 
-    def make_datman_name(self, bids_path, tag):
-        side_car = bids_path + ".json"
-        if not os.path.exists(side_car):
-            logger.debug(
-                f"Found bids file missing JSON side car: {bids_path}")
-            # Raise instead and catch in caller
-            return ""
+    def make_datman_name(self, bids_path, scan_tag):
+        """Create a Datman-style file name for a bids file.
 
-        # Catch exceptions (maybe move above log message to a catch)
+        Args:
+            bids_path (str): The full path (+/- extension) of a bids file to
+                create a datman name for.
+            scan_tag (str): A datman style tag to apply to the bids scan.
+
+        Returns:
+            str: A valid datman style file name (minus extension).
+        """
+        side_car = bids_path + ".json"
+
         with open(side_car) as fh:
-            # Make sure json is imported
-            # Catch exceptions
             side_car = json.load(fh)
 
         description = side_car['SeriesDescription']
         num = self.get_series_num(side_car, description)
 
-        dm_name = datman.scanid.make_filename(
-            self.ident, tag, num, description)
+        dm_name = make_filename(self.ident, scan_tag, num, description)
         return dm_name
 
-    def get_series_num(self, side_car, description):
-        # This is an additional check needed because dcm2bids modifies the series
-        # number for one half of split files (e.g. FMAP-AP/FMAP-PA)
+    def get_series_num(self, side_car):
+        """Find the correct series number for a scan.
+
+        Most JSON side car files have the correct series number already.
+        However, series that are split during nifti conversion (e.g.
+        FMAP-AP/-PA) end up with one of the two JSON files having a modified
+        series number. This function will default to the XNAT series number
+        whenever possible, for accuracy.
+
+        Args:
+            side_car (:obj:`dict`): A dictionary containing the contents of a
+                scan's JSON side car file.
+
+        Returns:
+            str: The most accurate series number found for the scan.
+        """
+        description = side_car['SeriesDescription']
         num = str(side_car['SeriesNumber'])
         xnat_scans = [item for item in self.experiment.scans
                       if item.description == description]
@@ -357,9 +382,10 @@ class NiiLinkExporter(SessionExporter):
         """Search a list of bids files to find series that match a datman tag.
 
         Args:
-            :obj:`list`: A list of bids file names to search through.
-            :obj:`dict`: The bids configuration for a single tag from datman's
-                configuration files.
+            bids_names (:obj:`list`): A list of bids file names to search
+                through.
+            bids_conf (:obj:`dict`): The bids configuration for a single tag
+                from datman's configuration files.
 
         Returns:
             :obj:`list`: A list of full paths (minus extension) of bids files
