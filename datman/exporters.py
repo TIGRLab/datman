@@ -374,9 +374,20 @@ class NiiLinkExporter(SessionExporter):
         num = str(side_car['SeriesNumber'])
         xnat_scans = [item for item in self.experiment.scans
                       if item.description == description]
-        if not xnat_scans or len(xnat_scans) > 1:
+
+        if not xnat_scans:
             return num
-        return xnat_scans[0].series
+
+        if len(xnat_scans) == 1:
+            return xnat_scans[0].series
+
+        # Catch split series (dcm2bids adds 1000 to the series number of
+        # one of the two files)
+        split_num = str(int(num) - 1000).zfill(2)
+        if any([split_num == str(item.series) for item in xnat_scans]):
+            return split_num
+
+        return num
 
     def _find_matching_files(self, bids_names, bids_conf):
         """Search a list of bids files to find series that match a datman tag.
