@@ -384,7 +384,8 @@ class NiiLinkExporter(SessionExporter):
         # Catch split series (dcm2bids adds 1000 to the series number of
         # one of the two files)
         split_num = str(int(num) - 1000).zfill(2)
-        if any([split_num == str(item.series) for item in xnat_scans]):
+        if any([split_num == str(item.series).zfill(2)
+                for item in xnat_scans]):
             return split_num
 
         return num
