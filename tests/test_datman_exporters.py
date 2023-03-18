@@ -38,8 +38,6 @@ class TestNiiLinkExporter:
             matches = exporter.match_dm_to_bids(dm_names, bids_names)
 
         assert len(matches) == 1
-        print(matches)
-
         assert dm_names['T1'][0] in matches
         assert matches[dm_names['T1'][0]] == bids_names[1]
 
@@ -121,6 +119,109 @@ class TestNiiLinkExporter:
         assert expected_name in matches
         assert matches[expected_name] == bids_names[1]
 
+    def test_match_dm_to_bids_makes_correct_filenames_for_split_field_maps(
+                self, config, session, experiment):
+        fmap = Mock()
+        fmap.names = []
+        fmap.description = 'Rs_FieldMap'
+        fmap.series = 7
+        experiment.scans = [fmap]
+
+        exporter = exporters.NiiLinkExporter(config, session, experiment)
+
+        dm_names = {}
+
+        fmap_ap = (
+            f'{session.bids_path}/fmap/sub-CMH0000_ses-01_acq-rest_dir-AP_epi'
+        )
+        fmap_pa = (
+            f'{session.bids_path}/fmap/sub-CMH0000_ses-01_acq-rest_dir-PA_epi'
+        )
+
+        bids_names = [fmap_ap, fmap_pa]
+
+        json_contents = {
+            fmap_ap:
+                '{"SeriesNumber": "1007", "SeriesDescription": "Rs_FieldMap"}',
+            fmap_pa:
+                '{"SeriesNumber": "7", "SeriesDescription": "Rs_FieldMap"}'
+        }
+
+        fake_jsons = replace_sidecars(json_contents)
+
+        with patch('datman.exporters.open', new=fake_jsons) as mock_fh:
+            matches = exporter.match_dm_to_bids(dm_names, bids_names)
+
+        assert len(matches) == 2
+        expected_ap = "STUDY01_CMH_0000_01_01_FMAP-AP_07_Rs-FieldMap"
+        expected_pa = "STUDY01_CMH_0000_01_01_FMAP-PA_07_Rs-FieldMap"
+
+        assert expected_ap in matches
+        assert matches[expected_ap] == bids_names[0]
+
+        assert expected_pa in matches
+        assert matches[expected_pa] == bids_names[1]
+
+    def test_match_dm_to_bids_handles_multiple_split_field_maps(
+                self, config, session, experiment):
+        for series in [7, 13]:
+            mock_scan = Mock()
+            mock_scan.names = []
+            mock_scan.description = 'Rs_FieldMap'
+            mock_scan.series = series
+            experiment.scans.append(mock_scan)
+
+        exporter = exporters.NiiLinkExporter(config, session, experiment)
+
+        dm_names = {}
+
+        fmap_ap1 = (
+            f'{session.bids_path}/fmap/sub-CMH0000_ses-01_acq-rest_'
+            'dir-AP_run-01_epi'
+        )
+        fmap_pa1 = (
+            f'{session.bids_path}/fmap/sub-CMH0000_ses-01_acq-rest_'
+            'dir-PA_run-01_epi'
+        )
+        fmap_ap2 = (
+            f'{session.bids_path}/fmap/sub-CMH0000_ses-01_acq-rest_'
+            'dir-AP_run-02_epi'
+        )
+        fmap_pa2 = (
+            f'{session.bids_path}/fmap/sub-CMH0000_ses-01_acq-rest_'
+            'dir-PA_run-02_epi'
+        )
+
+        bids_names = [fmap_ap1, fmap_pa1, fmap_ap2, fmap_pa2]
+
+        json_contents = {
+            fmap_ap1:
+                '{"SeriesNumber": "1007", "SeriesDescription": "Rs_FieldMap"}',
+            fmap_pa1:
+                '{"SeriesNumber": "7", "SeriesDescription": "Rs_FieldMap"}',
+            fmap_ap2:
+                '{"SeriesNumber": "1013", "SeriesDescription": "Rs_FieldMap"}',
+            fmap_pa2:
+                '{"SeriesNumber": "13", "SeriesDescription": "Rs_FieldMap"}',
+        }
+
+        fake_jsons = replace_sidecars(json_contents)
+
+        with patch('datman.exporters.open', new=fake_jsons) as mock_fh:
+            matches = exporter.match_dm_to_bids(dm_names, bids_names)
+
+        assert len(matches) == 4
+        expected_ap1 = "STUDY01_CMH_0000_01_01_FMAP-AP_07_Rs-FieldMap"
+        expected_pa1 = "STUDY01_CMH_0000_01_01_FMAP-PA_07_Rs-FieldMap"
+        expected_ap2 = "STUDY01_CMH_0000_01_01_FMAP-AP_13_Rs-FieldMap"
+        expected_pa2 = "STUDY01_CMH_0000_01_01_FMAP-PA_13_Rs-FieldMap"
+        expected_names = [expected_ap1, expected_pa1,
+                         expected_ap2, expected_pa2]
+
+        for idx, expected_name in enumerate(expected_names):
+            assert expected_name in matches
+            assert matches[expected_name] == bids_names[idx]
+
     @pytest.fixture
     def config(self):
         """Create a mock datman config object, with tags defined.
@@ -141,7 +242,24 @@ class TestNiiLinkExporter:
             'CBF': {
                 'Bids': {'class': 'perf', 'modality_label': 'cbf'},
                 'Count': 1
+            },
+            'FMAP-AP': {
+                'Bids': {
+                    'class': 'fmap',
+                    'modality_label': 'AP',
+                    'match_acq': ['rest', 'nback']
+                },
+                'Count': 1
+            },
+            'FMAP-PA': {
+                'Bids': {
+                    'class': 'fmap',
+                    'modality_label': 'PA',
+                    'match_acq': ['rest', 'nback']
+                },
+                'Count': 1
             }
+
         }
 
         def get_tags(site=None):
