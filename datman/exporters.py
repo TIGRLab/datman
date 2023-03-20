@@ -323,12 +323,9 @@ class NiiLinkExporter(SessionExporter):
                     continue
                 name_map[dm_name] = item
 
-        # Report scans that are on XNAT but that dont exist in the name map,
-        # because bids export may have failed (or tag configuration may be
-        # incorrect).
         for scan in dm_names:
             if scan not in name_map:
-                logger.error(f"Expected scan {scan} not found in BIDS folder.")
+                logger.info(f"Expected scan {scan} not found in BIDS folder.")
 
         return name_map
 
