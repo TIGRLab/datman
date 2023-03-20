@@ -1582,8 +1582,7 @@ class XNATScan(XNATObject):
             if re.search(regex, search_target, re.IGNORECASE):
                 matches[tag] = pattern
 
-        if len(matches) == 1 or (len(matches) == 2 and (
-                self.multiecho or is_split_series(matches))):
+        if len(matches) == 1 or (len(matches) == 2 and self.multiecho):
             self.tags = list(matches.keys())
             return matches
         return self._set_fmap_tag(tag_map, matches)
@@ -1619,8 +1618,7 @@ class XNATScan(XNATObject):
                     self.echo_dict[echo_num] = name
             names.append(name)
 
-        if len(self.tags) > 1 and not (
-                self.multiecho or is_split_series(tag_settings)):
+        if len(self.tags) > 1 and not self.multiecho:
             logger.error(f"Multiple export patterns match for {base_name}, "
                          f"descr: {self.description}, tags: {self.tags}")
             names = []
@@ -1757,17 +1755,3 @@ class XNATScan(XNATObject):
 
     def __repr__(self):
         return self.__str__()
-
-
-def is_split_series(matched_tags):
-    """Check if an XNAT series is meant to be split into multiple niftis.
-
-    Args:
-        matched_tags (:obj:`dict`): A dictionary of tags that match a single
-            XNAT series' description. Each tag should be mapped to its
-            configuration values.
-
-    Returns:
-        bool: True if all matched tags contain the 'SplitSeries' option.
-    """
-    return all(['SplitSeries' in config for config in matched_tags.values()])
