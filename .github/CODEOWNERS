@@ -1,0 +1,5 @@
+# Users / teams listed here will be automatically assigned for code review
+# To always automatically assign reviews to a user add them here by username
+# To randomly assign them only some of the time, add them to the datman-reviewers
+# group.
+*       @DESm1th @TIGRLab/datman-reviewers

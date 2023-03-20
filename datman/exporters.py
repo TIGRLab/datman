@@ -12,6 +12,7 @@ unique key that can be referenced in config files (e.g. 'nii').
 from abc import ABC, abstractmethod
 from datetime import datetime
 from glob import glob
+import json
 import logging
 import os
 import re
@@ -20,7 +21,7 @@ import pydicom as dicom
 
 import datman.dashboard
 from datman.exceptions import UndefinedSetting, DashboardException
-from datman.scanid import (parse_filename, parse_bids_filename, ParseException,
+from datman.scanid import (parse_bids_filename, ParseException, make_filename,
                            KCNIIdentifier)
 from datman.utils import (run, make_temp_directory, get_extension,
                           filter_niftis, find_tech_notes, read_blacklist,
@@ -248,10 +249,12 @@ class NiiLinkExporter(SessionExporter):
     ext = ".nii.gz"
 
     def __init__(self, config, session, experiment, **kwargs):
+        self.ident = session._ident
         self.output_dir = session.nii_path
+        self.bids_path = session.bids_path
         self.config = config
         self.tags = config.get_tags(site=session.site)
-        self.bids_path = session.bids_path
+
         super().__init__(config, session, experiment, **kwargs)
 
         self.dm_names = self.get_dm_names()
@@ -262,14 +265,13 @@ class NiiLinkExporter(SessionExporter):
         """Get the datman-style scan names for an entire XNAT experiment.
 
         Returns:
-            :obj:`dict`: A dictionary of datman-style scan names for the
-                session, organized by tag.
+            :obj:`list`: A list of datman-style names for all scans found
+                for the session on XNAT.
         """
-        name_map = {}
+        names = []
         for scan in self.experiment.scans:
-            for idx, name in enumerate(scan.names):
-                name_map.setdefault(scan.tags[idx], []).append(name)
-        return name_map
+            names.extend(scan.names)
+        return names
 
     def get_bids_niftis(self):
         """Get all nifti files from a BIDS session.
@@ -289,13 +291,19 @@ class NiiLinkExporter(SessionExporter):
     def match_dm_to_bids(self, dm_names, bids_names):
         """Match each datman file name to its BIDS equivalent.
 
+        Args:
+            dm_names (:obj:`list`): A list of all valid datman scan names found
+                for this session on XNAT.
+            bids_names (:obj:`list`): A list of all bids files (minus
+                extensions) that exist for this session.
+
         Returns:
             :obj:`dict`: A dictionary matching the intended datman file name to
                 the full path (minus extension) of the same series in the bids
                 folder.
         """
         name_map = {}
-        for tag in dm_names:
+        for tag in self.tags:
             try:
                 bids_conf = self.tags.get(tag)['Bids']
             except KeyError:
@@ -305,49 +313,88 @@ class NiiLinkExporter(SessionExporter):
 
             matches = self._find_matching_files(bids_names, bids_conf)
 
-            if bids_conf.get('class') == 'fmap' and bids_conf.get('match_str'):
-                self._add_fmap_names(
-                    dm_names[tag], matches, bids_conf.get('match_str'),
-                    name_map)
-                continue
-
-            try:
-                bids_files = sorted(
-                    matches,
-                    key=lambda x: int(parse_bids_filename(x).run)
-                )
-            except ParseException:
-                logger.error(
-                    f"Invalid bids file name found for {self.experiment.name}."
-                    f" Skipping datman nifti links for {tag}.")
-                continue
-
-            try:
-                dm_files = sorted(
-                    dm_names[tag],
-                    key=lambda x: int(parse_filename(x)[2])
-                )
-            except ParseException:
-                logger.error(
-                    "Invalid datman file name found for "
-                    f"{self.experiment.name}. Skipping datman nifti links for "
-                    f"{tag}")
-                continue
-
-            for idx, item in enumerate(dm_files):
-                if idx >= len(bids_files):
+            for item in matches:
+                try:
+                    dm_name = self.make_datman_name(item, tag)
+                except Exception as e:
+                    logger.error(
+                        f"Failed to assign datman style name to {item}. "
+                        f"Reason - {e}")
                     continue
-                name_map[item] = bids_files[idx]
+                name_map[dm_name] = item
+
+        for scan in dm_names:
+            if scan not in name_map:
+                logger.info(f"Expected scan {scan} not found in BIDS folder.")
 
         return name_map
+
+    def make_datman_name(self, bids_path, scan_tag):
+        """Create a Datman-style file name for a bids file.
+
+        Args:
+            bids_path (str): The full path (+/- extension) of a bids file to
+                create a datman name for.
+            scan_tag (str): A datman style tag to apply to the bids scan.
+
+        Returns:
+            str: A valid datman style file name (minus extension).
+        """
+        side_car = bids_path + ".json"
+
+        with open(side_car) as fh:
+            side_car = json.load(fh)
+
+        description = side_car['SeriesDescription']
+        num = self.get_series_num(side_car)
+
+        dm_name = make_filename(self.ident, scan_tag, num, description)
+        return dm_name
+
+    def get_series_num(self, side_car):
+        """Find the correct series number for a scan.
+
+        Most JSON side car files have the correct series number already.
+        However, series that are split during nifti conversion (e.g.
+        FMAP-AP/-PA) end up with one of the two JSON files having a modified
+        series number. This function will default to the XNAT series number
+        whenever possible, for accuracy.
+
+        Args:
+            side_car (:obj:`dict`): A dictionary containing the contents of a
+                scan's JSON side car file.
+
+        Returns:
+            str: The most accurate series number found for the scan.
+        """
+        description = side_car['SeriesDescription']
+        num = str(side_car['SeriesNumber'])
+        xnat_scans = [item for item in self.experiment.scans
+                      if item.description == description]
+
+        if not xnat_scans:
+            return num
+
+        if len(xnat_scans) == 1:
+            return xnat_scans[0].series
+
+        # Catch split series (dcm2bids adds 1000 to the series number of
+        # one of the two files)
+        split_num = str(int(num) - 1000).zfill(2)
+        if any([split_num == str(item.series).zfill(2)
+                for item in xnat_scans]):
+            return split_num
+
+        return num
 
     def _find_matching_files(self, bids_names, bids_conf):
         """Search a list of bids files to find series that match a datman tag.
 
         Args:
-            :obj:`list`: A list of bids file names to search through.
-            :obj:`dict`: The bids configuration for a single tag from datman's
-                configuration files.
+            bids_names (:obj:`list`): A list of bids file names to search
+                through.
+            bids_conf (:obj:`dict`): The bids configuration for a single tag
+                from datman's configuration files.
 
         Returns:
             :obj:`list`: A list of full paths (minus extension) of bids files
@@ -359,6 +406,8 @@ class NiiLinkExporter(SessionExporter):
         matches = self._filter_bids(
             matches, bids_conf.get(self._get_label_key(bids_conf)))
         matches = self._filter_bids(matches, bids_conf.get('task'))
+        # The below is used to more accurately match FMAP tags
+        matches = self._filter_bids(matches, bids_conf.get('match_acq'))
         return matches
 
     def _filter_bids(self, niftis, search_term, par_dir=False):
@@ -398,88 +447,6 @@ class NiiLinkExporter(SessionExporter):
             if 'label' in key:
                 return key
         return ""
-
-    def _add_fmap_names(self, dm_fmaps, bids_fmaps, match_map, name_map):
-        """Add datman to BIDS filename mappings for field maps.
-
-        Args:
-            dm_fmaps (:obj:`list`): A list of datman-style field map file
-                names.
-            bids_fmaps (:obj:`list`): A list of BIDS file names that
-                match the datman field map tag.
-            match_map (:obj:`dict`): The 'match_str' field of the bids
-                configuration. Used to map datman field maps to BIDS
-                file names.
-            name_map (:obj:`dict`): The dictionary holding the datman to
-                bids name map that is being constructed. Field maps
-                will be added to this dictionary.
-        """
-        matches = self._get_matching_fmaps(dm_fmaps, bids_fmaps, match_map)
-
-        for dm_root, bids_files in matches.items():
-            for found_bids in bids_files:
-                dm_name = self._modify_dm_name(dm_root, found_bids)
-                name_map[dm_name] = found_bids
-
-    def _get_matching_fmaps(self, dm_fmaps, bids_fmaps, match_map):
-        """Find BIDS file names that match datman field map names.
-
-        Args:
-            dm_fmaps (:obj:`list`): A list of datman-style field map file
-                names.
-            bids_fmaps (:obj:`list`): A list of BIDS file names that
-                match the datman field map tag.
-            match_map (:obj:`dict`): The 'match_str' field of the bids
-                configuration. Used to map datman field maps to BIDS
-                file names.
-
-        Returns:
-            :obj:`dict`: A mapping of datman scan names to their BIDS
-                format equivalent.
-        """
-        matches = {}
-        for fmap in bids_fmaps:
-            bids_file = parse_bids_filename(fmap)
-            if bids_file.acq not in match_map:
-                logger.debug(
-                    "Tag settings can't match bids acquisition to datman "
-                    f"name for: {bids_file}")
-                continue
-
-            for nii_file in dm_fmaps:
-                _, _, _, description = parse_filename(nii_file)
-                terms_match = [search_term in description
-                               for search_term in match_map[bids_file.acq]]
-
-                if any(terms_match):
-                    matches.setdefault(nii_file, []).append(fmap)
-
-        return matches
-
-    def _modify_dm_name(self, dm_name, bids_name):
-        """Modify a datman-style field map name's description.
-
-        BIDS format often splits the field maps in two. To make links for these
-        in the nifti folder the description must be modified to give each a
-        unique file name.
-
-        Args:
-            dm_name (:obj:`str`): A datman style file name root that will
-                be modified.
-            bids_name (:obj:`str`): The BIDS style file name for the series.
-
-        Returns:
-            str: A datman style file name with a modified series description.
-        """
-        ident = parse_bids_filename(bids_name)
-        new_descr = []
-        if ident.dir:
-            new_descr.append(f"dir-{ident.dir}")
-        if ident.run:
-            new_descr.append(f"run-{ident.run}")
-        if ident.suffix:
-            new_descr.append(ident.suffix)
-        return dm_name + "_".join(new_descr)
 
     @classmethod
     def get_output_dir(cls, session):

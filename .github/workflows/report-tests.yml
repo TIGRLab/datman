@@ -1,0 +1,47 @@
+# Don't change this name or it'll change the text of the badge for the workflow :)
+name: Tests
+
+on:
+  workflow_run:
+    workflows: ["Prepare test results"]
+    types:
+      - completed
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  report-tests:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: pytest-results
+          path: tmp/results
+
+      - name: Add coverage comment
+        id: coverage
+        uses: MishaKav/pytest-coverage-comment@main
+        with:
+          pytest-coverage-path: /tmp/results/pytest-coverage.txt
+          junitxml-path: /tmp/results/pytest.xml
+          report-only-changed-files: true
+          github-token: ${{ secrets.DATMAN_COVERAGE_COMMENT }}
+
+      - name: Create/update coverage badge
+        if: github.event_name == 'push'
+        uses: schneegans/dynamic-badges-action@v1.4.0
+        with:
+          auth: ${{ secrets.GIST_TOKEN }}
+          gistID: cffe8a0a522de7697edacbf74f70a7e1
+          filename: datman-coverage.json
+          label: Coverage
+          message: ${{ steps.coverage.outputs.coverage }}
+          valColorRange: ${{ steps.coverage.outputs.coverage }}
+          maxColorRange: 100
+          minColorRange: 0
+
+      - name: Fail the check if a test has failed
+        if: ${{ steps.coverage.outputs.failures != 0 }}
+        run: exit 1

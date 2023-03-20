@@ -15,11 +15,11 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Add a label to pull request
-        uses: srvaroa/labeler@v0.9
+        uses: srvaroa/labeler@v1.3
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Add a comment if title is malformed
         uses: ./.github/comment_pr_title

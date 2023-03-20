@@ -455,6 +455,8 @@ def parse_bids_filename(path):
 
 
 def make_filename(ident, tag, series, description, ext=None):
+    series = str(series).zfill(2)
+    description = re.sub(r"[^a-zA-Z0-9.+]+", "-", description)
     filename = "_".join([str(ident), tag, series, description])
     if ext:
         filename += ext
