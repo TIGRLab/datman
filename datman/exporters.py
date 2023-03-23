@@ -544,34 +544,18 @@ class DBExporter(SessionExporter):
         names = {}
         # use experiment.scans, so dashboard can report scans that didnt export
         for scan in experiment.scans:
-            # If outputs exist, get the mangled name instead.
-            for name in self.get_final_names(scan):
+            for name in scan.names:
                 names[name] = self.get_bids_name(name, session)
+
+        # Check the actual folder contents as well, in case symlinked scans
+        # exist that werent named on XNAT
+        for nii in session.niftis:
+            fname = nii.file_name.replace(nii.ext, "")
+            if fname in names:
+                continue
+            names[fname] = self.get_bids_name(fname, session)
+
         return names
-
-    def get_final_names(self, scan):
-        """Gets the file name as it appears in 'nii' dir.
-
-        Some files (namely field maps) undergo some mangling during export.
-        This will grab the mangled names if they exist.
-
-        Returns:
-            :obj:`list`: A list of all datman-style scan names with
-                modifications (if any) applied.
-        """
-        # Return the actual names that sessions were exported to
-        altered_names = []
-        for name in scan.names:
-            found = glob(os.path.join(self.nii_path, name + "*.nii.gz"))
-            if not found:
-                altered_names.append(name)
-            else:
-                for full_path in found:
-                    fname = os.path.basename(full_path)
-                    stem = fname.replace(get_extension(fname), "")
-                    altered_names.append(stem)
-
-        return altered_names
 
     def get_bids_name(self, dm_name, session):
         """Get BIDS style scan name from a datman style nifti.
