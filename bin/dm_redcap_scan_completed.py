@@ -78,7 +78,8 @@ def get_version(api_url, token):
 
 def add_session_redcap(record, record_key):
     record_id = record[record_key]
-    subject_id = record[get_setting('RedcapSubj', default='par_id')].upper()
+    subject_id = record[get_setting('RedcapSubj', default='par_id')]
+    subject_id = subject_id.strip().upper()
     if not datman.scanid.is_scanid(subject_id):
         subject_id = subject_id + '_01'
         try:
