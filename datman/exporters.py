@@ -200,7 +200,7 @@ class BidsExporter(SessionExporter):
             return False
 
         sidecars = self.get_sidecars()
-        repeat_nums = [sidecars[path].get("repeat") for path in sidecars]
+        repeat_nums = [sidecars[path].get("Repeat") for path in sidecars]
 
         if any([repeat == self.repeat for repeat in repeat_nums]):
             return True
@@ -265,15 +265,15 @@ class BidsExporter(SessionExporter):
         orig_contents = self.get_sidecars()
 
         for path in orig_contents:
-            if orig_contents[path].get("repeat"):
+            if orig_contents[path].get("Repeat"):
                 continue
 
             logger.info(f"Adding repeat num {self.repeat} to sidecar {path}")
-            orig_contents[path]["repeat"] = self.repeat
+            orig_contents[path]["Repeat"] = self.repeat
             self.write_json(path, orig_contents[path])
 
     def get_sidecars(self):
-        sidecars = glob.glob(os.path.join(self.output_dir, "*", "*.json"))
+        sidecars = glob(os.path.join(self.output_dir, "*", "*.json"))
         contents = {path: self.read_json(path) for path in sidecars}
         return contents
 
@@ -284,7 +284,7 @@ class BidsExporter(SessionExporter):
 
     def write_json(self, path, contents):
         with open(path, "w") as fh:
-            json.dump(contents, fh)
+            json.dump(contents, fh, indent=4)
 
 
 class NiiLinkExporter(SessionExporter):
