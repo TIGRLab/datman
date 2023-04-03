@@ -3,6 +3,7 @@ A collection of utilities for generally munging imaging data.
 """
 import contextlib
 import io
+import json
 import logging
 import os
 import random
@@ -1361,3 +1362,14 @@ def find_tech_notes(folder):
                 return pdf
 
     return pdf_list[0]
+
+
+def read_json(path):
+    with open(path) as fh:
+        contents = json.load(fh)
+    return contents
+
+
+def write_json(path, contents):
+    with open(path, "w") as fh:
+        json.dump(contents, fh, indent=4)
