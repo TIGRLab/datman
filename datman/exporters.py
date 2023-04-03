@@ -321,26 +321,25 @@ class NiiLinkExporter(SessionExporter):
         for path, _, files in os.walk(self.bids_path):
             niftis = filter_niftis(files)
             for item in niftis:
-                if not self.belongs_to_session(item):
-                    continue
                 basename = item.replace(get_extension(item), "")
-                bids_niftis.append(os.path.join(path, basename))
+                nii_path = os.path.join(path, basename)
+                if self.belongs_to_session(nii_path):
+                    bids_niftis.append(nii_path)
         return bids_niftis
 
-    def belongs_to_session(self, nifti):
+    def belongs_to_session(self, nifti_path):
         """Check if a nifti belongs to this repeat or another for this session.
 
         Args:
-            nifti (str): A nifti file name from the bids folder.
+            nifti_path (str): A nifti file name from the bids folder (minus
+                extension).
 
         Returns:
             bool: True if the nifti file belongs to this particular
                 repeat. False if it belongs to another repeat.
         """
-        nii_path = os.path.join(self.bids_path, nifti)
-        json_path = nifti.replace(get_extension(nii_path), ".json")
         try:
-            side_car = read_json(json_path)
+            side_car = read_json(nifti_path + ".json")
         except FileNotFoundError:
             # Assume it belongs if a side car cant be read.
             return True
