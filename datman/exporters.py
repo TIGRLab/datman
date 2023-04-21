@@ -12,7 +12,7 @@ unique key that can be referenced in config files (e.g. 'nii').
 from abc import ABC, abstractmethod
 from datetime import datetime
 from glob import glob
-import json
+from json import JSONDecodeError
 import logging
 import os
 import re
@@ -25,7 +25,7 @@ from datman.scanid import (parse_bids_filename, ParseException, make_filename,
                            KCNIIdentifier)
 from datman.utils import (run, make_temp_directory, get_extension,
                           filter_niftis, find_tech_notes, read_blacklist,
-                          get_relative_source)
+                          get_relative_source, read_json, write_json)
 
 try:
     from dcm2bids import Dcm2bids
@@ -179,6 +179,7 @@ class BidsExporter(SessionExporter):
         self.exp_label = experiment.name
         self.bids_sub = session._ident.get_bids_name()
         self.bids_ses = session._ident.timepoint
+        self.repeat = session._ident.session
         self.bids_folder = session.bids_root
         self.output_dir = session.bids_path
         self.keep_dcm = bids_opts.keep_dcm if bids_opts else False
@@ -192,15 +193,22 @@ class BidsExporter(SessionExporter):
         return os.path.join(download_dir, self.exp_label, "scans")
 
     def outputs_exist(self):
-        # Can't get more granular than this at the moment
-        if os.path.exists(self.output_dir):
-            if self.clobber:
-                logger.info(
-                    f"{self.output_dir} will be overwritten due to "
-                    "clobber option.")
-                return False
-            logger.info("(Use --clobber to overwrite)")
+        if self.clobber:
+            logger.info(
+                f"{self.output_dir} will be overwritten due to clobber option."
+            )
+            return False
+
+        sidecars = self.get_sidecars()
+        repeat_nums = [sidecars[path].get("Repeat") for path in sidecars]
+
+        if any([repeat == self.repeat for repeat in repeat_nums]):
             return True
+
+        if self.repeat == "01" and sidecars:
+            # Catch instances where adding repeat to sidecars failed.
+            return True
+
         return False
 
     def needs_raw_data(self):
@@ -218,6 +226,10 @@ class BidsExporter(SessionExporter):
         if self.dry_run:
             logger.info(f"Dry run: Skipping bids export to {self.output_dir}")
             return
+
+        if int(self.repeat) > 1:
+            # Must force dcm2niix export if it's a repeat.
+            self.force_dcm2niix = True
 
         self.make_output_dir()
 
@@ -239,6 +251,31 @@ class BidsExporter(SessionExporter):
                 f"Dcm2Bids failed to run for {self.output_dir}. "
                 f"{type(exc)}: {exc}"
             )
+
+        try:
+            self.add_repeat_num()
+        except (PermissionError, JSONDecodeError):
+            logger.error(
+                "Failed to add repeat numbers to sidecars in "
+                f"{self.output_dir}. If a repeat scan is added, scans may "
+                "incorrectly be tagged as belonging to the later repeat."
+            )
+
+    def add_repeat_num(self):
+        orig_contents = self.get_sidecars()
+
+        for path in orig_contents:
+            if orig_contents[path].get("Repeat"):
+                continue
+
+            logger.info(f"Adding repeat num {self.repeat} to sidecar {path}")
+            orig_contents[path]["Repeat"] = self.repeat
+            write_json(path, orig_contents[path])
+
+    def get_sidecars(self):
+        sidecars = glob(os.path.join(self.output_dir, "*", "*.json"))
+        contents = {path: read_json(path) for path in sidecars}
+        return contents
 
 
 class NiiLinkExporter(SessionExporter):
@@ -285,8 +322,34 @@ class NiiLinkExporter(SessionExporter):
             niftis = filter_niftis(files)
             for item in niftis:
                 basename = item.replace(get_extension(item), "")
-                bids_niftis.append(os.path.join(path, basename))
+                nii_path = os.path.join(path, basename)
+                if self.belongs_to_session(nii_path):
+                    bids_niftis.append(nii_path)
         return bids_niftis
+
+    def belongs_to_session(self, nifti_path):
+        """Check if a nifti belongs to this repeat or another for this session.
+
+        Args:
+            nifti_path (str): A nifti file name from the bids folder (minus
+                extension).
+
+        Returns:
+            bool: True if the nifti file belongs to this particular
+                repeat. False if it belongs to another repeat.
+        """
+        try:
+            side_car = read_json(nifti_path + ".json")
+        except FileNotFoundError:
+            # Assume it belongs if a side car cant be read.
+            return True
+
+        repeat = side_car.get("Repeat")
+        if not repeat:
+            # No repeat is recorded in the json, assume its for this session.
+            return True
+
+        return repeat == self.ident.session
 
     def match_dm_to_bids(self, dm_names, bids_names):
         """Match each datman file name to its BIDS equivalent.
@@ -340,11 +403,7 @@ class NiiLinkExporter(SessionExporter):
         Returns:
             str: A valid datman style file name (minus extension).
         """
-        side_car = bids_path + ".json"
-
-        with open(side_car) as fh:
-            side_car = json.load(fh)
-
+        side_car = read_json(bids_path + ".json")
         description = side_car['SeriesDescription']
         num = self.get_series_num(side_car)
 
