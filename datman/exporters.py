@@ -179,6 +179,7 @@ class BidsExporter(SessionExporter):
         self.exp_label = experiment.name
         self.bids_sub = session._ident.get_bids_name()
         self.bids_ses = session._ident.timepoint
+        self.repeat = session._ident.session
         self.bids_folder = session.bids_root
         self.output_dir = session.bids_path
         self.keep_dcm = bids_opts.keep_dcm if bids_opts else False
@@ -192,15 +193,22 @@ class BidsExporter(SessionExporter):
         return os.path.join(download_dir, self.exp_label, "scans")
 
     def outputs_exist(self):
-        # Can't get more granular than this at the moment
-        if os.path.exists(self.output_dir):
-            if self.clobber:
-                logger.info(
-                    f"{self.output_dir} will be overwritten due to "
-                    "clobber option.")
-                return False
-            logger.info("(Use --clobber to overwrite)")
+        if self.clobber:
+            logger.info(
+                f"{self.output_dir} will be overwritten due to clobber option."
+            )
+            return False
+
+        sidecars = self.get_sidecars()
+        repeat_nums = [sidecars[path].get("Repeat") for path in sidecars]
+
+        if any([repeat == self.repeat for repeat in repeat_nums]):
             return True
+
+        if self.repeat == "01" and sidecars:
+            # Catch instances where adding repeat to sidecars failed.
+            return True
+
         return False
 
     def needs_raw_data(self):
@@ -218,6 +226,10 @@ class BidsExporter(SessionExporter):
         if self.dry_run:
             logger.info(f"Dry run: Skipping bids export to {self.output_dir}")
             return
+
+        if int(self.repeat) > 1:
+            # Must force dcm2niix export if it's a repeat.
+            self.force_dcm2niix = True
 
         self.make_output_dir()
 
@@ -239,6 +251,40 @@ class BidsExporter(SessionExporter):
                 f"Dcm2Bids failed to run for {self.output_dir}. "
                 f"{type(exc)}: {exc}"
             )
+
+        try:
+            self.add_repeat_num()
+        except (PermissionError, json.JSONDecodeError):
+            logger.error(
+                "Failed to add repeat numbers to sidecars in "
+                f"{self.output_dir}. If a repeat scan is added, scans may "
+                "incorrectly be tagged as belonging to the later repeat."
+            )
+
+    def add_repeat_num(self):
+        orig_contents = self.get_sidecars()
+
+        for path in orig_contents:
+            if orig_contents[path].get("Repeat"):
+                continue
+
+            logger.info(f"Adding repeat num {self.repeat} to sidecar {path}")
+            orig_contents[path]["Repeat"] = self.repeat
+            self.write_json(path, orig_contents[path])
+
+    def get_sidecars(self):
+        sidecars = glob(os.path.join(self.output_dir, "*", "*.json"))
+        contents = {path: self.read_json(path) for path in sidecars}
+        return contents
+
+    def read_json(self, path):
+        with open(path) as fh:
+            contents = json.load(fh)
+        return contents
+
+    def write_json(self, path, contents):
+        with open(path, "w") as fh:
+            json.dump(contents, fh, indent=4)
 
 
 class NiiLinkExporter(SessionExporter):
