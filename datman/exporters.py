@@ -663,6 +663,9 @@ class DBExporter(SessionExporter):
         if not session:
             return False
 
+        if not session.tech_notes and session.expects_notes():
+            return False
+
         for name in self.names:
             try:
                 scan = datman.dashboard.get_scan(name)
