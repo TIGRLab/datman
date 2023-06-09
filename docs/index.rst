@@ -18,6 +18,7 @@ datman
    installation
    contributing
    datman_conf
+   script_overview
    api
    changes
 
