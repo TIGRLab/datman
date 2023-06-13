@@ -19,6 +19,7 @@ datman
    contributing
    datman_conf
    script_overview
+   datman_files
    api
    changes
 

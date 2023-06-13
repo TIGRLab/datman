@@ -92,6 +92,9 @@ read from / remove blacklisted data.
 
 Optional
 ^^^^^^^^
+
+.. _config BlacklistDel:
+
 * **BlacklistDel**
 
   * Description: Defines which directories to delete blacklisted data from.
@@ -211,6 +214,8 @@ QC for their respective QcType. The last tag (DTI-ABCD) provides an example
 of using one of the optional settings to set up a default series
 description pattern for study. Any study with the same tag in
 their ExportInfo can override this by including their own 'Pattern' setting.
+
+.. _config FTP:
 
 FTP
 ***
@@ -337,6 +342,8 @@ Example
 
   LogServer: 111.222.333.444
   LogServerDir: /var/logs/datman_logs
+
+.. _config Paths:
 
 Paths
 *****
