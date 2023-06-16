@@ -1,8 +1,8 @@
 .. include:: links.rst
 
-------------------------------
-Datman Additional Config Files
-------------------------------
+---------------------
+Other important files
+---------------------
 
 This page describes some additional configuration files that Datman scripts
 may use.
@@ -114,11 +114,11 @@ blacklist.csv
 
 **Location**: the ``meta`` folder. By default this will be ``${STUDY}/metadata``.
 
-This file holds the list of blacklisted scans for a study. A scan listed in
-this file will not be processed by most other datman scripts. If the
-`QC Dashboard <https://imaging-genetics.camh.ca/datman-dashboard/>`_ is
-installed this file will not be read or updated and the QC data will instead
-be stored in the QC Dashboard's database.
+**NOTE**: This file is not used if the `QC Dashboard <https://imaging-genetics.camh.ca/datman-dashboard/>`_ is
+installed. The dashboard's database stores this info instead.
+
+This file holds the list of blacklisted scans for a study. It helps Datman identify
+scans which should not be processed.
 
 File Format
 ^^^^^^^^^^^
@@ -144,6 +144,15 @@ scans.csv
 
 **Location**: the ``meta`` folder. By default this will be ``${STUDY}/metadata``.
 
+This file helps Datman apply a correctly formatted ID to scan zip files when the
+dicom headers do not contain a correct ID. It's read by ``dm_scans.py``. Any
+scan zip file listed in scans.csv will have the name from the 'target_name'
+column applied instead of whatever has been entered into the dicom headers.
+
+The 'PatientName' and 'StudyID' columns should be populated by their values from
+the dicom headers to help reduce the risk of trying to rename the wrong file.
+You can find these values with tools like `dcmdump` can retrieve these values.
+
 File Format
 ^^^^^^^^^^^
 
@@ -157,6 +166,20 @@ File Format
 
 checklist.csv
 *************
+
+**Location**: the ``meta`` folder. By default this will be ``${STUDY}/metadata``.
+
+**NOTE**: This file is not used if the `QC Dashboard <https://imaging-genetics.camh.ca/datman-dashboard/>`_ is
+installed. The dashboard's database stores this info instead.
+
+This file holds a record of which sessions have had Quality Control (QC)
+performed. For some Datman scripts a session must undergo QC before the
+session will be processed.
+
+When Datman generates a QC page for a session the name of the QC page gets
+added to checklist.csv. When a user is finished reviewing the data, they
+should add their initials in a space separated column to indicate it has been
+reviewed.
 
 File Format
 ^^^^^^^^^^^
