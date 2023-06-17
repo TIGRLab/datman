@@ -20,16 +20,21 @@ dm_blacklist_rm
 | **Config Settings**        | * :ref:`BlacklistDel <config BlacklistDel>`  |
 |                            | * :ref:`Paths <config Paths>`                |
 +----------------------------+----------------------------------------------+
-| **Additional Config Files**|                                              |
+| **Additional Config Files**| * :ref:`Blacklist <dmfiles Blacklist>`       |
 +----------------------------+----------------------------------------------+
 | **Additional Software**    | None                                         |
 | **Dependencies**           |                                              |
 +----------------------------+----------------------------------------------+
 
+
 dm_sftp
 *******
 +----------------------------+----------------------------------------------+
 | **Description**            | Downloads scan zip files from an FTP Server. |
+|                            |                                              |
+|                            | **Note**: The user running this script must  |
+|                            | have the sftp server in their 'known_hosts'  |
+|                            | file.                                        |
 +----------------------------+----------------------------------------------+
 | **Environment Variables**  | None                                         |
 +----------------------------+----------------------------------------------+
@@ -44,34 +49,36 @@ dm_sftp
 
 dm_link
 *******
-dicom, zips,
-+----------------------------+----------------------------------------------+
-| **Description**            | Apply the Datman naming convention to the    |
-|                            | raw zip files. Makes correctly-named         |
-|                            | symlinks in the 'dicom' folder pointing              |
-+----------------------------+----------------------------------------------+
-| **Environment Variables**  | None                                         |
-+----------------------------+----------------------------------------------+
-| **Config Settings**        | * :ref:`Paths (zips, meta) <config Paths>`   |
-|                            | * :ref:`FTP Config <config FTP>`             |
-+----------------------------+----------------------------------------------+
-| **Additional Config Files**| None                                         |
-+----------------------------+----------------------------------------------+
-| **Additional Software**    |                                              |
-| **Dependencies**           | None                                         |
-+----------------------------+----------------------------------------------+
++----------------------------+----------------------------------------------------+
+| **Description**            | Apply the Datman naming convention to the          |
+|                            | raw zip files. Makes correctly-named               |
+|                            | symlinks in the 'dicom' folder that point to       |
+|                            | the original zip files in the 'zips' folder.       |
++----------------------------+----------------------------------------------------+
+| **Environment Variables**  | None                                               |
++----------------------------+----------------------------------------------------+
+| **Config Settings**        | * :ref:`Paths (dicom, zips, meta) <config Paths>`  |
++----------------------------+----------------------------------------------------+
+| **Additional Config Files**| * :ref:`scans.csv <dmfiles Scans>`                 |
++----------------------------+----------------------------------------------------+
+| **Additional Software**    |                                                    |
+| **Dependencies**           | None                                               |
++----------------------------+----------------------------------------------------+
 
 dm_xnat_upload
 **************
 +----------------------------+----------------------------------------------+
-| **Description**            | Apply the Datman naming convention to the    |
-|                            | raw zip files. Makes correctly-named         |
-|                            | symlinks in the 'dicom' folder pointing              |
+| **Description**            | Uploads scan zip files from Datman's 'dicom' |
+|                            | directory to the configured XNAT server.     |
 +----------------------------+----------------------------------------------+
-| **Environment Variables**  | None                                         |
+| **Environment Variables**  | * XNAT_PASS: The XNAT user password.         |
+|                            |   Overrides the config file if set.          |
+|                            | * XNAT_USER: The XNAT username.              |
+|                            |   Overrides the config file if set.          |
 +----------------------------+----------------------------------------------+
-| **Config Settings**        | * :ref:`Paths (zips, meta) <config Paths>`   |
-|                            | * :ref:`FTP Config <config FTP>`             |
+| **Config Settings**        | * :ref:`Paths (dicom, meta) <config Paths>`  |
+|                            | * :ref:`XNAT config <config XNAT>`           |
+|                            | * :ref:`IdMap (Optional) <config Idmap>`     |
 +----------------------------+----------------------------------------------+
 | **Additional Config Files**| None                                         |
 +----------------------------+----------------------------------------------+
@@ -81,35 +88,44 @@ dm_xnat_upload
 
 dm_xnat_extract
 ***************
-+----------------------------+----------------------------------------------+
-| **Description**            | Apply the Datman naming convention to the    |
-|                            | raw zip files. Makes correctly-named         |
-|                            | symlinks in the 'dicom' folder pointing              |
-+----------------------------+----------------------------------------------+
-| **Environment Variables**  | None                                         |
-+----------------------------+----------------------------------------------+
-| **Config Settings**        | * :ref:`Paths (zips, meta) <config Paths>`   |
-|                            | * :ref:`FTP Config <config FTP>`             |
-+----------------------------+----------------------------------------------+
-| **Additional Config Files**| None                                         |
-+----------------------------+----------------------------------------------+
-| **Additional Software**    |                                              |
-| **Dependencies**           | None                                         |
-+----------------------------+----------------------------------------------+
++----------------------------+-------------------------------------------------------------------------------------+
+| **Description**            | Downloads scan data from the configured                                             |
+|                            | XNAT server and converts it to all                                                  |
+|                            | configured file types.                                                              |
++----------------------------+-------------------------------------------------------------------------------------+
+| **Environment Variables**  | * XNAT_PASS: The XNAT user password.                                                |
+|                            |   Overrides the config file if set.                                                 |
+|                            | * XNAT_USER: The XNAT username.                                                     |
+|                            |   Overrides the config file if set.                                                 |
++----------------------------+-------------------------------------------------------------------------------------+
+| **Config Settings**        | * :ref:`Paths <config Paths>`                                                       |
+|                            | * :ref:`ExportInfo <config Export>`                                                 |
+|                            | * :ref:`XNAT config <config XNAT>`                                                  |
+|                            | * :ref:`IdMap (Optional) <config Idmap>`                                            |
++----------------------------+-------------------------------------------------------------------------------------+
+| **Additional Config Files**| * :ref:`dcm2bids config <dmfiles dcm2bids>`                                         |
++----------------------------+-------------------------------------------------------------------------------------+
+| **Additional Software**    | * `dcm2niix (for nii/bids) <https://github.com/rordenlab/dcm2niix>`_                |
+| **Dependencies**           | * `dcm2bids (for bids) <https://unfmontreal.github.io/Dcm2Bids/>`_                  |
+|                            | * `Slicer  (for nrrd) <https://www.slicer.org/>`_                                   |
+|                            | * `MINC Tool Kit (for minc) <https://www.mcgill.ca/bic/software/minc/minctoolkit>`_ |
++----------------------------+-------------------------------------------------------------------------------------+
 
 dm_link_shared_ids
 ******************
 +----------------------------+----------------------------------------------+
-| **Description**            | Apply the Datman naming convention to the    |
-|                            | raw zip files. Makes correctly-named         |
-|                            | symlinks in the 'dicom' folder pointing              |
+| **Description**            | Links sessions from different studies as     |
+|                            | belonging to the same participant, based on  |
+|                            | the contents of a REDCap survey              |
 +----------------------------+----------------------------------------------+
-| **Environment Variables**  | None                                         |
+| **Environment Variables**  | * ``REDCAP_TOKEN``: The redcap token to use  |
+|                            |   for authentication. Ignored if defined in  |
+|                            |   config files.                              |
 +----------------------------+----------------------------------------------+
-| **Config Settings**        | * :ref:`Paths (zips, meta) <config Paths>`   |
-|                            | * :ref:`FTP Config <config FTP>`             |
+| **Config Settings**        | * :ref:`REDCap config <config Redcap>`       |
+|                            | * :ref:`IdMap (Optional) <config Idmap>`     |
 +----------------------------+----------------------------------------------+
-| **Additional Config Files**| None                                         |
+| **Additional Config Files**| * :ref:`external-links <dmfiles External>`   |
 +----------------------------+----------------------------------------------+
 | **Additional Software**    |                                              |
 | **Dependencies**           | None                                         |
@@ -117,21 +133,26 @@ dm_link_shared_ids
 
 dm_qc_report
 ************
-+----------------------------+----------------------------------------------+
-| **Description**            | Apply the Datman naming convention to the    |
-|                            | raw zip files. Makes correctly-named         |
-|                            | symlinks in the 'dicom' folder pointing              |
-+----------------------------+----------------------------------------------+
-| **Environment Variables**  | None                                         |
-+----------------------------+----------------------------------------------+
-| **Config Settings**        | * :ref:`Paths (zips, meta) <config Paths>`   |
-|                            | * :ref:`FTP Config <config FTP>`             |
-+----------------------------+----------------------------------------------+
-| **Additional Config Files**| None                                         |
-+----------------------------+----------------------------------------------+
-| **Additional Software**    |                                              |
-| **Dependencies**           | None                                         |
-+----------------------------+----------------------------------------------+
++----------------------------+------------------------------------------------------+
+| **Description**            | Generate QC metrics for the data in the              |
+|                            | study's 'nii' folder. These will be put in           |
+|                            | the study's 'qc' folder and can be displayed         |
+|                            | by the QC dashboard if it is installed.              |
++----------------------------+------------------------------------------------------+
+| **Environment Variables**  | None                                                 |
++----------------------------+------------------------------------------------------+
+| **Config Settings**        | * :ref:`Paths (nii, qc, std, meta) <config Paths>`   |
+|                            | * :ref:`Logging (Optional) <config Logs>`            |
+|                            | * :ref:`Gold Standards <config Standards>`           |
++----------------------------+------------------------------------------------------+
+| **Additional Config Files**| * :ref:`Checklist <config Checklist>`                |
++----------------------------+------------------------------------------------------+
+| **Additional Software**    | * Matlab (R2014a)                                    |
+| **Dependencies**           | * AFNI (2014)                                        |
+|                            | * FSL (5.0.10)                                       |
+|                            |                                                      |
+|                            | Newer versions may work, but no guarantees.          |
++----------------------------+------------------------------------------------------+
 
 dm_redcap_scan_completed
 ************************
