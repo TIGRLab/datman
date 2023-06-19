@@ -39,7 +39,7 @@ dm_sftp
 | **Environment Variables**  | None                                         |
 +----------------------------+----------------------------------------------+
 | **Config Settings**        | * :ref:`Paths (zips, meta) <config Paths>`   |
-|                            | * :ref:`FTP Config <config FTP>`             |
+|                            | * :ref:`FTP <config FTP>`                    |
 +----------------------------+----------------------------------------------+
 | **Additional Config Files**| None                                         |
 +----------------------------+----------------------------------------------+
@@ -77,7 +77,7 @@ dm_xnat_upload
 |                            |   Overrides the config file if set.          |
 +----------------------------+----------------------------------------------+
 | **Config Settings**        | * :ref:`Paths (dicom, meta) <config Paths>`  |
-|                            | * :ref:`XNAT config <config XNAT>`           |
+|                            | * :ref:`XNAT <config XNAT>`                  |
 |                            | * :ref:`IdMap (Optional) <config Idmap>`     |
 +----------------------------+----------------------------------------------+
 | **Additional Config Files**| None                                         |
@@ -100,7 +100,7 @@ dm_xnat_extract
 +----------------------------+-------------------------------------------------------------------------------------+
 | **Config Settings**        | * :ref:`Paths <config Paths>`                                                       |
 |                            | * :ref:`ExportInfo <config Export>`                                                 |
-|                            | * :ref:`XNAT config <config XNAT>`                                                  |
+|                            | * :ref:`XNAT <config XNAT>`                                                         |
 |                            | * :ref:`IdMap (Optional) <config Idmap>`                                            |
 +----------------------------+-------------------------------------------------------------------------------------+
 | **Additional Config Files**| * :ref:`dcm2bids config <dmfiles dcm2bids>`                                         |
@@ -122,7 +122,7 @@ dm_link_shared_ids
 |                            |   for authentication. Ignored if defined in  |
 |                            |   config files.                              |
 +----------------------------+----------------------------------------------+
-| **Config Settings**        | * :ref:`REDCap config <config Redcap>`       |
+| **Config Settings**        | * :ref:`REDCap <config Redcap>`              |
 |                            | * :ref:`IdMap (Optional) <config Idmap>`     |
 +----------------------------+----------------------------------------------+
 | **Additional Config Files**| * :ref:`external-links <dmfiles External>`   |
@@ -157,14 +157,14 @@ dm_qc_report
 dm_redcap_scan_completed
 ************************
 +----------------------------+----------------------------------------------+
-| **Description**            | Apply the Datman naming convention to the    |
-|                            | raw zip files. Makes correctly-named         |
-|                            | symlinks in the 'dicom' folder pointing              |
+| **Description**            | Retrieve redcap 'scan completed' survey data |
+|                            | from a redcap server and push it to Datman's |
+|                            | QC dashboard database.                       |
 +----------------------------+----------------------------------------------+
 | **Environment Variables**  | None                                         |
 +----------------------------+----------------------------------------------+
-| **Config Settings**        | * :ref:`Paths (zips, meta) <config Paths>`   |
-|                            | * :ref:`FTP Config <config FTP>`             |
+| **Config Settings**        | * :ref:`Paths (meta) <config Paths>`         |
+|                            | * :ref:`REDCap <config Redcap>`              |
 +----------------------------+----------------------------------------------+
 | **Additional Config Files**| None                                         |
 +----------------------------+----------------------------------------------+
@@ -175,14 +175,16 @@ dm_redcap_scan_completed
 xnat_fetch_sessions
 *******************
 +----------------------------+----------------------------------------------+
-| **Description**            | Apply the Datman naming convention to the    |
-|                            | raw zip files. Makes correctly-named         |
-|                            | symlinks in the 'dicom' folder pointing              |
+| **Description**            | Download XNAT sessions as raw scan zip       |
+|                            | files and deposit them in the study's 'zip'  |
+|                            | folder.                                      |
 +----------------------------+----------------------------------------------+
 | **Environment Variables**  | None                                         |
 +----------------------------+----------------------------------------------+
 | **Config Settings**        | * :ref:`Paths (zips, meta) <config Paths>`   |
-|                            | * :ref:`FTP Config <config FTP>`             |
+|                            | * :ref:`XNAT <config XNAT>`, only settings   |
+|                            |   with the 'XnatSource' prefix               |
+|                            | * :ref:`Logging (Optional) <config Logs>`    |
 +----------------------------+----------------------------------------------+
 | **Additional Config Files**| None                                         |
 +----------------------------+----------------------------------------------+
@@ -192,33 +194,31 @@ xnat_fetch_sessions
 
 dm_task_files
 *************
-+----------------------------+----------------------------------------------+
-| **Description**            | Apply the Datman naming convention to the    |
-|                            | raw zip files. Makes correctly-named         |
-|                            | symlinks in the 'dicom' folder pointing              |
-+----------------------------+----------------------------------------------+
-| **Environment Variables**  | None                                         |
-+----------------------------+----------------------------------------------+
-| **Config Settings**        | * :ref:`Paths (zips, meta) <config Paths>`   |
-|                            | * :ref:`FTP Config <config FTP>`             |
-+----------------------------+----------------------------------------------+
-| **Additional Config Files**| None                                         |
-+----------------------------+----------------------------------------------+
-| **Additional Software**    |                                              |
-| **Dependencies**           | None                                         |
-+----------------------------+----------------------------------------------+
++----------------------------+---------------------------------------------------+
+| **Description**            | Finds task files in the study's 'resources'       |
+|                            | folder and symlinks them into the study's         |
+|                            | 'tasks' folder with a standard name scheme.       |
++----------------------------+---------------------------------------------------+
+| **Environment Variables**  | None                                              |
++----------------------------+---------------------------------------------------+
+| **Config Settings**        | * :ref:`Paths (task, resources) <config Paths>`   |
+|                            | * :ref:`Tasks <config Tasks>`                     |
++----------------------------+---------------------------------------------------+
+| **Additional Config Files**| None                                              |
++----------------------------+---------------------------------------------------+
+| **Additional Software**    |                                                   |
+| **Dependencies**           | None                                              |
++----------------------------+---------------------------------------------------+
 
 dm_parse_faces
 **************
 +----------------------------+----------------------------------------------+
-| **Description**            | Apply the Datman naming convention to the    |
-|                            | raw zip files. Makes correctly-named         |
-|                            | symlinks in the 'dicom' folder pointing              |
+| **Description**            | Converts eprime text files for the FACES     |
+|                            | task into BIDS format .tsv files.            |
 +----------------------------+----------------------------------------------+
 | **Environment Variables**  | None                                         |
 +----------------------------+----------------------------------------------+
-| **Config Settings**        | * :ref:`Paths (zips, meta) <config Paths>`   |
-|                            | * :ref:`FTP Config <config FTP>`             |
+| **Config Settings**        | * :ref:`Paths (task, nii) <config Paths>`    |
 +----------------------------+----------------------------------------------+
 | **Additional Config Files**| None                                         |
 +----------------------------+----------------------------------------------+
