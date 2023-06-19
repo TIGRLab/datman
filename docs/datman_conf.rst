@@ -449,6 +449,8 @@ omitted otherwise
     bids format.
   * Used by:
 
+    * dm_xnat_extract.py - Writes to this folder when the ``--use-dcm2bids``
+      option is used.
     * bidsify.py - Writes to this folder
 
 Example
@@ -806,6 +808,33 @@ Example
           DatmanProjectsDir: /tmp/data/
           DatmanAssetsDir: /archive/code/datman/assets
           ConfigDir: /tmp/data/config
+
+.. _config Tasks:
+
+Task Files
+**********
+These settings are used by scripts that work with fMRI task files (e.g.
+dm_task_files).
+
+Optional
+^^^^^^^^
+* **TaskRegex**
+
+  * Description: `A regular expression <https://docs.python.org/3/library/re.html>`_
+    used to identify task files. This is needed because task files are often
+    named less consistently than scan data and are often (at least initially)
+    in a resources folder filled with many other non-task files.
+
+Example
+^^^^^^^
+.. code-block:: yaml
+
+  # This will identify any file with 'behav' or the 'edat2' extension as
+  # task data.
+  TaskRegex: 'behav|\.edat2'
+
+  # This will identify any file with the .log extension as task data
+  TaskRegex: '\.log'
 
 .. _config XNAT:
 
