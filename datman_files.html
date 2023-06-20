@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Other important files &mdash; Datman 0.1.dev1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/custom.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Library API (application program interface)" href="api.html" />
+    <link rel="prev" title="Script Overview" href="script_overview.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Datman
+          </a>
+              <div class="version">
+                0.1.dev1
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html#docker-container">Docker Container</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing to Datman</a></li>
+<li class="toctree-l1"><a class="reference internal" href="datman_conf.html">Configuration Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="script_overview.html">Script Overview</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Other important files</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#dcm2bids-json">dcm2bids.json</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#example">Example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#scans-csv">scans.csv</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id1">Example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#blacklist-csv">blacklist.csv</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id2">Example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#checklist-csv">checklist.csv</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id4">Example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#external-links-csv">external-links.csv</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id5">Example</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">Library API (application program interface)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changes.html">What’s new?</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Datman</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Other important files</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/datman_files.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="other-important-files">
+<h1>Other important files<a class="headerlink" href="#other-important-files" title="Permalink to this headline"></a></h1>
+<p>This page describes some additional configuration files that Datman scripts
+may use.</p>
+<section id="dcm2bids-json">
+<span id="dmfiles-dcm2bids"></span><h2>dcm2bids.json<a class="headerlink" href="#dcm2bids-json" title="Permalink to this headline"></a></h2>
+<p><strong>Used by</strong>: <code class="docutils literal notranslate"><span class="pre">dm_xnat_extract.py</span></code></p>
+<p><strong>Location</strong>: the <code class="docutils literal notranslate"><span class="pre">meta</span></code> folder. By default this will be <code class="docutils literal notranslate"><span class="pre">${STUDY}/metadata</span></code>.</p>
+<p>This config file is used by dcm2bids to export raw dicom data to nifti format
+in the bids file structure. It should contain one entry for each scan that must
+be exported to nii format.</p>
+<p>For more information see the <a class="reference external" href="https://unfmontreal.github.io/Dcm2Bids/docs/how-to/create-config-file/">dcm2bids official documentation</a></p>
+<section id="example">
+<h3>Example<a class="headerlink" href="#example" title="Permalink to this headline"></a></h3>
+<p>This is a subset of the settings from one of our config files.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;descriptions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;dataType&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;anat&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;modalityLabel&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;T1w&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;criteria&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;SeriesDescription&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;*Sag_MPRAGE_T1*&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;dataType&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fmap&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;modalityLabel&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;epi&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;customLabels&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;acq-rest_dir-PA&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;criteria&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;SeriesDescription&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;*fMRI_FieldMap&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;PhaseEncodingDirection&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;j&quot;</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;sidecarChanges&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;B0FieldSource&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pepolar_rest_fmap&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;dataType&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fmap&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;modalityLabel&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;epi&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;customLabels&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;acq-dwi_dir-AP&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;criteria&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;SeriesDescription&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DTI_FieldMap&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;PhaseEncodingDirection&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;j-&quot;</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;sidecarChanges&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;B0FieldSource&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pepolar_dwi_fmap&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">]}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="scans-csv">
+<span id="dmfiles-scans"></span><h2>scans.csv<a class="headerlink" href="#scans-csv" title="Permalink to this headline"></a></h2>
+<p><strong>Used By</strong>: <code class="docutils literal notranslate"><span class="pre">dm_link.py</span></code></p>
+<p><strong>Location</strong>: the <code class="docutils literal notranslate"><span class="pre">meta</span></code> folder. By default this will be <code class="docutils literal notranslate"><span class="pre">${STUDY}/metadata</span></code>.</p>
+<p>This file helps Datman apply a correctly formatted ID to scan zip files when the
+dicom headers do not contain a correct ID. Any scan zip file listed in scans.csv
+will have the name from the ‘target_name’ column applied instead of whatever
+has been entered into the dicom headers.</p>
+<p>The ‘PatientName’ and ‘StudyID’ columns should be populated by their values from
+the dicom headers to help reduce the risk of trying to rename the wrong file.
+You can find these values with tools like <cite>dcmdump</cite> can retrieve these values.</p>
+<section id="id1">
+<h3>Example<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h3>
+<div class="highlight-csv notranslate"><div class="highlight"><pre><span></span>source_name      target_name      PatientName         StudyID
+orig_zip_name1   intended_name1   dicom_PatientName1  dicom_StudyID1
+...
+orig_zip_nameN   intended_nameN   dicom_PatientNameN  dicom_StudyIDN
+</pre></div>
+</div>
+</section>
+</section>
+<section id="blacklist-csv">
+<span id="dmfiles-blacklist"></span><h2>blacklist.csv<a class="headerlink" href="#blacklist-csv" title="Permalink to this headline"></a></h2>
+<p><strong>Used By</strong>: <code class="docutils literal notranslate"><span class="pre">dm_blacklist_rm.py</span></code></p>
+<p><strong>Location</strong>: the <code class="docutils literal notranslate"><span class="pre">meta</span></code> folder. By default this will be <code class="docutils literal notranslate"><span class="pre">${STUDY}/metadata</span></code>.</p>
+<p><strong>NOTE</strong>: This file is not used if the <a class="reference external" href="https://imaging-genetics.camh.ca/datman-dashboard/">QC Dashboard</a> is
+installed. The dashboard’s database stores this info instead.</p>
+<p>This file holds the list of blacklisted scans for a study. It helps Datman identify
+scans which should not be processed.</p>
+<p>The file should contain two comma-separated columns. The header should read
+‘series,reason’. Each QC entry should go on it’s own line and should contain
+the scan’s root name (the file name, minus the series description and file
+extension) and the user’s comment about why the scan was
+blacklisted.</p>
+<p>A scan root name appearing in this file indicates that it has been blacklisted
+and should not be used. That is, you should <em>NOT</em> add an entry for scans that
+pass QC, and you should <strong>NOT</strong> include these files when running processing
+pipelines.</p>
+<section id="id2">
+<h3>Example<a class="headerlink" href="#id2" title="Permalink to this headline"></a></h3>
+<div class="highlight-csv notranslate"><div class="highlight"><pre><span></span>series,reason
+STUDY_SITE_0000_01_01_TAG_00,user comment goes here
+</pre></div>
+</div>
+</section>
+</section>
+<section id="checklist-csv">
+<span id="dmfiles-checklist"></span><h2>checklist.csv<a class="headerlink" href="#checklist-csv" title="Permalink to this headline"></a></h2>
+<p><strong>Used By</strong>: Multiple Datman pre-processing pipelines.</p>
+<p><strong>Location</strong>: the <code class="docutils literal notranslate"><span class="pre">meta</span></code> folder. By default this will be <code class="docutils literal notranslate"><span class="pre">${STUDY}/metadata</span></code>.</p>
+<p><strong>NOTE</strong>: This file is not used if the <a class="reference external" href="https://imaging-genetics.camh.ca/datman-dashboard/">QC Dashboard</a> is
+installed. The dashboard’s database stores this info instead.</p>
+<p>This file holds a record of which sessions have had Quality Control (QC)
+performed. For some Datman scripts a session must undergo QC before the
+session will be processed.</p>
+<p>When Datman generates a QC page for a session the name of the QC page gets
+added to checklist.csv. When a user is finished reviewing the data, they
+should add their initials in a space separated column to indicate it has been
+reviewed.</p>
+<section id="id4">
+<h3>Example<a class="headerlink" href="#id4" title="Permalink to this headline"></a></h3>
+<div class="highlight-csv notranslate"><div class="highlight"><pre><span></span>qc_STUDY_CMH_0000_01.html CB
+qc_STUDY_CMH_0001_01.html AA
+</pre></div>
+</div>
+</section>
+</section>
+<section id="external-links-csv">
+<span id="dmfiles-external"></span><h2>external-links.csv<a class="headerlink" href="#external-links-csv" title="Permalink to this headline"></a></h2>
+<p><strong>Used By</strong>: <code class="docutils literal notranslate"><span class="pre">dm_link_shared_ids.py</span></code></p>
+<p><strong>Location</strong>: the <code class="docutils literal notranslate"><span class="pre">meta</span></code> folder. By default this will be <code class="docutils literal notranslate"><span class="pre">${STUDY}/metadata</span></code>.</p>
+<p>This file documents sessions that are shared with other studies. The first
+column contains the ID for the session within the current study and the second
+column contains the ID for a second study that the data belongs to. Multiple
+entries for an ID may exist if the same session is used by multiple studies.</p>
+<p>An optional third column can be used to specify a subset of scan types that
+should be shared.</p>
+<section id="id5">
+<h3>Example<a class="headerlink" href="#id5" title="Permalink to this headline"></a></h3>
+<div class="highlight-csv notranslate"><div class="highlight"><pre><span></span>subject                  target_subject
+STUDY1_SITE_0000_01_01   STUDY2_SITE_0000_01_01
+STUDY1_SITE_0000_01_01   STUDY3_SITE_0000_01_01   RST
+STUDY1_SITE_0001_01_01   STUDY2_SITE_0001_01_01   T1,RST,FLAIR
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="script_overview.html" class="btn btn-neutral float-left" title="Script Overview" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="api.html" class="btn btn-neutral float-right" title="Library API (application program interface)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2016, TIGRLab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

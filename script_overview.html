@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Script Overview &mdash; Datman 0.1.dev1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/custom.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Other important files" href="datman_files.html" />
+    <link rel="prev" title="Configuration Files" href="datman_conf.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Datman
+          </a>
+              <div class="version">
+                0.1.dev1
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html#docker-container">Docker Container</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing to Datman</a></li>
+<li class="toctree-l1"><a class="reference internal" href="datman_conf.html">Configuration Files</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Script Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#dm-blacklist-rm">dm_blacklist_rm</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dm-sftp">dm_sftp</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dm-link">dm_link</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dm-xnat-upload">dm_xnat_upload</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dm-xnat-extract">dm_xnat_extract</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dm-link-shared-ids">dm_link_shared_ids</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dm-qc-report">dm_qc_report</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dm-redcap-scan-completed">dm_redcap_scan_completed</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#xnat-fetch-sessions">xnat_fetch_sessions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dm-task-files">dm_task_files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dm-parse-faces">dm_parse_faces</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="datman_files.html">Other important files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">Library API (application program interface)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changes.html">What’s new?</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Datman</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Script Overview</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/script_overview.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="script-overview">
+<h1>Script Overview<a class="headerlink" href="#script-overview" title="Permalink to this headline"></a></h1>
+<p>This page documents some important scripts that are installed with Datman, as
+well as how to use and configure them. All scripts discussed here can be
+found in Datman’s ‘bin’ folder.</p>
+<section id="dm-blacklist-rm">
+<h2>dm_blacklist_rm<a class="headerlink" href="#dm-blacklist-rm" title="Permalink to this headline"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 38%" />
+<col style="width: 62%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><strong>Description</strong></p></td>
+<td><p>Delete any files that have been blacklisted.
+Only removes data from the directories
+configured by <code class="docutils literal notranslate"><span class="pre">BlacklistDel</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Environment Variables</strong></p></td>
+<td><p>None</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Config Settings</strong></p></td>
+<td><ul class="simple">
+<li><p><a class="reference internal" href="datman_conf.html#config-blacklistdel"><span class="std std-ref">BlacklistDel</span></a></p></li>
+<li><p><a class="reference internal" href="datman_conf.html#config-paths"><span class="std std-ref">Paths</span></a></p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-even"><td><p><strong>Additional Config Files</strong></p></td>
+<td><ul class="simple">
+<li><p><a class="reference internal" href="datman_files.html#dmfiles-blacklist"><span class="std std-ref">Blacklist</span></a></p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-odd"><td><p><strong>Additional Software</strong>
+<strong>Dependencies</strong></p></td>
+<td><p>None</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="dm-sftp">
+<h2>dm_sftp<a class="headerlink" href="#dm-sftp" title="Permalink to this headline"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 38%" />
+<col style="width: 62%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><strong>Description</strong></p></td>
+<td><p>Downloads scan zip files from an FTP Server.</p>
+<p><strong>Note</strong>: The user running this script must
+have the sftp server in their ‘known_hosts’
+file.</p>
+</td>
+</tr>
+<tr class="row-even"><td><p><strong>Environment Variables</strong></p></td>
+<td><p>None</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Config Settings</strong></p></td>
+<td><ul class="simple">
+<li><p><a class="reference internal" href="datman_conf.html#config-paths"><span class="std std-ref">Paths (zips, meta)</span></a></p></li>
+<li><p><a class="reference internal" href="datman_conf.html#config-ftp"><span class="std std-ref">FTP</span></a></p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-even"><td><p><strong>Additional Config Files</strong></p></td>
+<td><p>None</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Additional Software</strong>
+<strong>Dependencies</strong></p></td>
+<td><p>None</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="dm-link">
+<h2>dm_link<a class="headerlink" href="#dm-link" title="Permalink to this headline"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35%" />
+<col style="width: 65%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><strong>Description</strong></p></td>
+<td><p>Apply the Datman naming convention to the
+raw zip files. Makes correctly-named
+symlinks in the ‘dicom’ folder that point to
+the original zip files in the ‘zips’ folder.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Environment Variables</strong></p></td>
+<td><p>None</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Config Settings</strong></p></td>
+<td><ul class="simple">
+<li><p><a class="reference internal" href="datman_conf.html#config-paths"><span class="std std-ref">Paths (dicom, zips, meta)</span></a></p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-even"><td><p><strong>Additional Config Files</strong></p></td>
+<td><ul class="simple">
+<li><p><a class="reference internal" href="datman_files.html#dmfiles-scans"><span class="std std-ref">scans.csv</span></a></p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-odd"><td><p><strong>Additional Software</strong>
+<strong>Dependencies</strong></p></td>
+<td><p>None</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="dm-xnat-upload">
+<h2>dm_xnat_upload<a class="headerlink" href="#dm-xnat-upload" title="Permalink to this headline"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 38%" />
+<col style="width: 62%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><strong>Description</strong></p></td>
+<td><p>Uploads scan zip files from Datman’s ‘dicom’
+directory to the configured XNAT server.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Environment Variables</strong></p></td>
+<td><ul class="simple">
+<li><p>XNAT_PASS: The XNAT user password.
+Overrides the config file if set.</p></li>
+<li><p>XNAT_USER: The XNAT username.
+Overrides the config file if set.</p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-odd"><td><p><strong>Config Settings</strong></p></td>
+<td><ul class="simple">
+<li><p><a class="reference internal" href="datman_conf.html#config-paths"><span class="std std-ref">Paths (dicom, meta)</span></a></p></li>
+<li><p><a class="reference internal" href="datman_conf.html#config-xnat"><span class="std std-ref">XNAT</span></a></p></li>
+<li><p><a class="reference internal" href="datman_conf.html#config-idmap"><span class="std std-ref">IdMap (Optional)</span></a></p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-even"><td><p><strong>Additional Config Files</strong></p></td>
+<td><p>None</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Additional Software</strong>
+<strong>Dependencies</strong></p></td>
+<td><p>None</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="dm-xnat-extract">
+<h2>dm_xnat_extract<a class="headerlink" href="#dm-xnat-extract" title="Permalink to this headline"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 75%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><strong>Description</strong></p></td>
+<td><p>Downloads scan data from the configured
+XNAT server and converts it to all
+configured file types.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Environment Variables</strong></p></td>
+<td><ul class="simple">
+<li><p>XNAT_PASS: The XNAT user password.
+Overrides the config file if set.</p></li>
+<li><p>XNAT_USER: The XNAT username.
+Overrides the config file if set.</p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-odd"><td><p><strong>Config Settings</strong></p></td>
+<td><ul class="simple">
+<li><p><a class="reference internal" href="datman_conf.html#config-paths"><span class="std std-ref">Paths</span></a></p></li>
+<li><p><a class="reference internal" href="datman_conf.html#config-export"><span class="std std-ref">ExportInfo</span></a></p></li>
+<li><p><a class="reference internal" href="datman_conf.html#config-xnat"><span class="std std-ref">XNAT</span></a></p></li>
+<li><p><a class="reference internal" href="datman_conf.html#config-idmap"><span class="std std-ref">IdMap (Optional)</span></a></p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-even"><td><p><strong>Additional Config Files</strong></p></td>
+<td><ul class="simple">
+<li><p><a class="reference internal" href="datman_files.html#dmfiles-dcm2bids"><span class="std std-ref">dcm2bids config</span></a></p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-odd"><td><p><strong>Additional Software</strong>
+<strong>Dependencies</strong></p></td>
+<td><ul class="simple">
+<li><p><a class="reference external" href="https://github.com/rordenlab/dcm2niix">dcm2niix (for nii/bids)</a></p></li>
+<li><p><a class="reference external" href="https://unfmontreal.github.io/Dcm2Bids/">dcm2bids (for bids)</a></p></li>
+<li><p><a class="reference external" href="https://www.slicer.org/">Slicer  (for nrrd)</a></p></li>
+<li><p><a class="reference external" href="https://www.mcgill.ca/bic/software/minc/minctoolkit">MINC Tool Kit (for minc)</a></p></li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="dm-link-shared-ids">
+<h2>dm_link_shared_ids<a class="headerlink" href="#dm-link-shared-ids" title="Permalink to this headline"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 38%" />
+<col style="width: 62%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><strong>Description</strong></p></td>
+<td><p>Links sessions from different studies as
+belonging to the same participant, based on
+the contents of a REDCap survey</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Environment Variables</strong></p></td>
+<td><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">REDCAP_TOKEN</span></code>: The redcap token to use
+for authentication. Ignored if defined in
+config files.</p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-odd"><td><p><strong>Config Settings</strong></p></td>
+<td><ul class="simple">
+<li><p><a class="reference internal" href="datman_conf.html#config-redcap"><span class="std std-ref">REDCap</span></a></p></li>
+<li><p><a class="reference internal" href="datman_conf.html#config-idmap"><span class="std std-ref">IdMap (Optional)</span></a></p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-even"><td><p><strong>Additional Config Files</strong></p></td>
+<td><ul class="simple">
+<li><p><a class="reference internal" href="datman_files.html#dmfiles-external"><span class="std std-ref">external-links</span></a></p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-odd"><td><p><strong>Additional Software</strong>
+<strong>Dependencies</strong></p></td>
+<td><p>None</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="dm-qc-report">
+<h2>dm_qc_report<a class="headerlink" href="#dm-qc-report" title="Permalink to this headline"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 34%" />
+<col style="width: 66%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><strong>Description</strong></p></td>
+<td><p>Generate QC metrics for the data in the
+study’s ‘nii’ folder. These will be put in
+the study’s ‘qc’ folder and can be displayed
+by the QC dashboard if it is installed.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Environment Variables</strong></p></td>
+<td><p>None</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Config Settings</strong></p></td>
+<td><ul class="simple">
+<li><p><a class="reference internal" href="datman_conf.html#config-paths"><span class="std std-ref">Paths (nii, qc, std, meta)</span></a></p></li>
+<li><p><a class="reference internal" href="datman_conf.html#config-logs"><span class="std std-ref">Logging (Optional)</span></a></p></li>
+<li><p><a class="reference internal" href="datman_conf.html#config-standards"><span class="std std-ref">Gold Standards</span></a></p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-even"><td><p><strong>Additional Config Files</strong></p></td>
+<td><ul class="simple">
+<li><p><span class="xref std std-ref">Checklist</span></p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-odd"><td><p><strong>Additional Software</strong>
+<strong>Dependencies</strong></p></td>
+<td><ul class="simple">
+<li><p>Matlab (R2014a)</p></li>
+<li><p>AFNI (2014)</p></li>
+<li><p>FSL (5.0.10)</p></li>
+</ul>
+<p>Newer versions may work, but no guarantees.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="dm-redcap-scan-completed">
+<h2>dm_redcap_scan_completed<a class="headerlink" href="#dm-redcap-scan-completed" title="Permalink to this headline"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 38%" />
+<col style="width: 62%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><strong>Description</strong></p></td>
+<td><p>Retrieve redcap ‘scan completed’ survey data
+from a redcap server and push it to Datman’s
+QC dashboard database.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Environment Variables</strong></p></td>
+<td><p>None</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Config Settings</strong></p></td>
+<td><ul class="simple">
+<li><p><a class="reference internal" href="datman_conf.html#config-paths"><span class="std std-ref">Paths (meta)</span></a></p></li>
+<li><p><a class="reference internal" href="datman_conf.html#config-redcap"><span class="std std-ref">REDCap</span></a></p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-even"><td><p><strong>Additional Config Files</strong></p></td>
+<td><p>None</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Additional Software</strong>
+<strong>Dependencies</strong></p></td>
+<td><p>None</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="xnat-fetch-sessions">
+<h2>xnat_fetch_sessions<a class="headerlink" href="#xnat-fetch-sessions" title="Permalink to this headline"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 38%" />
+<col style="width: 62%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><strong>Description</strong></p></td>
+<td><p>Download XNAT sessions as raw scan zip
+files and deposit them in the study’s ‘zip’
+folder.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Environment Variables</strong></p></td>
+<td><p>None</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Config Settings</strong></p></td>
+<td><ul class="simple">
+<li><p><a class="reference internal" href="datman_conf.html#config-paths"><span class="std std-ref">Paths (zips, meta)</span></a></p></li>
+<li><p><a class="reference internal" href="datman_conf.html#config-xnat"><span class="std std-ref">XNAT</span></a>, only settings
+with the ‘XnatSource’ prefix</p></li>
+<li><p><a class="reference internal" href="datman_conf.html#config-logs"><span class="std std-ref">Logging (Optional)</span></a></p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-even"><td><p><strong>Additional Config Files</strong></p></td>
+<td><p>None</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Additional Software</strong>
+<strong>Dependencies</strong></p></td>
+<td><p>None</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="dm-task-files">
+<h2>dm_task_files<a class="headerlink" href="#dm-task-files" title="Permalink to this headline"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35%" />
+<col style="width: 65%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><strong>Description</strong></p></td>
+<td><p>Finds task files in the study’s ‘resources’
+folder and symlinks them into the study’s
+‘tasks’ folder with a standard name scheme.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Environment Variables</strong></p></td>
+<td><p>None</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Config Settings</strong></p></td>
+<td><ul class="simple">
+<li><p><a class="reference internal" href="datman_conf.html#config-paths"><span class="std std-ref">Paths (task, resources)</span></a></p></li>
+<li><p><a class="reference internal" href="datman_conf.html#config-tasks"><span class="std std-ref">Tasks</span></a></p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-even"><td><p><strong>Additional Config Files</strong></p></td>
+<td><p>None</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Additional Software</strong>
+<strong>Dependencies</strong></p></td>
+<td><p>None</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="dm-parse-faces">
+<h2>dm_parse_faces<a class="headerlink" href="#dm-parse-faces" title="Permalink to this headline"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 38%" />
+<col style="width: 62%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><strong>Description</strong></p></td>
+<td><p>Converts eprime text files for the FACES
+task into BIDS format .tsv files.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Environment Variables</strong></p></td>
+<td><p>None</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Config Settings</strong></p></td>
+<td><ul class="simple">
+<li><p><a class="reference internal" href="datman_conf.html#config-paths"><span class="std std-ref">Paths (task, nii)</span></a></p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-even"><td><p><strong>Additional Config Files</strong></p></td>
+<td><p>None</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Additional Software</strong>
+<strong>Dependencies</strong></p></td>
+<td><p>None</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="datman_conf.html" class="btn btn-neutral float-left" title="Configuration Files" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="datman_files.html" class="btn btn-neutral float-right" title="Other important files" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2016, TIGRLab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

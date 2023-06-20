@@ -92,6 +92,9 @@ read from / remove blacklisted data.
 
 Optional
 ^^^^^^^^
+
+.. _config BlacklistDel:
+
 * **BlacklistDel**
 
   * Description: Defines which directories to delete blacklisted data from.
@@ -111,6 +114,8 @@ Example
 
    # Or limit deletion to the nifti folder:
    BlacklistDel: [nii]
+
+.. _config Export:
 
 ExportInfo
 **********
@@ -212,6 +217,8 @@ of using one of the optional settings to set up a default series
 description pattern for study. Any study with the same tag in
 their ExportInfo can override this by including their own 'Pattern' setting.
 
+.. _config FTP:
+
 FTP
 ***
 These settings manage SFTP access and are needed by scripts, like dm_sftp.py,
@@ -265,6 +272,43 @@ In the above example the MrFolder setting will cause any folders on the
 "scans" or that start with "myscans" followed by a number between 1 and 9 to
 be searched for scan zip files.
 
+.. _config Standards:
+
+Gold Standards
+**************
+These settings tune the sensitive of gold standard comparisons by QC tools.
+The gold standard files are json side car files that have been stored in the
+study's ``std`` directory (by default this is ``${STUDY}/metadata/standards``).
+
+Optional
+^^^^^^^^
+* **IgnoreHeaderFields**:
+
+  * Description: A list of dicom header field names to ignore during
+    comparisons. These are Case-Sensitive.
+* **HeaderFieldTolerance**:
+
+  * Description: A list of ``HeaderField: Tolerance`` pairs to determine when
+    numeric differences should be ignored. The header field names are
+    Case-Sensitive.
+
+Example
+^^^^^^^
+
+.. code-block:: yaml
+
+  IgnoreHeaderFields:
+    # Note that these are case-sensitive!
+    - AcquisitionTime
+    - ManufacturersModelName
+
+  HeaderFieldTolerance:
+    # Note that these are case-sensitive!
+    EchoTime: 0.005
+    RepetitionTime: 1
+
+.. _config Idmap:
+
 IdMap
 *****
 Provides a method of translating between ID schemes (Datman to KCNI or vice
@@ -312,6 +356,8 @@ Example
     Subject:
       '1(P?[0-9]+)->ABC\1': 'ABC(P?[0-9]+)->1\1'
 
+.. _config Logs:
+
 Logs
 ****
 These settings manage log configuration for datman's log server
@@ -337,6 +383,8 @@ Example
 
   LogServer: 111.222.333.444
   LogServerDir: /var/logs/datman_logs
+
+.. _config Paths:
 
 Paths
 *****
@@ -401,6 +449,8 @@ omitted otherwise
     bids format.
   * Used by:
 
+    * dm_xnat_extract.py - Writes to this folder when the ``--use-dcm2bids``
+      option is used.
     * bidsify.py - Writes to this folder
 
 Example
@@ -530,6 +580,8 @@ Example
      Study1: study1_config.yml
      STUDYB: STUDYB.yml
      StUdYc: mystudy.yaml
+
+.. _config Redcap:
 
 REDCap
 ******
@@ -756,6 +808,35 @@ Example
           DatmanProjectsDir: /tmp/data/
           DatmanAssetsDir: /archive/code/datman/assets
           ConfigDir: /tmp/data/config
+
+.. _config Tasks:
+
+Task Files
+**********
+These settings are used by scripts that work with fMRI task files (e.g.
+dm_task_files).
+
+Optional
+^^^^^^^^
+* **TaskRegex**
+
+  * Description: `A regular expression <https://docs.python.org/3/library/re.html>`_
+    used to identify task files. This is needed because task files are often
+    named less consistently than scan data and are often (at least initially)
+    in a resources folder filled with many other non-task files.
+
+Example
+^^^^^^^
+.. code-block:: yaml
+
+  # This will identify any file with 'behav' or the 'edat2' extension as
+  # task data.
+  TaskRegex: 'behav|\.edat2'
+
+  # This will identify any file with the .log extension as task data
+  TaskRegex: '\.log'
+
+.. _config XNAT:
 
 XNAT
 ****
