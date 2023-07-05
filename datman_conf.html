@@ -806,16 +806,13 @@ settings are used by scripts like <code class="docutils literal notranslate"><sp
 <section id="id22">
 <h4>Required<a class="headerlink" href="#id22" title="Permalink to this headline"></a></h4>
 <ul class="simple">
-<li><p><strong>RedcapApi</strong>:</p>
-<ul>
-<li><p>Description: The URL for the REDCap API endpoint.</p></li>
-<li><p>Used by: dm_link_shared_ids.py</p></li>
-</ul>
-</li>
 <li><p><strong>RedcapUrl</strong>:</p>
 <ul>
-<li><p>Description: The URL for the REDCap server to pull information from.</p></li>
-<li><p>Used by: dm_redcap_scan_complete.py</p></li>
+<li><p>Description: The URL of the REDCap server to query for surveys. If the
+‘Data Entry Trigger’ feature is being used, this must match the URL
+contained in the requests that will be sent (this should just be the
+plain old home page URL).</p></li>
+<li><p>Used by: dm_redcap_scan_complete.py and the QC dashboard if it’s installed.</p></li>
 </ul>
 </li>
 <li><p><strong>RedcapProjectId</strong>:</p>
@@ -847,6 +844,14 @@ ID.</p></li>
 <section id="id23">
 <h4>Optional<a class="headerlink" href="#id23" title="Permalink to this headline"></a></h4>
 <ul class="simple">
+<li><p><strong>RedcapApiUrl</strong>:</p>
+<ul>
+<li><p>Description: The URL for the REDCap API. Only needed if this URL differs
+from RedcapUrl.</p></li>
+<li><p>Default: ‘RedcapUrl’</p></li>
+<li><p>Used by: dm_link_shared_ids.py</p></li>
+</ul>
+</li>
 <li><p><strong>RedcapComments</strong>:</p>
 <ul>
 <li><p>Description: The name of the survey field that holds comments from the
@@ -878,7 +883,8 @@ indicate that the form is complete.</p></li>
 </li>
 <li><p><strong>RedcapSubj</strong>:</p>
 <ul>
-<li><p>Description: The name of the survey field that holds the session ID</p></li>
+<li><p>Description: The name of the survey field that holds the correctly
+formatted session ID.</p></li>
 <li><p>Default: ‘par_id’</p></li>
 </ul>
 </li>
@@ -905,8 +911,8 @@ for sessions in a study (or site).</p></li>
 <section id="id24">
 <h4>Example<a class="headerlink" href="#id24" title="Permalink to this headline"></a></h4>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">UsesRedcap</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span><span class="w">    </span><span class="c1"># if unset, is treated as False</span>
-<span class="nt">RedcapApi</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myredcapserver.com/api</span><span class="w"> </span><span class="c1"># These two can refer to different servers</span>
 <span class="nt">RedcapUrl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myredcapserver.com</span>
+<span class="nt">RedcapApiUrl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myredcapserver.com/api</span><span class="w"> </span><span class="c1"># These URLs can refer to different servers</span>
 <span class="nt">RedcapToken</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;mytoken.txt&#39;</span><span class="w">  </span><span class="c1"># Should exist in $STUDY/metadata,</span>
 <span class="w">                            </span><span class="c1"># if unset, REDCAP_TOKEN env var is read</span>
 <span class="nt">RedcapProjectId</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;1111&#39;</span>
