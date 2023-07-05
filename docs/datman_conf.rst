@@ -591,14 +591,14 @@ settings are used by scripts like ``dm_redcap_scan_complete.py``,
 
 Required
 ^^^^^^^^
-* **RedcapApi**:
 
-  * Description: The URL for the REDCap API endpoint.
-  * Used by: dm_link_shared_ids.py
 * **RedcapUrl**:
 
-  * Description: The URL for the REDCap server to pull information from.
-  * Used by: dm_redcap_scan_complete.py
+  * Description: The URL of the REDCap server to query for surveys. If the
+    'Data Entry Trigger' feature is being used, this must match the URL
+    contained in the requests that will be sent (this should just be the
+    plain old home page URL).
+  * Used by: dm_redcap_scan_complete.py and the QC dashboard if it's installed.
 * **RedcapProjectId**:
 
   * Description: The project ID to use when retrieving records.
@@ -619,6 +619,12 @@ Required
 
 Optional
 ^^^^^^^^
+* **RedcapApiUrl**:
+
+  * Description: The URL for the REDCap API. Only needed if this URL differs
+    from RedcapUrl.
+  * Default: 'RedcapUrl'
+  * Used by: dm_link_shared_ids.py
 * **RedcapComments**:
 
   * Description: The name of the survey field that holds comments from the
@@ -642,7 +648,8 @@ Optional
   * Default: '2'
 * **RedcapSubj**:
 
-  * Description: The name of the survey field that holds the session ID
+  * Description: The name of the survey field that holds the correctly
+    formatted session ID.
   * Default: 'par_id'
 * **RedcapToken**:
 
@@ -664,8 +671,8 @@ Example
 .. code-block:: yaml
 
   UsesRedcap: True    # if unset, is treated as False
-  RedcapApi: myredcapserver.com/api # These two can refer to different servers
   RedcapUrl: myredcapserver.com
+  RedcapApiUrl: myredcapserver.com/api # These URLs can refer to different servers
   RedcapToken: 'mytoken.txt'  # Should exist in $STUDY/metadata,
                               # if unset, REDCAP_TOKEN env var is read
   RedcapProjectId: '1111'
