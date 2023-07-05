@@ -148,8 +148,9 @@ ExportSettings:
 # UsesRedcap: False              # Whether or not to expect a REDCap scan
                                  # completed survey for each MR session.
                                  # Default: False
-# RedcapApi: <api url>           # The API URL for the REDCap server.
 # RedcapUrl: <redcap url>        # The URL for the REDCap server.
+# RedcapApiUrl: <api url>        # The API URL for the REDCap server.
+                                 # Default: RedcapUrl
 # RedcapToken: <filename>        # The name of the file in each study's
                                  # metadata folder that contains the REDCap
                                  # token to use.

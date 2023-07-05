@@ -210,8 +210,8 @@ def main():
     dir_meta = cfg.get_path('meta')
 
     # configure redcap variables
-    api_url = cfg.get_key('RedcapUrl')
-    redcap_url = api_url.replace('/api/', '/')
+    redcap_url = cfg.get_key('RedcapUrl')
+    api_url = get_setting('RedcapApiUrl', default=redcap_url)
 
     token_path = os.path.join(dir_meta, cfg.get_key('RedcapToken'))
     token = read_token(token_path)
