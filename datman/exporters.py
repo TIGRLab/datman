@@ -187,12 +187,28 @@ class BidsExporter(SessionExporter):
         self.clobber = bids_opts.clobber if bids_opts else False
         self.log_level = bids_opts.log_level if bids_opts else "INFO"
         self.dcm2bids_config = bids_opts.dcm2bids_config if bids_opts else None
+        self.refresh = bids_opts.refresh if bids_opts else False
         super().__init__(config, session, experiment, **kwargs)
 
     def _get_scan_dir(self, download_dir):
+        if self.refresh:
+            # Use existing tmp_dir instead of raw dcms
+            tmp_dir = os.path.join(
+                self.bids_folder,
+                "tmp_dcm2bids",
+                f"sub-{self.bids_sub}_ses-{self.bids_ses}"
+            )
+            return tmp_dir
         return os.path.join(download_dir, self.exp_label, "scans")
 
     def outputs_exist(self):
+        if self.refresh:
+            logger.info(
+                f"Re-comparing existing tmp folder for {self.output_dir}"
+                "to dcm2bids config to pull missed series."
+            )
+            return False
+
         if self.clobber:
             logger.info(
                 f"{self.output_dir} will be overwritten due to clobber option."
@@ -212,7 +228,7 @@ class BidsExporter(SessionExporter):
         return False
 
     def needs_raw_data(self):
-        return not self.outputs_exist()
+        return not self.outputs_exist() and not self.refresh
 
     def export(self, raw_data_dir, **kwargs):
         if self.outputs_exist():

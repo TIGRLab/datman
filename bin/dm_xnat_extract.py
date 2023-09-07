@@ -68,10 +68,11 @@ class BidsOptions:
 
     def __init__(self, config, keep_dcm=False, bids_out=None,
                  force_dcm2niix=False, clobber=False, dcm2bids_config=None,
-                 log_level="INFO"):
+                 log_level="INFO", refresh=False):
         self.keep_dcm = keep_dcm
         self.force_dcm2niix = force_dcm2niix
         self.clobber = clobber
+        self.refresh = refresh
         self.bids_out = bids_out
         self.log_level = log_level
         self.dcm2bids_config = self.get_bids_config(
@@ -128,7 +129,8 @@ def main():
             force_dcm2niix=args.force_dcm2niix,
             clobber=args.clobber,
             dcm2bids_config=args.dcm_config,
-            bids_out=args.bids_out
+            bids_out=args.bids_out,
+            refresh=args.refresh
         )
     else:
         bids_opts = None
@@ -256,6 +258,12 @@ def read_args():
         "--clobber", action="store_true", default=False,
         help="Clobber previous bids data"
     )
+    g_dcm2bids.add_argument(
+        "--refresh", action="store_true", default=False,
+        help="Refresh previously exported bids data by re-running against an "
+             "existing tmp folder in the bids output directory. Useful if the "
+             "contents of the configuration file changes."
+    )
 
     g_perfm = parser.add_argument_group("Options for logging and debugging")
     g_perfm.add_argument(
@@ -282,7 +290,7 @@ def read_args():
     args = parser.parse_args()
 
     bids_opts = [args.keep_dcm, args.dcm_config, args.bids_out,
-                 args.force_dcm2niix, args.clobber]
+                 args.force_dcm2niix, args.clobber, args.refresh]
     if not args.use_dcm2bids and any(bids_opts):
         parser.error("dcm2bids configuration requires --use-dcm2bids")
 
