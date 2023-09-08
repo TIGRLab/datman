@@ -379,7 +379,8 @@ class NiiLinkExporter(SessionExporter):
         Returns:
             :obj:`dict`: A dictionary matching the intended datman file name to
                 the full path (minus extension) of the same series in the bids
-                folder.
+                folder. If no matching bids file was found, it will instead be
+                matched to the string 'missing'.
         """
         name_map = {}
         for tag in self.tags:
@@ -404,7 +405,8 @@ class NiiLinkExporter(SessionExporter):
 
         for scan in dm_names:
             if scan not in name_map:
-                logger.info(f"Expected scan {scan} not found in BIDS folder.")
+                # An expected scan is missing from the bids folder.
+                name_map[scan] = "missing"
 
         return name_map
 
@@ -527,11 +529,20 @@ class NiiLinkExporter(SessionExporter):
     def get_output_dir(cls, session):
         return session.nii_path
 
+    def get_error_file(self, dm_file):
+        return os.path.join(self.output_dir, dm_file + ".err")
+
     def outputs_exist(self):
         for dm_name in self.name_map:
+            if self.name_map[dm_name] == "missing":
+                if not os.path.exists(self.get_error_file(dm_name)):
+                    return False
+                continue
+
             bl_entry = read_blacklist(scan=dm_name, config=self.config)
             if bl_entry:
                 continue
+
             full_path = os.path.join(self.output_dir, dm_name + self.ext)
             if not os.path.exists(full_path):
                 return False
@@ -552,7 +563,46 @@ class NiiLinkExporter(SessionExporter):
 
         self.make_output_dir()
         for dm_name, bids_name in self.name_map.items():
-            self.make_link(dm_name, bids_name)
+            if bids_name == "missing":
+                self.report_errors(dm_name)
+            else:
+                self.make_link(dm_name, bids_name)
+                # Run in case of previous errors
+                self.clear_errors(dm_name)
+
+    def report_errors(self, dm_file):
+        """Create an error file to report probable BIDS conversion issues.
+
+        Args:
+            dm_file (:obj:`str`): A valid datman file name.
+        """
+        err_file = self.get_error_file(dm_file)
+        contents = (
+            f"{dm_file} could not be made. This may be due to a dcm2bids "
+            "conversion error or an issue with downloading the raw dicoms. "
+            "Please contact an admin as soon as possible."
+        )
+        try:
+            with open(err_file, "w") as fh:
+                fh.write(contents)
+        except Exception as e:
+            logger.error(
+                f"Failed to write error file for {dm_file}. Reason - {e}"
+            )
+
+    def clear_errors(self, dm_file):
+        """Remove an error file from a previous BIDs export issue.
+
+        Args:
+            dm_file (:obj:`str`): A valid datman file name.
+        """
+        err_file = self.get_error_file(dm_file)
+        try:
+            os.remove(err_file)
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            logger.error(f"Failed while removing {err_file}. Reason - {e}")
 
     def make_link(self, dm_file, bids_file):
         """Create a symlink in the datman style that points to a bids file.
