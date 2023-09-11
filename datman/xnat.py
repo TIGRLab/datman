@@ -999,7 +999,7 @@ class xnat(object):
                            "?wrk:workflowData/status=Complete")
             self._make_xnat_put(dismiss_url)
 
-    def _get_xnat_stream(self, url, filename, retries=3, timeout=120):
+    def _get_xnat_stream(self, url, filename, retries=3, timeout=300):
         logger.debug(f"Getting {url} from XNAT")
         try:
             response = self.session.get(url, stream=True, timeout=timeout)
@@ -1013,10 +1013,10 @@ class xnat(object):
                 raise e
 
         if response.status_code == 401:
-            # possibly the session has timed out
             logger.info("Session may have expired, resetting")
             self.open_session()
-            response = self.session.get(url, stream=True, timeout=timeout)
+            return self._get_xnat_stream(
+                    url, filename, retries=retries, timeout=timeout)
 
         if response.status_code == 404:
             logger.info(
