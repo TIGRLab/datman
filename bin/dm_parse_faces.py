@@ -263,12 +263,12 @@ def main():
 
             data = pd.DataFrame.from_dict(entries)\
                 .astype({
-                    "onset": np.float,
-                    "duration": np.float,
-                    "response_time": np.float,
-                    "accuracy": np.float,
-                    "correct_response": np.float,
-                    "participant_response": np.float
+                    "onset": np.float64,
+                    "duration": np.float64,
+                    "response_time": np.float64,
+                    "accuracy": np.float64,
+                    "correct_response": np.float64,
+                    "participant_response": np.float64
                 })\
                 .astype({
                     "correct_response": "Int64",

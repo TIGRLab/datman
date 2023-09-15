@@ -404,8 +404,10 @@ class NiiLinkExporter(SessionExporter):
                 name_map[dm_name] = item
 
         for scan in dm_names:
-            if scan not in name_map:
-                # An expected scan is missing from the bids folder.
+            output_file = os.path.join(self.output_dir, scan + self.ext)
+            if scan not in name_map and not os.path.exists(output_file):
+                # An expected scan is missing from the bids folder and
+                # hasnt already been exported directly with dcm2niix
                 name_map[scan] = "missing"
 
         return name_map
@@ -580,7 +582,7 @@ class NiiLinkExporter(SessionExporter):
         contents = (
             f"{dm_file} could not be made. This may be due to a dcm2bids "
             "conversion error or an issue with downloading the raw dicoms. "
-            "Please contact an admin as soon as possible."
+            "Please contact an admin as soon as possible.\n"
         )
         try:
             with open(err_file, "w") as fh:
