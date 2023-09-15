@@ -1048,12 +1048,14 @@ class xnat(object):
                 logger.error("Failed writing to file")
                 raise (e)
 
-    def _make_xnat_query(self, url, retries=3):
+    def _make_xnat_query(self, url, retries=3, timeout=150):
         try:
-            response = self.session.get(url, timeout=30)
+            response = self.session.get(url, timeout=timeout)
         except requests.exceptions.Timeout as e:
             if retries > 0:
-                return self._make_xnat_query(url, retries=retries - 1)
+                return self._make_xnat_query(
+                    url, retries=retries - 1, timeout=timeout * 2
+                )
             else:
                 logger.error(f"Xnat server timed out getting url {url}")
                 raise e
@@ -1062,7 +1064,7 @@ class xnat(object):
             # possibly the session has timed out
             logger.info("Session may have expired, resetting")
             self.open_session()
-            response = self.session.get(url, timeout=30)
+            response = self.session.get(url, timeout=timeout)
 
         if response.status_code == 404:
             logger.info(
@@ -1077,7 +1079,7 @@ class xnat(object):
 
     def _make_xnat_xml_query(self, url, retries=3):
         try:
-            response = self.session.get(url, timeout=30)
+            response = self.session.get(url)
         except requests.exceptions.Timeout as e:
             if retries > 0:
                 return self._make_xnat_xml_query(url, retries=retries - 1)
@@ -1088,7 +1090,7 @@ class xnat(object):
             # possibly the session has timed out
             logger.info("Session may have expired, resetting")
             self.open_session()
-            response = self.session.get(url, timeout=30)
+            response = self.session.get(url)
 
         if response.status_code == 404:
             logger.info(f"No records returned from xnat server to query {url}")
