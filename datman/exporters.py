@@ -747,6 +747,9 @@ class DBExporter(SessionExporter):
             if not scan:
                 return False
 
+            if self.errors_outdated(scan, name):
+                return False
+
         return True
 
     @classmethod
@@ -852,7 +855,7 @@ class DBExporter(SessionExporter):
 
         self._add_bids_scan_name(scan, file_stem)
         self._add_side_car(scan, file_stem)
-        self._add_conversion_errors(scan, file_stem)
+        self._update_conversion_errors(scan, file_stem)
 
     def _add_bids_scan_name(self, scan, dm_stem):
         """Add a bids format file name to a series in the QC database.
@@ -897,7 +900,7 @@ class DBExporter(SessionExporter):
             logger.error("Failed to add JSON side car to dashboard "
                          f"record for {side_car}. Reason - {exc}")
 
-    def _add_conversion_errors(self, scan, file_stem):
+    def _update_conversion_errors(self, scan, file_stem):
         """Add any dcm2niix conversion errors to the QC database.
 
         Args:
@@ -907,6 +910,10 @@ class DBExporter(SessionExporter):
         """
         convert_errors = self._get_file(file_stem, ".err")
         if not convert_errors:
+            if scan.conv_errors:
+                # Erase the error message from the DB, because it
+                # has been resolved.
+                scan.add_error(None)
             return
         message = self._read_file(convert_errors)
         scan.add_error(message)
@@ -941,9 +948,25 @@ class DBExporter(SessionExporter):
             with open(fpath, "r") as file_handle:
                 message = file_handle.readlines()
         except Exception as exc:
-            logger.debug(f"Can't read file {file_handle} - {exc}")
+            logger.debug(f"Can't read file {fpath} - {exc}")
             return None
         return message
+
+    def errors_outdated(self, scan, fname):
+        err_file = self._get_file(fname, ".err")
+        if not err_file and scan.conv_errors:
+            # Error is resolved, but still appears in database
+            return True
+        if err_file and not scan.conv_errors:
+            # Error has appeared, but isnt recorded in database
+            return True
+        if err_file and scan.conv_errors:
+            # Error exists in both locations, but may have changed
+            message = self._read_file(err_file)
+            if isinstance(message, list):
+                message = "\n".join(message)
+            return message != scan.conv_errors
+        return False
 
 
 class NiiExporter(SeriesExporter):
