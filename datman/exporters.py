@@ -19,10 +19,13 @@ import re
 
 import pydicom as dicom
 
+import datman.config
 import datman.dashboard
-from datman.exceptions import UndefinedSetting, DashboardException
-from datman.scanid import (parse_bids_filename, ParseException, make_filename,
-                           KCNIIdentifier)
+import datman.scan
+from datman.exceptions import (UndefinedSetting, DashboardException,
+                               ExportException)
+from datman.scanid import (parse, parse_bids_filename, ParseException,
+                           make_filename, KCNIIdentifier)
 from datman.utils import (run, make_temp_directory, get_extension,
                           filter_niftis, find_tech_notes, read_blacklist,
                           get_relative_source, read_json, write_json)
@@ -134,6 +137,8 @@ class SessionExporter(Exporter):
 
     def __init__(self, config, session, experiment, dry_run=False, **kwargs):
         self.experiment = experiment
+        self.config = config
+        self.session = session
         self.dry_run = dry_run
 
     def __repr__(self):
@@ -966,6 +971,220 @@ class DBExporter(SessionExporter):
             if isinstance(message, list):
                 message = "\n".join(message)
             return message != scan.conv_errors
+        return False
+
+
+class SharedExporter(SessionExporter):
+    """Export an XNAT 'shared' experiment.
+    """
+
+    type = "shared"
+    ext = ".nii.gz"
+
+    def __init__(self, config, session, experiment, bids_opts=None, **kwargs):
+        if not experiment.is_shared():
+            raise ExportException(
+                f"Cannot make SharedExporter for {experiment}. "
+                "XNAT Experiment is not shared."
+            )
+
+        try:
+            self.source_session = self.find_source_session(config, experiment)
+        except (ParseException, datman.config.ConfigException) as exc:
+            raise ExportException(
+                f"Can't find source data for shared experiment {experiment}. "
+                f"Reason - {exc}"
+            )
+
+        # The datman-style directories to export
+        dm_dirs = ['qc_path', 'dcm_path', 'mnc_path', 'nrrd_path']
+        if not bids_opts:
+            dm_dirs.append('nii_path')
+
+        super().__init__(config, session, experiment, **kwargs)
+
+        self.name_map = self.make_name_map(dm_dirs, use_bids=bids_opts)
+
+    def find_source_session(self, config, experiment):
+        """Find the original data on the filesystem.
+
+        Args:
+            config (:obj:`datman.config.config`): The datman config object for
+                the study that the shared experiment belongs to.
+            experiment (:obj:`datman.xnat.XNATExperiment`): The experiment
+                object for the shared session on XNAT.
+
+        Returns:
+            :obj:`datman.scan.Scan`: The scan object for the source dataset
+                as previously exported to the filesystem.
+        """
+        ident = parse(experiment.name)
+        study = config.map_xnat_archive_to_project(ident)
+        config = datman.config.config(study=study)
+        return datman.scan.Scan(ident, config)
+
+    def make_name_map(self, dm_dirs, use_bids=False):
+        """Create a dictionary of source files to their 'shared' alias.
+
+        Args:
+            dm_dirs (:obj:`list`): A list of datman-style paths on the source
+                session's :obj:`datman.scan.Scan` object to search for files.
+            use_bids (any, optional): Whether or not to search for bids files.
+                Any input equivalent to boolean True will be taken as 'True'.
+                Default False.
+
+        Returns:
+            dict: A dictionary mapping the full path to each discovered source
+                file to the full path to the output alias name/symlink.
+        """
+        if use_bids:
+            name_map = self.find_bids_files()
+        else:
+            name_map = {}
+
+        for dir_type in dm_dirs:
+            self.find_dm_files(dir_type, name_map)
+
+        self.find_resource_files(name_map)
+
+        return name_map
+
+    def find_bids_files(self, name_map=None):
+        """Find all bids files that have been created for the source session.
+
+        Args:
+            name_map (dict, optional): A dictionary that may contain other
+                discovered files and their output names. Default None.
+
+        Returns:
+            dict: A dictionary of source session files that have been
+                found, mapped to their full path under the shared/alias ID.
+        """
+        if name_map is None:
+            name_map = {}
+
+        for root, _, files in os.walk(self.source_session.bids_path):
+            dest_dir = root.replace(
+                self.source_session.bids_path,
+                self.session.bids_path
+            )
+
+            for item in files:
+                dest_name = item.replace(
+                    self.source_session.bids_sub, self.session.bids_sub
+                ).replace(
+                    self.source_session.bids_ses, self.session.bids_ses
+                )
+                name_map[os.path.join(root, item)] = os.path.join(
+                    dest_dir, dest_name
+                )
+
+        return name_map
+
+    def find_dm_files(self, dir_type, name_map=None):
+        """Find datman-style source files in all listed directory types.
+
+        Args:
+            dir_type (list): A list of paths on the source session to search
+                through. All entries should be valid path types defined for
+                the `datman.scan.Scan` object.
+            name_map (dict, optional): A dictionary of other discovered
+                source files mapped to their aliases. Default None.
+
+        Returns:
+            dict: A dictionary of source session files that have been
+                found, mapped to their full path under the shared/alias ID.
+        """
+        if name_map is None:
+            name_map = {}
+
+        source_dir = getattr(self.source_session, dir_type)
+        dest_dir = getattr(self.session, dir_type)
+
+        for scan in self.experiment.scans:
+            for name in scan.names:
+                if read_blacklist(scan=name, config=self.config):
+                    continue
+
+                source_name = name.replace(
+                    self.session.id_plus_session,
+                    self.source_session.id_plus_session
+                )
+                for match in glob(os.path.join(source_dir, f"{source_name}*")):
+                    ext = get_extension(match)
+                    name_map[match] = os.path.join(dest_dir, name + ext)
+
+        return name_map
+
+    def find_resource_files(self, name_map=None):
+        """Find all source session resources files.
+
+        Args:
+            name_map (dict, optional): A dictionary of any previously found
+                source files mapped to their aliases.
+
+        Returns:
+            dict: A dictionary of source session files that have been
+                found, mapped to their full path under the shared/alias ID.
+        """
+        if name_map is None:
+            name_map = {}
+
+        for root, _, files in os.walk(self.session.resource_path):
+            dest_path = root.replace(
+                self.source_session.resource_path,
+                self.session.resource_path
+            )
+            for item in files:
+                name_map[os.path.join(root, item)] = os.path.join(
+                    dest_path, item
+                )
+
+        return name_map
+
+    def export(self, *args, **kwargs):
+        if self.dry_run:
+            logger.info(
+                "Dry run: Skipping export of shared session files "
+                f"{self.name_map}"
+            )
+            return
+
+        for source in self.name_map:
+            parent, _ = os.path.split(self.name_map[source])
+            try:
+                os.makedirs(parent)
+            except FileExistsError:
+                pass
+            except PermissionError:
+                logger.error(
+                    f"Failed to make dir {parent} for session {self.session}. "
+                    "Permission denied."
+                )
+                continue
+            rel_source = get_relative_source(source, self.name_map[source])
+            try:
+                os.symlink(rel_source, self.name_map[source])
+            except FileExistsError:
+                pass
+            except PermissionError:
+                logger.error(
+                    f"Failed to create {self.name_map[source]}. "
+                    "Permission denied."
+                )
+
+    def outputs_exist(self):
+        for source in self.name_map:
+            if not os.path.islink(self.name_map[source]):
+                # Check if there's a link, NOT whether the source exists.
+                return False
+        return True
+
+    @classmethod
+    def get_output_dir(cls, session):
+        return None
+
+    def needs_raw_data(self):
         return False
 
 
