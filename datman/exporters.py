@@ -857,10 +857,35 @@ class DBExporter(SessionExporter):
             logger.error(f"Failed adding scan {file_stem} to dashboard "
                          f"with error: {exc}")
             return
-
+        if self.experiment.is_shared():
+            self._make_linked(scan)
         self._add_bids_scan_name(scan, file_stem)
         self._add_side_car(scan, file_stem)
         self._update_conversion_errors(scan, file_stem)
+
+    def _make_linked(self, scan):
+        try:
+            source_session = datman.dashboard.get_session(self.experiment.name)
+        except datman.dashboard.DashboardException as exc:
+            logger.error(
+                f"Failed to link shared scan {scan} to source "
+                f"{self.experiment.name}. Reason - {exc}"
+            )
+            return
+        matches = [
+            source_scan for source_scan in source_session.scans
+            if (source_scan.series == scan.series and
+                source_scan.tag == source_scan.tag)
+        ]
+        if not matches or len(matches) > 1:
+            logger.error(
+                f"Failed to link shared scan {scan} to {self.experiment.name}."
+                " Reason - Unable to find source scan database record."
+            )
+            return
+
+        scan.source_id = matches[0].id
+        scan.save()
 
     def _add_bids_scan_name(self, scan, dm_stem):
         """Add a bids format file name to a series in the QC database.
