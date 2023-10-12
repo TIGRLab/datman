@@ -875,7 +875,7 @@ class DBExporter(SessionExporter):
         matches = [
             source_scan for source_scan in source_session.scans
             if (source_scan.series == scan.series and
-                source_scan.tag == source_scan.tag)
+                source_scan.tag == scan.tag)
         ]
         if not matches or len(matches) > 1:
             logger.error(
