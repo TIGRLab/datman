@@ -1136,8 +1136,11 @@ class SharedExporter(SessionExporter):
                     self.source_session.id_plus_session
                 )
                 for match in glob(os.path.join(source_dir, f"{source_name}*")):
-                    ext = get_extension(match)
-                    name_map[match] = os.path.join(dest_dir, name + ext)
+                    fname = os.path.basename(match).replace(
+                        self.source_session.id_plus_session,
+                        self.session.id_plus_session
+                    )
+                    name_map[match] = os.path.join(dest_dir, fname)
 
         return name_map
 
