@@ -25,7 +25,7 @@ import datman.scan
 from datman.exceptions import (UndefinedSetting, DashboardException,
                                ExportException)
 from datman.scanid import (parse, parse_bids_filename, ParseException,
-                           make_filename, KCNIIdentifier)
+                           parse_filename, make_filename, KCNIIdentifier)
 from datman.utils import (run, make_temp_directory, get_extension,
                           filter_niftis, find_tech_notes, read_blacklist,
                           get_relative_source, read_json, write_json)
@@ -1026,6 +1026,8 @@ class SharedExporter(SessionExporter):
         if not bids_opts:
             dm_dirs.append('nii_path')
 
+        self.tags = config.get_tags(site=session.site)
+
         super().__init__(config, session, experiment, **kwargs)
 
         self.name_map = self.make_name_map(dm_dirs, use_bids=bids_opts)
@@ -1126,21 +1128,29 @@ class SharedExporter(SessionExporter):
         source_dir = getattr(self.source_session, dir_type)
         dest_dir = getattr(self.session, dir_type)
 
-        for scan in self.experiment.scans:
-            for name in scan.names:
-                if read_blacklist(scan=name, config=self.config):
-                    continue
-
-                source_name = name.replace(
-                    self.session.id_plus_session,
-                    self.source_session.id_plus_session
+        for item in glob(os.path.join(source_dir, "*")):
+            try:
+                _, tag, _, _ = parse_filename(item)
+            except ParseException:
+                logger.debug(
+                    f"Ignoring invalid file name {item} in {source_dir}"
                 )
-                for match in glob(os.path.join(source_dir, f"{source_name}*")):
-                    fname = os.path.basename(match).replace(
-                        self.source_session.id_plus_session,
-                        self.session.id_plus_session
-                    )
-                    name_map[match] = os.path.join(dest_dir, fname)
+                continue
+
+            if tag not in self.tags:
+                # Found a valid scan name but with a tag not used by dest study
+                continue
+
+            if dir_type == 'qc_path' and item.endswith('_manifest.json'):
+                # Filter out manifest files. These should be regenerated
+                # by dm_qc_report for the dest session.
+                continue
+
+            fname = os.path.basename(item).replace(
+                self.source_session.id_plus_session,
+                self.session.id_plus_session
+            )
+            name_map[item] = os.path.join(dest_dir, fname)
 
         return name_map
 
