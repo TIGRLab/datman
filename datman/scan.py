@@ -131,11 +131,13 @@ class Scan(DatmanNamed):
         self.resource_path = self.__get_path(
             "resources", config, session=True)
 
-        self.niftis = self.__get_series(self.nii_path, [".nii", ".nii.gz"])
-
         self.__nii_dict = self.__make_dict(self.niftis)
 
         self.nii_tags = list(self.__nii_dict.keys())
+
+    @property
+    def niftis(self):
+        return self.__get_series(self.nii_path, ['nii', '.nii.gz'])
 
     def _get_ident(self, subid):
         subject_id = self.__check_session(subid)

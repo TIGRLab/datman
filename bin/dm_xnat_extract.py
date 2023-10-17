@@ -153,7 +153,7 @@ def main():
 
         session = datman.scan.Scan(ident, config, bids_root=args.bids_out)
 
-        if xnat_experiment.resource_files:
+        if xnat_experiment.resource_files and not xnat_experiment.is_shared():
             export_resources(session.resource_path, xnat, xnat_experiment,
                              dry_run=args.dry_run)
 
@@ -611,7 +611,11 @@ def make_session_exporters(config, session, experiment, bids_opts=None,
         list: Returns a list of :obj:`datman.exporters.Exporter` for the
             desired session export formats.
     """
-    formats = get_session_formats(bids_opts=bids_opts, ignore_db=ignore_db)
+    formats = get_session_formats(
+        bids_opts=bids_opts,
+        shared=experiment.is_shared(),
+        ignore_db=ignore_db
+    )
 
     exporters = []
     for exp_format in formats:
@@ -623,12 +627,14 @@ def make_session_exporters(config, session, experiment, bids_opts=None,
     return exporters
 
 
-def get_session_formats(bids_opts=None, ignore_db=False):
+def get_session_formats(bids_opts=None, shared=False, ignore_db=False):
     """Get the string identifiers for all session exporters that are needed.
 
     Args:
         bids_opts (:obj:`BidsOptions`, optional): dcm2bids settings to be
             used if exporting to BIDS format. Defaults to None.
+        shared (bool, optional): Whether to treat the session as a
+            shared XNAT experiment. Defaults to False.
         ignore_db (bool, optional): If True, datman's QC dashboard will not
             be updated. Defaults to False.
 
@@ -636,8 +642,13 @@ def get_session_formats(bids_opts=None, ignore_db=False):
         list: a list of string keys that should be used to make exporters.
     """
     formats = []
-    if bids_opts:
+    if shared:
+        formats.append("shared")
+    elif bids_opts:
+        # Only do 'bids' format if not a shared session.
         formats.append("bids")
+
+    if bids_opts:
         formats.append("nii_link")
     if not ignore_db:
         formats.append("db")

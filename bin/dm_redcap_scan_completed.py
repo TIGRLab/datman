@@ -94,6 +94,8 @@ def add_session_redcap(record, record_key):
         return
 
     session_date = record[get_setting('RedcapDate', default='date')]
+    # Strip off optional 'hours' field'
+    session_date = session_date.split(" ")[0]
 
     try:
         session = dashboard.get_session(ident, date=session_date, create=True)
