@@ -662,11 +662,11 @@ class DBExporter(SessionExporter):
         self.study_resource_path = study_resource_dir
         self.resources_path = resources_dir
         self.date = experiment.date
-        self.names = self.get_scan_names(session, experiment)
         super().__init__(config, session, experiment, **kwargs)
 
-    def get_scan_names(self, session, experiment):
-        """Gets list of datman-style scan names for a session.
+    @property
+    def names(self):
+        """Gets list of valid datman-style scan names for a session.
 
         Returns:
             :obj:`dict`: A dictionary of datman style scan names mapped to
@@ -675,17 +675,17 @@ class DBExporter(SessionExporter):
         """
         names = {}
         # use experiment.scans, so dashboard can report scans that didnt export
-        for scan in experiment.scans:
+        for scan in self.experiment.scans:
             for name in scan.names:
-                names[name] = self.get_bids_name(name, session)
+                names[name] = self.get_bids_name(name, self.session)
 
         # Check the actual folder contents as well, in case symlinked scans
         # exist that werent named on XNAT
-        for nii in session.niftis:
+        for nii in self.session.niftis:
             fname = nii.file_name.replace(nii.ext, "")
             if fname in names:
                 continue
-            names[fname] = self.get_bids_name(fname, session)
+            names[fname] = self.get_bids_name(fname, self.session)
 
         return names
 
