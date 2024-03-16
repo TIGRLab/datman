@@ -1706,6 +1706,14 @@ class XNATScan(XNATObject):
                          f" series {self.series}. Reason - {e}")
             return False
 
+        if os.path.getsize(dicom_zip) == 0:
+            logger.error(
+                f"Server returned an empty file for series {self.series} in "
+                f"session {self.experiment}. This may be a server error."
+            )
+            os.remove(dicom_zip)
+            return False
+
         logger.info(f"Unpacking archive {dicom_zip}")
 
         try:
