@@ -1,10 +1,10 @@
-FROM ubuntu:focal
+FROM ubuntu:jammy
 
 # Install dependencies
 RUN apt update && \
-    apt install -y --no-install-recommends ssh wget unzip git python3.8 python3-pip && \
+    apt install -y --no-install-recommends ssh wget unzip git python3.11 python3-pip && \
     cd /usr/bin/ && \
-    ln -s python3.8 python
+    ln -s python3.11 python
 
 # Install dcm2niix/v1.0.20211006
 RUN cd /tmp && \
