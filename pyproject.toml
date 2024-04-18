@@ -33,6 +33,7 @@ classifiers = [
 
 dependencies = [
     "docopt == 0.6.2",
+    "dcm2bids==3.1.1",
     "nibabel == 5.2.1",
     "nilearn == 0.10.3",
     "numpy == 1.24.4",
