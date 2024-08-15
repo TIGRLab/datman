@@ -11,6 +11,7 @@ import os
 import re
 import glob
 import logging
+from string import printable
 
 from docopt import docopt
 
@@ -137,7 +138,8 @@ def resolve_duplicate_names(task_files):
         file_paths = all_fnames[unique_name]
 
         if len(file_paths) == 1:
-            resolved_names[unique_name] = file_paths[0]
+            dest_name = strip_unprintable_chars(unique_name)
+            resolved_names[dest_name] = file_paths[0]
             continue
 
         common_prefix = os.path.commonprefix(file_paths)
@@ -156,6 +158,27 @@ def sort_fnames(file_list):
     return all_fnames
 
 
+def strip_unprintable_chars(path):
+    path_prefix, fname = os.path.split(path)
+
+    if is_printable(fname):
+        return path
+
+    new_fname = fname
+    for char in get_unprintable_chars(fname):
+        new_fname = new_fname.replace(char, "")
+
+    return os.path.join(path_prefix, new_fname)
+
+
+def is_printable(fname):
+    return get_unprintable_chars(fname) == set()
+
+
+def get_unprintable_chars(item):
+    return set(item).difference(printable)
+
+
 def morph_name(file_path, common_prefix):
     """
     Returns a unique name by finding the unique part of a file's path and
@@ -169,7 +192,7 @@ def morph_name(file_path, common_prefix):
         # Common prefix may have split a directory name, so derive the new name
         # from the original path instead to ensure full names are used
         new_name = "-".join(file_path.split("/")[-(dir_levels + 1) :])
-    return new_name
+    return strip_unprintable_chars(new_name)
 
 
 def add_to_dashboard(session, task_file):

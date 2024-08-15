@@ -6,15 +6,19 @@ Usage:
     dm_redcap_scan_completed.py [options] <study>
 
 Arguments:
-    <study>             Name of the study to process
+    <study>                 Name of the study to process
 
 Options:
-    -q --quiet          Less logging
-    -v --verbose        Verbose logging
-    -d --debug          Debug logging
+    --ignore <regex>        An optional regex used to ignore records with
+                            a matching subject ID field. Regex must follow the
+                            python 're' library rules.
+    -q --quiet              Less logging
+    -v --verbose            Verbose logging
+    -d --debug              Debug logging
 """
 
 import os
+import re
 import sys
 import requests
 import logging
@@ -179,6 +183,7 @@ def main():
 
     arguments = docopt(__doc__)
     study = arguments['<study>']
+    ignore_re = arguments['--ignore']
     quiet = arguments['--quiet']
     verbose = arguments['--verbose']
     debug = arguments['--debug']
@@ -239,6 +244,11 @@ def main():
     for item in response_json:
         # only grab records where instrument has been marked complete
         if not (item[date_field] and item[status_field] in status_val):
+            continue
+        # Filter out records when the subject ID matches an optional regex
+        if ignore_re and re.match(ignore_re,
+                                  item[get_setting('RedcapSubj',
+                                                   default='par_id')]):
             continue
         project_records.append(item)
 

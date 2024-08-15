@@ -125,6 +125,7 @@ class TestValidateSubjectID:
 
 class FindTechNotes(unittest.TestCase):
     notes = "TechNotes.pdf"
+    jpg_notes = "TechNotes.jpg"
     other_pdf1 = "SomeFile.pdf"
     other_pdf2 = "otherFile.pdf"
     path = "./resources"
@@ -136,7 +137,7 @@ class FindTechNotes(unittest.TestCase):
     @patch('os.walk', autospec=True)
     def test_doesnt_crash_when_no_tech_notes_exist(self, mock_walk):
         mock_walk.return_value = self.__mock_file_system(
-            randint(1, 10), add_notes=False)
+            randint(1, 10), add_pdf_notes=False)
 
         found_file = utils.find_tech_notes(self.path)
 
@@ -163,20 +164,55 @@ class FindTechNotes(unittest.TestCase):
     def test_first_file_returned_when_multiple_pdfs_but_no_tech_notes(
             self, mock_walk):
         mock_walk.return_value = self.__mock_file_system(
-            randint(1, 10), add_notes=False, add_pdf=True)
+            randint(1, 10), add_pdf_notes=False, add_pdf=True)
 
         found_file = utils.find_tech_notes(self.path)
 
         assert os.path.basename(found_file) == self.other_pdf1
 
-    def __mock_file_system(self, depth, add_notes=True, add_pdf=False):
+    @patch('os.walk', autospec=True)
+    def test_finds_non_pdf_tech_notes(self, mock_walk):
+        mock_walk.return_value = self.__mock_file_system(
+            randint(1, 10), add_pdf_notes=False, add_pdf=True,
+            add_jpg_notes=True)
+
+        found_file = utils.find_tech_notes(self.path)
+
+        assert os.path.basename(found_file) == self.jpg_notes
+
+    @patch('os.walk', autospec=True)
+    def test_doesnt_pick_similarly_named_file(self, mock_walk):
+        mock_walk.return_value = self.__mock_file_system(
+            randint(1, 10), add_pdf_notes=False, add_pdf=True,
+            add_jpg_notes=True, add_jpgs=True)
+
+        found_file = utils.find_tech_notes(self.path)
+
+        assert os.path.basename(found_file) == self.jpg_notes
+
+    @patch('os.walk', autospec=True)
+    def test_prefers_pdf_notes_over_other_formats(self, mock_walk):
+        mock_walk.return_value = self.__mock_file_system(
+            randint(1, 10), add_pdf_notes=True, add_jpg_notes=True,
+            add_pdf=True, add_jpgs=True)
+
+        found_file = utils.find_tech_notes(self.path)
+
+        assert os.path.basename(found_file) == self.notes
+
+    def __mock_file_system(self, depth, add_pdf_notes=True, add_jpgs=False,
+                           add_jpg_notes=False, add_pdf=False):
         walk_list = []
         cur_path = self.path
         file_list = ["file1.txt", "file2"]
         if add_pdf:
             file_list.extend([self.other_pdf1, self.other_pdf2])
-        if add_notes:
+        if add_jpg_notes:
+            file_list.extend([self.jpg_notes])
+        if add_pdf_notes:
             file_list.append(self.notes)
+        if add_jpgs:
+            file_list.extend(['SpiralView.jpg', 'RANotes.jpg'])
         for num in range(1, depth + 1):
             cur_path = cur_path + "/dir{}".format(num)
             dirs = ("dir{}".format(num + 1), )

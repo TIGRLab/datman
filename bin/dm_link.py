@@ -221,8 +221,11 @@ def link_archive(archive_path, dicom_path, scanid_field, config):
     target = os.path.join(dicom_path, scanid)
     target = target + datman.utils.get_extension(archive_path)
     if os.path.exists(target):
-        logger.error("Target: {} already exists for archive: {}"
-                     .format(target, archive_path))
+        logger.error(
+            f"Target path {target} for archive {archive_path} is already in "
+            f"use by another zip file ({os.path.realpath(target)}). "
+            "Please investigate."
+        )
         return
 
     relpath = os.path.relpath(archive_path, dicom_path)
