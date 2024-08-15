@@ -1334,11 +1334,7 @@ def make_zip(source_dir, dest_zip):
 
 
 def find_tech_notes(folder):
-    """Find any technotes located within a folder.
-
-    If only one PDF is found it is assumed to be the tech notes. If multiple
-    are found, unless one contains the string 'TechNotes', the first pdf is
-    guessed to be the tech notes.
+    """Find any technotes located within a given folder.
 
     Args:
         folder (str): A full path to a folder to search.
@@ -1347,21 +1343,35 @@ def find_tech_notes(folder):
         path (str): The full path to the tech notes or an empty string if
             none have been found.
     """
-    pdf_list = []
-    for root, dirs, files in os.walk(folder):
+    exts = ["pdf", "png", "jpg"]
+    notes = []
+    for root, _, files in os.walk(folder):
         for fname in files:
-            if ".pdf" in fname:
-                pdf_list.append(os.path.join(root, fname))
+            if any([fname.endswith(ext) for ext in exts]):
+                notes.append(os.path.join(root, fname))
 
-    if not pdf_list:
+    if not notes:
         return ""
-    elif len(pdf_list) > 1:
-        for pdf in pdf_list:
-            file_name = os.path.basename(pdf)
-            if 'technotes' in file_name.lower():
-                return pdf
 
-    return pdf_list[0]
+    # find the file most likely to be the tech notes
+    scored = []
+    for item in notes:
+        score = 0
+        if "tech" in item.lower():
+            score += 3
+        if "note" in item.lower():
+            score += 2
+        if item.endswith("pdf"):
+            score += 1
+        scored.append((item, score))
+
+    result = sorted(scored, key=lambda x: x[1], reverse=True)
+
+    if result[0][1] == 0:
+        # No files scored as likely to be the notes
+        return ""
+
+    return result[0][0]
 
 
 def read_json(path):
