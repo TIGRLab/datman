@@ -1334,6 +1334,15 @@ def make_zip(source_dir, dest_zip):
 
 
 def find_tech_notes(folder):
+    """Find any technotes located within a given folder.
+
+    Args:
+        folder (str): A full path to a folder to search.
+
+    Returns:
+        path (str): The full path to the tech notes or an empty string if
+            none have been found.
+    """
     exts = ["pdf", "png", "jpg"]
     notes = []
     for root, _, files in os.walk(folder):
