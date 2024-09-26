@@ -225,3 +225,21 @@ dm_parse_faces
 | **Additional Software**    |                                              |
 | **Dependencies**           | None                                         |
 +----------------------------+----------------------------------------------+
+
+dm_update_standards
+*******************
++----------------------------+----------------------------------------------+
+| **Description**            | Update the gold standards for a study. The   |
+|                            | scans chosen as gold standards should have   |
+|                            | correct header values that all new scans can |
+|                            | be compared against.                         |
++----------------------------+----------------------------------------------+
+| **Environment Variables**  | None                                         |
++----------------------------+----------------------------------------------+
+| **Config Settings**        | * :ref:`Paths (std) <config Paths>`          |
++----------------------------+----------------------------------------------+
+| **Additional Config Files**| None                                         |
++----------------------------+----------------------------------------------+
+| **Additional Software**    |                                              |
+| **Dependencies**           | None                                         |
++----------------------------+----------------------------------------------+
