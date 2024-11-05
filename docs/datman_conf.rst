@@ -642,7 +642,7 @@ Optional
     share data between studies. If only one shared ID is expected, the REDCap
     survey field may be identical to the prefix (e.g. prefix is 'shared_id' and
     the survey field is also just 'shared_id').
-  * Default: 'shared_id'
+  * Default: 'shared_parid'
   * Used by: dm_link_shared_ids.py
 * **RedcapStatus**:
 
