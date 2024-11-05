@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 """
 Finds REDCap records for the given study and if a session has multiple IDs
-(i.e. it is shared with another study) updates the dashboard and tries to
-create links from the exported original data to its pseudonyms.
+(i.e. it is shared with another study) shares the session on xnat, updates the
+dashboard and tries to create links from the exported original data to its
+pseudonyms.
 
 Usage:
     dm_link_shared_ids.py [options] <project>
@@ -80,6 +81,18 @@ def main():
 def get_redcap_records(config, redcap_cred):
     token = get_token(config, redcap_cred)
     redcap_url = config.get_key('RedcapApi')
+    current_study = config.get_key('StudyTag')
+
+    record_id_field = get_setting(config, 'RedcapRecordKey')
+    subid_field = get_setting(config, 'RedcapSubj', default='par_id')
+    comment_field = get_setting(config, 'RedcapComments', default='cmts')
+    shared_prefix_field = get_setting(
+        config, 'RedcapSharedIdPrefix', default='shared_id')
+
+    try:
+        id_map = config.get_key('IdMap')
+    except UndefinedSetting:
+        id_map = None
 
     logger.debug("Accessing REDCap API at {}".format(redcap_url))
 
@@ -93,15 +106,10 @@ def get_redcap_records(config, redcap_cred):
         logger.error("Cannot access redcap data at URL {}".format(redcap_url))
         sys.exit(1)
 
-    current_study = config.get_key('StudyTag')
-
     try:
-        id_map = config.get_key('IdMap')
-    except UndefinedSetting:
-        id_map = None
-
-    try:
-        project_records = parse_records(response, current_study, id_map)
+        project_records = parse_records(
+            response, current_study, id_map,
+            record_id_field, subid_field, comment_field, shared_prefix_field)
     except ValueError as e:
         logger.error("Couldn't parse redcap records for server response {}. "
                      "Reason: {}".format(response.content, e))
@@ -126,10 +134,24 @@ def get_token(config, redcap_cred):
     return token
 
 
-def parse_records(response, study, id_map):
+def get_setting(config, key, default=None):
+    """Get the REDCap survey field names, if they differ from a default.
+    """
+    try:
+        return config.get_key(key)
+    except datman.config.UndefinedSetting as e:
+        if not default:
+            raise e
+        return default
+
+
+def parse_records(response, study, id_map, record_id_field, id_field,
+                  comment_field, shared_id_prefix_field):
     records = []
     for item in response.json():
-        record = Record(item, id_map)
+        record = Record(item, id_map, record_id_field=record_id_field,
+                        id_field=id_field, comment_field=comment_field,
+                        shared_id_prefix_field=shared_id_prefix_field)
         if record.id is None:
             logger.debug(
                 f"Record with ID {item['record_id']} has malformed subject ID "
@@ -200,12 +222,15 @@ def share_redcap_record(session, shared_record):
 
 
 class Record(object):
-    def __init__(self, record_dict, id_map=None):
-        self.record_id = record_dict['record_id']
-        self.id = self.__get_datman_id(record_dict['par_id'], id_map)
+    def __init__(self, record_dict, id_map=None, record_id_field='record_id',
+                 id_field='par_id', comment_field='cmts',
+                 shared_id_prefix_field='shared_parid'):
+        self.record_id = record_dict[record_id_field]
+        self.id = self.__get_datman_id(record_dict[id_field], id_map)
         self.study = self.__get_study()
-        self.comment = record_dict['cmts']
-        self.shared_ids = self.__get_shared_ids(record_dict, id_map)
+        self.comment = record_dict[comment_field]
+        self.shared_ids = self.__get_shared_ids(record_dict, id_map,
+                                                shared_id_prefix_field)
 
     def matches_study(self, study_tag):
         if study_tag == self.study:
@@ -217,11 +242,11 @@ class Record(object):
             return None
         return self.id.study
 
-    def __get_shared_ids(self, record_dict, id_map):
+    def __get_shared_ids(self, record_dict, id_map, shared_id_prefix_field):
         keys = list(record_dict)
         shared_id_fields = []
         for key in keys:
-            if 'shared_parid' in key:
+            if shared_id_prefix_field in key:
                 shared_id_fields.append(key)
 
         shared_ids = []

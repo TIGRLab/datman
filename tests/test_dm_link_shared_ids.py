@@ -21,6 +21,10 @@ class TestRecord(unittest.TestCase):
                         'shared_parid_1': 'STU02_ABC_0002_01_SE01_MR',
                         'shared_parid_2': 'STUDY3_ABC_0003_01_SE01_MR',
                         'cmts': 'Test comment.'}
+    mock_diff_fields_record = {'mri_sub_id': 'STU01_ABC_0001_01_SE01_MR',
+                               'id': 2,
+                               'mri_cmts': 'Testing non-standard field names!',
+                               'shared_id': 'STU02_DEF_0002_04_SE01_MR'}
 
     def test_ignores_records_with_bad_subject_id(self):
         bad_redcap_record = {'par_id': 'STUDY_0001_01',
@@ -79,3 +83,26 @@ class TestRecord(unittest.TestCase):
         record = link_shared.Record(self.mock_kcni_record, id_map)
 
         assert 'STUDY2_SITE_0002_01_01' in record.shared_ids
+
+    def test_handles_nonstandard_field_names(self):
+        id_map = {
+            'Study': {
+                'STU01': 'STUDY',
+                'STU02': 'STUDY2'
+            },
+            'Site': {
+                'ABC': 'SITE',
+                'DEF': 'SITE2'
+            }
+        }
+
+        record = link_shared.Record(
+            self.mock_diff_fields_record,
+            id_map,
+            record_id_field='id',
+            id_field='mri_sub_id',
+            comment_field='mri_cmts',
+            shared_id_prefix_field='shared_id')
+
+        assert str(record.id) == 'STUDY_SITE_0001_01_01'
+        assert 'STUDY2_SITE2_0002_04_01' in record.shared_ids

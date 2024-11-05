@@ -586,7 +586,7 @@ Example
 REDCap
 ******
 Any settings needed to use REDCap integrations are described below. These
-settings are used by scripts like ``dm_redcap_scan_complete.py``,
+settings are used by scripts like ``dm_redcap_scan_complete.py``, and
 ``dm_link_shared_ids.py``.
 
 Required
@@ -635,6 +635,15 @@ Optional
   * Description: The name of the survey field that holds the date the survey
     was completed.
   * Default: 'date'
+* **RedcapSharedIdPrefix**:
+
+  * Description: The string identifier that will prefix every REDCap survey
+    field that holds an alternate ID/shared ID for the session. Used to
+    share data between studies. If only one shared ID is expected, the REDCap
+    survey field may be identical to the prefix (e.g. prefix is 'shared_id' and
+    the survey field is also just 'shared_id').
+  * Default: 'shared_id'
+  * Used by: dm_link_shared_ids.py
 * **RedcapStatus**:
 
   * Description: The name of the survey field that will indicate whether the
