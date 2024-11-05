@@ -697,6 +697,12 @@ Example
   RedcapRecordKey: 'record_id_field'
   RedcapComments: 'comment_field' # If unset, 'cmts' is used
 
+  # Use if sharing scans between studies. Should hold the prefix of the
+  # survey field name used for each alternate ID (one ID per field, e.g.
+  # 'shared_id1', 'shared_id2')
+  RedcapSharedIdPrefix: 'shared_id'
+
+
 Sites
 *****
 Each scan site collecting data for a study needs its own configuration
@@ -909,6 +915,15 @@ Optional
     Must be defined if XnatSource is defined.
   * Used by: xnat_fetch_sessions.py
 
+* **XnatDataSharing**
+
+  * Description: Indicates whether sessions from this study should be shared
+    under other IDs in other XNAT projects. The alternate IDs to use are
+    obtained from REDCap (``RedcapSharedIdPrefix`` must be set in addition to
+    the normal REDCap configuration, see `Redcap`_ section for more info).
+  * Used by: dm_link_shared_ids.py
+
+
 Example
 ^^^^^^^
 .. code-block:: yaml
@@ -923,3 +938,6 @@ Example
   XnatSource: otherxnat.ca
   XnatSourceArchive: RemoteProjectID
   XnatSourceCredentials: remotelogin.txt  # Should exist in the study metadata folder
+
+  # This is used if sessions should be shared into other xnat projects
+  XnatDataSharing: True
