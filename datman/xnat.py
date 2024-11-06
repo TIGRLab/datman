@@ -981,6 +981,82 @@ class xnat(object):
             else:
                 raise e
 
+    def share_subject(self, source_project, source_sub, dest_project,
+                      dest_sub):
+        """Share an xnat subject into another project.
+
+        Args:
+            source_project (:obj:`str`): The name of the original project
+                the subject was uploaded to.
+            source_sub (:obj:`str`): The original ID of the subject to be
+                shared.
+            dest_project (:obj:`str`): The new project to add the subject to.
+            dest_sub (:obj:`str`): The ID to give the subject in the
+                destination project.
+
+        Raises:
+            XnatException: If the destination subject ID is already in use
+                or the source subject doesn't exist.
+            requests.HTTPError: If any unexpected behavior is experienced
+                while interacting with XNAT's API
+        """
+        # Ensure source subject exists, raises an exception if not
+        self.get_subject(source_project, source_sub)
+
+        url = (f"{self.server}/data/projects/{source_project}/subjects/"
+               f"{source_sub}/projects/{dest_project}?label={dest_sub}")
+
+        try:
+            self._make_xnat_put(url)
+        except requests.HTTPError as e:
+            if e.response.status_code == 409:
+                raise XnatException(
+                    f"Can't share {source_sub} as {dest_sub}, subject "
+                    "ID already exists.")
+            else:
+                raise e
+
+    def share_experiment(self, source_project, source_sub, source_exp,
+                         dest_project, dest_exp):
+        """Share an experiment into a new xnat project.
+
+        Note: The subject the experiment belongs to must have already been
+        shared to the destination project for experiment sharing to work.
+
+        Args:
+            source_project (:obj:`str`): The original project the experiment
+                belongs to.
+            source_sub (:obj:`str`): The original subject ID in the source
+                project.
+            source_exp (:obj:`str`): The original experiment name in the
+                source project.
+            dest_project (:obj:`str`): The project the experiment is to be
+                added to.
+            dest_exp (:obj:`str`): The name to apply to the experiment when
+                it is added to the destination project.
+
+        Raises:
+            XnatException: If the destination experiment ID is already in
+                use or the source experiment ID doesnt exist.
+            requests.HTTPError: If any unexpected behavior is experienced
+                while interacting with XNAT's API.
+        """
+        # Ensure source experiment exists, raises an exception if not
+        self.get_experiment(source_project, source_sub, source_exp)
+
+        url = (f"{self.server}/data/projects/{source_project}/subjects/"
+               f"{source_sub}/experiments/{source_exp}/projects/"
+               f"{dest_project}?label={dest_exp}")
+
+        try:
+            self._make_xnat_put(url)
+        except requests.HTTPError as e:
+            if e.response.status_code == 409:
+                raise XnatException(f"Can't share {source_exp} as {dest_exp}"
+                                    " experiment ID already exists")
+            else:
+                raise e
+
     def dismiss_autorun(self, experiment):
         """Mark the AutoRun.xml pipeline as finished.
 

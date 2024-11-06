@@ -140,6 +140,13 @@ ExportSettings:
                                  # metadata folder that will hold the username
                                  # and password for the XnatSource server.
                                  # Must be provided if XnatSource is set.
+# XnatDataSharing: <boolean>     # Whether or not certain XNAT sessions for
+                                 # a study will be shared within XNAT. Any
+                                 # value is interpreted as 'True', if unset
+                                 # will be False. Shared IDs are read from
+                                 # the configured redcap survey (i.e. you
+                                 # should also set 'RedcapSharedIdPrefix' if
+                                 # you set this).
 
 
 ###### REDCap Configuration ##############
@@ -171,6 +178,11 @@ ExportSettings:
 # RedcapRecordKey: <fieldname>   # The name of the field that contains the
                                  # unique record ID.
 # RedcapComments: <fieldname>    # The name of field that holds RA comments.
+# RedcapSharedIdPrefix: <prefix> # The prefix that will be used for any
+                                 # survey field that contains an alternate
+                                 # ID for the session. Optional. If XNAT
+                                 # sessions must be shared then
+                                 # 'XnatDataSharing' must be set as well.
 
 
 ###### Log Server Configuration ##############
