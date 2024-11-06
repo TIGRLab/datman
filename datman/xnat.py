@@ -982,7 +982,7 @@ class xnat(object):
                 raise e
 
     def share_subject(self, source_project, source_sub, dest_project,
-            dest_sub):
+                      dest_sub):
         """Share an xnat subject into another project.
 
         Args:
@@ -1017,7 +1017,7 @@ class xnat(object):
                 raise e
 
     def share_experiment(self, source_project, source_sub, source_exp,
-            dest_project, dest_exp):
+                         dest_project, dest_exp):
         """Share an experiment into a new xnat project.
 
         Note: The subject the experiment belongs to must have already been
