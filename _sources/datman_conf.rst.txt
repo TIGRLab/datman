@@ -586,7 +586,7 @@ Example
 REDCap
 ******
 Any settings needed to use REDCap integrations are described below. These
-settings are used by scripts like ``dm_redcap_scan_complete.py``,
+settings are used by scripts like ``dm_redcap_scan_complete.py``, and
 ``dm_link_shared_ids.py``.
 
 Required
@@ -635,6 +635,15 @@ Optional
   * Description: The name of the survey field that holds the date the survey
     was completed.
   * Default: 'date'
+* **RedcapSharedIdPrefix**:
+
+  * Description: The string identifier that will prefix every REDCap survey
+    field that holds an alternate ID/shared ID for the session. Used to
+    share data between studies. If only one shared ID is expected, the REDCap
+    survey field may be identical to the prefix (e.g. prefix is 'shared_id' and
+    the survey field is also just 'shared_id').
+  * Default: 'shared_parid'
+  * Used by: dm_link_shared_ids.py
 * **RedcapStatus**:
 
   * Description: The name of the survey field that will indicate whether the
@@ -687,6 +696,12 @@ Example
   RedcapStatusValue: ['1', '2']   # If unset, '2' is used
   RedcapRecordKey: 'record_id_field'
   RedcapComments: 'comment_field' # If unset, 'cmts' is used
+
+  # Use if sharing scans between studies. Should hold the prefix of the
+  # survey field name used for each alternate ID (one ID per field, e.g.
+  # 'shared_id1', 'shared_id2')
+  RedcapSharedIdPrefix: 'shared_id'
+
 
 Sites
 *****
@@ -900,6 +915,16 @@ Optional
     Must be defined if XnatSource is defined.
   * Used by: xnat_fetch_sessions.py
 
+* **XnatDataSharing**
+
+  * Description: Indicates whether sessions from this study should be shared
+    under other IDs in other XNAT projects. The alternate IDs to use are
+    obtained from REDCap (``RedcapSharedIdPrefix`` must be set in addition to
+    the normal REDCap configuration, see `Redcap`_ section for more info).
+  * Accepted values: Any value is regarded as true. If absent, is False.
+  * Used by: dm_link_shared_ids.py
+
+
 Example
 ^^^^^^^
 .. code-block:: yaml
@@ -914,3 +939,6 @@ Example
   XnatSource: otherxnat.ca
   XnatSourceArchive: RemoteProjectID
   XnatSourceCredentials: remotelogin.txt  # Should exist in the study metadata folder
+
+  # This is used if sessions should be shared into other xnat projects
+  XnatDataSharing: True

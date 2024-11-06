@@ -801,7 +801,7 @@ config file. These files will be searched for in the ConfigDir (from the
 <section id="redcap">
 <span id="config-redcap"></span><h3>REDCap<a class="headerlink" href="#redcap" title="Permalink to this headline"></a></h3>
 <p>Any settings needed to use REDCap integrations are described below. These
-settings are used by scripts like <code class="docutils literal notranslate"><span class="pre">dm_redcap_scan_complete.py</span></code>,
+settings are used by scripts like <code class="docutils literal notranslate"><span class="pre">dm_redcap_scan_complete.py</span></code>, and
 <code class="docutils literal notranslate"><span class="pre">dm_link_shared_ids.py</span></code>.</p>
 <section id="id22">
 <h4>Required<a class="headerlink" href="#id22" title="Permalink to this headline"></a></h4>
@@ -866,6 +866,17 @@ was completed.</p></li>
 <li><p>Default: ‘date’</p></li>
 </ul>
 </li>
+<li><p><strong>RedcapSharedIdPrefix</strong>:</p>
+<ul>
+<li><p>Description: The string identifier that will prefix every REDCap survey
+field that holds an alternate ID/shared ID for the session. Used to
+share data between studies. If only one shared ID is expected, the REDCap
+survey field may be identical to the prefix (e.g. prefix is ‘shared_id’ and
+the survey field is also just ‘shared_id’).</p></li>
+<li><p>Default: ‘shared_parid’</p></li>
+<li><p>Used by: dm_link_shared_ids.py</p></li>
+</ul>
+</li>
 <li><p><strong>RedcapStatus</strong>:</p>
 <ul>
 <li><p>Description: The name of the survey field that will indicate whether the
@@ -927,6 +938,11 @@ for sessions in a study (or site).</p></li>
 <span class="nt">RedcapStatusValue</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;1&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;2&#39;</span><span class="p p-Indicator">]</span><span class="w">   </span><span class="c1"># If unset, &#39;2&#39; is used</span>
 <span class="nt">RedcapRecordKey</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;record_id_field&#39;</span>
 <span class="nt">RedcapComments</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;comment_field&#39;</span><span class="w"> </span><span class="c1"># If unset, &#39;cmts&#39; is used</span>
+
+<span class="c1"># Use if sharing scans between studies. Should hold the prefix of the</span>
+<span class="c1"># survey field name used for each alternate ID (one ID per field, e.g.</span>
+<span class="c1"># &#39;shared_id1&#39;, &#39;shared_id2&#39;)</span>
+<span class="nt">RedcapSharedIdPrefix</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;shared_id&#39;</span>
 </pre></div>
 </div>
 </section>
@@ -1184,6 +1200,16 @@ Must be defined if XnatSource is defined.</p></li>
 <li><p>Used by: xnat_fetch_sessions.py</p></li>
 </ul>
 </li>
+<li><p><strong>XnatDataSharing</strong></p>
+<ul>
+<li><p>Description: Indicates whether sessions from this study should be shared
+under other IDs in other XNAT projects. The alternate IDs to use are
+obtained from REDCap (<code class="docutils literal notranslate"><span class="pre">RedcapSharedIdPrefix</span></code> must be set in addition to
+the normal REDCap configuration, see <a class="reference internal" href="#redcap">Redcap</a> section for more info).</p></li>
+<li><p>Accepted values: Any value is regarded as true. If absent, is False.</p></li>
+<li><p>Used by: dm_link_shared_ids.py</p></li>
+</ul>
+</li>
 </ul>
 </section>
 <section id="id37">
@@ -1198,6 +1224,9 @@ Must be defined if XnatSource is defined.</p></li>
 <span class="nt">XnatSource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">otherxnat.ca</span>
 <span class="nt">XnatSourceArchive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RemoteProjectID</span>
 <span class="nt">XnatSourceCredentials</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">remotelogin.txt</span><span class="w">  </span><span class="c1"># Should exist in the study metadata folder</span>
+
+<span class="c1"># This is used if sessions should be shared into other xnat projects</span>
+<span class="nt">XnatDataSharing</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
 </pre></div>
 </div>
 </section>
