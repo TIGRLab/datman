@@ -34,6 +34,7 @@ import requests
 import datman.config
 import datman.scanid
 import datman.utils
+import datman.xnat
 
 import bin.dm_link_project_scans as link_scans
 import datman.dashboard as dashboard
@@ -70,12 +71,16 @@ def main():
         link_scans.logger.setLevel(logging.ERROR)
 
     config = datman.config.config(filename=site_config, study=project)
+    if uses_xnat_sharing(config):
+        xnat = datman.xnat.get_connection(config)
+    else:
+        xnat = None
 
     scan_complete_records = get_redcap_records(config, redcap_cred)
     for record in scan_complete_records:
         if not record.shared_ids:
             continue
-        make_links(record)
+        share_session(record, xnat_connection=xnat)
 
 
 def get_redcap_records(config, redcap_cred):
@@ -85,9 +90,8 @@ def get_redcap_records(config, redcap_cred):
 
     record_id_field = get_setting(config, 'RedcapRecordKey')
     subid_field = get_setting(config, 'RedcapSubj', default='par_id')
-    comment_field = get_setting(config, 'RedcapComments', default='cmts')
     shared_prefix_field = get_setting(
-        config, 'RedcapSharedIdPrefix', default='shared_id')
+        config, 'RedcapSharedIdPrefix', default='shared_parid')
 
     try:
         id_map = config.get_key('IdMap')
@@ -109,7 +113,7 @@ def get_redcap_records(config, redcap_cred):
     try:
         project_records = parse_records(
             response, current_study, id_map,
-            record_id_field, subid_field, comment_field, shared_prefix_field)
+            record_id_field, subid_field, shared_prefix_field)
     except ValueError as e:
         logger.error("Couldn't parse redcap records for server response {}. "
                      "Reason: {}".format(response.content, e))
@@ -146,11 +150,11 @@ def get_setting(config, key, default=None):
 
 
 def parse_records(response, study, id_map, record_id_field, id_field,
-                  comment_field, shared_id_prefix_field):
+                  shared_id_prefix_field):
     records = []
     for item in response.json():
         record = Record(item, id_map, record_id_field=record_id_field,
-                        id_field=id_field, comment_field=comment_field,
+                        id_field=id_field,
                         shared_id_prefix_field=shared_id_prefix_field)
         if record.id is None:
             logger.debug(
@@ -163,13 +167,24 @@ def parse_records(response, study, id_map, record_id_field, id_field,
     return records
 
 
-def make_links(record):
+def uses_xnat_sharing(config):
+    """Check if source (xnat) data is to be shared also.
+    """
+    try:
+        config.get_key('XnatDataSharing')
+    except datman.config.UndefinedSetting:
+        return False
+    return True
+
+
+def share_session(record, xnat_connection=None):
     source = record.id
     for target in record.shared_ids:
         logger.info(
-            f"Making links from source {source} to target {target}"
+            f"Sharing source ID {source} under ID {target}"
         )
-        target_cfg = datman.config.config(study=target)
+
+        target_cfg = datman.config.config(study=str(target))
         try:
             target_tags = list(target_cfg.get_tags(site=source.site))
         except Exception:
@@ -179,14 +194,74 @@ def make_links(record):
 
         if DRYRUN:
             logger.info(
-                "DRYRUN - would have made links from source ID "
+                "DRYRUN - would have shared scans from source ID "
                 f"{source} to target ID {target} for tags {target_tags}"
             )
             continue
 
+        if xnat_connection:
+            share_xnat_data(xnat_connection, source, target, target_cfg)
+
         link_scans.create_linked_session(str(source), str(target), target_tags)
+
         if dashboard.dash_found:
-            share_redcap_record(target, record)
+            share_redcap_record(str(target), record)
+
+
+def share_xnat_data(xnat_connection, source, dest, config):
+    """Share an xnat subject/experiment under another ID.
+
+    Args:
+        xnat_connection (:obj:`datman.xnat.xnat`): A connection to the xnat
+            server containing the source data.
+        source (:obj:`datman.scanid.Identifier`): A datman Identifier for
+            the original session data.
+        dest (:obj:`datman.scanid.Identifier`): A datman Identifier for the
+            destination ID to share the data under.
+        config (:obj:`datman.config.config`): A datman configuration object.
+
+    Raises:
+        requests.HTTPError: If issues arise while communicating with the
+            server.
+    """
+    source_project = xnat_connection.find_project(
+        source.get_xnat_subject_id(),
+        config.get_xnat_projects(str(source))
+    )
+    dest_project = xnat_connection.find_project(
+        dest.get_xnat_subject_id(),
+        config.get_xnat_projects(str(dest))
+    )
+
+    try:
+        xnat_connection.share_subject(
+            source_project,
+            source.get_xnat_subject_id(),
+            dest_project,
+            dest.get_xnat_subject_id()
+        )
+    except datman.xnat.XnatException:
+        logger.info(f"XNAT subject {dest.get_xnat_subject_id()}"
+                    " already exists. No changes made.")
+    except requests.HTTPError as e:
+        logger.error(f"Failed while sharing source ID {source} into dest ID "
+                     f"{dest} on XNAT. Reason - {e}")
+        return
+
+    try:
+        xnat_connection.share_experiment(
+            source_project,
+            source.get_xnat_subject_id(),
+            source.get_xnat_experiment_id(),
+            dest_project,
+            dest.get_xnat_experiment_id()
+        )
+    except datman.xnat.XnatException:
+        logger.info(f"XNAT experiment {dest.get_xnat_experiment_id()}"
+                    " already exists. No changes made.")
+    except requests.HTTPError as e:
+        logger.error(f"Failed while sharing source ID {source} into dest ID "
+                     f"{dest} on XNAT. Reason - {e}")
 
 
 def share_redcap_record(session, shared_record):
@@ -223,12 +298,19 @@ def share_redcap_record(session, shared_record):
 
 class Record(object):
     def __init__(self, record_dict, id_map=None, record_id_field='record_id',
-                 id_field='par_id', comment_field='cmts',
-                 shared_id_prefix_field='shared_parid'):
-        self.record_id = record_dict[record_id_field]
-        self.id = self.__get_datman_id(record_dict[id_field], id_map)
+                 id_field='par_id', shared_id_prefix_field='shared_parid'):
+        try:
+            self.record_id = record_dict[record_id_field]
+        except KeyError:
+            # Try default in case user misconfigured their fields!
+            self.record_id = record_dict['record_id']
+        try:
+            subid = record_dict[id_field]
+        except KeyError:
+            # Try default in case user misconfigured their fields!
+            subid = record_dict['par_id']
+        self.id = self.__get_datman_id(subid, id_map)
         self.study = self.__get_study()
-        self.comment = record_dict[comment_field]
         self.shared_ids = self.__get_shared_ids(record_dict, id_map,
                                                 shared_id_prefix_field)
 
@@ -259,7 +341,7 @@ class Record(object):
             if subject_id is None:
                 # Badly named shared id value. Skip it.
                 continue
-            shared_ids.append(str(subject_id))
+            shared_ids.append(subject_id)
         return shared_ids
 
     def __get_datman_id(self, subid, id_map):
