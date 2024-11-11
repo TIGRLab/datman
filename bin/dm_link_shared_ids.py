@@ -186,7 +186,7 @@ def share_session(record, xnat_connection=None):
 
         target_cfg = datman.config.config(study=str(target))
         try:
-            target_tags = list(target_cfg.get_tags(site=source.site))
+            target_tags = list(target_cfg.get_tags(site=target.site))
         except Exception:
             target_tags = []
 
