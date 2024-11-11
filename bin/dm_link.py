@@ -205,7 +205,8 @@ def link_archive(archive_path, dicom_path, scanid_field, config):
         scanid = get_scanid_from_header(archive_path, scanid_field)
 
     if not scanid:
-        logger.error("Scanid not found for archive: {}".format(archive_path))
+        logger.error("Scanid not found for archive, please add intended ID "
+                     f"to 'scans.csv': {archive_path}")
         return
 
     try:

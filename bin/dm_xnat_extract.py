@@ -380,8 +380,8 @@ def get_experiment_identifier(config, project, experiment_id):
     try:
         ident = validate_subject_id(experiment_id, config)
     except datman.scanid.ParseException:
-        logger.error(f"Invalid experiment ID {experiment_id} in project "
-                     f"{project}.")
+        logger.error(f"Invalid XNAT experiment ID {experiment_id} in project "
+                     f"{project}. Please update XNAT with correct ID.")
         return
 
     if ident.session is None and not datman.scanid.is_phantom(ident):

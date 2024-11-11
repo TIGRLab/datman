@@ -180,8 +180,9 @@ class xnat(object):
         self.auth = (username, password)
         try:
             self.open_session()
-        except Exception:
-            raise XnatException(f"Failed to open session with server {server}")
+        except Exception as e:
+            raise XnatException(
+                f"Failed to open session with server {server}. Reason - {e}")
 
     def __enter__(self):
         return self
@@ -205,6 +206,15 @@ class xnat(object):
                            f"with response code {response.status_code}")
             logger.debug("Username: {}")
             response.raise_for_status()
+
+        # If password is expired, XNAT returns status 200 and a sea of
+        # HTML causing later, unexpected, exceptions when using
+        # the connection. So! Check to see if we got HTML instead of a token.
+        if '<html' in response.text:
+            raise XnatException(
+                f"Password for user {self.auth[0]} on server {self.server} "
+                "has expired. Please update it."
+            )
 
         # Cookies are set automatically, don't manually set them or it wipes
         # out other session info

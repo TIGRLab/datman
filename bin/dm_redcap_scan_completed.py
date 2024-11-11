@@ -89,12 +89,14 @@ def add_session_redcap(record, record_key):
         try:
             datman.scanid.is_scanid(subject_id)
         except datman.scanid.ParseException:
-            logger.error('Invalid session: {}, skipping'.format(subject_id))
+            logger.error(f'Invalid session {subject_id} in record {record_id}, '
+                         'skipping. Please fix ID on REDCap.')
             return
     try:
         ident = parse_id(subject_id)
     except datman.scanid.ParseException:
-        logger.error('Invalid session: {}, skipping'.format(subject_id))
+        logger.error(f'Invalid session {subject_id} in record {record_id}, '
+                     'skipping. Please fix ID on REDCap.')
         return
 
     session_date = record[get_setting('RedcapDate', default='date')]
