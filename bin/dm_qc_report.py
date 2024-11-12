@@ -12,7 +12,11 @@ Arguments:
     <session>         Datman name of session to process e.g. DTI_CMH_H001_01_01
 
 Options:
-    --remake           Delete and recreate all QC metrics.
+    --refresh          Update dashboard metadata (e.g. header diffs, scan
+                       lengths) and generate missing metrics, if any. Note
+                       that existing QC metrics will not be modified.
+    --remake           Delete and recreate all QC metrics. Also force update
+                       of dashboard metadata (e.g. header diffs, scan lengths).
     --log-to-server    If set, all log messages will also be sent to the
                        configured logging server. This is useful when the
                        script is run on the queue, since it swallows logging.
@@ -47,15 +51,18 @@ logging.basicConfig(level=logging.WARN,
 logger = logging.getLogger(os.path.basename(__file__))
 
 REMAKE = False
+REFRESH = False
 
 
 def main():
     global REMAKE
+    global REFRESH
 
     arguments = docopt(__doc__)
     study = arguments["<study>"]
     session = arguments["<session>"]
     REMAKE = arguments["--remake"]
+    REFRESH = arguments["--refresh"]
     use_server = arguments["--log-to-server"]
     verbose = arguments["--verbose"]
     debug = arguments["--debug"]
@@ -141,7 +148,7 @@ def submit_subjects(config):
     subs = get_subids(config)
 
     for subject in subs:
-        if not (REMAKE or needs_qc(subject, config)):
+        if not (REMAKE or REFRESH or needs_qc(subject, config)):
             continue
 
         command = make_command(subject)
@@ -333,7 +340,7 @@ def update_dashboard(nii_path, header_ignore=None, header_tolerance=None):
     """
     db_record = datman.dashboard.get_scan(nii_path)
 
-    if REMAKE or db_record.is_outdated_header_diffs():
+    if REMAKE or REFRESH or db_record.is_outdated_header_diffs():
         try:
             db_record.update_header_diffs(
                 standard=db_record.gold_standards[0],
@@ -344,7 +351,7 @@ def update_dashboard(nii_path, header_ignore=None, header_tolerance=None):
                 f"exception: {e}"
             )
 
-    if REMAKE or not db_record.length:
+    if REMAKE or REFRESH or not db_record.length:
         add_scan_length(nii_path, db_record)
 
 
