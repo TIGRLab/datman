@@ -44,7 +44,7 @@ class Metric(ABC):
         if os.path.exists(self.manifest_path):
             if not overwrite:
                 return
-            orig = self.read_json()
+            orig = self.read_manifest()
         else:
             orig = None
 
