@@ -22,7 +22,7 @@ Options:
 
 Requires:
     FSL/5.0.10
-    MATLAB/R2014a - qa-dti phantom pipeline
+    matlab/R2014a - qa-dti phantom pipeline
     AFNI/2014.12.16 - abcd_fmri phantom pipeline
 """
 
