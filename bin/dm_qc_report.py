@@ -411,11 +411,12 @@ def add_scan_length(nii_path, scan):
 
 
 def remove_outputs(metric):
-    for item in metric.outputs:
-        try:
-            os.remove(item)
-        except FileNotFoundError:
-            pass
+    for command in metric.outputs:
+        for item in metric.outputs[command]:
+            try:
+                os.remove(item)
+            except FileNotFoundError:
+                pass
 
 
 if __name__ == "__main__":
