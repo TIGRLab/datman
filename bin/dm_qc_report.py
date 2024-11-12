@@ -157,7 +157,7 @@ def submit_subjects(config):
         logger.info(f"Submitting QC job for {subject}.")
         datman.utils.submit_job(
             command, job_name, "/tmp", system=config.system,
-            argslist="--mem=3G"
+            argslist="--mem=5G"
         )
 
 
