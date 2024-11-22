@@ -123,6 +123,7 @@ class Scan(DatmanNamed):
 
         self.bids_root = bids_root
         self.bids_path = self.__get_bids()
+        self._bids_inventory = self._make_bids_inventory()
 
         # This one lists all existing resource folders for the timepoint.
         self.resources = self._get_resources(config)
@@ -149,13 +150,70 @@ class Scan(DatmanNamed):
         return ident
 
     def find_files(self, file_stem, format="nii"):
+        """Find files belonging to the session matching a given file name.
+
+        Args:
+            file_stem (:obj:`str`): A valid datman-style file name, with or
+                without the extension and preceding path.
+            format (:obj:`str`): The configured datman folder path to search
+                through. Default: 'nii'
+
+        Returns:
+            :obj:`list`: a list of full paths to matching files, if any. Or
+                an empty list if none are found.
+
+        Raises:
+            datman.scanid.ParseException: If an invalid datman file name
+                is given.
+        """
+        if format == 'bids':
+            return self._find_bids_files(file_stem)
+
         try:
             base_path = getattr(self, f"{format}_path")
         except AttributeError:
             return []
+
         if not os.path.exists(base_path):
             return []
+
         return glob.glob(os.path.join(base_path, file_stem + "*"))
+
+    def _find_bids_files(self, file_stem):
+        ident, _, series, _ = datman.scanid.parse_filename(file_stem)
+        if ident.session != self.session:
+            return []
+        if int(series) in self._bids_inventory:
+            return self._bids_inventory[int(series)]
+        return []
+
+    def _make_bids_inventory(self):
+        if not self.bids_path:
+            return {}
+
+        inventory = {}
+        for path, _, files in os.walk(self.bids_path):
+            for item in files:
+                if not item.endswith(".json"):
+                    continue
+
+                json_path = os.path.join(path, item)
+                contents = datman.utils.read_json(json_path)
+
+                repeat = contents['Repeat'] if 'Repeat' in contents else '01'
+                if repeat != self.session:
+                    continue
+
+                series = int(contents['SeriesNumber'])
+                if series in inventory:
+                    raise Exception(
+                        f"More than one series {series} found for "
+                        f"{self.ident}")
+
+                base_fname = os.path.splitext(json_path)[0]
+                inventory[series] = glob.glob(base_fname + "*")
+
+        return inventory
 
     def get_tagged_nii(self, tag):
         try:
