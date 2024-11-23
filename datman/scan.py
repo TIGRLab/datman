@@ -205,13 +205,11 @@ class Scan(DatmanNamed):
                     continue
 
                 series = int(contents['SeriesNumber'])
-                if series in inventory:
-                    raise Exception(
-                        f"More than one series {series} found for "
-                        f"{self.ident}")
-
                 base_fname = os.path.splitext(json_path)[0]
-                inventory[series] = glob.glob(base_fname + "*")
+
+                inventory.setdefault(series, []).extend(
+                    glob.glob(base_fname + "*")
+                )
 
         return inventory
 
