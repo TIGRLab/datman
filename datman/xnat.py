@@ -1319,8 +1319,13 @@ class XNATExperiment(XNATObject):
         self.subject = subject_name
         self.uid = self._get_field("UID")
         self.id = self._get_field("ID")
-        self.name = self._get_field("label")
         self.date = self._get_field("date")
+
+        if self.is_shared():
+            self.name = [label for label in self.get_alt_labels()
+                         if self.subject in label][0]
+        else:
+            self.name = self._get_field("label")
 
         # Scan attributes
         self.scans = self._get_scans()
@@ -1594,20 +1599,21 @@ class XNATExperiment(XNATObject):
                     f"{e}")
 
     def is_shared(self):
-        """Detect if the experiment is shared from another XNAT Project.
-
-        Shared sessions have identical metadata to their source sessions,
-        the only way to tell a link apart from source data is to look for a
-        'sharing/share' entry and check its xnat label.
+        """Check if the experiment is shared from another project.
         """
-        if self.subject in self.name:
+        alt_names = self.get_alt_labels()
+        if not alt_names:
             return False
 
-        share_entry = self._get_contents('sharing/share')
-        if not share_entry:
-            return False
+        return any([self.subject in label for label in alt_names])
 
-        return self.subject in share_entry[0][0]['data_fields']['label']
+    def get_alt_labels(self):
+        """Find the names for all shared copies of the XNAT experiment.
+        """
+        shared = self._get_contents("sharing/share")
+        if not shared:
+            return []
+        return [item['data_fields']['label'] for item in shared[0]]
 
     def __str__(self):
         return f"<XNATExperiment {self.name}>"
