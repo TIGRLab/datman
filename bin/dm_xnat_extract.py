@@ -153,7 +153,7 @@ def main():
 
         session = datman.scan.Scan(ident, config, bids_root=args.bids_out)
 
-        if xnat_experiment.resource_files and not xnat_experiment.is_shared():
+        if xnat_experiment.resource_files:
             export_resources(session.resource_path, xnat, xnat_experiment,
                              dry_run=args.dry_run)
 
@@ -380,8 +380,8 @@ def get_experiment_identifier(config, project, experiment_id):
     try:
         ident = validate_subject_id(experiment_id, config)
     except datman.scanid.ParseException:
-        logger.error(f"Invalid XNAT experiment ID {experiment_id} in project "
-                     f"{project}. Please update XNAT with correct ID.")
+        logger.error(f"Invalid experiment ID {experiment_id} in project "
+                     f"{project}.")
         return
 
     if ident.session is None and not datman.scanid.is_phantom(ident):
@@ -613,7 +613,6 @@ def make_session_exporters(config, session, experiment, bids_opts=None,
     """
     formats = get_session_formats(
         bids_opts=bids_opts,
-        shared=experiment.is_shared(),
         ignore_db=ignore_db
     )
 
@@ -627,14 +626,12 @@ def make_session_exporters(config, session, experiment, bids_opts=None,
     return exporters
 
 
-def get_session_formats(bids_opts=None, shared=False, ignore_db=False):
+def get_session_formats(bids_opts=None, ignore_db=False):
     """Get the string identifiers for all session exporters that are needed.
 
     Args:
         bids_opts (:obj:`BidsOptions`, optional): dcm2bids settings to be
             used if exporting to BIDS format. Defaults to None.
-        shared (bool, optional): Whether to treat the session as a
-            shared XNAT experiment. Defaults to False.
         ignore_db (bool, optional): If True, datman's QC dashboard will not
             be updated. Defaults to False.
 
@@ -642,13 +639,8 @@ def get_session_formats(bids_opts=None, shared=False, ignore_db=False):
         list: a list of string keys that should be used to make exporters.
     """
     formats = []
-    if shared:
-        formats.append("shared")
-    elif bids_opts:
-        # Only do 'bids' format if not a shared session.
-        formats.append("bids")
-
     if bids_opts:
+        formats.append("bids")
         formats.append("nii_link")
     if not ignore_db:
         formats.append("db")
