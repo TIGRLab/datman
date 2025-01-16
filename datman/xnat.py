@@ -8,6 +8,7 @@ import os
 import re
 import tempfile
 import time
+import shutil
 import urllib.parse
 from abc import ABC
 from xml.etree import ElementTree
@@ -1324,8 +1325,10 @@ class XNATExperiment(XNATObject):
         if self.is_shared():
             self.name = [label for label in self.get_alt_labels()
                          if self.subject in label][0]
+            self.source_name = self._get_field("label")
         else:
             self.name = self._get_field("label")
+            self.source_name = self.name
 
         # Scan attributes
         self.scans = self._get_scans()
@@ -1627,6 +1630,8 @@ class XNATScan(XNATObject):
         self.project = experiment.project
         self.subject = experiment.subject
         self.experiment = experiment.name
+        self.shared = experiment.is_shared()
+        self.source_name = experiment.source_name
         self.raw_json = scan_json
         self.uid = self._get_field("UID")
         self.series = self._get_field("ID")
@@ -1821,6 +1826,9 @@ class XNATScan(XNATObject):
                         f"{dicom_zip}")
             os.remove(dicom_zip)
 
+        if self.shared:
+            self._fix_download_name(output_dir)
+
         dicom_file = self._find_first_dicom(output_dir)
 
         try:
@@ -1867,6 +1875,27 @@ class XNATScan(XNATObject):
         if not os.path.exists(found[0]):
             return search_dir
         return found[0]
+
+    def _fix_download_name(self, output_dir):
+        """Rename a downloaded XNAT-shared scan to match the expected label.
+        """
+        orig_dir = os.path.join(output_dir, self.source_name)
+        try:
+            os.rename(orig_dir, orig_dir.replace(self.source_name, self.name))
+        except OSError:
+            for root, dirs, _ in os.walk(orig_dir):
+                for item in dirs:
+                    try:
+                        os.rename(os.path.join(root, item),
+                                  os.path.join(
+                                      root.replace(self.source_name, self.name),
+                                      item)
+                                )
+                    except OSError:
+                        pass
+                    else:
+                        shutil.rmtree(orig_dir)
+                        return
 
     def __str__(self):
         return f"<XNATScan {self.experiment} - {self.series}>"
