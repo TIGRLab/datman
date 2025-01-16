@@ -1631,7 +1631,7 @@ class XNATScan(XNATObject):
         self.subject = experiment.subject
         self.experiment = experiment.name
         self.shared = experiment.is_shared()
-        self.source_name = experiment.source_name
+        self.source_experiment = experiment.source_name
         self.raw_json = scan_json
         self.uid = self._get_field("UID")
         self.series = self._get_field("ID")
@@ -1879,16 +1879,21 @@ class XNATScan(XNATObject):
     def _fix_download_name(self, output_dir):
         """Rename a downloaded XNAT-shared scan to match the expected label.
         """
-        orig_dir = os.path.join(output_dir, self.source_name)
+        orig_dir = os.path.join(output_dir, self.source_experiment)
         try:
-            os.rename(orig_dir, orig_dir.replace(self.source_name, self.experiment))
+            os.rename(orig_dir,
+                      orig_dir.replace(
+                          self.source_experiment,
+                          self.experiment))
         except OSError:
             for root, dirs, _ in os.walk(orig_dir):
                 for item in dirs:
                     try:
                         os.rename(os.path.join(root, item),
                                   os.path.join(
-                                      root.replace(self.source_name, self.experiment),
+                                      root.replace(
+                                          self.source_experiment,
+                                          self.experiment),
                                       item)
                                 )
                     except OSError:
