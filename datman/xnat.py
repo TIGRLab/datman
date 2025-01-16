@@ -1881,14 +1881,14 @@ class XNATScan(XNATObject):
         """
         orig_dir = os.path.join(output_dir, self.source_name)
         try:
-            os.rename(orig_dir, orig_dir.replace(self.source_name, self.name))
+            os.rename(orig_dir, orig_dir.replace(self.source_name, self.experiment))
         except OSError:
             for root, dirs, _ in os.walk(orig_dir):
                 for item in dirs:
                     try:
                         os.rename(os.path.join(root, item),
                                   os.path.join(
-                                      root.replace(self.source_name, self.name),
+                                      root.replace(self.source_name, self.experiment),
                                       item)
                                 )
                     except OSError:
