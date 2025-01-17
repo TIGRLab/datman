@@ -8,6 +8,7 @@ import os
 import re
 import tempfile
 import time
+import shutil
 import urllib.parse
 from abc import ABC
 from xml.etree import ElementTree
@@ -505,8 +506,8 @@ class xnat(object):
         """
 
         url = (
-            f"{self.server}/data/archive/projects/{project}/subjects/{subject}/"
-            f"experiments/{experiment}?xsiType=xnat:mrSessionData")
+            f"{self.server}/data/archive/projects/{project}/subjects/"
+            f"{subject}/experiments/{experiment}?xsiType=xnat:mrSessionData")
         try:
             self._make_xnat_put(url)
         except requests.exceptions.RequestException as e:
@@ -530,12 +531,13 @@ class xnat(object):
         """
         logger.debug(
             f"Querying XNAT server {self.server} for scan IDs belonging to "
-            f"experiment {experiment} of subject {subject} in project {project}"
+            f"experiment {experiment} of subject {subject} in project "
+            f"{project}"
         )
 
         url = (
-            f"{self.server}/data/archive/projects/{project}/subjects/{subject}/"
-            f"experiments/{experiment}/scans/?format=json")
+            f"{self.server}/data/archive/projects/{project}/subjects/"
+            f"{subject}/experiments/{experiment}/scans/?format=json")
 
         try:
             result = self._make_xnat_query(url)
@@ -1319,8 +1321,15 @@ class XNATExperiment(XNATObject):
         self.subject = subject_name
         self.uid = self._get_field("UID")
         self.id = self._get_field("ID")
-        self.name = self._get_field("label")
         self.date = self._get_field("date")
+
+        if self.is_shared():
+            self.name = [label for label in self.get_alt_labels()
+                         if self.subject in label][0]
+            self.source_name = self._get_field("label")
+        else:
+            self.name = self._get_field("label")
+            self.source_name = self.name
 
         # Scan attributes
         self.scans = self._get_scans()
@@ -1594,20 +1603,21 @@ class XNATExperiment(XNATObject):
                     f"{e}")
 
     def is_shared(self):
-        """Detect if the experiment is shared from another XNAT Project.
-
-        Shared sessions have identical metadata to their source sessions,
-        the only way to tell a link apart from source data is to look for a
-        'sharing/share' entry and check its xnat label.
+        """Check if the experiment is shared from another project.
         """
-        if self.subject in self.name:
+        alt_names = self.get_alt_labels()
+        if not alt_names:
             return False
 
-        share_entry = self._get_contents('sharing/share')
-        if not share_entry:
-            return False
+        return any([self.subject in label for label in alt_names])
 
-        return self.subject in share_entry[0][0]['data_fields']['label']
+    def get_alt_labels(self):
+        """Find the names for all shared copies of the XNAT experiment.
+        """
+        shared = self._get_contents("sharing/share")
+        if not shared:
+            return []
+        return [item['data_fields']['label'] for item in shared[0]]
 
     def __str__(self):
         return f"<XNATExperiment {self.name}>"
@@ -1621,6 +1631,8 @@ class XNATScan(XNATObject):
         self.project = experiment.project
         self.subject = experiment.subject
         self.experiment = experiment.name
+        self.shared = experiment.is_shared()
+        self.source_experiment = experiment.source_name
         self.raw_json = scan_json
         self.uid = self._get_field("UID")
         self.series = self._get_field("ID")
@@ -1678,7 +1690,7 @@ class XNATScan(XNATObject):
                 search_target = self.type
             else:
                 raise KeyError(
-                    f"Missing keys 'SeriesDescription' or 'XnatType'"
+                    "Missing keys 'SeriesDescription' or 'XnatType'"
                     " for Pattern!")
 
             if isinstance(regex, list):
@@ -1815,6 +1827,9 @@ class XNATScan(XNATObject):
                         f"{dicom_zip}")
             os.remove(dicom_zip)
 
+        if self.shared:
+            self._fix_download_name(output_dir)
+
         dicom_file = self._find_first_dicom(output_dir)
 
         try:
@@ -1861,6 +1876,32 @@ class XNATScan(XNATObject):
         if not os.path.exists(found[0]):
             return search_dir
         return found[0]
+
+    def _fix_download_name(self, output_dir):
+        """Rename a downloaded XNAT-shared scan to match the expected label.
+        """
+        orig_dir = os.path.join(output_dir, self.source_experiment)
+        try:
+            os.rename(orig_dir,
+                      orig_dir.replace(
+                          self.source_experiment,
+                          self.experiment))
+        except OSError:
+            for root, dirs, _ in os.walk(orig_dir):
+                for item in dirs:
+                    try:
+                        os.rename(os.path.join(root, item),
+                                  os.path.join(
+                                      root.replace(
+                                          self.source_experiment,
+                                          self.experiment),
+                                      item)
+                                  )
+                    except OSError:
+                        pass
+                    else:
+                        shutil.rmtree(orig_dir)
+                        return
 
     def __str__(self):
         return f"<XNATScan {self.experiment} - {self.series}>"
