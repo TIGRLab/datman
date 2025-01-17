@@ -22,7 +22,8 @@ import pydicom as dicom
 import datman.config
 import datman.dashboard
 import datman.scan
-from datman.exceptions import UndefinedSetting, DashboardException
+from datman.exceptions import (UndefinedSetting, DashboardException,
+                               ConfigException)
 from datman.scanid import (parse_bids_filename, ParseException,
                            make_filename, KCNIIdentifier)
 from datman.utils import (run, make_temp_directory, get_extension,
@@ -857,18 +858,19 @@ class DBExporter(SessionExporter):
                          f"with error: {exc}")
             return
         if self.experiment.is_shared():
-            self._make_linked(scan)
+            source_session = self._get_source_session()
+            self._make_linked(scan, source_session)
         self._add_bids_scan_name(scan, file_stem)
         self._add_side_car(scan, file_stem)
         self._update_conversion_errors(scan, file_stem)
 
-    def _make_linked(self, scan):
+    def _make_linked(self, scan, source_session):
         try:
-            source_session = datman.dashboard.get_session(self.experiment.name)
+            source_session = datman.dashboard.get_session(source_session)
         except datman.dashboard.DashboardException as exc:
             logger.error(
                 f"Failed to link shared scan {scan} to source "
-                f"{self.experiment.name}. Reason - {exc}"
+                f"{source_session}. Reason - {exc}"
             )
             return
         matches = [
@@ -878,13 +880,27 @@ class DBExporter(SessionExporter):
         ]
         if not matches or len(matches) > 1:
             logger.error(
-                f"Failed to link shared scan {scan} to {self.experiment.name}."
+                f"Failed to link shared scan {scan} to {source_session}."
                 " Reason - Unable to find source scan database record."
             )
             return
 
         scan.source_id = matches[0].id
         scan.save()
+
+    def _get_source_session(self):
+        """Get the ID of the source experiment for a shared XNATExperiment."""
+        try:
+            config = datman.config.config(study=self.experiment.source_name)
+        except ConfigException:
+            return self.experiment.source_name
+
+        try:
+            id_map = config.get_key('IdMap')
+        except UndefinedSetting:
+            return self.experiment.source_name
+
+        return str(datman.scanid.parse(self.experiment.source_name, id_map))
 
     def _add_bids_scan_name(self, scan, dm_stem):
         """Add a bids format file name to a series in the QC database.
