@@ -227,11 +227,6 @@ class BidsExporter(SessionExporter):
             logging.getLogger(logger_name).setLevel(level)
 
     def get_expected_scans(self):
-        # parser = self.get_xnat_parser()
-        # expected = {}
-        # for acq in parser.acquisitions:
-        #     expected.setdefault(acq.srcSidecar.scan, []).append(acq.dstRoot)
-        # return expected
         return self.get_xnat_map()
 
     def get_actual_scans(self):
@@ -406,17 +401,6 @@ class BidsExporter(SessionExporter):
         if missing:
             return False
 
-        # sidecars = self.get_sidecars()
-        # repeat_nums = [sidecars[path].get("Repeat") for path in sidecars]
-
-        # if any([repeat == self.repeat for repeat in repeat_nums]):
-        #     return True
-
-        # if self.repeat == "01" and sidecars:
-        #     # Catch instances where adding repeat to sidecars failed.
-        #     return True
-
-        # return False
         return True
 
     def needs_raw_data(self):
@@ -441,24 +425,6 @@ class BidsExporter(SessionExporter):
 
         self.make_output_dir()
 
-        # input_dir = self._get_scan_dir(raw_data_dir)
-        # try:
-        #     dcm2bids_app = Dcm2bids(
-        #         input_dir,
-        #         self.bids_sub,
-        #         self.dcm2bids_config,
-        #         output_dir=self.bids_folder,
-        #         session=self.bids_ses,
-        #         clobber=self.clobber,
-        #         forceDcm2niix=self.force_dcm2niix,
-        #         log_level=self.log_level
-        #     )
-        #     dcm2bids_app.run()
-        # except Exception as exc:
-        #     logger.error(
-        #         f"Dcm2Bids failed to run for {self.output_dir}. "
-        #         f"{type(exc)}: {exc}"
-        #     )
         try:
             self.run_dcm2bids(raw_data_dir)
         except Exception as e:
@@ -529,62 +495,6 @@ class BidsExporter(SessionExporter):
         if rename:
             self.fix_run_numbers(rename)
 
-        # #################################################################
-        # # Everything from here down must be cleaned up
-
-        # exported_jsons = self.find_outputs(".json")
-        # exported_names = [
-        #     fname.replace(self.bids_folder, "").replace(".json", "")
-        #     for fname in exported_jsons
-        # ]
-        # # Maybe join the entry lines together with new line again, since
-        # # only need this stuff to write to file.
-        # series_log = parse_niix_log(niix_log, self.experiment.scans)
-        # xnat_parser = self.get_xnat_parser()
-        # # series_map = {
-        # #     acq.srcSidecar.scan: acq.dstRoot for acq in xnat_parser.acquisitions
-        # # }
-        # # xnat_map = {
-        # #     acq.dstRoot: acq.srcSidecar.scan for acq in xnat_parser.acquisitions
-        # # }
-        # # xnat_map = {
-        # #     acq.srcSidecar.scan: acq.dstRoot for acq in xnat_parser.acquisitions
-        # # }
-        # xnat_map = {}
-        # for acq in xnat_parser.acquisitions:
-        #     xnat_map.setdefault(acq.srcSidecar.scan, []).append(acq.dstRoot)
-
-        # local_map = self.get_local_map()
-
-        # # missing = {
-        # #     path: xnat_map[path] for path in xnat_map if path not in local_map
-        # # }
-        # # found = {}
-        # # for xnat_path, xnat_scan in xnat_map.items():
-        # #     for local_path, local_scan in local_map.items():
-        # #         if xnat_scan == local_scan:
-        # #             found[local_scan] = local_path
-        # # Rename series that probably have multiple runs where one
-        # rename = {}
-        # missing = {}
-        # for scan in xnat_map:
-        #     if scan not in local_map:
-        #         missing[scan] = xnat_map[scan][0]
-        #         continue
-        #     if len(xnat_map[scan]) != 1:
-        #         continue
-        #     if len(local_map[scan]) != 1:
-        #         continue
-        #     if xnat_map[scan][0] == local_map[scan][0]:
-        #         continue
-        #     rename[local_map[scan][0]] = xnat_map[scan][0]
-
-        # for scan in missing:
-        #     if scan.series not in series_log:
-        #         print(f"{scan} -> {missing[scan]} failed dcm2niix export")
-        # for orig_name in rename:
-        #     print(f"Renaming {orig_name} -> {rename[orig_name]}")
-
     def report_export_issues(self, xnat_map, local_map, series_log):
         rename = {}
         missing = {}
@@ -611,15 +521,6 @@ class BidsExporter(SessionExporter):
 
     def get_xnat_map(self):
         xnat_parser = self.get_xnat_parser()
-        # series_map = {
-        #     acq.srcSidecar.scan: acq.dstRoot for acq in xnat_parser.acquisitions
-        # }
-        # xnat_map = {
-        #     acq.dstRoot: acq.srcSidecar.scan for acq in xnat_parser.acquisitions
-        # }
-        # xnat_map = {
-        #     acq.srcSidecar.scan: acq.dstRoot for acq in xnat_parser.acquisitions
-        # }
         xnat_map = {}
         for acq in xnat_parser.acquisitions:
             xnat_map.setdefault(acq.srcSidecar.scan, []).append(acq.dstRoot)
@@ -659,7 +560,7 @@ class BidsExporter(SessionExporter):
             # Handle previously renamed series
             # This happens when there are multiple runs but an
             # early one has completely failed to extract.
-            # (i.e. dcm2bids things the run number differs from what it
+            # (i.e. dcm2bids thinks the run number differs from what it
             # _should_ be if all had extracted)
             dst_path = os.path.join(self.bids_folder, acq.dstRoot)
             if dst_path != acq.srcRoot:
@@ -781,9 +682,6 @@ class BidsExporter(SessionExporter):
             xnat_sidecars.append(FakeSidecar(scan))
         xnat_sidecars = sorted(xnat_sidecars)
 
-        # xnat_scans = get_expected_names(
-        #     participant, xnat_sidecars, bids_conf
-        # )
         local_scans = get_expected_names(
             participant, local_sidecars, bids_conf
         )
@@ -1755,8 +1653,6 @@ SESSION_EXPORTERS = {
 SERIES_EXPORTERS = {
     exp.type: exp for exp in SeriesExporter.__subclasses__()
 }
-
-
 
 
 class FakeSidecar(dcm2bids.Sidecar):
