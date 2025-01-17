@@ -113,7 +113,8 @@ class BidsOptions:
 def main():
     args = read_args()
 
-    configure_logging(args.study, args.quiet, args.verbose, args.debug)
+    log_level = get_log_level(args)
+    configure_logging(args.study, log_level)
 
     if args.use_dcm2bids and not datman.exporters.DCM2BIDS_FOUND:
         logger.error("Failed to import Dcm2Bids. Ensure that "
@@ -130,6 +131,7 @@ def main():
             clobber=args.clobber,
             dcm2bids_config=args.dcm_config,
             bids_out=args.bids_out,
+            log_level=log_level,
             refresh=args.refresh
         )
     else:
@@ -297,17 +299,27 @@ def read_args():
     return args
 
 
-def configure_logging(study, quiet=None, verbose=None, debug=None):
+def get_log_level(args):
+    """Return a string representing the log level, based on user input.
+
+    A string representation of the log level is needed to please dcm2bids :)
+    """
+    if args.quiet:
+        return "ERROR"
+
+    if args.verbose:
+        return "INFO"
+
+    if args.debug:
+        return "DEBUG"
+
+    return "WARNING"
+
+
+def configure_logging(study, log_level):
     ch = logging.StreamHandler(sys.stdout)
 
-    log_level = logging.WARNING
-    if quiet:
-        log_level = logging.ERROR
-    if verbose:
-        log_level = logging.INFO
-    if debug:
-        log_level = logging.DEBUG
-
+    log_level = getattr(logging, log_level)
     logger.setLevel(log_level)
     ch.setLevel(log_level)
 
@@ -586,7 +598,10 @@ def export_scans(config, xnat, xnat_experiment, session, bids_opts=None,
                 exporter.export(scan.download_dir)
 
         for exporter in session_exporters:
-            exporter.export(temp_dir)
+            try:
+                exporter.export(temp_dir)
+            except Exception as e:
+                logger.error(f"Exporter {exporter} failed - {e}")
 
 
 def make_session_exporters(config, session, experiment, bids_opts=None,
@@ -779,7 +794,12 @@ def needs_raw(session_exporters):
 def needs_export(session_exporters):
     """Returns True if any session exporters need to be run.
     """
-    return any([not exp.outputs_exist() for exp in session_exporters])
+    try:
+        return any([not exp.outputs_exist() for exp in session_exporters])
+    except ValueError:
+        # ValueError is raised when an invalid series number exists on XNAT.
+        # Skip these sessions
+        return False
 
 
 def needs_download(scan, session_exporters, series_exporters):
