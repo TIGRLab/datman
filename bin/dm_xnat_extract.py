@@ -598,7 +598,10 @@ def export_scans(config, xnat, xnat_experiment, session, bids_opts=None,
                 exporter.export(scan.download_dir)
 
         for exporter in session_exporters:
-            exporter.export(temp_dir)
+            try:
+                exporter.export(temp_dir)
+            except Exception as e:
+                logger.error(f"Exporter {exporter} failed - {e}")
 
 
 def make_session_exporters(config, session, experiment, bids_opts=None,
