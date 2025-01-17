@@ -506,8 +506,8 @@ class xnat(object):
         """
 
         url = (
-            f"{self.server}/data/archive/projects/{project}/subjects/{subject}/"
-            f"experiments/{experiment}?xsiType=xnat:mrSessionData")
+            f"{self.server}/data/archive/projects/{project}/subjects/"
+            f"{subject}/experiments/{experiment}?xsiType=xnat:mrSessionData")
         try:
             self._make_xnat_put(url)
         except requests.exceptions.RequestException as e:
@@ -531,12 +531,13 @@ class xnat(object):
         """
         logger.debug(
             f"Querying XNAT server {self.server} for scan IDs belonging to "
-            f"experiment {experiment} of subject {subject} in project {project}"
+            f"experiment {experiment} of subject {subject} in project "
+            f"{project}"
         )
 
         url = (
-            f"{self.server}/data/archive/projects/{project}/subjects/{subject}/"
-            f"experiments/{experiment}/scans/?format=json")
+            f"{self.server}/data/archive/projects/{project}/subjects/"
+            f"{subject}/experiments/{experiment}/scans/?format=json")
 
         try:
             result = self._make_xnat_query(url)
@@ -1689,7 +1690,7 @@ class XNATScan(XNATObject):
                 search_target = self.type
             else:
                 raise KeyError(
-                    f"Missing keys 'SeriesDescription' or 'XnatType'"
+                    "Missing keys 'SeriesDescription' or 'XnatType'"
                     " for Pattern!")
 
             if isinstance(regex, list):
@@ -1895,7 +1896,7 @@ class XNATScan(XNATObject):
                                           self.source_experiment,
                                           self.experiment),
                                       item)
-                                )
+                                  )
                     except OSError:
                         pass
                     else:

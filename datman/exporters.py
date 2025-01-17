@@ -22,10 +22,9 @@ import pydicom as dicom
 import datman.config
 import datman.dashboard
 import datman.scan
-from datman.exceptions import (UndefinedSetting, DashboardException,
-                               ExportException)
-from datman.scanid import (parse, parse_bids_filename, ParseException,
-                           parse_filename, make_filename, KCNIIdentifier)
+from datman.exceptions import UndefinedSetting, DashboardException
+from datman.scanid import (parse_bids_filename, ParseException,
+                           make_filename, KCNIIdentifier)
 from datman.utils import (run, make_temp_directory, get_extension,
                           filter_niftis, find_tech_notes, read_blacklist,
                           get_relative_source, read_json, write_json)
