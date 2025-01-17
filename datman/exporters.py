@@ -268,8 +268,8 @@ class BidsExporter(SessionExporter):
         for scan in missing_scans:
             if scan.series not in series_log:
                 error_msg = (
-                    f"dcm2niix failed to create nifti for {scan}. Data may require "
-                    "manual intervention or blacklisting.\n"
+                    f"dcm2niix failed to create nifti for {scan}. "
+                    "Data may require manual intervention or blacklisting.\n"
                 )
             else:
                 error_msg = "\n".join(series_log[scan.series])
@@ -447,7 +447,9 @@ class BidsExporter(SessionExporter):
         input_dir = self._get_scan_dir(raw_data_dir)
 
         if self.refresh and not os.path.exists(input_dir):
-            logger.error(f"Cannot refresh contents of {self.output_dir}, no files found at {input_dir}.")
+            logger.error(
+                f"Cannot refresh contents of {self.output_dir}, no "
+                f"files found at {input_dir}.")
             return
 
         # Only run dcm2niix the first try, on the second just export the
@@ -500,7 +502,7 @@ class BidsExporter(SessionExporter):
         missing = {}
         for scan in xnat_map:
             if scan not in local_map:
-                #!!!!!!! Note the [0] should probably be dropped. kept for testing.
+                # Note the [0] should probably be dropped. kept for testing.
                 missing[scan] = xnat_map[scan][0]
                 continue
             if len(xnat_map[scan]) != 1:
@@ -533,7 +535,8 @@ class BidsExporter(SessionExporter):
         xnat_series_nums = [scan.series for scan in self.experiment.scans]
         for acq in local_parser.acquisitions:
             sidecar = acq.srcSidecar
-            if 'Repeat' in sidecar.data and sidecar.data['Repeat'] != self.session.session:
+            if ('Repeat' in sidecar.data and
+                    sidecar.data['Repeat'] != self.session.session):
                 continue
             if 'SeriesNumber' not in sidecar.data:
                 continue
@@ -672,7 +675,8 @@ class BidsExporter(SessionExporter):
         for search_path in [self.output_dir, bids_tmp]:
             for item in self.find_outputs(".json", start_dir=search_path):
                 sidecar = dcm2bids.Sidecar(item)
-                if 'Repeat' in sidecar.data and sidecar.data['Repeat'] != self.session.session:
+                if ('Repeat' in sidecar.data and
+                        sidecar.data['Repeat'] != self.session.session):
                     continue
                 local_sidecars.append(sidecar)
         local_sidecars = sorted(local_sidecars)
@@ -1717,7 +1721,7 @@ def parse_niix_log(niix_output, xnat_scans):
             if line.startswith("Compress:"):
                 nii_path = line.split(" ")[-1]
                 series = str(int(os.path.basename(nii_path).split("_")[0]))
-                # Handle split series (they get '10' prepended to orig series num)
+                # Handle split series (they get '10' prepended to series num)
                 if series not in [scan.series for scan in xnat_scans]:
                     # drop the '10' prefix:
                     series = str(int(series[2:]))
@@ -1741,4 +1745,3 @@ def sort_log(log_lines):
         if cur_idx >= 0:
             cur_entry.append(line)
     return sorted_lines
-
