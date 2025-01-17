@@ -791,7 +791,12 @@ def needs_raw(session_exporters):
 def needs_export(session_exporters):
     """Returns True if any session exporters need to be run.
     """
-    return any([not exp.outputs_exist() for exp in session_exporters])
+    try:
+        return any([not exp.outputs_exist() for exp in session_exporters])
+    except ValueError:
+        # ValueError is raised when an invalid series number exists on XNAT.
+        # Skip these sessions
+        return False
 
 
 def needs_download(scan, session_exporters, series_exporters):
