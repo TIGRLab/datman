@@ -113,7 +113,8 @@ class BidsOptions:
 def main():
     args = read_args()
 
-    configure_logging(args.study, args.quiet, args.verbose, args.debug)
+    log_level = get_log_level(args)
+    configure_logging(args.study, log_level)
 
     if args.use_dcm2bids and not datman.exporters.DCM2BIDS_FOUND:
         logger.error("Failed to import Dcm2Bids. Ensure that "
@@ -130,6 +131,7 @@ def main():
             clobber=args.clobber,
             dcm2bids_config=args.dcm_config,
             bids_out=args.bids_out,
+            log_level=log_level,
             refresh=args.refresh
         )
     else:
@@ -153,7 +155,7 @@ def main():
 
         session = datman.scan.Scan(ident, config, bids_root=args.bids_out)
 
-        if xnat_experiment.resource_files and not xnat_experiment.is_shared():
+        if xnat_experiment.resource_files:
             export_resources(session.resource_path, xnat, xnat_experiment,
                              dry_run=args.dry_run)
 
@@ -297,17 +299,27 @@ def read_args():
     return args
 
 
-def configure_logging(study, quiet=None, verbose=None, debug=None):
+def get_log_level(args):
+    """Return a string representing the log level, based on user input.
+
+    A string representation of the log level is needed to please dcm2bids :)
+    """
+    if args.quiet:
+        return "ERROR"
+
+    if args.verbose:
+        return "INFO"
+
+    if args.debug:
+        return "DEBUG"
+
+    return "WARNING"
+
+
+def configure_logging(study, log_level):
     ch = logging.StreamHandler(sys.stdout)
 
-    log_level = logging.WARNING
-    if quiet:
-        log_level = logging.ERROR
-    if verbose:
-        log_level = logging.INFO
-    if debug:
-        log_level = logging.DEBUG
-
+    log_level = getattr(logging, log_level)
     logger.setLevel(log_level)
     ch.setLevel(log_level)
 
@@ -586,7 +598,10 @@ def export_scans(config, xnat, xnat_experiment, session, bids_opts=None,
                 exporter.export(scan.download_dir)
 
         for exporter in session_exporters:
-            exporter.export(temp_dir)
+            try:
+                exporter.export(temp_dir)
+            except Exception as e:
+                logger.error(f"Exporter {exporter} failed - {e}")
 
 
 def make_session_exporters(config, session, experiment, bids_opts=None,
@@ -613,7 +628,6 @@ def make_session_exporters(config, session, experiment, bids_opts=None,
     """
     formats = get_session_formats(
         bids_opts=bids_opts,
-        shared=experiment.is_shared(),
         ignore_db=ignore_db
     )
 
@@ -627,14 +641,12 @@ def make_session_exporters(config, session, experiment, bids_opts=None,
     return exporters
 
 
-def get_session_formats(bids_opts=None, shared=False, ignore_db=False):
+def get_session_formats(bids_opts=None, ignore_db=False):
     """Get the string identifiers for all session exporters that are needed.
 
     Args:
         bids_opts (:obj:`BidsOptions`, optional): dcm2bids settings to be
             used if exporting to BIDS format. Defaults to None.
-        shared (bool, optional): Whether to treat the session as a
-            shared XNAT experiment. Defaults to False.
         ignore_db (bool, optional): If True, datman's QC dashboard will not
             be updated. Defaults to False.
 
@@ -642,13 +654,8 @@ def get_session_formats(bids_opts=None, shared=False, ignore_db=False):
         list: a list of string keys that should be used to make exporters.
     """
     formats = []
-    if shared:
-        formats.append("shared")
-    elif bids_opts:
-        # Only do 'bids' format if not a shared session.
-        formats.append("bids")
-
     if bids_opts:
+        formats.append("bids")
         formats.append("nii_link")
     if not ignore_db:
         formats.append("db")
@@ -787,7 +794,12 @@ def needs_raw(session_exporters):
 def needs_export(session_exporters):
     """Returns True if any session exporters need to be run.
     """
-    return any([not exp.outputs_exist() for exp in session_exporters])
+    try:
+        return any([not exp.outputs_exist() for exp in session_exporters])
+    except ValueError:
+        # ValueError is raised when an invalid series number exists on XNAT.
+        # Skip these sessions
+        return False
 
 
 def needs_download(scan, session_exporters, series_exporters):
