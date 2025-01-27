@@ -204,7 +204,11 @@ class Scan(DatmanNamed):
                 if repeat != self.session:
                     continue
 
-                series = int(contents['SeriesNumber'])
+                try:
+                    series = int(contents['SeriesNumber'])
+                except KeyError:
+                    # Ignore sidecars missing a series number field.
+                    continue
                 base_fname = os.path.splitext(json_path)[0]
 
                 inventory.setdefault(series, []).extend(
