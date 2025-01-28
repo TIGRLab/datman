@@ -197,6 +197,9 @@ class Scan(DatmanNamed):
                 if not item.endswith(".json"):
                     continue
 
+                if 'blacklisted' in item:
+                    continue
+
                 json_path = os.path.join(path, item)
                 contents = datman.utils.read_json(json_path)
 
