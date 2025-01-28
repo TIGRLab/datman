@@ -193,11 +193,11 @@ class Scan(DatmanNamed):
 
         inventory = {}
         for path, _, files in os.walk(self.bids_path):
+            if path.endswith("blacklisted"):
+                continue
+
             for item in files:
                 if not item.endswith(".json"):
-                    continue
-
-                if 'blacklisted' in item:
                     continue
 
                 json_path = os.path.join(path, item)
