@@ -118,6 +118,9 @@ def handle_blacklisted_scans(session, bl_scans, search_paths, keep=False):
             if not found:
                 continue
 
+            if is_already_handled(found):
+                continue
+
             logger.debug(f"Files found for removal: {found}")
 
             if DRYRUN:
@@ -133,6 +136,23 @@ def handle_blacklisted_scans(session, bl_scans, search_paths, keep=False):
                     move_file(path, item)
                 else:
                     delete_file(item)
+
+
+def is_already_handled(found_files):
+    """Checks if the found files have already been moved or removed.
+
+    Split series scans get 'found' for each blacklist entry the first time
+    the script encounters the blacklist entries. This checks if all 'found'
+    items have already been removed so unneccessary errors messages can be
+    avoided!
+
+    Args:
+        found_files (:obj:`list`): A list of files to check.
+
+    Returns:
+        bool
+    """
+    return all([not os.path.exists(item) for item in found_files])
 
 
 def move_file(path, item):
