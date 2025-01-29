@@ -102,7 +102,7 @@ Optional
   * Accepted values: A list of path names, where each path name has already
     been defined in `Paths`_.
   * Default value: If omitted ``dm_blacklist_rm`` will delete blacklisted
-    scans from ``nii``, ``mnc``, ``nrrd``, and ``resources``, if these
+    scans from ``nii``, ``bids``, and ``resources``, if these
     directories exist.
 
 Example

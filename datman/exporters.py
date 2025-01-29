@@ -972,13 +972,12 @@ class NiiLinkExporter(SessionExporter):
 
     def outputs_exist(self):
         for dm_name in self.name_map:
+            if read_blacklist(scan=dm_name, config=self.config):
+                continue
+
             if self.name_map[dm_name] == "missing":
                 if not os.path.exists(self.get_error_file(dm_name)):
                     return False
-                continue
-
-            bl_entry = read_blacklist(scan=dm_name, config=self.config)
-            if bl_entry:
                 continue
 
             full_path = os.path.join(self.output_dir, dm_name + self.ext)

@@ -226,7 +226,7 @@ IgnoreHeaderFields:              # Dicom Header fields to exclude from gold
                                  # study's resources folder. (Optional).
                                  # Default: 'behav|\.edat2'
 
-# BlacklistDel: [nii, mnc, nrrd, resources]   # Indicate which directories to
+# BlacklistDel: [nii, bids, resources]        # Indicate which directories to
                                               # delete blacklisted data from.
-                                              # Default: [nii, mnc, nrrd,
+                                              # Default: [nii, bids,
                                               #           resources]
