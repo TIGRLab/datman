@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """
-Searches the file system for any data on the blacklist and deletes them.
+Searches the file system for any data on the blacklist and removes them
+from subject data folders to avoid pipeline failures etc.
 
 Usage:
     dm_blacklist_rm.py [options] [--path=KEY]... <project>
@@ -9,6 +10,8 @@ Arguments:
     <project>           The name of a datman managed project
 
 Options:
+    --keep              If provided, the blacklisted scans will be moved to
+                        a 'blacklisted' subdir instead of being deleted.
     --path KEY          If provided overrides the 'BlacklistDel' setting
                         from the config files, which defines the directories
                         to delete blacklisted items from. 'KEY' may be the name
@@ -22,15 +25,14 @@ Options:
 
 """
 import os
-import glob
 import logging
+import shutil
 
 from docopt import docopt
 
 import datman.config
 import datman.scan
 import datman.utils
-from datman.scanid import ParseException
 
 logging.basicConfig(level=logging.WARN,
                     format="[%(name)s] %(levelname)s: %(message)s")
@@ -43,6 +45,7 @@ def main():
     global DRYRUN
     arguments = docopt(__doc__)
     project = arguments['<project>']
+    keep = arguments['--keep']
     override_paths = arguments['--path']
     verbose = arguments['--verbose']
     debug = arguments['--debug']
@@ -58,13 +61,30 @@ def main():
 
     config = datman.config.config(study=project)
     metadata = datman.utils.get_subject_metadata(config, allow_partial=True)
-    base_paths = get_base_paths(config, override_paths)
+    search_paths = get_search_paths(config, override_paths)
 
-    remove_blacklisted_items(metadata, base_paths)
+    for sub in metadata:
+        if not metadata[sub]:
+            continue
+
+        logger.debug(f"Working on {sub}")
+        session = datman.scan.Scan(sub, config)
+        handle_blacklisted_scans(
+            session, metadata[sub], search_paths, keep=keep
+        )
 
 
-def get_base_paths(config, user_paths):
-    """Get the full path to each base directory to search for blacklisted data.
+def get_search_paths(config, user_paths=None):
+    """Get path types to search for blacklisted files in.
+
+    Args:
+        config (:obj:`datman.config.config`): A datman config object for the
+            current study.
+        user_paths (:obj:`list`): A list of path types to search through.
+            Optional. Causes the configuration file setting to be ignored.
+
+    Returns:
+        list: A list of path types that will be searched.
     """
     if user_paths:
         path_keys = user_paths
@@ -73,52 +93,94 @@ def get_base_paths(config, user_paths):
             path_keys = config.get_key("BlacklistDel")
         except datman.config.UndefinedSetting:
             # Fall back to the default
-            path_keys = ['nii', 'mnc', 'nrrd', 'resources']
-
-    base_paths = []
-    for key in path_keys:
-        try:
-            found = config.get_path(key)
-        except datman.config.UndefinedSetting:
-            logger.warning(f"Given undefined path type - {key}. Ignoring.")
-            continue
-
-        if os.path.exists(found):
-            base_paths.append(found)
-
-    return base_paths
+            path_keys = ['nii', 'bids', 'resources']
+    return path_keys
 
 
-def remove_blacklisted_items(metadata, base_paths):
-    for sub in metadata:
-        blacklist_entries = metadata[sub]
-        if not blacklist_entries:
-            continue
+def handle_blacklisted_scans(session, bl_scans, search_paths, keep=False):
+    """Move or delete all blacklisted scans for the given path types.
 
-        logger.debug(f"Working on {sub}")
-        for path in base_paths:
-            for sub_dir in glob.glob(os.path.join(path, sub + "*")):
-                for entry in blacklist_entries:
-                    remove_matches(sub_dir, entry)
+    Args:
+        session (:obj:`datman.scan.Scan`): A datman scan object for the
+            current session.
+        bl_scans (:obj:`list`): A list of strings each representing a
+            blacklisted scan.
+        search_paths (:obj:`list`): A list of path types to move/delete
+            blacklisted scans from. Each path type must exist in the
+            datman config files.
+        keep (bool): Whether to move files instead of deleting them. Optional,
+            default False.
+    """
+    for scan in bl_scans:
+        for path_type in search_paths:
+            found = session.find_files(scan, format=path_type)
+
+            if not found:
+                continue
+
+            if is_already_handled(found):
+                continue
+
+            logger.debug(f"Files found for removal: {found}")
+
+            if DRYRUN:
+                logger.info("DRYRUN - Leaving files in place.")
+                continue
+
+            for item in found:
+                if keep:
+                    path = getattr(session, f"{path_type}_path")
+                    logger.info(
+                        f"Moving blacklisted files to {path}/blacklisted"
+                    )
+                    move_file(path, item)
+                else:
+                    delete_file(item)
 
 
-def remove_matches(path, fname):
-    matches = find_files(path, fname)
-    if matches:
-        logger.info(f"Files found for deletion: {matches}")
-    if DRYRUN:
-        return
-    for item in matches:
-        try:
-            os.remove(item)
-        except FileNotFoundError:
-            pass
-        except (PermissionError, IsADirectoryError):
-            logger.error(f"Failed to delete blacklisted item {item}.")
+def is_already_handled(found_files):
+    """Checks if the found files have already been moved or removed.
+
+    Split series scans get 'found' for each blacklist entry the first time
+    the script encounters the blacklist entries. This checks if all 'found'
+    items have already been removed so unneccessary errors messages can be
+    avoided!
+
+    Args:
+        found_files (:obj:`list`): A list of files to check.
+
+    Returns:
+        bool
+    """
+    return all([not os.path.exists(item) for item in found_files])
 
 
-def find_files(path, fname):
-    return glob.glob(os.path.join(path, fname + "*"))
+def move_file(path, item):
+    """Move a file to a 'blacklisted' subdir inside the given path.
+
+    Args:
+        path (:obj:`str`): The path to move put the 'blacklisted' folder.
+        item (:obj:`str`): The full path to a blacklisted file to move.
+    """
+    bl_dir = os.path.join(path, "blacklisted")
+    try:
+        os.mkdir(bl_dir)
+    except FileExistsError:
+        pass
+
+    try:
+        shutil.move(item, bl_dir)
+    except shutil.Error as e:
+        logger.error(f"Failed to move blacklisted file {item} - {e}")
+
+
+def delete_file(file_path):
+    try:
+        os.remove(file_path)
+    except FileNotFoundError:
+        pass
+    except (PermissionError, IsADirectoryError):
+        logger.error(f"Failed to delete blacklisted item {file_path}.")
 
 
 if __name__ == "__main__":
