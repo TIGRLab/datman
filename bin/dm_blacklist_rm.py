@@ -93,7 +93,7 @@ def get_search_paths(config, user_paths=None):
             path_keys = config.get_key("BlacklistDel")
         except datman.config.UndefinedSetting:
             # Fall back to the default
-            path_keys = ['nii', 'mnc', 'nrrd', 'resources']
+            path_keys = ['nii', 'bids', 'resources']
     return path_keys
 
 
