@@ -76,6 +76,34 @@ class SessionImporter(ABC):
         """
         pass
 
+    def assign_scan_names(self, config, ident):
+        """Assign a datman style name to each scan in this experiment.
+
+        This will populate the names and tags fields for any scan that
+        matches the study's export configuration.
+
+        Args:
+            config (:obj:`datman.config.config`): A config object for the
+                study this experiment belongs to.
+            ident (:obj:`datman.scanid.Identifier`): A valid ID to apply
+                to this experiment's data.
+        """
+        tags = config.get_tags(site=ident.site)
+        if not tags.series_map:
+            logger.error(
+                f"Failed to get tag export info for study {config.study_name}"
+                f" and site {ident.site}")
+            return
+
+        for scan in self.scans:
+            try:
+                scan.set_datman_name(str(ident), tags)
+            except Exception as e:
+                logger.info(
+                    f"Failed to make file name for series {scan.series} "
+                    f"in session {str(ident)}. Reason {type(e).__name__}: "
+                    f"{e}")
+
 
 class SeriesImporter(ABC):
     # XNATScan attributes and methods used by exporters...
@@ -115,6 +143,7 @@ class SeriesImporter(ABC):
     def description(self) -> str:
         """The series description (as from the dicom headers).
         """
+        pass
 
     @property
     @abstractmethod
@@ -122,6 +151,13 @@ class SeriesImporter(ABC):
         """A list of valid scan names that may be applied to this series.
         """
         pass
+
+    def _mangle_descr(self) -> str:
+        """Modify a series description to remove non-alphanumeric characters.
+        """
+        if not self.description:
+            return ""
+        return re.sub(r"[^a-zA-Z0-9.+]+", "-", self.description)
 
 
 ###############################################################################
@@ -214,11 +250,11 @@ class XNATExperiment(SessionImporter, XNATObject):
         self._source_name = value
 
     @property
-    def scans(self) -> list['XNATScan']:
+    def scans(self) -> list['SeriesImporter']:
         return self._scans
 
     @scans.setter
-    def scans(self, value: list['XNATScan']):
+    def scans(self, value: list['SeriesImporter']):
         self._scans = value
 
     @property
@@ -460,34 +496,6 @@ class XNATExperiment(SessionImporter, XNATObject):
 
         return output_path
 
-    def assign_scan_names(self, config, ident):
-        """Assign a datman style name to each scan in this experiment.
-
-        This will populate the XnatScan.names and XnatScan.tags fields
-        for any scan that matches the study's export configuration.
-
-        Args:
-            config (:obj:`datman.config.config`): A config object for the
-                study this experiment belongs to.
-            ident (:obj:`datman.scanid.Identifier`): A valid ID to apply
-                to this experiment's data.
-        """
-        tags = config.get_tags(site=ident.site)
-        if not tags.series_map:
-            logger.error(
-                f"Failed to get tag export info for study {config.study_name}"
-                f" and site {ident.site}")
-            return
-
-        for scan in self.scans:
-            try:
-                scan.set_datman_name(str(ident), tags)
-            except Exception as e:
-                logger.info(
-                    f"Failed to make file name for series {scan.series} "
-                    f"in session {str(ident)}. Reason {type(e).__name__}: "
-                    f"{e}")
-
     def is_shared(self) -> bool:
         """Check if the experiment is shared from another project.
         """
@@ -663,11 +671,6 @@ class XNATScan(SeriesImporter, XNATObject):
         self.names = names
         return names
 
-    def _mangle_descr(self):
-        if not self.description:
-            return ""
-        return re.sub(r"[^a-zA-Z0-9.+]+", "-", self.description)
-
     def is_usable(self, strict=False):
         if not self.raw_dicoms_exist():
             logger.debug(f"Ignoring {self.series} for {self.experiment}. "
@@ -836,31 +839,17 @@ class XNATScan(SeriesImporter, XNATObject):
 
 class ZipImporter(SessionImporter):
 
-    def __init__(self, zip_path):
+    def __init__(self, ident, zip_path):
+        # Would be good to not need ident here...
+        self.ident = ident
         self.path = zip_path
         self.name = zip_path
 
-        # Does this need exception handling? Or allow calling class
-        # to do it?
-        headers = get_archive_headers(zip_path)
-        # Headers = dict[rel_path -> pydicom.dataset.FileDataset]
-        contents = {}
-        for path in headers:
-            dicom = headers[path]
-            # only need one date... but confirm all match? Or grab after
-            # constructing scan objects?
-            # Can also use AcquisitionDate, SeriesDate (?)
-            date = dicom.get('StudyDate')
-            series_description = dicom.get('SeriesDescription')
-            series = dicom.get('SeriesNumber')
-            contents[path] = {
-                'date': date,
-                'description': series_description,
-                'series': series
-            }
-        # Still need to construct the ZipSeriesImporter class
-        # and also a way of assigning names like
-        # experiment.assign_scan_names(config, ident) so truly interchangeable
+        self.contents = self.parse_contents()
+        self.scans = self.get_scans()
+        self.resources = self.contents['resources']
+
+        self.date = self.scans[0].datess
 
     # Use properties here to conform with SessionImporter interface
     # and guarantee at creation that expected attributes exist
@@ -883,20 +872,20 @@ class ZipImporter(SessionImporter):
         self.name = value
 
     @property
-    def scans(self) -> list['XNATScan']:
+    def scans(self) -> list['SeriesImporter']:
         return self._scans
 
     @scans.setter
-    def scans(self, value: list['XNATScan']):
+    def scans(self, value: list['SeriesImporter']):
         self._scans = value
 
-    # @property
-    # def date(self) -> str:
-    #     return self._date
+    @property
+    def date(self) -> str:
+        return self._date
 
-    # @date.setter
-    # def date(self, value: str):
-    #     self._date = value
+    @date.setter
+    def date(self, value: str):
+        self._date = value
 
     def is_shared(self) -> bool:
         # Can't track shared sessions with zip files.
@@ -907,35 +896,149 @@ class ZipImporter(SessionImporter):
 
         Args:
             dest_path (str): The full path to the location to extract into.
-
-        Returns:
-            list, list: A list of paths to each series' folder and a list
-                of paths to non-scan files bundled with the session.
         """
-        ##### May want to update this later to only extract series as needed
-        ##### but to grab all the folders and file info from the zip file
-        ##### before extract (I think we can read dicom headers in utils already)
+        for item in self.scans:
+            item.extract(dest_path)
+        self.extract_resources(dest_path)
 
-
+    def extract_resources(self, dest_path: str):
         with ZipFile(self.path, "r") as fh:
-            # Scan zips contain parent folder that holds all scan data.
-            # Grab it before extracting contents.
-            par_info = fh.filelist[0]
-            if par_info.is_dir():
-                scan_dir = os.path.join(dest_path, par_info.filename)
-            else:
-                raise InputException("Malformed scan zip folder.")
-            fh.extractall(dest_path)
+            for item in self.resources:
+                fh.extract(item, path=dest_path)
 
+    def parse_contents(self):
+        contents = {
+            'scans': {},
+            'resources': []
+        }
+        with ZipFile(self.path, "r") as fh:
+            par_dir = fh.filelist[0].filename.strip('/')
+            for item in fh.filelist[1:]:
+                if item.is_dir():
+                    contents['scans'].setdefault(item.filename.strip('/'), [])
+                else:
+                    folder, _ = os.path.split(item.filename)
+                    if folder == par_dir:
+                        contents['resources'].append(item.filename)
+                    else:
+                        contents['scans'].setdefault(folder, []).append(
+                            item.filename)
+        return contents
+
+    def get_scans(self):
+        # Headers = dict[rel_path -> pydicom.dataset.FileDataset]
+        headers = get_archive_headers(self.path)
         scans = []
-        resources = []
-        for item in glob.glob(os.path.join(scan_dir, "*")):
-            if os.path.isdir(item):
-                scans.append(item)
-            else:
-                resources.append(item)
+        for sub_path in headers:
+            # .get_full_subjectid may need to be changed for compatibility
+            scans.append(
+                ZipSeriesImporter(
+                    self.ident.get_full_subjectid(), self.path, sub_path,
+                    headers[sub_path], self.contents['scans'][sub_path]
+                )
+            )
+        return scans
 
-        return scans, resources
+    def __str__(self):
+        return f"<ZipImporter {self.path}"
+
+    def __repr__(self):
+        return self.__str__()
 
 
-def ZipSeriesImporter(SeriesImporter):
+class ZipSeriesImporter(SeriesImporter):
+
+    def __init__(self, subject, zip_file, dcm_dir, header, zip_items):
+        self.subject = subject
+        self.zip_file = zip_file
+        self.dcm_dir = dcm_dir
+        self.header = header
+        self.contents = zip_items
+        self.date = str(header.get('StudyDate'))
+        self.series = str(header.get('SeriesNumber'))
+        self.description = str(header.get('SeriesDescription'))
+        self.uid = str(header.get('StudyInstanceUID'))
+        self.image_type = "////".join(header.get("ImageType"))
+        self.names = []
+
+    # Use properties here to conform with SeriesImporter interface
+    # and guarantee at creation that expected attributes exist
+    @property
+    def series(self) -> str:
+        return self._series
+
+    @series.setter
+    def series(self, value: str):
+        self._series = value
+
+    @property
+    def subject(self) -> str:
+        return self._subject
+
+    @subject.setter
+    def subject(self, value: str):
+        self._subject = value
+
+    @property
+    def description(self) -> str:
+        return self._description
+
+    @description.setter
+    def description(self, value: str):
+        self._description = value
+
+    @property
+    def names(self) -> list[str]:
+        return self._names
+
+    @names.setter
+    def names(self, value: list[str]):
+        self._names = value
+
+    def extract(self, output_dir: str):
+        with ZipFile(self.zip_file, "r") as fh:
+            for item in self.contents:
+                fh.extract(item, path=output_dir)
+        self.download_dir = os.path.join(output_dir, self.dcm_dir)
+
+    def set_datman_name(self, base_name: str, tags: 'datman.config.TagInfo'
+            ) -> list[str]:
+        mangled_descr = self._mangle_descr()
+        tag_settings = self.set_tag(tags.series_map)
+        if not tag_settings:
+            raise ParseException(
+                f"Can't identify tag for series {self.series}")
+
+        names = []
+        for tag in tag_settings:
+            names.append(
+                "_".join([base_name, tag, self.series.zfill(2), mangled_descr])
+            )
+
+        self.names = names
+        return names
+
+    def set_tag(self, tag_map):
+        matches = {}
+        for tag, pattern in tag_map.items():
+            if 'SeriesDescription' not in pattern:
+                raise KeyError(
+                    "Missing key 'SeriesDescription' for 'Pattern'!")
+
+            regex = pattern['SeriesDescription']
+            if isinstance(regex, list):
+                regex = "|".join(regex)
+
+            if re.search(regex, self.description, re.IGNORECASE):
+                matches[tag] = pattern
+
+        if (len(matches) == 1 or
+                all(['EchoNumber' in matches[tag] for tag in matches])):
+            self.tags = list(matches.keys())
+            return matches
+
+    def __str__(self):
+        return f"<ZipSeriesImporter {self.series} - {self.description}>"
+
+    def __repr__(self):
+        return self.__str__()
