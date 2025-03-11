@@ -44,15 +44,18 @@ DEPENDENCIES
 
 """
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+import glob
 import logging
 import os
 import platform
 import shutil
 import sys
+from zipfile import BadZipFile
 
 import datman.config
 import datman.exceptions
 import datman.exporters
+import datman.importers
 import datman.scan
 import datman.scanid
 import datman.xnat
@@ -137,30 +140,20 @@ def main():
     else:
         bids_opts = None
 
-    auth = datman.xnat.get_auth(args.username) if args.username else None
+    sessions = get_sessions(config, args)
 
-    if args.experiment:
-        experiments = collect_experiment(
-            config, args.experiment, args.study, auth=auth, url=args.server)
-    else:
-        experiments = collect_all_experiments(
-            config, auth=auth, url=args.server)
+    logger.info(f"Found {len(session)} sessions for study {args.study}")
 
-    logger.info(f"Found {len(experiments)} experiments for study {args.study}")
+    for xnat, importer in sessions:
+        session = datman.scan.Scan(importer._ident, config,
+                                   bids_root=args.bids_out)
 
-    for xnat, project, ident in experiments:
-        xnat_experiment = get_xnat_experiment(xnat, project, ident)
-        if not xnat_experiment:
-            continue
-
-        session = datman.scan.Scan(ident, config, bids_root=args.bids_out)
-
-        if xnat_experiment.resource_files:
-            export_resources(session.resource_path, xnat, xnat_experiment,
+        if importer.resource_files:
+            export_resources(session.resource_path, xnat, importer,
                              dry_run=args.dry_run)
 
-        if xnat_experiment.scans:
-            export_scans(config, xnat, xnat_experiment, session,
+        if importer.scans:
+            export_scans(config, xnat, importer, session,
                          bids_opts=bids_opts, dry_run=args.dry_run,
                          ignore_db=args.dont_update_dashboard,
                          wanted_tags=args.tag)
@@ -186,7 +179,7 @@ def read_args():
     )
 
     g_main = parser.add_argument_group(
-        "Options for choosing data from XNAT to extract"
+        "Options for choosing data to extract"
     )
     g_main.add_argument(
         "study",
@@ -233,6 +226,12 @@ def read_args():
     g_main.add_argument(
         "--use-dcm2bids", action="store_true", default=False,
         help="Pull xnat data and convert to bids using dcm2bids"
+    )
+    g_main.add_argument(
+        "--use-zips", action="store", metavar="ZIP_DIR",
+        nargs="?", default="USE_XNAT",
+        help="A directory of zip files to use instead of pulling from XNAT. "
+             "If not provided the study's 'dicom' dir will be used instead."
     )
 
     g_dcm2bids = parser.add_argument_group(
@@ -335,6 +334,55 @@ def configure_logging(study, log_level):
     logging.getLogger('datman.exporters').addHandler(ch)
 
 
+def get_sessions(config, args):
+    if args.use_zips != "USE_XNAT":
+        return collect_zips(config, args)
+
+    auth = datman.xnat.get_auth(args.username) if args.username else None
+
+    if args.experiment:
+        return collect_experiment(
+            config, args.experiment, args.study, auth=auth, url=args.server)
+
+    return collect_all_experiments(config, auth=auth, url=args.server)
+
+
+def collect_zips(config, args):
+    if args.use_zips is None:
+        zip_folder = config.get_path("dicom")
+    else:
+        zip_folder = args.use_zips
+
+    if not os.path.exists(zip_folder):
+        logger.error(f"Zip file directory not found: {zip_folder}")
+        return []
+
+    if args.experiment:
+        ident = get_identifier(config, args.experiment)
+        if not ident:
+            logger.error(f"Invalid session ID {args.experiment}.")
+            return []
+
+        zip_path = os.path.join(zip_folder, str(ident) + ".zip")
+        if not os.path.exists(zip_path):
+            logger.error(f"Zip file not found: {zip_path}")
+            return
+
+        return [None, datman.importers.ZipImporter(ident, zip_path)]
+
+    zip_files = []
+    for zip_path in glob.glob(os.path.join(zip_folder, "*.zip")):
+        sess_name = os.path.basename(zip_path).replace(".zip", "")
+        ident = get_identifier(config, sess_name)
+        if not ident:
+            logger.error(
+                f"Ignoring invalid zip file name in dicom dir: {sess_name}")
+            continue
+        zip_files.append([None, datman.importers.ZipImporter(ident, zip_path)])
+
+    return zip_files
+
+
 def collect_experiment(config, experiment_id, study, url=None, auth=None):
     ident = get_identifier(config, experiment_id)
     xnat = datman.xnat.get_connection(
@@ -347,6 +395,10 @@ def collect_experiment(config, experiment_id, study, url=None, auth=None):
     if not xnat_project:
         logger.error(f"Failed to find experiment {experiment_id} on XNAT. "
                      f"Ensure it matches an existing experiment ID.")
+        return []
+
+    experiment = get_xnat_experiment(xnat, xnat_project, ident)
+    if not experiment:
         return []
 
     return [(xnat, xnat_project, ident)]
@@ -445,9 +497,9 @@ def get_xnat_experiment(xnat, project, ident):
     return xnat_experiment
 
 
-def export_resources(resource_dir, xnat, xnat_experiment, dry_run=False):
-    logger.info(f"Extracting {len(xnat_experiment.resource_files)} resources "
-                f"from {xnat_experiment.name}")
+def export_resources(resource_dir, xnat, importer, dry_run=False):
+    logger.info(f"Extracting {len(importer.resource_files)} resources "
+                f"from {importer.name}")
 
     if not os.path.isdir(resource_dir):
         logger.info(f"Creating resources dir {resource_dir}")
@@ -456,6 +508,12 @@ def export_resources(resource_dir, xnat, xnat_experiment, dry_run=False):
         except OSError:
             logger.error(f"Failed creating resources dir {resource_dir}")
             return
+
+    if isinstance(importer, datman.importers.ZipImporter):
+        importer.get_resources(resource_dir)
+        return
+
+    xnat_experiment = importer
 
     for label in xnat_experiment.resource_IDs:
         if label == "No Label":
@@ -549,7 +607,7 @@ def download_resource(xnat, xnat_experiment, xnat_resource_id,
     return target_path
 
 
-def export_scans(config, xnat, xnat_experiment, session, bids_opts=None,
+def export_scans(config, xnat, importer, session, bids_opts=None,
                  wanted_tags=None, ignore_db=False, dry_run=False):
     """Export all XNAT data for a session to desired formats.
 
@@ -558,8 +616,9 @@ def export_scans(config, xnat, xnat_experiment, session, bids_opts=None,
             the study the experiment belongs to.
         xnat (:obj:`datman.xnat.xnat`): An XNAT connection for the server
             the experiment resides on.
-        xnat_experiment (:obj:`datman.xnat.XNATExperiment`): The experiment
-            to download, extract and export.
+        importer (:obj:`datman.importer.SessionImporter`): An instance of
+            a SessionImporter that holds all information needed to get
+            scans data.
         session (:obj:`datman.scan.Scan`): The datman session this experiment
             belongs to.
         bids_opts (:obj:`BidsOptions`, optional): dcm2bids settings to be
@@ -574,28 +633,28 @@ def export_scans(config, xnat, xnat_experiment, session, bids_opts=None,
     """
     logger.info(f"Processing scans in experiment {xnat_experiment.name}")
 
-    xnat_experiment.assign_scan_names(config, session._ident)
+    importer.assign_scan_names(config, session._ident)
 
     session_exporters = make_session_exporters(
-        config, session, xnat_experiment, bids_opts=bids_opts,
+        config, session, importer, bids_opts=bids_opts,
         ignore_db=ignore_db, dry_run=dry_run)
 
     series_exporters = make_all_series_exporters(
-        config, session, xnat_experiment, bids_opts=bids_opts,
+        config, session, importer, bids_opts=bids_opts,
         wanted_tags=wanted_tags, dry_run=dry_run
     )
 
     if not needs_export(session_exporters) and not series_exporters:
-        logger.debug(f"Session {xnat_experiment} already extracted. Skipping.")
+        logger.debug(f"Session {importer} already extracted. Skipping.")
         return
 
     with make_temp_directory(prefix="dm_xnat_extract_") as temp_dir:
-        for scan in xnat_experiment.scans:
+        for scan in importer.scans:
             if needs_download(scan, session_exporters, series_exporters):
-                scan.download(xnat, temp_dir)
+                scan.get_files(temp_dir, xnat)
 
             for exporter in series_exporters.get(scan, []):
-                exporter.export(scan.download_dir)
+                exporter.export(scan.dcm_dir)
 
         for exporter in session_exporters:
             try:

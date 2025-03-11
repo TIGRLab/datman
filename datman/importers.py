@@ -5,6 +5,7 @@ uses these classes to create a uniform interface for its exporters, which
 create the files and database contents users may actually interact with.
 """
 from abc import ABC, abstractmethod
+from datetime import datetime
 import glob
 import json
 import logging
@@ -70,6 +71,13 @@ class SessionImporter(ABC):
         """
         pass
 
+    @property
+    @abstractmethod
+    def dcm_dir(self) -> str:
+        """The subfolder that will hold the session's dicom dirs.
+        """
+        pass
+
     @abstractmethod
     def is_shared(self) -> bool:
         """Indicates whether the session is shared with other projects.
@@ -116,6 +124,12 @@ class SeriesImporter(ABC):
     #   scan.download_dir
     #       xnat copy for example points to: /scratch/dawn/temp_stuff/export_zip/xnat_copy/SPN10_CMH_0083_01_SE01_MR/scans/6-t1_mprage_T1_900/resources/DICOM/files
     #       unzipped copy would be (diff session): 20190116_Ex09352_ASND1MR_ASQB002/Ex09352_Se00003_SagT1Bravo-1mm-32ch/
+    @property
+    @abstractmethod
+    def dcm_dir(self) -> str:
+        """Full path to the folder that holds a local copy of the dicom files.
+        """
+        pass
 
     @property
     @abstractmethod
@@ -150,6 +164,11 @@ class SeriesImporter(ABC):
     def names(self) -> list[str]:
         """A list of valid scan names that may be applied to this series.
         """
+        pass
+
+    @abstractmethod
+    def set_datman_name(self, ident: str, tags: 'datman.config.TagInfo'
+        ) -> list[str]:
         pass
 
     def _mangle_descr(self) -> str:
@@ -219,6 +238,9 @@ class XNATExperiment(SessionImporter, XNATObject):
             self.name = self._get_field("label")
             self.source_name = self.name
 
+        # The subdirectory to find the dicoms in after download
+        self.dcm_dir = os.path.join(self.name, "scans")
+
         # Scan attributes
         self.scans = self._get_scans()
         self.scan_UIDs = self._get_scan_UIDs()
@@ -264,6 +286,14 @@ class XNATExperiment(SessionImporter, XNATObject):
     @date.setter
     def date(self, value: str):
         self._date = value
+
+    @property
+    def dcm_dir(self) -> str:
+        return self._dcm_dir
+
+    @dcm_dir.setter
+    def dcm_dir(self, value: str):
+        self._dcm_dir = value
 
     def _get_contents(self, data_type):
         children = self.raw_json.get("children", [])
@@ -458,16 +488,16 @@ class XNATExperiment(SessionImporter, XNATObject):
             resources.extend([item["URI"] for item in resource_list])
         return resources
 
-    def download(self, xnat, dest_folder, zip_name=None):
+    def get_files(self, dest_folder, xnat, zip_name=None):
         """
         Download a zip file containing all data for this session. Returns the
         path to the new file if download is successful, raises an exception if
         not
 
         Args:
-            xnat: An instance of datman.xnat.xnat()
             dest_folder: The absolute path to the folder where the zip
                 should be deposited
+            xnat: An instance of datman.xnat.xnat()
             zip_name: An optional name for the output zip file. If not
                 set the zip name will be session.name
 
@@ -536,10 +566,18 @@ class XNATScan(SeriesImporter, XNATObject):
         self.type = self._get_field("type")
         self.names = []
         self.tags = []
-        self.download_dir = None
+        self.dcm_dir = None
 
     # Use properties here to conform with SeriesImporter interface
     # and guarantee at creation that expected attributes exist
+    @property
+    def dcm_dir(self) ->str:
+        return self._dcm_dir
+
+    @dcm_dir.property
+    def dcm_dir(self, value: str):
+        self.dcm_dir = value
+
     @property
     def series(self) -> str:
         return self._series
@@ -696,17 +734,17 @@ class XNATScan(SeriesImporter, XNATObject):
 
         return True
 
-    def download(self, xnat_conn, output_dir):
+    def get_files(self, output_dir, xnat_conn):
         """Download all dicoms for this series.
 
         This will download all files in the series, and if successful,
-        set the download_dir attribute to the destination folder.
+        set the dcm_dir attribute to the destination folder.
 
         Args:
-            xnat_conn (:obj:`datman.xnat.xnat`): An open xnat connection
-                to the server to download from.
             output_dir (:obj:`str`): The full path to the location to
                 download all files to.
+            xnat_conn (:obj:`datman.xnat.xnat`): An open xnat connection
+                to the server to download from.
 
         Returns:
             bool: True if the series was downloaded, False otherwise.
@@ -714,7 +752,7 @@ class XNATScan(SeriesImporter, XNATObject):
         logger.info(f"Downloading dicoms for {self.experiment} series: "
                     f"{self.series}.")
 
-        if self.download_dir:
+        if self.dcm_dir:
             logger.debug(
                 "Data has been previously downloaded, skipping redownload.")
             return True
@@ -756,24 +794,24 @@ class XNATScan(SeriesImporter, XNATObject):
         dicom_file = self._find_first_dicom(output_dir)
 
         try:
-            self.download_dir = os.path.dirname(dicom_file)
+            self.dcm_dir = os.path.dirname(dicom_file)
         except TypeError:
             logger.warning("No valid dicom files found in XNAT session "
                            f"{self.subject} series {self.series}.")
             return False
         return True
 
-    def _find_first_dicom(self, download_dir):
+    def _find_first_dicom(self, dcm_dir):
         """Finds a dicom from the series (if any) in the given directory.
 
         Args:
-            download_dir (:obj:`str`): The directory to search for dicoms.
+            dcm_dir (:obj:`str`): The directory to search for dicoms.
 
         Returns:
             str: The full path to a dicom, or None if no readable dicoms
                 exist in the folder.
         """
-        search_dir = self._find_series_dir(download_dir)
+        search_dir = self._find_series_dir(dcm_dir)
         for root_dir, folder, files in os.walk(search_dir):
             for item in files:
                 path = os.path.join(root_dir, item)
@@ -841,15 +879,19 @@ class ZipImporter(SessionImporter):
 
     def __init__(self, ident, zip_path):
         # Would be good to not need ident here...
-        self.ident = ident
+        self._ident = ident
         self.path = zip_path
         self.name = zip_path
-
         self.contents = self.parse_contents()
         self.scans = self.get_scans()
         self.resources = self.contents['resources']
-
-        self.date = self.scans[0].datess
+        self.dcm_dir = os.path.split(self.scans[0].dcm_dir)[0]
+        try:
+            # Convert date to same format XNAT gives
+            self.date = str(datetime.strptime(self.scans[0].date, "%Y%m%d"))
+        except ValueError:
+            logger.error("Unexpected date format in dicom header.")
+            self.date = self.scans[0].date
 
     # Use properties here to conform with SessionImporter interface
     # and guarantee at creation that expected attributes exist
@@ -887,21 +929,29 @@ class ZipImporter(SessionImporter):
     def date(self, value: str):
         self._date = value
 
+    @property
+    def dcm_dir(self) -> str:
+        return self._dcm_dir
+
+    @dcm_dir.setter
+    def dcm_dir(self, value: str):
+        self._dcm_dir = value
+
     def is_shared(self) -> bool:
         # Can't track shared sessions with zip files.
         return False
 
-    def extract(self, dest_path: str) -> str:
+    def get_files(self, dest_path: str, *args) -> str:
         """Unpack the zip file at the given location.
 
         Args:
             dest_path (str): The full path to the location to extract into.
         """
         for item in self.scans:
-            item.extract(dest_path)
+            item.get_files(dest_path)
         self.extract_resources(dest_path)
 
-    def extract_resources(self, dest_path: str):
+    def get_resources(self, dest_path: str):
         with ZipFile(self.path, "r") as fh:
             for item in self.resources:
                 fh.extract(item, path=dest_path)
@@ -928,16 +978,39 @@ class ZipImporter(SessionImporter):
     def get_scans(self):
         # Headers = dict[rel_path -> pydicom.dataset.FileDataset]
         headers = get_archive_headers(self.path)
-        scans = []
+        # scans = []
+        # for sub_path in headers:
+        #     # .get_full_subjectid may need to be changed for compatibility
+        #     scans.append(
+        #         ZipSeriesImporter(
+        #             self.ident.get_full_subjectid(), self.path, sub_path,
+        #             headers[sub_path], self.contents['scans'][sub_path]
+        #         )
+        #     )
+        # return scans
+        scans = {}
+        duplicate_series = set()
         for sub_path in headers:
             # .get_full_subjectid may need to be changed for compatibility
-            scans.append(
-                ZipSeriesImporter(
-                    self.ident.get_full_subjectid(), self.path, sub_path,
+            zip_scan = ZipSeriesImporter(
+                    self._ident.get_full_subjectid(), self.path, sub_path,
                     headers[sub_path], self.contents['scans'][sub_path]
-                )
             )
-        return scans
+            if zip_scan.series in scans:
+                duplicate_series.add(zip_scan.series)
+            else:
+                scans[zip_scan.series] = zip_scan
+
+        # Omit scans when more than one has the same series num (can't handle
+        # these...)
+        if duplicate_series:
+            logger.error("Duplicate series present in zip file. "
+                         f"Ignoring: {duplicate_series}")
+
+        for series in duplicate_series:
+            del scans[series]
+
+        return list(scans.values())
 
     def __str__(self):
         return f"<ZipImporter {self.path}"
@@ -948,10 +1021,10 @@ class ZipImporter(SessionImporter):
 
 class ZipSeriesImporter(SeriesImporter):
 
-    def __init__(self, subject, zip_file, dcm_dir, header, zip_items):
+    def __init__(self, subject, zip_file, series_dir, header, zip_items):
         self.subject = subject
         self.zip_file = zip_file
-        self.dcm_dir = dcm_dir
+        self.series_dir = series_dir
         self.header = header
         self.contents = zip_items
         self.date = str(header.get('StudyDate'))
@@ -995,11 +1068,11 @@ class ZipSeriesImporter(SeriesImporter):
     def names(self, value: list[str]):
         self._names = value
 
-    def extract(self, output_dir: str):
+    def get_files(self, output_dir: str, *args):
         with ZipFile(self.zip_file, "r") as fh:
             for item in self.contents:
                 fh.extract(item, path=output_dir)
-        self.download_dir = os.path.join(output_dir, self.dcm_dir)
+        self.dcm_dir = os.path.join(output_dir, self.series_dir)
 
     def set_datman_name(self, base_name: str, tags: 'datman.config.TagInfo'
             ) -> list[str]:

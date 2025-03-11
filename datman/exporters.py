@@ -183,7 +183,7 @@ class BidsExporter(SessionExporter):
     type = "bids"
 
     def __init__(self, config, session, experiment, bids_opts=None, **kwargs):
-        self.exp_label = experiment.name
+        self.dcm_dir = experiment.dcm_dir
         self.bids_sub = session._ident.get_bids_name()
         self.bids_ses = session._ident.timepoint
         self.repeat = session._ident.session
@@ -379,7 +379,7 @@ class BidsExporter(SessionExporter):
                 f"sub-{self.bids_sub}_ses-{self.bids_ses}"
             )
             return tmp_dir
-        return os.path.join(download_dir, self.exp_label, "scans")
+        return os.path.join(download_dir, self.dcm_dir)
 
     def outputs_exist(self):
         if self.refresh:
