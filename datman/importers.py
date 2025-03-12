@@ -1036,7 +1036,10 @@ class ZipSeriesImporter(SeriesImporter):
         self.series = str(header.get('SeriesNumber'))
         self.description = str(header.get('SeriesDescription'))
         self.uid = str(header.get('StudyInstanceUID'))
-        self.image_type = "////".join(header.get("ImageType"))
+        try:
+            self.image_type = "////".join(header.get("ImageType"))
+        except TypeError:
+            self.image_type = ""
         self.names = []
         self.dcm_dir = None
 
