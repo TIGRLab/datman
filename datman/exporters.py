@@ -31,6 +31,7 @@ from datman.utils import (run, make_temp_directory, get_extension,
                           filter_niftis, find_tech_notes, read_blacklist,
                           get_relative_source, read_json, write_json)
 
+
 try:
     from dcm2bids import dcm2bids, Dcm2bids
     from dcm2bids.sidecar import Acquisition

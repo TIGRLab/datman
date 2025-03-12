@@ -574,9 +574,9 @@ class XNATScan(SeriesImporter, XNATObject):
     def dcm_dir(self) ->str:
         return self._dcm_dir
 
-    @dcm_dir.property
+    @dcm_dir.setter
     def dcm_dir(self, value: str):
-        self.dcm_dir = value
+        self._dcm_dir = value
 
     @property
     def series(self) -> str:
@@ -885,10 +885,12 @@ class ZipImporter(SessionImporter):
         self.contents = self.parse_contents()
         self.scans = self.get_scans()
         self.resources = self.contents['resources']
-        self.dcm_dir = os.path.split(self.scans[0].dcm_dir)[0]
+        # For compatibility (fix later)
+        self.resource_files = self.resources
+        self.dcm_dir = os.path.split(self.scans[0].series_dir)[0]
         try:
             # Convert date to same format XNAT gives
-            self.date = str(datetime.strptime(self.scans[0].date, "%Y%m%d"))
+            self.date = str(datetime.strptime(self.scans[0].date, "%Y%m%d").date())
         except ValueError:
             logger.error("Unexpected date format in dicom header.")
             self.date = self.scans[0].date
@@ -951,8 +953,11 @@ class ZipImporter(SessionImporter):
             item.get_files(dest_path)
         self.extract_resources(dest_path)
 
-    def get_resources(self, dest_path: str):
+    def get_resources(self, dest_path: str, fname: str = None):
         with ZipFile(self.path, "r") as fh:
+            if fname:
+                fh.extract(fname, path=dest_path)
+                return
             for item in self.resources:
                 fh.extract(item, path=dest_path)
 
@@ -1033,9 +1038,18 @@ class ZipSeriesImporter(SeriesImporter):
         self.uid = str(header.get('StudyInstanceUID'))
         self.image_type = "////".join(header.get("ImageType"))
         self.names = []
+        self.dcm_dir = None
 
     # Use properties here to conform with SeriesImporter interface
     # and guarantee at creation that expected attributes exist
+    @property
+    def dcm_dir(self) -> str:
+        return self._dcm_dir
+
+    @dcm_dir.setter
+    def dcm_dir(self, value):
+        self._dcm_dir = value
+
     @property
     def series(self) -> str:
         return self._series
@@ -1067,6 +1081,9 @@ class ZipSeriesImporter(SeriesImporter):
     @names.setter
     def names(self, value: list[str]):
         self._names = value
+
+    def is_usable(self):
+        return any([item.endswith(".dcm") for item in self.contents])
 
     def get_files(self, output_dir: str, *args):
         with ZipFile(self.zip_file, "r") as fh:

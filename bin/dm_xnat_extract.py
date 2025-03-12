@@ -142,7 +142,7 @@ def main():
 
     sessions = get_sessions(config, args)
 
-    logger.info(f"Found {len(session)} sessions for study {args.study}")
+    logger.info(f"Found {len(sessions)} sessions for study {args.study}")
 
     for xnat, importer in sessions:
         session = datman.scan.Scan(importer._ident, config,
@@ -366,9 +366,9 @@ def collect_zips(config, args):
         zip_path = os.path.join(zip_folder, str(ident) + ".zip")
         if not os.path.exists(zip_path):
             logger.error(f"Zip file not found: {zip_path}")
-            return
+            return []
 
-        return [None, datman.importers.ZipImporter(ident, zip_path)]
+        return [(None, datman.importers.ZipImporter(ident, zip_path))]
 
     zip_files = []
     for zip_path in glob.glob(os.path.join(zip_folder, "*.zip")):
@@ -378,7 +378,9 @@ def collect_zips(config, args):
             logger.error(
                 f"Ignoring invalid zip file name in dicom dir: {sess_name}")
             continue
-        zip_files.append([None, datman.importers.ZipImporter(ident, zip_path)])
+        zip_files.append(
+            (None, datman.importers.ZipImporter(ident, zip_path))
+        )
 
     return zip_files
 
@@ -510,7 +512,9 @@ def export_resources(resource_dir, xnat, importer, dry_run=False):
             return
 
     if isinstance(importer, datman.importers.ZipImporter):
-        importer.get_resources(resource_dir)
+        for item in importer.resource_files:
+            if not os.path.exists(item):
+                importer.get_resources(resource_dir, item)
         return
 
     xnat_experiment = importer
@@ -631,7 +635,7 @@ def export_scans(config, xnat, importer, session, bids_opts=None,
         dry_run (bool, optional): If True, no outputs will be made. Defaults
             to False.
     """
-    logger.info(f"Processing scans in experiment {xnat_experiment.name}")
+    logger.info(f"Processing scans in experiment {importer.name}")
 
     importer.assign_scan_names(config, session._ident)
 
