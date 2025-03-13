@@ -403,7 +403,7 @@ def collect_experiment(config, experiment_id, study, url=None, auth=None):
     if not experiment:
         return []
 
-    return [(xnat, xnat_project, ident)]
+    return [(xnat, experiment)]
 
 
 def get_identifier(config, subid):
@@ -436,8 +436,11 @@ def collect_all_experiments(config, auth=None, url=None):
 
             for exper_id in xnat.get_experiment_ids(project):
                 ident = get_experiment_identifier(config, project, exper_id)
-                if ident:
-                    experiments.append((xnat, project, ident))
+                if not ident:
+                    continue
+                experiment = get_xnat_experiment(xnat, project, ident)
+                if experiment:
+                    experiments.append((xnat, experiment))
 
     return experiments
 
@@ -491,7 +494,8 @@ def get_xnat_experiment(xnat, project, ident):
 
     try:
         xnat_experiment = xnat.get_experiment(
-            project, ident.get_xnat_subject_id(), experiment_label)
+            project, ident.get_xnat_subject_id(), experiment_label,
+            ident=ident)
     except Exception as e:
         logger.error(f"Unable to retrieve experiment {experiment_label} from "
                      f"XNAT server. {type(e).__name__}: {e}")

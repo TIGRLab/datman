@@ -10,7 +10,7 @@ from xml.etree import ElementTree
 
 import requests
 
-from datman.exceptions import UndefinedSetting, XnatException
+from datman.exceptions import UndefinedSetting, XnatException, InputException
 from datman.importers import XNATSubject, XNATExperiment, XNATScan
 
 
@@ -439,24 +439,41 @@ class xnat(object):
 
         return [item.get("label") for item in result["ResultSet"]["Result"]]
 
-    def get_experiment(self, project, subject_id, exper_id, create=False):
+    def get_experiment(self, project, subject_id=None, exper_id=None,
+                       create=False, ident=None):
         """Get an experiment from the XNAT server.
 
         Args:
             project (:obj:`str`): The XNAT project to search within.
-            subject_id (:obj:`str`): The XNAT subject to search.
-            exper_id (:obj:`str`): The name of the experiment to retrieve.
+            subject_id (:obj:`str`, optional): The XNAT subject to search.
+                Either subject_id and exper_id must both be provided or
+                ident must be given.
+            exper_id (:obj:`str`, optional): The name of the experiment
+                to retrieve. Either subject_id and exper_id must both be
+                provided or ident must be given.
             create (bool, optional): Whether to create an experiment matching
                 exper_id if a match is not found. Defaults to False.
+            ident (:obj:`datman.scanid.Identifier`, optional): a datman
+                identifier. Must be provided if subject_id and exper_id are
+                not given.
 
         Raises:
             XnatException: If the experiment doesn't exist and can't be made
                 or the server/API can't be accessed.
+            InputException: If not given both subject_id and exper_id OR
+                ident as arguments.
 
         Returns:
             :obj:`datman.xnat.XNATExperiment`: An XNATExperiment instance
                 matching the given experiment ID.
         """
+        if not (subject_id and exper_id):
+            if not ident:
+                raise InputException(
+                    "Must be given either 1) subject ID and "
+                    "experiment ID or 2) A datman.scanid.Identifier")
+            subject_id = ident.get_xnat_subject_id()
+            exper_id = ident.get_xnat_experiment_id()
         logger.debug(
             f"Querying XNAT server {self.server} for experiment {exper_id} "
             f"belonging to {subject_id} in project {project}")
@@ -486,7 +503,7 @@ class xnat(object):
             raise XnatException(
                 f"Could not access metadata for experiment {exper_id}")
 
-        return XNATExperiment(project, subject_id, exper_json)
+        return XNATExperiment(project, subject_id, exper_json, ident=ident)
 
     def make_experiment(self, project, subject, experiment):
         """Make a new (empty) experiment on the XNAT server.

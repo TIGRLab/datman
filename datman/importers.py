@@ -222,13 +222,15 @@ class XNATSubject(XNATObject):
 
 
 class XNATExperiment(SessionImporter, XNATObject):
-    def __init__(self, project, subject_name, experiment_json):
+    def __init__(self, project, subject_name, experiment_json,
+                 ident=None):
         self.raw_json = experiment_json
         self.project = project
         self.subject = subject_name
         self.uid = self._get_field("UID")
         self.id = self._get_field("ID")
         self.date = self._get_field("date")
+        self._ident = ident
 
         if self.is_shared():
             self.name = [label for label in self.get_alt_labels()
