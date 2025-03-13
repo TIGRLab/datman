@@ -184,7 +184,7 @@ class BidsExporter(SessionExporter):
     type = "bids"
 
     def __init__(self, config, session, experiment, bids_opts=None, **kwargs):
-        self.dcm_dir = experiment.dcm_dir
+        self.dcm_dir = experiment.dcm_subdir
         self.bids_sub = session._ident.get_bids_name()
         self.bids_ses = session._ident.timepoint
         self.repeat = session._ident.session

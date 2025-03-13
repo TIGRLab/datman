@@ -73,8 +73,10 @@ class SessionImporter(ABC):
 
     @property
     @abstractmethod
-    def dcm_dir(self) -> str:
+    def dcm_subdir(self) -> str:
         """The subfolder that will hold the session's dicom dirs.
+
+        This will be a relative path, and will always be defined.
         """
         pass
 
@@ -128,6 +130,9 @@ class SeriesImporter(ABC):
     @abstractmethod
     def dcm_dir(self) -> str:
         """Full path to the folder that holds a local copy of the dicom files.
+
+        This should be None if the dicoms have not been retrieved from their
+        source location (e.g. with get_files).
         """
         pass
 
@@ -164,6 +169,10 @@ class SeriesImporter(ABC):
     def names(self) -> list[str]:
         """A list of valid scan names that may be applied to this series.
         """
+        pass
+
+    @abstractmethod
+    def is_usable(self) -> bool:
         pass
 
     @abstractmethod
@@ -241,7 +250,7 @@ class XNATExperiment(SessionImporter, XNATObject):
             self.source_name = self.name
 
         # The subdirectory to find the dicoms in after download
-        self.dcm_dir = os.path.join(self.name, "scans")
+        self.dcm_subdir = os.path.join(self.name, "scans")
 
         # Scan attributes
         self.scans = self._get_scans()
@@ -290,12 +299,12 @@ class XNATExperiment(SessionImporter, XNATObject):
         self._date = value
 
     @property
-    def dcm_dir(self) -> str:
-        return self._dcm_dir
+    def dcm_subdir(self) -> str:
+        return self._dcm_subdir
 
-    @dcm_dir.setter
-    def dcm_dir(self, value: str):
-        self._dcm_dir = value
+    @dcm_subdir.setter
+    def dcm_subdir(self, value: str):
+        self._dcm_subdir = value
 
     def _get_contents(self, data_type):
         children = self.raw_json.get("children", [])
@@ -889,7 +898,7 @@ class ZipImporter(SessionImporter):
         self.resources = self.contents['resources']
         # For compatibility (fix later)
         self.resource_files = self.resources
-        self.dcm_dir = os.path.split(self.scans[0].series_dir)[0]
+        self.dcm_subdir = os.path.split(self.scans[0].series_dir)[0]
         try:
             # Convert date to same format XNAT gives
             self.date = str(datetime.strptime(self.scans[0].date, "%Y%m%d").date())
@@ -934,12 +943,12 @@ class ZipImporter(SessionImporter):
         self._date = value
 
     @property
-    def dcm_dir(self) -> str:
-        return self._dcm_dir
+    def dcm_subdir(self) -> str:
+        return self._dcm_subdir
 
-    @dcm_dir.setter
-    def dcm_dir(self, value: str):
-        self._dcm_dir = value
+    @dcm_subdir.setter
+    def dcm_subdir(self, value: str):
+        self._dcm_subdir = value
 
     def is_shared(self) -> bool:
         # Can't track shared sessions with zip files.
