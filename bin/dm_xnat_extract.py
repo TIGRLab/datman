@@ -145,7 +145,7 @@ def main():
     logger.info(f"Found {len(sessions)} sessions for study {args.study}")
 
     for xnat, importer in sessions:
-        session = datman.scan.Scan(importer._ident, config,
+        session = datman.scan.Scan(importer.ident, config,
                                    bids_root=args.bids_out)
 
         if importer.resource_files:

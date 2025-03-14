@@ -186,7 +186,7 @@ def update_needed(zip_file, experiment, xnat):
 
     zip_scan_uids = get_scan_uids(zip_headers)
     zip_resources = get_resources(zip_file)
-    xnat_resources = experiment.get_resources(xnat)
+    xnat_resources = experiment.get_resource_uris(xnat)
 
     if not files_downloaded(zip_resources, xnat_resources) or \
        not files_downloaded(zip_scan_uids, experiment.scan_UIDs):

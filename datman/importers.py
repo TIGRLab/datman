@@ -40,6 +40,13 @@ class SessionImporter(ABC):
 
     @property
     @abstractmethod
+    def ident(self) -> 'datman.scanid.Identifier':
+        """A datman identifier for the session.
+        """
+        pass
+
+    @property
+    @abstractmethod
     def name(self) -> str:
         """A valid ID for the scan session being imported.
         """
@@ -67,7 +74,14 @@ class SessionImporter(ABC):
     @property
     @abstractmethod
     def scans(self) -> list['SeriesImporter']:
-        """A list scan series that belong to the session.
+        """A list of scan SeriesImporters that belong to the session.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def resource_files(self) -> list[str]:
+        """A list of relative paths for any resource (non-dcm) files.
         """
         pass
 
@@ -83,6 +97,12 @@ class SessionImporter(ABC):
     @abstractmethod
     def is_shared(self) -> bool:
         """Indicates whether the session is shared with other projects.
+        """
+        pass
+
+    @abstractmethod
+    def get_files(self, dest_dir, *args, **kwargs):
+        """Retrieve all of the session's dcm files and place them in dest_dir.
         """
         pass
 
@@ -171,13 +191,40 @@ class SeriesImporter(ABC):
         """
         pass
 
+    @property
+    @abstractmethod
+    def image_type(self) -> str:
+        """The ImageType from the dicom headers.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def uid(self) -> str:
+        """The UID from the dicom headers.
+        """
+        pass
+
+
     @abstractmethod
     def is_usable(self) -> bool:
+        """Indicates whether the series contains usable dcm files.
+        """
+        pass
+
+    @abstractmethod
+    def get_files(self, dest_dir, *args, **kwargs):
+        """Retrieve dcm files for this series and store them in dest_dir.
+        """
         pass
 
     @abstractmethod
     def set_datman_name(self, ident: str, tags: 'datman.config.TagInfo'
         ) -> list[str]:
+        pass
+
+    @abstractmethod
+    def set_tag(self, tag_map):
         pass
 
     def _mangle_descr(self) -> str:
@@ -186,6 +233,16 @@ class SeriesImporter(ABC):
         if not self.description:
             return ""
         return re.sub(r"[^a-zA-Z0-9.+]+", "-", self.description)
+
+    def is_derived(self):
+        if not self.image_type:
+            logger.warning(
+                f"Image type could not be found for series {self.series}. "
+                "Assuming it's not derived.")
+            return False
+        if "DERIVED" in self.image_type:
+            return True
+        return False
 
 
 ###############################################################################
@@ -239,7 +296,7 @@ class XNATExperiment(SessionImporter, XNATObject):
         self.uid = self._get_field("UID")
         self.id = self._get_field("ID")
         self.date = self._get_field("date")
-        self._ident = ident
+        self.ident = ident
 
         if self.is_shared():
             self.name = [label for label in self.get_alt_labels()
@@ -264,8 +321,14 @@ class XNATExperiment(SessionImporter, XNATObject):
         # Misc - basically just OPT CU1 needs this
         self.misc_resource_IDs = self._get_other_resource_IDs()
 
-    # Use properties here to conform with SessionImporter interface
-    # and guarantee at creation that expected attributes exist
+    @property
+    def ident(self) -> 'datman.scanid.Identifier':
+        return self._ident
+
+    @ident.setter
+    def ident(self, value: 'datman.scanid.Identifier'):
+        self._ident = value
+
     @property
     def name(self) -> str:
         return self._name
@@ -486,7 +549,7 @@ class XNATExperiment(SessionImporter, XNATObject):
 
         return wf_ids
 
-    def get_resources(self, xnat_connection):
+    def get_resource_uris(self, xnat_connection):
         """
         Returns a list of all resource URIs from this session.
         """
@@ -499,7 +562,7 @@ class XNATExperiment(SessionImporter, XNATObject):
             resources.extend([item["URI"] for item in resource_list])
         return resources
 
-    def get_files(self, dest_folder, xnat, zip_name=None):
+    def get_files(self, dest_folder, xnat, *args, zip_name=None, **kwargs):
         """
         Download a zip file containing all data for this session. Returns the
         path to the new file if download is successful, raises an exception if
@@ -621,6 +684,14 @@ class XNATScan(SeriesImporter, XNATObject):
     def names(self, value: list[str]):
         self._names = value
 
+    @property
+    def uid(self) -> list[str]:
+        return self._uid
+
+    @uid.setter
+    def uid(self, value: list[str]):
+        self._uid = value
+
     def _set_description(self):
         series_descr = self._get_field("series_description")
         if series_descr:
@@ -643,16 +714,6 @@ class XNATScan(SeriesImporter, XNATObject):
                 file_type = item["data_fields"].get("content")
                 if file_type == "RAW":
                     return True
-        return False
-
-    def is_derived(self):
-        if not self.image_type:
-            logger.warning(
-                f"Image type could not be found for series {self.series}. "
-                "Assuming it's not derived.")
-            return False
-        if "DERIVED" in self.image_type:
-            return True
         return False
 
     def set_tag(self, tag_map):
@@ -745,7 +806,7 @@ class XNATScan(SeriesImporter, XNATObject):
 
         return True
 
-    def get_files(self, output_dir, xnat_conn):
+    def get_files(self, output_dir, xnat_conn, *args, **kwargs):
         """Download all dicoms for this series.
 
         This will download all files in the series, and if successful,
@@ -889,25 +950,23 @@ class XNATScan(SeriesImporter, XNATObject):
 class ZipImporter(SessionImporter):
 
     def __init__(self, ident, zip_path):
-        # Would be good to not need ident here...
-        self._ident = ident
-        self.path = zip_path
+        self.ident = ident
         self.name = zip_path
+        self.path = zip_path
+        self.date = self.scans[0].date
         self.contents = self.parse_contents()
         self.scans = self.get_scans()
-        self.resources = self.contents['resources']
-        # For compatibility (fix later)
-        self.resource_files = self.resources
+        self.resource_files = self.contents['resources']
         self.dcm_subdir = os.path.split(self.scans[0].series_dir)[0]
-        try:
-            # Convert date to same format XNAT gives
-            self.date = str(datetime.strptime(self.scans[0].date, "%Y%m%d").date())
-        except ValueError:
-            logger.error("Unexpected date format in dicom header.")
-            self.date = self.scans[0].date
 
-    # Use properties here to conform with SessionImporter interface
-    # and guarantee at creation that expected attributes exist
+    @property
+    def ident(self) -> 'datman.scanid.Identifier':
+        return self._ident
+
+    @ident.setter
+    def ident(self, value: 'datman.scanid.Identifier'):
+        self._ident = value
+
     @property
     def name(self) -> str:
         return self._name
@@ -918,13 +977,26 @@ class ZipImporter(SessionImporter):
 
     @property
     def source_name(self) -> str:
-        # When using zip files, can't really track shared IDs so always
-        # equal name.
+        # When using zip files, can't really track shared IDs so it always
+        # equals name.
         return self.name
 
     @source_name.setter
     def source_name(self, value: str):
         self.name = value
+
+    @property
+    def date(self) -> str:
+        return self._date
+
+    @date.setter
+    def date(self, value: str):
+        try:
+            # Convert date from usual header format to expected date format
+            self._date = str(datetime.strptime(value, "%Y%m%d").date())
+        except ValueError:
+            logger.error(f"Unexpected date format given - {value}")
+            self._date = value
 
     @property
     def scans(self) -> list['SeriesImporter']:
@@ -935,12 +1007,12 @@ class ZipImporter(SessionImporter):
         self._scans = value
 
     @property
-    def date(self) -> str:
-        return self._date
+    def resource_files(self) -> list[str]:
+        return self._resources
 
-    @date.setter
-    def date(self, value: str):
-        self._date = value
+    @resource_files.setter
+    def resource_files(self, value):
+        self._resources = value
 
     @property
     def dcm_subdir(self) -> str:
@@ -954,7 +1026,7 @@ class ZipImporter(SessionImporter):
         # Can't track shared sessions with zip files.
         return False
 
-    def get_files(self, dest_path: str, *args) -> str:
+    def get_files(self, dest_path: str, *args, **kwargs):
         """Unpack the zip file at the given location.
 
         Args:
@@ -965,14 +1037,21 @@ class ZipImporter(SessionImporter):
         self.extract_resources(dest_path)
 
     def get_resources(self, dest_path: str, fname: str = None):
+        """Unpack resource (non-dicom) files at the given location.
+
+        Args:
+            dest_path (str): The full path to the location to extract into.
+        """
         with ZipFile(self.path, "r") as fh:
             if fname:
                 fh.extract(fname, path=dest_path)
                 return
-            for item in self.resources:
+            for item in self.resources_files:
                 fh.extract(item, path=dest_path)
 
-    def parse_contents(self):
+    def parse_contents(self) -> dict:
+        """Read and organize the contents of the zip file.
+        """
         contents = {
             'scans': {},
             'resources': []
@@ -991,25 +1070,16 @@ class ZipImporter(SessionImporter):
                             item.filename)
         return contents
 
-    def get_scans(self):
-        # Headers = dict[rel_path -> pydicom.dataset.FileDataset]
+    def get_scans(self) -> list['ZipSeriesImporter']:
+        """Get ZipSeriesImporters for each scan in the session.
+        """
         headers = get_archive_headers(self.path)
-        # scans = []
-        # for sub_path in headers:
-        #     # .get_full_subjectid may need to be changed for compatibility
-        #     scans.append(
-        #         ZipSeriesImporter(
-        #             self.ident.get_full_subjectid(), self.path, sub_path,
-        #             headers[sub_path], self.contents['scans'][sub_path]
-        #         )
-        #     )
-        # return scans
         scans = {}
         duplicate_series = set()
         for sub_path in headers:
             # .get_full_subjectid may need to be changed for compatibility
             zip_scan = ZipSeriesImporter(
-                    self._ident.get_full_subjectid(), self.path, sub_path,
+                    self.ident.get_full_subjectid(), self.path, sub_path,
                     headers[sub_path], self.contents['scans'][sub_path]
             )
             if zip_scan.series in scans:
@@ -1047,10 +1117,7 @@ class ZipSeriesImporter(SeriesImporter):
         self.series = str(header.get('SeriesNumber'))
         self.description = str(header.get('SeriesDescription'))
         self.uid = str(header.get('StudyInstanceUID'))
-        try:
-            self.image_type = "////".join(header.get("ImageType"))
-        except TypeError:
-            self.image_type = ""
+        self.image_type = header.get("ImageType")
         self.names = []
         self.dcm_dir = None
 
@@ -1096,10 +1163,30 @@ class ZipSeriesImporter(SeriesImporter):
     def names(self, value: list[str]):
         self._names = value
 
+    @property
+    def image_type(self) -> str:
+        return self._image_type
+
+    @image_type.setter
+    def image_type(self, value):
+        try:
+            # Ensure matches the expected XNAT format
+            self._image_type = "////".join(value)
+        except TypeError:
+            self._image_type = ""
+
+    @property
+    def uid(self) -> list[str]:
+        return self._uid
+
+    @uid.setter
+    def uid(self, value: list[str]):
+        self._uid = value
+
     def is_usable(self):
         return any([item.endswith(".dcm") for item in self.contents])
 
-    def get_files(self, output_dir: str, *args):
+    def get_files(self, output_dir: str, *args, **kwargs):
         with ZipFile(self.zip_file, "r") as fh:
             for item in self.contents:
                 fh.extract(item, path=output_dir)
