@@ -50,7 +50,6 @@ import os
 import platform
 import shutil
 import sys
-from zipfile import BadZipFile
 
 import datman.config
 import datman.exceptions
@@ -160,6 +159,8 @@ def main():
 
 
 def read_args():
+    """Configure the ArgumentParser.
+    """
     def _is_dir(path, parser):
         """Ensure a given directory exists."""
         if path is None or not os.path.isdir(path):
@@ -316,6 +317,12 @@ def get_log_level(args):
 
 
 def configure_logging(study, log_level):
+    """Configure the logging for this run.
+
+    Args:
+        study (:obj:`str`): The name of the study being exported.
+        log_level (:obj:`str`): The log level to use.
+    """
     ch = logging.StreamHandler(sys.stdout)
 
     log_level = getattr(logging, log_level)
@@ -332,9 +339,23 @@ def configure_logging(study, log_level):
     logging.getLogger('datman.dashboard').addHandler(ch)
     logging.getLogger('datman.xnat').addHandler(ch)
     logging.getLogger('datman.exporters').addHandler(ch)
+    logging.getLogger('datman.importers').addHandler(ch)
 
 
 def get_sessions(config, args):
+    """Get all scan sessions to be exported.
+
+    Args:
+        config (:obj:`datman.config.config`): The datman configuration.
+        args (:obj:`argparse.ArgumentParser`): The argument parser for the
+            user's input arguments.
+
+    Returns:
+        list[(None|datman.xnat.XNAT, datman.importers.SessionImporter)]:
+            a list of tuples containing the XNAT connection to use (if needed
+            during export) and a SessionImporter. If no sessions are found,
+            will return an empty list.
+    """
     if args.use_zips != "USE_XNAT":
         return collect_zips(config, args)
 
@@ -348,6 +369,19 @@ def get_sessions(config, args):
 
 
 def collect_zips(config, args):
+    """Locate all usable zip files.
+
+    Args:
+        config (:obj:`datman.config.config`): The datman configuration.
+        args (:obj:argparse.ArgumentParser): The argument parser for the
+            user's command line inputs.
+
+    Returns:
+        list[(None, datman.importers.ZipImporter)]: A list of tuples each
+            containing None (for compatibility with exporting XNATExperiments)
+            and a ZipImporter. Will return an empty list if no zip files are
+            found.
+    """
     if args.use_zips is None:
         zip_folder = config.get_path("dicom")
     else:
@@ -386,6 +420,24 @@ def collect_zips(config, args):
 
 
 def collect_experiment(config, experiment_id, study, url=None, auth=None):
+    """Get a single XNAT experiment.
+
+    Args:
+        config (:obj:`datman.config.config`): A datman configuration object.
+        experiment_id (:obj:`str`): An XNAT experiment ID.
+        study (:obj:`str`): A valid study ID.
+        url (:obj:`str`, optional): The XNAT url to use. If not given, it
+            will be retrieved from the configuration files.
+        auth (:obj:`tuple`, optional): A tuple containing the username and
+            password to use when accessing the XNAT server. If not given,
+            the XNAT_USER and XNAT_PASS environment variables will be used.
+
+    Return:
+        list[(datman.xnat.XNAT, datman.importers.XNATExperiment)]:
+            a list with a single tuple containing the xnat connection to use
+            and the experiment importer. If not found, an empty list will be
+            given.
+    """
     ident = get_identifier(config, experiment_id)
     xnat = datman.xnat.get_connection(
         config, site=ident.site, url=url, auth=auth)
@@ -407,6 +459,17 @@ def collect_experiment(config, experiment_id, study, url=None, auth=None):
 
 
 def get_identifier(config, subid):
+    """Get a valid identifier for a given ID.
+
+    Args:
+        config (:obj:`datman.config.config`): A datman configuration object
+            for a study.
+        subid (:obj:`str`): A valid identifier in one of datman's accepted name
+            conventions.
+
+    Returns:
+        datman.scanid.Identifier: A datman Identifier for the given subid.
+    """
     ident = validate_subject_id(subid, config)
 
     try:
@@ -425,6 +488,20 @@ def get_identifier(config, subid):
 
 
 def collect_all_experiments(config, auth=None, url=None):
+    """Retrieve all XNAT experiment objects for a single study.
+
+    Args:
+        config (:obj:`datman.config.config`): A datman configuration object
+            for the current study.
+        auth (:obj:`tuple`, optional): A tuple containing an XNAT username and
+            password. If not provided, the XNAT_USER and XNAT_PASS variables
+            will be used. Defaults to None.
+        url (:obj:`str`): The URL for the XNAT server.
+
+    Returns:
+        list[datman.importers.XNATExperiment]: A list of XNATExperiment
+            importers for all experiments belonging to the config's study.
+    """
     experiments = []
     server_cache = {}
 
@@ -446,21 +523,31 @@ def collect_all_experiments(config, auth=None, url=None):
 
 
 def get_experiment_identifier(config, project, experiment_id):
+    """Get a valid datman identifier for an experiment found on XNAT.
+
+    Args:
+        config (:obj:`datman.config.config`): A datman configuration object.
+        project (:obj:`str`): The name of a project on XNAT.
+        experiment_id (:obj:`str`): The name of an experiment found on XNAT.
+
+    Returns:
+        :obj:`datman.scanid.Identifier` or None if experiment_id is invalid.
+    """
     try:
         ident = validate_subject_id(experiment_id, config)
     except datman.scanid.ParseException:
         logger.error(f"Invalid XNAT experiment ID {experiment_id} in project "
                      f"{project}. Please update XNAT with correct ID.")
-        return
+        return None
 
     if ident.session is None and not datman.scanid.is_phantom(ident):
         logger.error(f"Invalid experiment ID {experiment_id} in project "
                      f"{project}. Reason - Not a phantom, but missing session "
                      "number")
-        return
+        return None
 
     if ident.modality != "MR":
-        return
+        return None
 
     return ident
 
@@ -488,6 +575,18 @@ def get_projects(config):
 
 
 def get_xnat_experiment(xnat, project, ident):
+    """Retrieve information about an XNAT experiment.
+
+    Args:
+        xnat (:obj:`datman.xnat.XNAT`): A connection to an XNAT server.
+        project (:obj:`str`): The name of the XNAT project the experiment
+            belongs to.
+        ident (:obj:`datman.scanid.Identifier`): A datman identifier for the
+            experiment.
+
+    Returns:
+        :obj:`datman.importers.XNATExperiment` or None if not found.
+    """
     experiment_label = ident.get_xnat_experiment_id()
 
     logger.info(f"Retrieving experiment: {experiment_label}")
@@ -499,11 +598,22 @@ def get_xnat_experiment(xnat, project, ident):
     except Exception as e:
         logger.error(f"Unable to retrieve experiment {experiment_label} from "
                      f"XNAT server. {type(e).__name__}: {e}")
-        return
+        return None
     return xnat_experiment
 
 
 def export_resources(resource_dir, xnat, importer, dry_run=False):
+    """Export all resource (non-dicom) files for a scan session.
+
+    Args:
+        resource_dir (:obj:`str`): The absolute path to where resources
+            should be exported.
+        xnat (:obj:`datman.xnat.XNAT`): A connection to an XNAT server.
+        importer (:obj:`datman.importers.SessionImporter`): An importer for
+            the scan session to export resources for.
+        dry_run (bool, optional): Report changes that would be made without
+            modifying anything.  Defaults to False.
+    """
     logger.info(f"Extracting {len(importer.resource_files)} resources "
                 f"from {importer.name}")
 
@@ -523,7 +633,7 @@ def export_resources(resource_dir, xnat, importer, dry_run=False):
 
     xnat_experiment = importer
 
-    for label in xnat_experiment.resource_IDs:
+    for label in xnat_experiment.resource_ids:
         if label == "No Label":
             target_path = os.path.join(resource_dir, "MISC")
         else:
@@ -535,7 +645,7 @@ def export_resources(resource_dir, xnat, importer, dry_run=False):
             logger.error(f"Failed creating target folder: {target_path}")
             continue
 
-        xnat_resource_id = xnat_experiment.resource_IDs[label]
+        xnat_resource_id = xnat_experiment.resource_ids[label]
 
         try:
             resources = xnat.get_resource_list(xnat_experiment.project,
@@ -575,7 +685,7 @@ def download_resource(xnat, xnat_experiment, xnat_resource_id,
     if dry_run:
         logger.info(f"DRY RUN: Skipping download of {xnat_resource_uri} to "
                     f"{target_path}")
-        return
+        return None
 
     try:
         source = xnat.get_resource(xnat_experiment.project,
@@ -587,7 +697,7 @@ def download_resource(xnat, xnat_experiment, xnat_resource_id,
     except Exception as e:
         logger.error("Failed downloading resource archive from "
                      f"{xnat_experiment.name} with reason: {e}")
-        return
+        return None
 
     # check that the target path exists
     target_dir = os.path.split(target_path)[0]
@@ -596,7 +706,7 @@ def download_resource(xnat, xnat_experiment, xnat_resource_id,
             os.makedirs(target_dir)
         except OSError:
             logger.error(f"Failed to create directory: {target_dir}")
-            return
+            return None
 
     # copy the downloaded file to the target location
     try:
@@ -700,6 +810,7 @@ def make_session_exporters(config, session, experiment, bids_opts=None,
 
     exporters = []
     for exp_format in formats:
+        # pylint: disable-next=invalid-name
         Exporter = datman.exporters.get_exporter(exp_format, scope="session")
         exporters.append(
             Exporter(config, session, experiment, bids_opts=bids_opts,
@@ -771,6 +882,8 @@ def make_all_series_exporters(config, session, experiment, bids_opts=None,
 
 
 def get_tag_settings(config, site):
+    """Get configuration for all tags defined for a specific site.
+    """
     try:
         tags = config.get_tags(site=site)
     except datman.exceptions.UndefinedSetting:
@@ -819,6 +932,7 @@ def make_series_exporters(session, scan, tag_config, config, wanted_tags=None,
 
         logger.debug(f"Found export formats {formats} for {scan}")
         for exp_format in formats:
+            # pylint: disable-next=invalid-name
             Exporter = datman.exporters.get_exporter(
                 exp_format, scope="series")
 
@@ -855,14 +969,14 @@ def is_blacklisted(scan_name, config):
 def needs_raw(session_exporters):
     """Returns true if raw data is needed to run any session exporters.
     """
-    return any([exp.needs_raw_data() for exp in session_exporters])
+    return any(exp.needs_raw_data() for exp in session_exporters)
 
 
 def needs_export(session_exporters):
     """Returns True if any session exporters need to be run.
     """
     try:
-        return any([not exp.outputs_exist() for exp in session_exporters])
+        return any(not exp.outputs_exist() for exp in session_exporters)
     except ValueError:
         # ValueError is raised when an invalid series number exists on XNAT.
         # Skip these sessions

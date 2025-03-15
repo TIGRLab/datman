@@ -116,5 +116,12 @@ logging-format-style = "new"
 disable = [
   "logging-format-interpolation",
   "too-many-lines",
-  "logging-fstring-interpolation"
+  "logging-fstring-interpolation",
+  "too-many-instance-attributes",
+  "too-many-arguments",
+  "too-many-positional-arguments",
+  "too-few-public-methods"
 ]
+
+[tool.pylint.format]
+max-line-length = 79
