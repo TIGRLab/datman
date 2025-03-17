@@ -999,6 +999,9 @@ class NiiLinkExporter(SessionExporter):
                         f"mapping {self.name_map}")
             return
 
+        if self.outputs_exist():
+            return
+
         self.make_output_dir()
         for dm_name, bids_name in self.name_map.items():
             if bids_name == "missing":
@@ -1407,6 +1410,9 @@ class DBExporter(SessionExporter):
         """
         found = os.path.join(self.nii_path, fname + ext)
         if not os.path.exists(found):
+            bl_found = os.path.join(self.nii_path, 'blacklisted', fname + ext)
+            if os.path.exists(bl_found):
+                return bl_found
             logger.debug(f"File not found {found}")
             return None
         return found
