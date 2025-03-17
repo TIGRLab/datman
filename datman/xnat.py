@@ -699,7 +699,8 @@ class xnat(object):
 
         return items
 
-    def put_dicoms(self, project, subject, experiment, filename, retries=3):
+    def put_dicoms(self, project, subject, experiment, filename, retries=3,
+                   timeout=7200):
         """Upload an archive of dicoms to XNAT
         filename: archive to upload"""
         headers = {"Content-Type": "application/zip"}
@@ -711,7 +712,13 @@ class xnat(object):
 
         try:
             with open(filename, "rb") as data:
-                self._make_xnat_post(upload_url, data, retries, headers)
+                self._make_xnat_post(upload_url, data, retries=retries,
+                                     headers=headers, timeout=timeout)
+        except requests.exception.Timeout as e:
+            if retries == 1:
+                raise e
+            self.put_dicoms(project, subject, experiment, filename,
+                            retries=retries-1, timeout=timeout+1200)
         except XnatException as e:
             e.study = project
             e.session = experiment
@@ -1225,12 +1232,12 @@ class xnat(object):
             )
             response.raise_for_status()
 
-    def _make_xnat_post(self, url, data, retries=3, headers=None):
+    def _make_xnat_post(self, url, data, retries=3, headers=None, timeout=3600):
         logger.debug(f"POSTing data to xnat, {retries} retries left")
         response = self.session.post(url,
                                      headers=headers,
                                      data=data,
-                                     timeout=60 * 60)
+                                     timeout=timeout)
 
         reply = str(response.content)
 
