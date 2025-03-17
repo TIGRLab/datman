@@ -983,11 +983,11 @@ class ZipImporter(SessionImporter):
         self.ident = ident
         self.name = zip_path
         self.path = zip_path
-        self.date = self.scans[0].date
         self.contents = self.parse_contents()
         self.scans = self.get_scans()
         self.resource_files = self.contents['resources']
         self.dcm_subdir = os.path.split(self.scans[0].series_dir)[0]
+        self.date = self.scans[0].date
 
     @property
     def ident(self) -> 'datman.scanid.Identifier':
