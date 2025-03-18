@@ -1061,6 +1061,16 @@ class NiiLinkExporter(SessionExporter):
         for source in glob(bids_file + '*'):
             ext = get_extension(source)
             target = base_target + ext
+
+            if os.path.islink(target) and not os.path.exists(target):
+                # Remove a broken symlink
+                try:
+                    os.unlink(target)
+                except Exception as exc:
+                    logger.error(
+                        f"Failed to remove broken symlink {target} - {exc}")
+                    continue
+
             rel_source = get_relative_source(source, target)
             try:
                 os.symlink(rel_source, target)
