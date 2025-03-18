@@ -148,6 +148,15 @@ class SeriesImporter(ABC):
 
     @property
     @abstractmethod
+    def experiment(self) -> str:
+        """The experiment ID of the session this scan belongs to.
+
+        The experiment ID should be the 'full' ID of the session (i.e. with
+        all ID fields included).
+        """
+
+    @property
+    @abstractmethod
     def description(self) -> str:
         """The series description (as from the dicom headers).
         """
@@ -171,8 +180,8 @@ class SeriesImporter(ABC):
         """
 
     @abstractmethod
-    def is_usable(self) -> bool:
-        """Indicates whether the series contains usable dcm files.
+    def raw_dicoms_exist(self) -> bool:
+        """Indicates whether the series contains dicom files.
         """
 
     @abstractmethod
@@ -209,6 +218,37 @@ class SeriesImporter(ABC):
         if "DERIVED" in self.image_type:
             return True
         return False
+
+    def is_usable(self, strict=False):
+        """Indicates whether the series contains usable dcm files.
+
+        Args:
+            strict (bool, optional): If set, 'derived' scans will be marked
+                unusable.
+        """
+        if not self.raw_dicoms_exist():
+            logger.debug(f"Ignoring {self.series} for {self.experiment}. "
+                         f"No RAW dicoms exist.")
+            return False
+
+        if not self.description:
+            logger.error(f"Can't find description for series {self.series} "
+                         f"from session {self.experiment}.")
+            return False
+
+        if not strict:
+            return True
+
+        if self.is_derived():
+            logger.debug(
+                f"Series {self.series} in session {self.experiment} is a "
+                "derived scan. Ignoring.")
+            return False
+
+        if not self.names:
+            return False
+
+        return True
 
 
 class XNATObject(ABC):
@@ -684,6 +724,14 @@ class XNATScan(SeriesImporter, XNATObject):
         self._subject = value
 
     @property
+    def experiment(self) -> str:
+        return self._experiment
+
+    @experiment.setter
+    def experiment(self, value: str):
+        self._experiment = value
+
+    @property
     def description(self) -> str:
         return self._description
 
@@ -1109,7 +1157,7 @@ class ZipImporter(SessionImporter):
         for sub_path, header in headers.items():
             # .get_full_subjectid may need to be changed for compatibility
             zip_scan = ZipSeriesImporter(
-                    self.ident.get_full_subjectid(), self.path, sub_path,
+                    self.ident, self.path, sub_path,
                     header, self.contents['scans'][sub_path]
             )
             if zip_scan.series in scans:
@@ -1140,8 +1188,10 @@ class ZipSeriesImporter(SeriesImporter):
     """
 
     # pylint: disable-next=too-many-arguments,too-many-positional-arguments
-    def __init__(self, subject, zip_file, series_dir, header, zip_items):
-        self.subject = subject
+    def __init__(self, ident, zip_file, series_dir, header, zip_items):
+        self.ident = ident
+        self.subject = ident.get_full_subjectid()
+        self.experiment = ident.get_full_subjectid_with_timepoint_session()
         self.zip_file = zip_file
         self.series_dir = series_dir
         self.header = header
@@ -1180,6 +1230,14 @@ class ZipSeriesImporter(SeriesImporter):
         self._subject = value
 
     @property
+    def experiment(self) -> str:
+        return self._experiment
+
+    @experiment.setter
+    def experiment(self, value: str):
+        self._experiment = value
+
+    @property
     def description(self) -> str:
         return self._description
 
@@ -1215,7 +1273,7 @@ class ZipSeriesImporter(SeriesImporter):
     def uid(self, value: list[str]):
         self._uid = value
 
-    def is_usable(self):
+    def raw_dicoms_exist(self) -> bool:
         return any(item.endswith(".dcm") for item in self.contents)
 
     def get_files(self, dest_dir: str, *args, **kwargs):
