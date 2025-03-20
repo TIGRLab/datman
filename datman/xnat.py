@@ -712,7 +712,7 @@ class XNAT:
             with open(filename, "rb") as data:
                 self.make_xnat_post(upload_url, data, retries=retries,
                                     headers=headers, timeout=timeout)
-        except requests.exception.Timeout as e:
+        except requests.exceptions.Timeout as e:
             if retries == 1:
                 raise e
             self.put_dicoms(project, subject, experiment, filename,
