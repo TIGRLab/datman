@@ -175,8 +175,22 @@ class SeriesImporter(ABC):
 
     @property
     @abstractmethod
+    def type(self) -> str:
+        """The 'XnatType' or an equivalent (usually equals series description).
+        """
+
+    @property
+    @abstractmethod
     def uid(self) -> str:
         """The UID from the dicom headers.
+        """
+
+    @property
+    @abstractmethod
+    def echo_dict(self) -> dict:
+        """A dictionary mapping each echo to its intended output name.
+
+        This will remain an empty dict if the scan is not multi echo.
         """
 
     @abstractmethod
@@ -198,6 +212,11 @@ class SeriesImporter(ABC):
     @abstractmethod
     def set_tag(self, tag_map):
         """Set the scan tag for the scan.
+        """
+
+    @abstractmethod
+    def is_multiecho(self) -> bool:
+        """Check if the series is multiecho.
         """
 
     def _mangle_descr(self) -> str:
@@ -685,7 +704,7 @@ class XNATScan(SeriesImporter, XNATObject):
         self.image_type = self.get_field("parameters/imageType")
         self.multiecho = self.is_multiecho()
         self.description = self._set_description()
-        self.type = self.get_field("type")
+        self._type = self.get_field("type")
         self.names = []
         self.echo_dict = {}  # Will remain empty unless scan is multi-echo
         self.tags = []
@@ -763,13 +782,25 @@ class XNATScan(SeriesImporter, XNATObject):
     def uid(self, value: list[str]):
         self._uid = value
 
+    @property
+    def type(self) -> str:
+        return self._type
+
+    @property
+    def echo_dict(self) -> dict:
+        return self._echo_dict
+
+    @echo_dict.setter
+    def echo_dict(self, value):
+        self._echo_dict = value
+
     def _set_description(self):
         series_descr = self.get_field("series_description")
         if series_descr:
             return series_descr
         return self.get_field("type")
 
-    def is_multiecho(self):
+    def is_multiecho(self) -> bool:
         """Check if the series is multiecho.
         """
         try:
@@ -1204,6 +1235,7 @@ class ZipSeriesImporter(SeriesImporter):
         self.names = []
         self.tags = []
         self.dcm_dir = None
+        self.echo_dict = {}
 
     @property
     def dcm_dir(self) -> str:
@@ -1272,6 +1304,26 @@ class ZipSeriesImporter(SeriesImporter):
     @uid.setter
     def uid(self, value: list[str]):
         self._uid = value
+
+    @property
+    def type(self) -> str:
+        return self.description
+
+    @property
+    def echo_dict(self) -> dict:
+        return self._echo_dict
+
+    @echo_dict.setter
+    def echo_dict(self, value):
+        self._echo_dict = value
+
+    def is_multiecho(self) -> bool:
+        """Check if the series is multiecho.
+
+        This can't be determined without the configuration files so will
+        be False until set_datman_name() has been called at least once.
+        """
+        return self.echo_dict
 
     def raw_dicoms_exist(self) -> bool:
         return any(item.endswith(".dcm") for item in self.contents)
