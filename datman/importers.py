@@ -1166,18 +1166,24 @@ class ZipImporter(SessionImporter):
             'resources': []
         }
         with ZipFile(self.path, "r") as fh:
-            par_dir = fh.filelist[0].filename.strip('/')
-            for item in fh.filelist[1:]:
+            for item in fh.filelist:
                 if item.is_dir():
-                    contents['scans'].setdefault(item.filename.strip('/'), [])
-                else:
+                    continue
+
+                if self.is_scan(item.filename):
                     folder, _ = os.path.split(item.filename)
-                    if folder == par_dir:
-                        contents['resources'].append(item.filename)
-                    else:
-                        contents['scans'].setdefault(folder, []).append(
-                            item.filename)
+                    contents['scans'].setdefault(folder, []).append(
+                        item.filename)
+                else:
+                    contents['resources'].append(item.filename)
         return contents
+
+    def is_scan(self, fname):
+        if fname.endswith(".dcm"):
+            return True
+        if fname.endswith(".IMA"):
+            return True
+        return False
 
     def get_scans(self) -> list['ZipSeriesImporter']:
         """Get ZipSeriesImporters for each scan in the session.
@@ -1186,11 +1192,15 @@ class ZipImporter(SessionImporter):
         scans = {}
         duplicate_series = set()
         for sub_path, header in headers.items():
-            # .get_full_subjectid may need to be changed for compatibility
-            zip_scan = ZipSeriesImporter(
-                    self.ident, self.path, sub_path,
-                    header, self.contents['scans'][sub_path]
-            )
+            try:
+                zip_scan = ZipSeriesImporter(
+                        self.ident, self.path, sub_path,
+                        header, self.contents['scans'][sub_path]
+                )
+            except KeyError:
+                logger.error(f"Subdirectory {sub_path} not found in contents for {self.path}.")
+                continue
+
             if zip_scan.series in scans:
                 duplicate_series.add(zip_scan.series)
             else:
