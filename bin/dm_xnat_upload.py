@@ -321,7 +321,7 @@ def check_files_exist(archive, xnat_experiment, xnat):
         logger.error("Failed getting zip file headers for: {}".format(archive))
         return False, False
 
-    xnat_resources = xnat_experiment.get_resources(xnat)
+    xnat_resources = xnat_experiment.get_resource_uris(xnat)
 
     if not local_headers:
         resources_exist = resource_data_exists(xnat_resources, archive)
