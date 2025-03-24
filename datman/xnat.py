@@ -698,7 +698,7 @@ class XNAT:
         return items
 
     def put_dicoms(self, project, subject, experiment, filename, retries=3,
-                   timeout=7200):
+                   timeout=86400):
         """Upload an archive of dicoms to XNAT
         filename: archive to upload"""
         headers = {"Content-Type": "application/zip"}
@@ -706,7 +706,7 @@ class XNAT:
         upload_url = (
             f"{self.server}/data/services/import?project={project}"
             f"&subject={subject}&session={experiment}&overwrite=delete"
-            "&prearchive=false&inbody=true")
+            "&prearchive=false&Ignore-Unparsable=true&inbody=true")
 
         try:
             with open(filename, "rb") as data:
