@@ -13,6 +13,7 @@ import logging
 import os
 import re
 import shutil
+from pathlib import Path
 from zipfile import ZipFile, BadZipFile
 
 from datman.exceptions import ParseException, XnatException
@@ -1179,9 +1180,21 @@ class ZipImporter(SessionImporter):
         return contents
 
     def is_scan(self, fname):
-        if fname.endswith(".dcm"):
+        item = Path(fname)
+        ext = item.suffix
+        if ext == ".dcm":
             return True
-        if fname.endswith(".IMA"):
+        if ext.upper() == ".IMA":
+            return True
+        if (item.parent.name.upper() == "DICOM" or
+                item.parent.name.upper() == "SECONDARY"):
+            # Some zip files label their folders 'dicom' but the files
+            # themself have no extension and are labelled by UID, in which
+            # case 'ext' will look like a floating point number
+            try:
+                float(ext)
+            except ValueError:
+                return False
             return True
         return False
 
