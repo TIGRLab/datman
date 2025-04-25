@@ -12,9 +12,8 @@ import os
 import re
 import logging
 
-import datman.scanid as scanid
+import datman.scanid
 import datman.utils
-from datman.exceptions import ParseException
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +59,7 @@ class Series(DatmanNamed):
         path_minus_ext = path.replace(self.ext, "")
 
         try:
-            ident, tag, series, description = scanid.parse_filename(
+            ident, tag, series, description = datman.scanid.parse_filename(
                 path_minus_ext)
         except datman.scanid.ParseException:
             # re-raise the exception with a more descriptive message
@@ -148,7 +147,7 @@ class Scan(DatmanNamed):
     def _get_ident(self, subid):
         subject_id = self.__check_session(subid)
         try:
-            ident = scanid.parse(subject_id)
+            ident = datman.scanid.parse(subject_id)
         except datman.scanid.ParseException:
             raise datman.scanid.ParseException(
                 f"{subject_id} does not match datman convention")
@@ -245,7 +244,7 @@ class Scan(DatmanNamed):
         subid, series = match.groups()
         try:
             ident = datman.scan.parse(subid)
-        except ParseException:
+        except datman.scanid.ParseException:
             logger.error(f"Unparseable ID found in error file - {subid}")
             return None, series
 
@@ -260,7 +259,7 @@ class Scan(DatmanNamed):
 
     def get_resource_dir(self, session):
         for resource_dir in self.resources:
-            ident = scanid.parse(os.path.basename(resource_dir))
+            ident = datman.scanid.parse(os.path.basename(resource_dir))
             if int(ident.session) != int(session):
                 continue
             if os.path.exists(resource_dir):
