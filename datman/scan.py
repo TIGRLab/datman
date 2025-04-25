@@ -9,9 +9,14 @@ become out of date if this is not true.
 """
 import glob
 import os
+import re
+import logging
 
 import datman.scanid as scanid
 import datman.utils
+from datman.exceptions import ParseException
+
+logger = logging.getLogger(__name__)
 
 
 class DatmanNamed(object):
@@ -197,6 +202,13 @@ class Scan(DatmanNamed):
                 continue
 
             for item in files:
+                if item.endswith(".err"):
+                    err_file = os.path.join(path, item)
+                    ident, series = self._parse_err_file(err_file)
+                    if ident and ident.session == self.session:
+                        inventory.setdefault(series, []).append(err_file)
+                    continue
+
                 if not item.endswith(".json"):
                     continue
 
@@ -219,6 +231,25 @@ class Scan(DatmanNamed):
                 )
 
         return inventory
+
+    def _parse_err_file(self, fname):
+        with open(fname, "r") as fh:
+            lines = fh.readlines()
+
+        regex = ".*<.*Importer (.*) - ([0-9]+)>*"
+        match = re.match(regex, lines[0])
+        if not match:
+            logger.error(f"Can't parse error file - {fname}")
+            return None, None
+
+        subid, series = match.groups()
+        try:
+            ident = datman.scan.parse(subid)
+        except ParseException:
+            logger.error(f"Unparseable ID found in error file - {subid}")
+            return None, series
+
+        return ident, series
 
     def get_tagged_nii(self, tag):
         try:

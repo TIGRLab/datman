@@ -270,6 +270,12 @@ class SeriesImporter(ABC):
 
         return True
 
+    @property
+    def str_repr(self):
+        """Provide a consistent repr for all subclasses
+        """
+        return f"{self.experiment} - {self.series}"
+
 
 class XNATObject(ABC):
     """A meta class for classes that manage XNAT contents.
@@ -1049,7 +1055,7 @@ class XNATScan(SeriesImporter, XNATObject):
                         return
 
     def __str__(self):
-        return f"<XNATScan {self.experiment} - {self.series}>"
+        return f"<XNATScan {self.str_repr}>"
 
     def __repr__(self):
         return self.__str__()
@@ -1396,7 +1402,7 @@ class ZipSeriesImporter(SeriesImporter):
         return {}
 
     def __str__(self):
-        return f"<ZipSeriesImporter {self.series} - {self.description}>"
+        return f"<ZipSeriesImporter {self.str_repr}>"
 
     def __repr__(self):
         return self.__str__()
