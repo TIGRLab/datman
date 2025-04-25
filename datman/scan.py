@@ -245,7 +245,7 @@ class Scan(DatmanNamed):
         series = int(series)
 
         try:
-            ident = datman.scan.parse(subid)
+            ident = datman.scanid.parse(subid)
         except datman.scanid.ParseException:
             logger.error(f"Unparseable ID found in error file - {subid}")
             return None, series
