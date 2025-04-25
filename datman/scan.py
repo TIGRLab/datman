@@ -242,6 +242,8 @@ class Scan(DatmanNamed):
             return None, None
 
         subid, series = match.groups()
+        series = int(series)
+
         try:
             ident = datman.scan.parse(subid)
         except datman.scanid.ParseException:
