@@ -1383,3 +1383,34 @@ def read_json(path):
 def write_json(path, contents):
     with open(path, "w") as fh:
         json.dump(contents, fh, indent=4)
+
+def parse_err_file(fname):
+    """Parse an error file that was generated during extraction.
+
+    Args:
+        fname (:obj:`str`): The full path to an error file.
+
+    Returns:
+        tuple: A tuple of a datman identifier (or None, if a valid ID does
+            not exist in the error file) and an integer series number (for
+            the series that failed to extract).
+    """
+    with open(fname, "r") as fh:
+        lines = fh.readlines()
+
+    regex = ".*<.*Importer (.*) - ([0-9]+)>*"
+    match = re.match(regex, lines[0])
+    if not match:
+        logger.error(f"Can't parse error file - {fname}")
+        return None, None
+
+    subid, series = match.groups()
+    series = int(series)
+
+    try:
+        ident = scanid.parse(subid)
+    except scanid.ParseException:
+        logger.error(f"Unparseable ID found in error file - {subid}")
+        return None, series
+
+    return ident, series
