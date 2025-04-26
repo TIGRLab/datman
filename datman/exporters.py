@@ -29,7 +29,8 @@ from datman.scanid import (parse_bids_filename, ParseException,
                            make_filename, KCNIIdentifier)
 from datman.utils import (run, make_temp_directory, get_extension,
                           filter_niftis, find_tech_notes, read_blacklist,
-                          get_relative_source, read_json, write_json)
+                          get_relative_source, read_json, write_json,
+                          parse_err_file)
 
 
 try:
@@ -245,8 +246,14 @@ class BidsExporter(SessionExporter):
                     )
                     if os.path.exists(err_file):
                         continue
-                    else:
-                        missing.setdefault(scan, []).append(out_name)
+
+                    blacklisted_err = os.path.join(
+                        self.output_dir, "blacklisted",
+                        os.path.basename(out_name) + "_niix.err")
+                    if os.path.exists(blacklisted_err):
+                        continue
+
+                    missing.setdefault(scan, []).append(out_name)
                 continue
 
             # Ignore split series, we can't handle these right now.
