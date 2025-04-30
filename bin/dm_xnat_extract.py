@@ -626,9 +626,16 @@ def export_resources(resource_dir, xnat, importer, dry_run=False):
             return
 
     if isinstance(importer, datman.importers.ZipImporter):
+        out_dir = os.path.join(resource_dir, "MISC")
+        try:
+            define_folder(out_dir)
+        except OSError:
+            logger.error(f"Failed creating target folder: {out_dir}")
+            return
         for item in importer.resource_files:
-            if not os.path.exists(item):
-                importer.get_resources(resource_dir, item)
+            dest_item = os.path.join(out_dir, item)
+            if not os.path.exists(dest_item):
+                importer.get_resources(out_dir, item)
         return
 
     xnat_experiment = importer
