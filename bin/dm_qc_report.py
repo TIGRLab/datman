@@ -341,10 +341,15 @@ def update_dashboard(nii_path, header_ignore=None, header_tolerance=None):
     db_record = datman.dashboard.get_scan(nii_path)
 
     if REMAKE or REFRESH or db_record.is_outdated_header_diffs():
+        if db_record.gold_standards:
+            standard = db_record.gold_standards[0]
+        else:
+            standard = None
         try:
             db_record.update_header_diffs(
-                standard=db_record.gold_standards[0],
-                ignore=header_ignore, tolerance=header_tolerance)
+                standard=standard,
+                ignore=header_ignore,
+                tolerance=header_tolerance)
         except Exception as e:
             logger.error(
                 f"Failed generating header diffs for {str(db_record)} due to "
