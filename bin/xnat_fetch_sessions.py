@@ -156,8 +156,7 @@ def download_subjects(xnat, xnat_project, destination):
 
         with datman.utils.make_temp_directory() as temp:
             try:
-                temp_zip = experiment.download(
-                    xnat, temp, zip_name=zip_name)
+                temp_zip = experiment.get_files(temp, xnat, zip_name=zip_name)
             except Exception as e:
                 logger.error("Cant download experiment {}. Reason: {}"
                              "".format(experiment, e))
