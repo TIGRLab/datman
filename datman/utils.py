@@ -1398,7 +1398,7 @@ def parse_err_file(fname):
     with open(fname, "r") as fh:
         lines = fh.readlines()
 
-    regex = ".*<.*Importer (.*) - ([0-9]+)>*"
+    regex = ".*<.* (.*) - ([0-9]+)>*"
     match = re.match(regex, lines[0])
     if not match:
         logger.error(f"Can't parse error file - {fname}")
