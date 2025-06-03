@@ -327,8 +327,31 @@ class BidsExporter(SessionExporter):
         xnat_sidecars = []
         for scan in self.experiment.scans:
             xnat_sidecars.append(FakeSidecar(scan))
+
+        if int(self.session.session) > 1:
+            # Add repeat number to xnat side cars to avoid mistakenly
+            # tagging them as repeat 01
+            for sidecar in xnat_sidecars:
+                sidecar.data['Repeat'] = self.session.session
+
+            # This session is a repeat and files from previous scan(s) must
+            # be included or run numbers will be wrong.
+            for item in self.find_outputs(".json", start_dir=self.output_dir):
+                sidecar = dcm2bids.Sidecar(item)
+                if 'Repeat' not in sidecar.data:
+                    # Assume repeat == 1 if not in json file
+                    xnat_sidecars.append(sidecar)
+                elif int(sidecar.data['Repeat']) < int(self.session.session):
+                    # Avoid duplicating this sessions' previously exported files
+                    xnat_sidecars.append(sidecar)
+
+        # xnat_sidecars = sorted(
+        #     xnat_sidecars, key=lambda x: int(x.data['SeriesNumber'])
+        # )
         xnat_sidecars = sorted(
-            xnat_sidecars, key=lambda x: int(x.data['SeriesNumber'])
+            xnat_sidecars,
+            key=lambda x: (int(x.data['Repeat'] if 'Repeat' in x.data else 1),
+                           int(x.data['SeriesNumber']))
         )
 
         xnat_parser = dcm2bids.SidecarPairing(
