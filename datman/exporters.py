@@ -342,7 +342,8 @@ class BidsExporter(SessionExporter):
                     # Assume repeat == 1 if not in json file
                     xnat_sidecars.append(sidecar)
                 elif int(sidecar.data['Repeat']) < int(self.session.session):
-                    # Avoid duplicating this sessions' previously exported files
+                    # Include previous sessions' scans without duplicating
+                    # the current sessions' entries.
                     xnat_sidecars.append(sidecar)
 
         # xnat_sidecars = sorted(
@@ -556,7 +557,12 @@ class BidsExporter(SessionExporter):
         xnat_parser = self.get_xnat_parser()
         xnat_map = {}
         for acq in xnat_parser.acquisitions:
-            xnat_map.setdefault(acq.srcSidecar.scan, []).append(acq.dstRoot)
+            try:
+                xnat_map.setdefault(acq.srcSidecar.scan, []).append(acq.dstRoot)
+            except AttributeError:
+                # acqs belonging to previous sessions don't have
+                # srcSidecar.scan and should not be in xnat_map
+                pass
         return xnat_map
 
     def get_local_map(self):
