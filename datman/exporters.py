@@ -190,6 +190,8 @@ class BidsExporter(SessionExporter):
         self.bids_ses = session._ident.timepoint
         self.repeat = session._ident.session
         self.bids_folder = session.bids_root
+        self.bids_tmp = os.path.join(session.bids_root, "tmp_dcm2bids",
+                                     f"{session.bids_sub}_{session.bids_ses}")
         self.output_dir = session.bids_path
         self.keep_dcm = bids_opts.keep_dcm if bids_opts else False
         self.force_dcm2niix = bids_opts.force_dcm2niix if bids_opts else False
@@ -256,10 +258,36 @@ class BidsExporter(SessionExporter):
                     missing.setdefault(scan, []).append(out_name)
                 continue
 
-            # Ignore split series, we can't handle these right now.
-            if len(expected[scan]) != 1:
-                continue
-            if len(actual[scan]) != 1:
+            # Handle split series
+            if len(expected[scan]) > 1:
+                xnat_parser = self.get_xnat_parser()
+                dest_acqs = []
+                for acq in xnat_parser.acquisitions:
+                    try:
+                        found_scan = acq.srcSidecar.scan
+                    except AttributeError:
+                        continue
+                    if found_scan == scan:
+                        dest_acqs.append(acq)
+
+                local_parser = self.get_local_parser()
+                src_acqs = []
+                for acq in local_parser.acquisitions:
+                    sidecar = acq.srcSidecar
+                    if str(sidecar.data['SeriesNumber']) in [scan.series, "10" + scan.series]:
+                        src_acqs.append(acq)
+
+                for src_acq in src_acqs:
+                    found = None
+                    suffix = re.sub(r'_run-\d+', '', src_acq.suffix)
+                    for dst_acq in dest_acqs:
+                        if suffix == re.sub(r'_run-\d+', '', dst_acq.suffix):
+                            found = dst_acq
+                    if not found:
+                        continue
+                    expected_name = found.dstRoot
+                    actual_name = src_acq.srcRoot.replace(self.bids_folder, "")
+                    misnamed[actual_name] = expected_name
                 continue
 
             expected_name = expected[scan][0]
@@ -305,18 +333,29 @@ class BidsExporter(SessionExporter):
             )
 
     def fix_run_numbers(self, misnamed_scans):
+        # Rename files already in the subject dir first, to
+        # avoid accidentally clobbering any existing misnamed files
+        # with os.rename
         for orig_name in misnamed_scans:
-            source_path = os.path.join(self.bids_folder, orig_name)
-            dest_path = os.path.join(
-                self.bids_folder, misnamed_scans[orig_name]
-            )
+            if not orig_name.startswith("sub-"):
+                continue
+            self.rename_scan(orig_name, misnamed_scans[orig_name])
 
-            if not os.path.exists(os.path.dirname(dest_path)):
-                os.makedirs(os.path.dirname(dest_path))
+        for orig_name in misnamed_scans:
+            if not orig_name.startswith("tmp_dcm2bids"):
+                continue
+            self.rename_scan(orig_name, misnamed_scans[orig_name])
 
-            for found in glob(source_path + "*"):
-                _, ext = datman.utils.splitext(found)
-                os.rename(found, dest_path + ext)
+    def rename_scan(self, orig_name, dest_name):
+        source_path = os.path.join(self.bids_folder, orig_name)
+        dest_path = os.path.join(self.bids_folder, dest_name)
+
+        if not os.path.exists(os.path.dirname(dest_path)):
+            os.makedirs(os.path.dirname(dest_path))
+
+        for found in glob(source_path + "*"):
+            _, ext = datman.utils.splitext(found)
+            os.rename(found, dest_path + ext)
 
     def get_xnat_parser(self):
         participant = dcm2bids.Participant(
@@ -328,11 +367,11 @@ class BidsExporter(SessionExporter):
         for scan in self.experiment.scans:
             xnat_sidecars.append(FakeSidecar(scan))
 
-        if int(self.session.session) > 1:
+        if int(self.repeat) > 1:
             # Add repeat number to xnat side cars to avoid mistakenly
             # tagging them as repeat 01
             for sidecar in xnat_sidecars:
-                sidecar.data['Repeat'] = self.session.session
+                sidecar.data['Repeat'] = self.repeat
 
             # This session is a repeat and files from previous scan(s) must
             # be included or run numbers will be wrong.
@@ -341,7 +380,7 @@ class BidsExporter(SessionExporter):
                 if 'Repeat' not in sidecar.data:
                     # Assume repeat == 1 if not in json file
                     xnat_sidecars.append(sidecar)
-                elif int(sidecar.data['Repeat']) < int(self.session.session):
+                elif int(sidecar.data['Repeat']) < int(self.repeat):
                     # Include previous sessions' scans without duplicating
                     # the current sessions' entries.
                     xnat_sidecars.append(sidecar)
@@ -381,16 +420,17 @@ class BidsExporter(SessionExporter):
 
         bids_conf = dcm2bids.load_json(self.dcm2bids_config)
 
-        bids_tmp = os.path.join(
-            self.bids_folder,
-            "tmp_dcm2bids",
-            f"{self.session.bids_sub}_{self.session.bids_ses}"
-        )
-
         local_sidecars = []
-        for search_path in [self.output_dir, bids_tmp]:
+        for search_path in [self.output_dir, self.bids_tmp]:
             for item in self.find_outputs(".json", start_dir=search_path):
-                local_sidecars.append(dcm2bids.Sidecar(item))
+                sidecar = dcm2bids.Sidecar(item)
+                if ('Repeat' in sidecar.data and
+                        sidecar.data['Repeat'] == self.repeat):
+                    local_sidecars.append(sidecar)
+                elif ('Repeat' not in sidecar.data and self.repeat == '01'):
+                    # Assume untagged sidecars all belong to the first session
+                    local_sidecars.append(sidecar)
+
         local_sidecars = sorted(local_sidecars)
 
         parser = dcm2bids.SidecarPairing(
@@ -405,12 +445,7 @@ class BidsExporter(SessionExporter):
     def _get_scan_dir(self, download_dir):
         if self.refresh:
             # Use existing tmp_dir instead of raw dcms
-            tmp_dir = os.path.join(
-                self.bids_folder,
-                "tmp_dcm2bids",
-                f"sub-{self.bids_sub}_ses-{self.bids_ses}"
-            )
-            return tmp_dir
+            return self.bids_tmp
         return os.path.join(download_dir, self.dcm_dir)
 
     def outputs_exist(self):
@@ -451,6 +486,11 @@ class BidsExporter(SessionExporter):
             logger.info(f"Dry run: Skipping bids export to {self.output_dir}")
             return
 
+        # Store user settings in case they change during export
+        orig_force = self.force_dcm2niix
+        orig_refresh = self.refresh
+
+
         if int(self.repeat) > 1:
             # Must force dcm2niix export if it's a repeat.
             self.force_dcm2niix = True
@@ -460,7 +500,7 @@ class BidsExporter(SessionExporter):
         try:
             self.run_dcm2bids(raw_data_dir)
         except Exception as e:
-            print(f"Failed to extract data. {e}")
+            logger.error(f"Failed to extract data. {e}")
 
         try:
             self.add_repeat_num()
@@ -470,6 +510,18 @@ class BidsExporter(SessionExporter):
                 f"{self.output_dir}. If a repeat scan is added, scans may "
                 "incorrectly be tagged as belonging to the later repeat."
             )
+
+        if int(self.repeat) > 1:
+            # Must run a second time to move the new niftis out of the tmp dir
+            self.force_dcm2niix = False
+            self.refresh = True
+            try:
+                self.run_dcm2bids(raw_data_dir)
+            except Exception as e:
+                logger.error(f"Failed to extract data. {e}")
+
+        self.force_dcm2niix = orig_force
+        self.refresh = orig_refresh
 
     def run_dcm2bids(self, raw_data_dir, tries=2):
         if tries == 0:
@@ -573,7 +625,7 @@ class BidsExporter(SessionExporter):
         for acq in local_parser.acquisitions:
             sidecar = acq.srcSidecar
             if ('Repeat' in sidecar.data and
-                    sidecar.data['Repeat'] != self.session.session):
+                    sidecar.data['Repeat'] != self.repeat):
                 continue
             if 'SeriesNumber' not in sidecar.data:
                 continue
@@ -640,6 +692,7 @@ class BidsExporter(SessionExporter):
 
     def get_sidecars(self):
         sidecars = self.find_outputs(".json")
+        sidecars.extend(self.find_outputs(".json", start_dir=self.bids_tmp))
         contents = {path: read_json(path) for path in sidecars}
         return contents
 
@@ -702,18 +755,12 @@ class BidsExporter(SessionExporter):
 
         bids_conf = dcm2bids.load_json(self.dcm2bids_config)
 
-        bids_tmp = os.path.join(
-            self.bids_folder,
-            "tmp_dcm2bids",
-            f"{self.session.bids_sub}_{self.session.bids_ses}"
-        )
-
         local_sidecars = []
-        for search_path in [self.output_dir, bids_tmp]:
+        for search_path in [self.output_dir, self.bids_tmp]:
             for item in self.find_outputs(".json", start_dir=search_path):
                 sidecar = dcm2bids.Sidecar(item)
                 if ('Repeat' in sidecar.data and
-                        sidecar.data['Repeat'] != self.session.session):
+                        sidecar.data['Repeat'] != self.repeat):
                     continue
                 local_sidecars.append(sidecar)
         local_sidecars = sorted(local_sidecars)
