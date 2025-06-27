@@ -1005,6 +1005,7 @@ class NiiLinkExporter(SessionExporter):
         matches = self._filter_bids(
             matches, bids_conf.get(self._get_label_key(bids_conf)))
         matches = self._filter_bids(matches, bids_conf.get('task'))
+        matches = self._filter_bids(matches, bids_conf.get('dir'))
         # The below is used to more accurately match FMAP tags
         matches = self._filter_bids(matches, bids_conf.get('match_acq'))
         return matches
