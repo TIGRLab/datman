@@ -59,74 +59,26 @@ import datman.scan
 import datman.scanid
 import datman.xnat
 from datman.utils import (validate_subject_id, define_folder,
-                          make_temp_directory, locate_metadata, read_blacklist)
+                          make_temp_directory, read_blacklist)
 
 logger = logging.getLogger(os.path.basename(__file__))
 
 
-class BidsOptions:
-    """Helper class for options related to exporting to BIDS format.
-    """
-
-    def __init__(self, config, keep_dcm=False, bids_out=None,
-                 force_dcm2niix=False, clobber=False, dcm2bids_config=None,
-                 log_level="INFO", refresh=False):
-        self.keep_dcm = keep_dcm
-        self.force_dcm2niix = force_dcm2niix
-        self.clobber = clobber
-        self.refresh = refresh
-        self.bids_out = bids_out
-        self.log_level = log_level
-        self.dcm2bids_config = self.get_bids_config(
-            config, bids_conf=dcm2bids_config)
-
-    def get_bids_config(self, config, bids_conf=None):
-        """Find the path to a valid dcm2bids config file.
-
-        Args:
-            config (:obj:`datman.config.config`): The datman configuration.
-            bids_conf (:obj:`str`, optional): The user provided path to
-                the config file. Defaults to None.
-
-        Raises:
-            datman.exceptions.MetadataException if a valid file cannot
-                be found.
-
-        Returns:
-            str: The full path to a dcm2bids config file.
-        """
-        if bids_conf:
-            path = bids_conf
-        else:
-            try:
-                path = locate_metadata("dcm2bids.json", config=config)
-            except FileNotFoundError as exc:
-                raise datman.exceptions.MetadataException(
-                    "No dcm2bids.json config file available for "
-                    f"{config.study_name}") from exc
-
-        if not os.path.exists(path):
-            raise datman.exceptions.MetadataException(
-                "No dcm2bids.json settings provided.")
-
-        return path
-
-
 def main():
-    args = read_args()
+    args, tool_opts = read_args()
 
     log_level = get_log_level(args)
     configure_logging(args.study, log_level)
 
     if args.use_dcm2bids and not datman.exporters.DCM2BIDS_FOUND:
-        logger.error("Failed to import Dcm2Bids. Ensure that "
+        logger.error("Failed to locate Dcm2Bids. Ensure that "
                      "Dcm2Bids is installed when using the "
                      "--use-dcm2bids flag.  Exiting conversion")
         return
 
     config = datman.config.config(study=args.study)
     if args.use_dcm2bids:
-        bids_opts = BidsOptions(
+        bids_opts = datman.exporters.BidsOptions(
             config,
             keep_dcm=args.keep_dcm,
             force_dcm2niix=args.force_dcm2niix,
@@ -134,7 +86,8 @@ def main():
             dcm2bids_config=args.dcm_config,
             bids_out=args.bids_out,
             log_level=log_level,
-            refresh=args.refresh
+            refresh=args.refresh,
+            extra_opts=tool_opts.get('--dcm2bids-')
         )
     else:
         bids_opts = None
@@ -236,7 +189,12 @@ def read_args():
     )
 
     g_dcm2bids = parser.add_argument_group(
-        "Options for using dcm2bids"
+        "Options for using dcm2bids. Note that you can feed options directly "
+        "to dcm2bids by prefixing any with '--dcm2bids-'. For example, the "
+        "dcm2bids option 'auto-extract-entities' can be used with "
+        "'--dcm2bids-auto-extract-entities'. Note that the spelling and case "
+        "must match exactly what dcm2bids expects to receive and must exist "
+        "for the version of dcm2bids in use"
     )
     g_dcm2bids.add_argument(
         "--bids-out", action="store", metavar="DIR",
@@ -289,14 +247,50 @@ def read_args():
         help="Do nothing"
     )
 
-    args = parser.parse_args()
+    tool_opts, clean_args = parse_tool_opts(sys.argv[1:], ['--dcm2bids-'])
+    args = parser.parse_args(clean_args)
 
     bids_opts = [args.keep_dcm, args.dcm_config, args.bids_out,
                  args.force_dcm2niix, args.clobber, args.refresh]
-    if not args.use_dcm2bids and any(bids_opts):
+    if not args.use_dcm2bids and (any(bids_opts) or
+                                  '--dcm2bids-' in tool_opts):
         parser.error("dcm2bids configuration requires --use-dcm2bids")
 
-    return args
+    return args, tool_opts
+
+
+def parse_tool_opts(
+        args: list[str],
+        accepted_prefixes: list[str]
+    ) -> tuple[dict[str, list[str]], list[str]]:
+    """Collect user options intended for wrapped tools.
+
+    Args:
+        args (list[str]): A list of string inputs to process.
+        accepted_prefixes (list[str]): a list of prefixes for options that
+            will be accepted.
+
+    Returns:
+        tuple[dict[str, list[str]], list[str]]:
+            A tuple containing:
+                - A dictionary mapping an accepted prefix and arguments
+                    associated with it.
+                - A list of all arguments the user provided that do not match
+                    an accepted prefix.
+    """
+    extra_opts = {}
+    clean_args = []
+    for arg in args:
+        found = False
+        for prefix in accepted_prefixes:
+            if arg.startswith(prefix):
+                found = True
+                opt = arg[len(prefix):]
+                # _, opt = arg.split(prefix)
+                extra_opts.setdefault(prefix, []).append(opt)
+        if not found:
+            clean_args.append(arg)
+    return extra_opts, clean_args
 
 
 def get_log_level(args):

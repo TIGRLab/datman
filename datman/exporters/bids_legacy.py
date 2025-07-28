@@ -17,9 +17,11 @@ import logging
 import os
 import re
 
+from datman.exceptions import MetadataException
 from datman.scanid import make_filename
 from datman.utils import (splitext, get_extension, write_json, read_json,
-                          filter_niftis, read_blacklist, get_relative_source)
+                          filter_niftis, read_blacklist, get_relative_source,
+                          locate_metadata)
 
 from dcm2bids import dcm2bids, Dcm2bids
 from dcm2bids.sidecar import Acquisition
@@ -28,7 +30,54 @@ from .base import SessionExporter
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["BidsExporter", "NiiLinkExporter"]
+__all__ = ["BidsExporter", "NiiLinkExporter", "BidsOptions"]
+
+
+class BidsOptions:
+    """Helper class for options related to exporting to BIDS format.
+    """
+
+    def __init__(self, config, keep_dcm=False, bids_out=None,
+                 force_dcm2niix=False, clobber=False, dcm2bids_config=None,
+                 log_level="INFO", refresh=False, **kwargs):
+        self.keep_dcm = keep_dcm
+        self.force_dcm2niix = force_dcm2niix
+        self.clobber = clobber
+        self.refresh = refresh
+        self.bids_out = bids_out
+        self.log_level = log_level
+        self.dcm2bids_config = self.get_bids_config(
+            config, bids_conf=dcm2bids_config)
+
+    def get_bids_config(self, config, bids_conf=None):
+        """Find the path to a valid dcm2bids config file.
+
+        Args:
+            config (:obj:`datman.config.config`): The datman configuration.
+            bids_conf (:obj:`str`, optional): The user provided path to
+                the config file. Defaults to None.
+
+        Raises:
+            datman.exceptions.MetadataException if a valid file cannot
+                be found.
+
+        Returns:
+            str: The full path to a dcm2bids config file.
+        """
+        if bids_conf:
+            path = bids_conf
+        else:
+            try:
+                path = locate_metadata("dcm2bids.json", config=config)
+            except FileNotFoundError as exc:
+                raise MetadataException(
+                    "No dcm2bids.json config file available for "
+                    f"{config.study_name}") from exc
+
+        if not os.path.exists(path):
+            raise MetadataException("No dcm2bids.json settings provided.")
+
+        return path
 
 
 class BidsExporter(SessionExporter):
