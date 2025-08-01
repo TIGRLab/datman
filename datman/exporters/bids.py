@@ -2,6 +2,7 @@
 """
 import os
 import logging
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -71,8 +72,8 @@ class BidsExporter(SessionExporter):
 
     type = "bids"
 
-    def __init__(self, config, session, experiment, bids_opts=None, **kwargs):
-        self.dcm_dir = experiment.dcm_subdir
+    def __init__(self, config, session, importer, bids_opts=None, **kwargs):
+        self.dcm_dir = importer.dcm_subdir
         self.bids_sub = session._ident.get_bids_name()
         self.bids_ses = session._ident.timepoint
         self.repeat = session._ident.session
@@ -87,40 +88,212 @@ class BidsExporter(SessionExporter):
         self.dcm2bids_config = bids_opts.dcm2bids_config if bids_opts else None
         self.refresh = bids_opts.refresh if bids_opts else False
 
-        # Can be removed if dcm2bids patches the log issue
-        self.set_log_level()
-
-        super().__init__(config, session, experiment, **kwargs)
+        super().__init__(config, session, importer, **kwargs)
         return
+
+    def outputs_exist(self):
+        if self.refresh:
+            logger.info(
+                f"Re-comparing existing tmp folder for {self.output_dir}"
+                "to dcm2bids config to pull missed series."
+            )
+            return False
+
+        if self.clobber:
+            logger.info(
+                f"{self.output_dir} will be overwritten due to clobber option."
+            )
+            return False
+
+        out_dir = Path(self.output_dir)
+        if not out_dir.exists():
+            return False
+
+        json_files = out_dir.rglob("*.json")
+
+
+        expected_scans = self.get_expected_scans()
+        actual_scans = self.get_actual_scans()
+        _, missing = self.check_contents(expected_scans, actual_scans)
+        if missing:
+            return False
+
+        return True
+
+    def get_contents(self):
+        outputs = {}
+
+
 
 
 class NiiLinkExporter(SessionExporter):
+    """Populates a study's nii folder with symlinks pointing to the bids dir.
+    """
 
     type = "nii_link"
     ext = ".nii.gz"
 
-    def __init__(self, config, session, experiment, **kwargs):
-        return
+    def __init__(self, config, session, importer, **kwargs):
+        self.ident = session._ident
+        self.output_dir = session.nii_path
+        self.bids_path = session.bids_path
+        self.config = config
+        self.tags = config.get_tags(site=session.site)
+
+        super().__init__(config, session, importer, **kwargs)
+
+        self.dm_names = self.get_dm_names()
+
+    @classmethod
+    def get_output_dir(cls, session):
+        return session.nii_path
+
+    def needs_raw_data(self):
+        return False
 
     def get_dm_names(self):
         """Get the datman-style scan names for an entire XNAT experiment.
 
+        This is used to
+            1) Ensure the contents of the nii folder matches what may have
+               been produced with an old-style NiiExporter
+            2) To predict if an expected scan didn't extract correctly into
+               the bids folder.
+
         Returns:
-            :obj:`dict`: A dict of series numbers matched to a list of
-                datman-style names for all scans found for the session on XNAT.
+            dict: A map of each series number to the name (or
+                names) the series would be exported under.
         """
-        # Difference number 1: This will return every series, even
-        #   the ones that don't get assigned a name in the traditional
         names = {}
         for scan in self.experiment.scans:
             try:
-                series = int(scan.series)
+                series_num = int(scan.series)
             except ValueError:
-                # XNAT sometimes adds a string when it finds duplicate series
-                # numbers. This is an error that should be resolved on the
-                # server so these instances are safe to ignore.
+                # Ignore xnat scans with non-numeric series numbers.
+                # These are often of the form MR-XX and result from duplicated
+                # uploads / errors when merging on xnat.
                 continue
-            names.setdefault(series, []).extend(scan.names)
+            names[series_num] = scan.names
         return names
 
-    # def get_bids_names(self):
+    def get_bids_sidecars(self):
+        """Get all sidecars from a BIDS session.
+
+        Returns:
+            :obj:`dict`: A map from the series number to the sidecar(s) that
+                belong to that series.
+        """
+        sidecars = {}
+        bids_folder = Path(self.bids_path)
+        for sidecar in bids_folder.rglob("*.json"):
+            try:
+                contents = sidecar.read_text(encoding="utf-8")
+            except (UnicodeDecodeError, OSError) as e:
+                logger.debug(
+                    f"Ignoring unreadable json sidecar {sidecar} - {e}"
+                )
+                continue
+
+            try:
+                data = json.loads(contents)
+            except (json.JSONDecodeError, TypeError) as e:
+                logger.debug(f"Ignoring invalid json sidecar {sidecar} - {e}")
+                continue
+
+            data["path"] = sidecar
+
+            if "SeriesNumber" not in data:
+                continue
+
+            # Need code later to handle split series (do they always
+            # prefix series number with "10"?)
+            # -> For new CALM sessions it doesnt, it just allows them to
+            #   retain the original series number (and duplicates it)
+            #   not sure if this is because of CALM or a change in dcm2niix
+            #   or a change in dcm2bids
+            try:
+                series_num = int(data["SeriesNumber"])
+            except ValueError:
+                continue
+
+            sidecars.setdefault(series_num, []).append(data)
+
+        fix_split_series(sidecars)
+
+        return sidecars
+
+
+def get_bids_sidecars(bids_path, repeat):
+    """Get all sidecars from a BIDS session.
+
+    Returns:
+        :obj:`dict`: A map from the series number to the sidecar(s) that
+            belong to that series.
+    """
+    bids_folder = Path(bids_path)
+    sidecars = {}
+
+    for sidecar in bids_folder.rglob("*.json"):
+        try:
+            contents = sidecar.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError) as e:
+            logger.debug(
+                f"Ignoring unreadable json sidecar {sidecar} - {e}"
+            )
+            continue
+
+        try:
+            data = json.loads(contents)
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.debug(f"Ignoring invalid json sidecar {sidecar} - {e}")
+            continue
+
+        data["path"] = sidecar
+
+        if "SeriesNumber" not in data:
+            continue
+
+        if "Repeat" not in data:
+            if repeat == "01":
+                # Assume sidecar belongs to this session, as there's
+                # usually only 1 'repeat' anyway
+                data["Repeat"] = "01"
+            else:
+                continue
+
+        if data["Repeat"] != repeat:
+            continue
+
+        try:
+            series_num = int(data["SeriesNumber"])
+        except ValueError:
+            continue
+
+        sidecars.setdefault(series_num, []).append(data)
+
+    fix_split_series(sidecars)
+
+    return sidecars
+
+
+def fix_split_series(sidecars):
+    # Handle legacy dcm2bids/dcm2niix split sessions which recieved a
+    # "10" prefix to their series numbers (e.g. '05' would become '1005'
+    # for one half of a split fmap)
+    all_str_series = [str(series).zfill(2) for series in sidecars]
+    delete = []
+    for series in sidecars:
+        str_series = str(series)
+        if not str_series.startswith("10"):
+            continue
+        if len(str_series) < 4:
+            continue
+        trimmed_series = str_series[2:]
+        if trimmed_series not in all_str_series:
+            # False alarm, just a weird custom series
+            continue
+        sidecars[int(trimmed_series)].extend(sidecars[series])
+        delete.append(series)
+    for series in delete:
+        del sidecars[series]
+    return sidecars
