@@ -369,7 +369,7 @@ class NiiLinkExporter(SessionExporter):
                     continue
 
                 if len(found) > 1:
-                    logger.error(
+                    logger.debug(
                         f"Multiple tags ({found}) match sidecar "
                         f"{item['Path']}. Ignoring it. Please update "
                         "configuration so at most one tag matches."
@@ -472,13 +472,13 @@ class NiiLinkExporter(SessionExporter):
             bids_conf = conf.get("Bids", {})
             for field in bids_conf:
                 # Ensure consistent formatting for settings
-                if isinstance(bids_conf[field], str):
-                    pattern = bids_conf[field]
+                if isinstance(bids_conf[field], (str, int)):
+                    pattern = str(bids_conf[field])
                     regex = False
                     exclude = False
                 else:
                     pattern = bids_conf[field].get("Pattern", "")
-                    if isinstance(pattern, list):
+                    if not isinstance(pattern, str):
                         pattern = str(pattern)
                     regex = bids_conf[field].get("Regex", False)
                     exclude = bids_conf[field].get("Exclude", False)
@@ -530,7 +530,7 @@ class NiiLinkExporter(SessionExporter):
                     continue
 
                 actual = sidecar[field]
-                if isinstance(actual, list):
+                if not isinstance(actual, str):
                     actual = str(actual)
 
                 if is_regex:
