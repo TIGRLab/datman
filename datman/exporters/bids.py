@@ -4,13 +4,15 @@ import os
 import logging
 import json
 import re
+from glob import glob
 from dataclasses import dataclass
 from pathlib import Path
 
 import datman.config
 from .base import SessionExporter
 from datman.exceptions import MetadataException
-from datman.utils import locate_metadata, read_blacklist, get_relative_source
+from datman.utils import (locate_metadata, read_blacklist, get_relative_source,
+                          get_extension)
 from datman.scanid import make_filename
 
 logger = logging.getLogger(__name__)
@@ -171,7 +173,7 @@ class NiiLinkExporter(SessionExporter):
 
         if self.dry_run:
             logger.info("Dry run: Skipping making nii folder links for "
-                        f"mapping {self.name_map}")
+                        f"mapping {name_map}")
             return
 
         if self.outputs_exist():
@@ -179,7 +181,7 @@ class NiiLinkExporter(SessionExporter):
 
         self.make_output_dir()
 
-        for dm_name, bids_name in self.name_map.items():
+        for dm_name, bids_name in name_map.items():
             self.link_scan(dm_name, bids_name)
 
     def link_scan(self, dm_name: str, bids_root: Path | str):
@@ -196,7 +198,7 @@ class NiiLinkExporter(SessionExporter):
             return
 
         base_target = os.path.join(self.output_dir, dm_name)
-        for source in glob(bids_file + "*"):
+        for source in glob(str(bids_root) + "*"):
             ext = get_extension(source)
             target = base_target + ext
 
