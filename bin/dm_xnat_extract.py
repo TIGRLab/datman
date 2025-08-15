@@ -87,7 +87,7 @@ def main():
             bids_out=args.bids_out,
             log_level=log_level,
             refresh=args.refresh,
-            extra_opts=tool_opts.get('--dcm2bids-')
+            extra_opts=tool_opts.get('--dcm2bids-', [])
         )
     else:
         bids_opts = None
