@@ -380,12 +380,6 @@ class BidsExporter(SessionExporter):
         if self.outputs_exist():
             return
 
-        # Was this ever needed? The class should never have been made.
-        # if not DCM2BIDS_FOUND:
-        #     logger.info(f"Unable to export to {self.output_dir}, "
-        #                 "Dcm2Bids not found.")
-        #     return
-
         if self.dry_run:
             logger.info(f"Dry run: Skipping bids export to {self.output_dir}")
             return

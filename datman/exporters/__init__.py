@@ -2,7 +2,9 @@ import os
 import importlib
 import pkgutil
 import logging
+from packaging.version import parse
 
+from datman.utils import check_dependency_configured
 from .base import Exporter, SessionExporter, SeriesExporter
 
 logger = logging.getLogger(__name__)
@@ -30,6 +32,24 @@ def _load_contents(module_name):
     __all__.extend(contents)
 
 
+def is_runnable_container(container):
+    """Check if a container is able to be run.
+    """
+    try:
+        check_dependency_configured("apptainer", shell_cmd="apptainer")
+    except EnvironmentError:
+        logger.error(f"apptainer is not available, ignoring container.")
+        return False
+
+    if not os.path.exists(container):
+        logger.error(
+            f"Container path does not exist - {container}, ignoring container."
+        )
+        return False
+
+    return True
+
+
 # Load everything from exporters folder (except bids exporters) so contents
 # can be accessed as 'datman.exporters' instead of 'datman.exporters.xxx'
 for _, module_name, _ in pkgutil.iter_modules([os.path.dirname(__file__)]):
@@ -42,25 +62,22 @@ DCM2BIDS_FOUND = False
 
 if os.getenv("BIDS_CONTAINER"):
     # Container is in use, load bids.py
-    _load_contents("bids")
-    DCM2BIDS_FOUND = True
+    if is_runnable_container(os.getenv("BIDS_CONTAINER")):
+        _load_contents("bids")
+        DCM2BIDS_FOUND = True
+    else:
+        logger.error(f"Cannot use dcm2bids container, ignoring bids.")
+        DCM2BIDS_FOUND = False
 else:
     try:
-        from dcm2bids import dcm2bids, Dcm2bids
-    except ImportError:
-        # dcm2bids is either not installed or version >= 3
-        try:
-            import dcm2bids
-        except ImportError:
-            # No dcm2bids available at all
-            DCM2BIDS_FOUND = False
-        else:
-            # dcm2bids is installed and version > 3, use bids.py
-            _load_contents("bids")
-            DCM2BIDS_FOUND = True
+        version = importlib.metadata.version("dcm2bids")
+    except importlib.metadata.PackageNotFoundError:
+        DCM2BIDS_FOUND = False
     else:
-        # dcm2bids is installed and version < 3, use bids_legacy.py
-        _load_contents("bids_legacy")
+        if parse(version) < parse("3"):
+            _load_contents("bids_legacy")
+        else:
+            _load_contents("bids")
         DCM2BIDS_FOUND = True
 
 

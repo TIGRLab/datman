@@ -12,7 +12,7 @@ import datman.config
 from .base import SessionExporter
 from datman.exceptions import MetadataException
 from datman.utils import (locate_metadata, read_blacklist, get_relative_source,
-                          get_extension)
+                          get_extension, write_json, run)
 from datman.scanid import make_filename
 
 logger = logging.getLogger(__name__)
@@ -85,15 +85,14 @@ class BidsExporter(SessionExporter):
         self.bids_tmp = os.path.join(session.bids_root, "tmp_dcm2bids",
                                      f"{session.bids_sub}_{session.bids_ses}")
         self.output_dir = session.bids_path
-        self.keep_dcm = bids_opts.keep_dcm if bids_opts else False
-        self.force_dcm2niix = bids_opts.force_dcm2niix if bids_opts else False
-        self.clobber = bids_opts.clobber if bids_opts else False
-        self.log_level = bids_opts.log_level if bids_opts else "INFO"
-        self.dcm2bids_config = bids_opts.dcm2bids_config if bids_opts else None
-        self.refresh = bids_opts.refresh if bids_opts else False
+        self.refresh = bids_opts.refresh
+        self.clobber = bids_opts.clobber
+        self.opts = bids_opts
 
         super().__init__(config, session, importer, **kwargs)
-        return
+
+    def needs_raw_data(self):
+        return not self.outputs_exist() and not self.refresh
 
     def outputs_exist(self):
         if self.refresh:
@@ -109,23 +108,165 @@ class BidsExporter(SessionExporter):
             )
             return False
 
-        out_dir = Path(self.output_dir)
-        if not out_dir.exists():
+        if not os.path.exists(self.output_dir):
             return False
 
-        json_files = out_dir.rglob("*.json")
-
-
-        expected_scans = self.get_expected_scans()
-        actual_scans = self.get_actual_scans()
-        _, missing = self.check_contents(expected_scans, actual_scans)
-        if missing:
+        if not self.session._bids_inventory:
             return False
 
+        # Assume everything exists if anything does :(
         return True
 
-    def get_contents(self):
-        outputs = {}
+    def export(self, raw_data_dir, **kwargs):
+        if self.outputs_exist():
+            return
+
+        if self.dry_run:
+            logger.info(f"Dry run: Skipping bids export to {self.output_dir}")
+            return
+
+        # Store user settings in case they change during export
+        orig_force = self.opts.force_dcm2niix
+        orig_refresh = self.refresh
+
+        # Does this still work for repeats?
+        if int(self.repeat) > 1:
+            # Must force dcm2niix export if it's a repeat.
+            self.force_dcm2niix = True
+
+        self.make_output_dir()
+
+        try:
+            self.run_dcm2bids(raw_data_dir)
+        except Exception as e:
+            logger.error(f"Failed to extract to BIDs - {e}")
+
+        # For CLM CHO / basic format. Gotta make sure apptainer exists
+        # apptainer run \
+        # -B ${outputdir} \
+        # /scratch/edickie/CLM01_pilots/containers/dcm2bids-3.2.0.sif \
+        # -d ${outputdir}/dicoms/CLM01_CHO_00000003_01_SE01_MR/ \
+        # -p "sub-CHO00000004" \
+        # -s "ses-01" \
+        # -c ${outputdir}/dcm2bids_3chorom.json \
+        # -o ${outputdir}/bids \
+        # --auto_extract_entities
+
+        # Test command. Exporter may need to 'hang on to' the metadata folder
+        # path and the file name for the dcm2bids.json (since the file given
+        # can be named anything and shouldn't be assumed)
+        # Note also: all bound paths must exist before running
+        # apptainer run -B /scratch/dawn/temp_stuff/new_bids/test_archive/tmp_extract/:/input -B /scratch/dawn/temp_stuff/new_bids/test_archive/CLM01_CHO/metadata:/metadata -B /scratch/dawn/temp_stuff/new_bids/test_archive/CLM01_CHO/data/bids:/output ${BIDS_CONTAINER} -d /input -p "sub-CHO00000003" -s "ses-01" -c /metadata/dcm2bids.json -o /output --auto_extract_entities
+
+        if int(self.repeat) > 1:
+            # Must run a second time to move the new niftis out of the tmp dir
+            self.force_dcm2niix = False
+            self.refresh = True
+            try:
+                self.run_dcm2bids(raw_data_dir)
+            except Exception as e:
+                logger.error(f"Failed to extract data. {e}")
+
+        self.force_dcm2niix = orig_force
+        self.refresh = orig_refresh
+
+        try:
+            self.add_repeat_num()
+        except (PermissionError, JSONDecodeError):
+            logger.error(
+                "Failed to add repeat numbers to sidecars in "
+                f"{self.output_dir}. If a repeat scan is added, scans may "
+                "incorrectly be tagged as belonging to the later repeat."
+            )
+
+    def run_dcm2bids(self, raw_data_dir):
+        input_dir = self._get_scan_dir(raw_data_dir)
+
+        if self.refresh and not os.path.exists(input_dir):
+            logger.error(
+                f"Cannot refresh contents of {self.output_dir}, no "
+                f"files found at {input_dir}.")
+            return
+
+        cmd = self.make_command(input_dir)
+        return_code, output = run(cmd)
+        print(return_code)
+        print(output)
+
+    def _get_scan_dir(self, download_dir):
+        if self.refresh:
+            # Use existing tmp_dir instead of raw dcms
+            return self.bids_tmp
+        return download_dir
+
+    def make_command(self, raw_data_dir):
+        # CLM01_CHO_00000003_01_01
+
+        # ???? is this an issue because I downloaded them?
+        # dcm_dic = 'scans/9_DTI_HCP_b2400_AP_ADC'
+
+        # bids_sub = 'CHO00000003'
+        # bids_ses = '01'
+        # repeat = '01'
+        # bids_folder = '/scratch/dawn/temp_stuff/new_bids/test_archive/CLM01_CHO/data/bids/'
+        # bids_tmp = '/scratch/dawn/temp_stuff/new_bids/test_archive/CLM01_CHO/data/bids/tmp_dcm2bids/sub-CHO00000003_ses-01'
+        # output_dir = '/scratch/dawn/temp_stuff/new_bids/test_archive/CLM01_CHO/data/bids/sub-CHO00000003/ses-01'
+
+        # raw_data_dir = "/scratch/dawn/temp_stuff/new_bids/test_archive/tmp_extract/"
+
+        conf_dir, conf_file = os.path.split(self.opts.dcm2bids_config)
+
+        container_path = os.getenv("BIDS_CONTAINER")
+        if container_path:
+            cmd = [
+                "apptainer run",
+                f"-B {raw_data_dir}:/input",
+                f"-B {conf_dir}:/config",
+                f"-B {self.bids_folder}:/output",
+                f"{container_path}",
+                "-d /input",
+                f"-c /config/{conf_file}",
+                "-o /output"
+            ]
+        else:
+            cmd = [
+                "dcm2bids",
+                f"-d {raw_data_dir}",
+                f"-c {self.opts.dcm2bids_config}",
+                f"-o {self.bids_folder}"
+            ]
+
+        cmd.extend([
+            f"-p '{self.bids_sub}'",
+            f"-s '{self.bids_ses}'",
+            f"-l {self.opts.log_level}"
+        ])
+
+        if self.opts.clobber:
+            cmd.append("--clobber")
+
+        if self.opts.force_dcm2niix:
+            cmd.append("--forceDcm2niix")
+
+        for item in self.opts.extra_opts:
+            cmd.append(f"--{item}")
+
+        return cmd
+
+    def add_repeat_num(self):
+        for sidecar in Path(self.output_dir).rglob("*.json"):
+
+            contents = read_sidecar(sidecar)
+            if not contents:
+                continue
+
+            if "Repeat" in contents:
+                continue
+
+            contents["Repeat"] = self.repeat
+            # Remove "Path" so it doesnt get written to the output file
+            del contents["Path"]
+            write_json(sidecar, contents)
 
 
 class NiiLinkExporter(SessionExporter):
@@ -208,31 +349,6 @@ class NiiLinkExporter(SessionExporter):
             rel_source = get_relative_source(source, target)
             make_link(rel_source, target)
 
-    def get_dm_names(self):
-        """Get the datman-style scan names for an entire XNAT experiment.
-
-        This is used to
-            1) Ensure the contents of the nii folder matches what may have
-               been produced with an old-style NiiExporter
-            2) To predict if an expected scan didn't extract correctly into
-               the bids folder.
-
-        Returns:
-            dict: A map of each series number to the name (or
-                names) the series would be exported under.
-        """
-        names = {}
-        for scan in self.experiment.scans:
-            try:
-                series_num = int(scan.series)
-            except ValueError:
-                # Ignore xnat scans with non-numeric series numbers.
-                # These are often of the form MR-XX and result from duplicated
-                # uploads / errors when merging on xnat.
-                continue
-            names[series_num] = scan.names
-        return names
-
     def get_bids_sidecars(self) -> dict[int, list]:
         """Get all sidecars from the session's BIDS folder.
 
@@ -244,7 +360,7 @@ class NiiLinkExporter(SessionExporter):
         bids_folder = Path(self.bids_path)
         for sidecar in bids_folder.rglob("*.json"):
 
-            contents = self.read_sidecar(sidecar)
+            contents = read_sidecar(sidecar)
             if not contents:
                 continue
 
@@ -271,32 +387,6 @@ class NiiLinkExporter(SessionExporter):
         self.fix_split_series_nums(sidecars)
 
         return sidecars
-
-    def read_sidecar(self, sidecar: str | Path) -> dict:
-        """Read the contents of a JSON sidecar file.
-
-        NOTE: This adds the path of the file itself under the key 'Path'
-        """
-        if not isinstance(sidecar, Path):
-            sidecar = Path(sidecar)
-
-        try:
-            contents = sidecar.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, OSError) as e:
-            logger.debug(
-                f"Sidecar file is unreadable {sidecar} - {e}"
-            )
-            return {}
-
-        try:
-            data = json.loads(contents)
-        except (json.JSONDecodeError, TypeError) as e:
-            logger.debug(f"Invalid json sidecar {sidecar} - {e}")
-            return {}
-
-        data["Path"] = sidecar
-
-        return data
 
     def matches_repeat(self, sidecar: dict) -> bool:
         """Check if a sidecar matches the current session's 'repeat'.
@@ -451,7 +541,7 @@ class NiiLinkExporter(SessionExporter):
 
             conf = self.tags.get(tag)
 
-            if is_malformed(conf):
+            if is_malformed_conf(conf):
                 logger.error(
                     f"Ignoring tag {tag} - Incorrectly configured. Each tag "
                     "must contain a 'Pattern' section and each 'Pattern', at "
@@ -590,7 +680,8 @@ class NiiLinkExporter(SessionExporter):
 
         return existing_names
 
-def is_malformed(config: dict) -> bool:
+
+def is_malformed_conf(config: dict) -> bool:
     """Check if a tag's configuration is unusably malformed.
     """
     if "Pattern" not in config:
@@ -623,3 +714,29 @@ def make_link(source: str, target: str):
         pass
     except OSError as e:
         logger.error(f"Failed to create {target} - {e}")
+
+def read_sidecar(sidecar: str | Path) -> dict:
+    """Read the contents of a JSON sidecar file.
+
+    NOTE: This adds the path of the file itself under the key 'Path'
+    """
+    if not isinstance(sidecar, Path):
+        sidecar = Path(sidecar)
+
+    try:
+        contents = sidecar.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError) as e:
+        logger.debug(
+            f"Sidecar file is unreadable {sidecar} - {e}"
+        )
+        return {}
+
+    try:
+        data = json.loads(contents)
+    except (json.JSONDecodeError, TypeError) as e:
+        logger.debug(f"Invalid json sidecar {sidecar} - {e}")
+        return {}
+
+    data["Path"] = sidecar
+
+    return data
