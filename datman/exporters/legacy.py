@@ -12,8 +12,8 @@ import re
 
 import pydicom as dicom
 
-from .base import SeriesExporter
 from datman.utils import run, make_temp_directory, get_extension
+from .base import SeriesExporter
 
 logger = logging.getLogger(__name__)
 

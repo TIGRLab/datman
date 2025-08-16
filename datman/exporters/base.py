@@ -6,9 +6,9 @@ scan session at once, or a SeriesExporter if it works on a single individual
 scan series at a time.
 """
 
-from abc import ABC, abstractmethod
-import os
 import logging
+import os
+from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
 

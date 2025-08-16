@@ -4,23 +4,23 @@ import os
 import logging
 import json
 import re
+import dataclasses
 from glob import glob
-from dataclasses import dataclass
 from pathlib import Path
 
 import datman.config
-from .base import SessionExporter
 from datman.exceptions import MetadataException
 from datman.utils import (locate_metadata, read_blacklist, get_relative_source,
                           get_extension, write_json, run)
 from datman.scanid import make_filename
+from .base import SessionExporter
 
 logger = logging.getLogger(__name__)
 
 __all__ = ["BidsExporter", "NiiLinkExporter", "BidsOptions"]
 
 
-@dataclass
+@dataclasses.dataclass
 class BidsOptions:
     """Helper class for options related to exporting to BIDS format.
     """
@@ -32,7 +32,7 @@ class BidsOptions:
     dcm2bids_config: str | None = None
     log_level: str = "INFO"
     refresh: bool = False
-    extra_opts: list = None
+    extra_opts: list = dataclasses.field(default_factory=list)
 
     def __post_init__(self):
         self.dcm2bids_config = self.get_bids_config(
@@ -73,10 +73,19 @@ class BidsOptions:
 
 
 class BidsExporter(SessionExporter):
+    """Populates a study's bids folder.
+    """
 
     type = "bids"
 
-    def __init__(self, config, session, importer, bids_opts=None, **kwargs):
+    def __init__(
+            self,
+            config: datman.config.config,
+            session: 'datman.scan.Scan',
+            importer: 'datman.importers.SessionImporter',
+            bids_opts: BidsOptions = None,
+            **kwargs
+    ):
         self.dcm_dir = importer.dcm_subdir
         self.bids_sub = session._ident.get_bids_name()
         self.bids_ses = session._ident.timepoint
@@ -85,24 +94,22 @@ class BidsExporter(SessionExporter):
         self.bids_tmp = os.path.join(session.bids_root, "tmp_dcm2bids",
                                      f"{session.bids_sub}_{session.bids_ses}")
         self.output_dir = session.bids_path
-        self.refresh = bids_opts.refresh
-        self.clobber = bids_opts.clobber
         self.opts = bids_opts
 
         super().__init__(config, session, importer, **kwargs)
 
-    def needs_raw_data(self):
-        return not self.outputs_exist() and not self.refresh
+    def needs_raw_data(self) -> bool:
+        return not self.outputs_exist() and not self.opts.refresh
 
-    def outputs_exist(self):
-        if self.refresh:
+    def outputs_exist(self) -> bool:
+        if self.opts.refresh:
             logger.info(
                 f"Re-comparing existing tmp folder for {self.output_dir}"
                 "to dcm2bids config to pull missed series."
             )
             return False
 
-        if self.clobber:
+        if self.opts.clobber:
             logger.info(
                 f"{self.output_dir} will be overwritten due to clobber option."
             )
@@ -114,10 +121,10 @@ class BidsExporter(SessionExporter):
         if not self.session._bids_inventory:
             return False
 
-        # Assume everything exists if anything does :(
+        # Assume everything exists if anything does
         return True
 
-    def export(self, raw_data_dir, **kwargs):
+    def export(self, raw_data_dir: str, **kwargs):
         if self.outputs_exist():
             return
 
@@ -125,94 +132,63 @@ class BidsExporter(SessionExporter):
             logger.info(f"Dry run: Skipping bids export to {self.output_dir}")
             return
 
-        # Store user settings in case they change during export
-        orig_force = self.opts.force_dcm2niix
-        orig_refresh = self.refresh
-
-        # Does this still work for repeats?
         if int(self.repeat) > 1:
-            # Must force dcm2niix export if it's a repeat.
-            self.force_dcm2niix = True
+            # Must force dcm2niix if it's a repeat.
+            force_dcm2niix = True
+        else:
+            force_dcm2niix = self.opts.force_dcm2niix
 
         self.make_output_dir()
 
         try:
-            self.run_dcm2bids(raw_data_dir)
+            self.run_dcm2bids(raw_data_dir, force_dcm2niix=force_dcm2niix)
         except Exception as e:
             logger.error(f"Failed to extract to BIDs - {e}")
 
-        # For CLM CHO / basic format. Gotta make sure apptainer exists
-        # apptainer run \
-        # -B ${outputdir} \
-        # /scratch/edickie/CLM01_pilots/containers/dcm2bids-3.2.0.sif \
-        # -d ${outputdir}/dicoms/CLM01_CHO_00000003_01_SE01_MR/ \
-        # -p "sub-CHO00000004" \
-        # -s "ses-01" \
-        # -c ${outputdir}/dcm2bids_3chorom.json \
-        # -o ${outputdir}/bids \
-        # --auto_extract_entities
-
-        # Test command. Exporter may need to 'hang on to' the metadata folder
-        # path and the file name for the dcm2bids.json (since the file given
-        # can be named anything and shouldn't be assumed)
-        # Note also: all bound paths must exist before running
-        # apptainer run -B /scratch/dawn/temp_stuff/new_bids/test_archive/tmp_extract/:/input -B /scratch/dawn/temp_stuff/new_bids/test_archive/CLM01_CHO/metadata:/metadata -B /scratch/dawn/temp_stuff/new_bids/test_archive/CLM01_CHO/data/bids:/output ${BIDS_CONTAINER} -d /input -p "sub-CHO00000003" -s "ses-01" -c /metadata/dcm2bids.json -o /output --auto_extract_entities
-
         if int(self.repeat) > 1:
             # Must run a second time to move the new niftis out of the tmp dir
-            self.force_dcm2niix = False
-            self.refresh = True
             try:
-                self.run_dcm2bids(raw_data_dir)
+                self.run_dcm2bids(
+                    raw_data_dir, force_dcm2niix=False, refresh=True
+                )
             except Exception as e:
                 logger.error(f"Failed to extract data. {e}")
 
-        self.force_dcm2niix = orig_force
-        self.refresh = orig_refresh
-
         try:
             self.add_repeat_num()
-        except (PermissionError, JSONDecodeError):
+        except (PermissionError, json.JSONDecodeError):
             logger.error(
                 "Failed to add repeat numbers to sidecars in "
                 f"{self.output_dir}. If a repeat scan is added, scans may "
                 "incorrectly be tagged as belonging to the later repeat."
             )
 
-    def run_dcm2bids(self, raw_data_dir):
-        input_dir = self._get_scan_dir(raw_data_dir)
+    def run_dcm2bids(self, raw_data_dir: str, force_dcm2niix: bool = False,
+                     refresh: bool = False):
+        input_dir = self._get_scan_dir(raw_data_dir, refresh)
 
-        if self.refresh and not os.path.exists(input_dir):
+        if refresh and not os.path.exists(input_dir):
             logger.error(
                 f"Cannot refresh contents of {self.output_dir}, no "
                 f"files found at {input_dir}.")
             return
 
-        cmd = self.make_command(input_dir)
+        cmd = self.make_command(input_dir, force_dcm2niix)
         return_code, output = run(cmd)
-        print(return_code)
-        print(output)
+        if return_code:
+            logger.error(f"Failed when running dcm2bids - {output}")
 
-    def _get_scan_dir(self, download_dir):
-        if self.refresh:
+    def _get_scan_dir(self, download_dir: str, refresh: bool = False) -> str:
+        if refresh:
             # Use existing tmp_dir instead of raw dcms
             return self.bids_tmp
         return download_dir
 
-    def make_command(self, raw_data_dir):
-        # CLM01_CHO_00000003_01_01
-
-        # ???? is this an issue because I downloaded them?
-        # dcm_dic = 'scans/9_DTI_HCP_b2400_AP_ADC'
-
-        # bids_sub = 'CHO00000003'
-        # bids_ses = '01'
-        # repeat = '01'
-        # bids_folder = '/scratch/dawn/temp_stuff/new_bids/test_archive/CLM01_CHO/data/bids/'
-        # bids_tmp = '/scratch/dawn/temp_stuff/new_bids/test_archive/CLM01_CHO/data/bids/tmp_dcm2bids/sub-CHO00000003_ses-01'
-        # output_dir = '/scratch/dawn/temp_stuff/new_bids/test_archive/CLM01_CHO/data/bids/sub-CHO00000003/ses-01'
-
-        # raw_data_dir = "/scratch/dawn/temp_stuff/new_bids/test_archive/tmp_extract/"
+    def make_command(
+            self, raw_data_dir: str, force_dcm2niix: bool = False
+    ) -> list[str]:
+        """Construct the dcm2bids command based on on user configuration.
+        """
 
         conf_dir, conf_file = os.path.split(self.opts.dcm2bids_config)
 
@@ -245,8 +221,8 @@ class BidsExporter(SessionExporter):
         if self.opts.clobber:
             cmd.append("--clobber")
 
-        if self.opts.force_dcm2niix:
-            cmd.append("--forceDcm2niix")
+        if force_dcm2niix:
+            cmd.append("--force_dcm2bids")
 
         for item in self.opts.extra_opts:
             cmd.append(f"--{item}")
@@ -254,6 +230,12 @@ class BidsExporter(SessionExporter):
         return cmd
 
     def add_repeat_num(self):
+        """Add the sessions 'repeat' number to all of its json sidecars.
+
+        This is used to allow us to track which files belong to which session
+        when there's more than one (i.e. if there's an 01_02 and so forth
+        instead of just 01_01)
+        """
         for sidecar in Path(self.output_dir).rglob("*.json"):
 
             contents = read_sidecar(sidecar)
@@ -401,8 +383,10 @@ class NiiLinkExporter(SessionExporter):
             return self.repeat == "01"
         return sidecar["Repeat"] == self.repeat
 
-    def fix_split_series_nums(self, sidecars: dict[int, list]
-            ) -> dict[int, list]:
+    def fix_split_series_nums(
+            self,
+            sidecars: dict[int, list]
+    ) -> dict[int, list]:
         """Attempt to correct series nums that have been prefixed with '10'.
 
         Some older versions of dcm2niix/dcm2bids liked to prefix half of a
@@ -640,10 +624,11 @@ class NiiLinkExporter(SessionExporter):
 
         return found
 
-    def handle_duplicate_names(self,
-                               existing_names: dict[str, str],
-                               new_entries: dict[str, dict]
-        ) -> dict[str, str]:
+    def handle_duplicate_names(
+        self,
+        existing_names: dict[str, str],
+        new_entries: dict[str, dict]
+    ) -> dict[str, str]:
         """Make duplicated names unique.
 
         Sometimes, as with multi-echo scans, multiple BIDs files will create
@@ -690,6 +675,7 @@ def is_malformed_conf(config: dict) -> bool:
         return True
     return False
 
+
 def remove_extension(path: Path) -> Path:
     """Remove all extensions from a path.
     """
@@ -697,15 +683,17 @@ def remove_extension(path: Path) -> Path:
         path = path.with_suffix("")
     return path
 
+
 def is_broken_link(symlink: str) -> bool:
     return os.path.islink(symlink) and not os.path.exists(symlink)
+
 
 def remove_broken_link(target: str):
     try:
         os.unlink(target)
     except OSError as e:
         logger.error(f"Failed to remove broken symlink {target} - {e}")
-    return
+
 
 def make_link(source: str, target: str):
     try:
@@ -714,6 +702,7 @@ def make_link(source: str, target: str):
         pass
     except OSError as e:
         logger.error(f"Failed to create {target} - {e}")
+
 
 def read_sidecar(sidecar: str | Path) -> dict:
     """Read the contents of a JSON sidecar file.

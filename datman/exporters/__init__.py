@@ -1,7 +1,10 @@
-import os
+"""Import classes used to export dicom data to various formats.
+"""
+
 import importlib
-import pkgutil
 import logging
+import os
+import pkgutil
 from packaging.version import parse
 
 from datman.utils import check_dependency_configured
@@ -38,7 +41,7 @@ def is_runnable_container(container):
     try:
         check_dependency_configured("apptainer", shell_cmd="apptainer")
     except EnvironmentError:
-        logger.error(f"apptainer is not available, ignoring container.")
+        logger.error("apptainer is not available, ignoring container.")
         return False
 
     if not os.path.exists(container):
@@ -66,7 +69,7 @@ if os.getenv("BIDS_CONTAINER"):
         _load_contents("bids")
         DCM2BIDS_FOUND = True
     else:
-        logger.error(f"Cannot use dcm2bids container, ignoring bids.")
+        logger.error("Cannot use dcm2bids container, ignoring bids.")
         DCM2BIDS_FOUND = False
 else:
     try:

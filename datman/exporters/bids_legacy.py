@@ -10,22 +10,21 @@ contents of the folder against what we expect to have been exported (reducing
 manual intervention). It can also force dcm2bids to properly export repeat
 sessions into the same folder, where newer versions will simply ignore them.
 """
-from collections import OrderedDict
-from glob import glob
-from json import JSONDecodeError
 import logging
 import os
 import re
+from collections import OrderedDict
+from glob import glob
+from json import JSONDecodeError
+
+from dcm2bids import dcm2bids, Dcm2bids
+from dcm2bids.sidecar import Acquisition
 
 from datman.exceptions import MetadataException
 from datman.scanid import make_filename
 from datman.utils import (splitext, get_extension, write_json, read_json,
                           filter_niftis, read_blacklist, get_relative_source,
                           locate_metadata)
-
-from dcm2bids import dcm2bids, Dcm2bids
-from dcm2bids.sidecar import Acquisition
-
 from .base import SessionExporter
 
 logger = logging.getLogger(__name__)
@@ -593,123 +592,6 @@ class BidsExporter(SessionExporter):
         sidecars.extend(self.find_outputs(".json", start_dir=self.bids_tmp))
         contents = {path: read_json(path) for path in sidecars}
         return contents
-
-    def find_missing_scans(self):
-        """Find scans that exist on xnat but are missing from the bids folder.
-        """
-        class FakeSidecar(dcm2bids.Sidecar):
-            """Turns XNAT series descriptions into pseudo-sidecars.
-            """
-            def __init__(self, xnat_scan):
-                self.scan = xnat_scan
-                self.data = xnat_scan
-                self.compKeys = dcm2bids.DEFAULT.compKeys
-
-                # Placeholders for compatibility with dcm2bids.Sidecar
-                self.root = (
-                    f"/tmp/{xnat_scan.series}"
-                    + f"_{xnat_scan.description}"
-                    + f"_{xnat_scan.subject}"
-                )
-                self.filename = f"{self.root}.json"
-                self.data["SidecarFilename"] = self.filename
-
-            @property
-            def data(self):
-                return self._data
-
-            @data.setter
-            def data(self, scan):
-                self._data = OrderedDict()
-                self._data['SeriesDescription'] = scan.description
-                self._data['SeriesNumber'] = scan.series
-
-            def __repr__(self):
-                return f"<FakeSidecar {self.data['SeriesDescription']}>"
-
-        def get_expected_names(participant, sidecars, bids_conf):
-            parser = dcm2bids.SidecarPairing(
-                sidecars, bids_conf["descriptions"]
-            )
-            parser.build_graph()
-            parser.build_acquisitions(participant)
-            parser.find_runs()
-            return [acq.dstRoot for acq in parser.acquisitions]
-
-        def remove_criteria(descriptions):
-            trim_conf = []
-            for descr in bids_conf['descriptions']:
-                new_descr = descr.copy()
-                if len(descr['criteria']) > 1:
-                    new_descr['criteria'] = OrderedDict()
-                    new_descr['criteria']['SeriesDescription'] = descr[
-                        'criteria']['SeriesDescription']
-                trim_conf.append(new_descr)
-            return trim_conf
-
-        participant = dcm2bids.Participant(
-            self.bids_sub, session=self.bids_ses
-        )
-
-        bids_conf = dcm2bids.load_json(self.dcm2bids_config)
-
-        local_sidecars = []
-        for search_path in [self.output_dir, self.bids_tmp]:
-            for item in self.find_outputs(".json", start_dir=search_path):
-                sidecar = dcm2bids.Sidecar(item)
-                if ('Repeat' in sidecar.data and
-                        sidecar.data['Repeat'] != self.repeat):
-                    continue
-                local_sidecars.append(sidecar)
-        local_sidecars = sorted(local_sidecars)
-
-        xnat_sidecars = []
-        for scan in self.experiment.scans:
-            xnat_sidecars.append(FakeSidecar(scan))
-        xnat_sidecars = sorted(xnat_sidecars)
-
-        local_scans = get_expected_names(
-            participant, local_sidecars, bids_conf
-        )
-
-        # Use a more permissive bids_conf when finding xnat acqs
-        xnat_parser = dcm2bids.SidecarPairing(
-            xnat_sidecars, remove_criteria(bids_conf['descriptions'])
-        )
-        xnat_parser.build_graph()
-        xnat_parser.build_acquisitions(participant)
-        # Use this to find scans that have extra 'criteria' for single match
-        extra_acqs = []
-        for sidecar, descriptions in xnat_parser.graph.items():
-            if len(descriptions) > 1:
-                for descr in descriptions:
-                    acq = Acquisition(participant, srcSidecar=sidecar, **descr)
-                    extra_acqs.append(acq)
-        xnat_parser.acquisitions.extend(extra_acqs)
-        xnat_parser.find_runs()
-        xnat_scans = [acq.dstRoot for acq in xnat_parser.acquisitions]
-
-        missing_scans = []
-        for scan in xnat_scans:
-            if scan not in local_scans:
-                if "run-01" in scan:
-                    norun_scan = scan.replace("_run-01", "")
-                    if norun_scan not in local_scans:
-                        missing_scans.append(scan)
-                else:
-                    missing_scans.append(scan)
-
-        extra_scans = []
-        for scan in local_scans:
-            if scan not in xnat_scans:
-                if "run-01" in scan:
-                    norun_scan = scan.replace("_run-01", "")
-                    if norun_scan not in xnat_scans:
-                        extra_scans.append(scan)
-                else:
-                    extra_scans.append(scan)
-
-        return missing_scans, extra_scans
 
 
 class NiiLinkExporter(SessionExporter):

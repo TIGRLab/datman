@@ -1,10 +1,9 @@
 """An exporter to push raw datman files into the QC dashboard.
 """
-from datetime import datetime
 import logging
 import os
+from datetime import datetime
 
-from .base import SessionExporter
 import datman.config
 import datman.dashboard
 from datman.exceptions import (ConfigException, DashboardException,
@@ -12,6 +11,7 @@ from datman.exceptions import (ConfigException, DashboardException,
 from datman.scanid import (KCNIIdentifier, parse, parse_bids_filename,
                            ParseException)
 from datman.utils import find_tech_notes, get_extension
+from .base import SessionExporter
 
 logger = logging.getLogger(__name__)
 
