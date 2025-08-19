@@ -277,8 +277,9 @@ def resource_data_exists(xnat_resources, archive):
                                if zf.read(item)]
     empty_files = list(set(local_resources) - set(local_resources_mod))
     if empty_files:
-        logger.warning("Cannot upload empty resource files {}, omitting."
-                    "".format(", ".join(empty_files)))
+        logger.warning(
+            f"Cannot upload empty resource files {', '.join(empty_files)}, "
+            "omitting.")
     # paths in xnat are url encoded. Need to fix local paths to match
     local_resources_mod = [urllib.request.pathname2url(p)
                            for p in local_resources_mod]
@@ -299,7 +300,7 @@ def scan_data_exists(xnat_experiment, local_headers):
     if xnat_experiment.uid not in local_experiment_ids:
         raise ValueError("Experiment UID doesnt match XNAT")
 
-    if not set(local_scan_uids).issubset(set(xnat_experiment.scan_UIDs)):
+    if not set(local_scan_uids).issubset(set(xnat_experiment.scan_uids)):
         logger.info("Found UIDs for {} not yet added to xnat".format(
             xnat_experiment.name))
         return False
@@ -320,7 +321,7 @@ def check_files_exist(archive, xnat_experiment, xnat):
         logger.error("Failed getting zip file headers for: {}".format(archive))
         return False, False
 
-    xnat_resources = xnat_experiment.get_resources(xnat)
+    xnat_resources = xnat_experiment.get_resource_uris(xnat)
 
     if not local_headers:
         resources_exist = resource_data_exists(xnat_resources, archive)

@@ -85,7 +85,7 @@ def main():
         logger.setLevel(logging.ERROR)
 
     if not study:
-        with datman.xnat.xnat(xnat_server, username, password) as xnat:
+        with datman.xnat.XNAT(xnat_server, username, password) as xnat:
             download_subjects(xnat, xnat_project, destination)
         return
 
@@ -104,7 +104,7 @@ def main():
             logger.error("{}".format(e))
             continue
         username, password = get_credentials(credentials_file)
-        with datman.xnat.xnat(server, username, password) as xnat:
+        with datman.xnat.XNAT(server, username, password) as xnat:
             download_subjects(xnat, project, destination)
 
 
@@ -156,8 +156,7 @@ def download_subjects(xnat, xnat_project, destination):
 
         with datman.utils.make_temp_directory() as temp:
             try:
-                temp_zip = experiment.download(
-                    xnat, temp, zip_name=zip_name)
+                temp_zip = experiment.get_files(temp, xnat, zip_name=zip_name)
             except Exception as e:
                 logger.error("Cant download experiment {}. Reason: {}"
                              "".format(experiment, e))
@@ -186,10 +185,10 @@ def update_needed(zip_file, experiment, xnat):
 
     zip_scan_uids = get_scan_uids(zip_headers)
     zip_resources = get_resources(zip_file)
-    xnat_resources = experiment.get_resources(xnat)
+    xnat_resources = experiment.get_resource_uris(xnat)
 
     if not files_downloaded(zip_resources, xnat_resources) or \
-       not files_downloaded(zip_scan_uids, experiment.scan_UIDs):
+       not files_downloaded(zip_scan_uids, experiment.scan_uids):
         logger.error("Some of XNAT contents for {} is missing from file "
                      "system. Zip file will be deleted and recreated"
                      "".format(experiment.name))
