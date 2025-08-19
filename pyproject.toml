@@ -109,7 +109,19 @@ testpaths = ["tests"]
 fail-under = 7
 ignore-paths = ['docs']
 
+[tool.pylint.logging]
+logging-format-style = "new"
+
 [tool.pylint."messages control"]
 disable = [
-  "logging-format-interpolation"
+  "logging-format-interpolation",
+  "too-many-lines",
+  "logging-fstring-interpolation",
+  "too-many-instance-attributes",
+  "too-many-arguments",
+  "too-many-positional-arguments",
+  "too-few-public-methods"
 ]
+
+[tool.pylint.format]
+max-line-length = 79
