@@ -5,14 +5,15 @@ class that inherits from either SessionExporter if it must work on an entire
 scan session at once, or a SeriesExporter if it works on a single individual
 scan series at a time.
 """
-
+import json
 import logging
 import os
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["SeriesExporter", "SessionExporter"]
+__all__ = ["SeriesExporter", "SessionExporter", "read_sidecar"]
 
 
 class Exporter(ABC):
@@ -120,3 +121,30 @@ class SeriesExporter(Exporter):
         fq_name = str(self.__class__).replace("<class '", "").replace("'>", "")
         name = fq_name.rsplit(".", maxsplit=1)[-1]
         return f"<{name} - {self.fname_root}>"
+
+
+def read_sidecar(sidecar: str | Path) -> dict:
+    """Read the contents of a JSON sidecar file.
+
+    NOTE: This adds the path of the file itself under the key 'Path'
+    """
+    if not isinstance(sidecar, Path):
+        sidecar = Path(sidecar)
+
+    try:
+        contents = sidecar.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError) as e:
+        logger.debug(
+            f"Sidecar file is unreadable {sidecar} - {e}"
+        )
+        return {}
+
+    try:
+        data = json.loads(contents)
+    except (json.JSONDecodeError, TypeError) as e:
+        logger.debug(f"Invalid json sidecar {sidecar} - {e}")
+        return {}
+
+    data["Path"] = sidecar
+
+    return data
