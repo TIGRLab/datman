@@ -706,7 +706,7 @@ class XNAT:
         upload_url = (
             f"{self.server}/data/services/import?project={project}"
             f"&subject={subject}&session={experiment}&overwrite=delete"
-            "&prearchive=false&Ignore-Unparsable=true&inbody=true")
+            "&Direct-Archive=true&Ignore-Unparsable=true&inbody=true")
 
         try:
             with open(filename, "rb") as data:
