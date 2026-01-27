@@ -509,7 +509,7 @@ def _parse_blacklist(blacklist, scan=None, subject=None):
 
     # This will mangle any commas in comments, but is the most reliable way
     # to split the lines
-    regex = ",|\s"  # noqa: W605
+    regex = r",|\s"
     for line in blacklist:
         fields = re.split(regex, line.strip())
         try:
