@@ -217,7 +217,8 @@ def get_ratings(log):
 def combine_dfs(blocks, ratings):
     # combines the block rows with the ratings rows and sorts them
 
-    combo = blocks.append(ratings).sort_values("onset").reset_index(drop=True)
+    combo = blocks._append(ratings).sort_values("onset").reset_index(drop=True)
+
     mask = pd.notnull(combo["trial_type"])
     combo["space_b4_prev"] = combo["onset"].diff(periods=1)
     combo["first_button_press"] = combo["duration"].shift() > 0
@@ -240,7 +241,7 @@ def combine_dfs(blocks, ratings):
         "participant_value": last_block.participant_value,
     }
 
-    combo2 = combo2.append(end_row, ignore_index=True).reset_index(drop=True)
+    combo2 = combo2._append(end_row, ignore_index=True).reset_index(drop=True)
 
     mask = pd.notnull(combo2["trial_type"])
 
@@ -264,7 +265,7 @@ def combine_dfs(blocks, ratings):
             "duration": 0,
             "participant_value": 5,
         }
-        combo2 = combo2.append(new_row, ignore_index=True)
+        combo2 = combo2._append(new_row, ignore_index=True)
 
     combo2 = combo2.sort_values(by=["onset", "event_type"],
                                 na_position="first").reset_index(drop=True)
@@ -470,7 +471,7 @@ def parse_task(ident,
     combo["block_score"] = np.nan
     combo["n_button_press"] = np.nan
 
-    combo = (combo.append(two_s_chunks).sort_values("onset").reset_index(
+    combo = (combo._append(two_s_chunks).sort_values("onset").reset_index(
         drop=True))
 
     test = combo.loc[pd.notnull(combo["stim_file"])]
