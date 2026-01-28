@@ -109,6 +109,7 @@ def main():
                 vmin=100,
                 vmax=1100,
                 threshold="auto",
+                colorbar=False,
             )
             t1_pic.savefig(outpath, dpi=1000)
             logger.debug(
