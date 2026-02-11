@@ -185,6 +185,16 @@ class Scan(DatmanNamed):
             return []
         if int(series) in self._bids_inventory:
             return self._bids_inventory[int(series)]
+        # dcm2bids sometimes prefixes split file series numbers with '10',
+        # catch these too
+        prefixed_series = f"10{series}"
+        if int(prefixed_series) in self._bids_inventory:
+            nii_series = [scan.series_num for scan in self.niftis]
+            if prefixed_series in nii_series:
+                # If the 10XX series number is present in the nii folder too,
+                # it's an unrelated scan that just happens to start with 10.
+                return []
+            return self._bids_inventory[int(prefixed_series)]
         return []
 
     def _make_bids_inventory(self):
