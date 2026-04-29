@@ -8,6 +8,12 @@ Arguments:
     <study>:    Short name of the study to process
 
 Options:
+    --before <date>             Only download scans added to the server before
+                                the given date. Date format is expected to be
+                                YYYY-MM-DD. Can be combined with --after.
+    --after <date>              Only download scans added to the server after
+                                the given date. Date format is expected to be
+                                YYYY-MM-DD. Can be combined with --before.
     -h --help                   Show this screen.
     -q --quiet                  Suppress output.
     -v --verbose                Show more output.
@@ -15,10 +21,12 @@ Options:
     --dry-run
 
 """
+import fnmatch
 import logging
 import os
 import shutil
-import fnmatch
+import time
+from datetime import datetime
 
 import pysftp
 
@@ -38,6 +46,10 @@ def main():
     dryrun = arguments["--dry-run"]
     quiet = arguments["--quiet"]
     study = arguments["<study>"]
+
+    start_date, end_date = get_date_range(
+        arguments["--after"], arguments["--before"]
+    )
 
     # setup logging
     log_level = logging.WARN
@@ -108,7 +120,40 @@ def main():
                     #  process each folder in turn
                     logger.debug("Copying from:{}  to:{}"
                                  .format(valid_dir, zips_path))
-                    process_dir(sftp, valid_dir, zips_path)
+                    process_dir(sftp, valid_dir, zips_path,
+                                start=start_date, end=end_date)
+
+
+def get_date_range(after_str=None, before_str=None):
+    if before_str:
+        end_date = parse_date(before_str)
+    else:
+        end_date = None
+
+    if after_str:
+        start_date = parse_date(after_str)
+    else:
+        start_date = None
+
+    if start_date and end_date and start_date > end_date:
+        raise ValueError(
+            "Start of date range is after the cut off date. When both "
+            "--after and --before are in use, --after date must precede "
+            "--before date"
+        )
+
+    return start_date, end_date
+
+
+def parse_date(date_str):
+    try:
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError as e:
+        raise ValueError(
+            "Invalid date format given, expected format YYYY-MM-DD"
+        ) from e
+    parsed = time.mktime(dt.timetuple())
+    return parsed
 
 
 def get_server_config(cfg):
@@ -204,7 +249,7 @@ def get_valid_remote_dirs(connection, mrfolders):
     return valid_dirs
 
 
-def process_dir(connection, directory, zips_path):
+def process_dir(connection, directory, zips_path, start=None, end=None):
     """Process a directory on the ftp server,
     copy new files to zips_path
     """
@@ -218,14 +263,18 @@ def process_dir(connection, directory, zips_path):
             return
         for file_name in files:
             if connection.isfile(file_name):
-                get_file(connection, file_name, zips_path)
+                get_file(connection, file_name, zips_path,
+                         start=start, end=end)
             else:
-                get_folder(connection, file_name, zips_path)
+                get_folder(connection, file_name, zips_path,
+                           start=start, end=end)
 
 
-def get_folder(connection, folder_name, dst_path):
+def get_folder(connection, folder_name, dst_path, start=None, end=None):
     expected_file = os.path.join(dst_path, folder_name + ".zip")
-    if not download_needed(connection, folder_name, expected_file):
+    if not download_needed(connection, folder_name, expected_file,
+                           start=start, end=end
+        ):
         logger.debug("File: {} already exists, skipping".format(folder_name))
         return
 
@@ -239,26 +288,34 @@ def get_folder(connection, folder_name, dst_path):
                                                          new_zip))
 
 
-def get_file(connection, file_name, zips_path):
+def get_file(connection, file_name, zips_path, start=None, end=None):
     target = os.path.join(zips_path, file_name)
-    if download_needed(connection, file_name, target):
+    if download_needed(connection, file_name, target, start=start, end=end):
         logger.info("Copying new remote file: {}".format(file_name))
         connection.get(file_name, target, preserve_mtime=True)
     else:
         logger.debug("File: {} already exists, skipping".format(file_name))
 
 
-def download_needed(sftp, filename, target):
+def download_needed(sftp, filename, target, start=None, end=None):
     """Check if a local copy of the file exists,
     If no local copy exists return True
     If local copy exists and is older than remote return True
     otherwise return false"""
+
+    remote_mtime = sftp.stat(filename).st_mtime
+
+    if start and remote_mtime < start:
+        return False
+
+    if end and remote_mtime > end:
+        return False
+
     if not os.path.isfile(target):
         return True
 
     # check the file modification times
     local_mtime = os.path.getmtime(target)
-    remote_mtime = sftp.stat(filename).st_mtime
     if local_mtime < remote_mtime:
         return True
 
