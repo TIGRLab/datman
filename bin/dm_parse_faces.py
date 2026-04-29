@@ -74,7 +74,7 @@ def find_all_data(eprime, tag):
 
 def findnum(ln):
     try:
-        txtnum = re.findall('(\d+)\r\n', ln)  # noqa: W605
+        txtnum = re.findall(r'(\d+)\r\n', ln)
         return float(txtnum[0])
     except ValueError:
         return txtnum[0]
