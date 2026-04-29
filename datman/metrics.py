@@ -229,23 +229,14 @@ class DTIMetrics(MetricDTI):
             "_b0.png": QCOutput(2, "b0 Montage")
         },
         "qc-dti": {
-            "_qascripts_dti.csv": None,
             "_stats.csv": None,
             "_directions.png": QCOutput(3, "bvec Directions")
-        },
-        "qc-spikecount": {
-            "_spikecount.csv": None
         }
     }
 
     def generate(self, img_gap=2, width=1600):
         self.run(f"qc-dti {self.input} {self.bvec} {self.bval} "
                  f"{self.output_root}", "qc-dti")
-
-        self.run(f"qc-spikecount {self.input} "
-                 f"{self.output_root + '_spikecount.csv'} {self.bval}",
-                 "qc-spikecount")
-
         self.make_montage(self.output_root + "_montage.png")
         self.make_image(self.output_root + "_b0.png", img_gap, width)
 
@@ -267,10 +258,6 @@ class FMRIMetrics(Metric):
             "_scanlengths.csv": None
         },
         "qc-fmri": {
-            "_fd.csv": None,
-            "_qascripts_bold.csv": None,
-            "_spectra.csv": None,
-            "_stats.csv": None,
             "_sfnr.nii.gz": None,
             "_corr.nii.gz": None
         },
