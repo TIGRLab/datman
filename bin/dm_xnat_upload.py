@@ -156,6 +156,28 @@ def process_archive(file_name, dicom_dir):
                 exper_id))
             return
 
+
+    # Hold off on resource uploads until scan data exists.
+    # We upload using xnat's direct-to-archive options, but if any data
+    # exists for a session (even just resources) during upload then
+    # everything gets punted to the prearchive and ends up requiring a manual
+    # merge.
+    if data_exists and not resource_exists:
+        logger.debug("Uploading resource from: {}".format(archive_file))
+        try:
+            upload_non_dicom_data(archive_file, xnat_subject.project, scanid,
+                                  xnat)
+        except Exception as e:
+            logger.debug("An exception occurred: {}".format(e))
+            pass
+    elif not data_exists and not resource_exists:
+        logger.info(
+            f"Skipping resource upload of {archive_file} until scans exist. "
+            "Resource files will upload on a later run once scan upload "
+            "complete."
+        )
+
+
     if not data_exists:
         logger.info("Uploading dicoms from {}".format(archive_file))
         try:
@@ -166,14 +188,6 @@ def process_archive(file_name, dicom_dir):
                          .format(archive_file, xnat_subject.project,
                                  xnat_subject.name, e))
 
-    if not resource_exists:
-        logger.debug("Uploading resource from: {}".format(archive_file))
-        try:
-            upload_non_dicom_data(archive_file, xnat_subject.project, scanid,
-                                  xnat)
-        except Exception as e:
-            logger.debug("An exception occurred: {}".format(e))
-            pass
 
 
 def get_xnat_subject(ident, xnat):

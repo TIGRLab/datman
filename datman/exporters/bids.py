@@ -137,7 +137,11 @@ class BidsExporter(SessionExporter):
         self.make_output_dir()
 
         try:
-            self.run_dcm2bids(raw_data_dir, force_dcm2niix=force_dcm2niix)
+            self.run_dcm2bids(
+                raw_data_dir,
+                force_dcm2niix=force_dcm2niix,
+                refresh=self.opts.refresh
+            )
         except Exception as e:
             logger.error(f"Failed to extract to BIDs - {e}")
 
@@ -178,7 +182,7 @@ class BidsExporter(SessionExporter):
         if refresh:
             # Use existing tmp_dir instead of raw dcms
             return self.bids_tmp
-        return download_dir
+        return os.path.join(download_dir, self.dcm_dir)
 
     def make_command(
             self, raw_data_dir: str, force_dcm2niix: bool = False

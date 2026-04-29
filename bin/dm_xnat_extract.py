@@ -386,7 +386,12 @@ def collect_zips(config, args):
         return []
 
     if args.experiment:
-        ident = get_identifier(config, args.experiment)
+        try:
+            ident = get_identifier(config, args.experiment)
+        except datman.exceptions.ParseException as e:
+            logger.error(f"Ignoring invalid ID {args.experiment} - {e}")
+            return []
+
         if not ident:
             logger.error(f"Invalid session ID {args.experiment}.")
             return []
@@ -400,12 +405,22 @@ def collect_zips(config, args):
 
     zip_files = []
     for zip_path in glob.glob(os.path.join(zip_folder, "*.zip")):
+        if not os.path.exists(zip_path):
+            logger.debug(f"Broken symlink found. Ignoring {zip_path}")
+            continue
+
         sess_name = os.path.basename(zip_path).replace(".zip", "")
-        ident = get_identifier(config, sess_name)
+        try:
+            ident = get_identifier(config, sess_name)
+        except datman.exceptions.ParseException as e:
+            logger.error(f"Ignoring invalid ID {sess_name} - {e}")
+            continue
+
         if not ident:
             logger.error(
                 f"Ignoring invalid zip file name in dicom dir: {sess_name}")
             continue
+
         zip_files.append(
             (None, datman.importers.ZipImporter(ident, zip_path))
         )

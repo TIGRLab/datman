@@ -74,6 +74,7 @@ IGNORING EXAM ARCHIVES
 import glob
 import logging
 import os
+import re
 import sys
 
 from docopt import docopt
@@ -245,6 +246,8 @@ def get_scanid_from_lookup_table(archive_path):
     """
     global lookup
     basename = os.path.basename(os.path.normpath(archive_path))
+    # Strip whitespace, because the scans.csv entries can't contain them
+    basename = re.sub(r'\s+', '', basename)
     source_name = basename[:-len(datman.utils.get_extension(basename))]
     lookupinfo = lookup[lookup["source_name"] == source_name]
 
