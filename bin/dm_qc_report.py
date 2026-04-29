@@ -20,6 +20,8 @@ Options:
     --log-to-server    If set, all log messages will also be sent to the
                        configured logging server. This is useful when the
                        script is run on the queue, since it swallows logging.
+    --max-mem STR      The maximum memory required if submitted to the
+                       queue. Should include the units (e.g. GB) [default: 5GB]
     -q --quiet         Only report errors
     -v --verbose       Be chatty
     -d --debug         Be extra chatty
@@ -64,6 +66,7 @@ def main():
     REMAKE = arguments["--remake"]
     REFRESH = arguments["--refresh"]
     use_server = arguments["--log-to-server"]
+    max_mem = arguments["--max-mem"]
     verbose = arguments["--verbose"]
     debug = arguments["--debug"]
     quiet = arguments["--quiet"]
@@ -81,7 +84,7 @@ def main():
         logger.setLevel(logging.DEBUG)
 
     if not session:
-        return submit_subjects(config)
+        return submit_subjects(config, max_mem=max_mem)
 
     if not datman.dashboard.dash_found:
         logger.error("Dashboard database not found, can't run.")
@@ -131,11 +134,13 @@ def add_server_handler(config):
     logger.addHandler(server_handler)
 
 
-def submit_subjects(config):
+def submit_subjects(config, max_mem="5GB"):
     """Submit a job for each subject in the study that still needs metrics.
 
     Args:
         config (:obj:`datman.config.config`): A config object for the study.
+        max_mem (int, optional): The maximum amount of memory needed for jobs.
+            Default = 5GB.
     """
     missing_cmds = check_prerequisites()
     if missing_cmds:
@@ -157,7 +162,7 @@ def submit_subjects(config):
         logger.info(f"Submitting QC job for {subject}.")
         datman.utils.submit_job(
             command, job_name, "/tmp", system=config.system,
-            argslist="--mem=5G"
+            argslist=f"--mem={max_mem}"
         )
 
 

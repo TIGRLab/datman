@@ -1072,7 +1072,7 @@ class ZipImporter(SessionImporter):
         self.contents = self.parse_contents()
         self.scans = self.get_scans()
         self.resource_files = self.contents['resources']
-        self.dcm_subdir = os.path.split(self.scans[0].series_dir)[0]
+        self.dcm_subdir = self.get_dcm_subdir()
         self.date = self.scans[0].date
 
     @property
@@ -1137,6 +1137,15 @@ class ZipImporter(SessionImporter):
     @dcm_subdir.setter
     def dcm_subdir(self, value: str):
         self._dcm_subdir = value
+
+    def get_dcm_subdir(self) -> str:
+        """Find the common parent folder for all scan dicoms.
+        """
+        series_dirs = [scan.series_dir for scan in self.scans]
+        prefix = os.path.commonpath(series_dirs)
+        if prefix == '':
+            return os.path.split(self.scans[0].series_dir)[0]
+        return prefix
 
     def is_shared(self) -> bool:
         # Can't track shared sessions with zip files.

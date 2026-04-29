@@ -189,8 +189,12 @@ class BidsExporter(SessionExporter):
                     misnamed[actual_name] = expected_name
                 continue
 
-            expected_name = expected[scan][0]
             actual_name = actual[scan][0]
+            if "blacklisted" in actual_name:
+                # Do not 'fix' blacklisted scans by moving them back.
+                continue
+
+            expected_name = expected[scan][0]
             if expected_name == actual_name:
                 continue
             misnamed[actual_name] = expected_name
