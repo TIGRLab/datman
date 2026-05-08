@@ -255,11 +255,22 @@ class DBExporter(SessionExporter):
                 f"{source_session}. Reason - {exc}"
             )
             return
+
+        # Match to its source scan by the series number
         matches = [
             source_scan for source_scan in source_session.scans
-            if (source_scan.series == scan.series and
-                source_scan.tag == scan.tag)
+            if source_scan.series == scan.series
         ]
+
+        if len(matches) > 1:
+            # If more than one match, try to use the tags to narrow it down.
+            # Tags sometimes differ between studies for the same shared scans
+            # so this may fail in these cases.
+            matches = [
+                source_scan for source_scan in source_session.scans
+                if source_scan.tag == scan.tag
+            ]
+
         if not matches or len(matches) > 1:
             logger.error(
                 f"Failed to link shared scan {scan} to {source_session}."
