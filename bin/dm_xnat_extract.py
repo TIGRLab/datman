@@ -108,7 +108,7 @@ def main():
             export_scans(config, xnat, importer, session,
                          bids_opts=bids_opts, dry_run=args.dry_run,
                          ignore_db=args.dont_update_dashboard,
-                         wanted_tags=args.tag)
+                         wanted_tags=args.tag, given_formats=args.format)
 
 
 def read_args():
@@ -186,6 +186,17 @@ def read_args():
         nargs="?", default="USE_XNAT",
         help="A directory of zip files to use instead of pulling from XNAT. "
              "If not provided the study's 'dicom' dir will be used instead."
+    )
+    g_main.add_argument(
+        "-f",
+        "--format",
+        action="append",
+        metavar="format",
+        nargs="?",
+        help="Formats to export sessions to. Flag can be repeated for "
+             "multiple formats. If unset, formats inferred automatically "
+             "from other settings and configuration. Accepted values: "
+             "nii_link, bids, db."
     )
 
     g_dcm2bids = parser.add_argument_group(
@@ -742,7 +753,8 @@ def download_resource(xnat, xnat_experiment, xnat_resource_id,
 
 
 def export_scans(config, xnat, importer, session, bids_opts=None,
-                 wanted_tags=None, ignore_db=False, dry_run=False):
+                 wanted_tags=None, ignore_db=False, dry_run=False,
+                 given_formats=None):
     """Export all XNAT data for a session to desired formats.
 
     Args:
@@ -764,6 +776,9 @@ def export_scans(config, xnat, importer, session, bids_opts=None,
             be updated. Defaults to False.
         dry_run (bool, optional): If True, no outputs will be made. Defaults
             to False.
+        given_formats (:obj:`list`, optional): A list of accepted formats
+            to export to. Can be used to further limit export types.
+            Accepted values: bids, nii_link, db.
     """
     logger.info(f"Processing scans in experiment {importer.name}")
 
@@ -771,7 +786,7 @@ def export_scans(config, xnat, importer, session, bids_opts=None,
 
     session_exporters = make_session_exporters(
         config, session, importer, bids_opts=bids_opts,
-        ignore_db=ignore_db, dry_run=dry_run)
+        ignore_db=ignore_db, dry_run=dry_run, given_formats=given_formats)
 
     series_exporters = make_all_series_exporters(
         config, session, importer, bids_opts=bids_opts,
@@ -798,7 +813,7 @@ def export_scans(config, xnat, importer, session, bids_opts=None,
 
 
 def make_session_exporters(config, session, experiment, bids_opts=None,
-                           ignore_db=False, dry_run=False):
+                           ignore_db=False, dry_run=False, given_formats=None):
     """Creates exporters that take an entire session as input.
 
     Args:
@@ -814,6 +829,9 @@ def make_session_exporters(config, session, experiment, bids_opts=None,
             be updated. Defaults to False.
         dry_run (bool, optional): If True, no outputs will be made. Defaults
             to False.
+        given_formats (:obj:`list`, optional): A list of accepted formats
+            to export to. Can be used to further limit export types.
+            Accepted values: bids, nii_link, db.
 
     Returns:
         list: Returns a list of :obj:`datman.exporters.Exporter` for the
@@ -821,7 +839,8 @@ def make_session_exporters(config, session, experiment, bids_opts=None,
     """
     formats = get_session_formats(
         bids_opts=bids_opts,
-        ignore_db=ignore_db
+        ignore_db=ignore_db,
+        given_formats=given_formats
     )
 
     exporters = []
@@ -835,7 +854,7 @@ def make_session_exporters(config, session, experiment, bids_opts=None,
     return exporters
 
 
-def get_session_formats(bids_opts=None, ignore_db=False):
+def get_session_formats(bids_opts=None, ignore_db=False, given_formats=None):
     """Get the string identifiers for all session exporters that are needed.
 
     Args:
@@ -843,16 +862,32 @@ def get_session_formats(bids_opts=None, ignore_db=False):
             used if exporting to BIDS format. Defaults to None.
         ignore_db (bool, optional): If True, datman's QC dashboard will not
             be updated. Defaults to False.
+        given_formats (:obj:`list`, optional): A list of accepted formats
+            to export to. Can be used to further limit export types.
+            Accepted values: bids, nii_link, db.
 
     Returns:
         list: a list of string keys that should be used to make exporters.
     """
     formats = []
+
+    if given_formats:
+        for fmt in given_formats:
+            if fmt in ['nii_link', 'db', 'bids']:
+                formats.append(fmt)
+            else:
+                logger.error(
+                    f"Unrecognized export format requested - {fmt}. Ignoring."
+                )
+        return formats
+
     if bids_opts:
         formats.append("bids")
         formats.append("nii_link")
+
     if not ignore_db:
         formats.append("db")
+
     return formats
 
 
