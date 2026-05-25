@@ -68,7 +68,7 @@ jobs:
           key: datman-${GITHUB_REF#refs/*/}
 
       - name: Publish to test-pypi
-        uses: pypa/gh-action-pypi-publish@v1.5.1
+        uses: pypa/gh-action-pypi-publish@v1.13.0
         with:
           password: ${{ secrets.TESTPYPI_API_TOKEN }}
           repository_url: https://test.pypi.org/legacy/
@@ -115,6 +115,6 @@ jobs:
           key: datman-${GITHUB_REF#refs/*/}
 
       - name: Publish to pypi
-        uses: pypa/gh-action-pypi-publish@v1.5.1
+        uses: pypa/gh-action-pypi-publish@v1.13.0
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
