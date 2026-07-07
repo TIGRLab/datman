@@ -196,7 +196,7 @@ def read_args():
         help="Formats to export sessions to. Flag can be repeated for "
              "multiple formats. If unset, formats inferred automatically "
              "from other settings and configuration. Accepted values: "
-             "nii_link, bids, db."
+             f"{', '.join(datman.exporters.SESSION_EXPORTERS.keys())}."
     )
 
     g_dcm2bids = parser.add_argument_group(
@@ -831,13 +831,15 @@ def make_session_exporters(config, session, experiment, bids_opts=None,
             to False.
         given_formats (:obj:`list`, optional): A list of accepted formats
             to export to. Can be used to further limit export types.
-            Accepted values: bids, nii_link, db.
+            Each item in the given list must be a valid exporter 'type'
+            defined within datman.exporters.SESSION_EXPORTERS.
 
     Returns:
         list: Returns a list of :obj:`datman.exporters.Exporter` for the
             desired session export formats.
     """
     formats = get_session_formats(
+        config,
         bids_opts=bids_opts,
         ignore_db=ignore_db,
         given_formats=given_formats
@@ -864,7 +866,8 @@ def get_session_formats(bids_opts=None, ignore_db=False, given_formats=None):
             be updated. Defaults to False.
         given_formats (:obj:`list`, optional): A list of accepted formats
             to export to. Can be used to further limit export types.
-            Accepted values: bids, nii_link, db.
+            Each item in the given list must be a valid exporter 'type'
+            defined within datman.exporters.SESSION_EXPORTERS.
 
     Returns:
         list: a list of string keys that should be used to make exporters.
@@ -873,7 +876,7 @@ def get_session_formats(bids_opts=None, ignore_db=False, given_formats=None):
 
     if given_formats:
         for fmt in given_formats:
-            if fmt in ['nii_link', 'db', 'bids']:
+            if fmt in datman.exporters.SESSION_EXPORTERS:
                 formats.append(fmt)
             else:
                 logger.error(
@@ -887,6 +890,13 @@ def get_session_formats(bids_opts=None, ignore_db=False, given_formats=None):
 
     if not ignore_db:
         formats.append("db")
+
+    try:
+        config.get_key('XnatPipelines')
+    except UndefinedSetting:
+        pass
+    else:
+        formats.append('xnat_pipelines')
 
     return formats
 
