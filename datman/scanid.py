@@ -30,7 +30,34 @@ class Identifier(ABC):
         return "_".join([self.study, self.site, self.subject])
 
     def get_bids_name(self):
-        return self.site + self.subject
+        """Construct a valid bids subid from datman name components.
+        """
+        components = []
+        for att_name in self.bids_sub_fields:
+            if att_name not in self.bids_sub_padding:
+                components.append(getattr(self, att_name))
+                continue
+
+            components.append(
+                self.change_zero_pad(
+                    getattr(self, att_name),
+                    self.bids_sub_padding[att_name]
+                )
+            )
+        return "".join(components)
+
+    def change_zero_pad(self, orig: str, pad: int) -> str:
+        """Modify amount of zero padding in a string, if numeric part exists.
+        """
+        match = re.search(r'(\d+)$', orig)
+
+        if not match:
+            # No numeric portion to adjust.
+            return orig
+
+        number = int(match.group(1))
+
+        return f"{orig[:match.start()]}{number:0{pad}d}"
 
     def get_full_subjectid_with_timepoint(self):
         ident = self.get_full_subjectid()
@@ -43,6 +70,28 @@ class Identifier(ABC):
         if self.session:
             ident += "_" + self.session
         return ident
+
+    def read_settings(self, settings=None):
+        if not settings or 'Bids' not in settings:
+            # By default we expect sub-SITESUBJECT format
+            self.bids_sub_fields = ['site', 'subject']
+            # No change to amount of zero padding on numeric elements
+            self.bids_sub_padding = {}
+            return
+
+        self.bids_sub_fields = settings['Bids'].get(
+            'Subject', {}
+        ).get(
+            'fields_used',
+            ['site', 'subject']
+        )
+
+        self.bids_sub_padding = settings['Bids'].get(
+            'Subject', {}
+        ).get(
+            'zero_pad',
+            {}
+        )
 
     @abstractmethod
     def get_xnat_subject_id(self):
@@ -95,6 +144,8 @@ class DatmanIdentifier(Identifier):
 
         if not match:
             raise ParseException(f"Invalid Datman ID {identifier}")
+
+        self.read_settings(settings)
 
         self._match_groups = match
         self.orig_id = match.group("id")
@@ -161,6 +212,8 @@ class KCNIIdentifier(Identifier):
         match = self.match(identifier)
         if not match:
             raise ParseException(f"Invalid KCNI ID {identifier}")
+
+        self.read_settings(settings)
 
         self._match_groups = match
         self.orig_id = match.group("id")
@@ -380,7 +433,7 @@ def parse(identifier, settings=None):
 
     if id_type in ("DATMAN", "DETECT"):
         try:
-            return DatmanIdentifier(identifier)
+            return DatmanIdentifier(identifier, settings=settings)
         except ParseException:
             pass
 
@@ -592,6 +645,8 @@ def get_kcni_identifier(identifier, settings=None):
         # KCNI convention is used in KCNIIdentifer.orig_id
         reverse = {}
         for entry in settings:
+            if entry == "Bids":
+                continue
             if entry == "IdType" or not isinstance(settings[entry], dict):
                 reverse[entry] = settings[entry]
                 continue
