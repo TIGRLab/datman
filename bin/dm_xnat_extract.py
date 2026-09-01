@@ -77,6 +77,7 @@ def main():
         return
 
     config = datman.config.config(study=args.study)
+
     if args.use_dcm2bids:
         bids_opts = datman.exporters.BidsOptions(
             config,
@@ -92,6 +93,14 @@ def main():
     else:
         bids_opts = None
 
+    if args.use_zips == "USE_XNAT":
+        try:
+            xp_opts = datman.exporters.XnatPipelineSettings(config)
+        except datman.exceptions.UndefinedSetting:
+            xp_opts = None
+    else:
+        xp_opts = None
+
     sessions = get_sessions(config, args)
 
     logger.info(f"Found {len(sessions)} sessions for study {args.study}")
@@ -106,7 +115,8 @@ def main():
 
         if importer.scans:
             export_scans(config, xnat, importer, session,
-                         bids_opts=bids_opts, dry_run=args.dry_run,
+                         bids_opts=bids_opts, xp_opts=xp_opts,
+                         dry_run=args.dry_run,
                          ignore_db=args.dont_update_dashboard,
                          wanted_tags=args.tag, given_formats=args.format)
 
@@ -754,7 +764,7 @@ def download_resource(xnat, xnat_experiment, xnat_resource_id,
 
 def export_scans(config, xnat, importer, session, bids_opts=None,
                  wanted_tags=None, ignore_db=False, dry_run=False,
-                 given_formats=None):
+                 given_formats=None, xp_opts=None):
     """Export all XNAT data for a session to desired formats.
 
     Args:
@@ -779,6 +789,8 @@ def export_scans(config, xnat, importer, session, bids_opts=None,
         given_formats (:obj:`list`, optional): A list of accepted formats
             to export to. Can be used to further limit export types.
             Accepted values: bids, nii_link, db.
+        xp_opts (:obj:`XnatPipelineSettings`, optional): Settings to use
+            if exporting from pipelines run directly on XNAT. Defaults to None.
     """
     logger.info(f"Processing scans in experiment {importer.name}")
 
@@ -786,7 +798,9 @@ def export_scans(config, xnat, importer, session, bids_opts=None,
 
     session_exporters = make_session_exporters(
         config, session, importer, bids_opts=bids_opts,
-        ignore_db=ignore_db, dry_run=dry_run, given_formats=given_formats)
+        ignore_db=ignore_db, dry_run=dry_run, given_formats=given_formats,
+        xp_opts=xp_opts
+    )
 
     series_exporters = make_all_series_exporters(
         config, session, importer, bids_opts=bids_opts,
@@ -813,7 +827,8 @@ def export_scans(config, xnat, importer, session, bids_opts=None,
 
 
 def make_session_exporters(config, session, experiment, bids_opts=None,
-                           ignore_db=False, dry_run=False, given_formats=None):
+                           ignore_db=False, dry_run=False, given_formats=None,
+                           xp_opts=None):
     """Creates exporters that take an entire session as input.
 
     Args:
@@ -833,14 +848,16 @@ def make_session_exporters(config, session, experiment, bids_opts=None,
             to export to. Can be used to further limit export types.
             Each item in the given list must be a valid exporter 'type'
             defined within datman.exporters.SESSION_EXPORTERS.
+        xp_opts (:obj:`XnatPipelineSettings`, optional): Settings to use
+            if exporting from pipelines run directly on XNAT. Defaults to None.
 
     Returns:
         list: Returns a list of :obj:`datman.exporters.Exporter` for the
             desired session export formats.
     """
     formats = get_session_formats(
-        config,
         bids_opts=bids_opts,
+        xp_opts=xp_opts,
         ignore_db=ignore_db,
         given_formats=given_formats
     )
@@ -851,17 +868,20 @@ def make_session_exporters(config, session, experiment, bids_opts=None,
         Exporter = datman.exporters.get_exporter(exp_format, scope="session")
         exporters.append(
             Exporter(config, session, experiment, bids_opts=bids_opts,
-                     ignore_db=ignore_db, dry_run=dry_run)
+                     xp_opts=xp_opts, ignore_db=ignore_db, dry_run=dry_run)
         )
     return exporters
 
 
-def get_session_formats(bids_opts=None, ignore_db=False, given_formats=None):
+def get_session_formats(bids_opts=None, xp_opts=None, ignore_db=False,
+                        given_formats=None):
     """Get the string identifiers for all session exporters that are needed.
 
     Args:
         bids_opts (:obj:`BidsOptions`, optional): dcm2bids settings to be
             used if exporting to BIDS format. Defaults to None.
+        xp_opts (:obj:`XnatPipelineSettings`, optional): Settings to use
+            if exporting from pipelines run directly on XNAT. Defaults to None.
         ignore_db (bool, optional): If True, datman's QC dashboard will not
             be updated. Defaults to False.
         given_formats (:obj:`list`, optional): A list of accepted formats
@@ -886,17 +906,21 @@ def get_session_formats(bids_opts=None, ignore_db=False, given_formats=None):
 
     if bids_opts:
         formats.append("bids")
-        formats.append("nii_link")
+
+    if xp_opts:
+        # disable any overriden formats.
+        formats = [fmt for fmt in formats if fmt not in xp_opts.overrides]
+        formats.append('xnat_pipelines')
+
+    # This is added last, because the datman-style links are needed whenever
+    # bids format is used, even if the bids data comes from xnat, and the
+    # symlinks always depend on the other exporters running first. We can
+    # dump this whenever we finish porting our legacy tools to bids.
+    if bids_opts:
+        formats.append('nii_link')
 
     if not ignore_db:
         formats.append("db")
-
-    try:
-        config.get_key('XnatPipelines')
-    except UndefinedSetting:
-        pass
-    else:
-        formats.append('xnat_pipelines')
 
     return formats
 
