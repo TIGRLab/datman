@@ -1,14 +1,23 @@
 """Exporter for XNAT pipeline outputs.
 
-Pipeline outputs generated on XNAT, rather than locally, can be 'exported'
-to the local file system using these exporters. Presently these pipeline
-outputs are expected to be in the bids format only.
+Pipeline outputs that were generated on XNAT, rather than locally, can be
+'exported' to the local file system. Outputs will be copied from their
+original home in 'resources' to the user's chosen destination. Symlinks
+will be left behind to document where they were moved to and prevent
+repeated downloads from XNAT.
 """
+import logging
+import os
 from pathlib import Path
+from shutil import move
 
 from datman.exceptions import ConfigException
 
 from .base import SessionExporter
+
+logger = logging.getLogger(__name__)
+
+__all__ = ["XnatPipelineSettings", "XnatPipelines"]
 
 
 class XnatPipelineSettings:
@@ -26,15 +35,16 @@ class XnatPipelineSettings:
 
     Optionally you can also use the 'override' setting to indicate that a
     specific local exporter should be 'turned off' because the xnat copy
-    replaces it. For example, if XNAT will be responsible for generating bids
-    output, add 'override': 'bids' to prevent a local bids copy from being
-    created from the dicoms.
+    replaces it. This value must match the 'type' of a
+    datman.exporters.SessionExporter class. For example, if XNAT will be
+    responsible for generating bids output, add 'override': 'bids' to prevent
+    a local bids copy from being created from the dicoms.
 
     For example:
 
     # This starts the config block
     XnatPipelines:
-        # This key should match the folder name (case-insensitive) in each
+        # This key should match the folder name (case-sensitive) in each
         # experiment's resources folder that holds the pipeline outputs.
         'BIDS':
           # This stops the built in exporter from running to prevent
@@ -114,6 +124,19 @@ class XnatPipelineSettings:
             full_path = base_dir / entry['dest']
             settings[pipeline] = full_path
 
+        for pipeline in list(settings.keys()):
+            try:
+                settings[pipeline].mkdir(parents=True)
+            except FileExistsError:
+                pass
+            except OSError as e:
+                logger.error(
+                    f'Failed to create destination dir {settings[pipeline]} '
+                    f'for XNAT pipeline {pipeline}. Pipeline will be '
+                    f'ignored. Cause: {e}'
+                )
+                del settings[pipeline]
+
         return settings, overrides
 
     def __repr__(self):
@@ -130,23 +153,78 @@ class XnatPipelines(SessionExporter):
 
     type = 'xnat_pipelines'
 
-    def __init__(self, config, session, experiment, dry_run=False, **kwargs):
+    def __init__(self, config, session, experiment, xp_opts=None,
+                 dry_run=False, **kwargs):
+
+        if not xp_opts:
+            xp_opts = XnatPipelineSettings(config)
+
+        self.opts = xp_opts.settings[session.site]
+        self.source = Path(session.resource_path)
+
         super().__init__(config, session, experiment, **kwargs)
 
-    # get_output_dir
+    def needs_raw_data(self):
+        return False
 
     def outputs_exist(self):
-        """Should be true if the contents of the xnat resources folder(s) exist
-        in the defined output dirs.
+        """True if every 'exported' resource has been changed to a symlink.
         """
-        return False
+        if not self.source.exists():
+            # There's nothing in resources to pull.
+            return False
 
-    def needs_raw_data(self):
-        # Dependency on resource export...? I guess it should be true
-        # except 'raw data' tends to just mean dcms and it needs resources
-        # What happens if symlink in resources breaks? e.g. runs successfully
-        # once and then pipelines output gets purged. Will it redownload or
-        # require manual updating of resources dir?
-        return False
+        for src_path in self.source.iterdir():
+            if not src_path.is_dir():
+                continue
 
-    # make_output_dir -> Will need to make multiple...
+            if src_path.name not in self.opts:
+                continue
+
+            for base_path, _, files in src_path.walk():
+                for item in files:
+                    src_item = base_path / item
+                    if not src_item.is_symlink():
+                        # Data hasn't been moved to intended destination
+                        return False
+                    # We can't check that the link points to the intended
+                    # destination here because some dataset files are
+                    # identical across all subs and will only need to be
+                    # linked once (therefore pointing to the first sub
+                    # extracted)
+                    if not src_item.exists():
+                        # Clean up broken symlinks here so they can be
+                        # redownloaded from xnat if the item still exists.
+                        src_item.unlink()
+        return True
+
+    def export(self, _, **kwargs):
+        """Move all pipeline files from 'resources' to their intended home.
+
+        This leaves a symlink behind in the resources dir for each moved file.
+        """
+        if self.outputs_exist():
+            return
+
+        for src_path in self.source.iterdir():
+            if not src_path.is_dir():
+                continue
+
+            if src_path.name not in self.opts:
+                continue
+
+            dest_path = self.opts[src_path.name]
+
+            for base_path, _, files in src_path.walk():
+                for item in files:
+                    in_path = base_path / item
+                    out_path = dest_path / in_path.relative_to(src_path)
+
+                    if out_path.exists() and in_path.is_symlink():
+                        continue
+
+                    out_path.parent.mkdir(parents=True, exist_ok=True)
+                    move(in_path, out_path)
+                    in_path.symlink_to(
+                        os.path.relpath(out_path, start=in_path.parent)
+                    )
