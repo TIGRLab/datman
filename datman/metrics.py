@@ -252,6 +252,14 @@ class AnatMetrics(Metric):
         self.make_image(self.output_root + ".png", img_gap, width)
 
 
+class AnatAllSliceMetrics(AnatMetrics):
+    """Anat when every slice is needed (useful if only 1 slice exists).
+    """
+
+    def generate(self, img_gap=1, width=1600):
+        self.make_image(self.output_root + ".png", img_gap, width)
+
+
 class FMRIMetrics(Metric):
     outputs = {
         "qc-scanlength": {
@@ -379,6 +387,7 @@ class ABCDPHAMetrics(Metric):
 
 QC_FUNC = {
     "anat": AnatMetrics,
+    "slice": AnatAllSliceMetrics,
     "fmri": FMRIMetrics,
     "dti": DTIMetrics,
     "ignore": IgnoreMetrics
