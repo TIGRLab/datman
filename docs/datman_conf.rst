@@ -312,10 +312,47 @@ Example
 IdMap
 *****
 Provides a method of translating between ID schemes (Datman to KCNI or vice
-versa).
+versa, datman/KCNI to bids).
 
 Optional
 ^^^^^^^^
+* **Bids**:
+
+   * Description: Controls how Datman / KCNI style ID fields are mapped into
+     bids-style IDs. If this block is omitted, a valid bids subject name will
+     be assumed to be of the format "sub-SITESUBJECT" and session will be
+     assumed to be "ses-TIMEPOINT". If this block is provided it expects a
+     dictionary of sub-settings as described below.
+   * Sub-settings:
+
+     * **Subject**:
+
+       * Description: Controls how a valid bids subject name is generated. If
+         this setting is given it expects a dictionary of sub-settings.
+       * Sub-settings:
+
+          * **fields_used**:
+
+            * Description: A list of Datman/KCNI ID fields to include in the
+              subject name. This affects the user-unique portion after the
+              "sub-" tag. All included fields will be concatenated as one
+              long string without separators.
+            * Default: [site, subject]
+            * Accepted list values: study, site, subject, timepoint, session, modality
+
+          * **zero_pad**:
+
+            * Description: A dictionary describing how to tweak the zero padding
+              (if any) of any fields included in the bids subject name. Each
+              field that must be modified must be given an integer representing
+              the amount of zero padding for that part of the ID field.
+              If omitted, the fields will be used in their original state. Will
+              have no affect on fields that are not included in the ID itself
+              via fields_used.
+
+            * Default: No change to existing zero padding, if any.
+            * Accepted keys: study, site, subject, timepoint, session, modality
+
 * **Study**:
 
   * Description: Maps the expected value for the KCNI study ID field to the
@@ -343,6 +380,8 @@ Example
 .. code-block:: yaml
 
   IdMap:
+    # This will affect name conversion between Datman <-> KCNI ID formats.
+    #
     # Any of the below sections can be omitted if the field doesn't change
     # between naming conventions.
     # Left side (keys) are KCNI convention, right side (values) are Datman convention.
@@ -355,6 +394,17 @@ Example
       UTO: UT2
     Subject:
       '1(P?[0-9]+)->ABC\1': 'ABC(P?[0-9]+)->1\1'
+
+    # This will affect name conversion from Datman/KCNI -> BIDS format.
+    Bids:
+      Subject:
+          # This will change the bids subject dir names from sub-SITESUBJECT
+          # format (the default) to sub-STUDYSITESUBJECT format
+          fields_used: [study, site, subject]
+          # This will ensure the zero padding for the 'subject' part of the ID
+          # is set to '5' regardless of what it originally was.
+          zero_pad:
+            subject: 5
 
 .. _config Logs:
 
@@ -942,3 +992,67 @@ Example
 
   # This is used if sessions should be shared into other xnat projects
   XnatDataSharing: True
+
+.. _config XnatPipelines:
+
+XnatPipelines
+*************
+These settings are used to control how pipeline outputs generated on XNAT are
+stored on the filesystem. Pipeline outputs stored in an experiment's resources
+directory will be downloaded to the filesystem by ``dm_xnat_extract``, but they
+get stored in each subject's resources directory. These settings can be used to
+move these outputs to another, more discoverable / central, location and
+to leave behind symlinks in the resources directory that point to these new
+locations to prevent repeated downloads or duplicate copies of these files.
+
+Examples of correct usage are provided below. All the settings must be nested
+within a block that starts with the 'XnatPipelines' key. Inside this block,
+you may add one entry per XNAT resource directory you want to move to a new
+home. Each of these entries must **match** the name of the resource directory
+exactly (case-sensitive).
+
+For each entry, you may either provide a path to its intended output location
+(relative to the study's root directory) or you can provide a configuration
+block.
+
+If a configuration block is used, it can have these settings:
+
+Required
+^^^^^^^^
+* **dest**
+
+  * Description: The destination, relative to the study root, for the files.
+
+Optional
+^^^^^^^^
+* **override**
+
+  * Description: Used to turn off a local 'export' format. If the data generated
+    on xnat represents a set of files normally generated locally, setting this
+    key can prevent a redundant local copy from being created.
+
+  * Accepted values: Any 'exporter' type that may be used by `ExportSettings`_
+    'Formats' setting or the 'aggregate' exporter types like 'bids'.
+
+Example
+^^^^^^^
+.. code-block:: yaml
+
+    XnatPipelines:
+      # Each entry has a 'key' that must match (case-sensitive) the "resource"
+      # directory name on xnat (e.g. MRIQC, FMRIPREP, BIDS, in the examples below)
+
+      # At a minimum a destination path (relative to study root) must be given
+      # In this case the outputs will move to $STUDY_ROOT/pipelines/mriqc
+      MRIQC: 'pipelines/mriqc'
+
+      FMRIPREP: 'pipelines/fmriprep_anat_only'
+
+      # You can also specify local-exporter types to override as shown below.
+      # This example moves the XNAT 'BIDS' outputs to $STUDY_ROOT/data/bids
+      # and prevents local bids outputs from being made redundantly.
+      BIDS:
+        # (Optional, disables local bids generation in this case)
+        override: bids
+        # Dest must be given, same format as the plain entries above.
+        dest: 'data/bids'

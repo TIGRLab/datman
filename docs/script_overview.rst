@@ -102,6 +102,7 @@ dm_xnat_extract
 |                            | * :ref:`ExportInfo <config Export>`                                                 |
 |                            | * :ref:`XNAT <config XNAT>`                                                         |
 |                            | * :ref:`IdMap (Optional) <config Idmap>`                                            |
+|                            | * :ref:`XnatPipelines (Optional) <config XnatPipelines>`                            |
 +----------------------------+-------------------------------------------------------------------------------------+
 | **Additional Config Files**| * :ref:`dcm2bids config <dmfiles dcm2bids>`                                         |
 +----------------------------+-------------------------------------------------------------------------------------+
