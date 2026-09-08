@@ -172,7 +172,7 @@ class XnatPipelines(SessionExporter):
         """
         if not self.source.exists():
             # There's nothing in resources to pull.
-            return False
+            return True
 
         for src_path in self.source.iterdir():
             if not src_path.is_dir():
