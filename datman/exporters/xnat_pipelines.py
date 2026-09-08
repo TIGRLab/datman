@@ -195,7 +195,7 @@ class XnatPipelines(SessionExporter):
                     if not src_item.exists():
                         # Clean up broken symlinks here so they can be
                         # redownloaded from xnat if the item still exists.
-                        src_item.unlink()
+                        self.handle_broken_link(src_item)
         return True
 
     def export(self, _, **kwargs):
@@ -228,3 +228,30 @@ class XnatPipelines(SessionExporter):
                     in_path.symlink_to(
                         os.path.relpath(out_path, start=in_path.parent)
                     )
+
+    def handle_broken_link(self, src_item):
+        """Re-link items that have been blacklisted, remove broken links.
+
+        If a pipeline output is one that gets reviewed, it may be blacklisted
+        and moved to a new location, which then breaks the source
+        link and creates a danger of repeated downloading. This will fix these
+        links or remove them if they actually represent missing data.
+        """
+        orig_location = src_item.readlink()
+
+        # Fix the source for a file that has been blacklisted
+        rel_bl_dir = orig_location.parent.parent / 'blacklisted'
+        bl_item = src_item.parent / rel_bl_dir / orig_location.name
+
+        if not bl_item.exists():
+            logger.debug(f"Removing broken symlink {src_item}")
+            src_item.unlink()
+            return
+
+        new_target = os.path.relpath(bl_item, start=src_item.parent)
+        logger.debug(
+            f"Fixing broken link {src_item}: changing target from "
+            f"{orig_location} to {new_target}"
+        )
+        src_item.unlink()
+        src_item.symlink_to(new_target)
