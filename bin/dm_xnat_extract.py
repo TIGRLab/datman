@@ -699,7 +699,7 @@ def export_resources(resource_dir, xnat, importer, dry_run=False):
 
         for resource in resources:
             resource_path = os.path.join(target_path, resource['URI'])
-            if os.path.isfile(resource_path):
+            if os.path.isfile(resource_path) or os.path.islink(resource_path):
                 logger.debug(f"Resource {resource['name']} from experiment "
                              f"{xnat_experiment.name} already exists")
             else:
