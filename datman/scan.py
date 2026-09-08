@@ -98,9 +98,9 @@ class Scan(DatmanNamed):
             if subject_id.session:
                 ident = subject_id
             else:
-                ident = self._get_ident(str(subject_id))
+                ident = self._get_ident(str(subject_id), config)
         else:
-            ident = self._get_ident(subject_id)
+            ident = self._get_ident(subject_id, config)
 
         try:
             self.project = config.map_xnat_archive_to_project(subject_id)
@@ -140,10 +140,10 @@ class Scan(DatmanNamed):
     def niftis(self):
         return self.__get_series(self.nii_path, ['nii', '.nii.gz'])
 
-    def _get_ident(self, subid):
+    def _get_ident(self, subid, config):
         subject_id = self.__check_session(subid)
         try:
-            ident = datman.scanid.parse(subject_id)
+            ident = datman.utils.validate_subject_id(subject_id, config)
         except datman.scanid.ParseException:
             raise datman.scanid.ParseException(
                 f"{subject_id} does not match datman convention")
